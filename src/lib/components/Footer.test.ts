@@ -122,6 +122,36 @@ describe("Footer", () => {
     expect(container.textContent).toContain(text);
   });
 
+  // --- `owner` vs `text`: the copyright year must not be able to go stale ---
+  //
+  // `text` is a verbatim override, so a site that spells its whole rights line
+  // there freezes whatever year it typed — correct in the January it was
+  // written, wrong every January after. `owner` exists so the common case
+  // ("© <year> <someone>") keeps the year at render time. The year assertions
+  // below are computed, never literal: a hardcoded year in the component would
+  // pass a literal expectation for one year and then start failing silently in
+  // a repo nobody is looking at.
+
+  it("owner renders the CURRENT year, not a frozen one", () => {
+    const { container } = render(Footer, { owner: "Roalson Interests" });
+    const year = new Date().getFullYear();
+    expect(container.textContent).toContain(`© ${year} Roalson Interests`);
+  });
+
+  it("owner replaces only the name — the placeholder is gone", () => {
+    const { container } = render(Footer, { owner: "Roalson Interests" });
+    expect(container.textContent).not.toContain("Company Name");
+  });
+
+  it("text still wins over owner, for a line that is not © year name", () => {
+    const { container } = render(Footer, {
+      owner: "Roalson Interests",
+      text: "© Composition Hospitality 2017, All Rights Reserved",
+    });
+    expect(container.textContent).toContain("2017, All Rights Reserved");
+    expect(container.textContent).not.toContain("Roalson Interests");
+  });
+
   it("renders a labelled, new-tab link per known social network", () => {
     const { getByLabelText } = render(Footer, {
       socials: [

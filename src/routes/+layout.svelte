@@ -55,6 +55,7 @@
   <Footer
     columns={footerColumns(page.data.footerColumns, siteConfig)}
     socials={siteConfig.footer.socials}
+    owner={siteConfig.footer.owner}
     text={siteConfig.footer.text}
   />
 </div>

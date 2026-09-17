@@ -25,6 +25,11 @@ export type SiteConfig = {
   };
   footer: {
     socials: FooterSocial[];
+    /** Who holds the copyright, e.g. "Roalson Interests". <Footer> supplies the
+     *  year at render. Set THIS, not `text`. */
+    owner?: string;
+    /** The whole rights line, verbatim — only for a line that is not
+     *  "© <year> <owner>". It freezes the year it contains. */
     text?: string;
     // Optional footer columns — text, link, or image rows. Absent on the stub.
     columns?: FooterColumn[];

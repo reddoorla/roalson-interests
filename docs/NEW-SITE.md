@@ -26,11 +26,43 @@ grep -rn "your-prismic-repo-name\|reddoor-wireframer\|<Site name>\|<Client>" \
 
 ## Design
 
-| File                           | Change                                                                                                                                                                                                                                    |
-| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/app.css` → `@theme`       | Brand palette and `--font-heading` / `--font-body`. The shipped values are a deliberately mismatched placeholder set, so a token you forgot to set is visible rather than silent.                                                         |
-| `src/lib/site-config.json`     | Nav items and footer columns/socials. Ships empty (logo-only Nav, placeholder Footer). Swap the module for a Prismic `settings` loader behind the same exports if the client edits chrome.                                                |
-| `svelte.config.js` → `kit.csp` | Add every third-party host the design needs. The baseline allows Prismic, Vimeo, Turnstile and Google Fonts only — a font kit, YouTube embed, donation platform or analytics tag is blocked until listed. Self-hosted fonts need nothing. |
+| File                           | Change                                                                                                                                                                                                                                                           |
+| ------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/app.css` → `@theme`       | Brand palette and `--font-heading` / `--font-body`. The shipped values are a deliberately mismatched placeholder set, so a token you forgot to set is visible rather than silent. **`--color-secondary` is a TEXT token** — see "Fill-only brand colours" below. |
+| `src/lib/site-config.json`     | Nav items, `footer.owner` (the copyright holder — set this, not `footer.text`), and footer columns/socials. Ships empty (logo-only Nav, placeholder Footer). Swap the module for a Prismic `settings` loader behind the same exports if the client edits chrome. |
+| `svelte.config.js` → `kit.csp` | Add every third-party host the design needs. The baseline allows Prismic, Vimeo, Turnstile and Google Fonts only — a font kit, YouTube embed, donation platform or analytics tag is blocked until listed. Self-hosted fonts need nothing.                        |
+
+### Fill-only brand colours
+
+**`--color-secondary` is a text token, whatever the brand calls it.** The
+template renders `text-secondary` in eight places a new site never touches: the
+footer copyright, `Field.svelte`'s description line, the eyebrows on LeadText,
+TextColumns and Testimonial, the testimonial role line, the contact intro and a
+dev fixture. Assigning a light brand tint to it therefore fails axe on every
+page that renders a footer — not in one place you can spot in review.
+
+That happened on roalson-interests: dust `#B2AC9F` measured **1.97:1** on the
+page ground. The fix is to split the two jobs rather than rename the failure —
+keep `--color-secondary` AA-safe and give the brand colour a token of its own:
+
+```css
+--color-secondary: #646059; /* AA-safe secondary TEXT */
+--color-dust: #b2ac9f; /* the brand colour, as a FILL */
+```
+
+`src/lib/theme-contrast.test.ts` measures every text/ground pair the template
+composes and fails below 4.5:1, so `pnpm test` catches this in milliseconds
+instead of waiting for the a11y gate to find one node on a built page. It also
+fails when a new `text-<token>` class appears that no list classifies — add it
+to `LIGHT_GROUND_TEXT` or `DARK_GROUND_TEXT` rather than deleting the check.
+
+### The copyright year
+
+Set **`footer.owner`** ("Acme Holdings"), not `footer.text`. `<Footer>` supplies
+the year at render, so it cannot go stale. `footer.text` overrides the whole
+line verbatim and freezes whatever year it contains — correct the January it is
+written, wrong every January after. It exists only for lines that are not of the
+form `© <year> <owner>`.
 
 ## Deploy
 

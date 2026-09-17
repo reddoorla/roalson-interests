@@ -546,3 +546,29 @@ days re-derived components this repo already ships.
 - The palette was transcribed from the Figma styles via the build brief, which
   is a derived artifact. It must be reconciled against `get_variable_defs` at
   /figma-slices Stage A.
+
+## 2026-09-17 — The footer stops freezing its year, and the palette rule is now a test (`fix/footer-owner-and-contrast-guard`)
+
+Follow-on to the bootstrap entry above, carrying reddoor-starter#149 (`73ca386`)
+into this repo. Both changes originate here — they were found by bootstrapping
+this site — and were fixed upstream first so every future clone gets them.
+
+**The copyright year.** The bootstrap set `footer.text` to the literal string
+"© 2026 Roalson Interests", because the template's only alternative was a
+placeholder reading "Company Name". That froze the year: right this January,
+wrong every January after. `footer.owner` now names the entity and `<Footer>`
+supplies the year at render, so `site-config.json` carries
+`"owner": "Roalson Interests"` and no year at all.
+
+**The palette rule is no longer only a comment.** `app.css` already explained
+why `--color-secondary` had to be the AA-safe `#646059` and why brand dust
+`#B2AC9F` lives in `--color-dust` as a fill. A comment is not a check, and the
+next session to "simplify" those two tokens back into one would have found out
+from the a11y gate, on a built page, one node at a time.
+`src/lib/theme-contrast.test.ts` measures every text/ground pair the template
+composes and fails below 4.5:1. Run against this site's real palette it is
+green across 12 cases — which is the same assertion the comment was making,
+now made by something that will fail out loud.
+
+Nothing else changed. The a11y gate still measures no page of this site; that
+remains true until the Prismic sentinel is replaced and a home document exists.
