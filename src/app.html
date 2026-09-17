@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" type="image/png" href="%sveltekit.assets%/favicon.png" />
+    <link rel="apple-touch-icon" href="%sveltekit.assets%/favicon.png" />
+    <meta name="viewport" content="width=device-width" />
+    <!-- The no-JS half of the scroll reveal's first-paint hidden state (app.css,
+         `[data-reveal]`). With scripting off this style applies and every
+         revealed element paints normally; with scripting on the browser ignores
+         the whole element, so the hidden state stands and animateIn owns it.
+         Content can therefore never be stranded at opacity 0 by a browser that
+         was never going to run the reveal — the same guarantee a curl of the
+         SSR HTML gives a crawler.
+
+         WHY A STYLE AND NOT AN INLINE `classList.add("js")` SCRIPT: an unhashed
+         inline script here is governed by this template's own CSP
+         (svelte.config.js `kit.csp`, script-src with no 'unsafe-inline'). On
+         prerendered routes it would survive only because the policy ships as a
+         <meta> tag emitted after it; on server-rendered routes the policy is an
+         HTTP header carrying a nonce, and the script is silently dropped. A
+         guard that is live on some routes and dead on others is worse than no
+         guard. style-src already allows inline styles, so this half works
+         identically everywhere and needs no CSP hash to maintain. -->
+    <noscript>
+      <style>
+        [data-reveal] {
+          opacity: 1 !important;
+          transform: none !important;
+        }
+      </style>
+    </noscript>
+    %sveltekit.head%
+  </head>
+  <body data-sveltekit-preload-data="hover">
+    <!-- display:contents wrapper per SvelteKit's recommendation: placing the app
+         directly inside <body> can break when browser extensions inject nodes. -->
+    <div style="display: contents">%sveltekit.body%</div>
+  </body>
+</html>

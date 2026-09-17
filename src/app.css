@@ -1,0 +1,337 @@
+/* Tailwind CSS v4 configuration */
+@import "tailwindcss";
+
+@theme {
+  --screen-sm: 560px;
+  --screen-md: 768px;
+  --screen-lg: 1024px;
+  --screen-xl: 1340px;
+
+  --color-transparent: transparent;
+  --color-current: currentColor;
+  --color-black: black;
+  --color-white: white;
+  --color-background: white;
+
+  /* Neutral placeholder palette — replace per project (docs/STARTER.md). Every
+     value is distinct on purpose so a forgotten token is visible, not silent. */
+  --color-light: #e5e7eb;
+  --color-primary: #111827;
+  --color-dark: #1f2937;
+  --color-secondary: #6b7280;
+  --color-accent: #2563eb;
+
+  /* Type — set per project. Self-host the brand's licensed woff2 files under
+     static/fonts (preload the body face in app.html) or load a kit, then
+     point these at the loaded family names. Until then the system stack
+     applies. `font-heading` / `font-body` utilities come from these tokens. */
+  --font-heading: ui-sans-serif, system-ui, sans-serif;
+  --font-body: ui-sans-serif, system-ui, sans-serif;
+
+  --transition-in-expo: cubic-bezier(0.95, 0.05, 0.795, 0.035);
+  --transition-out-expo: cubic-bezier(0.19, 1, 0.22, 1);
+  --transition-fast-slow: cubic-bezier(0.5, 0, 0, 1);
+
+  --height-screen-75: 75vh;
+  --height-screen-50: 50vh;
+  --height-screen-25: 25vh;
+  --height-screen-10: 10vh;
+  --height-screen-5: 5vh;
+  --height-112: 28rem;
+  --height-128: 32rem;
+  --height-144: 36rem;
+  --height-160: 40rem;
+  --height-192: 48rem;
+  --height-256: 64rem;
+  --height-384: 96rem;
+}
+
+/* Micro-interaction utilities — press/hover/idle nudges shared across sites.
+   All movement is gated behind `prefers-reduced-motion: no-preference`, so
+   reduced-motion users get a plain, static control. */
+
+@keyframes pos-y-wiggle {
+  0% {
+    transform: translateY(1px);
+  }
+  50% {
+    transform: translateY(-1px);
+  }
+  100% {
+    transform: translateY(1px);
+  }
+}
+
+@keyframes pulse-scale {
+  0% {
+    transform: scale(1.01);
+  }
+  50% {
+    transform: scale(0.99);
+  }
+  100% {
+    transform: scale(1.01);
+  }
+}
+
+@keyframes boop {
+  0% {
+    transform: rotate(0deg);
+  }
+  20% {
+    transform: rotate(-15deg);
+  }
+  40% {
+    transform: rotate(15deg);
+  }
+  60% {
+    transform: rotate(-7deg);
+  }
+  80% {
+    transform: rotate(7deg);
+  }
+  90% {
+    transform: rotate(-3deg);
+  }
+  95% {
+    transform: rotate(2deg);
+  }
+  100% {
+    transform: rotate(0deg);
+  }
+}
+
+/* Press feedback: the element hops up (or down) while held. Use INSTEAD of
+   Tailwind's `transition` utility, never alongside it — `transition` emits
+   later in the built CSS, so its longhands would override these timings. The
+   shorthand already covers the hover properties commonly animated with it. */
+@utility bump {
+  @media (prefers-reduced-motion: no-preference) {
+    transition:
+      transform 300ms ease-out,
+      color 400ms ease,
+      background-color 400ms ease,
+      filter 400ms ease,
+      gap 100ms ease;
+    &:active {
+      transform: translateY(-8px);
+    }
+  }
+}
+
+@utility negative-bump {
+  @media (prefers-reduced-motion: no-preference) {
+    transition:
+      transform 300ms ease-out,
+      color 400ms ease,
+      background-color 400ms ease,
+      filter 400ms ease,
+      gap 100ms ease;
+    &:active {
+      transform: translateY(8px);
+    }
+  }
+}
+
+/* Gentle vertical wiggle — on hover only, or continuously. */
+@utility bob-on-hover {
+  @media (prefers-reduced-motion: no-preference) {
+    &:hover {
+      animation: 1s infinite pos-y-wiggle ease-out;
+    }
+  }
+}
+
+@utility bob-always {
+  @media (prefers-reduced-motion: no-preference) {
+    animation: 1s infinite pos-y-wiggle ease-out;
+  }
+}
+
+/* Subtle continuous scale breathing — for standout CTAs. */
+@utility pulse-always {
+  @media (prefers-reduced-motion: no-preference) {
+    animation: 1.5s infinite pulse-scale ease-out;
+  }
+}
+
+/* One-shot rotational wiggle; re-apply the class to replay. */
+@utility boop {
+  @media (prefers-reduced-motion: no-preference) {
+    animation: boop 1s;
+  }
+}
+
+/* Layout hooks shared by the hand-authored slices (`.mt-media`, `.hero-band`,
+   `.richtext-block`). Site-neutral; per-project type and colour come from the
+   @theme tokens above. */
+
+/* Editorial media_text rows alternate the image side down the page —
+   `nth-child(… of S)` counts only media_text sections among the slice zone's
+   children. Outside @layer base so it wins over the component's grid order. */
+main :nth-child(even of section[data-slice-type="media_text"]) .mt-media {
+  order: -1;
+}
+
+/* The opening hero gets the full-viewport treatment; interstitial heroes are
+   short bands. The manifest also sets this when it captures height: 100vh, so
+   this is a floor for the first hero when a site ships without a manifest. */
+main > section.hero-band:first-child {
+  min-height: 100vh;
+}
+
+/* Multi-paragraph rich_text wants vertical rhythm between paragraphs. */
+.richtext-block p + p {
+  margin-top: 1em;
+}
+
+/* Blur-up companion to $lib/components/Img.svelte. Outside @layer base so it
+   wins over utility resets without needing !important. */
+.progressive-img {
+  filter: blur(40px);
+  transition: filter 1500ms cubic-bezier(0.5, 0, 0, 1);
+}
+
+.progressive-img.progressive-img--loaded {
+  filter: blur(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .progressive-img {
+    filter: none;
+    transition: none;
+  }
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    scrollbar-gutter: stable;
+  }
+
+  body {
+    font-family: var(--font-body);
+    max-width: 100vw;
+    overflow-x: clip;
+    overflow-y: auto;
+    margin: 0;
+    background-color: var(--color-background);
+  }
+
+  /* Opt-in: add `class="hide-scrollbars"` to <html> in app.html to hide scrollbars
+     globally (useful for landing-page styles). Default is system scrollbars for
+     accessibility and to avoid layout surprises on content-heavy pages. */
+  html.hide-scrollbars,
+  html.hide-scrollbars body {
+    scrollbar-width: none;
+  }
+
+  html.hide-scrollbars body::-webkit-scrollbar {
+    display: none;
+    width: 0;
+  }
+
+  /* Type scale — define per project (sizes, leading, responsive variants). */
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: var(--font-heading);
+  }
+
+  /* The scroll reveal's hidden state, in CSS, so it exists at FIRST PAINT.
+     `use:animateIn` can only hide its targets from JS at hydration, which is
+     150-850ms after the browser has already painted them: content appeared in
+     final position, sat there, then dropped half its height and vanished
+     before floating back. That reads as a broken page load.
+
+     `[data-reveal]` is written by animateIn while an element is hidden and
+     removed the moment it reveals; SERVER-RENDERED markup can carry it too,
+     and must for a given element to be covered at first paint. The inline
+     styles animateIn writes are byte-identical to these declarations, so
+     hydration is a no-op re-write rather than a visible state change — which
+     is why the travel below is animateIn's default `translateY` and not a
+     number of its own (src/reveal-hidden-state.test.ts asserts they agree, and
+     a call site passing its own `translateY` must not ship the attribute).
+
+     The no-JS contract lives in app.html: a <noscript><style> there forces
+     these two properties back with !important, so a browser that will never
+     run the reveal never hides anything. Read that comment before changing
+     either half — it records why the guard is a style and not an inline
+     `html.js` class script.
+
+     An element whose SSR markup carries `data-reveal` depends on JS to ever
+     appear — pair it with animateIn's `failSafe` option, which is what that
+     option is for. */
+  @media (prefers-reduced-motion: no-preference) {
+    [data-reveal] {
+      opacity: 0;
+      transform: translateY(50%);
+    }
+  }
+
+  /* Respect users who ask for less motion: neutralize CSS transitions/animations
+     and smooth scrolling. Svelte's JS-driven transitions don't see this reset —
+     import fade/fly/slide from $lib/transitions instead of svelte/transition.
+     The DELAYS have to go too, not just the durations: a zero-length animation
+     that still waits out its delay is "nothing happens, then it pops", which is
+     worse than the motion it replaced — a staggered reveal sits through its
+     whole cascade and then snaps in.
+     NOT COVERED: scroll-driven animations. An element on
+     `animation-timeline: scroll(root)` has no duration for this block to zero,
+     so the first component to reach for `animation-timeline: view()` or
+     `scroll()` must ship its own `@media (prefers-reduced-motion: reduce)`
+     opt-out (`animation-timeline: auto` plus a static resting state). Nothing
+     here will do it for you. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-delay: 0ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      transition-delay: 0ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  /* Keyboard focus floor (WCAG 2.4.7). Focus styling in this template is opt-in
+     per component, and anything without a ring of its own fell back to the UA's
+     1px hairline — invisible on a dark nav or over a photo hero. This is the
+     base every interactive element gets for free.
+     `:where()` contributes ZERO specificity, so the whole selector weighs one
+     pseudo-class and every authored `focus-visible:ring-*` utility still wins
+     twice over: higher specificity AND a later cascade layer than `base`. Form
+     controls are deliberately absent — Field.svelte styles its own. */
+  :where(a, button, summary, [tabindex]:not([tabindex="-1"])):focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+
+  a,
+  button {
+    cursor: pointer;
+  }
+
+  span {
+    display: inline-block;
+  }
+
+  .add-noise::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-image: radial-gradient(circle, rgba(255, 255, 255, 0.05) 0.5px, transparent 0.5px);
+    background-size: 1px 1px;
+    opacity: 0.4;
+    pointer-events: none;
+    will-change: transform;
+    filter: blur(0.5px);
+  }
+}

@@ -1,0 +1,52 @@
+{
+  "id": "cta_banner",
+  "type": "SharedSlice",
+  "name": "CtaBanner",
+  "description": "CtaBanner",
+  "variations": [
+    {
+      "id": "default",
+      "name": "Default",
+      "docURL": "...",
+      "version": "initial",
+      "description": "Full-bleed band with a headline and one call-to-action link",
+      "imageUrl": "",
+      "primary": {
+        "heading": {
+          "type": "StructuredText",
+          "config": {
+            "label": "heading",
+            "placeholder": "e.g. Ready to start your project?",
+            "allowTargetBlank": true,
+            "single": "heading2,heading3"
+          }
+        },
+        "buttonLabel": {
+          "type": "Text",
+          "config": {
+            "label": "buttonLabel",
+            "placeholder": "e.g. Talk with us"
+          }
+        },
+        "buttonLink": {
+          "type": "Link",
+          "config": {
+            "label": "buttonLink",
+            "placeholder": "",
+            "allowTargetBlank": true,
+            "select": null
+          }
+        },
+        "background": {
+          "type": "Select",
+          "config": {
+            "label": "background (theme token)",
+            "options": ["light", "dark", "white"],
+            "default_value": "light"
+          }
+        }
+      },
+      "items": {}
+    }
+  ]
+}

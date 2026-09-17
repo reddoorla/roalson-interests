@@ -1,0 +1,236 @@
+[
+  {
+    "__TYPE__": "SharedSliceContent",
+    "variation": "default",
+    "primary": {
+      "heading": {
+        "__TYPE__": "StructuredTextContent",
+        "value": [
+          {
+            "type": "heading2",
+            "content": {
+              "text": "Features"
+            }
+          }
+        ]
+      },
+      "columns": {
+        "__TYPE__": "FieldContent",
+        "value": 3,
+        "type": "Number"
+      }
+    },
+    "items": [
+      {
+        "__TYPE__": "GroupItemContent",
+        "key": "11a472bd-6b6c-4c3a-9535-40b306deb78a",
+        "value": [
+          [
+            "item_heading",
+            {
+              "__TYPE__": "StructuredTextContent",
+              "value": [
+                {
+                  "type": "heading3",
+                  "content": {
+                    "text": "Connected"
+                  }
+                }
+              ]
+            }
+          ],
+          [
+            "item_body",
+            {
+              "__TYPE__": "StructuredTextContent",
+              "value": [
+                {
+                  "type": "paragraph",
+                  "content": {
+                    "text": "Fiber-ready homes with dedicated workspaces."
+                  }
+                }
+              ]
+            }
+          ],
+          [
+            "item_media",
+            {
+              "__TYPE__": "ImageContent",
+              "origin": {
+                "id": "main",
+                "url": "https://images.unsplash.com/photo-1515378960530-7c0da6231fb1",
+                "width": 5616,
+                "height": 3744
+              },
+              "width": 5616,
+              "height": 3744,
+              "edit": {
+                "zoom": 1,
+                "crop": {
+                  "x": 0,
+                  "y": 0
+                },
+                "background": "transparent"
+              },
+              "url": "https://images.unsplash.com/photo-1515378960530-7c0da6231fb1",
+              "alt": "Connected",
+              "thumbnails": {}
+            }
+          ],
+          [
+            "item_link",
+            {
+              "__TYPE__": "LinkContent",
+              "key": "9c2b972f-5a1d-465b-bd92-fa36174b10ec",
+              "value": {
+                "__TYPE__": "ExternalLink",
+                "url": "https://example.com"
+              }
+            }
+          ]
+        ]
+      },
+      {
+        "__TYPE__": "GroupItemContent",
+        "key": "a7384c04-2bf8-4f17-8a35-f6d10a06788d",
+        "value": [
+          [
+            "item_heading",
+            {
+              "__TYPE__": "StructuredTextContent",
+              "value": [
+                {
+                  "type": "heading3",
+                  "content": {
+                    "text": "Considered"
+                  }
+                }
+              ]
+            }
+          ],
+          [
+            "item_body",
+            {
+              "__TYPE__": "StructuredTextContent",
+              "value": [
+                {
+                  "type": "paragraph",
+                  "content": {
+                    "text": "Layouts drawn around how people actually live."
+                  }
+                }
+              ]
+            }
+          ],
+          [
+            "item_media",
+            {
+              "__TYPE__": "ImageContent",
+              "origin": {
+                "id": "main",
+                "url": "https://images.unsplash.com/photo-1515378960530-7c0da6231fb1",
+                "width": 5616,
+                "height": 3744
+              },
+              "width": 5616,
+              "height": 3744,
+              "edit": {
+                "zoom": 1,
+                "crop": {
+                  "x": 0,
+                  "y": 0
+                },
+                "background": "transparent"
+              },
+              "url": "https://images.unsplash.com/photo-1515378960530-7c0da6231fb1",
+              "alt": "Considered",
+              "thumbnails": {}
+            }
+          ],
+          [
+            "item_link",
+            {
+              "__TYPE__": "LinkContent",
+              "key": "28d8c64a-4db1-47c9-854d-500178b67cfa",
+              "value": {
+                "__TYPE__": "ExternalLink",
+                "url": "https://example.com"
+              }
+            }
+          ]
+        ]
+      },
+      {
+        "__TYPE__": "GroupItemContent",
+        "key": "26b59239-5f23-4057-92c0-6a5ff8645bc9",
+        "value": [
+          [
+            "item_heading",
+            {
+              "__TYPE__": "StructuredTextContent",
+              "value": [
+                {
+                  "type": "heading3",
+                  "content": {
+                    "text": "Close by"
+                  }
+                }
+              ]
+            }
+          ],
+          [
+            "item_body",
+            {
+              "__TYPE__": "StructuredTextContent",
+              "value": [
+                {
+                  "type": "paragraph",
+                  "content": {
+                    "text": "Dining, parks, and transit within a few blocks."
+                  }
+                }
+              ]
+            }
+          ],
+          [
+            "item_media",
+            {
+              "__TYPE__": "ImageContent",
+              "origin": {
+                "id": "main",
+                "url": "https://images.unsplash.com/photo-1515378960530-7c0da6231fb1",
+                "width": 5616,
+                "height": 3744
+              },
+              "width": 5616,
+              "height": 3744,
+              "edit": {
+                "zoom": 1,
+                "crop": {
+                  "x": 0,
+                  "y": 0
+                },
+                "background": "transparent"
+              },
+              "url": "https://images.unsplash.com/photo-1515378960530-7c0da6231fb1",
+              "alt": "Close by",
+              "thumbnails": {}
+            }
+          ],
+          [
+            "item_link",
+            {
+              "__TYPE__": "LinkContent",
+              "key": "7082084b-2ebc-4ef3-af4c-021b067e91bc",
+              "value": {
+                "__TYPE__": "ExternalLink",
+                "url": "https://example.com"
+              }
+            }
+          ]
+        ]
+      }
+    ]
+  }
+]

@@ -1,0 +1,53 @@
+{
+  "format": "custom",
+  "id": "form_replies",
+  "label": "form replies",
+  "repeatable": false,
+  "status": true,
+  "json": {
+    "Main": {
+      "replies": {
+        "type": "Group",
+        "config": {
+          "label": "replies",
+          "repeat": true,
+          "fields": {
+            "form_type": {
+              "type": "Select",
+              "config": {
+                "label": "form",
+                "placeholder": "Pick the form this reply answers — one row per form",
+                "options": ["contact", "inquiry", "newsletter", "rsvp", "reserve"]
+              }
+            },
+            "subject": {
+              "type": "Text",
+              "config": {
+                "label": "subject",
+                "placeholder": "Subject line of the email the visitor receives"
+              }
+            },
+            "body": {
+              "type": "StructuredText",
+              "config": {
+                "label": "body",
+                "placeholder": "What the visitor reads. Bold, italic, links and lists are sent; other formatting is not.",
+                "allowTargetBlank": true,
+                "multi": "paragraph,heading2,heading3,strong,em,hyperlink,list-item,o-list-item"
+              }
+            }
+          }
+        }
+      },
+      "signature": {
+        "type": "StructuredText",
+        "config": {
+          "label": "signature",
+          "placeholder": "Sign-off appended to every reply, whatever the form",
+          "allowTargetBlank": true,
+          "multi": "paragraph"
+        }
+      }
+    }
+  }
+}

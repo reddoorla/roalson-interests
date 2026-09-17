@@ -1,0 +1,35 @@
+node_modules
+.svelte-kit
+.netlify
+build
+
+# Env
+.env
+.env.*
+!.env.example
+
+# Local agent config — operator-specific, must not ship with the template
+.claude/
+
+# OS / editor / test output
+.DS_Store
+*.log
+coverage
+playwright-report
+test-results
+.lighthouseci
+.reddoor-a11y
+.reddoor-a11y-spec-*
+
+# Agency process artifacts (specs/plans) and local helpers never ship in the
+# template. The Blux-era ones stay tracked in reddoor-starter-blux; new specs
+# and plans live in reddoor-maintenance.
+/docs/superpowers/
+/scratchpad/
+
+# canonical entries from @reddoorla/maintenance sync-configs
+dist/
+.vitest-cache/
+.tsbuildinfo
+
+.worktrees/

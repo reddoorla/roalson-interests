@@ -1,0 +1,111 @@
+[
+  {
+    "__TYPE__": "SharedSliceContent",
+    "variation": "imageRight",
+    "primary": {
+      "heading": {
+        "__TYPE__": "StructuredTextContent",
+        "value": [
+          {
+            "type": "heading2",
+            "content": {
+              "text": "Amenities"
+            }
+          }
+        ]
+      },
+      "body": {
+        "__TYPE__": "StructuredTextContent",
+        "value": [
+          {
+            "type": "paragraph",
+            "content": {
+              "text": "A resort-style pool and fitness center."
+            }
+          }
+        ]
+      },
+      "media": {
+        "url": "https://images.unsplash.com/photo-1571902943202-507ec2618e8f",
+        "origin": {
+          "id": "main",
+          "url": "https://images.unsplash.com/photo-1571902943202-507ec2618e8f",
+          "width": 800,
+          "height": 600
+        },
+        "width": 800,
+        "height": 600,
+        "edit": {
+          "background": "transparent",
+          "zoom": 1,
+          "crop": {
+            "x": 0,
+            "y": 0
+          }
+        },
+        "alt": "Pool",
+        "credits": null,
+        "__TYPE__": "ImageContent",
+        "thumbnails": {}
+      }
+    },
+    "items": []
+  },
+  {
+    "__TYPE__": "SharedSliceContent",
+    "variation": "imageLeft",
+    "primary": {
+      "heading": {
+        "__TYPE__": "StructuredTextContent",
+        "value": [
+          {
+            "type": "heading2",
+            "content": {
+              "text": "Neighborhood"
+            }
+          }
+        ]
+      },
+      "body": {
+        "__TYPE__": "StructuredTextContent",
+        "value": [
+          {
+            "type": "paragraph",
+            "content": {
+              "text": "Walkable dining, parks, and transit within a few blocks."
+            }
+          }
+        ]
+      },
+      "media": {
+        "__TYPE__": "ImageContent",
+        "origin": {
+          "id": "main",
+          "url": "https://images.unsplash.com/photo-1515378960530-7c0da6231fb1",
+          "width": 5616,
+          "height": 3744
+        },
+        "width": 5616,
+        "height": 3744,
+        "edit": {
+          "zoom": 1,
+          "crop": {
+            "x": 0,
+            "y": 0
+          },
+          "background": "transparent"
+        },
+        "url": "https://images.unsplash.com/photo-1515378960530-7c0da6231fb1",
+        "alt": "Tree-lined street",
+        "thumbnails": {}
+      }
+    },
+    "items": [
+      {
+        "__TYPE__": "GroupItemContent",
+        "key": "952b8efa-c259-4d80-a706-f4bad3423cab",
+        "value": []
+      }
+    ]
+  }
+]

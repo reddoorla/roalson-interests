@@ -1,0 +1,52 @@
+[
+  {
+    "__TYPE__": "SharedSliceContent",
+    "variation": "default",
+    "primary": {
+      "label": {
+        "__TYPE__": "FieldContent",
+        "type": "Text",
+        "value": "What clients are saying"
+      },
+      "quote": {
+        "__TYPE__": "FieldContent",
+        "type": "Text",
+        "value": "They shipped in six weeks what our last agency quoted six months for — and it still reads like us."
+      },
+      "name": {
+        "__TYPE__": "FieldContent",
+        "type": "Text",
+        "value": "Dana Whitfield"
+      },
+      "role": {
+        "__TYPE__": "FieldContent",
+        "type": "Text",
+        "value": "Director of Operations, Northgate"
+      },
+      "avatar": {
+        "url": "https://images.unsplash.com/photo-1494790108377-be9c29b29330",
+        "origin": {
+          "id": "main",
+          "url": "https://images.unsplash.com/photo-1494790108377-be9c29b29330",
+          "width": 400,
+          "height": 400
+        },
+        "width": 400,
+        "height": 400,
+        "edit": {
+          "background": "transparent",
+          "zoom": 1,
+          "crop": {
+            "x": 0,
+            "y": 0
+          }
+        },
+        "alt": "Dana Whitfield",
+        "credits": null,
+        "__TYPE__": "ImageContent",
+        "thumbnails": {}
+      }
+    },
+    "items": []
+  }
+]

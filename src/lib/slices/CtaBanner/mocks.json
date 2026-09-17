@@ -1,0 +1,38 @@
+[
+  {
+    "__TYPE__": "SharedSliceContent",
+    "variation": "default",
+    "primary": {
+      "heading": {
+        "__TYPE__": "StructuredTextContent",
+        "value": [
+          {
+            "type": "heading2",
+            "content": {
+              "text": "Ready to start your project?"
+            }
+          }
+        ]
+      },
+      "buttonLabel": {
+        "__TYPE__": "FieldContent",
+        "type": "Text",
+        "value": "Talk with us"
+      },
+      "buttonLink": {
+        "key": "7c66b262-0920-4705-805d-ebc0080f4e35",
+        "__TYPE__": "LinkContent",
+        "value": {
+          "__TYPE__": "ExternalLink",
+          "url": "https://example.com"
+        }
+      },
+      "background": {
+        "__TYPE__": "FieldContent",
+        "type": "Select",
+        "value": "light"
+      }
+    },
+    "items": []
+  }
+]
