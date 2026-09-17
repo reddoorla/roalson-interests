@@ -5,6 +5,23 @@
     <link rel="icon" type="image/png" href="%sveltekit.assets%/favicon.png" />
     <link rel="apple-touch-icon" href="%sveltekit.assets%/favicon.png" />
     <meta name="viewport" content="width=device-width" />
+    <!-- Atkinson Hyperlegible Next — the design's only licensed face. OFL on
+         Google Fonts, which answers the licence question Erik raised on
+         2026-09-01. The baseline CSP already allows fonts.googleapis.com
+         (style-src) and fonts.gstatic.com (font-src), so this needs no CSP
+         change.
+
+         A PLAIN stylesheet link on purpose. The fleet's `media="print"` +
+         `onload="this.media='all'"` swap is an inline event handler, and this
+         template's script-src grants nonces with no 'unsafe-inline' — a nonce
+         never authorises a handler. The sheet would download, `media` would
+         stay `print`, and zero faces would apply. -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@400..600&display=swap"
+    />
     <!-- The no-JS half of the scroll reveal's first-paint hidden state (app.css,
          `[data-reveal]`). With scripting off this style applies and every
          revealed element paints normally; with scripting on the browser ignores

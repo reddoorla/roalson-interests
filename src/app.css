@@ -11,22 +11,66 @@
   --color-current: currentColor;
   --color-black: black;
   --color-white: white;
-  --color-background: white;
+  --color-background: #f2efe9;
 
-  /* Neutral placeholder palette — replace per project (docs/STARTER.md). Every
-     value is distinct on purpose so a forgotten token is visible, not silent. */
-  --color-light: #e5e7eb;
-  --color-primary: #111827;
-  --color-dark: #1f2937;
-  --color-secondary: #6b7280;
-  --color-accent: #2563eb;
+  /* Roalson Interests brand palette. Transcribed from the Figma styles at
+     bootstrap and NOT yet reconciled against `get_variable_defs` — do that at
+     /figma-slices Stage A and correct here, since a derived transcription has
+     been wrong by one value per channel before.
+
+     CONTRAST, measured (WCAG 2.x relative luminance), against this page ground:
+       garnet   on off-white  10.07:1  pass
+       garnet   on sand        8.87:1  pass
+       white    on garnet     11.55:1  pass
+       sand     on garnet      8.87:1  pass
+       dust     on garnet      5.11:1  pass
+       dust     on off-white   1.97:1  FAIL
+       dust     on sand        1.73:1  FAIL
+       dust     on white       2.26:1  FAIL
+
+     So brand dust CANNOT hold this template's `secondary` role. `secondary` is
+     a TEXT token here — the starter spends it on the footer copyright, form
+     field descriptions, slice eyebrows, the testimonial role line and the
+     contact intro, eight places in all — so assigning dust to it fails axe on
+     every page at once. It was caught exactly that way during this bootstrap:
+     the footer's "© 2026 Roalson Interests" went red at 1.97:1.
+
+     The mapping therefore splits the two jobs rather than renaming the failure:
+       --color-secondary  the AA-safe secondary TEXT colour (dust darkened 56%)
+       --color-dust       brand dust itself, a FILL on light grounds
+     Dust stays the right choice for secondary text ON garnet (5.11:1), where
+     --color-secondary would fail (1.85:1). The comps put dust on the mobile
+     hamburger and the transparent-navbar CONTACT US label over bright sky; both
+     are light grounds, so both need a solid or darker treatment. The wordmark's
+     dust "INTERESTS" is part of a logo and is exempt.
+     Do not collapse these two tokens back into one. */
+  --color-light: #e8e1d1; /* sand — card ground, light type on garnet */
+  --color-primary: #652323; /* garnet */
+  --color-dark: #3d0707; /* dark garnet — gradient end, deep ground */
+  /* Dust darkened to 56%. Measured on every light ground in this palette:
+     off-white 5.45:1, white 6.25:1, sand 4.80:1 — all AA with margin. */
+  --color-secondary: #646059;
+  --color-dust: #b2ac9f; /* brand dust — FILL on light grounds; text only on garnet */
+  --color-accent: #565637; /* olive — from the logo files, unused in the comps */
 
   /* Type — set per project. Self-host the brand's licensed woff2 files under
      static/fonts (preload the body face in app.html) or load a kit, then
      point these at the loaded family names. Until then the system stack
      applies. `font-heading` / `font-body` utilities come from these tokens. */
-  --font-heading: ui-sans-serif, system-ui, sans-serif;
-  --font-body: ui-sans-serif, system-ui, sans-serif;
+  /* Atkinson Hyperlegible Next for both roles — the comps use one family
+     throughout, at 400/500/600 (loaded in app.html).
+
+     The comps also set every eyebrow in Area Normal Bold at ~12.2px. That is a
+     commercial Blaze Type retail family, it is NOT licensed for this project,
+     and it is not in the Figma text styles — those eyebrows carry no style at
+     all. Until someone buys it, they render in Atkinson SemiBold, which is what
+     the H4/H6 styles already specify. Do not add Area Normal without a licence.
+
+     Before trusting a weight, enumerate `[...document.fonts]` and compare each
+     face's `.weight` and `.status`. `document.fonts.check("300 16px ...")`
+     returns true for a weight that does not exist. */
+  --font-heading: "Atkinson Hyperlegible Next", ui-sans-serif, system-ui, sans-serif;
+  --font-body: "Atkinson Hyperlegible Next", ui-sans-serif, system-ui, sans-serif;
 
   --transition-in-expo: cubic-bezier(0.95, 0.05, 0.795, 0.035);
   --transition-out-expo: cubic-bezier(0.19, 1, 0.22, 1);

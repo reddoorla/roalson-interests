@@ -1,8 +1,16 @@
-# Reddoor Starter — Work Journal
+# Roalson Interests — Work Journal
 
 Running log of build work: what was done, why, and where it landed.
 Chronological — newest entry at the bottom. [STARTER.md](STARTER.md) says what
 the stack ships; this is the history of getting it there.
+
+**The entries dated before 2026-09-17 are inherited from `reddoor-starter`**, the
+template this site was generated from. They were kept on purpose rather than
+deleted: they are the only record of why this stack prerenders the way it does,
+why the `your-prismic-repo-name` sentinel exists, why the CSP grants
+`unsafe-hashes` for exactly one Svelte handler, and why the a11y gate's route
+list is what it is. Every one of those decisions still governs this repo, and
+each was expensive to reach. Entries from the bootstrap onward are this site's.
 
 The convention is in [CLAUDE.md](../CLAUDE.md) under "The work journal". In
 short: every working session appends a dated entry, prose over bullets, why
@@ -434,3 +442,107 @@ reddoorla/reddoor-maintenance#863 so it is not lost.
 `docs/workJournal.md` duly happened; it was resolved by rebasing onto #147 and
 keeping both entries in the order they merged, since they are appends to the
 same tail and neither contradicts the other.
+
+## 2026-09-17 — Bootstrapped from the template, and the brand palette broke the a11y gate on contact (`chore: bootstrap roalson-interests`, direct to main)
+
+Second site built from `reddoor-starter` after vida-legacy-foundation, and the
+first to run the patched `/new-site`. The design was handed over this morning;
+nothing had been provisioned anywhere before today.
+
+**Names, settled first because they are expensive later.** Slug, GitHub repo,
+Netlify site and Prismic repository are all `roalson-interests`, and the fleet
+row's Name is "Roalson Interests" — which slugifies back to the slug, the
+condition `ensure-site` throws on. VLF and the-pointe-burbank both still carry a
+bare machine slug as their client-facing Name because this step did not exist
+when they were built.
+
+**The Netlify name was free, and that was measured rather than assumed.** The
+checklist is explicit that a 404 on `<slug>.netlify.app` proves nothing, because
+Netlify serves the same 50-byte edge 404 for an unclaimed name and for a bogus
+host. The account listed 64 sites and no `roalson*`, so the site was created
+outright: it took the bare name, id `316ff26b-7d32-4669-a9dc-48a61ee299b6`. VLF
+needed a `-rd` suffix and had `netlify-site` and its fleet-row URL corrected by
+hand afterwards; that did not recur here.
+
+**The Prismic repository exists and is empty — zero custom types — so the
+`your-prismic-repo-name` sentinel stays for now.** Replacing it re-arms
+loud-fail prerendering, which is correct once content exists and premature
+against an empty repo. The consequence is stated plainly below, because it is
+the kind of green that lies.
+
+**The brand palette broke the a11y gate, and the first fix was the wrong shape.**
+Roalson's secondary brand colour is dust `#B2AC9F`, which the brief had already
+measured at 1.97:1 on the off-white ground `#F2EFE9` — a clear AA failure. What
+the brief did not say, and what only the gate found, is that this template
+spends `--color-secondary` as a **text** token in eight places: the footer
+copyright, `Field.svelte`'s description line, the eyebrows on LeadText,
+TextColumns and Testimonial, the testimonial role line, the contact intro and a
+dev fixture. So assigning dust to `secondary` did not fail in one place; it
+failed on every page that renders a footer.
+
+axe named exactly one node: `<p class="text-sm text-secondary">© 2026 Roalson
+Interests</p>`. The first response was to repoint the animate-in fixture at a
+new `--color-secondary-aa` token — an instance fix, and it left the gate red,
+because the fixture was never the failing element. The second response was the
+right one: split the two jobs instead of renaming the failure.
+
+    --color-secondary  #646059   AA-safe secondary TEXT (dust darkened to 56%)
+    --color-dust       #B2AC9F   brand dust, a FILL on light grounds
+
+Measured for `#646059`: 5.45:1 on off-white, 6.25:1 on white, 4.80:1 on sand —
+AA with margin on every light ground in the palette. Plain dust keeps secondary
+text **on garnet**, where it measures 5.11:1 and `#646059` would fail at 1.85:1.
+That one remapping cleared all eight call sites with no per-file edits, and the
+gate went green. The lesson is the one CLAUDE.md already states and this session
+still had to pay for once: enumerate the class before fixing an instance. The
+cheap tell was available immediately — `grep -rn "text-secondary"` returns eight
+files, and a fix touching one of them cannot be the fix.
+
+Worth noting for the upstream: the failure was not Roalson's palette being
+unusual. Any site whose secondary brand colour is a light tint inherits it,
+because the template asserts through naming that `secondary` is text-capable and
+nothing checks that it is.
+
+**Fonts.** Atkinson Hyperlegible Next is the design's only licensed face and is
+OFL on Google Fonts — which answers the licence question Erik raised on
+2026-09-01 and nobody had answered. It loads as a plain `<link rel=stylesheet>`,
+deliberately **not** the fleet's `media="print"` + `onload` swap: that is an
+inline event handler, this template's script-src grants nonces without
+`unsafe-inline`, and a nonce never authorises a handler, so the sheet would
+download and zero faces would apply. No CSP change was needed at all — the
+baseline already allows `fonts.googleapis.com` under style-src and
+`fonts.gstatic.com` under font-src.
+
+**Area Normal Bold was not added, and should not be.** Every eyebrow in the
+comps is set in it at ~12.2px, it is a commercial Blaze Type retail family, it
+is not licensed for this project, and it carries no Figma text style at all —
+those eyebrows are unstyled. They render in Atkinson SemiBold, which is what the
+H4/H6 styles already specify.
+
+**The reuse hook is installed and was proven, not assumed.** `.claude/` is
+gitignored, so a clone starts with no hook; `.claude/settings.json` now wires
+`scripts/hooks/reuse-context.mjs`, and piping a prompt mentioning "carousel"
+through it returns `src/lib/components/Slider.svelte — 23 tests — matched on
+"carousel"`. That is the mechanism that exists because three sessions in two
+days re-derived components this repo already ships.
+
+**What is NOT done, stated so it is not mistaken for done.**
+
+- **The a11y gate has not measured a single page of this site.** It reports
+  "0 violations across 2 routes", and both routes are dev fixtures.
+  `reddoor.a11yRoutes` is `[]` and stays empty until the sentinel is replaced
+  and a home document is published, because `/` 404s until then and the pinned
+  CLI would record it as a serious `route-missing`. The green above is real
+  about the fixtures and says nothing about the site.
+- `src/lib/site-config.json` has no `nav.logo`, so the Nav renders the literal
+  string "Logo". The logo lives in Figma and Dropbox; the Figma MCP connection
+  is unauthenticated in this session.
+- `footer.text` is the plain string "© 2026 Roalson Interests", so **the
+  copyright year is frozen**. The template's `SiteConfig.footer.text` is a
+  string, and its only alternative is a placeholder reading "Company Name". This
+  needs either a Prismic `settings` loader or a component-side year.
+- `DEFAULT_OG_IMAGE` and `static/favicon.png` are still template defaults; both
+  need client assets.
+- The palette was transcribed from the Figma styles via the build brief, which
+  is a derived artifact. It must be reconciled against `get_variable_defs` at
+  /figma-slices Stage A.
