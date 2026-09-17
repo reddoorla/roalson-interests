@@ -9,14 +9,20 @@
     columns?: FooterColumn[];
     /** Social links from the site config (empty → none rendered). */
     socials?: FooterSocial[];
-    /** The copyright / rights line; falls back to a generic notice. */
+    /** The WHOLE rights line, verbatim. Use this only when the line is not of
+     * the form "© <year> <owner>" — it freezes whatever year it contains, and
+     * a copyright line that silently goes stale every January is worse than a
+     * generic one. Prefer `owner`. */
     text?: string;
+    /** Who holds the copyright, e.g. "Roalson Interests". The year is supplied
+     * at render, so it cannot go stale. This is the prop a site should set. */
+    owner?: string;
   }
 
   // Placeholder styling — restyle per project. `columns` (a per-route
   // override) wins when a route supplies it; otherwise the site-config
   // socials + rights line render (the fleet default chrome).
-  let { columns, socials = [], text }: Props = $props();
+  let { columns, socials = [], text, owner }: Props = $props();
 
   const isImage = (i: FooterItem): i is FooterImage => "image" in i;
 
@@ -120,7 +126,7 @@
         </ul>
       {/if}
       <p class="text-sm text-secondary">
-        {text ?? `© ${new Date().getFullYear()} Company Name`}
+        {text ?? `© ${new Date().getFullYear()} ${owner ?? "Company Name"}`}
       </p>
     </div>
   {/if}
