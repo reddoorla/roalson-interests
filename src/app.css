@@ -52,6 +52,13 @@
   --color-secondary: #646059;
   --color-dust: #b2ac9f; /* brand dust — FILL on light grounds; text only on garnet */
   --color-accent: #565637; /* olive — from the logo files, unused in the comps */
+  /* Form error TEXT. The template spent Tailwind's `red-600` here, which is AA
+     on white (4.77:1) and NOT on this site's off-white ground (4.15:1) — and,
+     being outside the theme, no test measured it. It went unseen because axe's
+     contrast rule was crashing on the same page (see
+     tests/a11y/fixtures.spec.ts). As a token, theme-contrast.test.ts now
+     measures it on every light ground. */
+  --color-error: #b91c1c;
 
   /* Type — set per project. Self-host the brand's licensed woff2 files under
      static/fonts (preload the body face in app.html) or load a kit, then

@@ -445,6 +445,8 @@ same tail and neither contradicts the other.
 
 ## 2026-09-17 — Bootstrapped from the template, and the brand palette broke the a11y gate on contact (`chore: bootstrap roalson-interests`, direct to main)
 
+> Superseded in part by 2026-09-18 — The fixtures page had never had its contrast measured: axe was crashing on the template's Hero.
+
 Second site built from `reddoor-starter` after vida-legacy-foundation, and the
 first to run the patched `/new-site`. The design was handed over this morning;
 nothing had been provisioned anywhere before today.
@@ -807,3 +809,58 @@ visibly. Widened to the full axis at zero byte cost.
 **What is deliberately NOT in this batch.** No slice, no `property` type, no
 route. This is the foundation the skill says to author once before the first
 slice rather than re-derive per slice, and it is separable, so it ships alone.
+
+## 2026-09-18 — The fixtures page had never had its contrast measured: axe was crashing on the template's Hero (`fix/axe-contrast-rule-errors`)
+
+Found while proving something else. The property batch (in flight on
+`feat/property-type`, `daea16c`) added its detail page to `/dev/a11y-fixtures`,
+and the proof that the axe gate covered it was to break it: a category label
+set in brand dust on the sand panel, 1.73:1. Both gates — `reddoor-maint audit
+--only a11y` and `tests/a11y/fixtures.spec.ts` — reported **0 violations**.
+
+**Root cause, measured.** axe-core 4.13.0 threw `Unable to parse color
+"oklch(0.205 0 none)"` and skipped color-contrast for the whole page. When a
+rule throws, axe files one node under `incomplete` with an `error-occurred`
+check and moves on; `violations` stays empty, and both gates fail only on
+violations. The value comes from Tailwind 4.3, whose theme defines 13 palette
+entries with a `none` hue — all of `neutral`, plus some `zinc` and `mauve` — and
+the template's Hero slice sets `bg-neutral-900` on its section. axe hit it while
+walking the stacking context behind the Hero's CTA. 4.13.0 is the latest axe
+release, so there is no upgrade that fixes the parse.
+
+The blindness was per page, not global, and that is why it survived. The
+bootstrap entry records axe catching the footer copyright at 1.97:1 — that node
+was caught on `/dev/animate-in`, which has no Hero. `/dev/a11y-fixtures`, the
+page carrying every slice and primitive, measured **0** contrast nodes; after the
+fix it measures **61**. The bootstrap entry's "the green above is real about the
+fixtures" was therefore false for contrast on that page; it now carries a
+forward pointer here.
+
+**What the crash was hiding.** With it gone, the page failed on two real nodes:
+`Field.svelte`'s error message, `text-red-600` (#e7000b) on this site's
+off-white ground, at **4.15:1**. That is every visitor-facing validation error
+on `/contact`. It is AA on white (4.77:1), which is the template's placeholder
+ground, and it sat outside the theme, so `theme-contrast.test.ts` — which only
+knows theme tokens — never measured it. It is now `--color-error` #b91c1c, the
+required asterisk moves with it, and the guard measures it on every light
+ground. Restoring red-600's value turns the guard red at 4.16:1.
+
+**The class, enumerated before fixing.** Default-palette text colours in `src`:
+Field's two red-600 (on the page ground — the failures), Form's and /contact's
+red-900 / green-900 (each inside its own -50 box, measured passing by axe now),
+Slider's gray-700 on gray-200 (passing). Default-palette colours with a `none`
+component: only the Hero's `bg-neutral-900`, now `bg-dark`.
+
+**The gate now needs positive evidence, not the absence of an error.** The spec
+fails when any rule crashed (`error-occurred` anywhere in `incomplete`), and
+separately requires color-contrast to have PASSED at least one node — an empty
+`violations` cannot tell "all legible" from "never looked". Proven three ways:
+red on the unfixed Hero with axe's own parse message; green once fixed; red
+again on a Hero CTA set dust-on-white, at axe's measured 2.25:1. The CLI audit
+also catches that last one once the crash is gone, but it still counts a crashed
+rule as a pass — that fix belongs in reddoor-maintenance, not here:
+reddoor-maintenance#888.
+
+**Upstream.** reddoor-starter `main` carries the identical Hero, Field and spec,
+so every clone inherits the blind page: reddoor-starter#152, filed rather than a
+twin PR from this session because the Field fix picks a token value per palette.

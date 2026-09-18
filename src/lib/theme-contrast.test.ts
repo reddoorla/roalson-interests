@@ -28,7 +28,9 @@ import { describe, it, expect } from "vitest";
 const AA_NORMAL_TEXT = 4.5;
 
 /** Tokens the template renders as text on a LIGHT ground. */
-const LIGHT_GROUND_TEXT = ["secondary", "primary", "dark", "black"] as const;
+/** `error` joined 2026-09-18: Field's error and required-marker text, which
+ *  used Tailwind's red-600 outside the theme and measured 4.15:1 here. */
+const LIGHT_GROUND_TEXT = ["secondary", "primary", "dark", "black", "error"] as const;
 /** The light grounds those land on. */
 const LIGHT_GROUNDS = ["background", "white"] as const;
 
