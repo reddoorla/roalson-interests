@@ -661,3 +661,95 @@ copies exist, mostly hidden. Do not ship it.
 **Still true, unchanged:** the a11y gate measures no page of this site, and
 cannot fail on the nav logo in any case — `Nav.svelte` hardcodes `alt="Home"`
 and `SiteConfig.nav.logo` has no alt field at all.
+
+## 2026-09-17 — Stage A measured: the Figma file had 8 pages, no variables, three fonts and four sticky mechanisms (`docs/stage-a-inventory.md`)
+
+Stage A discovery for the build, run as five parallel reads. Full inventory in
+[docs/stage-a-inventory.md](stage-a-inventory.md); this entry records what was
+BELIEVED going in and what measurement did to it, because most of it was wrong.
+
+**The file has 8 pages, not 2 and not 5.** `get_metadata` with no nodeId lists
+two. The prior audit concluded "2 of 5". The document's own page collection
+reports eight, read directly rather than inferred. Two of the six invisible
+pages carried material findings — a superseded 390×7985 mobile Properties
+concept, and a "Site Plan" page that belongs to a different client entirely
+(its nav reads Home / About Us / Our Facility / 210 TACLabs / Contact Us). An
+inventory built off the `get_metadata` listing would have been built off a
+quarter of the file and would have taken that sitemap as ours.
+
+**There are no Figma variables at all.** Zero collections, zero variables. What
+`get_variable_defs` returns is the local _paint styles_, whose names are their
+own hex strings — `"#652323": "#652323"`. The skill's rule is to read tokens from
+`get_variable_defs` and never from a derived artifact; here that rule is
+satisfied only trivially, because there is no token layer to inherit. Every
+semantic name in `app.css` is ours. Worth recording precisely, because the rule
+reads like a guarantee and in this file it is a tautology. Also operational:
+`get_variable_defs` REFUSES a page/canvas node ("You currently have nothing
+selected") and must be called on a frame.
+
+**A third unlicensed font nobody had mentioned.** Area Normal was known. The
+footer address block turns out to be Helvetica Neue LT Std — 10 nodes, bound to
+no style, matching Body 2 exactly at 14/20 400. Page 2 of the file is the
+untouched wireframe kit and uses that family 1512 times; the block was pasted
+across and never restyled. It is comp drift, not a third intended face.
+
+**And the comp is lying about Area Normal.** `hasMissingFont` is true on all 82
+nodes and no Area family is installed in Figma, so those eyebrows render in a
+SUBSTITUTE. Their widths, and the 0.818 trim ratio measured off them, are the
+substitute's metrics. Anyone measuring the eyebrows off an exported PNG measures
+the same wrong thing. The family is `Area Normal`, style `Bold`; there is no
+family called "Area Normal Bold".
+
+**The cap-height trim is exactly 0.66em, and H6 is the trap.** Nine single-line
+Atkinson nodes from 10px to 66px all reduce to `round(0.66 × size)` after
+Figma's whole-pixel rounding, and the multi-line formula
+`(lines − 1) × lineHeight + round(0.66 × size)` reproduces four measured nodes
+with zero residual. The trap is that H6 — the file's most-used style at 185
+nodes, every nav link and every "Learn more" — is the ONLY label-sized style
+with trim NONE. So a gap read between an H6 link and an adjacent H5 label
+compares an 18px line box against an 8px cap-to-baseline box: 10px of difference
+at the same nominal 12px.
+
+**Sticky is four mechanisms, not one.** The navbar, the homepage hero (pinned at
+all three widths), the 800px photo band (collapsing to 240 on mobile) and the
+Properties category dividers all carry `STICKY_SCROLLS`. This is precisely the
+class the skill says costs nine PRs when it is found after the slices merge, and
+it was found before the first one.
+
+**The prototype encodes nothing about LEARN MORE.** Pulled from REST: the
+homepage has 361 nodes of which 10 carry interactions, Properties 575 of which
+5, and the complete list is hover swaps, carousel autoplay and arrows, a navbar
+timeout, and a resources disclosure whose overlay points at `destinationId:
+null`. Not one interaction on any LEARN MORE, map pin, PROFILE, CONTACT or nav
+link. That is a measured negative and it is worth more than the previous
+"unanswered", because it rules out the prototype as a source.
+
+**Figma comments ARE readable — via REST, not via the MCP.** The skill says
+comments are unreadable and to transcribe them by hand. They came back through
+the REST API, and one of them is the only positive evidence we have on the
+gating question: Erik, 2026-09-01, on the Properties frame, unresolved — "Make
+these links as short as possible for sharing." Hit-tested against the frame
+geometry, its anchor lands inside a property card's description block, where
+LEARN MORE sits. That is a routing requirement either way and it leans detail
+page, but it does not settle it.
+
+**Two of the brief's contrast claims are wrong.** The mobile hamburger is NOT a
+failure — it sits on a garnet ground at 5.11:1. The dust value-list items are
+NOT failures — they sit on the garnet gradient at 5.11–7.55:1. The real failure
+is the CONTACT US label on the light-ground navbar at 1.97:1, and the nav-link
+COMPONENT SPEC on the Components sheet carries the same defect one step earlier,
+so a nav built from the sheet rather than the page ships it. One new failure the
+brief missed: white on sand at 1.30:1, in the Concepts section.
+
+**Layer names on Properties are swapped.** The frame named `Improved` has a
+divider reading Land; the frame named `Land` reads Improved Projects; a second
+frame named `Land` is Sold. Read the dividers. And Sold is fully designed —
+which answers an open question — with a hidden map and a 3×2 grid instead of
+the map-plus-rows pattern.
+
+**Honest accounting.** None of the above came from the build brief, which is a
+transcription and was wrong or incomplete on the page count, the variables, the
+font count, two of three contrast claims, the slideshow dimensions (928 is its
+width, not its height) and the existence of the Sold section. The brief remains
+the best narrative of the project; it is not a measurement, and Stage B should
+treat the inventory as the measurement and the brief as context.
