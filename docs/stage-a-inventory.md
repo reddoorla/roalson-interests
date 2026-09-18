@@ -45,10 +45,9 @@ Three widths, two page archetypes, six deliverable frames — all on `Designs`:
 | Properties | `6903:1030` (h 5311.13) | `6992:1323` (h 5338.65) | `6992:2468` (h 3643.99) |
 
 **There is no tablet breakpoint.** Everything from ~400px to ~1279px is
-undesigned, and on Properties that gap is a genuine composition change (map 550
-
-- card column at 1280, vs map 512 + full-width side-by-side at 1440), not a
-  reflow.
+undesigned, and on Properties that gap is a genuine composition change — a
+550px map beside a card column at 1280, versus a 512px map and a full-width
+side-by-side at 1440 — not a reflow.
 
 **1280 may not be a designed breakpoint at all.** Homepage 1440 and 1280 have
 byte-identical heights (3701.652099609375) and identical section heights, while
