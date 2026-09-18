@@ -753,3 +753,57 @@ font count, two of three contrast claims, the slideshow dimensions (928 is its
 width, not its height) and the existence of the Sold section. The brief remains
 the best narrative of the project; it is not a measurement, and Stage B should
 treat the inventory as the measurement and the brief as context.
+
+## 2026-09-17 — Stage A approved, and the type ramp exists as a test rather than a table (`feat/type-foundation`)
+
+Four operator calls closed Stage A, and the first of them retires a question
+that has been open since the RFP.
+
+**LEARN MORE opens a property detail page.** `/properties/<uid>`. That is the
+gating question the brief, the memory and the inventory all record as blocking
+Stage A, and it is now answered: a `property` custom type, a detail route with
+its own `entries()`, an extended `linkResolver`, per-listing JSON-LD and sitemap
+entries, and the package PDF demoted from destination to a download on the page.
+The evidence that sharpened it was Erik's own unresolved Figma comment — "Make
+these links as short as possible for sharing" — recovered via the REST API and
+hit-tested to a property card's description block.
+
+**Area Normal is template bleed.** Tucker's call, and it generalises further
+than the question asked: Helvetica Neue LT Std has identical provenance — both
+pasted from the page-2 wireframe kit, both bound to no text style, both absent
+from Figma. Neither is design intent and neither gets licensed. The eyebrows
+take H5, which matches them in size and carries the same cap trim.
+
+**Filter state goes in the URL**, unlike the `/portfolio` prior art, via
+`replaceState` + `searchParams` read on mount — a prerendered route's `load`
+cannot see search params. **The nav overlay gets designed from the system**,
+because no open-menu state exists in the file at any width.
+
+**The ramp is now eight `t-*` utilities and a test that recomputes them.** The
+transcribed half — size, line-height, weight, tracking — is the comp's. The
+derived half is the negative block margin that undoes Figma's `leadingTrim:
+CAP_HEIGHT`, and that is the number that can be wrong without looking wrong.
+
+It WAS wrong. The inventory written four hours ago recorded H5's trim as 2.2px;
+it is 3.2px — `(14.4 − 8) / 2`. The other three values were right, which is
+exactly why nobody would have caught it: every eyebrow on the site would have
+sat one pixel high, uniformly, forever. `src/lib/type-ramp.test.ts` therefore
+recomputes each margin from the measured 0.66 cap ratio rather than comparing
+against a transcribed constant, so the only way to fool it is to make the same
+arithmetic error twice in two different forms.
+
+Proven by mutation both ways rather than asserted: restoring the wrong -2.2px
+fails with "Figma trims this style to a 8px cap box … app.css declares -2.2px",
+and adding a margin to untrimmed H6 fails with "leadingTrim: NONE in the comp".
+
+**A free fix taken while there.** `app.html` requested
+`Atkinson+Hyperlegible+Next:wght@400..600`, the three weights the comp uses.
+Measured: the css2 responses for `400..600` and for `200..800` point at the
+IDENTICAL woff2. The narrow range does not shrink the download — it only
+narrows the declared `font-weight` on the `@font-face`, so a 300 or 700
+introduced later is silently synthesised by the browser instead of failing
+visibly. Widened to the full axis at zero byte cost.
+
+**What is deliberately NOT in this batch.** No slice, no `property` type, no
+route. This is the foundation the skill says to author once before the first
+slice rather than re-derive per slice, and it is separable, so it ships alone.

@@ -206,6 +206,109 @@
   }
 }
 
+/* ───────────────────────────── Type ramp ─────────────────────────────
+   The comp's own eight text styles, transcribed from Figma and authored ONCE
+   here rather than re-derived per slice. Sizes, line-heights, weights and
+   tracking are the file's; the margins are the part that has to be computed.
+
+   WHY THE NEGATIVE MARGINS. Figma sets `leadingTrim: CAP_HEIGHT` on H1-H5,
+   which collapses a text box to cap-height-to-baseline and discards the
+   half-leading. Measured on this file: every trimmed single-line node reports
+   round(0.66 x fontSize), and multi-line nodes satisfy
+   `(lines - 1) x lineHeight + round(0.66 x fontSize)` with zero residual.
+   CSS does not do this — a line box is always `line-height` tall — so EVERY
+   vertical gap read off the comp next to one of these styles is measured
+   cap-to-baseline while CSS will add half the leading back above and below.
+   The margin removes exactly that: (lineHeight - round(0.66 x size)) / 2.
+
+   H6, Body 1 and Body 2 are `leadingTrim: NONE` in the file and get NO margin.
+   H6 is the trap: it is the most-used style in the comp (185 nodes — every nav
+   link and every "Learn more"), it is the ONLY label-sized style that is not
+   trimmed, and at 12px it reports an 18px box where H5 reports 8px. A gap
+   measured between an H6 link and an adjacent H5 label is comparing those two
+   numbers. Do not "tidy" H5 and H6 into one utility.
+
+   WHY NOT `text-box: trim-both cap alphabetic`, which is the semantically
+   correct mechanism and mirrors leadingTrim exactly: it would have to be paired
+   with these margins as a fallback, and a trim that applies in one browser and
+   not another is the "live on some routes, dead on others" shape this repo
+   already rejects in app.html. One mechanism, everywhere. Revisit when the
+   floor is high enough to drop the fallback entirely, and remove the margins in
+   the same commit — applying both double-trims. */
+
+@utility t-h1 {
+  font-family: var(--font-heading);
+  font-size: 66px;
+  line-height: 80px;
+  font-weight: 500;
+  letter-spacing: 0;
+  margin-block: -18px; /* (80 - 44) / 2 */
+}
+
+@utility t-h2 {
+  font-family: var(--font-heading);
+  font-size: 38px;
+  line-height: 48px;
+  font-weight: 500;
+  letter-spacing: 0;
+  margin-block: -11.5px; /* (48 - 25) / 2 */
+}
+
+@utility t-h3 {
+  font-family: var(--font-heading);
+  font-size: 24px;
+  line-height: 34.8px;
+  font-weight: 500;
+  letter-spacing: 0;
+  margin-block: -9.4px; /* (34.8 - 16) / 2 */
+}
+
+@utility t-h4 {
+  font-family: var(--font-heading);
+  font-size: 14px;
+  line-height: 25.2px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin-block: -8.1px; /* (25.2 - 9) / 2 */
+}
+
+@utility t-h5 {
+  font-family: var(--font-heading);
+  font-size: 12px;
+  line-height: 14.4px;
+  font-weight: 600;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin-block: -3.2px; /* (14.4 - 8) / 2 */
+}
+
+/* NOT trimmed in the comp — no margin. See the H6 note above. */
+@utility t-h6 {
+  font-family: var(--font-heading);
+  font-size: 12px;
+  line-height: 18px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+}
+
+@utility t-body-1 {
+  font-family: var(--font-body);
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+@utility t-body-2 {
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
 /* Layout hooks shared by the hand-authored slices (`.mt-media`, `.hero-band`,
    `.richtext-block`). Site-neutral; per-project type and colour come from the
    @theme tokens above. */

@@ -1,8 +1,34 @@
 # Stage A — inventory and the measuring stick
 
-**Status: PROPOSED, awaiting operator approval.** Nothing below is built. The
-measurements are facts; the slice inventory and the type/route mapping are
-proposals.
+**Status: APPROVED 2026-09-17** (operator: Tucker). The measurements are facts;
+the four design-judgment calls below were the operator's, and they are final —
+`/figma-slices` is explicit that a call the operator does not answer stays
+unanswered forever, so these are recorded here rather than in a chat log.
+
+### The four approved calls
+
+1. **LEARN MORE opens a property detail page.** `/properties/<uid>` per
+   listing, which is also what Erik's "as short as possible for sharing" asks
+   for. Consequences: a `property` custom type, a detail route with its own
+   `entries()`, `linkResolver` extended (4 tests), per-listing JSON-LD and
+   sitemap entries, and the package PDF becomes a download _on_ that page
+   rather than the destination. **This supersedes the open question the brief
+   and the memory both record as gating Stage A.**
+2. **Area Normal is template bleed, not design intent** — replace it with the
+   file's real text styles. The same reasoning applies to Helvetica Neue LT
+   Std, which has identical provenance (both pasted from the page-2 wireframe
+   kit, both bound to no style). Neither is licensed and neither will be
+   loaded. The eyebrows take H5, which matches them in size and is
+   cap-trimmed the same way.
+3. **Filter state lives in the URL** — shareable, bookmarkable filtered views,
+   which the `/portfolio` prior art deliberately does not do. Mechanism:
+   `replaceState` with `searchParams`, read **on mount** rather than in `load`,
+   because a prerendered route's `load` cannot see them. The unfiltered list
+   stays the no-JS fallback.
+4. **The nav overlay is designed from the system**, since no open-menu state
+   exists anywhere in the file at any width. Full-screen garnet overlay using
+   the `trapFocus` action and motion-aware transitions the repo already ships,
+   with type from the ramp below.
 
 Source: Figma `U5KIPY7HmZOQwqJXGGsEIl`, snapshot `lastModified 2026-09-17T17:20:53Z`
 — **the file was still being edited the same day this was measured**, so treat
@@ -133,8 +159,14 @@ an 18px full line box against an 8–9px cap-to-baseline box. At 12px those diff
 by 10px of reported height at the same nominal size.
 
 Every gap adjacent to a CAP_HEIGHT node needs `(lineHeight − 0.66 × fontSize)`
-added back, split above and below, before it becomes a CSS margin: **2.2px per
+added back, split above and below, before it becomes a CSS margin: **3.2px per
 side at 12px H5, 8.1px at 14px H4, 9.4px at 24px H3, 18px at 66px H1.**
+
+> **Corrected 2026-09-17.** This line first read "2.2px per side at 12px H5".
+> It is 3.2px: `(14.4 − 8) / 2`. The other three were right. The wrong value
+> would have sat every eyebrow on the site 1px low, and nothing would have
+> caught it — which is why `src/lib/type-ramp.test.ts` now recomputes the trim
+> from the cap ratio instead of trusting a transcribed number.
 
 These belong in `app.css` as `t-*` utilities, authored once before the first
 slice — not re-derived per slice.
