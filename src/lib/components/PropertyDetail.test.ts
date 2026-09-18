@@ -14,6 +14,22 @@ describe("PropertyDetail", () => {
     expect(h1s[0].textContent).toBe("25331 IH 10 West");
   });
 
+  it("gives the panel the full width when a listing has no photo — the common case", () => {
+    const { container, queryByRole } = render(PropertyDetail, {
+      props: { property: propertyFixture({ feature_image: {} }) },
+    });
+    expect(queryByRole("img")).toBeNull();
+    expect(container.querySelector(".lg\\:grid-cols-2")).toBeNull();
+  });
+
+  it("sets the photo beside the panel when there is one", () => {
+    const { container, getByRole } = render(PropertyDetail, {
+      props: { property: propertyFixture() },
+    });
+    expect(getByRole("img").getAttribute("alt")).toContain("limestone office building");
+    expect(container.querySelector(".lg\\:grid-cols-2")).not.toBeNull();
+  });
+
   it("links back to the listing", () => {
     const { getByRole } = render(PropertyDetail, { props: { property: propertyFixture() } });
     expect(getByRole("link", { name: "All properties" }).getAttribute("href")).toBe("/properties");

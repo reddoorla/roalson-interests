@@ -38,6 +38,7 @@
   const tracts = $derived(propertyTracts(property));
   const pkg = $derived(propertyPackage(property));
   const map = $derived(mapsUrl(property));
+  const hasPhoto = $derived(isFilled.image(data.feature_image));
 </script>
 
 <article
@@ -49,10 +50,13 @@
     All properties
   </a>
 
-  <div class="mt-10 grid lg:grid-cols-2">
-    <!-- The card's photo box, 423.5 × 267.5 in the comp. -->
-    <div class="aspect-[423.5/267.5] overflow-hidden bg-light">
-      {#if isFilled.image(data.feature_image)}
+  <!-- Without a photo the panel takes the full width rather than sitting
+       beside an empty box: only three real client photos exist for the 22
+       listings, so no-photo is the COMMON case, not an edge. -->
+  <div class="mt-10 grid {hasPhoto ? 'lg:grid-cols-2' : ''}">
+    {#if hasPhoto}
+      <!-- The card's photo box, 423.5 × 267.5 in the comp. -->
+      <div class="aspect-[423.5/267.5] overflow-hidden bg-light">
         <PrismicImage
           field={data.feature_image}
           fallbackAlt=""
@@ -60,8 +64,8 @@
           sizes="(min-width: 1024px) 50vw, 100vw"
           class="size-full object-cover"
         />
-      {/if}
-    </div>
+      </div>
+    {/if}
 
     <div class="flex flex-col gap-5 bg-light px-5 pt-5 pb-10 lg:px-10 lg:pt-10">
       {#if data.category || data.is_new || status}
