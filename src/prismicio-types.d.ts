@@ -66,6 +66,86 @@ type ContentRelationshipFieldWithData<
   >;
 }[Exclude<TCustomType[number], string>["id"]];
 
+/**
+ * Item in *form replies → replies*
+ */
+export interface FormRepliesDocumentDataRepliesItem {
+  /**
+   * form field in *form replies → replies*
+   *
+   * - **Field Type**: Select
+   * - **Placeholder**: Pick the form this reply answers — one row per form
+   * - **API ID Path**: form_replies.replies[].form_type
+   * - **Documentation**: https://prismic.io/docs/fields/select
+   */
+  form_type: prismic.SelectField<
+    "contact" | "inquiry" | "newsletter" | "rsvp" | "reserve"
+  >;
+
+  /**
+   * subject field in *form replies → replies*
+   *
+   * - **Field Type**: Text
+   * - **Placeholder**: Subject line of the email the visitor receives
+   * - **API ID Path**: form_replies.replies[].subject
+   * - **Documentation**: https://prismic.io/docs/fields/text
+   */
+  subject: prismic.KeyTextField;
+
+  /**
+   * body field in *form replies → replies*
+   *
+   * - **Field Type**: Rich Text
+   * - **Placeholder**: What the visitor reads. Bold, italic, links and lists are sent; other formatting is not.
+   * - **API ID Path**: form_replies.replies[].body
+   * - **Documentation**: https://prismic.io/docs/fields/rich-text
+   */
+  body: prismic.RichTextField;
+}
+
+/**
+ * Content for form replies documents
+ */
+interface FormRepliesDocumentData {
+  /**
+   * replies field in *form replies*
+   *
+   * - **Field Type**: Group
+   * - **Placeholder**: *None*
+   * - **API ID Path**: form_replies.replies[]
+   * - **Tab**: Main
+   * - **Documentation**: https://prismic.io/docs/fields/repeatable-group
+   */
+  replies: prismic.GroupField<Simplify<FormRepliesDocumentDataRepliesItem>>;
+
+  /**
+   * signature field in *form replies*
+   *
+   * - **Field Type**: Rich Text
+   * - **Placeholder**: Sign-off appended to every reply, whatever the form
+   * - **API ID Path**: form_replies.signature
+   * - **Tab**: Main
+   * - **Documentation**: https://prismic.io/docs/fields/rich-text
+   */
+  signature: prismic.RichTextField;
+}
+
+/**
+ * form replies document from Prismic
+ *
+ * - **API ID**: `form_replies`
+ * - **Repeatable**: `false`
+ * - **Documentation**: https://prismic.io/docs/content-modeling
+ *
+ * @typeParam Lang - Language API ID of the document.
+ */
+export type FormRepliesDocument<Lang extends string = string> =
+  prismic.PrismicDocumentWithoutUID<
+    Simplify<FormRepliesDocumentData>,
+    "form_replies",
+    Lang
+  >;
+
 type PageDocumentDataSlicesSlice =
   | LeadTextSlice
   | TextColumnsSlice
@@ -147,7 +227,339 @@ interface PageDocumentData {
 export type PageDocument<Lang extends string = string> =
   prismic.PrismicDocumentWithUID<Simplify<PageDocumentData>, "page", Lang>;
 
-export type AllDocumentTypes = PageDocument;
+/**
+ * Item in *Property → Highlights*
+ */
+export interface PropertyDocumentDataHighlightsItem {
+  /**
+   * Highlight field in *Property → Highlights*
+   *
+   * - **Field Type**: Text
+   * - **Placeholder**: One short line — the first two show on the card
+   * - **API ID Path**: property.highlights[].text
+   * - **Documentation**: https://prismic.io/docs/fields/text
+   */
+  text: prismic.KeyTextField;
+}
+
+/**
+ * Item in *Property → Tracts*
+ */
+export interface PropertyDocumentDataTractsItem {
+  /**
+   * Tract field in *Property → Tracts*
+   *
+   * - **Field Type**: Text
+   * - **Placeholder**: e.g. Tract 1
+   * - **API ID Path**: property.tracts[].tract_name
+   * - **Documentation**: https://prismic.io/docs/fields/text
+   */
+  tract_name: prismic.KeyTextField;
+
+  /**
+   * Acres field in *Property → Tracts*
+   *
+   * - **Field Type**: Number
+   * - **Placeholder**: e.g. 0.721
+   * - **API ID Path**: property.tracts[].tract_acres
+   * - **Documentation**: https://prismic.io/docs/fields/number
+   */
+  tract_acres: prismic.NumberField;
+
+  /**
+   * Status field in *Property → Tracts*
+   *
+   * - **Field Type**: Select
+   * - **Placeholder**: *None*
+   * - **Default Value**: Available
+   * - **API ID Path**: property.tracts[].tract_status
+   * - **Documentation**: https://prismic.io/docs/fields/select
+   */
+  tract_status: prismic.SelectField<
+    "Available" | "Under Contract" | "Sold",
+    "filled"
+  >;
+}
+
+/**
+ * Content for Property documents
+ */
+interface PropertyDocumentData {
+  /**
+   * Property name field in *Property*
+   *
+   * - **Field Type**: Text
+   * - **Placeholder**: Usually the address, e.g. 25331 IH 10 West
+   * - **API ID Path**: property.title
+   * - **Tab**: Main
+   * - **Documentation**: https://prismic.io/docs/fields/text
+   */
+  title: prismic.KeyTextField;
+
+  /**
+   * Category field in *Property*
+   *
+   * - **Field Type**: Select
+   * - **Placeholder**: Which Properties section this listing belongs to
+   * - **API ID Path**: property.category
+   * - **Tab**: Main
+   * - **Documentation**: https://prismic.io/docs/fields/select
+   */
+  category: prismic.SelectField<
+    "Improved" | "Land — SA Metro & Surrounding" | "Land — Out of San Antonio"
+  >;
+
+  /**
+   * Status field in *Property*
+   *
+   * - **Field Type**: Select
+   * - **Placeholder**: Sold listings move to the Sold section and leave search results
+   * - **Default Value**: Available
+   * - **API ID Path**: property.status
+   * - **Tab**: Main
+   * - **Documentation**: https://prismic.io/docs/fields/select
+   */
+  status: prismic.SelectField<
+    "Available" | "Under Contract" | "Sold",
+    "filled"
+  >;
+
+  /**
+   * New listing field in *Property*
+   *
+   * - **Field Type**: Boolean
+   * - **Placeholder**: *None*
+   * - **Default Value**: false
+   * - **API ID Path**: property.is_new
+   * - **Tab**: Main
+   * - **Documentation**: https://prismic.io/docs/fields/boolean
+   */
+  is_new: prismic.BooleanField;
+
+  /**
+   * Order within its section (lowest first; empty sorts last) field in *Property*
+   *
+   * - **Field Type**: Number
+   * - **Placeholder**: e.g. 1
+   * - **API ID Path**: property.order
+   * - **Tab**: Main
+   * - **Documentation**: https://prismic.io/docs/fields/number
+   */
+  order: prismic.NumberField;
+
+  /**
+   * Size line field in *Property*
+   *
+   * - **Field Type**: Text
+   * - **Placeholder**: The line above the name on the card, e.g. Up to 16,700 SF
+   * - **API ID Path**: property.size_label
+   * - **Tab**: Main
+   * - **Documentation**: https://prismic.io/docs/fields/text
+   */
+  size_label: prismic.KeyTextField;
+
+  /**
+   * Feature image field in *Property*
+   *
+   * - **Field Type**: Image
+   * - **Placeholder**: *None*
+   * - **API ID Path**: property.feature_image
+   * - **Tab**: Main
+   * - **Documentation**: https://prismic.io/docs/fields/image
+   */
+  feature_image: prismic.ImageField<never>;
+
+  /**
+   * Highlights field in *Property*
+   *
+   * - **Field Type**: Group
+   * - **Placeholder**: *None*
+   * - **API ID Path**: property.highlights[]
+   * - **Tab**: Main
+   * - **Documentation**: https://prismic.io/docs/fields/repeatable-group
+   */
+  highlights: prismic.GroupField<Simplify<PropertyDocumentDataHighlightsItem>>;
+
+  /**
+   * Property package (PDF) field in *Property*
+   *
+   * - **Field Type**: Link to Media
+   * - **Placeholder**: Upload the package PDF — it downloads from the property page
+   * - **API ID Path**: property.package_pdf
+   * - **Tab**: Main
+   * - **Documentation**: https://prismic.io/docs/fields/link-to-media
+   */
+  package_pdf: prismic.LinkToMediaField<prismic.FieldState, never>;
+
+  /**
+   * Map pin field in *Property*
+   *
+   * - **Field Type**: GeoPoint
+   * - **Placeholder**: *None*
+   * - **API ID Path**: property.location
+   * - **Tab**: Main
+   * - **Documentation**: https://prismic.io/docs/fields/geopoint
+   */
+  location: prismic.GeoPointField; /**
+   * Offered for field in *Property*
+   *
+   * - **Field Type**: Select
+   * - **Placeholder**: *None*
+   * - **API ID Path**: property.transaction_type
+   * - **Tab**: Details
+   * - **Documentation**: https://prismic.io/docs/fields/select
+   */
+  transaction_type: prismic.SelectField<"Sale" | "Lease" | "Sale or Lease">;
+
+  /**
+   * Total price field in *Property*
+   *
+   * - **Field Type**: Text
+   * - **Placeholder**: e.g. $1,250,000 — or Contact Broker
+   * - **API ID Path**: property.total_price
+   * - **Tab**: Details
+   * - **Documentation**: https://prismic.io/docs/fields/text
+   */
+  total_price: prismic.KeyTextField;
+
+  /**
+   * Price per SF or acre field in *Property*
+   *
+   * - **Field Type**: Text
+   * - **Placeholder**: Include the unit, e.g. $8.50 / SF or $375,000 / acre
+   * - **API ID Path**: property.price_per_unit
+   * - **Tab**: Details
+   * - **Documentation**: https://prismic.io/docs/fields/text
+   */
+  price_per_unit: prismic.KeyTextField;
+
+  /**
+   * Total building SF field in *Property*
+   *
+   * - **Field Type**: Number
+   * - **Placeholder**: e.g. 16700
+   * - **API ID Path**: property.size_total_sf
+   * - **Tab**: Details
+   * - **Documentation**: https://prismic.io/docs/fields/number
+   */
+  size_total_sf: prismic.NumberField;
+
+  /**
+   * Office SF field in *Property*
+   *
+   * - **Field Type**: Number
+   * - **Placeholder**: e.g. 1340
+   * - **API ID Path**: property.size_office_sf
+   * - **Tab**: Details
+   * - **Documentation**: https://prismic.io/docs/fields/number
+   */
+  size_office_sf: prismic.NumberField;
+
+  /**
+   * Retail SF field in *Property*
+   *
+   * - **Field Type**: Number
+   * - **Placeholder**: e.g. 4000
+   * - **API ID Path**: property.size_retail_sf
+   * - **Tab**: Details
+   * - **Documentation**: https://prismic.io/docs/fields/number
+   */
+  size_retail_sf: prismic.NumberField;
+
+  /**
+   * Warehouse SF field in *Property*
+   *
+   * - **Field Type**: Number
+   * - **Placeholder**: e.g. 2890
+   * - **API ID Path**: property.size_warehouse_sf
+   * - **Tab**: Details
+   * - **Documentation**: https://prismic.io/docs/fields/number
+   */
+  size_warehouse_sf: prismic.NumberField;
+
+  /**
+   * Total acres field in *Property*
+   *
+   * - **Field Type**: Number
+   * - **Placeholder**: e.g. 2.09
+   * - **API ID Path**: property.acres
+   * - **Tab**: Details
+   * - **Documentation**: https://prismic.io/docs/fields/number
+   */
+  acres: prismic.NumberField;
+
+  /**
+   * Tracts field in *Property*
+   *
+   * - **Field Type**: Group
+   * - **Placeholder**: *None*
+   * - **API ID Path**: property.tracts[]
+   * - **Tab**: Details
+   * - **Documentation**: https://prismic.io/docs/fields/repeatable-group
+   */
+  tracts: prismic.GroupField<Simplify<PropertyDocumentDataTractsItem>>;
+
+  /**
+   * Zoning field in *Property*
+   *
+   * - **Field Type**: Text
+   * - **Placeholder**: Zone and jurisdiction, e.g. C-3, City of Boerne
+   * - **API ID Path**: property.zoning
+   * - **Tab**: Details
+   * - **Documentation**: https://prismic.io/docs/fields/text
+   */
+  zoning: prismic.KeyTextField; /**
+   * Meta Title field in *Property*
+   *
+   * - **Field Type**: Text
+   * - **Placeholder**: Leave empty to use the property name
+   * - **API ID Path**: property.meta_title
+   * - **Tab**: SEO & Metadata
+   * - **Documentation**: https://prismic.io/docs/fields/text
+   */
+  meta_title: prismic.KeyTextField;
+
+  /**
+   * Meta Description field in *Property*
+   *
+   * - **Field Type**: Text
+   * - **Placeholder**: Leave empty to use the size line and highlights
+   * - **API ID Path**: property.meta_description
+   * - **Tab**: SEO & Metadata
+   * - **Documentation**: https://prismic.io/docs/fields/text
+   */
+  meta_description: prismic.KeyTextField;
+
+  /**
+   * Meta Image field in *Property*
+   *
+   * - **Field Type**: Image
+   * - **Placeholder**: *None*
+   * - **API ID Path**: property.meta_image
+   * - **Tab**: SEO & Metadata
+   * - **Documentation**: https://prismic.io/docs/fields/image
+   */
+  meta_image: prismic.ImageField<never>;
+}
+
+/**
+ * Property document from Prismic
+ *
+ * - **API ID**: `property`
+ * - **Repeatable**: `true`
+ * - **Documentation**: https://prismic.io/docs/content-modeling
+ *
+ * @typeParam Lang - Language API ID of the document.
+ */
+export type PropertyDocument<Lang extends string = string> =
+  prismic.PrismicDocumentWithUID<
+    Simplify<PropertyDocumentData>,
+    "property",
+    Lang
+  >;
+
+export type AllDocumentTypes =
+  FormRepliesDocument | PageDocument | PropertyDocument;
 
 /**
  * Item in *Accordion → Default → Primary → items*
@@ -930,9 +1342,16 @@ declare module "@prismicio/client" {
 
   namespace Content {
     export type {
+      FormRepliesDocument,
+      FormRepliesDocumentData,
+      FormRepliesDocumentDataRepliesItem,
       PageDocument,
       PageDocumentData,
       PageDocumentDataSlicesSlice,
+      PropertyDocument,
+      PropertyDocumentData,
+      PropertyDocumentDataHighlightsItem,
+      PropertyDocumentDataTractsItem,
       AllDocumentTypes,
       AccordionSlice,
       AccordionSliceDefaultPrimaryItemsItem,

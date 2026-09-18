@@ -1,0 +1,226 @@
+{
+  "id": "property",
+  "label": "Property",
+  "format": "page",
+  "repeatable": true,
+  "status": true,
+  "json": {
+    "Main": {
+      "uid": {
+        "type": "UID",
+        "config": {
+          "label": "URL slug",
+          "placeholder": "Keep it short — this is the link people share, e.g. 25331-ih-10-west"
+        }
+      },
+      "title": {
+        "type": "Text",
+        "config": {
+          "label": "Property name",
+          "placeholder": "Usually the address, e.g. 25331 IH 10 West"
+        }
+      },
+      "category": {
+        "type": "Select",
+        "config": {
+          "label": "Category",
+          "placeholder": "Which Properties section this listing belongs to",
+          "options": ["Improved", "Land — SA Metro & Surrounding", "Land — Out of San Antonio"]
+        }
+      },
+      "status": {
+        "type": "Select",
+        "config": {
+          "label": "Status",
+          "placeholder": "Sold listings move to the Sold section and leave search results",
+          "options": ["Available", "Under Contract", "Sold"],
+          "default_value": "Available"
+        }
+      },
+      "is_new": {
+        "type": "Boolean",
+        "config": {
+          "label": "New listing",
+          "placeholder_false": "Not marked new",
+          "placeholder_true": "Marked NEW",
+          "default_value": false
+        }
+      },
+      "order": {
+        "type": "Number",
+        "config": {
+          "label": "Order within its section (lowest first; empty sorts last)",
+          "placeholder": "e.g. 1"
+        }
+      },
+      "size_label": {
+        "type": "Text",
+        "config": {
+          "label": "Size line",
+          "placeholder": "The line above the name on the card, e.g. Up to 16,700 SF"
+        }
+      },
+      "feature_image": {
+        "type": "Image",
+        "config": {
+          "label": "Feature image",
+          "constraint": {},
+          "thumbnails": []
+        }
+      },
+      "highlights": {
+        "type": "Group",
+        "config": {
+          "label": "Highlights",
+          "repeat": true,
+          "fields": {
+            "text": {
+              "type": "Text",
+              "config": {
+                "label": "Highlight",
+                "placeholder": "One short line — the first two show on the card"
+              }
+            }
+          }
+        }
+      },
+      "package_pdf": {
+        "type": "Link",
+        "config": {
+          "label": "Property package (PDF)",
+          "select": "media",
+          "placeholder": "Upload the package PDF — it downloads from the property page"
+        }
+      },
+      "location": {
+        "type": "GeoPoint",
+        "config": {
+          "label": "Map pin"
+        }
+      }
+    },
+    "Details": {
+      "transaction_type": {
+        "type": "Select",
+        "config": {
+          "label": "Offered for",
+          "options": ["Sale", "Lease", "Sale or Lease"]
+        }
+      },
+      "total_price": {
+        "type": "Text",
+        "config": {
+          "label": "Total price",
+          "placeholder": "e.g. $1,250,000 — or Contact Broker"
+        }
+      },
+      "price_per_unit": {
+        "type": "Text",
+        "config": {
+          "label": "Price per SF or acre",
+          "placeholder": "Include the unit, e.g. $8.50 / SF or $375,000 / acre"
+        }
+      },
+      "size_total_sf": {
+        "type": "Number",
+        "config": {
+          "label": "Total building SF",
+          "placeholder": "e.g. 16700"
+        }
+      },
+      "size_office_sf": {
+        "type": "Number",
+        "config": {
+          "label": "Office SF",
+          "placeholder": "e.g. 1340"
+        }
+      },
+      "size_retail_sf": {
+        "type": "Number",
+        "config": {
+          "label": "Retail SF",
+          "placeholder": "e.g. 4000"
+        }
+      },
+      "size_warehouse_sf": {
+        "type": "Number",
+        "config": {
+          "label": "Warehouse SF",
+          "placeholder": "e.g. 2890"
+        }
+      },
+      "acres": {
+        "type": "Number",
+        "config": {
+          "label": "Total acres",
+          "placeholder": "e.g. 2.09"
+        }
+      },
+      "tracts": {
+        "type": "Group",
+        "config": {
+          "label": "Tracts",
+          "repeat": true,
+          "fields": {
+            "tract_name": {
+              "type": "Text",
+              "config": {
+                "label": "Tract",
+                "placeholder": "e.g. Tract 1"
+              }
+            },
+            "tract_acres": {
+              "type": "Number",
+              "config": {
+                "label": "Acres",
+                "placeholder": "e.g. 0.721"
+              }
+            },
+            "tract_status": {
+              "type": "Select",
+              "config": {
+                "label": "Status",
+                "options": ["Available", "Under Contract", "Sold"],
+                "default_value": "Available"
+              }
+            }
+          }
+        }
+      },
+      "zoning": {
+        "type": "Text",
+        "config": {
+          "label": "Zoning",
+          "placeholder": "Zone and jurisdiction, e.g. C-3, City of Boerne"
+        }
+      }
+    },
+    "SEO & Metadata": {
+      "meta_title": {
+        "type": "Text",
+        "config": {
+          "label": "Meta Title",
+          "placeholder": "Leave empty to use the property name"
+        }
+      },
+      "meta_description": {
+        "type": "Text",
+        "config": {
+          "label": "Meta Description",
+          "placeholder": "Leave empty to use the size line and highlights"
+        }
+      },
+      "meta_image": {
+        "type": "Image",
+        "config": {
+          "label": "Meta Image",
+          "constraint": {
+            "width": 2400,
+            "height": 1260
+          },
+          "thumbnails": []
+        }
+      }
+    }
+  }
+}

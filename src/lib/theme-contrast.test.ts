@@ -31,27 +31,30 @@ const AA_NORMAL_TEXT = 4.5;
 /** `error` joined 2026-09-18: Field's error and required-marker text, which
  *  used Tailwind's red-600 outside the theme and measured 4.15:1 here. */
 const LIGHT_GROUND_TEXT = ["secondary", "primary", "dark", "black", "error"] as const;
-/** The light grounds those land on. */
-const LIGHT_GROUNDS = ["background", "white"] as const;
+/** The light grounds those land on. `light` (sand) joined on 2026-09-18: the
+ *  property page's panel is the comp's sand card, and it carries secondary and
+ *  garnet text — see the note below, which predicted exactly this. */
+const LIGHT_GROUNDS = ["background", "white", "light"] as const;
 
-/** Tokens the template renders as text on a DARK ground. */
-const DARK_GROUND_TEXT = ["white"] as const;
+/** Tokens the template renders as text on a DARK ground. `dust` is the comp's
+ *  button-hover text on a garnet fill, and `light` (sand) the status badges on
+ *  garnet — both are text ONLY on dark grounds, where they measure 5.11:1 and
+ *  8.87:1 on garnet. Neither may appear as text on a light ground. */
+const DARK_GROUND_TEXT = ["white", "dust", "light"] as const;
 /** The dark grounds those land on. */
 const DARK_GROUNDS = ["primary", "dark", "black"] as const;
 
 /**
- * `bg-light` is deliberately NOT in LIGHT_GROUNDS. It is a ground the template
- * uses (17 occurrences), but no component currently puts a `text-*` token
- * inside one — in the only file where both appear, `/dev/animate-in`, they are
- * siblings. Asserting the pair today would fail the template's own placeholder
- * palette, where `secondary` #6b7280 on `light` #e5e7eb measures 3.90:1.
- *
- * That measurement is the point of this comment rather than a reason to ignore
- * it: the pair is one nesting away from being real, and it is already below AA
- * in the shipped defaults. If you put secondary text on `bg-light`, add "light"
- * to LIGHT_GROUNDS and fix whichever value then fails.
+ * `bg-light` was deliberately left OUT of LIGHT_GROUNDS until something put text
+ * inside it, with this warning: "the pair is one nesting away from being real,
+ * and it is already below AA in the shipped defaults. If you put secondary text
+ * on `bg-light`, add "light" to LIGHT_GROUNDS and fix whichever value then
+ * fails." PropertyDetail.svelte is that nesting (roalson-interests, 2026-09-18),
+ * so it is in. Against this site's palette nothing failed: secondary on sand
+ * measures 4.80:1, garnet 8.87:1. (The template's placeholder palette still
+ * fails it at 3.90:1 — a clone that keeps those defaults and renders the
+ * property page would learn so here.)
  */
-const KNOWN_UNCOMPOSED_GROUND = "light";
 
 type Rgb = [number, number, number];
 
@@ -171,6 +174,5 @@ describe("theme contrast", () => {
     ).toEqual([]);
     // Guard the guard: if this found nothing at all, the scan is broken.
     expect(found.size).toBeGreaterThan(0);
-    expect(KNOWN_UNCOMPOSED_GROUND).toBe("light");
   });
 });

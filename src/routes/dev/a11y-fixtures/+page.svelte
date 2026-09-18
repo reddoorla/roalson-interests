@@ -19,6 +19,8 @@
   import TextColumns from "$lib/slices/TextColumns/index.svelte";
   import Testimonial from "$lib/slices/Testimonial/index.svelte";
   import CtaBanner from "$lib/slices/CtaBanner/index.svelte";
+  import PropertyDetail from "$lib/components/PropertyDetail.svelte";
+  import { propertyFixture } from "$lib/property-fixture";
   // Aliased: `Accordion` above is the primitive ($lib/components/Accordion.svelte).
   import AccordionSlice from "$lib/slices/Accordion/index.svelte";
   import type { ComponentProps } from "svelte";
@@ -392,6 +394,13 @@
   <AccordionSlice slice={accordionFixture} />
   <Testimonial slice={testimonialFixture} />
   <CtaBanner slice={ctaBannerFixture} />
+
+  <!-- The property page's body. It renders its own <h1> (it is the page on
+       /properties/<uid>), so this page carries two; axe has no rule against
+       that, and the gate is here for the component's contrast, names and
+       table semantics. Under Contract + the fixture's NEW flag render both
+       garnet badges; Sold uses the same markup. -->
+  <PropertyDetail property={propertyFixture({ status: "Under Contract" })} />
 </main>
 
 <!-- Renders nothing at rest (overlay only appears mid-navigation, aria-hidden);

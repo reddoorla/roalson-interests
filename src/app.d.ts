@@ -19,6 +19,11 @@ declare global {
             }
         )[];
       }[];
+      /** A route asking to be kept out of search while staying reachable —
+       * a sold listing. The layout ORs it with NOINDEX_PREFIXES. */
+      noindex?: boolean;
+      /** Structured data for this route, serialized by <Seo> into JSON-LD. */
+      jsonLd?: object | object[];
     }
     // interface Platform {}
   }
