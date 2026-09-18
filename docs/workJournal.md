@@ -572,3 +572,92 @@ now made by something that will fail out loud.
 
 Nothing else changed. The a11y gate still measures no page of this site; that
 remains true until the Prismic sentinel is replaced and a home document exists.
+
+## 2026-09-17 — The nav wordmark is a real file now; the favicon mark is not shippable and the comps carry watermarked stock (`feat/brand-nav-logo`)
+
+Three of the four "template-default brand assets" named in the bootstrap entry
+were chased down today. One is fixed, one is blocked on a real asset, one does
+not exist anywhere, and the search turned up a launch blocker that has nothing
+to do with logos.
+
+**Dropbox is not a source, and the earlier note about it was wrong twice.** The
+folder is at `~/Reddoor Creative Dropbox/Clients/Roalson Interests` — NOT
+`~/Dropbox`, which points at the personal account and has no Clients folder, so
+a future session checking there will wrongly conclude the client folder is
+missing. All 238 files are unhydrated online-only placeholders: `find -type f`
+returns 238 and `find -type f ! -size 0` returns 0, and reading a file does not
+hydrate it (`cat … | wc -c` → 0, still 0 bytes afterwards). The earlier claim
+that the API token had EXPIRED was also wrong: there is no Dropbox credential on
+this machine at all — a key-name enumeration of `credentials.env` returns 26
+keys and none matches `*DROPBOX*`. Nothing should be built that reads from that
+folder.
+
+What Dropbox _does_ still tell us, from filenames alone, is that the real vector
+masters exist: `01_Logos/FINAL/{SVG,PNG,AI,PDF,JPG}`, 11 variants — RI Logo in
+Coal / Dust / Garnet / Olive / White, RI Wordmark in Coal, Coal_Dust, Dust,
+Garnet_Dust, Olive_Dust, White. Hydrating just `FINAL/SVG` in Finder
+("Make available offline") needs no token and unblocks the rest of this.
+
+**The nav wordmark shipped, composed from Figma's own vector paths.** Figma
+export works (verified by downloading bytes and decoding them, not by a 200).
+`6788:3778` "RI Wordmark Garnet_Dust" is the master the real navbar uses — 10 of
+its 11 instances are at 145 × 46.65 inside `6909:1859` "navbar garnet". Two
+traps in getting a clean file out of it:
+
+- the whole-node SVG export is **not transparent**. It opens with
+  `<rect width="383" height="123" fill="#909090"/>` and also drags in the parent
+  Components frame's `1191×1822` `#F1F6F7` rect. Both were stripped; the check is
+  that no `#909090` or `#F1F6F7` fill survives, leaving only `#652323` and
+  `#B2AC9F`.
+- the PNG export bakes that same `#F1F6F7` ground in. That is a **cool**
+  near-white and this site's ground is `#F2EFE9`, a warm cream — so the PNG
+  would have shown a visible rectangle behind the logo. Rendering the stripped
+  SVG onto `#F2EFE9` is how that was confirmed rather than assumed.
+
+`static/logo.svg` is those paths at 383 × 123, no background, no script, no
+external reference. `nav.logo.maxWidth` is set to `145px` to record the comp's
+intent; it does not bind today, because `Nav.svelte` renders `h-8 w-auto` (32px
+tall → ~99.5px wide at this 3.11:1 ratio). Sizing the nav to the comp is
+/figma-slices work, not a data change.
+
+**The favicon was NOT shipped, deliberately.** `6788:3779` "RI Logo Garnet" is
+the cutout mark, and its letterforms bleed off the artboard by design — the R's
+left stem is flush at x=0 and both letters run off the bottom. That is correct
+at 451px in the hero, where the cityscape shows through the counters. Rendered
+at favicon size it reads as a sliced-off shape, not "Ri"; this was confirmed by
+looking at the 440×440 export, not inferred from the geometry. So
+`static/favicon.png` is still the SvelteKit skeleton (128×128, 8-bit gray,
+byte-identical to the starter's). The fix is the real bounded master in
+Dropbox's `01_Logos/FINAL/SVG`, not a cropped Figma artboard, and not something
+to quietly "correct" by adding padding to someone's logo.
+
+**No OG card exists.** Grepping both Figma pages for `width="1200"` and
+`height="630"` returns zero hits — there is no social card artboard in the file.
+`6788:3777` (the wordmark reversed out of garnet) is the only garnet-field
+artboard and the obvious base, but it is 382 × 123 at 3.1:1, so a card has to be
+composed, not exported. This matters more than it sounds: static OG images are
+never resized by this stack — `imgix()` returns the URL unchanged for anything
+that is not `images.prismic.io`, so the committed file must be exactly
+1200 × 630. "We have a logo" is not "we have an OG card".
+
+**Launch blocker, unrelated to logos: the comps use watermarked stock.** 38
+stock-named nodes across 9 distinct files on the Designs page. Four are iStock
+comps — `istockphoto-1183992646-640_adpp_is` and three siblings — where the
+`_adpp_is` suffix and 640px width mark them as watermarked preview downloads,
+and the Getty watermark is plainly visible across the hero. Five more are
+Unsplash. This repo's own history is explicit about why this gets an issue and
+not a code comment: on a previous site a note about unlicensed placeholder
+photography sat in a comment for four days and became the largest launch
+blocker, because a comment is in neither an issue nor the "what is NOT done"
+list, which are the two places a launch sweep reads.
+
+**One decoy worth naming.** `4840:64` "AATI-full logo 1" is named like a logo
+and sized like a nav lockup (164.91 × 28.04, 5.88:1), and it is an **empty
+frame** — a screenshot of its twin returns a 1×1 PNG. "AATI" is a different
+brand, left over from the wireframe kit this file was started from; the masthead
+still contains hidden text reading "Welcome to your new wireframe kit". Twelve
+copies exist, mostly hidden. Do not ship it.
+
+**Still true, unchanged:** the a11y gate measures no page of this site, and
+cannot fail on the nav logo in any case — `Nav.svelte` hardcodes `alt="Home"`
+and `SiteConfig.nav.logo` has no alt field at all.

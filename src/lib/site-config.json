@@ -1,4 +1,7 @@
 {
-  "nav": { "items": [] },
+  "nav": {
+    "logo": { "url": "/logo.svg", "maxWidth": "145px" },
+    "items": []
+  },
   "footer": { "socials": [], "owner": "Roalson Interests" }
 }
