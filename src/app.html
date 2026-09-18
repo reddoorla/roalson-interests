@@ -15,12 +15,19 @@
          `onload="this.media='all'"` swap is an inline event handler, and this
          template's script-src grants nonces with no 'unsafe-inline' — a nonce
          never authorises a handler. The sheet would download, `media` would
-         stay `print`, and zero faces would apply. -->
+         stay `print`, and zero faces would apply.
+
+         The range is 200..800, the family's full variable axis, NOT the 400/500/600
+         the comp uses. Measured: the css2 responses for `wght@400..600` and
+         `wght@200..800` point at the IDENTICAL woff2 file, so widening costs zero
+         bytes. A narrowed range only narrows the declared `font-weight` on the
+         @font-face, which means any 300 or 700 introduced later is silently
+         SYNTHESISED by the browser rather than failing visibly. -->
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
       rel="stylesheet"
-      href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@400..600&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible+Next:wght@200..800&display=swap"
     />
     <!-- The no-JS half of the scroll reveal's first-paint hidden state (app.css,
          `[data-reveal]`). With scripting off this style applies and every
