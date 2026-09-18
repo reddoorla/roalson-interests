@@ -17,7 +17,7 @@
   sliceType={slice.slice_type}
   variation={slice.variation}
   fallbackHeight={hasImage ? "45vh" : undefined}
-  sectionClass="hero-band relative isolate overflow-hidden bg-neutral-900 text-white"
+  sectionClass="hero-band relative isolate overflow-hidden bg-dark text-white"
   contentClass="relative z-10 max-w-4xl px-6 py-24 text-center"
 >
   {#snippet background()}

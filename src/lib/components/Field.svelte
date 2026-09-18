@@ -80,7 +80,7 @@
   <label for={inputId} class="text-sm font-medium">
     {label}
     {#if required}
-      <span aria-hidden="true" class="text-red-600">*</span>
+      <span aria-hidden="true" class="text-error">*</span>
       <span class="sr-only">(required)</span>
     {/if}
   </label>
@@ -127,6 +127,6 @@
   {/if}
 
   {#if error}
-    <p id={errorId} role="alert" class="text-sm text-red-600">{error}</p>
+    <p id={errorId} role="alert" class="text-sm text-error">{error}</p>
   {/if}
 </div>
