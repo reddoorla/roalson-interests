@@ -5,6 +5,7 @@ import {
   resolveOgImage,
   organizationJsonLd,
   composeTitle,
+  isNoindexPage,
   isNoindexPath,
   NOINDEX_ENFORCED,
   NOINDEX_PREFIXES,
@@ -195,6 +196,19 @@ describe("noindex routes", () => {
     // slash is load-bearing.
     expect(isNoindexPath("/development")).toBe(false);
     expect(isNoindexPath("/work/dev/x")).toBe(false);
+  });
+
+  it("noindexes a content route whose own data asks — a sold listing", () => {
+    expect(isNoindexPage("/properties/5001-walzem-road", true)).toBe(true);
+    expect(isNoindexPage("/properties/25331-ih-10-west", false)).toBe(false);
+    expect(isNoindexPage("/properties/25331-ih-10-west", undefined)).toBe(false);
+  });
+
+  it("only honours a literal true from route data, and never un-noindexes a prefix", () => {
+    // page.data is untyped at runtime; a truthy string must not hide a page.
+    expect(isNoindexPage("/about", "true")).toBe(false);
+    expect(isNoindexPage("/about", 1)).toBe(false);
+    expect(isNoindexPage("/dev/a11y-fixtures", false)).toBe(true);
   });
 
   // Noindex is a PRODUCTION contract. The fleet lighthouse audit scores

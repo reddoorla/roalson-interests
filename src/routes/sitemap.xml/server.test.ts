@@ -6,9 +6,12 @@ import { describe, it, expect, vi } from "vitest";
 // asked for documents the response would not list.
 const prismic = vi.hoisted(() => ({
   isPlaceholderRepo: true,
-  getAllByType: vi.fn(async () => [] as unknown[]),
+  getAllByType: vi.fn(async (_type: string) => [] as unknown[]),
 }));
-vi.mock("$lib/prismicio", () => ({
+// linkResolver is the REAL one: the sitemap takes every path from it, and a
+// stub here would let the sitemap and the site disagree with every test green.
+vi.mock("$lib/prismicio", async (importOriginal) => ({
+  linkResolver: (await importOriginal<typeof import("$lib/prismicio")>()).linkResolver,
   get isPlaceholderRepo() {
     return prismic.isPlaceholderRepo;
   },
@@ -47,6 +50,34 @@ describe("GET /sitemap.xml", () => {
   });
 });
 
+const published = "2026-09-01T00:00:00Z";
+const docsByType: Record<string, unknown[]> = {
+  page: [
+    { type: "page", uid: "home", last_publication_date: published },
+    { type: "page", uid: "about", last_publication_date: published },
+  ],
+  property: [
+    {
+      type: "property",
+      uid: "25331-ih-10-west",
+      last_publication_date: published,
+      data: { status: "Available" },
+    },
+    {
+      type: "property",
+      uid: "402-nueva",
+      last_publication_date: published,
+      data: { status: "Under Contract" },
+    },
+    {
+      type: "property",
+      uid: "5001-walzem-road",
+      last_publication_date: published,
+      data: { status: "Sold" },
+    },
+  ],
+};
+
 // #140: rendered per request so the netlify.app mirror can answer differently
 // from the production domain — a prerendered sitemap lists the build origin's
 // URLs on every host the build is served from.
@@ -54,10 +85,7 @@ describe("GET /sitemap.xml on a netlify.app host", () => {
   const wired = () => {
     prismic.isPlaceholderRepo = false;
     prismic.getAllByType.mockClear();
-    prismic.getAllByType.mockResolvedValue([
-      { uid: "home", last_publication_date: "2026-09-01T00:00:00Z" },
-      { uid: "about", last_publication_date: "2026-09-01T00:00:00Z" },
-    ]);
+    prismic.getAllByType.mockImplementation(async (type: string) => docsByType[type] ?? []);
   };
 
   it("is rendered per request, not baked at build time", () => {
@@ -84,12 +112,23 @@ describe("GET /sitemap.xml on a netlify.app host", () => {
     expect(xml).toContain("<lastmod>2026-09-01T00:00:00.000Z</lastmod>");
   });
 
-  it("lists every page on the production domain, on that domain's origin", async () => {
+  it("lists every page and every unsold listing on the production domain, on that domain's origin", async () => {
     wired();
     expect(locs(await body("https://www.example.com"))).toEqual([
       "https://www.example.com/",
       "https://www.example.com/about",
+      "https://www.example.com/properties/25331-ih-10-west",
+      "https://www.example.com/properties/402-nueva",
       "https://www.example.com/contact",
     ]);
+  });
+
+  it("leaves a sold listing out — its page stays up for shared links, but is noindexed", async () => {
+    // A sitemap listing a noindexed URL contradicts itself. The page itself
+    // still prerenders (see properties/[uid] entries()); only discovery stops.
+    wired();
+    const xml = await body("https://www.example.com");
+    expect(xml).not.toContain("5001-walzem-road");
+    expect(prismic.getAllByType).toHaveBeenCalledWith("property");
   });
 });

@@ -30,6 +30,30 @@ unanswered forever, so these are recorded here rather than in a chat log.
    the `trapFocus` action and motion-aware transitions the repo already ships,
    with type from the ramp below.
 
+### Three more calls, made at the start of Stage B (2026-09-18)
+
+The `property` model forced three questions Stage A had not asked. Answered by
+the operator before the type was written:
+
+5. **A sold listing keeps its page.** `/properties/<uid>` stays up with a Sold
+   state, so links brokers already emailed keep working; it is `noindex` and
+   out of the sitemap, and the Sold card stays unlinked, as the comp draws it
+   (Sold cards are the only cards in the file with no LEARN MORE).
+6. **`category` has three values** — `Improved`,
+   `Land — SA Metro & Surrounding`, `Land — Out of San Antonio` — keeping the
+   content outline's split in the data. The comp's single Land section holds both land values.
+   Sold is a `status`, never a category.
+7. **The property page is designed from the system**, like the nav overlay: no
+   frame for it exists at any width. It is the property card's anatomy at page
+   scale.
+
+Settled without asking, because an earlier decision already answered them:
+the package PDF is a Prismic **media link** (the June architecture call made
+Prismic the client-maintained source of truth, so a PDF in `static/` would need
+a deploy per listing); and **no `area` facet** is modelled, because the comp has
+no chip row to feed — the three stacked sections _are_ the filter. Still open
+and deliberately not modelled: `listing_brokers` (brief Q8).
+
 Source: Figma `U5KIPY7HmZOQwqJXGGsEIl`, snapshot `lastModified 2026-09-17T17:20:53Z`
 — **the file was still being edited the same day this was measured**, so treat
 every number as a snapshot and re-pull before relying on it.

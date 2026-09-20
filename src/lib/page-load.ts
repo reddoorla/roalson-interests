@@ -10,26 +10,33 @@ export type PageClient = {
   getByUID(type: "page", uid: string): Promise<PageDocument>;
 };
 
-/** Load one `page` document and the layout's head payload for it.
+/** Await one Prismic lookup, turning ONLY a genuine miss into a 404.
  *
- *  Only a genuine miss (Prismic's NotFoundError: no document with that uid)
- *  becomes a 404. Everything else — an outage, a bad access token, a wrong
- *  repository name, a malformed response — is rethrown so it surfaces as a
- *  5xx at runtime and fails a prerender loudly instead of baking a false
- *  "Page not found" into the build.
+ *  A miss is Prismic's NotFoundError: no document with that uid. Everything
+ *  else — an outage, a bad access token, a wrong repository name, a malformed
+ *  response — is rethrown so it surfaces as a 5xx at runtime and fails a
+ *  prerender loudly instead of baking a false "Page not found" into the build.
  *
- *  (The route loaders answer 404 themselves on the placeholder repo before
- *  calling this, so an unconfigured clone still builds.) */
-export async function loadPage(client: PageClient, uid: string) {
+ *  Every document route goes through this rather than repeating the catch,
+ *  because the one subtle line in it is the one a copy gets wrong:
+ *  RepositoryNotFoundError EXTENDS NotFoundError, and means "wrong repository
+ *  name", not "no such page". */
+export async function orNotFound<T>(lookup: Promise<T>): Promise<T> {
   try {
-    const page = await client.getByUID("page", uid);
-    return { page, ...pageMeta(page) };
+    return await lookup;
   } catch (err) {
-    // RepositoryNotFoundError extends NotFoundError but means "wrong repository
-    // name", not "no such page" — that must stay loud.
     if (err instanceof NotFoundError && !(err instanceof RepositoryNotFoundError)) {
       error(404, { message: "Page not found" });
     }
     throw err;
   }
+}
+
+/** Load one `page` document and the layout's head payload for it.
+ *
+ *  (The route loaders answer 404 themselves on the placeholder repo before
+ *  calling this, so an unconfigured clone still builds.) */
+export async function loadPage(client: PageClient, uid: string) {
+  const page = await orNotFound(client.getByUID("page", uid));
+  return { page, ...pageMeta(page) };
 }
