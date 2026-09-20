@@ -864,3 +864,79 @@ reddoor-maintenance#888.
 **Upstream.** reddoor-starter `main` carries the identical Hero, Field and spec,
 so every clone inherits the blind page: reddoor-starter#152, filed rather than a
 twin PR from this session because the Field fix picks a token value per palette.
+
+## 2026-09-20 — The property batch lands: rebased across #9, and the index guard caught what the second commit forgot (`feat/property-type`)
+
+The batch itself was built on 2026-09-18 and its session ended mid-rebase,
+so this is the entry it never got, written two days later by the session that
+landed it. Where the reasoning below is not in a code comment or the commit
+message, treat it as reconstruction.
+
+**What the batch is.** The `property` custom type, one prerendered page per
+listing at `/properties/<uid>`, and a headless regenerator for the Prismic
+types. The model takes its fields from the content outline rather than the
+comp — three `category` values, a `status`, tracts that carry their own status,
+the SF splits, zoning, the package PDF as a media link, a map pin — because the
+comp draws one card and the outline describes 22 listings that fill fewer than
+half of it each. Every block on the page renders only when its field is filled
+for that reason. The three calls the model forced (a sold listing keeps its
+page but leaves the index and the sitemap; `category` keeps the outline's
+two land values in the data; the page is designed from the system because no
+frame for it exists at any width) are in `docs/stage-a-inventory.md` under
+"Three more calls", and are not restated here.
+
+**No photo is the common case.** Three real client photos exist for 22
+listings, so the second commit stopped rendering an empty 423.5×267.5 box
+beside the panel and let the panel take the full width instead. The first
+commit had treated the missing photo as the edge; the content inventory says
+it is the norm.
+
+**The types file was already lying.** `src/prismicio-types.d.ts` had no
+`FormRepliesDocument`: reddoor-starter #112 added the model as JSON and
+nothing regenerated the types, because Slice Machine was the only thing that
+ever wrote that file and this repo delivers models through CI, never Slice
+Machine. `scripts/prismic-types.mjs` runs the same codegen through the same
+adapter → plugin-kit chain Slice Machine would. Measured, not chosen:
+regenerating the committed file that way reproduced it byte for byte except the
+missing block, while this repo's own prettier config (printWidth 100) rewraps
+about 220 lines — so the script formats with prettier's defaults and the file
+stays in `.prettierignore`. `scripts/prismic-types.test.ts` fails inside
+`pnpm verify` the next time a model changes without the types.
+
+**The contrast guard's prediction came true.** `theme-contrast.test.ts` had
+left `bg-light` out of its grounds with a note that the pair was "one nesting
+away from being real". `PropertyDetail`'s sand panel is that nesting, so
+`light` is now a light ground: secondary on sand measures **4.80:1**, garnet
+**8.87:1**. `dust` (the `button dark` hover text) and `light` (the status
+badges) joined the dark-ground text list at **5.11:1** and **8.87:1** on
+garnet, and may not appear as text on a light ground. The template's
+placeholder palette still fails the sand pair at 3.90:1; a clone that keeps
+those defaults and renders the property page learns so from this test.
+
+**The rebase.** #9 merged while the batch was in flight, and the one conflict
+was exactly the block above: #9 added `error` to the light-ground text list,
+this branch added `light` to the grounds and `dust`/`light` to the dark-ground
+text, and both rewrote the note. The resolution keeps both sides — verified by
+diffing the working file against each index stage, not by reading it. Two
+bookkeeping notes: the #9 entry above cites the batch as `daea16c`, which the
+rebase rewrote to `6958817`; and local `main` was one commit behind
+`origin/main` (the previous session had correctly rebased onto origin's tip),
+so a three-dot diff against local `main` showed #9's files as this branch's.
+Fast-forwarded.
+
+**The index guard earned its keep.** With the rebase done, `pnpm verify` went
+red on one test out of 556: `scripts/capability-index.test.ts`, because the
+second commit had added two `PropertyDetail` tests without regenerating
+`docs/COMPONENTS.md` (7 → 9 tests, 382 → 384 total). The guard is retroactive
+on purpose — CLAUDE.md says so — and this is the case it was written for.
+Regenerated, folded into that commit, verified again: prettier, eslint,
+svelte-check, build, axe (**0 violations across 2 routes + the hydration
+smoke**, with `/dev/a11y-fixtures` now carrying `PropertyDetail`), 556 unit
+tests in 67 files, 12 smoke tests. Cost of the miss: one verify cycle.
+
+**What is NOT done, and is a live 404 once this merges.** `PropertyDetail`
+links to `/properties` ("All properties"). No listing route exists, and no
+`page` document with that UID does either, so the link answers 404 until the
+listing page is built. That page is the next batch (a filterable listing with
+its state in the URL, Stage A decision 2), and it has an issue (#11) so the launch
+sweep sees it. `listing_brokers` stays unmodelled, as the inventory records.
