@@ -39,8 +39,11 @@ const LIGHT_GROUNDS = ["background", "white", "light"] as const;
 /** Tokens the template renders as text on a DARK ground. `dust` is the comp's
  *  button-hover text on a garnet fill, and `light` (sand) the status badges on
  *  garnet — both are text ONLY on dark grounds, where they measure 5.11:1 and
- *  8.87:1 on garnet. Neither may appear as text on a light ground. */
-const DARK_GROUND_TEXT = ["white", "dust", "light"] as const;
+ *  8.87:1 on garnet. Neither may appear as text on a light ground.
+ *  `background` (the page's off-white) joined 2026-09-20: the listing's
+ *  featured card is the comp's garnet card with off-white text and an
+ *  off-white-outlined button — 10.5:1 on garnet. */
+const DARK_GROUND_TEXT = ["white", "dust", "light", "background"] as const;
 /** The dark grounds those land on. */
 const DARK_GROUNDS = ["primary", "dark", "black"] as const;
 

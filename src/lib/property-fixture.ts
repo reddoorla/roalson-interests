@@ -75,3 +75,75 @@ export function propertyFixture(
     },
   } as PropertyDocument;
 }
+
+/** A small portfolio for the listing page: both land categories, improved
+ *  listings with and without a photo, an order tie-breaker case, an empty
+ *  order, and sold listings from BOTH categories so the Sold section proves it
+ *  is a status, not a category. Titles are the outline's real listings. */
+export function propertyListingFixture(): PropertyDocument[] {
+  const at = (
+    id: string,
+    data: Partial<PropertyDocument["data"]>,
+    doc: Partial<Omit<PropertyDocument, "data">> = {},
+  ) => propertyFixture(data, { id, uid: id, ...doc });
+
+  return [
+    at("25331-ih-10-west", { category: "Improved", order: 1, is_new: true }),
+    at("402-nueva", {
+      title: "402 Nueva",
+      category: "Improved",
+      order: 2,
+      is_new: false,
+      size_label: "12,400 SF",
+      feature_image: {},
+    }),
+    at("potranco-road", {
+      title: "Potranco Road tract",
+      category: "Land — SA Metro & Surrounding",
+      status: "Under Contract",
+      order: 2,
+      is_new: false,
+      size_label: "38.6 acres",
+    }),
+    at("fm-1560-galm", {
+      title: "FM 1560 & Galm Road",
+      category: "Land — SA Metro & Surrounding",
+      order: 1,
+      is_new: false,
+      size_label: "12.2 acres",
+      feature_image: {},
+    }),
+    at("hwy-90-castroville", {
+      title: "Hwy 90 West, Castroville",
+      category: "Land — Out of San Antonio",
+      order: 3,
+      is_new: false,
+      size_label: "210 acres",
+      feature_image: {},
+    }),
+    at("ih-35-new-braunfels", {
+      title: "IH-35, New Braunfels",
+      category: "Land — Out of San Antonio",
+      order: null,
+      is_new: false,
+      size_label: "4.8 acres",
+    }),
+    at("5001-walzem-road", {
+      title: "5001 Walzem Road",
+      category: "Improved",
+      status: "Sold",
+      order: 1,
+      is_new: false,
+      size_label: "22,000 SF",
+    }),
+    at("culebra-road", {
+      title: "Culebra Road tract",
+      category: "Land — SA Metro & Surrounding",
+      status: "Sold",
+      order: 2,
+      is_new: false,
+      size_label: "6.1 acres",
+      feature_image: {},
+    }),
+  ];
+}

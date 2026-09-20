@@ -21,7 +21,9 @@ export const prerender = false;
  *
  *  Only genuinely public, indexable routes belong here — never /dev/*, the
  *  slice simulator or /preview (see NOINDEX_PREFIXES in $lib/seo). */
-const STATIC_ROUTES = ["/contact"];
+// Filesystem routes the CMS cannot see. /properties is the listing page — its
+// documents are discovered below, the page itself is not.
+const STATIC_ROUTES = ["/properties", "/contact"];
 
 export const GET: RequestHandler = async ({ fetch, url }) => {
   const origin = url.origin;

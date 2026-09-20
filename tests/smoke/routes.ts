@@ -64,4 +64,7 @@ export const smokeRoutes: SmokeRoute[] = [
         expectStatus: 404,
       }
     : { path: "/", name: "home", hydrationMarker: "footer" },
+  // The listing renders on the placeholder repo too — an empty listing is a
+  // real state, not a missing document — so it expects 200 either way.
+  { path: "/properties", name: "properties listing", hydrationMarker: "footer" },
 ];
