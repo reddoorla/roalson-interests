@@ -31,9 +31,15 @@ describe("HomeHero slice", () => {
     expect(h1.textContent?.replace(/\s+/g, " ").trim()).toBe(
       "San Antonio's Commercial Real Estate Experts. Since 1983.",
     );
-    const [before, after] = h1.innerHTML.split(/<br\s*\/?>/);
+    const [before, after] = h1.innerHTML.split(/<br[^>]*>/);
     expect(before).toContain("Experts.");
     expect(after).toContain("Since 1983.");
+    // The break applies only where the comp's first line fits (1366 up); below
+    // that it is display:none and the text flows — see the component.
+    const br = h1.querySelector("br")!;
+    expect(br.className.split(/\s+/)).toEqual(
+      expect.arrayContaining(["hidden", "min-[1366px]:inline"]),
+    );
     expect(h1.className).toContain("t-h2");
     expect(h1.className).toContain("lg:t-h1");
   });

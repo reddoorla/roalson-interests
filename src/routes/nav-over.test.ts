@@ -101,3 +101,37 @@ describe("navOver — the route's claim about its first band", () => {
     expect(conditional.map((p) => `${p.route} opens on <${p.first}> inside a block`)).toEqual([]);
   });
 });
+
+/**
+ * The same kind of claim, about the other end of the page: the HOMEPAGE's
+ * footer grades from off-white to sand (`footerGround: "fade"`, Footer.svelte)
+ * and every other page's is flat sand. The footer batch typed the key and the
+ * hero batch built the route, in parallel, and the review of the second found
+ * that neither had made the claim — nothing failed, the homepage would simply
+ * have shipped with the wrong ground. A route that opens on the homepage's hero
+ * claims it; nothing else does, except the footer's own fixture.
+ */
+describe("footerGround — only the homepage's footer fades", () => {
+  const claimsFade = (page: string) =>
+    ["+page.server.ts", "+page.ts"]
+      .map((name) => join(dirname(page), name))
+      .filter((file) => existsSync(file))
+      .some((file) => /footerGround:\s*"fade"/.test(readFileSync(file, "utf8")));
+
+  const routes = pages(ROUTES).map((file) => ({
+    route: relative(ROUTES, dirname(file)) || "/",
+    first: firstTag(readFileSync(file, "utf8")),
+    fades: claimsFade(file),
+  }));
+
+  it("every route that opens on the homepage's hero claims the fade", () => {
+    const home = routes.filter((p) => p.first === "HomeHero");
+    expect(home.length, "no route opens on HomeHero").toBeGreaterThan(0);
+    expect(home.filter((p) => !p.fades).map((p) => p.route)).toEqual([]);
+  });
+
+  it("no other route does, except the footer's own fixture", () => {
+    const others = routes.filter((p) => p.fades && p.first !== "HomeHero").map((p) => p.route);
+    expect(others).toEqual(["dev/footer"]);
+  });
+});

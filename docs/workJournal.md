@@ -1759,3 +1759,233 @@ lived in three journal entries and no issue.
 
 `pnpm verify` on the rebased branch: 0 errors, axe 0 violations, 649 unit tests
 in 78 files, 30 Playwright tests.
+
+## 2026-09-21 — The top of the homepage: a hero that pins because it shares a box with the band that covers it, a cutout that is only distinguishable from a wrong one while it moves, and a 0.5px rule Chromium would not draw as a border (`feat/home-hero`)
+
+First homepage batch, and the first slice anyone has added to this repo since
+the template's nine: `home_hero`, the home route's new shape, `$lib/cms-href`,
+and `/dev/home` — the fixture page every later homepage batch extends.
+
+**NOT verified on a production build.** Said first because it is the limit on
+everything below. `/` is a designed 404 until the repo is flipped and a `home`
+document is published, and `/dev/*` 404s whenever `dev === false`, so the
+homepage has no production-reachable URL tonight. The pin, the cutout's seat
+and the no-script behaviour are proven by `tests/interaction/home-hero.spec.ts`
+against `/dev/home` on the dev server — which is what CI runs — and by
+mutation, not by `pnpm build && pnpm preview`. CLAUDE.md's own example of a
+defect the dev server hides is a scroll-driven stage; this is `position:
+sticky`, plain CSS with no build-time transform, so the risk is smaller, but
+smaller is a belief. It is in the issues list.
+
+**Why one slice and not two.** The comp's wrapper `Frame 202` (`6815:55`,
+`6994:797`) is three layers: `Masthead #1`, the ONLY sticky node; `Frame 194`,
+the RI cutout, which scrolls; and `Value Prop #1`, the garnet band. Sticky is
+bounded by its parent, so the hero pins for exactly as long as the box it shares
+with the band has left to scroll: the band's own height. As two sibling slices
+in `<main>` — which is how the SliceZone renders slices, with no wrapper — the
+hero would pin for the whole page and every later band would need an opaque
+ground and a stacking order forever. The hero itself carries no text (its one
+text node is hidden wireframe residue); the H1 and both buttons live in the band.
+
+**The home route no longer leaves its first band to the SliceZone.** It claims
+`navOver: "dark"` as a literal, before it has read the document, so the dark
+band has to exist for every `home` document an editor can make.
+`$lib/home-page`'s `splitHomeHero` lifts the first `home_hero` out of the
+slices wherever it sits, `<HomeHero>` renders first and unconditionally — with
+no slice it still paints the dark 528px ground — and the rest go to the
+SliceZone in the editor's order. A SECOND `home_hero` is left where the editor
+put it: visibly wrong in a preview beats silently dropped. The placeholder 404
+and its tests are untouched; `GET /` on the dev server still answers 404.
+
+**A hole in `nav-over.test.ts`, closed.** The scouts read it correctly:
+`firstTag` skips Svelte blocks, so `{#if hero}<HomeHero/>{/if}` read as "opens
+on HomeHero" while being exactly the conditional band a literal claim cannot
+afford. There is now a fourth test — every route that claims `navOver` renders
+its first band outside any block. Mutated: wrapping `<HomeHero>` in `{#if}`
+turns it red (`[[preview=preview]] opens on <HomeHero> inside a block`); making
+the claim computed turns "every route that opens on a dark band says so" red.
+
+**Measured at 1440 and 390, against the scouts' node numbers — after the first
+run came out 15px narrow.** Headless Chromium on this Mac laid a 1440 window out
+**1425** wide and a 390 one **375**: the same 15px the 2026-09-20 CI entry met
+on the Linux runner and closed with "the stable gutter is the likely reason and
+nothing here proves it". This proves it. Same page, same window, one
+declaration toggled: with app.css's `scrollbar-gutter: stable` the root, the
+section and the fixed bar are all 1425; with `html { scrollbar-gutter: auto }`
+injected they are all 1440 — whether or not the page is tall enough to scroll.
+`innerWidth` and `documentElement.clientWidth` say 1440 in all four cases, and
+`50vw` is 720 in all four, so neither the window's numbers nor `vw` know about
+the gutter; only an element's own rect does. NOT explained: that entry records
+the bar laying out at the full 1440 locally on this same machine a day earlier.
+Nothing in the repo changed that; a macOS scrollbar setting or an attached mouse
+would, and neither was looked at. The measuring script reads the gutter off the
+section and widens the window by it, so the numbers below are at LAYOUT widths
+1440 and 390.
+
+|                     | comp                                                                              | built                                                                 |
+| ------------------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| hero, both widths   | 528, sticky, `#3d0707`                                                            | 528, `position: sticky`, `rgb(61, 7, 7)`                              |
+| cutout 1440         | 0,77 451×451, bottom 528                                                          | 0,77 451×451, bottom 528                                              |
+| cutout 390          | 0,333 195×195                                                                     | 0,333 195×195                                                         |
+| band 1440           | y 528, 483 tall (478 visible), pad 80/80/120/80                                   | y 528, 479 tall, pad 80/80/115/80                                     |
+| band 390            | y 528, 644 tall, pad 40/20/60/20                                                  | y 528, 621.1 tall, pad 40/20/60/20                                    |
+| H1 1440             | x 514, cap top 608, 846×204, 3 lines, 66/80                                       | x 513, cap top 608, 847×204, 3 lines, 66/80                           |
+| H1 390              | 20,568 350×187, 4 lines, 42/52.5                                                  | 20, cap top 568, 350×169, 4 lines, 38/48                              |
+| buttons 1440        | 514,852 117×39 · 671,852 143×39                                                   | 513,852 120×40 · 673,852 146.5×40                                     |
+| buttons 390         | y 795, gap 40, one row                                                            | y 777, gap 40, one row (306 of 350)                                   |
+| list 1440           | x 80, 374 wide, label cap top 608, rules 648/718/787, items 678/748/817, 218 tall | x 80, 374 wide, 608, rules 646/714/782, items 676/744/812, 212.1 tall |
+| next band / wrapper | 1006 (1440), 1172 (390)                                                           | 1007, 1149.1                                                          |
+| pin range           | 478 / 644                                                                         | 479 / 621 — hero top 0 at the last pixel, −40 forty past it           |
+
+Every difference is one of three known trades and sums exactly. BrandButton is
+the component master's 40px where this band's instance is 39 (+1 at both
+widths). The 390 headline is off-ramp at 42/52.5 and renders in H2, the call
+PageMasthead already made (−18). `t-h5`'s cap is 8 where the comp's
+substitute-font boxes are 10/10/9/9 (−5.9). 1172 − 18 − 5.9 + 1 = 1149.1. The
+line breaks match the comp at both widths, the forced one at 1440 and the
+natural ones at 390. `lg:pb-[115px]` is the critic's ruling on the comp's 5px
+overrun (a typed 1006 wrapper around a hugging 1011 of content).
+
+**One grid, decided once (critic C3).** This band is drawn 374 | 60 | 846 with
+the text at x=514; the listing page is 397 | 36 | 847 at x=513; the comp's own
+footer is 513. The band uses the site's `lg:grid-cols-[397fr_847fr] lg:gap-9`
+and caps the LEFT column's content at 374, so the right column is one vertical
+line through the site at x=513. Cost: 1px against this band's comp, inside the
+comp's own drift.
+
+**The 0.5px rule is not a border, and that was measured, not reasoned.** The
+brief said "0.5px dust rules" and the scout predicted Chrome would round a
+sub-pixel border up to 1px at 1×. It does — and it did the same at an emulated
+2× and 3×: `getComputedStyle` reported `1px` at every device-scale factor, and a
+pixel probe at 2× found TWO solid dust device rows, double the comp's weight.
+The belief that did not survive: that emulated DPR would show the hairline.
+Playwright's `deviceScaleFactor` does not change the unit Chromium snaps border
+widths to, so what a real 2× screen does with a 0.5px border was not observable
+here at all. What was observable: a 1px pseudo-element with `scale-y-50` paints
+one device row of solid dust at 2× and one row of `rgb(139,103,96)` at 1× — and
+the comp's own 1× render, read out of `crop-1440-top.png`, paints
+`139,103,97`. It sits out of flow, like the comp's zero-height centred stroke,
+which also removed the 1px per rule the border had been adding to the list.
+
+**The cutout is half the band, not `50vw`.** Same gutter: `vw` still counts the
+15px the layout does not have, so `min(50vw, 451px)` came out 195 on a 375
+layout — 7.5px wider than half of what it sits on. `w-1/2 max-w-[451px]
+aspect-square` is 195 on a 390 phone and 451 from 902 up, and lets the spec
+assert the relationship from the band's own rect instead of from the window.
+The vector is the Figma export's bytes (`6802:1423`; its instance `6802:1424`
+exports byte-identically) — one path, 517 characters, four subpaths, and
+`HomeHero.test.ts` pins its sha256 so a "tidy" of the numbers goes red. The
+export clips the path to its 451 box and the path overruns it by 1.13px at the
+bottom; the slice keeps the clip on three sides and lets the bottom lap 2px into
+the band, garnet on garnet, so no hairline of the hero shows at a fractional
+scroll position. `fill-primary`, not `currentColor` + `text-primary`: the same
+token as the band's `from-primary`, without telling `theme-contrast.test.ts`
+that garnet is TEXT on a dark ground, where it measures 1.48:1. No new text
+colour class was added, so the contrast lists did not change.
+
+**Mutations, and what each turned red.** Removing `sticky` from the hero: the
+pin test ("the hero is pinned — expected 0, received −200"), both cutout tests'
+"still pinned", and the no-script pin. Moving the cutout INTO the sticky hero
+(`bottom-0`): every at-rest assertion still passed — it is pixel-identical at
+rest — and the cutout tests failed only after scrolling ("still seated on the
+band — expected 378, received 528"), plus the jsdom test that it lives in the
+band. That is why those tests scroll, and it is the most useful thing the spec
+knows. `overflow-hidden` on the section, which is how the 390 wrapper's
+`clipsContent` would naively be transcribed: the pin dies exactly as if
+`sticky` were gone (−200). Bypassing `cmsHref` in the slice: the button-href
+test. Rounding one number in the path: the hash test. In `cms-href`: disabling
+the dotless-host rule, 6 red; disabling the same-site rule, 8 red.
+
+**`$lib/cms-href`, and a belief it rests on.** `/contact` and `/properties` are
+filesystem routes, so a CMS button reaches them only through a Web link, and
+the field can hold `/contact`, `contact`, `https:///contact`, `https://contact`
+or `https://www.roalson.com/contact` for the same intent. One thing made the
+class smaller than it looked: WHATWG parsing drops the empty host of
+`https:///contact` and promotes the first segment, so it and `https://contact`
+arrive as the same URL — a dotless host, which no public site has. One rule
+covers both; `localhost` and anything with a port are left alone. An absolute
+URL to `roalson.com` is reduced to its path so a deploy preview does not send
+its visitor to production, which until cutover is the OLD site. What is NOT
+known: which of these shapes the live Prismic editor actually stores. That is
+the scouts' report, not a measurement. The fixture deliberately stores one
+button as `https:///contact`, so every render of `/dev/home` — and the spec —
+runs the helper end to end.
+
+**A defect of my own, caught by luck.** The slice splits the headline on
+`/[\n\u2028]/`. Written through the file tool, the `\u2028` escape arrived on
+disk as the literal character — inside a regex literal, where a line separator
+is a syntax error, and invisible in any diff. It showed up only because a
+file-change echo printed the class as `[\n ]`. The test for the U+2028 case
+builds the character from its code point for the same reason.
+
+**Reuse read, and declined where declined.** `HeroBackgroundImage` and
+`BrandButton` are used whole. `ContentBand`: one section plus one centred box,
+and this needs three layers in one section, so the slice stamps
+`data-slice-type` itself. `PrismicRichText` for the H1: it emits an unclassed
+tag, and the ramp class has to sit on the element (PageMasthead's precedent);
+the field allows nothing but the soft break, which is rendered by hand, with a
+space kept before the `<br>` so a search snippet does not read
+"Experts.Since". `PrismicLink`: #10. `VimeoBanner` and `ScreenWidthMedia`: not
+built at all — `vimeo_id` is modelled so the document does not change shape
+later, and deliberately not rendered; an editor who fills it today sees nothing
+happen, which is an issue. `createUniqueId`: it is `crypto.randomUUID()`, which
+differs between the server's markup and hydration; the list's `aria-labelledby`
+uses `$props.id()`. `DelayedLink`'s private `isInternalLink` reads
+`window.location`, so it cannot run in a server render.
+
+**Looked at, not just measured.** `/dev/home?poster` renders a generated
+drawing (the comp's still is a watermarked iStock preview and is not in this
+repo). It shows risk R3 plainly: over a pale poster the floating bar's dust
+CONTACT US and the white wordmark all but vanish. Poster-less — the launch
+state, operator call 11 — it is fine at 5.11–7.55:1. Filed, not fixed.
+
+**For the next batch (#18).** The band's root carries `[data-nav-gate]`. The
+wordmark gate is "this element's top reaches the bar's bottom", rect against
+rect. Measured here with the bar as it is today: at scrollY 300 the band's top
+is at 228 and the bar's bottom at 80 (1440) / 70 (390).
+
+**Not done.** The video layer. `poster_focus` and the comp's extra 1.068× zoom
+past cover — one crop (`object-position: 50% 68.2%`, a no-op at 390 for a 16:9
+source) until a real photo says otherwise. The garnet focus ring on dark grounds
+(critic G4), which this band adds two more buttons to. `/dev/home` returns no
+`footerGround`: the critic asked for it, and no such key exists on `main` yet.
+`pnpm verify` was not run in this worktree by instruction — targeted vitest,
+`pnpm check`, `pnpm lint`, this spec and the axe fixtures spec were. The branch
+was rebased onto `main` after #21 and #22 landed mid-batch; the generated types
+and the capability index were re-checked current afterwards.
+
+**After review — the orchestrator's changes before this merged.** Two reviewers
+read the branch; both said fix first, and they were right about all of it.
+
+_At the comp's 1280 frame the headline was four lines, not three._ The batch
+measured 1440 and 390 and its PR said every difference from the comp "is a
+known trade and they sum exactly" — true at those two widths. At 1280 "San
+Antonio's Commercial" (779px at 66px) does not fit the 738px column, so it
+wrapped BEFORE the editor's forced break: "Experts." alone on a line, the band
+76px taller, the next band 81px late. The break is `display: none` below 1366
+now and the text flows to three lines; the threshold is the layout width at
+which line one fits (1340) plus the 15px a scrollbar takes, and 1366 is also
+the commonest laptop width. A browser test reads the line count from the box at
+layout widths 1440 and 1280 — forcing the break at every width turns it red.
+
+_The homepage's footer ground was claimed by nobody._ The footer batch typed
+`footerGround: "fade"` "as the homepage will claim it"; the hero batch built
+the homepage's route; they ran in parallel and neither made the claim. Nothing
+failed — the homepage would have shipped on flat sand. Both loads claim it now,
+and `nav-over.test.ts` holds it the way it holds `navOver`: every route that
+opens on `HomeHero` claims the fade, and nothing else does but the footer's own
+fixture. That is the cost of parallel batches stated plainly: a contract with
+one end in each branch is owned by neither until something tests it.
+
+_The hero's buttons had a garnet focus ring on a garnet band_ at the branch's
+pre-rebase head — #23 landed while it was being built. The rebase fixed it
+without the slice knowing (the band's `from-primary` is one of #23's dark
+grounds), and `focus-ring.spec.ts` has a `/dev/home` case so it stays fixed.
+
+_Three deferrals lived in comments._ They are #28 (production re-verification of
+the hero pin, the photo-band pin and the #18 gate once `/` answers 200), #29
+(`vimeo_id` is live in the editor and renders nothing) and #30 (what the editor
+really stores for a Link typed as `/contact`).
+
+`pnpm verify` on the rebased branch: 0 errors, axe 0 violations, 717 unit tests in
+81 files, 39 Playwright tests.

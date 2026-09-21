@@ -17,7 +17,10 @@ export async function load({ fetch, cookies }) {
   // does not pad <main>. The claim is a literal because nav-over.test.ts reads
   // it as text, and it is safe as a literal because +page.svelte renders that
   // band unconditionally, whatever the document holds (see $lib/home-page).
-  return { ...home, navOver: "dark" as const };
+  // `footerGround`: the homepage is the one page whose footer grades from
+  // off-white to sand (Footer.svelte). Both are literals because
+  // src/routes/nav-over.test.ts reads this file as text.
+  return { ...home, navOver: "dark" as const, footerGround: "fade" as const };
 }
 
 // On an unconfigured starter, skip prerendering "/" — the load above would

@@ -13,7 +13,7 @@ import { expect, test, type Page } from "@playwright/test";
 // /dev/home is the home route's own markup over fixture data, through the real
 // layout. `/` answers 404 until the Prismic repo is wired, and /dev/* 404s on
 // every production build — so NONE of this is verified on a production build
-// yet; that is an open issue, not an oversight here.
+// yet; that is issue #28, not an oversight here.
 //
 // Written to the lessons nav.spec.ts paid for: no x derived from the window
 // (the runner lays out 15px narrower than its own innerWidth — every edge below
@@ -176,6 +176,28 @@ test("the list sits left of the headline at 1440 and under it at 390", async ({ 
     .toBe(true);
   const [listBox, h1Box] = [await list.boundingBox(), await h1.boundingBox()];
   expect(listBox!.x, "one column").toBeCloseTo(h1Box!.x, 1);
+});
+
+test("the headline is three lines at 1440 AND at 1280 — the editor's break applies only where line one fits", async ({
+  page,
+}) => {
+  // The first build forced the break at every `lg` width. At the comp's 1280
+  // frame "San Antonio's Commercial" (779px at 66px) does not fit the 738px
+  // column, so it wrapped BEFORE the forced break: four lines, "Experts." alone
+  // on one, and the band 76px taller than the comp. Line count is read from the
+  // box (80px lines); viewports are 15px wider than the layout they produce,
+  // because headless Chromium keeps the scrollbar gutter.
+  const h1 = page.locator(`${section} h1`);
+  const br = h1.locator("br");
+  await page.setViewportSize({ width: 1455, height: 900 });
+  await page.goto(HOME);
+  await expect(h1).toHaveCSS("line-height", "80px");
+  await expect(br).toHaveCSS("display", "inline");
+  await expect.poll(async () => (await h1.boundingBox())!.height).toBe(240);
+
+  await page.setViewportSize({ width: 1295, height: 900 });
+  await expect(br).toHaveCSS("display", "none");
+  await expect.poll(async () => (await h1.boundingBox())!.height).toBe(240);
 });
 
 test("the bar floats over the hero, and the CMS buttons reach the filesystem routes", async ({

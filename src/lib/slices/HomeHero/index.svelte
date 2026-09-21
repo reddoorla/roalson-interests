@@ -164,10 +164,21 @@
                    The space kept before each <br> is for everything that reads
                    the TEXT — a search snippet, a copy — where a bare <br> welds
                    "Experts.Since"; at a line's end it paints nothing. -->
+              <!-- The editor's soft break applies only where the comp's first
+                   line FITS. "San Antonio's Commercial" is 779px at 66px and
+                   the right column is (W − 196) × 847/1244, so it needs a
+                   layout of 1340 — and the layout is 15px narrower than the
+                   viewport wherever a scrollbar takes space, hence 1366 (which
+                   is also the commonest laptop width). Below that the break is
+                   `display: none` and the text flows: three lines at 1280
+                   ("San Antonio's / Commercial Real Estate / Experts. Since
+                   1983.") where the forced break made four, with "Experts."
+                   alone on a line and the band 76px taller than the comp. At
+                   390 the comp has no break either. -->
               <h1 class="t-h2 text-light lg:t-h1">
-                {#each lines as line, i (i)}{#if i > 0}<br />{/if}{i < lines.length - 1
-                    ? `${line} `
-                    : line}{/each}
+                {#each lines as line, i (i)}{#if i > 0}<br
+                      class="hidden min-[1366px]:inline"
+                    />{/if}{i < lines.length - 1 ? `${line} ` : line}{/each}
               </h1>
             {/if}
             {#if buttons.length > 0}
