@@ -53,6 +53,9 @@
             },
             "cta_banner": {
               "type": "SharedSlice"
+            },
+            "home_hero": {
+              "type": "SharedSlice"
             }
           }
         }

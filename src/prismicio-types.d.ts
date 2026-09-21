@@ -155,7 +155,8 @@ type PageDocumentDataSlicesSlice =
   | MediaTextSlice
   | SectionGridSlice
   | TestimonialSlice
-  | CtaBannerSlice;
+  | CtaBannerSlice
+  | HomeHeroSlice;
 
 /**
  * Content for Page documents
@@ -813,6 +814,143 @@ type HeroSliceVariation = HeroSliceDefault;
 export type HeroSlice = prismic.SharedSlice<"hero", HeroSliceVariation>;
 
 /**
+ * Item in *HomeHero → Default → Primary → Buttons (the first two are shown)*
+ */
+export interface HomeHeroSliceDefaultPrimaryButtonsItem {
+  /**
+   * Label field in *HomeHero → Default → Primary → Buttons (the first two are shown)*
+   *
+   * - **Field Type**: Text
+   * - **Placeholder**: e.g. Contact us
+   * - **API ID Path**: home_hero.default.primary.buttons[].label
+   * - **Documentation**: https://prismic.io/docs/fields/text
+   */
+  label: prismic.KeyTextField;
+
+  /**
+   * Link — a page on this site can be typed as a path, e.g. /contact field in *HomeHero → Default → Primary → Buttons (the first two are shown)*
+   *
+   * - **Field Type**: Link
+   * - **Placeholder**: /contact
+   * - **API ID Path**: home_hero.default.primary.buttons[].link
+   * - **Documentation**: https://prismic.io/docs/fields/link
+   */
+  link: prismic.LinkField<string, string, unknown, prismic.FieldState, never>;
+}
+
+/**
+ * Item in *HomeHero → Default → Primary → Specialties*
+ */
+export interface HomeHeroSliceDefaultPrimarySpecialtiesItem {
+  /**
+   * Specialty field in *HomeHero → Default → Primary → Specialties*
+   *
+   * - **Field Type**: Text
+   * - **Placeholder**: e.g. Consulting and brokerage
+   * - **API ID Path**: home_hero.default.primary.specialties[].text
+   * - **Documentation**: https://prismic.io/docs/fields/text
+   */
+  text: prismic.KeyTextField;
+}
+
+/**
+ * Primary content in *HomeHero → Default → Primary*
+ */
+export interface HomeHeroSliceDefaultPrimary {
+  /**
+   * Hero poster — a wide photo (16:9 or wider). Left empty, the hero is the dark garnet ground field in *HomeHero → Default → Primary*
+   *
+   * - **Field Type**: Image
+   * - **Placeholder**: *None*
+   * - **API ID Path**: home_hero.default.primary.poster
+   * - **Documentation**: https://prismic.io/docs/fields/image
+   */
+  poster: prismic.ImageField<never>;
+
+  /**
+   * Hero video — Vimeo ID (digits only). Plays over the poster field in *HomeHero → Default → Primary*
+   *
+   * - **Field Type**: Text
+   * - **Placeholder**: e.g. 123456789
+   * - **API ID Path**: home_hero.default.primary.vimeo_id
+   * - **Documentation**: https://prismic.io/docs/fields/text
+   */
+  vimeo_id: prismic.KeyTextField;
+
+  /**
+   * Headline — Shift+Enter for a line break field in *HomeHero → Default → Primary*
+   *
+   * - **Field Type**: Rich Text
+   * - **Placeholder**: San Antonio's Commercial Real Estate Experts. Since 1983.
+   * - **API ID Path**: home_hero.default.primary.heading
+   * - **Documentation**: https://prismic.io/docs/fields/rich-text
+   */
+  heading: prismic.RichTextField;
+
+  /**
+   * Buttons (the first two are shown) field in *HomeHero → Default → Primary*
+   *
+   * - **Field Type**: Group
+   * - **Placeholder**: *None*
+   * - **API ID Path**: home_hero.default.primary.buttons[]
+   * - **Documentation**: https://prismic.io/docs/fields/repeatable-group
+   */
+  buttons: prismic.GroupField<Simplify<HomeHeroSliceDefaultPrimaryButtonsItem>>;
+
+  /**
+   * List label field in *HomeHero → Default → Primary*
+   *
+   * - **Field Type**: Text
+   * - **Placeholder**: Our specialty
+   * - **API ID Path**: home_hero.default.primary.specialty_label
+   * - **Documentation**: https://prismic.io/docs/fields/text
+   */
+  specialty_label: prismic.KeyTextField;
+
+  /**
+   * Specialties field in *HomeHero → Default → Primary*
+   *
+   * - **Field Type**: Group
+   * - **Placeholder**: *None*
+   * - **API ID Path**: home_hero.default.primary.specialties[]
+   * - **Documentation**: https://prismic.io/docs/fields/repeatable-group
+   */
+  specialties: prismic.GroupField<
+    Simplify<HomeHeroSliceDefaultPrimarySpecialtiesItem>
+  >;
+}
+
+/**
+ * Default variation for HomeHero Slice
+ *
+ * - **API ID**: `default`
+ * - **Description**: Pinned hero (poster image, optional Vimeo clip) with the garnet headline band sliding over it
+ * - **Documentation**: https://prismic.io/docs/slices
+ */
+export type HomeHeroSliceDefault = prismic.SharedSliceVariation<
+  "default",
+  Simplify<HomeHeroSliceDefaultPrimary>,
+  never
+>;
+
+/**
+ * Slice variation for *HomeHero*
+ */
+type HomeHeroSliceVariation = HomeHeroSliceDefault;
+
+/**
+ * HomeHero Shared Slice
+ *
+ * - **API ID**: `home_hero`
+ * - **Description**: The top of the homepage: a pinned 528px hero, the RI cutout, and the garnet band with the headline, two buttons and the specialty list
+ * - **Documentation**: https://prismic.io/docs/slices
+ */
+export type HomeHeroSlice = prismic.SharedSlice<
+  "home_hero",
+  HomeHeroSliceVariation
+>;
+
+/**
  * Primary content in *LeadText → Default → Primary*
  */
 export interface LeadTextSliceDefaultPrimary {
@@ -1366,6 +1504,12 @@ declare module "@prismicio/client" {
       HeroSliceDefaultPrimary,
       HeroSliceVariation,
       HeroSliceDefault,
+      HomeHeroSlice,
+      HomeHeroSliceDefaultPrimaryButtonsItem,
+      HomeHeroSliceDefaultPrimarySpecialtiesItem,
+      HomeHeroSliceDefaultPrimary,
+      HomeHeroSliceVariation,
+      HomeHeroSliceDefault,
       LeadTextSlice,
       LeadTextSliceDefaultPrimary,
       LeadTextSliceVariation,
