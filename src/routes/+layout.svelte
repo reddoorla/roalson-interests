@@ -9,14 +9,14 @@
   import TransitionOverlay from "$lib/components/TransitionOverlay.svelte";
   import Nav from "$lib/components/Nav.svelte";
   import Footer from "$lib/components/Footer.svelte";
-  import { loadSiteConfig, footerColumns } from "$lib/site-config";
+  import { loadSiteConfig, footerNav } from "$lib/site-config";
   import { disableSmoothScroll, restoreSmoothScroll } from "$lib/utils/instantNavScroll";
 
   let { data, children } = $props();
 
-  // Site chrome from src/lib/site-config.json (empty stub → logo-only Nav +
-  // placeholder Footer). A route's own page data takes precedence in each
-  // chrome component.
+  // Site chrome from src/lib/site-config.json. A route speaks to it through
+  // page data: `navOver` (what the bar sits on) and `footerGround` (what the
+  // footer's ground grades from).
   const siteConfig = loadSiteConfig();
 
   // Kit's own post-nav scroll (top / hash anchor / popstate restore) runs
@@ -43,8 +43,9 @@
 >
   Skip to main content
 </a>
-<!-- Chrome renders from the site-config stub; a route may supply its own
-     footerColumns, and says what its first band is with `navOver`. -->
+<!-- Chrome renders from site-config; a route says what its first band is with
+     `navOver`, and the homepage asks for the footer's graded ground with
+     `footerGround`. -->
 <div class="flex flex-col min-h-screen">
   <Nav
     items={siteConfig.nav.items}
@@ -66,8 +67,12 @@
   </main>
 
   <Footer
-    columns={footerColumns(page.data.footerColumns, siteConfig)}
-    socials={siteConfig.footer.socials}
+    cta={siteConfig.footer.cta}
+    nav={footerNav(siteConfig)}
+    legal={siteConfig.footer.legal}
+    logo={siteConfig.nav.logo}
+    ground={page.data.footerGround}
+    currentPath={page.url.pathname}
     owner={siteConfig.footer.owner}
     text={siteConfig.footer.text}
   />
