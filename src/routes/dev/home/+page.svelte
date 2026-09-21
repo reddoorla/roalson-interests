@@ -20,6 +20,9 @@
   //             comp's two are placeholders, #3). Launch has none.
   //   ?photo    with a picture in the photo band — again a drawing, not the
   //             comp's unlicensed stock. Empty (the gradient) is the default.
+  //   ?featured=one   the featured band on launch day: three picks, ONE photo,
+  //             so one slide — a plain card, no arrows, no bar, no rotation.
+  //   ?featured=none  every pick photo-less: the empty state, which is no band.
   import { SliceZone } from "@prismicio/svelte";
   import { page } from "$app/state";
   import {
@@ -27,6 +30,7 @@
     HOME_POSTER_FIXTURE,
     homeFixture,
     partnersFixtureState,
+    stageFeatured,
   } from "$lib/home-fixture";
   import { splitHomeHero } from "$lib/home-page";
   import { components } from "$lib/slices";
@@ -34,9 +38,12 @@
 
   const params = $derived(page.url.searchParams);
   const slices = $derived(
-    homeFixture(
-      params.has("poster") ? { poster: HOME_POSTER_FIXTURE as never } : {},
-      params.has("photo") ? { image: HOME_PHOTO_FIXTURE as never } : {},
+    stageFeatured(
+      homeFixture(
+        params.has("poster") ? { poster: HOME_POSTER_FIXTURE as never } : {},
+        params.has("photo") ? { image: HOME_PHOTO_FIXTURE as never } : {},
+      ),
+      params.get("featured"),
     ).map((slice) =>
       slice.slice_type === "partners" && (params.has("bio") || params.has("photos"))
         ? partnersFixtureState({ bio: params.has("bio"), photos: params.has("photos") })

@@ -59,7 +59,8 @@ source. It is the fastest way to recognise what a thing does.
 | [`TransitionOverlay.svelte`](../src/lib/components/TransitionOverlay.svelte) | `visibleDuration`, `fadeInDuration`, `fadeOutDuration`, `so` | 9 | ms the cover holds once the incoming route has arrived |
 | [`TurnstileWidget.svelte`](../src/lib/components/TurnstileWidget.svelte) | — | 6 |  |
 | [`VimeoBanner.svelte`](../src/lib/components/VimeoBanner.svelte) | `vimeoId`, `poster`, `alt` | 7 | Full-bleed background-video banner |
-| [`home-fixture.ts`](../src/lib/home-fixture.ts) | `HOME_POSTER_FIXTURE`, `homeHeroFixture`, `HOME_PHOTO_FIXTURE`, `photoBandFixture`, `PARTNER_PHOTO_FIXTURE`, `PARTNER_BIO_FIXTURE`, `partnerFixture`, `partnersFixture`, `partnersFixtureState`, `homeFixture` | — | The homepage as fixture data — what /dev/home renders through the real layout, and what /dev/a11y-fixtures and the unit tests build on |
+| [`featured-properties.ts`](../src/lib/featured-properties.ts) | `featuredListings` | 8 | Which of the editor's picks the homepage's featured band can actually show |
+| [`home-fixture.ts`](../src/lib/home-fixture.ts) | `HOME_POSTER_FIXTURE`, `homeHeroFixture`, `HOME_PHOTO_FIXTURE`, `photoBandFixture`, `PARTNER_PHOTO_FIXTURE`, `PARTNER_BIO_FIXTURE`, `partnerFixture`, `partnersFixture`, `partnersFixtureState`, `featuredPickFixture`, `featuredPropertiesFixture`, `featuredLaunchFixture`, `stageFeatured`, `homeFixture` | — | The homepage as fixture data — what /dev/home renders through the real layout, and what /dev/a11y-fixtures and the unit tests build on |
 | [`home-page.ts`](../src/lib/home-page.ts) | `splitHomeHero` | 5 | The home route's shape, as data |
 | [`index.ts`](../src/lib/index.ts) | — | — | place files you want to import through the `$lib` alias in this folder |
 | [`indexability.ts`](../src/lib/indexability.ts) | `MIRROR_ROBOTS_TAG`, `isNetlifyMirrorHost` | 6 | Which HOST a request arrived on decides whether it may be indexed (#140) |
@@ -89,4 +90,4 @@ source. It is the fastest way to recognise what a thing does.
 | [`scrollLock.ts`](../src/lib/utils/scrollLock.ts) | `lockBodyScroll` | 4 | Stop the document scrolling behind a full-screen overlay; returns the release |
 | [`vimeo.ts`](../src/lib/utils/vimeo.ts) | `checkVimeoVideo` | 5 | True when the Vimeo video exists and is embeddable (oEmbed responds 200) |
 
-71 modules, 559 tests behind them.
+72 modules, 567 tests behind them.

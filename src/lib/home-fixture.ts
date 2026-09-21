@@ -257,6 +257,202 @@ export function partnersFixtureState(state: {
   });
 }
 
+// ── Featured properties ─────────────────────────────────────────────────────
+
+type FeaturedPrimary = Content.FeaturedPropertiesSlice["primary"];
+type FeaturedPick = FeaturedPrimary["properties"][number];
+type FeaturedListingData = NonNullable<Extract<FeaturedPick["property"], { id: string }>["data"]>;
+
+/** A generated stand-in for a listing photo, at the band's own 928 × 542 ratio:
+ *  flat blocks in the brand's tones, a different skyline per listing so a
+ *  dissolve between two of them can be SEEN. Drawings, not photographs — the
+ *  comp's slide photos are not in this repo (#3), and a fixture depends on no
+ *  host. */
+function listingDrawing(id: string, blocks: [number, number, number, number][], alt: string) {
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1856 1084">` +
+    `<defs><linearGradient id="s" x1="0" y1="0" x2="0" y2="1">` +
+    `<stop offset="0" stop-color="#b2ac9f"/><stop offset="1" stop-color="#f2efe9"/>` +
+    `</linearGradient></defs>` +
+    `<rect width="1856" height="1084" fill="url(#s)"/>` +
+    `<g fill="#652323">` +
+    blocks.map(([x, y, w, h]) => `<rect x="${x}" y="${y}" width="${w}" height="${h}"/>`).join("") +
+    `</g><rect y="820" width="1856" height="264" fill="#3d0707"/></svg>`;
+  return {
+    url: `data:image/svg+xml,${encodeURIComponent(svg)}`,
+    alt,
+    dimensions: { width: 1856, height: 1084 },
+    copyright: null,
+    id: `fixture-featured-${id}`,
+    edit: { x: 0, y: 0, zoom: 1, background: "transparent" },
+  };
+}
+
+/** One row of the slice's `properties` Group: a content relationship as the
+ *  Content API returns it WITH the model's picked fields embedded. Pass
+ *  `relationship` to override the link itself (`{ isBroken: true }`,
+ *  `{ data: undefined }` for a pick the API did not embed). */
+export function featuredPickFixture(
+  uid: string,
+  id: string,
+  data: Partial<FeaturedListingData> = {},
+  relationship: Record<string, unknown> = {},
+): FeaturedPick {
+  return {
+    property: {
+      link_type: "Document",
+      id,
+      uid,
+      type: "property",
+      tags: [],
+      lang: "en-us",
+      slug: uid,
+      first_publication_date: "2026-09-21T16:54:38+0000",
+      last_publication_date: "2026-09-21T16:54:38+0000",
+      isBroken: false,
+      data: {
+        title: uid,
+        status: "Available",
+        size_label: null,
+        feature_image: {},
+        highlights: [],
+        location: {},
+        ...data,
+      },
+      ...relationship,
+    },
+  } as unknown as FeaturedPick;
+}
+
+/** The three listings the comp features (6843:993 / 6843:1089 / 6846:1185),
+ *  in the client's own words from the seeded documents; the `id`s are those
+ *  documents' (scripts/seed/listings.state.json). Slide 1 carries the comp's
+ *  two bullets — the live listing has five, see `featuredLaunchFixture`. */
+const featuredPicks = (): FeaturedPick[] => [
+  featuredPickFixture("25331-ih-10-west", "arFgoxIAAC4ALcBx", {
+    title: "25331 IH 10 West",
+    size_label: "Up to 16,700 SF",
+    feature_image: listingDrawing(
+      "25331",
+      [
+        [180, 470, 620, 350],
+        [860, 560, 420, 260],
+        [1360, 380, 300, 440],
+      ],
+      "Drawing standing in for the photo of 25331 IH 10 West",
+    ) as never,
+    highlights: [
+      { text: "New Ownership and Property Management!" },
+      { text: "Great visibility and excellent location in the far NW submarket" },
+    ],
+    location: { latitude: 29.6572, longitude: -98.6297 },
+  }),
+  featuredPickFixture("101-w-commerce-street", "arFhaRIAACcALcQN", {
+    title: "101 W. Commerce Street",
+    size_label: "7,863 SF",
+    feature_image: listingDrawing(
+      "101",
+      [
+        [260, 160, 360, 660],
+        [680, 300, 300, 520],
+        [1040, 90, 420, 730],
+      ],
+      "Drawing standing in for the photo of 101 W. Commerce Street",
+    ) as never,
+    highlights: [
+      {
+        text: "The property is one block from the San Antonio River Walk, across the street from Main Plaza and the San Fernando Cathedral.",
+      },
+      {
+        text: "The property is also one block away from the new apartment project called, “300 Main.”",
+      },
+    ],
+    location: { latitude: 29.4246, longitude: -98.4946 },
+  }),
+  featuredPickFixture("13810-lookout-road", "arFhUhIAACkALcOD", {
+    title: "13810 Lookout Road",
+    size_label: "4,230 SF",
+    feature_image: listingDrawing(
+      "13810",
+      [
+        [120, 600, 900, 220],
+        [1100, 520, 560, 300],
+      ],
+      "Drawing standing in for the photo of 13810 Lookout Road",
+    ) as never,
+    highlights: [
+      { text: "Excellent accessibility to IH 35 and Loop 1604" },
+      {
+        text: "Office area consists of three offices, wet bar/break area and large open office with counter",
+      },
+    ],
+    location: { latitude: 29.5702, longitude: -98.3358 },
+  }),
+];
+
+/** The `featured_properties` slice as the comp draws it: three listings with
+ *  photos. Pass `primary` to override — `{ properties: [] }` is the empty band.
+ *
+ *  The portfolio button is stored as a typed path in a Web link, the only way
+ *  an editor can point at the filesystem route /properties ($lib/cms-href). */
+export function featuredPropertiesFixture(
+  primary: Partial<FeaturedPrimary> = {},
+): Content.FeaturedPropertiesSlice {
+  return {
+    id: "fixture-featured-properties",
+    slice_type: "featured_properties",
+    slice_label: null,
+    variation: "default",
+    version: "initial",
+    primary: {
+      heading: "Featured Properties",
+      properties: featuredPicks(),
+      portfolio_label: "Our portfolio",
+      portfolio_link: { link_type: "Web", url: "/properties" },
+      ...primary,
+    },
+    items: [],
+  } as unknown as Content.FeaturedPropertiesSlice;
+}
+
+/** What the band holds on launch day. The editor picks the comp's three and
+ *  ONE of them has a photo (25331 IH 10 West — measured on the live repository
+ *  2026-09-21: 22 listings, one feature image — here with that document's five
+ *  bullets). So this is the ONE-slide state: no arrows, no bar, no rotation. */
+export function featuredLaunchFixture(
+  primary: Partial<FeaturedPrimary> = {},
+): Content.FeaturedPropertiesSlice {
+  const picks = featuredPicks();
+  const data = (pick: FeaturedPick) =>
+    (pick.property as unknown as { data: FeaturedListingData }).data;
+  data(picks[0]).highlights = [
+    { text: "Office Bldg: 975 - 10,000SF" },
+    { text: "Retail Bldg: 1200 - 6700SF" },
+    ...data(picks[0]).highlights,
+    { text: "Good access to the IH 10 and Ralph Fair intersection" },
+  ] as FeaturedListingData["highlights"];
+  for (const pick of picks.slice(1)) data(pick).feature_image = {} as never;
+  return featuredPropertiesFixture({ properties: picks as never, ...primary });
+}
+
+/** /dev/home's `?featured=` states: "one" is launch day (above); "none" is a
+ *  band whose every pick is photo-less — the empty state, which draws no band
+ *  at all. Anything else leaves the slices as they are. */
+export function stageFeatured<T extends { slice_type: string }>(
+  slices: readonly T[],
+  state: string | null,
+): T[] {
+  if (state !== "one" && state !== "none") return [...slices];
+  const launch = featuredLaunchFixture();
+  const staged =
+    state === "one"
+      ? launch
+      : featuredPropertiesFixture({ properties: launch.primary.properties.slice(1) as never });
+  return slices.map((slice) =>
+    slice.slice_type === "featured_properties" ? (staged as unknown as T) : slice,
+  );
+}
+
 /** The homepage's slices, in page order — the shape of `page.data.slices` on
  *  the `home` document. The photo band is LAST, as in the comp: it only pins
  *  as the last thing in <main> (see app.css). */
@@ -266,6 +462,7 @@ export function homeFixture(
 ): Content.PageDocument["data"]["slices"] {
   return [
     homeHeroFixture(hero),
+    featuredPropertiesFixture(),
     // "Our Legacy" — in page order it follows the featured-properties band.
     partnersFixture(),
     // LAST, always: the photo band only pins as the last thing in <main>.

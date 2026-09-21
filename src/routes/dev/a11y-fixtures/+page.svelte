@@ -35,6 +35,8 @@
   import type { ComponentProps } from "svelte";
   import { trapFocus } from "$lib/actions/trapFocus";
   import CarouselFixture from "./CarouselFixture.svelte";
+  import FeaturedProperties from "$lib/slices/FeaturedProperties/index.svelte";
+  import { featuredLaunchFixture, featuredPropertiesFixture } from "$lib/home-fixture";
   import type { RichTextField } from "@prismicio/client";
 
   let modalOpen = $state(false);
@@ -444,6 +446,23 @@
        it are held by theme-contrast.test.ts at both ends (garnet and dark).
        Full width, and the pin, are /dev/home's. -->
   <HomeHero slice={homeHeroFixture()} />
+
+  <!-- The homepage's featured band, twice: the comp's three listings (a
+       carousel — garnet arrows and bar on the sand card, the cream portfolio
+       button on the dark ground) and launch day's ONE (a plain card: no region,
+       no arrows, no bar — under its own heading, because two landmarks may not
+       share a name on one page). This gate runs under reduced motion, so the Pause
+       control is never in what axe sees here; its name and its place in the
+       tab order are held by FeaturedProperties.test.ts and
+       tests/interaction/featured-properties.spec.ts. Rotation and the full
+       width are /dev/home's.
+
+       WHAT AXE DOES NOT MEASURE HERE: the eyebrow's contrast. The slides are
+       subgrids spanning the chrome's cells, so axe reports `color-contrast` on
+       it as "needs review" (`bgOverlap`), which is not a pass. Garnet on sand
+       is held by theme-contrast.test.ts from the tokens instead: 8.87:1. -->
+  <FeaturedProperties slice={featuredPropertiesFixture()} />
+  <FeaturedProperties slice={featuredLaunchFixture({ heading: "Featured Property" })} />
 
   <!-- The homepage's "Our Legacy" band in its FULLEST state, not its launch
        one: a headshot on both cards and a bio on the first, so axe sees the
