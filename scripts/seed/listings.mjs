@@ -27,11 +27,12 @@ import {
   publishedByUid,
   readState,
   readToken,
-  repositoryInfo,
+  masterRef,
   repositoryName,
   sleep,
   stageDocument,
   stripEmpty,
+  typeExists,
   uploadAsset,
   writeState,
   fetchWithRetry,
@@ -95,13 +96,13 @@ async function main(argv) {
   const state = readState(STATE_PATH);
 
   // Preflights. Each REQUIRES a positive answer before any write.
-  const info = await repositoryInfo(repo);
-  if (!info.types.includes(TYPE)) {
+  if (!(await typeExists(TYPE, headers))) {
     throw new Error(
-      `preflight: repository ${repo} has no "${TYPE}" type yet (types: ${info.types.join(", ") || "none"}). ` +
+      `preflight: repository ${repo} has no "${TYPE}" custom type yet. ` +
         "The models are delivered by the prismic-models workflow on merge to main — wait for its run.",
     );
   }
+  await sleep(THROTTLE_MS);
   const assetProbe = await fetchWithRetry("https://asset-api.prismic.io/assets?limit=1", {
     headers: headers.auth,
   });
@@ -110,7 +111,7 @@ async function main(argv) {
       `preflight: the asset API answered ${assetProbe.status} — this token cannot write content`,
     );
   }
-  const published = await publishedByUid(repo, TYPE, info.masterRef);
+  const published = await publishedByUid(repo, TYPE, await masterRef(repo));
   console.log(
     `preflight ok: type present, asset API 200, ${Object.keys(published).length} listing(s) already live`,
   );

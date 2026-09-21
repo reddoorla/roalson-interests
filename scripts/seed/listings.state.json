@@ -1,0 +1,186 @@
+{
+  "documents": {
+    "101-w-commerce-street": {
+      "id": "arFhaRIAACcALcQN",
+      "at": "2026-09-21T16:55:05.460Z"
+    },
+    "116-old-san-antonio-road": {
+      "id": "arFhVxIAAC0ALcOm",
+      "at": "2026-09-21T16:54:48.074Z"
+    },
+    "11714-perrin-beitel-road": {
+      "id": "arFhZRIAAC4ALcP2",
+      "at": "2026-09-21T16:55:01.667Z"
+    },
+    "13810-lookout-road": {
+      "id": "arFhUhIAACkALcOD",
+      "at": "2026-09-21T16:54:42.460Z"
+    },
+    "25331-ih-10-west": {
+      "id": "arFgoxIAAC4ALcBx",
+      "at": "2026-09-21T16:54:38.695Z"
+    },
+    "402-w-nueva-street": {
+      "id": "arFhVBIAACsALcOQ",
+      "at": "2026-09-21T16:54:44.299Z"
+    },
+    "5001-walzem-road": {
+      "id": "arFhShIAACoALcNX",
+      "at": "2026-09-21T16:54:34.417Z"
+    },
+    "5930-bandera-road": {
+      "id": "arFhYxIAACwALcPu",
+      "at": "2026-09-21T16:54:59.722Z"
+    },
+    "cascade-caverns-at-old-san-antonio-road": {
+      "id": "arFhWxIAACoALcO-",
+      "at": "2026-09-21T16:54:51.843Z"
+    },
+    "highway-77-at-general-cavazos-kingsville": {
+      "id": "arFhcRIAACgALcQ7",
+      "at": "2026-09-21T16:55:13.125Z"
+    },
+    "ih-10-at-fm-725-seguin": {
+      "id": "arFhaxIAAC0ALcQY",
+      "at": "2026-09-21T16:55:07.442Z"
+    },
+    "ih-10-at-highway-46": {
+      "id": "arFhXxIAACoALcPW",
+      "at": "2026-09-21T16:54:55.917Z"
+    },
+    "ih-10-at-highway-87-comfort": {
+      "id": "arFhbxIAACcALcQw",
+      "at": "2026-09-21T16:55:11.245Z"
+    },
+    "ih-10-at-menger-springs": {
+      "id": "arFhWRIAACoALcOz",
+      "at": "2026-09-21T16:54:49.938Z"
+    },
+    "ih-10-at-scenic-loop": {
+      "id": "arFhXRIAACsALcPK",
+      "at": "2026-09-21T16:54:53.748Z"
+    },
+    "ih-10-east-at-loop-1604": {
+      "id": "arFhVhIAAC0ALcOb",
+      "at": "2026-09-21T16:54:46.204Z"
+    },
+    "ih-35-at-wonderworld-san-marcos": {
+      "id": "arFhbRIAACcALcQl",
+      "at": "2026-09-21T16:55:09.371Z"
+    },
+    "loop-1604-at-dove-canyon": {
+      "id": "arFhchIAAC4ALcRI",
+      "at": "2026-09-21T16:55:14.974Z"
+    },
+    "loop-1604-at-highway-181": {
+      "id": "arFhZxIAACwALcQB",
+      "at": "2026-09-21T16:55:03.561Z"
+    },
+    "menger-springs-road": {
+      "id": "arFhYRIAACgALcPh",
+      "at": "2026-09-21T16:54:57.818Z"
+    },
+    "st-marys-at-martin-river-walk": {
+      "id": "arFhTBIAACgALcNi",
+      "at": "2026-09-21T16:54:36.299Z"
+    },
+    "urban-loop-road": {
+      "id": "arFhUBIAAC4ALcN5",
+      "at": "2026-09-21T16:54:40.590Z"
+    }
+  },
+  "assets": {
+    "101-w-commerce-street-package.pdf": {
+      "id": "scsjv45jJCYJ0N0H",
+      "url": "https://roalson-interests.cdn.prismic.io/roalson-interests/scsjv45jJCYJ0N0H_101-w-commerce-street-package.pdf"
+    },
+    "116-old-san-antonio-road-package.pdf": {
+      "id": "inY-SsqHaoQSlyh0",
+      "url": "https://roalson-interests.cdn.prismic.io/roalson-interests/inY-SsqHaoQSlyh0_116-old-san-antonio-road-package.pdf"
+    },
+    "11714-perrin-beitel-road-package.pdf": {
+      "id": "6C5b-DFUaGMbTEhK",
+      "url": "https://roalson-interests.cdn.prismic.io/roalson-interests/6C5b-DFUaGMbTEhK_11714-perrin-beitel-road-package.pdf"
+    },
+    "13810-lookout-road-package.pdf": {
+      "id": "IC3N04RcTNl9U5hF",
+      "url": "https://roalson-interests.cdn.prismic.io/roalson-interests/IC3N04RcTNl9U5hF_13810-lookout-road-package.pdf"
+    },
+    "25331-ih-10-west-package.pdf": {
+      "id": "PhD3MxFm-P9HFr-R",
+      "url": "https://roalson-interests.cdn.prismic.io/roalson-interests/PhD3MxFm-P9HFr-R_25331-ih-10-west-package.pdf"
+    },
+    "25331-ih-10-west.jpg": {
+      "id": "u2QeymHWG2R4jRTM",
+      "url": "https://images.prismic.io/roalson-interests/u2QeymHWG2R4jRTM_25331-ih-10-west.jpg?auto=format,compress"
+    },
+    "402-w-nueva-street-package.pdf": {
+      "id": "i7TXmhPMSryJiJuM",
+      "url": "https://roalson-interests.cdn.prismic.io/roalson-interests/i7TXmhPMSryJiJuM_402-w-nueva-street-package.pdf"
+    },
+    "5001-walzem-road-package.pdf": {
+      "id": "pMut6k9YUFHlwKO9",
+      "url": "https://roalson-interests.cdn.prismic.io/roalson-interests/pMut6k9YUFHlwKO9_5001-walzem-road-package.pdf"
+    },
+    "5930-bandera-road-package.pdf": {
+      "id": "sA1S07l68FZ6KIZB",
+      "url": "https://roalson-interests.cdn.prismic.io/roalson-interests/sA1S07l68FZ6KIZB_5930-bandera-road-package.pdf"
+    },
+    "cascade-caverns-at-old-san-antonio-road-package.pdf": {
+      "id": "3Ln5flcCTgSO889g",
+      "url": "https://roalson-interests.cdn.prismic.io/roalson-interests/3Ln5flcCTgSO889g_cascade-caverns-at-old-san-antonio-road-package.pdf"
+    },
+    "highway-77-at-general-cavazos-kingsville-package.pdf": {
+      "id": "LwT3epltbis1hF6E",
+      "url": "https://roalson-interests.cdn.prismic.io/roalson-interests/LwT3epltbis1hF6E_highway-77-at-general-cavazos-kingsville-package.pdf"
+    },
+    "ih-10-at-fm-725-seguin-package.pdf": {
+      "id": "ITHpy3MirUPNXmsI",
+      "url": "https://roalson-interests.cdn.prismic.io/roalson-interests/ITHpy3MirUPNXmsI_ih-10-at-fm-725-seguin-package.pdf"
+    },
+    "ih-10-at-highway-46-package.pdf": {
+      "id": "xcra9iNmvChHpqHL",
+      "url": "https://roalson-interests.cdn.prismic.io/roalson-interests/xcra9iNmvChHpqHL_ih-10-at-highway-46-package.pdf"
+    },
+    "ih-10-at-highway-87-comfort-package.pdf": {
+      "id": "BjiJYi94nMIsAT5R",
+      "url": "https://roalson-interests.cdn.prismic.io/roalson-interests/BjiJYi94nMIsAT5R_ih-10-at-highway-87-comfort-package.pdf"
+    },
+    "ih-10-at-menger-springs-package.pdf": {
+      "id": "3pF2knPk2chblS_U",
+      "url": "https://roalson-interests.cdn.prismic.io/roalson-interests/3pF2knPk2chblS_U_ih-10-at-menger-springs-package.pdf"
+    },
+    "ih-10-at-scenic-loop-package.pdf": {
+      "id": "YTF0CXbDbw79i6Ok",
+      "url": "https://roalson-interests.cdn.prismic.io/roalson-interests/YTF0CXbDbw79i6Ok_ih-10-at-scenic-loop-package.pdf"
+    },
+    "ih-10-east-at-loop-1604-package.pdf": {
+      "id": "TELMrcgm0MY-YExE",
+      "url": "https://roalson-interests.cdn.prismic.io/roalson-interests/TELMrcgm0MY-YExE_ih-10-east-at-loop-1604-package.pdf"
+    },
+    "ih-35-at-wonderworld-san-marcos-package.pdf": {
+      "id": "Wz4WSFewCGVQ_k2z",
+      "url": "https://roalson-interests.cdn.prismic.io/roalson-interests/Wz4WSFewCGVQ_k2z_ih-35-at-wonderworld-san-marcos-package.pdf"
+    },
+    "loop-1604-at-dove-canyon-package.pdf": {
+      "id": "gaxylSIiWHN8H9zB",
+      "url": "https://roalson-interests.cdn.prismic.io/roalson-interests/gaxylSIiWHN8H9zB_loop-1604-at-dove-canyon-package.pdf"
+    },
+    "loop-1604-at-highway-181-package.pdf": {
+      "id": "ROwkAOYHanZADggn",
+      "url": "https://roalson-interests.cdn.prismic.io/roalson-interests/ROwkAOYHanZADggn_loop-1604-at-highway-181-package.pdf"
+    },
+    "menger-springs-road-package.pdf": {
+      "id": "NxDyHCoQDuthYh76",
+      "url": "https://roalson-interests.cdn.prismic.io/roalson-interests/NxDyHCoQDuthYh76_menger-springs-road-package.pdf"
+    },
+    "st-marys-at-martin-river-walk-package.pdf": {
+      "id": "OcUmfzDNIMTQDiNt",
+      "url": "https://roalson-interests.cdn.prismic.io/roalson-interests/OcUmfzDNIMTQDiNt_st-marys-at-martin-river-walk-package.pdf"
+    },
+    "urban-loop-road-package.pdf": {
+      "id": "M7NBRhIa_g6Kp8Dd",
+      "url": "https://roalson-interests.cdn.prismic.io/roalson-interests/M7NBRhIa_g6Kp8Dd_urban-loop-road-package.pdf"
+    }
+  }
+}
