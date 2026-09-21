@@ -60,7 +60,9 @@
     lg:[--band-h:800px]"
 >
   {#if image}
-    <!-- Below the fold on every page that has one: `preload={false}` makes it
+    <!-- Below the fold on the homepage, where it is the last slice (nothing
+         stops an editor placing it first, where lazy would cost the LCP):
+         `preload={false}` makes it
          `loading="lazy"` at `fetchpriority="auto"`, so it never competes with
          the hero's poster for the LCP. The alt is the image's own, from the
          media library; empty is decorative, which a band with nothing else in

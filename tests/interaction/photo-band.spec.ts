@@ -23,7 +23,8 @@ import AxeBuilder from "@axe-core/playwright";
 //
 // - `contextOptions.reducedMotion: "reduce"` on every test. The pin is OFF
 //   under `reduce` by design, so the pin tests opt out with `test.use` — and
-//   every test asserts the media query it believes it is running under.
+//   every PIN test asserts the media query it believes it is running under
+//   (the mid-page, gradient/photo and axe cases do not; they do not move).
 // - Under `no-preference` app.css makes `window.scrollTo(0, y)` a smooth,
 //   animated scroll. Every scroll here is `behavior: "instant"`, then polled.
 //

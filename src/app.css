@@ -347,8 +347,11 @@ main > section.hero-band:first-child {
         publishes as `--footer-h` (Footer.svelte) — that is the band's travel;
      3. the footer takes the same height as a NEGATIVE margin, which lays it
         back over the spacer. The document is not one pixel taller, and the
-        footer does not move when the variable arrives at hydration, so there
-        is no layout shift.
+        footer does not move when the variable arrives at hydration. The BAND
+        does, once, for a visitor whose scroll is restored into the last
+        footer-height of the page before hydration (a reload there: band top
+        -293 at 48ms, 0 at 184ms, footer still). Chromium reports no
+        layout-shift entry for it.
 
    EVERY rule is gated on the spacer being <main>'s LAST CHILD, because the
    mechanism is only true there. An editor can drop this slice mid-page, and

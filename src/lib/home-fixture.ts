@@ -94,8 +94,12 @@ type PhotoBandPrimary = Content.PhotoBandSlice["primary"];
  *  It is drawn to make the band's crop legible, which is `cover` anchored to
  *  the bottom: the dark ground strip along its foot must sit ON the band's
  *  bottom edge at every width, and the garnet stripe across its top 100 units
- *  must NEVER be seen — the band crops 160px (320 units) off the top at 1440
- *  and 20px (148 units) at 390. */
+ *  is never seen WHERE THE COMP HAS A FRAME — the band crops 160px (320 units)
+ *  off the top at 1440, 53px at 1280 and 20px (148 units) at 390. It IS seen
+ *  at layout widths 1009–1199 (measured: a 42px garnet bar at 1024): there the
+ *  800px band is taller than a full-width 3:2 picture, so `cover` crops the
+ *  SIDES and nothing off the top. That is the fixture being honest about the
+ *  crop, not a broken band. */
 const PHOTO_SVG =
   `<svg xmlns="http://www.w3.org/2000/svg" width="2880" height="1920" viewBox="0 0 2880 1920">` +
   `<defs><linearGradient id="s" x1="0" y1="0" x2="0" y2="1">` +

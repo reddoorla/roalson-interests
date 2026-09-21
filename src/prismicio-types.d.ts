@@ -1157,7 +1157,7 @@ type PhotoBandSliceVariation = PhotoBandSliceDefault;
  * PhotoBand Shared Slice
  *
  * - **API ID**: `photo_band`
- * - **Description**: A full-width photo band, 800px tall (240 on a phone). As the LAST slice on a page it pins while the footer slides up over it. Left empty it is the garnet gradient
+ * - **Description**: A full-width photo band, 800px tall (240 on screens narrower than 1024px). As the LAST slice on a page it pins while the footer slides up over it. Left empty it is the garnet gradient
  * - **Documentation**: https://prismic.io/docs/slices
  */
 export type PhotoBandSlice = prismic.SharedSlice<
