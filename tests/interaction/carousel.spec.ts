@@ -1,5 +1,6 @@
 import { expect, test, type Browser, type Locator, type Page } from "@playwright/test";
 import sharp from "sharp";
+import { expectRing, GARNET, OFF_WHITE } from "./expect-ring";
 
 // The headless carousel ($lib/carousel.svelte.ts) makes four promises jsdom
 // cannot check, and each of them was wrong at least once while it was built:
@@ -20,7 +21,10 @@ import sharp from "sharp";
 //  5. keyboard focus is never left on <body>. jsdom has no `inert`, so the unit
 //     tests passed while a slide that turned away took the focus it held with
 //     it — by an arrow key pressed on the slide's own link, and by the clock
-//     one dwell after Play → Tab into the slide. Found in review, not by a test.
+//     one dwell after Play → Tab into the slide. Found in review, not by a test;
+//  6. the focus ring is the colour of the GROUND the carousel sits on. The
+//     first version reasoned about a ring that was garnet everywhere; main had
+//     replaced it (`--focus-ring`, app.css) before this merged.
 //
 // The shared config forces `reducedMotion: "reduce"` on every context, under
 // which this carousel never rotates and has no pause control. Every test about
@@ -483,6 +487,36 @@ test("an arrow key on a slide's link is the page's; on a control it turns the sl
   // Tab goes on into the slide that is showing NOW, not the one that left.
   await page.keyboard.press("Tab");
   await expect.poll(() => focusAnd(page, MANUAL).then((now) => now.focus)).toBe("Link in slide 3");
+});
+
+test("the focus ring follows the card the carousel sits on — arrows and slide links alike", async ({
+  browser,
+}) => {
+  // Its own context: the arrows carry `transition-colors`, which lists
+  // outline-color, and under the shared config's reduced motion app.css zeroes
+  // every transition — the poll inside expectRing would have nothing to wait
+  // out, and this would not be the read a sighted keyboard user gets.
+  const { context, page } = await moving(browser);
+  try {
+    await page.goto(FIXTURES);
+    await pointerAway(page);
+    const garnetCard = page.locator(MANUAL);
+    const sandCard = page.locator(AUTO);
+    await adopted(garnetCard);
+    await adopted(sandCard);
+    // The grounds are what the names say, as painted…
+    await expect(garnetCard).toHaveCSS("background-color", GARNET);
+    await expect(sandCard).toHaveCSS("background-color", "rgb(232, 225, 209)");
+    // …and neither tone sets a ring of its own, so these four are app.css's
+    // `--focus-ring`, resolved from the nearest ground. Before main's #23 the
+    // link on the garnet card measured rgb(101, 35, 35): garnet on garnet, 1:1.
+    await expectRing(page, garnetCard.getByLabel("Next slide"), OFF_WHITE);
+    await expectRing(page, garnetCard.getByRole("link", { name: "Link in slide 1" }), OFF_WHITE);
+    await expectRing(page, sandCard.getByLabel("Next slide"), GARNET);
+    await expectRing(page, sandCard.getByRole("link", { name: "Link in slide 1" }), GARNET);
+  } finally {
+    await context.close();
+  }
 });
 
 type Rgb = [number, number, number];

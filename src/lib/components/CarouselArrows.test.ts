@@ -73,8 +73,19 @@ describe("CarouselArrows", () => {
     const resting = next.className.split(/\s+/).filter((c) => !c.includes(":"));
     expect(resting).toContain("text-background");
     expect(resting, "garnet on garnet").not.toContain("text-primary");
-    // The site's focus ring is garnet — 1:1 on the garnet card.
-    expect(ARROW_TONES.cream).toContain("focus-visible:outline-background");
+  });
+
+  it("sets no focus ring of its own — the ring is the ground's", () => {
+    // The first version gave the cream tone `focus-visible:outline-background`
+    // because the site's ring was garnet everywhere, 1:1 on the garnet card.
+    // app.css now has each GROUND set `--focus-ring` for what sits on it, so a
+    // cream arrow on `bg-primary` or `bg-dark` already gets off-white — and a
+    // tone that also set one would be a second rule to change when the first
+    // does. jsdom resolves no stylesheet: the colour itself is read in a
+    // browser, in tests/interaction/carousel.spec.ts.
+    for (const [tone, classes] of Object.entries(ARROW_TONES)) {
+      expect(classes, tone).not.toMatch(/(^|[\s:])(outline|ring)-/);
+    }
   });
 
   it("never fills on hover at a bound — the arrow there does nothing", () => {

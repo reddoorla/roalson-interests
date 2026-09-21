@@ -21,13 +21,22 @@
   // Tones are named for the CONTROL's colour, as BrandButton's are, and take
   // its hovers: "garnet" on the light grounds (sand, off-white; hover fills
   // garnet with dust glyph, 5.11:1), "cream" on the garnet card and the dark
-  // band (hover fills off-white with garnet glyph, 10.07:1). Cream also moves
-  // the focus ring to off-white — the site's garnet ring is 1:1 on garnet.
+  // band (hover fills off-white with garnet glyph, 10.07:1).
+  //
+  // Neither tone sets a focus ring. app.css's floor draws it in `--focus-ring`,
+  // which each GROUND class sets for what sits on it (`.bg-primary > *` and
+  // `.bg-dark > *` give off-white, the light grounds garnet) — so the ring
+  // follows the card these are placed on, not the tone. A cream arrow therefore
+  // needs a classified dark ground somewhere above it, which is the only place
+  // it is legible anyway; src/focus-floor.test.ts fails on a ground class that
+  // is in neither list. Read in Chromium on the fixtures, arrows and slide
+  // links both: off-white on the garnet card, garnet on the sand one
+  // (tests/interaction/carousel.spec.ts).
   export const ARROW_TONES = {
     garnet:
       "border-primary text-primary not-aria-disabled:hover:bg-primary not-aria-disabled:hover:text-dust",
     cream:
-      "border-background text-background not-aria-disabled:hover:bg-background not-aria-disabled:hover:text-primary focus-visible:outline-background",
+      "border-background text-background not-aria-disabled:hover:bg-background not-aria-disabled:hover:text-primary",
   } as const;
 </script>
 

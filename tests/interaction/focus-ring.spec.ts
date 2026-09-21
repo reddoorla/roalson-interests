@@ -1,4 +1,5 @@
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
+import { expectRing, GARNET, OFF_WHITE } from "./expect-ring";
 
 // The keyboard-focus ring is drawn OUTSIDE its element, so what it has to be
 // legible against is the container's ground. It was garnet on every ground —
@@ -6,45 +7,7 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 // set `--focus-ring` for its children; jsdom resolves no stylesheets, so the
 // cascade can only be checked here.
 const FIXTURE = "/dev/properties";
-const OFF_WHITE = "rgb(242, 239, 233)";
-const GARNET = "rgb(101, 35, 35)";
 const bar = 'nav[aria-label="Primary"]';
-
-/** Focus as a keyboard user does and require the ring, in this colour.
- *
- *  One real Tab puts the page in keyboard modality, after which a scripted
- *  focus matches :focus-visible. Focus, the :focus-visible check and the read
- *  are ONE synchronous block, and the whole block is polled. Both halves are
- *  there because each was a failure on its own:
- *
- *   - Checked and read in two round trips, the menu test failed about one run
- *     in three with the link's own sand text colour: the focus trap moved
- *     focus between the calls, and the second measured an unfocused element
- *     (whose outline colour computes to `currentcolor`).
- *   - Read in the same task as the focus, EVERY run failed with the control's
- *     text colour: Tailwind's `transition-colors` lists `outline-color`, so at
- *     the instant of focus the ring is still leaving `currentcolor`.
- *
- *  So: `showing` must be true in the same read that reports the colour, and
- *  the read repeats until the transition has landed. An outline colour on an
- *  element whose ring is not showing is a number about nothing. */
-async function expectRing(page: Page, target: Locator, color: string) {
-  await page.keyboard.press("Tab");
-  await expect
-    .poll(() =>
-      target.evaluate((el) => {
-        (el as HTMLElement).focus();
-        const cs = getComputedStyle(el);
-        return {
-          showing: el.matches(":focus-visible"),
-          color: cs.outlineColor,
-          width: cs.outlineWidth,
-          style: cs.outlineStyle,
-        };
-      }),
-    )
-    .toEqual({ showing: true, color, width: "2px", style: "solid" });
-}
 
 test("the ring is off-white on dark grounds and garnet on light ones", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
