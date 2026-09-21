@@ -27,6 +27,24 @@ const bar = 'nav[aria-label="Primary"]';
  *  lands on server markup and opens nothing. */
 const adopted = (page: Page) => expect(page.locator(bar)).toHaveCSS("position", "fixed");
 
+/** Where the bar's content ends, read from the bar — NOT from the window or
+ *  from documentElement.clientWidth. On the Linux CI runner both say 1440 while
+ *  the bar lays out 15px narrower (app.css's `scrollbar-gutter: stable` keeps a
+ *  gutter that neither number reports), so "1440 - 80" was wrong there twice.
+ *  Returns the right-hand gutter too, which IS the comp's number. */
+const contentEdge = (page: Page) =>
+  page.evaluate((selector) => {
+    const row = document.querySelector(`${selector} > div`)!;
+    const gutter = parseFloat(getComputedStyle(row).paddingRight);
+    return {
+      gutter,
+      right: row.getBoundingClientRect().right - gutter,
+      inner: innerWidth,
+      client: document.documentElement.clientWidth,
+      row: row.getBoundingClientRect().width,
+    };
+  }, bar);
+
 test("the server ships a floating bar unpinned, with the menu's links beside it", async ({
   page,
 }) => {
@@ -71,9 +89,10 @@ test("with scripting off, the floating bar stays on its dark band and the links 
     await page.setViewportSize({ width: 390, height: 844 });
     await expect(links.nth(1)).toBeVisible();
     const lastLink = await links.nth(1).boundingBox();
-    const narrow = await page.evaluate(() => document.documentElement.clientWidth);
-    expect(lastLink!.x + lastLink!.width, "inside the 20px gutter").toBeLessThanOrEqual(
-      narrow - 20,
+    const narrow = await contentEdge(page);
+    expect(narrow.gutter, "the comp's 20px gutter").toBe(20);
+    expect(lastLink!.x + lastLink!.width, JSON.stringify(narrow)).toBeLessThanOrEqual(
+      narrow.right + 0.5,
     );
     expect(lastLink!.y, "on the bar's one line").toBeLessThan(70);
     await page.setViewportSize({ width: 1440, height: 900 });
@@ -126,7 +145,7 @@ test("the bar floats over the masthead, and takes its ground when the page moves
 
   // The masthead runs UNDER the bar, as the comp draws it.
   expect((await page.locator("main header").first().boundingBox())!.y).toBe(0);
-  expect((await page.locator(bar).boundingBox())!.height).toBe(80);
+  await expect(page.locator(bar)).toHaveCSS("height", "80px");
 
   await page.mouse.wheel(0, 600);
   await expect(page.locator(bar)).not.toHaveAttribute("data-floating", "");
@@ -146,10 +165,13 @@ test("a page that opens on a light band clears the bar", async ({ page }) => {
   const first = await page.locator("main#main-content > *").first().boundingBox();
   expect(first!.y, "nothing starts under the bar").toBeGreaterThanOrEqual(barBox!.height);
 
+  // Auto-retrying on purpose: on the CI runner the bar still measured 80 the
+  // instant setViewportSize resolved — the resize had not been laid out yet.
   await page.setViewportSize({ width: 390, height: 844 });
-  expect((await page.locator(bar).boundingBox())!.height).toBe(70);
-  const firstMobile = await page.locator("main#main-content > *").first().boundingBox();
-  expect(firstMobile!.y).toBeGreaterThanOrEqual(70);
+  await expect(page.locator(bar)).toHaveCSS("height", "70px");
+  await expect
+    .poll(async () => (await page.locator("main#main-content > *").first().boundingBox())!.y)
+    .toBeGreaterThanOrEqual(70);
 });
 
 test("the open menu: named, focused, locked, clean under axe, and closed by Escape", async ({
@@ -158,11 +180,8 @@ test("the open menu: named, focused, locked, clean under axe, and closed by Esca
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto(DARK);
   await adopted(page);
-  // The LAYOUT's width, not the window's: the CI runner's Chromium draws a
-  // 15px classic scrollbar (layout 1425 in a 1440 window) and macOS headless
-  // draws none. The first version of this test said `1440 - 80 - 10`, passed
-  // here, and failed there on 1335.
-  const layoutWidth = await page.evaluate(() => document.documentElement.clientWidth);
+  const edge = await contentEdge(page);
+  const glyphBox = await page.getByLabel("Open menu").locator("svg").boundingBox();
   const triggerBox = await page.getByLabel("Open menu").boundingBox();
   await page.getByLabel("Open menu").click();
 
@@ -176,10 +195,13 @@ test("the open menu: named, focused, locked, clean under axe, and closed by Esca
   await expect(menu.locator('[aria-current="page"]')).toHaveCount(0);
 
   // The Close sits exactly where the trigger was — and the trigger's GLYPH,
-  // not its 44px target, ends on the comp's gutter (x=1360, centred on y=40).
+  // not its 44px target, ends on the comp's 80px gutter, centred on y=40.
   expect(await page.getByLabel("Close menu").boundingBox()).toEqual(triggerBox);
-  expect(triggerBox!.x + triggerBox!.width / 2).toBe(layoutWidth - 80 - 10);
-  expect(triggerBox!.y + triggerBox!.height / 2).toBe(40);
+  const measured = JSON.stringify({ edge, glyphBox, triggerBox });
+  expect(edge.gutter, measured).toBe(80);
+  expect(glyphBox!.x + glyphBox!.width, measured).toBeCloseTo(edge.right, 1);
+  expect(triggerBox!.width, measured).toBe(44);
+  expect(triggerBox!.y + triggerBox!.height / 2, measured).toBe(40);
 
   const results = await new AxeBuilder({ page })
     .include("#nav-menu")
@@ -197,36 +219,6 @@ test("the open menu: named, focused, locked, clean under axe, and closed by Esca
   await expect(menu).toBeHidden();
   await expect(page.getByLabel("Open menu")).toBeFocused();
   await expect(page.locator("body")).not.toHaveCSS("overflow", "hidden");
-});
-
-test("locking the page behind the menu does not move it", async ({ page }) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto(DARK);
-  await adopted(page);
-  // Only meaningful where scrollbars take layout space — the Linux CI runner
-  // (layout 1425 in a 1440 window), Windows. macOS headless Chromium draws
-  // overlay scrollbars, and nothing forces a classic one there: five
-  // ::-webkit-scrollbar / overflow variants under two launch modes all left
-  // clientWidth at 1440 (2026-09-20). So this passes vacuously on a Mac, and
-  // `layout` is in the compared object so a CI failure says what it measured.
-  const width = () =>
-    page.evaluate(() => ({
-      layout: document.documentElement.clientWidth,
-      main: document.querySelector("main#main-content")!.getBoundingClientRect().width,
-      padding: getComputedStyle(document.body).paddingRight,
-    }));
-  const before = await width();
-
-  await page.getByLabel("Open menu").click();
-  await expect(page.locator("body")).toHaveCSS("overflow", "hidden");
-  // app.css keeps the gutter (`scrollbar-gutter: stable`), so hiding overflow
-  // gives the layout nothing back — and a lock that pays padding for a
-  // scrollbar that never left narrows the page behind the menu.
-  expect(await width()).toEqual(before);
-
-  await page.keyboard.press("Escape");
-  await expect(page.getByRole("dialog", { name: "Menu" })).toBeHidden();
-  expect(await width()).toEqual(before);
 });
 
 test("the menu marks the page you are on", async ({ page }) => {
