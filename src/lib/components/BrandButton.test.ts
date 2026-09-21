@@ -1,6 +1,8 @@
 import { cleanup, render } from "@testing-library/svelte";
 import { afterEach, describe, expect, it } from "vitest";
 import { createRawSnippet } from "svelte";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 import BrandButton, {
   BRAND_BUTTON_TONES,
@@ -98,5 +100,34 @@ describe("BrandButton's exported classes", () => {
       expect(tone).toMatch(/(^|\s)border-\w+/);
       expect(tone).toMatch(/(^|\s)text-\w+/);
     }
+  });
+
+  it("are findable: docs/COMPONENTS.md's row for this file names every one of them", () => {
+    // The index is what a session reads before writing a button, and its
+    // extractor cannot see a `<script module>` export: a .svelte row is the
+    // props plus the FIRST SENTENCE of the leading comment. These names were
+    // first written as that comment's second sentence, the row never changed,
+    // and an issue was drafted describing them as indexed. So the exports are
+    // read from the source here, not listed, and each must be in the row.
+    // (Its freshness is scripts/capability-index.test.ts's. cwd-relative
+    // because under jsdom `import.meta.url` is not a file: URL.)
+    const source = readFileSync(
+      resolve(process.cwd(), "src/lib/components/BrandButton.svelte"),
+      "utf8",
+    );
+    const moduleScript = /<script module[^>]*>([\s\S]*?)<\/script>/.exec(source)?.[1] ?? "";
+    const exported = [...moduleScript.matchAll(/^\s*export\s+const\s+(\w+)/gm)].map((m) => m[1]);
+    expect(exported.sort()).toEqual([
+      "BRAND_BUTTON_TONES",
+      "brandButtonBase",
+      "brandButtonPadding",
+    ]);
+
+    const index = readFileSync(resolve(process.cwd(), "docs/COMPONENTS.md"), "utf8");
+    const row = index
+      .split("\n")
+      .find((line) => line.includes("(../src/lib/components/BrandButton.svelte)"));
+    expect(row, "BrandButton.svelte has no row in docs/COMPONENTS.md").toBeTruthy();
+    for (const name of exported) expect(row, `the row does not name \`${name}\``).toContain(name);
   });
 });

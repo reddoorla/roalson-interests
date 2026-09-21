@@ -1,10 +1,16 @@
 <script module lang="ts">
-  // The comp's `button dark` component set (4840:367) — named, as Figma names
-  // it, for the BUTTON's tone, so it is the one for LIGHT grounds: garnet
-  // outline and text; hover fills garnet with dust text (5.11:1, AA as text).
-  // Its classes are exported from this module script (`brandButtonBase`,
-  // `BRAND_BUTTON_TONES`, `brandButtonPadding`) so a caller that must render a
-  // different element — a form's submit <button> — can still wear it.
+  // The comp's `button dark` component set (4840:367) as a link, with its
+  // classes EXPORTED from this module script — `brandButtonBase`,
+  // `BRAND_BUTTON_TONES`, `brandButtonPadding` — so a caller that must render a
+  // different element, a form's submit `<button>`, can still wear it.
+  // (That sentence is this file's whole row in docs/COMPONENTS.md:
+  // scripts/capability-index.mjs keeps the FIRST sentence of this comment and
+  // cannot see a `<script module>` export, so the names are in it or nowhere.
+  // They were first written as the second sentence, and were nowhere.)
+  //
+  // Named, as Figma names it, for the BUTTON's tone, so it is the one for LIGHT
+  // grounds: garnet outline and text; hover fills garnet with dust text
+  // (5.11:1, AA as text).
   //
   // Its sibling `button light` (4840:372: dust outline and label, hover fills
   // dust with garnet text) is the "dust" tone — the navbar's CONTACT US while
