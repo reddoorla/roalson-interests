@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { HTMLInputAttributes } from "svelte/elements";
+  import { revealInvalid } from "$lib/utils/reveal";
 
   type FieldType = "text" | "email" | "tel" | "url" | "password" | "number" | "search" | "textarea";
 
@@ -93,6 +94,14 @@
     "transition-[border-color,box-shadow] duration-150 ease-out motion-reduce:transition-none " +
     "focus:outline-hidden focus:ring-2 focus:ring-primary " +
     "aria-invalid:border-error aria-invalid:focus:ring-error";
+
+  // `oninvalid={revealInvalid}` on both controls: native validation is the only
+  // validation some forms here have (/contact), and the browser's focus on the
+  // control it refuses can lose a race with a glide in flight and end under the
+  // pinned bar — $lib/utils/reveal has the measurement. `html`'s scroll padding
+  // (app.css) covers every landing the browser makes from rest; this covers the
+  // one it makes mid-glide, and lands the field LABEL first. Without script
+  // there is no handler — and no pinned bar for the field to end under.
 </script>
 
 <div class="flex flex-col gap-2.5">
@@ -121,6 +130,7 @@
       {autocomplete}
       {autofocus}
       bind:value
+      oninvalid={revealInvalid}
       aria-describedby={describedBy}
       aria-invalid={error ? "true" : undefined}
       class={controlClass}></textarea>
@@ -139,6 +149,7 @@
       {inputmode}
       {autofocus}
       bind:value
+      oninvalid={revealInvalid}
       aria-describedby={describedBy}
       aria-invalid={error ? "true" : undefined}
       class={controlClass}

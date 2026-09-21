@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from "vitest";
+import { describe, it, expect, afterEach, vi } from "vitest";
 import { render, cleanup } from "@testing-library/svelte";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
@@ -234,4 +234,45 @@ describe("Field autofocus", () => {
     });
     expect((getByLabelText("Message") as HTMLTextAreaElement).hasAttribute("autofocus")).toBe(true);
   });
+});
+
+describe("Field under native validation", () => {
+  // The browser's focus on the control it refuses can end under the pinned bar
+  // ($lib/utils/reveal has the race and the measurement). Held here: that BOTH
+  // controls wear the handler, and that what lands is the LABEL — the input's
+  // own landing would put its label behind the bar. Where it lands is
+  // tests/interaction/contact.spec.ts's.
+  type Scroll = (arg?: boolean | ScrollIntoViewOptions) => void;
+  const proto = Element.prototype as { scrollIntoView?: Scroll };
+
+  afterEach(() => {
+    delete proto.scrollIntoView;
+    vi.restoreAllMocks();
+  });
+
+  for (const type of ["text", "textarea"] as const) {
+    it(`lands a refused ${type === "textarea" ? "textarea" : "input"} by its label, once it holds focus`, () => {
+      const scrolls: [Element, unknown][] = [];
+      proto.scrollIntoView = function (this: Element, arg) {
+        scrolls.push([this, arg]);
+      };
+      const frames: FrameRequestCallback[] = [];
+      vi.spyOn(window, "requestAnimationFrame").mockImplementation((cb) => frames.push(cb));
+
+      const { getByLabelText, container } = render(Field, {
+        name: "name",
+        label: "Name",
+        type,
+        required: true,
+      });
+      const control = getByLabelText(/^Name/) as HTMLInputElement | HTMLTextAreaElement;
+
+      // What interactive validation does: `invalid`, then focus.
+      expect(control.checkValidity()).toBe(false);
+      control.focus();
+      frames.splice(0).forEach((cb) => cb(0));
+
+      expect(scrolls).toEqual([[container.querySelector("label"), { block: "start" }]]);
+    });
+  }
 });
