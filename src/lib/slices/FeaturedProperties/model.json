@@ -1,0 +1,74 @@
+{
+  "id": "featured_properties",
+  "type": "SharedSlice",
+  "name": "FeaturedProperties",
+  "description": "Homepage band: a slideshow of hand-picked listings beside the (reserved) map column",
+  "variations": [
+    {
+      "id": "default",
+      "name": "Default",
+      "docURL": "...",
+      "version": "initial",
+      "description": "Featured listings, one at a time, auto-advancing with a pause control",
+      "imageUrl": "",
+      "primary": {
+        "heading": {
+          "type": "Text",
+          "config": {
+            "label": "Heading — left empty it reads “Featured Properties”",
+            "placeholder": "Featured Properties"
+          }
+        },
+        "properties": {
+          "type": "Group",
+          "config": {
+            "label": "Featured listings — shown in this order",
+            "repeat": true,
+            "fields": {
+              "property": {
+                "type": "Link",
+                "config": {
+                  "label": "Listing",
+                  "select": "document",
+                  "placeholder": "Pick a listing — only listings with a feature image are shown; sold ones are skipped",
+                  "customtypes": [
+                    {
+                      "id": "property",
+                      "fields": [
+                        "title",
+                        "status",
+                        "size_label",
+                        "feature_image",
+                        {
+                          "id": "highlights",
+                          "fields": ["text"]
+                        },
+                        "location"
+                      ]
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        },
+        "portfolio_label": {
+          "type": "Text",
+          "config": {
+            "label": "Portfolio button — label. With no label or no link the button is not shown",
+            "placeholder": "Our portfolio"
+          }
+        },
+        "portfolio_link": {
+          "type": "Link",
+          "config": {
+            "label": "Portfolio button — link. A page on this site can be typed as a path, e.g. /properties",
+            "placeholder": "/properties",
+            "allowTargetBlank": true
+          }
+        }
+      },
+      "items": {}
+    }
+  ]
+}
