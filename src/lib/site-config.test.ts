@@ -14,7 +14,7 @@ describe("loadSiteConfig", () => {
   // a footer and a contact page come to print different ZIPs.
   it("does not carry a second copy of the office's address or phone", () => {
     const footer = loadSiteConfig().footer as Record<string, unknown>;
-    expect(Object.keys(footer).sort()).toEqual(["cta", "legal", "owner"]);
+    expect(Object.keys(footer).sort()).toEqual(["cta", "legal", "nav", "owner"]);
     expect(JSON.stringify(footer)).not.toMatch(/Rogers Ranch|496-58/);
   });
 });
@@ -53,12 +53,21 @@ describe("the checked-in footer", () => {
 });
 
 describe("footerNav", () => {
-  it("is the menu's own list on this site — the pages the dead-trigger fallback must offer", () => {
+  // The comp's footer lists two pages, "Our portfolio" and "Contact us" (the
+  // wordmark above them is the home link), so that is what the site's config
+  // says. The first build of this footer offered the menu's three entries and
+  // stood 37.91px taller than the comp at 1440; the review measured it.
+  it("is the comp's two pages on this site — and still every page the dead-trigger fallback must offer", () => {
     expect(footerNav()).toEqual([
-      { label: "Home", href: "/" },
-      { label: "Our Properties", href: "/properties" },
-      { label: "Contact Us", href: "/contact" },
+      { label: "Our portfolio", href: "/properties" },
+      { label: "Contact us", href: "/contact" },
     ]);
+    // Issue #19's fallback sends a visitor here when the menu cannot open:
+    // every page the menu links, other than home, must be in this list.
+    const menu = loadSiteConfig()
+      .nav.items.map((item) => item.href)
+      .filter((href) => href && href !== "/");
+    expect(footerNav().map((link) => link.href)).toEqual(expect.arrayContaining(menu));
   });
 
   it("flattens a menu group: its own link when it has one, then its children, in order", () => {

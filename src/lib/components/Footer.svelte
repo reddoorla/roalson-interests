@@ -93,7 +93,7 @@
   let footerEl = $state<HTMLElement>();
 
   // Publish the footer's height — see the header. Fractional on purpose: the
-  // band measures 550.56px at 1440 (the wordmark is 46.56 tall), and a rounded
+  // band measures 512.56px at 1440 (the wordmark is 46.56 tall), and a rounded
   // value would leave the reader's spacer half a pixel taller than the footer
   // laid over it — a hairline of page ground under the last band.
   $effect(() => {

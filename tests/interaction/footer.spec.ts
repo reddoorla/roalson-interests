@@ -231,11 +231,7 @@ test("with scripting off the footer is whole, and --footer-h is simply unset", a
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto(LIGHT, { waitUntil: "domcontentloaded" });
     const footer = page.locator("footer");
-    await expect(footer.locator("#footer-nav a")).toHaveText([
-      "Home",
-      "Our Properties",
-      "Contact Us",
-    ]);
+    await expect(footer.locator("#footer-nav a")).toHaveText(["Our portfolio", "Contact us"]);
     await expect(footer.locator("address")).toContainText("San Antonio, TX 78258");
     await expect(footer.getByRole("heading", { level: 2 })).toBeVisible();
     // A reader of the property must fall back to 0 — nothing ever wrote it.
@@ -250,7 +246,7 @@ test("#footer-nav is a jump target that lands clear of the pinned bar — script
   browser,
 }) => {
   // A short viewport, so the page can scroll far enough for the margin to be
-  // what decides where the list lands (the footer is ~550 tall).
+  // what decides where the list lands (the footer is ~513 tall).
   for (const javaScriptEnabled of [true, false]) {
     const context = await browser.newContext({
       javaScriptEnabled,

@@ -37,6 +37,16 @@
         }
       ]
     },
+    "nav": [
+      {
+        "label": "Our portfolio",
+        "href": "/properties"
+      },
+      {
+        "label": "Contact us",
+        "href": "/contact"
+      }
+    ],
     "legal": [
       {
         "label": "Texas Real Estate Commission Information About Brokerage Services",

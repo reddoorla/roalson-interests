@@ -265,11 +265,11 @@ describe("Footer — its duties to the pinned photo band", () => {
     // is that the property exists before the observer's first callback.
     expect(root.style.getPropertyValue("--footer-h")).toBe("0px");
 
-    // The observer's number wins, fractional: the band is 550.56 at 1440.
-    fire([{ borderBoxSize: [{ blockSize: 550.5625, inlineSize: 1440 }] }]);
-    expect(root.style.getPropertyValue("--footer-h")).toBe("550.56px");
-    fire([{ borderBoxSize: [{ blockSize: 1074.5625, inlineSize: 390 }] }]);
-    expect(root.style.getPropertyValue("--footer-h")).toBe("1074.56px");
+    // The observer's number wins, fractional: the band is 512.56 at 1440.
+    fire([{ borderBoxSize: [{ blockSize: 512.5625, inlineSize: 1440 }] }]);
+    expect(root.style.getPropertyValue("--footer-h")).toBe("512.56px");
+    fire([{ borderBoxSize: [{ blockSize: 1036.5625, inlineSize: 390 }] }]);
+    expect(root.style.getPropertyValue("--footer-h")).toBe("1036.56px");
 
     unmount();
     expect(disconnected).toBe(1);

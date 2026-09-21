@@ -1538,3 +1538,224 @@ red, so the poll did not make it a test that cannot fail.
 
 Worth keeping: a flaky test merged to `main` taxes every later PR, so it was
 fixed on its own branch before the branch that tripped over it went anywhere.
+
+## 2026-09-21 — The footer: layout chrome and not a slice, one office module with the client's ZIP, and a height published for a band that does not exist yet (`feat/footer`)
+
+The footer was the last piece of template chrome on the site: a centred rights
+line and nothing else. It is now the comp's closing band on every page — the
+headline with its two buttons, the wordmark, a list of pages, the office, the
+two Texas Real Estate Commission links — built as **layout chrome**
+(`Footer.svelte`, fed by `site-config` and a new `src/lib/office.ts`).
+
+**Why chrome, which overturns Stage A.** The inventory says "The footer band is
+byte-identical to the Homepage's. One shared slice." Neither half held. An
+id-free diff of the Homepage and Properties footer subtrees (163 nodes each)
+differs in exactly one line, the band's own fill: the Homepage's at 1440 is a
+gradient `#f2efe9 → #e8e1d1` (the inventory's `#F1EEE9` is a truncation of
+rgb(241.73, 239.02, 233.15)), Properties' is flat `#e8e1d1`, and at 1280 and
+390 both pages are flat — the gradient exists on 1 of 6 frames. And a slice
+cannot render where the comp puts this band: `/properties`, `/properties/<uid>`,
+`/contact` and `+error.svelte` are filesystem routes with no slice zone, and
+`tests/smoke/routes.ts` already uses `footer` as the hydration marker on every
+route. The inventory took a dated correction under the line (its own
+precedent); the Stage A journal entry wants the forward pointer.
+
+**One address, one home.** Two scout specs gave the office two homes — display
+lines in `site-config.json` and a structured module — which is how a footer and
+a contact page come to disagree. `src/lib/office.ts` is the one: street, suite,
+city, region, postal code, phone, fax, with `officeAddressLines()`,
+`officePostalAddress()` (typed from `organizationJsonLd`'s own input, so it
+cannot drift from what JSON-LD takes) and `officeDirectionsUrl()` for the
+contact batch. The `tel:` href is DERIVED from the printed number, and
+`telHref` throws on anything but ten digits. **The ZIP is 78258, not the
+comp's.** The comp prints `San Antonio, TX 7825` — four digits — on all ten
+address nodes at every width; the raw bytes of the client's live pages read
+`17721 Rogers Ranch Parkway - Suite 125 - San Antonio - Texas - 78258`
+(`live-main.html:75`, `live-prop.html:490`) and `(210) 496-5800 Phone -
+(210) 496-5809 Fax`. A test pins the five digits as a literal on purpose, so a
+session that "corrects" it back to the design has to read why. The fax is kept
+in the module and rendered nowhere: it is hidden in every frame.
+
+**Two departures from the comp, both chosen.** (1) `<nav id="footer-nav"
+aria-label="Footer">` lists the MENU's entries — Home / Our Properties /
+Contact Us, `footerNav()` defaulting to `nav.items` — not the comp's two
+labels ("Our portfolio", "Contact us"). `#footer-nav` is where issue #19 sends
+a visitor whose menu script never arrived, so it has to offer what the menu
+would have, and the site keeps one list of its pages. It costs one 38px row:
+the band is **550.56px at 1440 against the comp's 512.65**, 1074.56 at 390
+against 976.65. `footer.nav` in the JSON buys the comp's two labels back in one
+edit. (2) The rights line. It is HIDDEN in all six frames (inside a `right`
+block with the disclaimer), and it is rendered anyway from the owner/year
+mechanism this component already had. At `lg` it costs nothing: the left column
+sets the band's height (392.65 against the right column's 204), so the line
+stands in the headline's own grid cell, `self-end`, level with the last TREC
+line to the pixel (both end at y=490.56). At 390 it costs 60 (40 of gap + one
+20px line). It is `t-body-2`, not the hidden layer's 10/12 tracked caps: the
+ramp has no `t-h7`, `type-ramp.test.ts` pins exactly eight utilities, and a
+ninth for one line the designer switched off was declined.
+
+**Left out because every frame hides it:** the `Resources for You +`
+disclosure and its sibling `Resources` pop-up (whose click opens an overlay
+with `destinationId: null` — wired to nothing), the disclaimer paragraph, the
+10px second copy of the TREC links, the "Have Questions?" eyebrow, the fax line
+and another client's logo. None of it is approved design. The disclaimer is
+live on the client's current About page, so whether it ships is the operator's
+call, not a default.
+
+**The template's footer, accounted for.** `columns` (a per-route override of
+the whole footer), the socials row and the "Company Name" placeholder are
+gone: the comp draws one footer with no socials, the only thing a route varies
+is the ground, and a placeholder rights line on a client's site is a wrong
+legal line rather than a visible TODO — no owner now means no line. Of the old
+14 tests, the four owner/year tests carry over unchanged in intent (year still
+computed, never literal), the tel-stays-in-tab / http-opens-new-tab-with-rel
+pair moved from `columns` rows onto the phone line and the TREC links, the
+logo-named-by-alt test moved to the wordmark, "renders Company Name" is
+INVERTED, and `columns` + the four socials tests are retired. The test file's
+header records that. Footer: 14 → 22 tests; `site-config`: 4 → 8; `office`: 8.
+
+**The ground is a page-data flag.** `footerGround?: "fade"` in `app.d.ts`,
+passed through the layout like `navOver`; `bg-light` always, the gradient only
+from `lg` because the comp's 390 (and 1280) homepage is flat. **No route that
+answers 200 claims it yet** — `/` 404s on the placeholder repo and the home
+route's `load` belongs to the hero batch — so `/dev/footer` claims it, and that
+is where the spec measures it. One thing worth knowing before the homepage
+lands: **axe cannot measure text over that gradient.** On `/dev/footer` at
+1280 all 11 footer text nodes come back `incomplete` (`bgGradient`), where the
+flat ground passes all 11. Zero violations either way, but on the real
+homepage the a11y gate will be looking at no footer text at desktop widths.
+`theme-contrast.test.ts` already measures garnet on both ends (10.07:1 on
+off-white, 8.87:1 on sand), which bounds everything between.
+
+**The footer's duty to a band that does not exist yet.** The homepage's photo
+band pins and the footer slides over it. That band is the last child of
+`<main>`, the footer is outside `<main>`, so the band has no room to stick
+unless something gives it exactly one footer-height of travel. The footer
+therefore publishes its border-box height as `--footer-h` on `<html>`
+(`ResizeObserver`, taken back on teardown) and is `relative z-10`. Nothing
+reads it yet; without script it is unset and a reader must fall back to 0.
+Fractional on purpose — 550.56px: a rounded 551 would leave the future spacer
+0.44px taller than the footer laid over it, a hairline of page ground under the
+last band. The app.css half (spacer + `:has()` margin) is the photo-band
+batch's.
+
+**Measured against the comp.** Headless Chromium lays this site out 15px
+narrower than its viewport (`scrollbar-gutter: stable` — the nav entry's
+finding), so a 1440 viewport is a 1425 layout and the right column lands on
+508.2. The comp's numbers were therefore read at viewports of 1455 and 405 —
+layouts of exactly 1440 and 390 — and the committed spec asserts no absolute x
+at all: the headline's left edge is compared with the masthead H1's. All
+positions relative to the footer's top-left, comp → rendered. 1440: padding
+60/80/60/80 → same; wordmark 80,60 145×46.65 → 80,60 145×46.56; list at
+y=186.65, rows 18 on a 38 pitch → 186.56, same; address (3×20) → same, 38 lower
+for the third row; address→phone→TREC→TREC tops +70/+30/+50 → +70/+30/+50; TREC
+rows 298×40 underlined → same; right column x=513 → 513 (847 wide against 846:
+ruling C3's one grid); headline 66/80 w500, cap top y=60, 124 trimmed → line
+box 42–202, which is cap top 60 and 124 trimmed; buttons y=224, 117 and 143
+wide at x=513/650 → y=224, 120 and 146.45 at x=513/653. That 3px is
+`BrandButton`'s, recorded in the nav entry — Figma strokes the 1px border
+inside the 15px padding, CSS outside — and it is not fixed here because three
+batches touch that component tonight. 390: padding 60/20; headline four lines,
+320 of line box = the comp's 284 trimmed, widest line 297.17 against the comp's
+293.6; buttons y=384; headline block → wordmark 100 (wordmark y=524 in both);
+list 650.65 → 650.56. The production bundle (`pnpm build` + `vite preview`)
+gave the same summary byte for byte as the dev server on `/properties` at both
+widths, wrote `--footer-h: 550.56px` after hydration on `/properties` and
+`/contact`, kept it and moved `aria-current` across a client-side navigation,
+logged zero console errors or warnings, and answered 404 for `/dev/footer`.
+
+**What was tried and abandoned.** The headline's two drawn lines and the
+address's three were first block `<span>`s with `{" "}` between them, so a
+reader that ignores CSS would not get "forwardto" — and ESLint rejects that
+mustache (`svelte/no-useless-mustaches`). They are `<br>`s now, relying on the
+one space Svelte keeps between `{/if}` and `{line}`; mutations U15/U20 delete
+that space and go red, so the reliance is tested rather than assumed. Below
+360px the headline steps down to H2: "to serving" is 297px at 66px and the
+body clips overflow, so a 320px phone (WCAG 1.4.10's width) would lose a
+letter. `break-words` backs it up for a fallback face.
+
+**Beliefs checked rather than cited.** Three comments in the component make
+claims about rendering, and each was broken or looked at: the ramp class sits
+on the `<ul>` because on the link alone the row keeps the body's taller strut
+(mutation P7: rows stop being 18px); a link's underline does not reach text
+inside an inline-block, and app.css makes every `<span>` one, so the TREC label
+sits directly in the `<a>` (three renders compared byte for byte: a
+span-wrapped underlined label is pixel-identical to a not-underlined one); each
+list link's hit area is grown to the full 38px pitch by a pseudo-element
+(hit-tested: 9px above and below resolves to the link, 11px above to the row
+before). And one measurement that was wrong before the code was: the
+production no-script jump to `#footer-nav` first read the list at y=942 —
+"did not scroll" — because app.css scrolls smoothly and the read beat the
+animation. Two seconds later it is at 95.56, under the 80px bar.
+
+**Mutations.** 21 on the unit tests, 13 on `tests/interaction/footer.spec.ts`,
+each applied only if its target string occurred exactly once, each restored
+from a pristine copy and confirmed with a byte compare. Every one went red in
+the test it was aimed at — including the four-digit ZIP (5 tests), a
+non-derived `tel:` href, the dropped `#footer-nav` id, the gradient without
+its `lg:` prefix (unit AND browser), `--footer-h` rounded to a whole pixel
+(`"550.56px"` expected, `"551px"` received), the observer never attached, no
+scroll margin on the jump target, the list only rendering after mount (the
+no-script test), and dust text on sand (axe: red, so the axe test can see).
+
+**Declined, per `docs/COMPONENTS.md`.** `CtaBanner` (a template-skinned slice
+with one button — and a slice cannot reach the filesystem routes);
+`BrandIcon` / the socials row (nothing drawn); `DefaultButton` (`BrandButton`
+already is the comp's `button dark`); `ArrowRight` (the footer's buttons are
+drawn without it); `Accordion` for Resources (not built at all, above).
+
+**Honest accounting.** Most of the fidelity is inherited: the type ramp, the
+site's one grid and `BrandButton` put nearly every number on the comp before
+anything footer-specific was written. What this batch did NOT do: the home
+route does not claim `footerGround`, so no real page shows the gradient; the
+homepage itself was not looked at (it does not exist); at `lg` the focus order
+is headline buttons → wordmark → list, because the DOM order is the mobile one;
+the TREC rule the scout recalled (22 TAC §531.18/§531.20, "at least 10-point")
+is unverified — the links are 14px, 10.5pt, either way. Both TREC PDFs answer
+`200 application/pdf` today (1,587,707 and 200,043 bytes) — on `roalson.com`,
+the domain the new site will take over, at which point those paths stop
+existing. That is a launch blocker and is filed as #25, not fixed.
+
+**Rebased twice while it was being written.** `main` took #21/#22 (Prismic
+delivery and the seed) and then #23 (the focus ring follows its ground) during
+this batch; the branch was rebased onto each, cleanly — #21 edits the inventory
+95 lines above this batch's correction. After the last rebase: `pnpm lint` and
+`pnpm check` clean, 12 unit files / 165 tests green including #23's
+`focus-floor.test.ts`, and `footer.spec.ts` 8/8. #23 matters here: the ring's
+colour now comes from the nearest ground class, and the footer's is the
+unconditional `bg-light` (garnet ring) — its gradient classes are
+`lg:`-prefixed, so `.from-background` never matches them and does not need to.
+The production-bundle run above predates those rebases; nothing in #21–#23
+touches the footer, the layout or `site-config`, but it was not repeated.
+
+**After review — the orchestrator's changes before this merged.** Two
+reviewers read the branch. Their verdict was merge, with three things worth
+acting on.
+
+_The list of pages went back to the comp's two._ Everything above about the
+menu's three entries describes the first build: it stood 550.56px tall at 1440
+against the comp's 512.65, and at 390 every node under the list sat 38px low —
+the largest measured departure in the band, for a justification (#19) that two
+links satisfy as well as three, since the wordmark above the list is the home
+link. `site-config.json` now sets `footer.nav` to "Our portfolio" and "Contact
+us" — the escape hatch this batch had built for exactly that — and the band
+measures **512.56 at 1440 (comp 512.65)** and 1036.56 at 390 (comp 976.65; the
+60 is the rights line). The config test now holds the real constraint instead
+of a list: every page the menu links, other than home, must be in the footer's
+list. The `--footer-h` fixtures in `Footer.test.ts` say 512.56 / 1036.56 for the
+same reason the old ones said 550.56 — they are the band's real numbers.
+
+_The rights line stays, and it was the orchestrator who asked._ The reviewer
+could find no source for the PR body's "asked for", rightly: it was in the
+batch's prompt, not in any file, and the critic's defaults had said no copyright
+line because the comp hides it in all six frames. A site footer with no rights
+line is the stranger choice; it costs no height at `lg`. It is one deletion if
+the operator disagrees, and it is on his list.
+
+_Found-not-fixed needed trackers, not sentences._ The entry above said the TREC
+documents were "filed" before anything was. They are now: #25 (launch blocker),
+and #26 for `BrandButton` standing 3px wider than the comp's buttons, which had
+lived in three journal entries and no issue.
+
+`pnpm verify` on the rebased branch: 0 errors, axe 0 violations, 649 unit tests
+in 78 files, 30 Playwright tests.
