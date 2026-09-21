@@ -176,6 +176,16 @@ band overruns its wrapper by 5px. Do not treat 1006 as a slice height.
 
 The footer band is byte-identical to the Homepage's. One shared slice.
 
+> **Corrected 2026-09-21 (footer batch): neither half held.** An id-free diff of
+> the two 163-node subtrees differs in exactly one line — the band's own fill.
+> The Homepage's at 1440 is the gradient in the table above (whose `#F1EEE9` is
+> a truncation: the raw stop is rgb(241.73, 239.02, 233.15) = `#f2efe9`, the
+> page ground); Properties' is flat `#e8e1d1`, and at 1280 and 390 BOTH pages
+> are flat — the gradient exists on 1 of 6 frames. And it is not a slice:
+> `/properties`, `/contact` and the error page are filesystem routes no slice
+> zone reaches, so it is layout chrome (`Footer.svelte`), with the
+> homepage-only ground as a page-data flag (`footerGround`).
+
 **Sold is real and fully designed** — this answers an open question from the
 brief. It breaks the pattern of the other two categories: its map is hidden and
 its listing is a 3×2 grid of six 412×448 cards spanning the full content width,

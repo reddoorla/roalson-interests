@@ -1,127 +1,291 @@
-import { render, cleanup } from "@testing-library/svelte";
-import { describe, it, expect, afterEach } from "vitest";
+import { render, cleanup, within } from "@testing-library/svelte";
+import { tick } from "svelte";
+import { describe, it, expect, afterEach, vi } from "vitest";
 import Footer from "./Footer.svelte";
+import { OFFICE, officeAddressLines } from "$lib/office";
 
-afterEach(() => cleanup());
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
 
-describe("Footer", () => {
-  // --- columns chrome (per-route override; takes precedence) ---
+// WHAT HAPPENED TO THE TEMPLATE'S 14 TESTS
+//
+// The footer was rebuilt to the comp (2026-09-21) and the old suite pinned the
+// template's chrome. Each test was either carried over or retired on purpose:
+//
+//   carried   the rights line — `owner` supplies the CURRENT year, `text` is
+//             verbatim and wins (4 tests, unchanged in intent; the year
+//             assertions are still computed, never literal);
+//             a tel: link stays in this tab, an http(s) link opens a new one
+//             with the safe rel (was asserted on `columns` rows; now on the
+//             phone line and the TREC links, the only such links there are);
+//             a linked logo is named by its alt.
+//   inverted  "renders 'Company Name' with no props". A placeholder rights line
+//             on a client's site is a wrong legal line, not a visible TODO — no
+//             owner now means no line.
+//   retired   `columns` (a per-route override of the whole footer: the comp
+//             draws ONE footer, and the only thing a route varies is `ground`)
+//             and the four `socials` tests (the comp draws none, and a row of
+//             icons with no drawn position would ship undesigned the day
+//             someone added a URL). BrandIcon keeps its own tests.
 
-  it("default: renders the hardcoded copyright (fleet behavior unchanged)", () => {
+const CTA = {
+  heading: ["We look forward", "to serving you."],
+  links: [
+    { label: "Contact us", href: "/contact" },
+    { label: "Our portfolio", href: "/properties" },
+  ],
+};
+const NAV = [
+  { label: "Home", href: "/" },
+  { label: "Our Properties", href: "/properties" },
+  { label: "Contact Us", href: "/contact" },
+];
+const LEGAL = [
+  {
+    label: "Texas Real Estate Commission Information About Brokerage Services",
+    href: "https://roalson.com/IABS%20Roalson%20Form%202026.pdf",
+  },
+  {
+    label: "Texas Real Estate Commission Consumer Protection Notice",
+    href: "https://roalson.com/CPN4.pdf",
+  },
+];
+
+/** A link's label as a sighted visitor reads it — the sr-only hint left out. */
+const visibleText = (el: Element) => {
+  const clone = el.cloneNode(true) as Element;
+  clone.querySelectorAll(".sr-only").forEach((n) => n.remove());
+  return clone.textContent?.replace(/\s+/g, " ").trim();
+};
+
+describe("Footer — the closing call to action", () => {
+  it("sets the headline as an h2, broken where the comp breaks it, reading as one sentence", () => {
+    const { getByRole } = render(Footer, { cta: CTA });
+    const heading = getByRole("heading", { level: 2 });
+    // One <br> per drawn break — two lines, one break — and the lines
+    // themselves are the config's, in order.
+    expect(heading.querySelectorAll("br")).toHaveLength(CTA.heading.length - 1);
+    const lines = [...heading.childNodes]
+      .filter((n) => n.nodeType === Node.TEXT_NODE && n.textContent?.trim())
+      .map((n) => n.textContent?.trim());
+    expect(lines).toEqual(CTA.heading);
+    // The comp breaks the line with U+2028. That separator is not shipped, and
+    // a reader that ignores <br> (textContent does) must not get "forwardto".
+    expect(heading.textContent?.replace(/\s+/g, " ").trim()).toBe(
+      "We look forward to serving you.",
+    );
+    expect(heading.textContent).not.toContain("\u2028");
+  });
+
+  it("puts CONTACT US before OUR PORTFOLIO, as the comp does", () => {
+    const { getByRole } = render(Footer, { cta: CTA });
+    const buttons = [
+      ...getByRole("heading", { level: 2 }).nextElementSibling!.querySelectorAll("a"),
+    ];
+    expect(buttons.map((a) => [a.textContent?.trim(), a.getAttribute("href")])).toEqual([
+      ["Contact us", "/contact"],
+      ["Our portfolio", "/properties"],
+    ]);
+  });
+
+  it("renders no heading at all without one", () => {
+    const { queryByRole } = render(Footer, { nav: NAV });
+    expect(queryByRole("heading")).toBeNull();
+  });
+});
+
+describe("Footer — the list of pages", () => {
+  it('is a real navigation landmark, <nav id="footer-nav" aria-label="Footer">', () => {
+    const { getByRole } = render(Footer, { nav: NAV });
+    const nav = getByRole("navigation", { name: "Footer" });
+    // The id is a contract: the bar's menu trigger falls back to it (#19).
+    expect(nav.id).toBe("footer-nav");
+    const links = within(nav).getAllByRole("link");
+    expect(links.map((a) => [a.textContent?.trim(), a.getAttribute("href")])).toEqual([
+      ["Home", "/"],
+      ["Our Properties", "/properties"],
+      ["Contact Us", "/contact"],
+    ]);
+    expect(within(nav).getAllByRole("listitem")).toHaveLength(3);
+  });
+
+  it("marks the current page, and treats / as current only on /", () => {
+    const { getByRole } = render(Footer, { nav: NAV, currentPath: "/properties" });
+    const current = within(getByRole("navigation", { name: "Footer" }))
+      .getAllByRole("link")
+      .filter((a) => a.getAttribute("aria-current") === "page");
+    expect(current.map((a) => a.textContent?.trim())).toEqual(["Our Properties"]);
+  });
+
+  it("renders no empty landmark when there is nothing to list", () => {
+    const { queryByRole } = render(Footer);
+    expect(queryByRole("navigation")).toBeNull();
+  });
+});
+
+describe("Footer — the office", () => {
+  it("prints the address from $lib/office, with the client's ZIP", () => {
     const { container } = render(Footer);
-    expect(container.querySelector("footer")).not.toBeNull();
-    expect(container.querySelector("footer")?.textContent).toContain("Company Name");
+    const address = container.querySelector("address")!;
+    const lines = [...address.childNodes]
+      .filter((n) => n.nodeType === Node.TEXT_NODE && n.textContent?.trim())
+      .map((n) => n.textContent?.trim());
+    expect(lines).toEqual(officeAddressLines());
+    expect(address.querySelectorAll("br")).toHaveLength(2);
+    // Lines must not run together for a reader that ignores <br>.
+    expect(address.textContent?.replace(/\s+/g, " ").trim()).toBe(officeAddressLines().join(" "));
+    // The comp prints "TX 7825". Five digits, or the footer is wrong on every page.
+    expect(address.textContent).toContain("TX 78258");
+    expect(address.textContent).not.toMatch(/\b7825\b/);
   });
 
-  it("columns prop renders text items with tel/mailto links", () => {
-    const { container, getByText } = render(Footer, {
-      props: {
-        columns: [
-          {
-            items: [
-              { text: "Todd Doney" },
-              { text: "213.613.3330", href: "tel:213.593.1360" },
-              {
-                text: "Todd.Doney@cbre.com",
-                href: "mailto:Todd.Doney@cbre.com",
-              },
-            ],
-          },
-        ],
-      },
-    });
-    // A no-href text item is a plain <p>, never an anchor.
-    const plain = getByText("Todd Doney");
-    expect(plain.tagName).toBe("P");
-    expect(plain.closest("a")).toBeNull();
+  it("makes the WHOLE phone line one tel: link, in this tab", () => {
+    const { container } = render(Footer);
+    const tel = container.querySelector(`a[href="${OFFICE.phone.href}"]`)!;
+    expect(tel.textContent?.trim()).toBe(`Phone: ${OFFICE.phone.display}`);
+    // tel: stays same-tab — no target/rel.
+    expect(tel.getAttribute("target")).toBeNull();
+    expect(tel.getAttribute("rel")).toBeNull();
+    // Hidden in every frame of the comp.
+    expect(container.textContent).not.toContain("Fax");
+  });
+});
 
-    const tel = container.querySelector("a[href='tel:213.593.1360']");
-    expect(tel?.textContent).toContain("213.613.3330");
-    // tel:/mailto: stay same-tab — no target/rel.
-    expect(tel?.getAttribute("target")).toBeNull();
-    expect(tel?.getAttribute("rel")).toBeNull();
-    expect(container.querySelector("footer")).not.toBeNull();
+describe("Footer — the Texas Real Estate Commission links", () => {
+  it("labels them exactly as given, and opens the PDFs in a new tab with the safe rel", () => {
+    const { container } = render(Footer, { legal: LEGAL });
+    const links = [...container.querySelectorAll<HTMLAnchorElement>('a[target="_blank"]')];
+    expect(links.map(visibleText)).toEqual(LEGAL.map((l) => l.label));
+    expect(links.map((a) => a.getAttribute("href"))).toEqual(LEGAL.map((l) => l.href));
+    for (const a of links) {
+      expect(a.getAttribute("rel")).toBe("noopener noreferrer");
+      expect(a.className).toContain("underline");
+      expect(a.querySelector(".sr-only")?.textContent).toContain("opens in a new tab");
+    }
   });
 
-  it("columns prop renders image items, linked when href present", () => {
+  it("keeps the label's text directly in the link, where the underline reaches it", () => {
+    // app.css makes every <span> an inline-block, and an underline does not
+    // propagate into one: a label wrapped in a span loses its underline.
+    const { container } = render(Footer, { legal: LEGAL });
+    const link = container.querySelector('a[target="_blank"]')!;
+    const ownText = [...link.childNodes]
+      .filter((n) => n.nodeType === Node.TEXT_NODE)
+      .map((n) => n.textContent)
+      .join("")
+      .replace(/\s+/g, " ")
+      .trim();
+    expect(ownText).toBe(LEGAL[0].label);
+  });
+
+  it("keeps a same-site document in this tab, with no new-tab hint", () => {
     const { container } = render(Footer, {
-      props: {
-        columns: [
-          {
-            items: [
-              {
-                image: {
-                  url: "https://cdn/logo.png",
-                  maxWidth: "300px",
-                  alt: "Burbank Portfolio",
-                },
-                href: "https://www.theburbankportfolio.com/",
-              },
-              { image: { url: "https://cdn/plain.png" } },
-            ],
-          },
-        ],
-      },
+      legal: [{ label: "Consumer Protection Notice", href: "/docs/cpn.pdf" }],
     });
-    const linked = container.querySelector("a[href='https://www.theburbankportfolio.com/'] img");
-    expect(linked?.getAttribute("src")).toBe("https://cdn/logo.png");
-    expect((linked as HTMLElement)?.style.maxWidth).toBe("300px");
-    expect(linked?.getAttribute("alt")).toBe("Burbank Portfolio");
+    const link = container.querySelector('a[href="/docs/cpn.pdf"]')!;
+    expect(link.getAttribute("target")).toBeNull();
+    expect(link.getAttribute("rel")).toBeNull();
+    expect(link.querySelector(".sr-only")).toBeNull();
+  });
+});
 
-    // http(s) logo link opens in a new tab with the safe rel.
-    const anchor = container.querySelector("a[href='https://www.theburbankportfolio.com/']");
-    expect(anchor?.getAttribute("target")).toBe("_blank");
-    expect(anchor?.getAttribute("rel")).toBe("noopener noreferrer");
-
-    // Two images total; only the href'd one is wrapped in an anchor.
-    const imgs = container.querySelectorAll("img");
-    expect(imgs.length).toBe(2);
-    expect(container.querySelectorAll("a > img").length).toBe(1);
+describe("Footer — the wordmark", () => {
+  it("links home and is named by the image's alt", () => {
+    const { getByRole } = render(Footer, { logo: { url: "/logo.svg" } });
+    const home = getByRole("link", { name: "Roalson Interests" });
+    expect(home.getAttribute("href")).toBe("/");
+    const img = home.querySelector("img")!;
+    expect(img.getAttribute("src")).toBe("/logo.svg");
+    // The file's own box, so the row is reserved before the image arrives.
+    expect([img.getAttribute("width"), img.getAttribute("height")]).toEqual(["383", "123"]);
   });
 
-  it("linked logo exposes its alt as the link's accessible name (a11y)", () => {
-    const { getByRole } = render(Footer, {
-      props: {
-        columns: [
-          {
-            items: [
-              {
-                image: {
-                  url: "https://cdn/logo.png",
-                  alt: "Burbank Portfolio",
-                },
-                href: "https://www.theburbankportfolio.com/",
-              },
-            ],
-          },
-        ],
+  it("takes the config's alt when it has one", () => {
+    const { getByRole } = render(Footer, { logo: { url: "/logo.svg", alt: "Roalson home" } });
+    expect(getByRole("link", { name: "Roalson home" })).toBeTruthy();
+  });
+});
+
+describe("Footer — the ground", () => {
+  const GRADIENT = ["lg:bg-gradient-to-b", "lg:from-background", "lg:to-light"];
+
+  it("is flat sand unless a route asks otherwise", () => {
+    const { container } = render(Footer);
+    const classes = [...container.querySelector("footer")!.classList];
+    expect(classes).toContain("bg-light");
+    expect(classes.filter((c) => /gradient|from-|to-/.test(c))).toEqual([]);
+  });
+
+  it('"fade" grades off-white to sand from lg ONLY — the comp\'s 390 homepage is flat', () => {
+    const { container } = render(Footer, { ground: "fade" });
+    const classes = [...container.querySelector("footer")!.classList];
+    expect(classes).toEqual(expect.arrayContaining(["bg-light", ...GRADIENT]));
+    // Every gradient class carries the breakpoint; a bare one would grade mobile.
+    expect(classes.filter((c) => /gradient|from-|to-/.test(c)).sort()).toEqual(
+      [...GRADIENT].sort(),
+    );
+  });
+});
+
+describe("Footer — its duties to the pinned photo band", () => {
+  it("paints over what it slides across: relative, z-10", () => {
+    const { container } = render(Footer);
+    const classes = [...container.querySelector("footer")!.classList];
+    expect(classes).toEqual(expect.arrayContaining(["relative", "z-10"]));
+  });
+
+  it("publishes its border-box height as --footer-h on <html>, and takes it back", async () => {
+    type Callback = (entries: Partial<ResizeObserverEntry>[]) => void;
+    const observed: Element[] = [];
+    let fire: Callback = () => {};
+    let disconnected = 0;
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        constructor(cb: Callback) {
+          fire = cb;
+        }
+        observe(el: Element) {
+          observed.push(el);
+        }
+        disconnect() {
+          disconnected += 1;
+        }
       },
-    });
-    // The anchor wrapping only an <img> derives its name from the img alt.
-    expect(getByRole("link", { name: "Burbank Portfolio" })).not.toBeNull();
+    );
+    const root = document.documentElement;
+
+    const { container, unmount } = render(Footer);
+    await tick();
+    const footer = container.querySelector("footer")!;
+    expect(observed, "it measures ITSELF").toEqual([footer]);
+    // jsdom lays nothing out, so the first write is the rect's 0 — what matters
+    // is that the property exists before the observer's first callback.
+    expect(root.style.getPropertyValue("--footer-h")).toBe("0px");
+
+    // The observer's number wins, fractional: the band is 512.56 at 1440.
+    fire([{ borderBoxSize: [{ blockSize: 512.5625, inlineSize: 1440 }] }]);
+    expect(root.style.getPropertyValue("--footer-h")).toBe("512.56px");
+    fire([{ borderBoxSize: [{ blockSize: 1036.5625, inlineSize: 390 }] }]);
+    expect(root.style.getPropertyValue("--footer-h")).toBe("1036.56px");
+
+    unmount();
+    expect(disconnected).toBe(1);
+    expect(root.style.getPropertyValue("--footer-h")).toBe("");
   });
 
-  it("default branch when columns is empty/undefined (fleet default preserved)", () => {
-    const { container } = render(Footer, { props: { columns: [] } });
-    expect(container.querySelector("footer")?.textContent).toContain("Company Name");
+  it("still publishes a height where ResizeObserver does not exist", async () => {
+    vi.stubGlobal("ResizeObserver", undefined);
+    const { unmount } = render(Footer);
+    await tick();
+    expect(document.documentElement.style.getPropertyValue("--footer-h")).toBe("0px");
+    unmount();
   });
+});
 
-  // --- socials/text chrome (site-config default; used when no columns) ---
-
-  it("falls back to a generic notice with no props", () => {
-    const { container, queryByRole } = render(Footer);
-    // No socials → no list; the copyright line is always present.
-    expect(container.querySelector("ul")).toBeNull();
-    expect(container.textContent).toContain("Company Name");
-    expect(queryByRole("list")).toBeNull();
-  });
-
-  it("renders the supplied rights line verbatim", () => {
-    const text = "© Composition Hospitality 2017, All Rights Reserved";
-    const { container } = render(Footer, { text });
-    expect(container.textContent).toContain(text);
-  });
-
+describe("Footer — the rights line", () => {
   // --- `owner` vs `text`: the copyright year must not be able to go stale ---
   //
   // `text` is a verbatim override, so a site that spells its whole rights line
@@ -138,9 +302,10 @@ describe("Footer", () => {
     expect(container.textContent).toContain(`© ${year} Roalson Interests`);
   });
 
-  it("owner replaces only the name — the placeholder is gone", () => {
-    const { container } = render(Footer, { owner: "Roalson Interests" });
-    expect(container.textContent).not.toContain("Company Name");
+  it("renders the supplied rights line verbatim", () => {
+    const text = "© Composition Hospitality 2017, All Rights Reserved";
+    const { container } = render(Footer, { text });
+    expect(container.textContent).toContain(text);
   });
 
   it("text still wins over owner, for a line that is not © year name", () => {
@@ -152,50 +317,10 @@ describe("Footer", () => {
     expect(container.textContent).not.toContain("Roalson Interests");
   });
 
-  it("renders a labelled, new-tab link per known social network", () => {
-    const { getByLabelText } = render(Footer, {
-      socials: [
-        { network: "facebook", href: "https://fb.com/x" },
-        { network: "instagram", href: "https://ig.com/x" },
-      ],
-    });
-    const fb = getByLabelText("Facebook");
-    expect(fb.getAttribute("href")).toBe("https://fb.com/x");
-    expect(fb.getAttribute("target")).toBe("_blank");
-    expect(fb.getAttribute("rel")).toBe("noopener noreferrer");
-    expect(getByLabelText("Instagram")).toBeTruthy();
-  });
-
-  it("aliases linkedin-company to the LinkedIn icon", () => {
-    const { getByLabelText } = render(Footer, {
-      socials: [{ network: "linkedin-company", href: "https://lnkd.in/x" }],
-    });
-    expect(getByLabelText("LinkedIn")).toBeTruthy();
-  });
-
-  it("drops unknown networks and prototype-chain member names", () => {
-    const { container } = render(Footer, {
-      socials: [
-        { network: "myspace" },
-        { network: "toString" },
-        { network: "constructor" },
-        { network: "__proto__" },
-      ],
-    });
-    // None are real networks → no list is rendered and nothing throws.
-    expect(container.querySelector("ul")).toBeNull();
-  });
-
-  it("renders a hrefless social as a non-interactive glyph, not a dead link", () => {
-    const { getByLabelText, container } = render(Footer, {
-      socials: [{ network: "youtube" }],
-    });
-    const yt = getByLabelText("YouTube");
-    // No <a> (a href="#" would be a dead link); a labelled role=img span instead.
-    expect(yt.tagName).toBe("SPAN");
-    expect(yt.getAttribute("role")).toBe("img");
-    expect(container.querySelector("a")).toBeNull();
-    // The brand glyph still renders.
-    expect(container.querySelector("svg")).toBeTruthy();
+  it("with no owner and no text there is NO rights line — never a placeholder", () => {
+    const { container } = render(Footer, { cta: CTA, nav: NAV, legal: LEGAL });
+    expect(container.querySelector("footer")).not.toBeNull();
+    expect(container.textContent).not.toContain("©");
+    expect(container.textContent).not.toContain("Company Name");
   });
 });

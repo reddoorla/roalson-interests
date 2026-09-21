@@ -24,7 +24,39 @@
     }
   },
   "footer": {
-    "socials": [],
+    "cta": {
+      "heading": ["We look forward", "to serving you."],
+      "links": [
+        {
+          "label": "Contact us",
+          "href": "/contact"
+        },
+        {
+          "label": "Our portfolio",
+          "href": "/properties"
+        }
+      ]
+    },
+    "nav": [
+      {
+        "label": "Our portfolio",
+        "href": "/properties"
+      },
+      {
+        "label": "Contact us",
+        "href": "/contact"
+      }
+    ],
+    "legal": [
+      {
+        "label": "Texas Real Estate Commission Information About Brokerage Services",
+        "href": "https://roalson.com/IABS%20Roalson%20Form%202026.pdf"
+      },
+      {
+        "label": "Texas Real Estate Commission Consumer Protection Notice",
+        "href": "https://roalson.com/CPN4.pdf"
+      }
+    ],
     "owner": "Roalson Interests"
   }
 }

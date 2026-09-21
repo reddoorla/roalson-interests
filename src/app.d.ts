@@ -11,18 +11,12 @@ declare global {
        * out, the bar is solid and <main> clears it. A route that renders a
        * dark first band must say so — src/routes/nav-over.test.ts checks. */
       navOver?: "dark";
-      /** Optional site chrome a route may supply to override the shared layout's
-       * Footer defaults from src/lib/site-config.json. Typed here so the
-       * layout↔route contract is checked at both ends fleet-wide. */
-      footerColumns?: {
-        items: (
-          | { text: string; href?: string }
-          | {
-              image: { url: string; maxWidth?: string; alt?: string };
-              href?: string;
-            }
-        )[];
-      }[];
+      /** What the footer's ground grades from on this route. "fade": off-white
+       * at its top edge to sand at its foot, from `lg` — the comp's Homepage at
+       * 1440, where the footer slides over the pinned photo band. Left out, the
+       * footer is flat sand, which is what the comp draws everywhere else
+       * (Properties at every width; the Homepage itself at 1280 and 390). */
+      footerGround?: "fade";
       /** A route asking to be kept out of search while staying reachable —
        * a sold listing. The layout ORs it with NOINDEX_PREFIXES. */
       noindex?: boolean;
