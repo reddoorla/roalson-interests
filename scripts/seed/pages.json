@@ -1,0 +1,42 @@
+[
+  {
+    "uid": "home",
+    "title": "Home",
+    "data": {
+      "title": [{ "type": "heading1", "text": "Roalson Interests", "spans": [] }],
+      "meta_title": "Roalson Interests — San Antonio Commercial Real Estate Since 1983",
+      "meta_description": "Roalson Interests is a San Antonio commercial real estate firm: consulting and brokerage, acquisition and disposition of properties, and buyer and tenant representation since 1983.",
+      "slices": [
+        {
+          "slice_type": "home_hero",
+          "variation": "default",
+          "primary": {
+            "heading": [
+              {
+                "type": "heading1",
+                "text": "San Antonio's Commercial Real Estate Experts.\nSince 1983.",
+                "spans": []
+              }
+            ],
+            "buttons": [
+              { "label": "Contact us", "link": { "link_type": "Web", "url": "/contact" } },
+              { "label": "Our portfolio", "link": { "link_type": "Web", "url": "/properties" } }
+            ],
+            "specialty_label": "Our specialty",
+            "specialties": [
+              { "text": "Consulting and brokerage" },
+              { "text": "Acquisition and disposition properties" },
+              { "text": "Buyer and tenant representation" }
+            ]
+          }
+        }
+      ]
+    },
+    "source": {
+      "title": "INFERRED — the firm's name; the home route does not print it",
+      "meta_title": "INFERRED — composed from the comp's headline; for the operator's review",
+      "meta_description": "INFERRED — composed from the comp's headline and its three specialties; for the operator's review",
+      "home_hero": "MEASURED — the comp's hero copy, as transcribed into src/lib/home-fixture.ts; poster and vimeo_id left empty (operator call 11, issue #29)"
+    }
+  }
+]

@@ -148,6 +148,58 @@ export async function typeExists(type, headers, fetchImpl = fetch) {
   throw await failure(res, `read custom type ${type}`);
 }
 
+/** JSON with every object's keys sorted, so two models compare by content and
+ *  not by the order a tool happened to write them in. */
+export function canonical(value) {
+  if (Array.isArray(value)) return value.map(canonical);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.keys(value)
+        .sort()
+        .map((k) => [k, canonical(value[k])]),
+    );
+  }
+  return value;
+}
+
+/** Is the repository's copy of this slice model the same as the local one?
+ *
+ *  The Migration API DROPS a field the remote model does not declare — 200, no
+ *  warning — and the page then renders the component's defaults and looks
+ *  fine. That is how a fleet site shipped five fields missing. So a page seed
+ *  proves, per slice it writes, that Prismic holds the model this branch holds.
+ *  Returns null when they match, and otherwise the reason as a sentence. */
+export async function sliceOutOfSync(id, localModel, headers, fetchImpl = fetch) {
+  const res = await fetchWithRetry(
+    `https://customtypes.prismic.io/slices/${id}`,
+    { headers: headers.auth },
+    { fetchImpl },
+  );
+  if (res.status === 404) return `${id}: not registered in Prismic`;
+  if (res.status !== 200) throw await failure(res, `read slice model ${id}`);
+  const remote = await res.json();
+  return JSON.stringify(canonical(remote)) === JSON.stringify(canonical(localModel))
+    ? null
+    : `${id}: the model in Prismic differs from the local model.json`;
+}
+
+/** The slice ids the repository's copy of a custom type offers in a slice
+ *  zone. A slice the zone does not list is dropped the same silent way. */
+export async function remoteSliceChoices(type, zone, headers, fetchImpl = fetch) {
+  const res = await fetchWithRetry(
+    `https://customtypes.prismic.io/customtypes/${type}`,
+    { headers: headers.auth },
+    { fetchImpl },
+  );
+  if (res.status !== 200) throw await failure(res, `read custom type ${type}`);
+  const model = await res.json();
+  for (const tab of Object.values(model.json ?? {})) {
+    const field = tab[zone];
+    if (field?.type === "Slices") return Object.keys(field.config?.choices ?? {});
+  }
+  throw new Error(`custom type ${type} has no slice zone named ${JSON.stringify(zone)}`);
+}
+
 /** Published documents of one type, as `{ uid: id }`. A published document's
  *  id is the one thing the master ref CAN tell a re-run. */
 export async function publishedByUid(repo, type, ref, fetchImpl = fetch) {

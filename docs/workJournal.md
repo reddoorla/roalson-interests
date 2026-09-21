@@ -2389,3 +2389,79 @@ implementer's drafted issue about a site-wide ring invisible on dark grounds was
 NOT filed: #23 landed that rule and this branch removed the local override.
 NOT verified on a production build — `/dev/*` answers 404 there, and nothing
 consumes the primitive yet; #32 carries that debt to the batch that does.
+
+## 2026-09-21 — The home page staged, released and live with its hero alone — so the connection could be rehearsed before the PR that cannot be rehearsed (`feat/seed-home-page`)
+
+**Why now, with one slice of five.** The last PR of this build flips
+`slicemachine.config.json` to the real repository, and it is the one PR CI cannot
+vouch for in advance: it goes green only if `/` prerenders 200 from a PUBLISHED
+`page/home`, and every defect on that path — a query the content API rejects, a
+link shape `cms-href` does not expect, a detail page that 500s on real data —
+would surface for the first time in the final diff, with four homepage batches
+already stacked behind it. So the home document went up today with the one
+homepage slice that is on main, under operator call 13, and the flip was
+rehearsed against it with no committed change:
+`VITE_PRISMIC_ENVIRONMENT=roalson-interests pnpm build` — the override
+`svelte.config.js` and `prismicio.ts` both read. Exit 0. Prerendered: `/`
+(18,706 bytes), `/properties`, all 22 `/properties/<uid>` pages and the slice
+simulator. `/contact` is not in that list on purpose — it has a form action and
+opts out of prerendering. The built `/` carries the document's own meta title and
+description, the hero's two buttons as `href="/contact"` and
+`href="/properties"`, and the headline with its conditional `<br>` between
+"Experts." and "Since 1983.". Nothing public changed: production still builds
+from the placeholder sentinel.
+
+**`scripts/seed/pages.mjs`, and the fleet lesson it is built around.**
+beachfront-dentistry's page seed carries a comment worth more than its code: the
+Migration API DROPS a field the repository's model does not declare — 200, no
+warning — and the page then renders component defaults and looks fine; five
+fields shipped missing that way. So this seed's preflight proves, for every slice
+it writes, that Prismic's copy of the model IS the local `model.json`
+(`GET customtypes.prismic.io/slices/<id>`, compared as canonical JSON — keys
+sorted at every depth, because two tools write the same model in two orders), and
+that the repository's `page` type offers the slice in its zone, which is dropped
+the same silent way. 404 is "not registered", 200-and-different is "differs",
+anything else throws: an unreadable answer is never read as either. Content
+relationships are written in `pages.json` as `{ "$property": "<uid>" }` and
+resolved through `listings.state.json`; a uid with no id throws in the DRY run,
+and under `--apply` each one is also held against the public API — live, under
+that same id — before anything is written. Nothing uses a relationship yet; the
+featured-properties band will, and the resolver is tested now so that batch adds
+data rather than mechanism.
+
+**The run.** Preflight: "1 slice model(s) match Prismic and are offered by
+"page"; 0 page(s) already live". `201 created home arF6GxIAACsALhaI`. Read back
+through the Prismic connector before release (`list_document_versions` on the id
+from the state file, then `get_document` on the release version): every field
+present, three specialties, two buttons. Released with
+`publish-release.mjs --yes`: 202, 1 item, 22/23 for three polls, then 23/23.
+
+**Two beliefs checked on contact, one of them the fleet's.** beachfront's seed
+says "the Migration API strips `\n` out of StructuredText on write", and its hero
+band rendered two lines short because of it. This site's headline depends on
+exactly that character — the hero splits `asText(heading)` on `\n` — so it was
+read at three layers rather than trusted either way: the staged release version,
+the public API's delivery of the published document, and the prerendered `<h1>`.
+All three carry it. Why it survived here and not there is NOT known (field
+config, a since-fixed API behaviour, or how that script built its blocks); what
+is known is that a seeded line break must be read back, never assumed. Second:
+issue #30 asked what is stored for a Link typed as `/contact`. Through the
+Migration API a Web link with the bare path is stored and delivered as typed —
+`{ link_type: "Web", url: "/contact" }`. That answers it for seeded content only;
+what the EDITOR stores when a person types the same thing is still #30's
+question.
+
+**Mutations**, each applied by a script asserting its target occurs exactly once,
+restored by copy, `cmp`-confirmed: an unknown listing uid returning `{}` instead
+of throwing → "STOPS on a listing it holds no id for"; models compared without
+canonical ordering → "compares models by content, not by the order their keys
+were written in"; an undeclared `kicker` in the hero's data → "fills only fields
+the slice's variation declares"; slices sent without `items` → "sends the whole
+document". Four of four red, one test each.
+
+**Not done, on purpose.** The document holds the hero only. `pages.json` grows as
+each homepage band merges (featured properties, legacy and partners, the photo
+band) and the document is re-staged by PUT under the id in `pages.state.json`.
+The meta title and description are INFERRED from the comp's copy and are on the
+operator's list. The flip itself is still the last PR, with
+`prismic.config.json` deleted in the same diff.
