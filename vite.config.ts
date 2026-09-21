@@ -10,6 +10,14 @@ export default defineConfig({
       // Allow access to files from the project root.
       allow: [".."],
     },
+    watch: {
+      // Agent worktrees live under `.claude/worktrees/`, inside the root this
+      // server watches. A write in one of them ("changed tsconfig file
+      // detected: …/.claude/worktrees/…/.svelte-kit/tsconfig.json") cleared
+      // the cache and forced a full reload here, mid-request — a 500 on a page
+      // that was fine (2026-09-21). eslint.config.js ignores the same directory.
+      ignored: ["**/.claude/**"],
+    },
   },
   test: {
     environment: "jsdom",

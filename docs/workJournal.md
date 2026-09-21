@@ -1382,3 +1382,75 @@ failure that matters: the Migration API would accept the string, and
 is after this merges. The `home` document waits for the homepage slices. The
 real flip — `slicemachine.config.json`, `a11yRoutes`, the smoke entry for `/` —
 is the last PR of the build, and goes green only once `home` is published.
+
+## 2026-09-21 — 22 listings staged, released and live; and the preflight that refused a repository that was ready (`feat/seed-listings-run`)
+
+Follow-up to the entry above, after #21 merged and its apply run pushed 12 of
+12 models.
+
+**A green apply run is not the evidence, and neither was the place this repo
+looked for it.** The runbook, the seed's first preflight and the PR body all
+said the proof that models had landed would be `/api/v2`'s `types` map. After
+the apply run: `reddoor-maint prismic-models` answered "12 model(s) match
+Prismic — nothing to push" (an authenticated read of the Custom Types API),
+while `/api/v2` still said `types: {}` and its query parser still rejected
+`my.property.uid` with a 400. The content API learns a type when a document of
+it is first PUBLISHED, not when the model is pushed. So the preflight written
+the same morning refused to stage into a repository that was ready. It now asks
+the Custom Types API (`GET customtypes.prismic.io/customtypes/property`: 200
+yes, 404 no, anything else throws — an unreadable answer must not read as
+either). The belief lasted about forty minutes and was in three places.
+
+**The run.** One listing first, with its assets, read back through the Prismic
+connector before the rest: the staged version held every field — category,
+coordinates, five highlights, the package PDF as a file link at 8,287,155
+bytes, the photo at 4032×3024 with its alt. (The connector cannot LIST a
+migration release — `search_documents` with every status returned 0 — but
+`list_document_versions` on a known id returns the release version, and
+`get_document` with that `versionId` returns its content. The id has to come
+from the state file; nothing else knows it.) Then all 22 with `--with-assets`:
+22 assets, 136.5 MB, none skipped — the 14.4 MB PDF went through, which answers
+the size question the runbook left open — 21 created, 1 updated. The update is
+the trial listing, PUT by its stored id: the crash-safe path, exercised for
+real.
+
+**Released, under operator call 13.** `scripts/seed/publish-release.mjs` is its
+own script with its own `--yes`. It releases the repository's migration release
+— one per repository, unreadable by the write token, so "what goes live" is
+this repo's state files and it says so — and its pass is not the 202: it polls
+the public API until every staged uid is listed. 202 accepted, 0/22 for three
+polls, then 22/22 after about sixteen seconds.
+
+**The first render against real content**, with
+`VITE_PRISMIC_ENVIRONMENT=roalson-interests pnpm dev` (the override the
+placeholder contract allows on a developer's machine): `/properties` shows Land
+17 and Improved Projects 5, no Sold section, no console errors; the detail
+pages show highlights, "Property package (PDF, 8.3 MB)" linking to Prismic's
+CDN, the Google Maps link, zoning, and Scenic Loop's two tracts with Tract 1
+"Under Contract". What fixtures could not show: 21 of 22 listings have no
+photo, so each section opens on a garnet card with no image beside it. It reads
+as intended — the card was built for that — but the page is text until
+photographs exist. That is the operator's list, not a defect.
+
+**Found on the way.** The agents' git worktrees live under `.claude/worktrees/`
+INSIDE the repo, and every `vite dev` in the repo watches them: the real-data
+dev server logged "changed tsconfig file detected:
+…/.claude/worktrees/…/.svelte-kit/tsconfig.json — forcing full-reload" twice
+and answered a 500 for a detail page mid-reload. A retry was 200. Then the same
+directory failed this branch's own `pnpm verify`: `eslint .` walked into the
+three open worktrees and reported four errors in another branch's unfinished
+Footer, carousel and hero — on a branch that had touched no linted file.
+CLAUDE.md tells concurrent sessions to use worktrees, so the gate has to
+tolerate them: `eslint.config.js` ignores `.claude/` and `vite.config.ts` adds
+it to `server.watch.ignored`, both in this PR because without the first it
+cannot go green. (prettier already honours `.gitignore`; vitest, svelte-check
+and Playwright are rooted at `src/`, `scripts/` and `tests/`.)
+
+And the 15px mystery from 2026-09-20 has its picture: a 1440 screenshot of the
+real listing shows a 15px strip of page ground to the right of the masthead.
+`scrollbar-gutter: stable` reserves the gutter, headless Chromium hides the
+scrollbar that would fill it, and everything lays out 1425 wide while
+`innerWidth` says 1440.
+
+`scripts/seed/listings.state.json` is committed: document and asset ids are not
+secrets, and they are the only way a later run can PUT instead of duplicating.

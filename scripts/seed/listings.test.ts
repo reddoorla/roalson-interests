@@ -4,13 +4,17 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 // @ts-expect-error — plain ESM scripts, no declarations
 import { assetFilename, toPayload } from "./listings.mjs";
+// @ts-expect-error — plain ESM scripts, no declarations
+import { notYetLive, stagedByType } from "./publish-release.mjs";
 import {
   fetchWithRetry,
+  publishMigrationRelease,
   readToken,
   repositoryName,
   stageDocument,
   stripEmpty,
   tokenEnvName,
+  typeExists,
   // @ts-expect-error — plain ESM scripts, no declarations
 } from "./lib.mjs";
 
@@ -190,6 +194,19 @@ describe("seed lib", () => {
     expect(readToken("r", {}, join(dir, "c.env"))).toBe("from-file");
   });
 
+  it("asks the Custom Types API whether a type exists, and refuses to guess from anything but 200 or 404", async () => {
+    const headers = { auth: { repository: "r" }, json: {} };
+    const answer = (status: number) =>
+      vi.fn(async () => ({ status, ok: status < 400, text: async () => "nope" }));
+    const yes = answer(200);
+    expect(await typeExists("property", headers, yes)).toBe(true);
+    expect(yes.mock.calls[0][0]).toBe("https://customtypes.prismic.io/customtypes/property");
+    expect(await typeExists("property", headers, answer(404))).toBe(false);
+    await expect(typeExists("property", headers, answer(403))).rejects.toThrow(
+      /read custom type property: 403/,
+    );
+  });
+
   it("backs off on 429 and gives up with the last answer", async () => {
     const wait = vi.fn(async () => {});
     const answers = [{ status: 429 }, { status: 429 }, { status: 200 }];
@@ -245,5 +262,46 @@ describe("seed lib", () => {
       }),
     ).rejects.toThrow(/no id is stored/);
     expect(exists).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("publishing the migration release", () => {
+  it("succeeds on 202 only, and says how many items are releasing", async () => {
+    const headers = { auth: {}, json: { repository: "r" } };
+    const ok = vi.fn(async () => ({
+      status: 202,
+      ok: true,
+      json: async () => ({ totalItems: 23 }),
+    }));
+    expect(await publishMigrationRelease(headers, ok)).toEqual({ totalItems: 23 });
+    expect(ok.mock.calls[0][0]).toBe("https://migration.prismic.io/migration-release/publish");
+    expect(ok.mock.calls[0][1]).toMatchObject({ method: "POST", body: "{}" });
+
+    const no = vi.fn(async () => ({ status: 200, ok: true, text: async () => "unexpected" }));
+    await expect(publishMigrationRelease(headers, no)).rejects.toThrow(
+      /publish the migration release: 200/,
+    );
+  });
+
+  it("reads what was staged from the state files, by type", () => {
+    const dir = mkdtempSync(join(tmpdir(), "staged-"));
+    writeFileSync(
+      join(dir, "listings.state.json"),
+      JSON.stringify({ documents: { a: { id: "1" }, b: { id: "2" } }, assets: {} }),
+    );
+    writeFileSync(join(dir, "unrelated.json"), "{}");
+    expect(stagedByType(dir)).toEqual({ property: ["a", "b"] });
+  });
+
+  it("the pass is the public API listing every staged uid — not the 202", async () => {
+    const fetchImpl = vi.fn(async (url: string) => ({
+      ok: true,
+      status: 200,
+      json: async () =>
+        String(url).endsWith("/api/v2")
+          ? { refs: [{ isMasterRef: true, ref: "m" }] }
+          : { results: [{ uid: "a", id: "1" }], total_pages: 1 },
+    }));
+    expect(await notYetLive("r", { property: ["a", "b"] }, fetchImpl)).toEqual(["property/b"]);
   });
 });

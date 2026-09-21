@@ -120,25 +120,42 @@ export function writeState(path, state) {
   writeFileSync(path, `${JSON.stringify(ordered, null, 2)}\n`);
 }
 
-/** The public API's view: the types the repository has, and the master ref. */
-export async function repositoryInfo(repo, fetchImpl = fetch) {
+/** The master ref, from the public API. NOT its `types` map: measured on this
+ *  repository the day the models landed, the Custom Types API answered "12
+ *  model(s) match" while `/api/v2` still said `types: {}` and its query parser
+ *  still rejected `my.property.uid` — the content API learns a type when a
+ *  document of it is first published, not when the model is pushed. A
+ *  preflight that read `types` here refused to stage into a repository that
+ *  was ready. Ask `typeExists` instead. */
+export async function masterRef(repo, fetchImpl = fetch) {
   const res = await fetchImpl(`https://${repo}.prismic.io/api/v2`);
   if (!res.ok) throw await failure(res, `read https://${repo}.prismic.io/api/v2`);
-  const api = await res.json();
-  return {
-    types: Object.keys(api.types ?? {}),
-    masterRef: api.refs.find((r) => r.isMasterRef).ref,
-  };
+  return (await res.json()).refs.find((r) => r.isMasterRef).ref;
+}
+
+/** Does the repository have this custom type? Asked of the Custom Types API,
+ *  the one place a pushed model is visible before anything is published. 200
+ *  is yes and 404 is no; anything else is "could not tell" and throws, because
+ *  an unreadable answer must never read as either. */
+export async function typeExists(type, headers, fetchImpl = fetch) {
+  const res = await fetchWithRetry(
+    `https://customtypes.prismic.io/customtypes/${type}`,
+    { headers: headers.auth },
+    { fetchImpl },
+  );
+  if (res.status === 200) return true;
+  if (res.status === 404) return false;
+  throw await failure(res, `read custom type ${type}`);
 }
 
 /** Published documents of one type, as `{ uid: id }`. A published document's
  *  id is the one thing the master ref CAN tell a re-run. */
-export async function publishedByUid(repo, type, masterRef, fetchImpl = fetch) {
+export async function publishedByUid(repo, type, ref, fetchImpl = fetch) {
   const out = {};
   for (let page = 1, total = 1; page <= total; page++) {
     const q = encodeURIComponent(`[[at(document.type,"${type}")]]`);
     const res = await fetchImpl(
-      `https://${repo}.prismic.io/api/v2/documents/search?ref=${masterRef}&pageSize=100&page=${page}&q=${q}`,
+      `https://${repo}.prismic.io/api/v2/documents/search?ref=${ref}&pageSize=100&page=${page}&q=${q}`,
     );
     if (!res.ok) throw await failure(res, `search published ${type}`);
     const body = await res.json();
@@ -222,4 +239,20 @@ export async function stageDocument({ id, type, uid, title, data, headers, fetch
     );
   }
   throw new Error(`create ${uid}: ${res.status} ${text.slice(0, 300)}`);
+}
+
+/** Release the repository's MIGRATION RELEASE: every document staged in it goes
+ *  live. There is one migration release per repository and the write token
+ *  cannot list it, so this publishes whatever is in it — the caller says what
+ *  it expects to be there, and verifies afterwards against the public API.
+ *  202 + `totalItems` is the only success. */
+export async function publishMigrationRelease(headers, fetchImpl = fetch) {
+  const res = await fetchWithRetry(
+    "https://migration.prismic.io/migration-release/publish",
+    { method: "POST", headers: headers.json, body: "{}" },
+    { fetchImpl },
+  );
+  if (res.status !== 202) throw await failure(res, "publish the migration release");
+  const body = await res.json();
+  return { totalItems: body.totalItems };
 }
