@@ -2465,3 +2465,230 @@ band) and the document is re-staged by PUT under the id in `pages.state.json`.
 The meta title and description are INFERRED from the comp's copy and are on the
 operator's list. The flip itself is still the last PR, with
 `prismic.config.json` deleted in the same diff.
+
+## 2026-09-21 — The photo band pins while the footer slides over it — and only where that is true (`feat/home-photo-band`)
+
+The comp's `Frame 205` (6825:530 at 1440, 6994:881 at 390) is an 800px band — 240
+on a phone — holding one full-width photo with nothing drawn over it. It is
+`STICKY_SCROLLS`, and the footer is later in the comp's z-order and scrolls
+normally, so the band pins and the footer slides up over it. This entry is the
+`photo_band` slice and that pin. **It is NOT verified on a production build**:
+`/dev/*` 404s on every production build by design and `/` has no document until
+the Prismic connection lands, so the homepage has no production-reachable URL
+tonight (critic C7). What stands behind it is `tests/interaction/photo-band.spec.ts`
+against `/dev/home` on the dev server, mutation-proven below. #28 already names
+this pin for re-verification once `/` answers 200.
+
+**Why the pin needs a second element.** `position: sticky` is bounded by its
+parent. The band is the last thing in `<main>` and the footer is outside
+`<main>`, so alone the band's containing block ends where the band ends and it
+has nowhere to stick. The footer batch built its half for exactly this (#27: the
+footer publishes its border-box height as `--footer-h` on `<html>` and is
+`relative z-10`). This batch is the other half, the spec's mechanism A: the slice
+renders a spacer after itself, `app.css` sizes the spacer from `--footer-h` — that
+is the band's travel — and gives the footer the same height as a negative margin,
+which lays it back over the spacer. Measured at 1440: `--footer-h` 512.56px,
+spacer 512.546875 (Chromium snaps it to 1/64px), footer 512.5625, footer top minus
+band bottom 0.00 at rest. The document is 2320 tall pinned and 2320 unpinned (the
+same page under `reduce`), the footer's document top 1807 both ways; at 390, 2426
+and 2426, footer top 1389.125 both ways. So the footer does not move when the
+variable arrives at hydration, and there is no layout shift to measure. At 390 the footer is 1036.56 and the spacer follows it
+through a resize.
+
+**The mechanism as specced ships two defects at once if an editor moves the
+slice, and the spec did not see either.** Mechanism A is written as
+`body:has([data-pinned-band]) footer { margin-top: -footer-h }` and an
+unconditional `sticky` — true only when the band is the last thing in `<main>`.
+It is a slice; an editor can drop it mid-page. There, (1) the band's containing
+block is all of `<main>`, so it would stay pinned for the rest of the page, and
+because it is positioned and the slices after it are not, it would paint OVER
+every one of them; and (2) the footer would be pulled 512px up over the page's
+last content while the spacer opened a 512px hole mid-page. So all three rules
+are gated on the spacer being `<main>`'s last child
+(`main > [data-pinned-band]:has(+ .pinned-band-spacer:last-child)`,
+`main > .pinned-band-spacer:last-child`,
+`main:has(> .pinned-band-spacer:last-child) + footer`). Mid-page it is a plain
+band. The last selector is also why this is `main + footer` and not the spec's
+`body:has(…) footer`: `footer` alone matches any `<footer>` in the document.
+There is exactly one today (grep: `Footer.svelte`), but the first slice to close
+a `<blockquote>` or an `<article>` with one would have been dragged 512px up its
+own card.
+This is the reason the rules live in `app.css` and not in the slice's classes —
+`sticky` as a utility class cannot be conditional on a sibling's position.
+
+**`top: 0` is wrong in most windows, measured.** The spec's test viewport is
+1440×800 — exactly the band's height, the one size where the problem is
+invisible. In any window shorter than 800, which is most laptops (a 1440×900
+screen minus browser chrome), `top: 0` pins the band with its own foot AND the
+footer below the fold. At 1440×650 I walked the page in 50px steps: from
+y=1007 to y=1157 the band is held at 0 and the footer's top goes 800 → 650, all
+of it off-screen — **150px of scrolling during which nothing on screen moves**
+(the bar is fixed too), which reads as a frozen page. Then at y≈1520 the band
+runs out of containing block and un-pins, moving up 150px with the footer for
+the last 150px of the page. Both are `800 − V`. The fix is
+`top: min(0px, 100vh - var(--band-h))`: where the band fits it is 0, exactly as
+specced; where it does not, the band seats its BOTTOM on the window's bottom.
+Same walk after: 10 steps with the band held, 0 of them with the footer out of
+view, and the pin holds to the end of the page. It also shows the photo's foot —
+the crop is bottom-anchored, so that is the part the designer kept. `--band-h`
+(240px, 800px from `lg`) is set on the slice and read twice, by its own
+`h-(--band-h)` and by that `top`.
+
+One sub-pixel is left and I did not chase it: the footer is 512.56 tall, the
+document rounds up to 2320, `<main>` ends at 2319.55, so the last half-pixel of
+scroll pushes a pinned band by 0.453125px when V ≤ 800. The test allows under a
+pixel there and says why. Rounding `--footer-h` would trade it for the hairline
+of page ground the footer batch chose fractional precision to avoid.
+
+**Reduced motion: the band does not pin.** Stated because the task asked and
+because it is a judgment call the hero made the other way. Nothing here is an
+animation — no duration, no timeline — and the hero batch reasoned "a sticky box
+is not motion" and left its pin on under `reduce`. But a full-bleed picture held
+still while the page slides over it is the curtain effect, the mildest form of
+parallax (background at rate 0, foreground at rate 1), which is what that
+setting asks a site to drop; and `app.css` already warns that its global
+reduced-motion reset cannot reach scroll-linked effects, so each must carry its
+own opt-out. The whole block sits inside
+`@media (prefers-reduced-motion: no-preference)`: under `reduce` the band is
+`position: static`, the spacer is 0, the footer's margin is 0, and the page is a
+plain one. The two pins on this page now disagree; that is an issue for the
+operator to rule once (filed below), not something to settle by editing another
+batch's slice from this one.
+
+The other two fallbacks are the spec's: no script → `--footer-h` is never written
+→ both lengths fall back to `0px` → the band is sticky with no room and simply
+scrolls away; no `:has()` → `@supports selector(:has(*))` skips the block whole.
+It has to be the whole block: the spacer's height alone, without the footer's
+margin, is a footer-tall hole. Mutation 6 below is that hole, measured at
+512.546875px.
+
+**The photo is not here, and the fallback is a judgment call.**
+`weston-m-…-unsplash` is one of the five unlicensed files in #3. It is not in
+`static/`, `mocks.json` or the fixtures; `mocks.json` is the empty launch state
+and a unit test fails if either file ever names a host. Empty, the band is
+`bg-gradient-to-b from-primary to-dark` at the comp's heights — PageMasthead's
+treatment (#15) and the hero's (operator call 11), so one look means "licensed
+photo pending" site-wide. The comp itself gives this band NO ground (delete the
+photo and the page frame's `#eff9fb` shows, a colour used nowhere else), so the
+alternative — collapse the band until a photo exists — is a fair reading too and
+is the spec's open question 3. With a photo, the crop is `object-fit: cover` at
+`object-position: 50% 100%`, which reproduces all three of the comp's image boxes
+from one rule: measured overhang cropped off the top 160.00 at a 1440 layout
+(comp 160.1), 53.33 at 1280 (comp 53), 20.00 at 390 (comp 20). The `/dev/home?photo`
+fixture is a drawing built to make that legible: a dark ground strip that must sit
+on the band's bottom edge and a garnet stripe across its top that must never be
+seen. I looked at it at 1440 and 390; both hold.
+
+No separate `alt` field: a Prismic Image field carries its own alt from the media
+library, and a second field is two sources for one string. Empty alt renders
+`alt=""`, decoration, which a band with nothing else in it usually is.
+
+**Reuse.** `HeroBackgroundImage` is used whole, with `preload={false}` — that is
+what the prop is for: `loading="lazy"`, `fetchpriority="auto"`, no preload link,
+the imgix srcset ladder — and a class override that puts it in flow rather than
+`absolute`, so the band needs no `position` of its own for the pin to override.
+Nothing in `docs/COMPONENTS.md` was declined. `transitions.ts`'s
+`prefersReducedMotion` was read and not used, because no script is involved: the
+gate is a media query around CSS.
+
+**A test that measured a string, found by being its first casualty.**
+`footer.spec.ts`'s no-JS test proved "nothing wrote `--footer-h`" with
+`expect(await page.content()).not.toContain("--footer-h")`. The dev server
+inlines `app.css` into the document, and `app.css` now names the property to
+READ it, so that test went red on a page where nothing had written anything. It
+was green before only because no reader existed. It now reads `<html>`'s own
+style attribute and the computed value — where the footer would have written it.
+Proven able to fail: flipped to `javaScriptEnabled: true` plus the hydration wait,
+it goes red on `"--footer-h: 512.56px;"`. My own no-JS test made the same mistake
+first, copied from there, which is how I found it.
+
+**Belief corrected: the dev server in an agent worktree watches nothing.**
+`vite.config.ts` has `server.watch.ignored: ["**/.claude/**"]` (added today so a
+worktree's writes stop reloading the main checkout's server). A worktree lives at
+`<repo>/.claude/worktrees/<id>/`, so from inside one that glob matches EVERY file
+of the project. I mutated `app.css` under a running `vite dev`, re-measured
+twice, and got the unmutated numbers both times with no HMR line in the log;
+only a restart picked it up. For mutation testing that is the dangerous
+direction — a mutant that "survives" because the server never saw it. The
+Playwright runs are not affected: the shared config never reuses a server, so
+each run starts a fresh one that reads the mutated file, and every red below came
+from such a run. Anything measured against a long-lived dev server in a worktree
+is. Filed.
+
+**Mutations, each a fresh Playwright server; restored with `cp`, confirmed with `cmp`.**
+(1) spacer element removed → 8/8 browser tests red (spacer count 0; the no-JS
+test on `position: static`), 3/8 unit tests red. (2) `position: sticky` removed
+→ 5 red, two of them on geometry rather than on the computed style: "held at
+y=1257: expected −150, received −250", and the 390 band off 0. (3) `top: 0` →
+exactly 1 red, the short-window test, band bottom 800 against a 650 window.
+(4) `:last-child` gates removed → 1 red (mid-page band still `sticky`) + the
+unit contract test. (5) reduced-motion gate replaced by `@media all` → 1 red
+(band `sticky` under `reduce`) + the unit contract test. (6) footer's negative
+margin removed → 4 red, first on "footer on the band's heel: 512.546875".
+(7) `object-bottom` dropped → 1 browser red (`50% 50%`) + 1 unit red.
+Green: 8 browser tests (×3 repeats, 24/24), 8 unit tests; `footer.spec` 8/8,
+`home-hero.spec`, `focus-ring.spec` and `tests/a11y/fixtures.spec` 13/13 with the
+band on their pages; `pnpm check` 0 errors, `pnpm lint` clean. `pnpm verify` was
+NOT run (shared machine, by instruction) — the orchestrator's run is the first.
+
+**Honest accounting.** At launch this pin is invisible polish: a flat gradient
+held still under a footer looks the same as one that scrolls. Everything above
+buys nothing a visitor can see until a licensed photo exists. It is worth having
+now only because the mechanism is the expensive part and it is now proven, and
+because the two defects it would have shipped with (mid-page, short windows)
+would have surfaced on the day the photo arrived, as a "the new photo broke the
+page" report.
+
+Found and not fixed, returned to the orchestrator as issues: the licensed photo
+(sibling of #15, blocked by #3); the hero and photo-band pins disagreeing under
+reduced motion; the worktree watcher; and `/api/csp-report`, whose `text()`
+fallback can never run because `json()` has already consumed the body — every
+non-JSON report is a 500 ("Body is unusable", seen in the dev server's log during
+the axe runs, where axe's own stylesheet fetch trips `connect-src`).
+
+**After review, and integration (orchestrator).** Two adversarial reviewers read
+the branch: the fidelity reviewer said merge, the rules reviewer said fix first.
+Its blocker was that the branch held no journal entry while the implementer's
+report said it did — true of the branch and by design (entries are appended here,
+in merge order, from the handoff file above), but the reviewer was right that the
+words "NOT verified on a production build" have to be in the JOURNAL, and they
+are, above.
+
+What review changed. Four comments written in the same session as the code
+overclaimed, and are reworded to what was measured (`e6dcace`): "every test
+asserts the media query it believes it is running under" — only the pin tests
+call `motion(page)`; the fixture's garnet stripe "must NEVER be seen" — the
+fidelity reviewer photographed it, a 42px bar at layout 1024, because from 1009
+to 1199 the 800px band is taller than a full-width 3:2 picture and `cover` crops
+the sides instead of the top; "below the fold on every page that has one" —
+nothing enforces that; and app.css's "there is no layout shift", which is true of
+the footer and the document height and false of the band: reload at y=1300 and a
+rAF sampler reads band top -293 at 48ms, 0 at 184ms, the footer still at 507
+throughout, and Chromium's layout-shift observer reports nothing. No code change
+for that one — it needs a scroll restored into the last footer-height of the page
+before hydration, and on the launch-state gradient it is invisible.
+
+One ruling, made rather than asked (the operator is away; it is on the list for
+them). The hero (#31) pins under `prefers-reduced-motion: reduce` on the argument
+that a sticky box is not motion; this band turns its pin off on the argument that
+a full-bleed picture held still while the page slides over it is parallax at rate
+zero. Two opposite rulings 1000px apart is the one outcome that is wrong whoever
+is right. Ruled: the hero follows the band — both gated on `no-preference` — as
+its own PR after the nav follow-ups merge, because both touch the hero's spec.
+#38 records it, and reversing it is one variant and one media query.
+
+A design question the fidelity reviewer measured and nobody asked: below 1024 the
+band is a 240px letterbox (47% of a 3:2 photo visible at 768, 36% at 1008), then
+jumps to 800. It follows the spec and cannot be seen while the band is a
+gradient; #37 carries it with a one-line `clamp()` on `--band-h` that the pin
+would survive unchanged.
+
+Rebased onto `f10b834` with no conflict. `pnpm verify` on the rebased branch:
+prettier clean, svelte-check 0 errors over 4596 files, axe 0 violations across 2
+routes, 817 unit tests in 86 files, 61 Playwright tests. Filed: #37 (the licensed
+photo, sibling of #15, blocked by #3; both design questions), #38 (the
+reduced-motion ruling), #39 (the vite watcher blinds a dev server inside an agent
+worktree — fixed next, in its own PR), #40 (`/api/csp-report` reads its body
+twice and 500s on a non-JSON report — same PR), and a comment on #28 listing what
+to check for this pin on a production build: the minified `min()`, the rules
+staying unlayered, and the 650px-tall window.
