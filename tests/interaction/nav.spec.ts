@@ -71,7 +71,10 @@ test("with scripting off, the floating bar stays on its dark band and the links 
     await page.setViewportSize({ width: 390, height: 844 });
     await expect(links.nth(1)).toBeVisible();
     const lastLink = await links.nth(1).boundingBox();
-    expect(lastLink!.x + lastLink!.width, "inside the 20px gutter").toBeLessThanOrEqual(370);
+    const narrow = await page.evaluate(() => document.documentElement.clientWidth);
+    expect(lastLink!.x + lastLink!.width, "inside the 20px gutter").toBeLessThanOrEqual(
+      narrow - 20,
+    );
     expect(lastLink!.y, "on the bar's one line").toBeLessThan(70);
     await page.setViewportSize({ width: 1440, height: 900 });
 
@@ -155,6 +158,11 @@ test("the open menu: named, focused, locked, clean under axe, and closed by Esca
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto(DARK);
   await adopted(page);
+  // The LAYOUT's width, not the window's: the CI runner's Chromium draws a
+  // 15px classic scrollbar (layout 1425 in a 1440 window) and macOS headless
+  // draws none. The first version of this test said `1440 - 80 - 10`, passed
+  // here, and failed there on 1335.
+  const layoutWidth = await page.evaluate(() => document.documentElement.clientWidth);
   const triggerBox = await page.getByLabel("Open menu").boundingBox();
   await page.getByLabel("Open menu").click();
 
@@ -170,7 +178,7 @@ test("the open menu: named, focused, locked, clean under axe, and closed by Esca
   // The Close sits exactly where the trigger was — and the trigger's GLYPH,
   // not its 44px target, ends on the comp's gutter (x=1360, centred on y=40).
   expect(await page.getByLabel("Close menu").boundingBox()).toEqual(triggerBox);
-  expect(triggerBox!.x + triggerBox!.width / 2).toBe(1440 - 80 - 10);
+  expect(triggerBox!.x + triggerBox!.width / 2).toBe(layoutWidth - 80 - 10);
   expect(triggerBox!.y + triggerBox!.height / 2).toBe(40);
 
   const results = await new AxeBuilder({ page })
@@ -189,6 +197,36 @@ test("the open menu: named, focused, locked, clean under axe, and closed by Esca
   await expect(menu).toBeHidden();
   await expect(page.getByLabel("Open menu")).toBeFocused();
   await expect(page.locator("body")).not.toHaveCSS("overflow", "hidden");
+});
+
+test("locking the page behind the menu does not move it", async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(DARK);
+  await adopted(page);
+  // Only meaningful where scrollbars take layout space — the Linux CI runner
+  // (layout 1425 in a 1440 window), Windows. macOS headless Chromium draws
+  // overlay scrollbars, and nothing forces a classic one there: five
+  // ::-webkit-scrollbar / overflow variants under two launch modes all left
+  // clientWidth at 1440 (2026-09-20). So this passes vacuously on a Mac, and
+  // `layout` is in the compared object so a CI failure says what it measured.
+  const width = () =>
+    page.evaluate(() => ({
+      layout: document.documentElement.clientWidth,
+      main: document.querySelector("main#main-content")!.getBoundingClientRect().width,
+      padding: getComputedStyle(document.body).paddingRight,
+    }));
+  const before = await width();
+
+  await page.getByLabel("Open menu").click();
+  await expect(page.locator("body")).toHaveCSS("overflow", "hidden");
+  // app.css keeps the gutter (`scrollbar-gutter: stable`), so hiding overflow
+  // gives the layout nothing back — and a lock that pays padding for a
+  // scrollbar that never left narrows the page behind the menu.
+  expect(await width()).toEqual(before);
+
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog", { name: "Menu" })).toBeHidden();
+  expect(await width()).toEqual(before);
 });
 
 test("the menu marks the page you are on", async ({ page }) => {
