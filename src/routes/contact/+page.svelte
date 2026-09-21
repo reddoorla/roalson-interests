@@ -34,7 +34,10 @@
   Requires FORMS_INGEST_URL + FORMS_INGEST_TOKEN in the deployed site's env (see .env.example).
 -->
 
-<main class="max-w-2xl mx-auto px-8 py-16 space-y-8">
+<!-- A <div>, not a second <main>: the layout already renders the page's one
+     main landmark (#main-content) around this. The template shipped a nested
+     <main> here, which gives assistive tech two "main" regions to choose from. -->
+<div class="max-w-2xl mx-auto px-8 py-16 space-y-8">
   <header class="space-y-2">
     <h1 class="text-3xl font-bold">Contact us</h1>
     <p class="text-secondary">Send us a message and we'll get back to you.</p>
@@ -128,4 +131,4 @@
       </button>
     </form>
   {/if}
-</main>
+</div>

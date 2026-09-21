@@ -1,6 +1,7 @@
 <script lang="ts">
   import { X } from "@lucide/svelte";
   import { tick, type Snippet } from "svelte";
+  import { lockBodyScroll } from "$lib/utils/scrollLock";
 
   interface ModalProps {
     open: boolean;
@@ -61,33 +62,15 @@
 
   // Scroll lock. `showModal()` puts the dialog in the top layer but does NOT
   // stop the document behind it scrolling. On a phone that reads as the modal
-  // having closed, because the page starts sliding past behind it.
+  // having closed, because the page starts sliding past behind it. The lock
+  // itself — and why it is body overflow and not position:fixed — lives in
+  // $lib/utils/scrollLock, shared with the nav overlay.
   //
-  // `overflow: hidden` on <body> (not documentElement, and not `position:
-  // fixed`): body's overflow propagates to the viewport while html's is
-  // `visible`, and unlike the position:fixed technique it neither loses the
-  // scroll position nor changes the containing block for absolute descendants
-  // — which matters, because site headers in this template are fixed/absolute.
-  //
-  // Keyed on `open`, so Svelte runs the teardown on EVERY close path (Escape,
-  // backdrop, ✕ — all of them route through `open = false`) and on unmount. A
-  // lock that outlives its modal leaves the page permanently unscrollable,
-  // which is a worse bug than the one being fixed.
+  // Keyed on `open`, so Svelte runs the release on EVERY close path (Escape,
+  // backdrop, ✕ — all of them route through `open = false`) and on unmount.
   $effect(() => {
-    if (!open || typeof document === "undefined") return;
-    const body = document.body;
-    const previousOverflow = body.style.overflow;
-    const previousPaddingRight = body.style.paddingRight;
-    // Classic-scrollbar environments lose the scrollbar's width when the
-    // document stops scrolling; pay it back as padding so the page behind
-    // doesn't jump sideways as the modal opens.
-    const gutter = window.innerWidth - document.documentElement.clientWidth;
-    body.style.overflow = "hidden";
-    if (gutter > 0) body.style.paddingRight = `${gutter}px`;
-    return () => {
-      body.style.overflow = previousOverflow;
-      body.style.paddingRight = previousPaddingRight;
-    };
+    if (!open) return;
+    return lockBodyScroll();
   });
 
   function close() {

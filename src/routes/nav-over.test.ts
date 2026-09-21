@@ -1,0 +1,72 @@
+import { describe, expect, it } from "vitest";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { dirname, join, relative, resolve } from "node:path";
+
+/**
+ * The bar floats — transparent, white wordmark, dust controls — only over a
+ * dark first band, and it learns that from the ROUTE (`navOver: "dark"` in its
+ * page data), because the layout renders the bar before it has seen the page.
+ * That is a claim made in one file about markup in another, so nothing but
+ * this test holds the two together:
+ *
+ *  - a route that opens on a dark band and does not say so gets the solid bar
+ *    AND the layout's top padding — an off-white strip above its masthead;
+ *  - a route that says so and opens on anything else gets a white wordmark on
+ *    an off-white page, which is no wordmark at all.
+ *
+ * "Opens on" is read from the page's markup: the first element or component
+ * after the script block. Add a component to DARK_FIRST_BANDS when it is built
+ * to run under the bar (the homepage hero will be the second).
+ */
+const DARK_FIRST_BANDS = ["PageMasthead"];
+
+const ROUTES = resolve(process.cwd(), "src/routes");
+
+function pages(dir: string): string[] {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((entry) => {
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) return pages(full);
+    return entry.name === "+page.svelte" ? [full] : [];
+  });
+}
+
+/** The first tag a page renders: scripts, comments and Svelte blocks skipped. */
+function firstTag(source: string): string | undefined {
+  const markup = source
+    .replace(/<script[\s\S]*?<\/script>/g, "")
+    .replace(/<!--[\s\S]*?-->/g, "")
+    .replace(/<svelte:head>[\s\S]*?<\/svelte:head>/g, "");
+  return /<([A-Za-z][\w.:-]*)/.exec(markup)?.[1];
+}
+
+function claimsDark(page: string): boolean {
+  return ["+page.server.ts", "+page.ts"]
+    .map((name) => join(dirname(page), name))
+    .filter((file) => existsSync(file))
+    .some((file) => /navOver:\s*"dark"/.test(readFileSync(file, "utf8")));
+}
+
+const all = pages(ROUTES).map((file) => ({
+  route: relative(ROUTES, dirname(file)) || "/",
+  first: firstTag(readFileSync(file, "utf8")),
+  claims: claimsDark(file),
+}));
+
+describe("navOver — the route's claim about its first band", () => {
+  it("finds the pages, and at least one that opens on a dark band", () => {
+    expect(all.length).toBeGreaterThan(3);
+    expect(all.filter((p) => p.first && DARK_FIRST_BANDS.includes(p.first)).length).toBeGreaterThan(
+      0,
+    );
+  });
+
+  it("every route that opens on a dark band says so", () => {
+    const silent = all.filter((p) => p.first && DARK_FIRST_BANDS.includes(p.first) && !p.claims);
+    expect(silent.map((p) => p.route)).toEqual([]);
+  });
+
+  it("every route that says so opens on a dark band", () => {
+    const wrong = all.filter((p) => p.claims && !(p.first && DARK_FIRST_BANDS.includes(p.first)));
+    expect(wrong.map((p) => `${p.route} opens on <${p.first}>`)).toEqual([]);
+  });
+});

@@ -246,6 +246,14 @@ Failures that are real:
 
 - _The mobile hamburger is not a contrast failure._ `np_menu_1814288` sits
   inside `navbar garnet-mobile`, i.e. on a **garnet** ground: 5.11:1, passing.
+  > **Corrected 2026-09-20 (nav batch): this correction was itself wrong, and
+  > the brief was right.** `navbar garnet-mobile` (`6997:2189`) has **no fill**
+  > — "garnet" names the wordmark's colour (`RI Wordmark Garnet_Dust`), not a
+  > ground. The bar is pinned and transparent, so the dust hamburger sits on
+  > whatever is under it: the masthead photo at the top, the off-white page
+  > once scrolled — 1.97:1, under the 3:1 a control's glyph needs. The build
+  > draws it dust only while the bar floats over a dark band, and garnet on its
+  > off-white ground. See the journal entry of that date.
 - _The dust value-list items pass._ The 31 dust eyebrows sit on the
   `#652323`→`#3D0707` gradient — 5.11:1 at the garnet end, 7.55:1 at the dark
   end.
@@ -263,6 +271,12 @@ skill says costs nine PRs when discovered after the slices merge.
 
 1. **navbar** — y=0, h=80 desktop/laptop, h=70 mobile. Per-page treatment:
    transparent over the homepage hero, solid garnet on Properties.
+   > **Corrected 2026-09-20 (nav batch):** the Properties bar is not solid
+   > garnet. Read from the REST API, `navbar garnet` (`6909:1859`), its mobile
+   > sibling and both variants of the homepage's `navbar` set carry **no fill
+   > at any width**; "garnet" is the wordmark. As drawn, the pinned bar stays
+   > transparent over everything that scrolls under it, which the build does
+   > not reproduce — see `Nav.svelte`'s header comment.
 2. **`Masthead #1`** — the homepage hero pins at y=0, h=528 at _all three_
    widths, and the next band slides over it.
 3. **`Frame 205`** — the photo band pins: y=2389 h=800 desktop, collapsing to

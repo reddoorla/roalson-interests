@@ -11,9 +11,13 @@ export async function load({ fetch, cookies }) {
   // listing is a real state — nothing published yet — not a missing document,
   // so this answers 200 where the document routes answer 404. It also lets the
   // smoke run cover the page before the Prismic repo exists.
-  if (isPlaceholderRepo) return emptyListing();
+  const listing = isPlaceholderRepo
+    ? emptyListing()
+    : await loadPropertyListing(createClient({ fetch, cookies }));
 
-  return loadPropertyListing(createClient({ fetch, cookies }));
+  // The page opens on PageMasthead, which runs under the bar as the comp draws
+  // it — so the bar floats over it in its reverse tone (see Nav.svelte).
+  return { ...listing, navOver: "dark" as const };
 }
 
 export function entries() {

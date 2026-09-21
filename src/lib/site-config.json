@@ -1,7 +1,30 @@
 {
   "nav": {
-    "logo": { "url": "/logo.svg", "maxWidth": "145px" },
-    "items": []
+    "logo": {
+      "url": "/logo.svg",
+      "reverseUrl": "/logo-reverse.svg"
+    },
+    "items": [
+      {
+        "label": "Home",
+        "href": "/"
+      },
+      {
+        "label": "Our Properties",
+        "href": "/properties"
+      },
+      {
+        "label": "Contact Us",
+        "href": "/contact"
+      }
+    ],
+    "cta": {
+      "label": "Contact us",
+      "href": "/contact"
+    }
   },
-  "footer": { "socials": [], "owner": "Roalson Interests" }
+  "footer": {
+    "socials": [],
+    "owner": "Roalson Interests"
+  }
 }

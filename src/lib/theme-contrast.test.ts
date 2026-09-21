@@ -47,6 +47,13 @@ const DARK_GROUND_TEXT = ["white", "dust", "light", "background"] as const;
 /** The dark grounds those land on. */
 const DARK_GROUNDS = ["primary", "dark", "black"] as const;
 
+/** Fills that carry exactly ONE text token, so they are measured as pairs and
+ *  not as grounds. `dust` is a hover fill — the comp's `button light`, the
+ *  navbar's CONTACT US over a dark band, fills dust and turns its label garnet
+ *  (5.11:1). It is NOT a light ground: secondary on dust is 2.75:1, so adding
+ *  it to LIGHT_GROUNDS would be a claim the palette cannot keep. */
+const FILL_PAIRS = [{ text: "primary", ground: "dust" }] as const;
+
 /**
  * `bg-light` was deliberately left OUT of LIGHT_GROUNDS until something put text
  * inside it, with this warning: "the pair is one nesting away from being real,
@@ -151,6 +158,14 @@ describe("theme contrast", () => {
       ).toBeGreaterThanOrEqual(AA_NORMAL_TEXT);
     },
   );
+
+  it.each(FILL_PAIRS)("text-$text on the bg-$ground fill meets AA", ({ text, ground }) => {
+    const ratio = contrast(resolveToken(text), resolveToken(ground));
+    expect(
+      ratio,
+      `--color-${text} on --color-${ground} is ${ratio.toFixed(2)}:1, below AA.`,
+    ).toBeGreaterThanOrEqual(AA_NORMAL_TEXT);
+  });
 
   /**
    * Completeness, so the lists above cannot quietly fall behind the markup.

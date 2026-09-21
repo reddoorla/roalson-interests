@@ -5,11 +5,15 @@ declare global {
     // interface Error {}
     // interface Locals {}
     interface PageData {
+      /** What the bar sits on at the top of this route. "dark": the route's
+       * first band (a masthead, a hero) runs UNDER the bar, so the bar floats
+       * over it in its reverse tone and the layout does not pad <main>. Left
+       * out, the bar is solid and <main> clears it. A route that renders a
+       * dark first band must say so — src/routes/nav-over.test.ts checks. */
+      navOver?: "dark";
       /** Optional site chrome a route may supply to override the shared layout's
-       * Nav/Footer defaults from src/lib/site-config.json. No route in the bare
-       * template supplies these. Typed here so the
+       * Footer defaults from src/lib/site-config.json. Typed here so the
        * layout↔route contract is checked at both ends fleet-wide. */
-      navLinks?: { text: string; href: string }[];
       footerColumns?: {
         items: (
           | { text: string; href?: string }
