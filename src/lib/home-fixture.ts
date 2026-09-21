@@ -143,6 +143,120 @@ export function photoBandFixture(primary: Partial<PhotoBandPrimary> = {}): Conte
   } as unknown as Content.PhotoBandSlice;
 }
 
+type PartnersPrimary = Content.PartnersSlice["primary"];
+type PartnerRow = PartnersPrimary["partners"][number];
+
+/** A generated headshot for the `?photos` state of /dev/home: a bust in the
+ *  brand's tones, so the 153px box and its `object-cover` crop can be read. A
+ *  drawing, not a photograph — both headshots in the comp are placeholders of
+ *  unknown licence (#3) and never enter this repo — and inline, so the fixture
+ *  depends on no host. Square, as the model's crop constraint is. */
+const HEADSHOT_SVG =
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 612 612">` +
+  `<rect width="612" height="612" fill="#b2ac9f"/>` +
+  `<circle cx="306" cy="236" r="112" fill="#652323"/>` +
+  `<path d="M74 612c0-128 104-214 232-214s232 86 232 214z" fill="#652323"/>` +
+  `</svg>`;
+
+export const PARTNER_PHOTO_FIXTURE = {
+  url: `data:image/svg+xml,${encodeURIComponent(HEADSHOT_SVG)}`,
+  alt: "",
+  dimensions: { width: 612, height: 612 },
+  copyright: null,
+  id: "fixture-partner-headshot",
+  edit: { x: 0, y: 0, zoom: 1, background: "transparent" },
+};
+
+/** A bio for the `?bio` state. It is about the FIXTURE on purpose: these are
+ *  real people, neither has given the site a bio, and an invented one is one
+ *  seed script away from being published. Two paragraphs, so the space
+ *  between them can be measured. */
+export const PARTNER_BIO_FIXTURE = [
+  {
+    type: "paragraph",
+    text: "Fixture copy, not a biography. The partners' bios are written in Prismic, and neither has one yet, so this paragraph stands in for one: PROFILE appears on a card only when its bio is filled, and this is what it opens.",
+    spans: [],
+  },
+  {
+    type: "paragraph",
+    text: "A second paragraph, so the space between two of them can be measured. It says nothing about anyone.",
+    spans: [],
+  },
+];
+
+/** One partner row. Bare by default — no photo, no bio, no contact link —
+ *  which is every partner's launch state: the card is text only, PROFILE does
+ *  not render, and CONTACT falls back to /contact (operator call 12). */
+export function partnerFixture(row: Partial<PartnerRow> = {}): PartnerRow {
+  return {
+    name: "Matt Howard",
+    role: "Partner",
+    photo: {},
+    contact_link: { link_type: "Any" },
+    bio: [],
+    ...row,
+  } as unknown as PartnerRow;
+}
+
+/** The `partners` slice — the "Our Legacy" band — with the comp's own words
+ *  (6820:119, 6802:1477, 6822:489) and its two VISIBLE rows (6822:491,
+ *  6822:505; the founder's row 6822:457 is hidden at every width). Pass
+ *  `primary` to override; `partners: [partnerFixture({...}), …]` for the rows.
+ *
+ *  No buttons: the comp draws none under the body. */
+export function partnersFixture(primary: Partial<PartnersPrimary> = {}): Content.PartnersSlice {
+  return {
+    id: "fixture-partners",
+    slice_type: "partners",
+    slice_label: null,
+    variation: "default",
+    version: "initial",
+    primary: {
+      eyebrow: "Our legacy",
+      heading: [
+        {
+          type: "heading2",
+          text: "Representing Your Best Interests in Acquisition and Disposition",
+          spans: [],
+        },
+      ],
+      body: [
+        {
+          type: "paragraph",
+          text: "Roalson Interests was formed in 1983. The firm specializes in commercial / investment brokerage, site selection and tenant representation. Roalson Interests has extensive experience in corporate America real estate acquisition and surplus property disposition as well as representation of individual clients. The firm has also completed a variety of consulting assignments for the real estate community, financial institutions, law firms and government.",
+          spans: [],
+        },
+        {
+          type: "paragraph",
+          text: "Roalson Interests has a reputation for leadership and exceptional client service in metropolitan San Antonio and South Texas.",
+          spans: [],
+        },
+      ],
+      buttons: [],
+      partners: [partnerFixture(), partnerFixture({ name: "Bart Wilson" })],
+      ...primary,
+    },
+    items: [],
+  } as unknown as Content.PartnersSlice;
+}
+
+/** The partner cards' other states, as /dev/home's query string asks for them:
+ *  `bio` gives the FIRST partner a bio (so one card has PROFILE and one does
+ *  not, side by side), `photos` gives both a headshot. Neither is the default
+ *  because neither is the launch state. */
+export function partnersFixtureState(state: {
+  bio?: boolean;
+  photos?: boolean;
+}): Content.PartnersSlice {
+  const photo = state.photos ? { photo: PARTNER_PHOTO_FIXTURE } : {};
+  return partnersFixture({
+    partners: [
+      partnerFixture({ ...photo, ...(state.bio ? { bio: PARTNER_BIO_FIXTURE } : {}) } as never),
+      partnerFixture({ name: "Bart Wilson", ...photo } as never),
+    ],
+  });
+}
+
 /** The homepage's slices, in page order — the shape of `page.data.slices` on
  *  the `home` document. The photo band is LAST, as in the comp: it only pins
  *  as the last thing in <main> (see app.css). */
@@ -150,5 +264,11 @@ export function homeFixture(
   hero: Partial<HomeHeroPrimary> = {},
   photo: Partial<PhotoBandPrimary> = {},
 ): Content.PageDocument["data"]["slices"] {
-  return [homeHeroFixture(hero), photoBandFixture(photo)];
+  return [
+    homeHeroFixture(hero),
+    // "Our Legacy" — in page order it follows the featured-properties band.
+    partnersFixture(),
+    // LAST, always: the photo band only pins as the last thing in <main>.
+    photoBandFixture(photo),
+  ];
 }

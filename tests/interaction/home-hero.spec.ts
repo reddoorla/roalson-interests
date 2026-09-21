@@ -294,7 +294,10 @@ test("with scripting off the hero still pins — it is CSS, not behaviour", asyn
     await page.goto(HOME, { waitUntil: "domcontentloaded" });
     await expect(page.locator(pin)).toHaveCSS("position", "sticky");
     // Not adopted: the floating bar stays `absolute` and will leave with the page.
+    // That alone is also true of a script-on page before mount; the <noscript>
+    // stylesheet hiding `[data-js-only]` is what only script-off produces.
     await expect(page.locator(bar)).toHaveCSS("position", "absolute");
+    await expect(page.locator("[data-js-only]").first()).toHaveCSS("display", "none");
 
     const bandAtRest = (await page.locator(band).boundingBox())!.y;
     await page.mouse.wheel(0, 200);

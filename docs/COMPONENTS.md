@@ -20,7 +20,7 @@ source. It is the fastest way to recognise what a thing does.
 | [`animateIn.ts`](../src/lib/actions/animateIn.ts) | `animateIn` | 23 |  |
 | [`trapFocus.ts`](../src/lib/actions/trapFocus.ts) | `trapFocus` | 24 | Focus management for modal overlays (WCAG 2.4.3 focus order + 2.1.2 no keyboard trap) |
 | [`carousel.svelte.ts`](../src/lib/carousel.svelte.ts) | `createCarousel` | 49 | Headless carousel / slideshow state — index, loop, autoplay, pause and a progress-bar value, all on ONE clock — for markup Slider.svelte's layout cannot hold (controls INSIDE the slide's panel, a 2px progress bar, a list that is only a carousel below `md`) |
-| [`cms-href.ts`](../src/lib/cms-href.ts) | `SITE_HOSTS`, `sitePath`, `cmsHref` | 6 | A CMS Link field as the href a button should carry |
+| [`cms-href.ts`](../src/lib/cms-href.ts) | `SITE_HOSTS`, `sitePath`, `cmsHref` | 7 | A CMS Link field as the href a button should carry |
 | [`Accordion.svelte`](../src/lib/components/Accordion.svelte) | `items`, `allowMultiple` | 4 |  |
 | [`AnimateInTriggered.svelte`](../src/lib/components/Animation/AnimateInTriggered.svelte) | `trigger`, `style`, `transitionDuration`, `children` | — |  |
 | [`AnimateOutTriggered.svelte`](../src/lib/components/Animation/AnimateOutTriggered.svelte) | `trigger`, `style`, `transitionDuration`, `children` | — |  |
@@ -55,10 +55,11 @@ source. It is the fastest way to recognise what a thing does.
 | [`Seo.svelte`](../src/lib/components/Seo.svelte) | `title`, `description`, `image`, `imageAlt`, `url`, `type`, `siteName`, `locale`, `noindex`, `jsonLd` | 14 | The page title — used verbatim for <title> and og/twitter:title |
 | [`SkeletonLoader.svelte`](../src/lib/components/SkeletonLoader.svelte) | `lines`, `circle`, `height`, `width` | — |  |
 | [`Slider.svelte`](../src/lib/components/Slider.svelte) | `itemCount`, `label`, `children`, `cardsPerView`, `gap`, `mobileGap`, `mode`, `loop`, `autoplay`, `showDots`, `showArrows`, `transitionClass`, `navigationClass`, `arrowClass`, `pauseClass`, `dotClass`, `activeDotClass` | 23 | Accessible name for the carousel region — say what's inside ("Customer testimonials"), not "Slider" |
+| [`TextLinkArrow.svelte`](../src/lib/components/TextLinkArrow.svelte) | — | — | The comp's TEXT-LINK arrow — the "→" after PROFILE and CONTACT on the partner cards, and after every `text link` in the comp's (hidden) resources lists |
 | [`TransitionOverlay.svelte`](../src/lib/components/TransitionOverlay.svelte) | `visibleDuration`, `fadeInDuration`, `fadeOutDuration`, `so` | 9 | ms the cover holds once the incoming route has arrived |
 | [`TurnstileWidget.svelte`](../src/lib/components/TurnstileWidget.svelte) | — | 6 |  |
 | [`VimeoBanner.svelte`](../src/lib/components/VimeoBanner.svelte) | `vimeoId`, `poster`, `alt` | 7 | Full-bleed background-video banner |
-| [`home-fixture.ts`](../src/lib/home-fixture.ts) | `HOME_POSTER_FIXTURE`, `homeHeroFixture`, `HOME_PHOTO_FIXTURE`, `photoBandFixture`, `homeFixture` | — | The homepage as fixture data — what /dev/home renders through the real layout, and what /dev/a11y-fixtures and the unit tests build on |
+| [`home-fixture.ts`](../src/lib/home-fixture.ts) | `HOME_POSTER_FIXTURE`, `homeHeroFixture`, `HOME_PHOTO_FIXTURE`, `photoBandFixture`, `PARTNER_PHOTO_FIXTURE`, `PARTNER_BIO_FIXTURE`, `partnerFixture`, `partnersFixture`, `partnersFixtureState`, `homeFixture` | — | The homepage as fixture data — what /dev/home renders through the real layout, and what /dev/a11y-fixtures and the unit tests build on |
 | [`home-page.ts`](../src/lib/home-page.ts) | `splitHomeHero` | 5 | The home route's shape, as data |
 | [`index.ts`](../src/lib/index.ts) | — | — | place files you want to import through the `$lib` alias in this folder |
 | [`indexability.ts`](../src/lib/indexability.ts) | `MIRROR_ROBOTS_TAG`, `isNetlifyMirrorHost` | 6 | Which HOST a request arrived on decides whether it may be indexed (#140) |
@@ -87,4 +88,4 @@ source. It is the fastest way to recognise what a thing does.
 | [`scrollLock.ts`](../src/lib/utils/scrollLock.ts) | `lockBodyScroll` | 4 | Stop the document scrolling behind a full-screen overlay; returns the release |
 | [`vimeo.ts`](../src/lib/utils/vimeo.ts) | `checkVimeoVideo` | 5 | True when the Vimeo video exists and is embeddable (oEmbed responds 200) |
 
-69 modules, 538 tests behind them.
+70 modules, 539 tests behind them.

@@ -37,6 +37,8 @@ const stripWww = (host: string) => host.toLowerCase().replace(/^www\./, "");
 /** Reduce a URL string to a path on this site when that is what it means;
  *  anything else — a real external URL, `mailto:`, `tel:`, `#anchor`, a
  *  protocol-relative URL — comes back exactly as written. */
+const PHONE = /^\+?[\d\s().-]+$/;
+
 export function sitePath(raw: string, siteHosts: readonly string[] = SITE_HOSTS): string {
   const value = raw.trim();
   if (value === "") return value;
@@ -44,6 +46,16 @@ export function sitePath(raw: string, siteHosts: readonly string[] = SITE_HOSTS)
   // Already a path. (`//host/…` is protocol-relative — a host, not a path.)
   if (value.startsWith("/")) return value;
   if (value.startsWith("#") || value.startsWith("?")) return value;
+
+  // A phone number typed where a URL was wanted: without this it is a dotless
+  // bare word, which below means a route — `/2104965800`, a 404. (An ADDRESS
+  // needs no line here: bare, it takes the no-scheme branch, gains `https://`,
+  // and is caught with the editor's own `https://user@host` shape further
+  // down. A separate regex for it was written first and a mutation showed it
+  // was dead code.)
+  if (PHONE.test(value) && value.replace(/\D/g, "").length >= 7) {
+    return `tel:${value.replace(/[^\d+]/g, "")}`;
+  }
 
   const scheme = /^([a-z][a-z0-9+.-]*):/i.exec(value)?.[1].toLowerCase();
   if (scheme && scheme !== "http" && scheme !== "https") return value;
@@ -65,6 +77,15 @@ export function sitePath(raw: string, siteHosts: readonly string[] = SITE_HOSTS)
   }
 
   const rest = `${url.search}${url.hash}`;
+
+  // An email address where a URL was wanted — a CONTACT link's label invites
+  // exactly that. Typed bare or with the `https://` an editor's Link field puts
+  // in front of it, it parses as "user mhoward at this site's own host, path
+  // /", and used to send the visitor to the homepage without a word. A
+  // username, no password, and nothing after the host is an address.
+  if (url.username && !url.password && url.pathname === "/" && rest === "") {
+    return `mailto:${decodeURIComponent(url.username)}@${url.hostname}`;
+  }
   const own = siteHosts.some((host) => stripWww(host) === stripWww(url.hostname));
   if (own && url.port === "") return `${url.pathname}${rest}`;
 

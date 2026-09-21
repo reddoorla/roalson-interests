@@ -40,6 +40,28 @@ describe("sitePath — a CMS URL reduced to the route it means", () => {
     expect(sitePath(input)).toBe(expected);
   });
 
+  // The partners band's CONTACT link invites an address. Before these rows
+  // `mhoward@roalson.com` resolved to "/" — user mhoward at this site's own
+  // host — and the visitor landed on the homepage with nothing to say why.
+  it.each([
+    ["mhoward@roalson.com", "mailto:mhoward@roalson.com"],
+    ["  mhoward@roalson.com ", "mailto:mhoward@roalson.com"],
+    ["https://mhoward@roalson.com", "mailto:mhoward@roalson.com"],
+    ["https://mhoward@roalson.com/", "mailto:mhoward@roalson.com"],
+    ["someone@example.org", "mailto:someone@example.org"],
+    ["210-496-5800", "tel:2104965800"],
+    ["(210) 496-5800", "tel:2104965800"],
+    ["+1 210 496 5800", "tel:+12104965800"],
+  ])("%s is an address or a number, not a route: %s", (input, expected) => {
+    expect(sitePath(input)).toBe(expected);
+  });
+
+  it("does not take a short number or a credentialed URL for either", () => {
+    expect(sitePath("2026")).toBe("/2026");
+    expect(sitePath("https://user:secret@example.com/")).toBe("https://user:secret@example.com/");
+    expect(sitePath("https://mhoward@roalson.com/contact")).toBe("/contact");
+  });
+
   it.each([
     "https://example.com/contact",
     "https://www.loopnet.com/Listing/25331-W-Interstate-10/",

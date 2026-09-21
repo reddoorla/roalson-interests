@@ -20,6 +20,8 @@
   import Testimonial from "$lib/slices/Testimonial/index.svelte";
   import CtaBanner from "$lib/slices/CtaBanner/index.svelte";
   import HomeHero from "$lib/slices/HomeHero/index.svelte";
+  import Partners from "$lib/slices/Partners/index.svelte";
+  import { partnersFixtureState } from "$lib/home-fixture";
   import PropertyDetail from "$lib/components/PropertyDetail.svelte";
   import PageMasthead from "$lib/components/PageMasthead.svelte";
   import PropertyListing from "$lib/components/PropertyListing.svelte";
@@ -442,6 +444,15 @@
        it are held by theme-contrast.test.ts at both ends (garnet and dark).
        Full width, and the pin, are /dev/home's. -->
   <HomeHero slice={homeHeroFixture()} />
+
+  <!-- The homepage's "Our Legacy" band in its FULLEST state, not its launch
+       one: a headshot on both cards and a bio on the first, so axe sees the
+       <details>/<summary> PROFILE, both 24px link targets and the photo's empty
+       alt beside a partner with neither. The bio is closed here, as it is on
+       arrival; tests/interaction/partners.spec.ts audits it open, and requires
+       that axe MEASURED every text node rather than leaving the 12px links as
+       "needs review". -->
+  <Partners slice={partnersFixtureState({ bio: true, photos: true })} />
 
   <!-- The homepage's photo band, FILLED — a drawing with an alt, so axe has an
        image to hold to `image-alt`; empty (the launch state) it is a gradient

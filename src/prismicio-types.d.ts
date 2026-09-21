@@ -157,6 +157,7 @@ type PageDocumentDataSlicesSlice =
   | TestimonialSlice
   | CtaBannerSlice
   | HomeHeroSlice
+  | PartnersSlice
   | PhotoBandSlice;
 
 /**
@@ -1121,6 +1122,179 @@ export type MediaTextSlice = prismic.SharedSlice<
 >;
 
 /**
+ * Item in *Partners → Default → Primary → Buttons under the body (optional — the design has none; the first two are shown)*
+ */
+export interface PartnersSliceDefaultPrimaryButtonsItem {
+  /**
+   * Label field in *Partners → Default → Primary → Buttons under the body (optional — the design has none; the first two are shown)*
+   *
+   * - **Field Type**: Text
+   * - **Placeholder**: e.g. Our portfolio
+   * - **API ID Path**: partners.default.primary.buttons[].label
+   * - **Documentation**: https://prismic.io/docs/fields/text
+   */
+  label: prismic.KeyTextField;
+
+  /**
+   * Link — a page on this site can be typed as a path, e.g. /properties field in *Partners → Default → Primary → Buttons under the body (optional — the design has none; the first two are shown)*
+   *
+   * - **Field Type**: Link
+   * - **Placeholder**: /properties
+   * - **API ID Path**: partners.default.primary.buttons[].link
+   * - **Documentation**: https://prismic.io/docs/fields/link
+   */
+  link: prismic.LinkField<string, string, unknown, prismic.FieldState, never>;
+}
+
+/**
+ * Item in *Partners → Default → Primary → Partners*
+ */
+export interface PartnersSliceDefaultPrimaryPartnersItem {
+  /**
+   * Name field in *Partners → Default → Primary → Partners*
+   *
+   * - **Field Type**: Text
+   * - **Placeholder**: e.g. Matt Howard
+   * - **API ID Path**: partners.default.primary.partners[].name
+   * - **Documentation**: https://prismic.io/docs/fields/text
+   */
+  name: prismic.KeyTextField;
+
+  /**
+   * Role field in *Partners → Default → Primary → Partners*
+   *
+   * - **Field Type**: Text
+   * - **Placeholder**: Partner
+   * - **API ID Path**: partners.default.primary.partners[].role
+   * - **Documentation**: https://prismic.io/docs/fields/text
+   */
+  role: prismic.KeyTextField;
+
+  /**
+   * Headshot (square crop) — left empty, the card is text only field in *Partners → Default → Primary → Partners*
+   *
+   * - **Field Type**: Image
+   * - **Placeholder**: *None*
+   * - **API ID Path**: partners.default.primary.partners[].photo
+   * - **Documentation**: https://prismic.io/docs/fields/image
+   */
+  photo: prismic.ImageField<never>;
+
+  /**
+   * CONTACT goes to — mailto:, tel: or a page. Left empty, it goes to /contact field in *Partners → Default → Primary → Partners*
+   *
+   * - **Field Type**: Link
+   * - **Placeholder**: /contact
+   * - **API ID Path**: partners.default.primary.partners[].contact_link
+   * - **Documentation**: https://prismic.io/docs/fields/link
+   */
+  contact_link: prismic.LinkField<
+    string,
+    string,
+    unknown,
+    prismic.FieldState,
+    never
+  >;
+
+  /**
+   * Bio — PROFILE appears on the card only when this is filled field in *Partners → Default → Primary → Partners*
+   *
+   * - **Field Type**: Rich Text
+   * - **Placeholder**: A few paragraphs about this partner
+   * - **API ID Path**: partners.default.primary.partners[].bio
+   * - **Documentation**: https://prismic.io/docs/fields/rich-text
+   */
+  bio: prismic.RichTextField;
+}
+
+/**
+ * Primary content in *Partners → Default → Primary*
+ */
+export interface PartnersSliceDefaultPrimary {
+  /**
+   * Eyebrow — the small label over the partner cards field in *Partners → Default → Primary*
+   *
+   * - **Field Type**: Text
+   * - **Placeholder**: Our legacy
+   * - **API ID Path**: partners.default.primary.eyebrow
+   * - **Documentation**: https://prismic.io/docs/fields/text
+   */
+  eyebrow: prismic.KeyTextField;
+
+  /**
+   * Headline field in *Partners → Default → Primary*
+   *
+   * - **Field Type**: Rich Text
+   * - **Placeholder**: Representing Your Best Interests in Acquisition and Disposition
+   * - **API ID Path**: partners.default.primary.heading
+   * - **Documentation**: https://prismic.io/docs/fields/rich-text
+   */
+  heading: prismic.RichTextField;
+
+  /**
+   * Body field in *Partners → Default → Primary*
+   *
+   * - **Field Type**: Rich Text
+   * - **Placeholder**: Roalson Interests was formed in 1983…
+   * - **API ID Path**: partners.default.primary.body
+   * - **Documentation**: https://prismic.io/docs/fields/rich-text
+   */
+  body: prismic.RichTextField;
+
+  /**
+   * Buttons under the body (optional — the design has none; the first two are shown) field in *Partners → Default → Primary*
+   *
+   * - **Field Type**: Group
+   * - **Placeholder**: *None*
+   * - **API ID Path**: partners.default.primary.buttons[]
+   * - **Documentation**: https://prismic.io/docs/fields/repeatable-group
+   */
+  buttons: prismic.GroupField<Simplify<PartnersSliceDefaultPrimaryButtonsItem>>;
+
+  /**
+   * Partners field in *Partners → Default → Primary*
+   *
+   * - **Field Type**: Group
+   * - **Placeholder**: *None*
+   * - **API ID Path**: partners.default.primary.partners[]
+   * - **Documentation**: https://prismic.io/docs/fields/repeatable-group
+   */
+  partners: prismic.GroupField<
+    Simplify<PartnersSliceDefaultPrimaryPartnersItem>
+  >;
+}
+
+/**
+ * Default variation for Partners Slice
+ *
+ * - **API ID**: `default`
+ * - **Description**: Partner cards (name, role, CONTACT, and PROFILE when there is a bio) beside a headline and body copy
+ * - **Documentation**: https://prismic.io/docs/slices
+ */
+export type PartnersSliceDefault = prismic.SharedSliceVariation<
+  "default",
+  Simplify<PartnersSliceDefaultPrimary>,
+  never
+>;
+
+/**
+ * Slice variation for *Partners*
+ */
+type PartnersSliceVariation = PartnersSliceDefault;
+
+/**
+ * Partners Shared Slice
+ *
+ * - **API ID**: `partners`
+ * - **Description**: The homepage's "Our Legacy" band: an eyebrow over the partner cards on the left, a headline and body copy on the right
+ * - **Documentation**: https://prismic.io/docs/slices
+ */
+export type PartnersSlice = prismic.SharedSlice<
+  "partners",
+  PartnersSliceVariation
+>;
+
+/**
  * Primary content in *PhotoBand → Default → Primary*
  */
 export interface PhotoBandSliceDefaultPrimary {
@@ -1566,6 +1740,12 @@ declare module "@prismicio/client" {
       MediaTextSliceVariation,
       MediaTextSliceImageRight,
       MediaTextSliceImageLeft,
+      PartnersSlice,
+      PartnersSliceDefaultPrimaryButtonsItem,
+      PartnersSliceDefaultPrimaryPartnersItem,
+      PartnersSliceDefaultPrimary,
+      PartnersSliceVariation,
+      PartnersSliceDefault,
       PhotoBandSlice,
       PhotoBandSliceDefaultPrimary,
       PhotoBandSliceVariation,
