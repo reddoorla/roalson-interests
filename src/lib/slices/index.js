@@ -6,6 +6,7 @@ import Hero from "./Hero/index.svelte";
 import HomeHero from "./HomeHero/index.svelte";
 import LeadText from "./LeadText/index.svelte";
 import MediaText from "./MediaText/index.svelte";
+import PhotoBand from "./PhotoBand/index.svelte";
 import RichText from "./RichText/index.svelte";
 import SectionGrid from "./SectionGrid/index.svelte";
 import Testimonial from "./Testimonial/index.svelte";
@@ -18,6 +19,7 @@ export const components = {
   home_hero: HomeHero,
   lead_text: LeadText,
   media_text: MediaText,
+  photo_band: PhotoBand,
   rich_text: RichText,
   section_grid: SectionGrid,
   testimonial: Testimonial,

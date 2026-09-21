@@ -1,0 +1,27 @@
+{
+  "id": "photo_band",
+  "type": "SharedSlice",
+  "name": "PhotoBand",
+  "description": "A full-width photo band, 800px tall (240 on a phone). As the LAST slice on a page it pins while the footer slides up over it. Left empty it is the garnet gradient",
+  "variations": [
+    {
+      "id": "default",
+      "name": "Default",
+      "docURL": "...",
+      "version": "initial",
+      "description": "One photo, cropped from the top and anchored to the band's bottom edge",
+      "imageUrl": "",
+      "primary": {
+        "image": {
+          "type": "Image",
+          "config": {
+            "label": "Photo — 3:2 or wider, at least 2880px wide; its bottom edge is kept, the top is cropped. Describe it in the image's alt text, or leave that empty if it is decoration",
+            "constraint": {},
+            "thumbnails": []
+          }
+        }
+      },
+      "items": {}
+    }
+  ]
+}

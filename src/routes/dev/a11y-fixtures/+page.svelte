@@ -24,6 +24,8 @@
   import PageMasthead from "$lib/components/PageMasthead.svelte";
   import PropertyListing from "$lib/components/PropertyListing.svelte";
   import { homeHeroFixture } from "$lib/home-fixture";
+  import { HOME_PHOTO_FIXTURE, photoBandFixture } from "$lib/home-fixture";
+  import PhotoBand from "$lib/slices/PhotoBand/index.svelte";
   import { propertyFixture, propertyListingFixture } from "$lib/property-fixture";
   import { groupListings } from "$lib/property-listing";
   // Aliased: `Accordion` above is the primitive ($lib/components/Accordion.svelte).
@@ -440,6 +442,13 @@
        it are held by theme-contrast.test.ts at both ends (garnet and dark).
        Full width, and the pin, are /dev/home's. -->
   <HomeHero slice={homeHeroFixture()} />
+
+  <!-- The homepage's photo band, FILLED — a drawing with an alt, so axe has an
+       image to hold to `image-alt`; empty (the launch state) it is a gradient
+       with nothing in it to audit. It never pins here: the pin is gated on
+       being the last thing in <main>, and this is inside the page's wrapper.
+       The pin is /dev/home's, and tests/interaction/photo-band.spec.ts's. -->
+  <PhotoBand slice={photoBandFixture({ image: HOME_PHOTO_FIXTURE as never })} />
 </div>
 
 <!-- Renders nothing at rest (overlay only appears mid-navigation, aria-hidden);

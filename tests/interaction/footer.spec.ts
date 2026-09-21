@@ -235,8 +235,16 @@ test("with scripting off the footer is whole, and --footer-h is simply unset", a
     await expect(footer.locator("address")).toContainText("San Antonio, TX 78258");
     await expect(footer.getByRole("heading", { level: 2 })).toBeVisible();
     // A reader of the property must fall back to 0 — nothing ever wrote it.
-    const html = await page.content();
-    expect(html).not.toContain("--footer-h");
+    // Read from where Footer.svelte WRITES it, not grepped out of the page: the
+    // dev server inlines app.css into the document, and since the photo band
+    // that stylesheet reads the property by name (`var(--footer-h, 0px)`), so
+    // the string is in every page whether or not anything set it.
+    const written = await page.evaluate(() => ({
+      inline: document.documentElement.getAttribute("style") ?? "",
+      computed: getComputedStyle(document.documentElement).getPropertyValue("--footer-h"),
+    }));
+    expect(written.inline).not.toContain("--footer-h");
+    expect(written.computed).toBe("");
   } finally {
     await context.close();
   }

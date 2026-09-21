@@ -334,6 +334,64 @@ main > section.hero-band:first-child {
   min-height: 100vh;
 }
 
+/* THE PINNED BAND — the homepage's photo band (src/lib/slices/PhotoBand) pins,
+   and the footer slides up over it.
+
+   `position: sticky` is bounded by its PARENT. The band is the last thing in
+   <main> and the footer is OUTSIDE <main>, so the band has nowhere to stick
+   unless it is given exactly one footer-height of room. Three rules, which
+   only mean anything together:
+
+     1. the band sticks;
+     2. the spacer the slice renders after it takes the height the footer
+        publishes as `--footer-h` (Footer.svelte) — that is the band's travel;
+     3. the footer takes the same height as a NEGATIVE margin, which lays it
+        back over the spacer. The document is not one pixel taller, and the
+        footer does not move when the variable arrives at hydration, so there
+        is no layout shift.
+
+   EVERY rule is gated on the spacer being <main>'s LAST CHILD, because the
+   mechanism is only true there. An editor can drop this slice mid-page, and
+   ungated that ships two defects at once: the band would stay pinned for the
+   whole rest of <main> — it is positioned and what follows it is not, so it
+   would paint OVER every later slice — and the footer would be pulled up over
+   the page's last 500px of content. Mid-page it is a plain band.
+
+   `top` is 0 wherever the band fits the viewport. Where it does not — the
+   800px band in any window shorter than 800, which is most laptops — it seats
+   the band's BOTTOM on the viewport's bottom instead. With `top: 0` there, the
+   band pins with its foot and the footer both below the fold, and the visitor
+   scrolls (800 − V)px with nothing on screen moving, then loses the pin for the
+   last (800 − V)px of the page. tests/interaction/photo-band.spec.ts holds it.
+
+   FALLBACKS, each a plain, complete page on which the band scrolls away:
+   - no script → `--footer-h` is never written → spacer and margin are 0;
+   - no `:has()` → the whole block is skipped. It must be ALL of it: rule 2
+     alone would open a footer-tall hole above the footer;
+   - `prefers-reduced-motion: reduce` → no pin. Nothing here is an animation,
+     but a full-bleed picture held still while the page slides over it is the
+     curtain effect that setting asks a site to drop.
+
+   Unlayered, so it outranks any utility class on the band. `z-index: 1` keeps
+   the band under the footer (z-10) and the bar (z-50). */
+@supports selector(:has(*)) {
+  @media (prefers-reduced-motion: no-preference) {
+    main > [data-pinned-band]:has(+ .pinned-band-spacer:last-child) {
+      position: sticky;
+      top: min(0px, 100vh - var(--band-h, 0px));
+      z-index: 1;
+    }
+
+    main > .pinned-band-spacer:last-child {
+      height: var(--footer-h, 0px);
+    }
+
+    main:has(> .pinned-band-spacer:last-child) + footer {
+      margin-top: calc(-1 * var(--footer-h, 0px));
+    }
+  }
+}
+
 /* Multi-paragraph rich_text wants vertical rhythm between paragraphs. */
 .richtext-block p + p {
   margin-top: 1em;

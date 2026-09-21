@@ -38,8 +38,9 @@
   // this is outside <main>, so the band has no room to stick unless it is
   // given exactly one footer-height of travel. The footer therefore publishes
   // its own border-box height as `--footer-h` on <html>, and is `relative
-  // z-10` so it paints over what it slides across. Nothing reads the property
-  // yet; without script it is simply unset, and a reader must fall back to 0.
+  // z-10` so it paints over what it slides across. Its one reader is the
+  // `[data-pinned-band]` block in app.css; without script the property is
+  // simply unset, and a reader must fall back to 0 — that one does.
   import BrandButton from "$lib/components/BrandButton.svelte";
   import { OFFICE, officeAddressLines } from "$lib/office";
   import { SITE_NAME } from "$lib/seo";
