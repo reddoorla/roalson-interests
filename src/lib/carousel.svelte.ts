@@ -226,8 +226,12 @@ export function createCarousel(options: CarouselOptions) {
 
   // ── handlers ────────────────────────────────────────────────────────────
 
-  // Declared once: a bag that minted new closures on every read would have
-  // Svelte re-attach the listeners each time the label changed.
+  // Every handler is declared ONCE, here, and the bags below only name them:
+  // a bag is re-read whenever anything in it changes (the pause label, a
+  // bound), and handing Svelte the same function lets its spread skip the key
+  // (`value === prev_value`). It is economy, not correctness — svelte 5.56
+  // swaps a changed handler in place and never re-attaches a listener for it
+  // (attributes.js `set_attributes`) — so nothing may be built on the identity.
   const onpointerenter = () => {
     hovered = true;
   };
@@ -306,6 +310,14 @@ export function createCarousel(options: CarouselOptions) {
    *  on pointerleave: by the Pointer Events ordering a touch fires pointerleave
    *  BEFORE its click (from the spec — not measured on a device here). */
   let pressedWhilePaused: boolean | null = null;
+  const onpausepointerdown = () => {
+    pressedWhilePaused = userPaused;
+  };
+  const onpauseclick = (event: MouseEvent) => {
+    const byPointer = event.detail > 0 && pressedWhilePaused !== null;
+    userPaused = byPointer ? !pressedWhilePaused : !userPaused;
+    pressedWhilePaused = null;
+  };
 
   const EMPTY = {};
 
@@ -413,12 +425,8 @@ export function createCarousel(options: CarouselOptions) {
       return {
         type: "button",
         "aria-label": userPaused ? "Play slides" : "Pause slides",
-        onpointerdown: () => (pressedWhilePaused = userPaused),
-        onclick: (event) => {
-          const byPointer = event.detail > 0 && pressedWhilePaused !== null;
-          userPaused = byPointer ? !pressedWhilePaused : !userPaused;
-          pressedWhilePaused = null;
-        },
+        onpointerdown: onpausepointerdown,
+        onclick: onpauseclick,
       };
     },
     /** `aria-disabled`, never `disabled`: the arrow at a bound keeps keyboard

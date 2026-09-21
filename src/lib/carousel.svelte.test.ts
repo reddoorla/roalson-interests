@@ -929,6 +929,26 @@ describe("createCarousel, headless", () => {
     expect(timed.paused, "and where it can rotate, focus entering IS a pause").toBe(true);
   });
 
+  it("hands back the same handlers on every read", () => {
+    // The module says its handlers are declared once. `pauseButton` minted two
+    // new closures on every read while the comment above it said otherwise.
+    const carousel = mount({ count: 3, autoplay: DWELL });
+    const handlers = () => [
+      carousel.region.onpointerenter,
+      carousel.region.onpointerleave,
+      carousel.region.onfocusin,
+      carousel.region.onkeydown,
+      carousel.pauseButton.onpointerdown,
+      carousel.pauseButton.onclick,
+      carousel.prevButton.onclick,
+      carousel.nextButton.onclick,
+    ];
+    const first = handlers();
+    expect(first.every((fn) => typeof fn === "function")).toBe(true);
+    carousel.pause(); // the label changes, which is when a bag is read again
+    handlers().forEach((fn, i) => expect(fn, `handler ${i}`).toBe(first[i]));
+  });
+
   it("swipes: left goes on, right goes back", () => {
     const carousel = mount({ count: 3 });
     const onswipe = (carousel.swipe as unknown as Record<string, (e: unknown) => void>).onswipe;
