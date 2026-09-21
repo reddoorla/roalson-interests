@@ -1,7 +1,10 @@
-<script lang="ts">
+<script module lang="ts">
   // The comp's `button dark` component set (4840:367) — named, as Figma names
   // it, for the BUTTON's tone, so it is the one for LIGHT grounds: garnet
   // outline and text; hover fills garnet with dust text (5.11:1, AA as text).
+  // Its classes are exported from this module script (`brandButtonBase`,
+  // `BRAND_BUTTON_TONES`, `brandButtonPadding`) so a caller that must render a
+  // different element — a form's submit <button> — can still wear it.
   //
   // Its sibling `button light` (4840:372: dust outline and label, hover fills
   // dust with garnet text) is the "dust" tone — the navbar's CONTACT US while
@@ -14,6 +17,41 @@
   // button, and this comp's is square, 1px, 40px tall, px-15, with an optional
   // arrow and a FILL on hover. DefaultButton is split so a caller can swap its
   // skin and keep its geometry — and the geometry is exactly what differs.
+  //
+  // THE EXPORTS follow DefaultButton's precedent, and exist because this
+  // component is an <a> with a required href: the contact form's submit has to
+  // be a <button type="submit">. They are literal strings, so Tailwind's
+  // source scan still sees every class. Nav.test.ts reads `text-dust` /
+  // `text-primary` off the CTA's resting classes and BrandButton.test.ts reads
+  // the rest, so the rendered class list did not change when these strings
+  // moved here — and BrandButton.test.ts now pins the exports to what the
+  // component renders, so a class added to the markup beside them cannot reach
+  // every link and miss the submit.
+
+  /** Geometry and type. Carries no colour, and no padding — the arrow changes
+   *  the padding (`brandButtonPadding`). */
+  export const brandButtonBase =
+    "t-h6 inline-flex h-10 items-center justify-center gap-[5px] border border-solid whitespace-nowrap transition-colors";
+
+  /** "garnet" is the comp's `button dark` as drawn on a light ground. "cream"
+   *  is the same button on the garnet property card (6904:2081): off-white
+   *  outline and label, filling off-white with garnet text on hover —
+   *  10.5:1 and 10.07:1. "dust" is the comp's `button light` for dark
+   *  grounds: 5.11:1 on garnet, and garnet on the dust fill is the same pair
+   *  inverted. Every tone is measured by theme-contrast.test.ts. */
+  export const BRAND_BUTTON_TONES = {
+    garnet: "border-primary text-primary hover:bg-primary hover:text-dust",
+    cream: "border-background text-background hover:bg-background hover:text-primary",
+    dust: "border-dust text-dust hover:bg-dust hover:text-primary",
+  } as const;
+
+  /** The comp's trailing arrow drops the right padding 15 → 10px, as in the
+   *  LEARN MORE instances. */
+  export const brandButtonPadding = (arrow: boolean) =>
+    arrow ? "pr-[10px] pl-[15px]" : "px-[15px]";
+</script>
+
+<script lang="ts">
   import type { Snippet } from "svelte";
   import type { HTMLAnchorAttributes } from "svelte/elements";
   import ArrowRight from "$lib/components/ArrowRight.svelte";
@@ -23,13 +61,8 @@
     /** The comp's trailing arrow; the button's right padding drops 15 → 10px
      *  with it, as in the LEARN MORE instances. */
     arrow?: boolean;
-    /** "garnet" is the comp's `button dark` as drawn on a light ground. "cream"
-     *  is the same button on the garnet property card (6904:2081): off-white
-     *  outline and label, filling off-white with garnet text on hover —
-     *  10.5:1 and 10.07:1. "dust" is the comp's `button light` for dark
-     *  grounds: 5.11:1 on garnet, and garnet on the dust fill is the same pair
-     *  inverted. Every tone is measured by theme-contrast.test.ts. */
-    tone?: "garnet" | "cream" | "dust";
+    /** See BRAND_BUTTON_TONES in the module script. */
+    tone?: keyof typeof BRAND_BUTTON_TONES;
     class?: string;
     children: Snippet;
   }
@@ -42,21 +75,12 @@
     children,
     ...rest
   }: Props = $props();
-
-  const TONES = {
-    garnet: "border-primary text-primary hover:bg-primary hover:text-dust",
-    cream: "border-background text-background hover:bg-background hover:text-primary",
-    dust: "border-dust text-dust hover:bg-dust hover:text-primary",
-  } as const;
 </script>
 
 <a
   {href}
   {...rest}
-  class="t-h6 inline-flex h-10 items-center justify-center gap-[5px] border border-solid
-    whitespace-nowrap transition-colors {TONES[tone]} {arrow
-    ? 'pr-[10px] pl-[15px]'
-    : 'px-[15px]'} {passedClasses}"
+  class="{brandButtonBase} {BRAND_BUTTON_TONES[tone]} {brandButtonPadding(arrow)} {passedClasses}"
 >
   {@render children()}
   {#if arrow}<ArrowRight />{/if}

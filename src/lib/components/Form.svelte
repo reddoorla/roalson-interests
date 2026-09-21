@@ -32,12 +32,18 @@
       tabindex="-1"
       role="alert"
       aria-labelledby="form-error-summary-title"
-      class="mb-6 border-2 border-red-600 bg-red-50 rounded p-4"
+      class="mb-[30px] border border-error px-4 py-3"
     >
-      <h2 id="form-error-summary-title" class="font-semibold text-red-900">
+      <!-- Theme tokens only. This was `border-red-600 bg-red-50 text-red-900`:
+           Tailwind's default palette, outside the theme, so
+           theme-contrast.test.ts measured none of it. `text-error` is 5.64:1
+           on the page's off-white, 6.47 on white, 4.97 on sand. Square and
+           1px, like Field and the comp's buttons; no fill, so it stands on
+           whichever light ground the form does. -->
+      <h2 id="form-error-summary-title" class="t-h6 text-error">
         {errorSummaryTitle}
       </h2>
-      <ul class="mt-2 list-disc list-inside text-sm text-red-900">
+      <ul class="t-body-2 mt-2.5 list-disc ps-[21px] text-error">
         {#each errorEntries as [field, message] (field)}
           <li>{message}</li>
         {/each}

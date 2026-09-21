@@ -60,24 +60,43 @@
   // the other. Kept as a literal so Tailwind's source scan still sees every
   // class.
   //
-  // `border-secondary` replaces `border-light`: --color-light is #e5e7eb, which
-  // measures 1.20:1 against the white page — the fields read as invisible boxes
-  // and a visitor has to hunt for where to type. --color-secondary (#6b7280) is
-  // 4.83:1, clearing WCAG 1.4.11's 3:1 non-text minimum with room to spare.
+  // THE SKIN IS DERIVED, NOT TRANSCRIBED. The comp draws no form control
+  // anywhere — 5642 nodes on the Designs page, none named input, field,
+  // textarea, select or placeholder — so this is the comp's only OUTLINED
+  // control, `button dark` (4840:368: square, 1px garnet stroke, no fill), worn
+  // as a field: `border border-primary bg-transparent`, no radius (preflight
+  // already zeroes it; no `rounded-*` here keeps it that way), Body 1 inside.
+  // 24 line + 22 padding + 2 border = 48px tall; never below 16px type, or iOS
+  // Safari zooms the page on focus.
+  //
+  // A LIGHT-GROUND control: garnet border, text and ring are 10.07:1 on the
+  // page's off-white, 8.87:1 on sand, 11.55:1 on white — and 1:1 on garnet.
+  // The template's border was `border-secondary` because ITS `--color-light`
+  // measured 1.20:1 on white; this palette's resting border clears WCAG
+  // 1.4.11's 3:1 by a factor of three, and Field.test.ts holds it to a token
+  // that does.
+  //
+  // Focus: the 1px border gains a 2px ring of the same garnet outside it — a
+  // 3px frame, and the ring's own pixels go off-white → garnet (10.07:1).
+  // `error` against `primary` is only 1.79:1, so an invalid border is never the
+  // sole signal: the `role="alert"` message below always accompanies it.
+  // `aria-invalid:focus:ring-error` carries two variants, so it beats
+  // `focus:ring-primary` on specificity rather than on stylesheet order.
   //
   // `focus:outline-hidden`, NOT `focus:outline-none`: in Tailwind v4 the latter
   // resolves to `outline-style: none` and takes the forced-colors fallback with
   // it. Under forced colours the engine drops the box-shadow ring, so that
   // transparent 2px outline is the only focus affordance left.
   const controlClass =
-    "border-2 border-secondary rounded px-3 py-2 " +
+    "t-body-1 border border-primary bg-transparent px-4 py-[11px] text-primary " +
+    "placeholder:text-secondary " +
     "transition-[border-color,box-shadow] duration-150 ease-out motion-reduce:transition-none " +
-    "focus:outline-hidden focus:border-primary focus:ring-2 focus:ring-primary " +
-    "aria-invalid:border-red-600";
+    "focus:outline-hidden focus:ring-2 focus:ring-primary " +
+    "aria-invalid:border-error aria-invalid:focus:ring-error";
 </script>
 
-<div class="flex flex-col gap-1">
-  <label for={inputId} class="text-sm font-medium">
+<div class="flex flex-col gap-2.5">
+  <label for={inputId} class="t-h6 text-primary">
     {label}
     {#if required}
       <span aria-hidden="true" class="text-error">*</span>
@@ -86,7 +105,7 @@
   </label>
 
   {#if description}
-    <p id={descriptionId} class="text-sm text-secondary">{description}</p>
+    <p id={descriptionId} class="t-body-2 text-secondary">{description}</p>
   {/if}
 
   {#if type === "textarea"}
@@ -127,6 +146,6 @@
   {/if}
 
   {#if error}
-    <p id={errorId} role="alert" class="text-sm text-error">{error}</p>
+    <p id={errorId} role="alert" class="t-body-2 text-error">{error}</p>
   {/if}
 </div>
