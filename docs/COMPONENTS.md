@@ -37,7 +37,7 @@ source. It is the fastest way to recognise what a thing does.
 | [`DelayedLink.svelte`](../src/lib/components/DelayedLink.svelte) | `href`, `delay`, `children`, `beforeNavigate`, `onclick` | 5 |  |
 | [`Field.svelte`](../src/lib/components/Field.svelte) | `name`, `label`, `type`, `value`, `description`, `error`, `required`, `autocomplete`, `placeholder`, `minlength`, `maxlength`, `pattern`, `inputmode`, `rows`, `autofocus` | 17 | Marks this control as the one a containing dialog should open onto |
 | [`Footer.svelte`](../src/lib/components/Footer.svelte) | `cta`, `nav`, `legal`, `logo`, `ground`, `currentPath`, `owner`, `text` | 22 | The site's footer — the comp's last `Value Prop #1` band (6820:188 on the Homepage at 1440, 6903:1117 on Properties; 6996:1026 / 6997:2055 at 390) |
-| [`Form.svelte`](../src/lib/components/Form.svelte) | `errors`, `errorSummaryTitle`, `children` | 5 |  |
+| [`Form.svelte`](../src/lib/components/Form.svelte) | `errors`, `errorSummaryTitle`, `children` | 6 |  |
 | [`HeroBackgroundImage.svelte`](../src/lib/components/HeroBackgroundImage.svelte) | `image`, `altFallback`, `preload` | 8 | LCP-optimized hero image |
 | [`Img.svelte`](../src/lib/components/Img.svelte) | `src` | 5 | Progressive-loading wrapper around @zerodevx/svelte-img: the image renders blurred (`.progressive-img` in app.css) and sharpens once the underlying <img> finishes — or fails — loading |
 | [`LandscapeModal.svelte`](../src/lib/components/LandscapeModal.svelte) | — | 3 | Orientation lockout — a primitive the template deliberately does NOT mount (tests/smoke/landscape.spec.ts fails if it is re-mounted), because an undismissable landscape overlay fails WCAG 2.1 SC 1.3.4 (Orientation) |
@@ -89,4 +89,4 @@ source. It is the fastest way to recognise what a thing does.
 | [`scrollLock.ts`](../src/lib/utils/scrollLock.ts) | `lockBodyScroll` | 4 | Stop the document scrolling behind a full-screen overlay; returns the release |
 | [`vimeo.ts`](../src/lib/utils/vimeo.ts) | `checkVimeoVideo` | 5 | True when the Vimeo video exists and is embeddable (oEmbed responds 200) |
 
-71 modules, 557 tests behind them.
+71 modules, 558 tests behind them.

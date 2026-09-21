@@ -38,6 +38,29 @@ describe("Form", () => {
     const title = document.getElementById(alert.getAttribute("aria-labelledby") ?? "");
     expect(title?.textContent?.trim()).toBe("There was a problem with your submission");
   });
+
+  it("takes that focus through reveal — no scroll of focus()'s own, then the summary to the start", async () => {
+    // A plain focus() is decided mid-glide and leaves the summary focused under
+    // the pinned bar ($lib/utils/reveal). jsdom cannot scroll, so what is held
+    // here is the two calls; tests/interaction/contact.spec.ts holds the landing.
+    const proto = Element.prototype as { scrollIntoView?: (arg?: unknown) => void };
+    const scrolls: [Element, unknown][] = [];
+    proto.scrollIntoView = function (this: Element, arg) {
+      scrolls.push([this, arg]);
+    };
+    const focus = vi.spyOn(HTMLElement.prototype, "focus");
+    try {
+      const { getByRole } = render(Form, { errors: { email: "Required" } });
+      const alert = getByRole("alert");
+      await vi.waitFor(() => expect(document.activeElement).toBe(alert));
+      expect(focus.mock.contexts).toEqual([alert]);
+      expect(focus).toHaveBeenCalledWith({ preventScroll: true });
+      expect(scrolls).toEqual([[alert, { block: "start" }]]);
+    } finally {
+      delete proto.scrollIntoView;
+      focus.mockRestore();
+    }
+  });
 });
 
 describe("Form's error summary skin", () => {

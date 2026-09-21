@@ -377,6 +377,31 @@ test("a screened-out send shows the confirmation in place of the form, focused, 
   }
 });
 
+test("Form.svelte's error summary lands as the alert does: focused, 20px under the bar", async ({
+  browser,
+}) => {
+  // The summary was the precedent the page's alert copied, plain focus() and
+  // all, so it carried the same defect; both now go through $lib/utils/reveal.
+  // Form is mounted only on the fixtures page, whose summary is there from the
+  // first render — so this holds the LANDING (focus()'s own scroll puts it
+  // wherever "in view" happens to be), not the race, which the failed send
+  // above exercises through the same function.
+  const { context, page } = await withMotion(browser, 1455, 900);
+  try {
+    await page.goto(FIXTURES);
+    await hydrated(page);
+    await expect(page.locator(bar)).toHaveCSS("position", "fixed");
+    const summary = 'section[aria-labelledby="form-errors-heading"] [role="alert"][tabindex="-1"]';
+    await expect(page.locator(summary)).toBeFocused();
+    const at = await landing(page, summary);
+    expect(at.focused, "the summary holds focus").toBe(true);
+    expect(at.top - at.barBottom, "20px under the pinned bar").toBeGreaterThanOrEqual(19);
+    expect(at.top - at.barBottom, "20px under the pinned bar").toBeLessThanOrEqual(21);
+  } finally {
+    await context.close();
+  }
+});
+
 // ── Focus Not Obscured (WCAG 2.2 SC 2.4.11) ────────────────────────────────
 //
 // The two landings above are the ones SCRIPT makes. The browser makes more of
