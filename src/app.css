@@ -1,6 +1,18 @@
 /* Tailwind CSS v4 configuration */
 @import "tailwindcss";
 
+/* Tailwind's source scan reads every text file the repo does not gitignore —
+   not only markup: comments, tests, and docs/. Whatever spells a whole utility
+   ships it. On 2026-09-21 the built CSS carried five rules nothing renders:
+   three from a comment in Form.svelte recording the classes it had REPLACED
+   (Tailwind's default red, as a 600 border, a 50 fill and 900 text), and two
+   whose only source in the repo was docs/workJournal.md.
+
+   Comments can be reworded, and were. The journal cannot: it is append-only,
+   it names old classes on purpose, and the entry recording this fix spells the
+   same three again. So docs/ is not a source. Nothing there is markup. */
+@source not "../docs";
+
 @theme {
   --screen-sm: 560px;
   --screen-md: 768px;

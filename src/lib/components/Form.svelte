@@ -40,9 +40,12 @@
       aria-labelledby="form-error-summary-title"
       class="mb-[30px] border border-error px-4 py-3"
     >
-      <!-- Theme tokens only. This was `border-red-600 bg-red-50 text-red-900`:
-           Tailwind's default palette, outside the theme, so
-           theme-contrast.test.ts measured none of it. `text-error` is 5.64:1
+      <!-- Theme tokens only. This was Tailwind's default red — a 600 border, a
+           50 fill, 900 text — which is outside the theme, so
+           theme-contrast.test.ts measured none of it. (Spelled that way on
+           purpose: Tailwind's source scan reads comments, and the three
+           utilities written out whole here shipped as three dead rules.)
+           `text-error` is 5.64:1
            on the page's off-white, 6.47 on white, 4.97 on sand. Square and
            1px, like Field and the comp's buttons; no fill, so it stands on
            whichever light ground the form does. -->
