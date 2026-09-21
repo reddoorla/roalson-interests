@@ -182,10 +182,28 @@ test("the bar and the slide turn on one clock, and the bar waits out the dissolv
     // measured on an idle machine the last frame read 0.9979–0.99998.)
     expect(samples[turn - 1].p).toBeGreaterThan(0.9);
     expect(samples[turn].p).toBe(0);
-    // It filled for one dwell, and never ran backwards on the way.
-    const firstDwell = samples[turn].t - samples[0].t;
-    expect(Math.abs(firstDwell - DWELL), `first dwell was ${firstDwell}ms`).toBeLessThan(250);
-    for (let i = 1; i < turn; i++) expect(samples[i].p).toBeGreaterThanOrEqual(samples[i - 1].p);
+    // It filled on the clock that turned the slide, and never ran backwards on
+    // the way. Measured from the bar's OWN first reading, not from zero:
+    // `progress` is elapsed / dwell, so a first sample that lands late already
+    // says how much of the dwell is gone. The bare "one dwell ± 250ms" this
+    // replaces went red on a correct carousel — 3613.5ms — when a loaded
+    // machine took 386ms to deliver the first frame after the clock started.
+    const first = samples[0];
+    expect(first.p, "watched most of a dwell").toBeLessThan(0.5);
+    const remaining = (1 - first.p) * DWELL;
+    const watched = samples[turn].t - first.t;
+    expect(
+      Math.abs(watched - remaining),
+      `turned after ${watched}ms with ${remaining}ms of the dwell left`,
+    ).toBeLessThan(250);
+    // ONE clock, held at every frame and not only at the ends: a bar timed by
+    // anything but the turn's own `elapsed` drifts off this line in one
+    // direction or the other.
+    for (let i = 1; i < turn; i++) {
+      expect(samples[i].p).toBeGreaterThanOrEqual(samples[i - 1].p);
+      const expected = first.p + (samples[i].t - first.t) / DWELL;
+      expect(Math.abs(samples[i].p - expected), `frame ${i} of ${turn}`).toBeLessThan(0.08);
+    }
 
     // …then it holds at 0 through the dissolve and starts again.
     const after = samples.slice(turn);

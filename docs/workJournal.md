@@ -2692,3 +2692,82 @@ worktree — fixed next, in its own PR), #40 (`/api/csp-report` reads its body
 twice and 500s on a non-JSON report — same PR), and a comment on #28 listing what
 to check for this pin on a production build: the minified `min()`, the rules
 staying unlayered, and the 650px-tall window.
+
+## 2026-09-21 — The watcher fix that blinded every agent's dev server, and a fallback that could never run (`fix/worktree-watcher-and-csp-report`)
+
+Two defects, both found by the photo band's agent on its way to something else,
+both filed (#39, #40) and fixed here rather than left to age.
+
+**The morning's fix was the afternoon's defect.** #22 added
+`server.watch.ignored: ["**/.claude/**"]` because agents' worktrees live under
+`.claude/worktrees/` INSIDE the repo and their writes were force-reloading the
+main checkout's dev server mid-request. The glob matches `.claude` anywhere in a
+path — and from inside a worktree, every file of the project is a path under
+`.claude/`. A `vite dev` started there watched nothing: no HMR, no log line, no
+error. The agent found it the only way it can be found, by a mutation that
+"survived": `src/app.css` changed under a running server, two fresh page loads
+measured the unmutated values, and only a restart picked the change up. That is
+the dangerous direction for a false result — every hand measurement and every
+mutation run against a long-lived dev server inside a worktree since this
+morning was reading stale code. Playwright runs were never affected (the shared
+config starts a fresh server per run), which is why nothing went red.
+
+The matcher is now a function anchored to the config's own directory
+(`scripts/claude-dir-ignore.mjs`, `claudeDirIgnore(import.meta.dirname)`): the
+main checkout still ignores its worktrees, and a worktree ignores only a
+`.claude/` of its own. A function rather than an absolute-path glob because the
+path would need escaping and chokidar takes a predicate directly. Proven live in
+both directions, each with a control, by a probe that starts `vite dev`, touches
+a file and reads the server's log. Main checkout: a worktree's
+`.svelte-kit/tsconfig.json` touched — with the fix nothing is logged; with
+`ignored: []` the server logs "changed tsconfig file detected … forcing
+full-reload", the exact line from this morning. Inside a real (dead, merged)
+worktree, touching its own `vite.config.ts`: under the old glob nothing —
+the defect reproduced — and under the anchored matcher "vite.config.ts changed,
+restarting server...". The worktree was restored byte for byte (`git status`
+clean). Agents already running were cut before this lands; their reviewers were
+told not to trust HMR.
+
+**`/api/csp-report` had a fallback that could never run.** `try { await
+request.json() } catch { await request.text() }` reads as "JSON, else text". A
+body can be read once: when `json()` throws on an empty or non-JSON body it has
+already consumed the stream, so `text()` throws "Body is unusable: Body has
+already been read" and the browser's report is answered with a 500. It was seen
+as that TypeError in the dev server's log during axe runs. Now the text is read
+once and parsed after. It is the only double body read in `src/`, and it is
+template code — reported upstream as well.
+
+**Mutations.** The double read put back → both new cases red with the exact
+production error, "Body is unusable: Body has already been read". The matcher
+un-anchored to the old glob's meaning → "inside a worktree, still watches the
+worktree's own files" red. Both restored by copy and `cmp`-confirmed.
+
+**And a flake this session merged four hours earlier, found by this branch's own
+verify.** `carousel.spec.ts`'s "the bar and the slide turn on one clock" went red
+on a correct carousel: "first dwell was 3613.5ms", 386ms short of the 4000 ± 250
+it demanded. The test measured from its first SAMPLE to the turn and called that
+one dwell — true only if the first frame it records lands at progress 0. With two
+agents and a verify sharing the machine, the first frame arrived 386ms after the
+clock started. The fix is not a wider tolerance. `progress` is `elapsed / dwell`,
+so the bar's own first reading says how much of the dwell is already gone: the
+turn must come `(1 - p0) × dwell` after the first sample, whenever that sample
+lands. And the old shape was weaker than its name: it held the clock at two
+frames (nearly full before the turn, empty on it), so a bar timed 25% FAST —
+full at 3200ms, waiting — passed it. Now every frame before the turn must sit
+within 0.08 of the line from the first reading; that mutation goes red at frame
+111 of 472 (0.0805). Three consecutive green runs under the same load. The
+second timing assertion in that test (held at 0 for the dissolve, ± 150ms) has
+the same shape of exposure to a dropped frame and has not failed; it is left
+alone and named here so the next red has a head start.
+
+Honest accounting on this branch's own verify. It ran three times locally and was
+never wholly green. Run one: svelte-check red, because `vite.config.ts` imports
+the new `.mjs` helper and svelte-check types what it imports (JSDoc added). Run
+two: everything green but the carousel flake above. Run three, with that fixed:
+822 unit tests in 88 files and axe green, 60 of 61 Playwright tests, and
+`home-hero.spec.ts` red on its hydration wait — the bar still `absolute` after
+the default 5s, load average 18 with two agents' dev servers and browsers on the
+machine. The same spec alone, a minute later: 8 of 8 in 17s. That wait is
+positive evidence of hydration, not a performance budget, and the 5s is the
+fleet's shared Playwright default, so it is NOT widened here for a condition that
+exists only while this machine is running agents. CI is the clean-machine run.

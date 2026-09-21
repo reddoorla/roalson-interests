@@ -3,6 +3,8 @@ import { defineConfig } from "vitest/config";
 import { imagetools } from "@zerodevx/svelte-img/vite";
 import tailwindcss from "@tailwindcss/vite";
 
+import { claudeDirIgnore } from "./scripts/claude-dir-ignore.mjs";
+
 export default defineConfig({
   plugins: [sveltekit(), imagetools(), tailwindcss()],
   server: {
@@ -16,7 +18,10 @@ export default defineConfig({
       // detected: …/.claude/worktrees/…/.svelte-kit/tsconfig.json") cleared
       // the cache and forced a full reload here, mid-request — a 500 on a page
       // that was fine (2026-09-21). eslint.config.js ignores the same directory.
-      ignored: ["**/.claude/**"],
+      // Anchored to THIS root, not "**/.claude/**": from inside a worktree that
+      // glob matched every file of the project, and a dev server started there
+      // watched nothing (#39).
+      ignored: [claudeDirIgnore(import.meta.dirname)],
     },
   },
   test: {
