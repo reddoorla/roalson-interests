@@ -9,19 +9,24 @@ import CarouselFixture from "../routes/dev/a11y-fixtures/CarouselFixture.svelte"
 // "in markup" renders CarouselFixture — the same file the axe gate audits — and
 // mirrors Slider.test.ts case for case, so everything Slider got right is
 // pinned on the markup a consumer would actually write. Of Slider's 23 cases,
-// 18 are mirrored there under the same names, 1 is adapted (dots → `goTo`,
-// tested headlessly: the comp draws no dots) and 4 are dropped because the
-// feature is not in this primitive: the three `cardsPerView` cases (range
-// announcement, positions-not-items, fade ignoring it — one slide at a time is
-// all either consumer shows) and "keeps the dots when arrows are hidden" (no
-// dots, no `showArrows` switch; a headless module cannot make a consumer
-// render a control).
+// 18 are mirrored there under the same names (two reworded for what changed:
+// "clears its interval" is "cancels its frame", and the hover case now says
+// where it resumes FROM), 1 is adapted (dots → `goTo`, tested headlessly: the
+// comp draws no dots) and 4 are dropped because the feature is not in this
+// primitive: the three `cardsPerView` cases (range announcement,
+// positions-not-items, fade ignoring it — one slide at a time is all either
+// consumer shows) and "keeps the dots when arrows are hidden" (no dots, no
+// `showArrows` switch; a headless module cannot make a consumer render a
+// control).
+//
+// The same section holds the three places this deliberately does NOT behave
+// like Slider: a hover pause FREEZES the dwell instead of restarting it; focus
+// moving WITHIN the carousel does not re-pause after Play; and a mouse press
+// on Pause ends paused even though the press focuses the button first.
 //
 // "headless" drives `createCarousel` alone inside `$effect.root`, for what no
-// Slider case covers: the clock, `progress`, `settle`, `enabled`, and the two
-// places this deliberately behaves differently from Slider (a hover pause
-// FREEZES the dwell instead of restarting it; focus moving WITHIN the carousel
-// does not re-pause after Play).
+// Slider case covers: the clock, `progress`, `settle`, `enabled`, the state
+// before script adopts it, and which listeners exist at all.
 //
 // THE CLOCK IN THESE TESTS. Fake timers fake requestAnimationFrame at 16ms a
 // frame and `performance.now()` with it, so dwells here are whole frames

@@ -30,8 +30,10 @@
 // region/slide roles, `aria-hidden` + `inert` off-stage, a live region that is
 // polite only when the user is driving, hover and hidden-tab pauses, the APG
 // rule that focus entering stops rotation until Play is pressed, no rotation
-// under reduced motion (and no dead pause button), parking at the end with
-// loop off, and the swipe gesture with the same thresholds.
+// under reduced motion (and no dead pause button), and parking at the end
+// with loop off. The swipe gesture is lifted too, with Slider's thresholds —
+// but only its left/right handling is tested here, and Slider never tested it
+// at all, so the thresholds are inherited, not proven.
 //
 // WHY ONE CLOCK. `progress` and the auto-advance are both read off `elapsed`,
 // which one requestAnimationFrame loop accumulates. A bar animated by CSS
@@ -253,14 +255,19 @@ export function createCarousel(options: CarouselOptions) {
    *  mouse press focuses the button before it clicks it; that focus is "focus
    *  entering the carousel", so rotation stops and the label flips to Play —
    *  and a plain toggle on the click that follows starts it again: the user
-   *  pressed Pause and got Play (Slider does exactly this in Chromium). So a
-   *  POINTER click (`detail > 0`) settles on the opposite of what was on
+   *  pressed Pause and got Play. (Measured in Chromium on Slider: pressed on
+   *  its rim it does exactly this; pressed on its glyph the click is swallowed,
+   *  because the node the press began on was swapped out, and it stays paused
+   *  by accident. Both paths end paused here.)
+   *
+   *  So a POINTER click (`detail > 0`) settles on the opposite of what was on
    *  screen when its own press began. A keyboard click (`detail === 0`) has no
    *  press: it toggles what it sees, which by then honestly says Play. The
    *  value is only ever read by a pointer click, and every pointer click is
    *  preceded by its own pointerdown, so a press that is dragged away and
-   *  never clicks leaves nothing stale behind. It is NOT cleared on
-   *  pointerleave: a touch fires pointerleave before its click. */
+   *  never clicks leaves nothing stale behind. It is deliberately NOT cleared
+   *  on pointerleave: by the Pointer Events ordering a touch fires pointerleave
+   *  BEFORE its click (from the spec — not measured on a device here). */
   let pressedWhilePaused: boolean | null = null;
 
   const EMPTY = {};
