@@ -19,6 +19,7 @@ source. It is the fastest way to recognise what a thing does.
 | --- | --- | --- | --- |
 | [`animateIn.ts`](../src/lib/actions/animateIn.ts) | `animateIn` | 23 |  |
 | [`trapFocus.ts`](../src/lib/actions/trapFocus.ts) | `trapFocus` | 24 | Focus management for modal overlays (WCAG 2.4.3 focus order + 2.1.2 no keyboard trap) |
+| [`carousel.svelte.ts`](../src/lib/carousel.svelte.ts) | `createCarousel` | 49 | Headless carousel / slideshow state — index, loop, autoplay, pause and a progress-bar value, all on ONE clock — for markup Slider.svelte's layout cannot hold (controls INSIDE the slide's panel, a 2px progress bar, a list that is only a carousel below `md`) |
 | [`cms-href.ts`](../src/lib/cms-href.ts) | `SITE_HOSTS`, `sitePath`, `cmsHref` | 6 | A CMS Link field as the href a button should carry |
 | [`Accordion.svelte`](../src/lib/components/Accordion.svelte) | `items`, `allowMultiple` | 4 |  |
 | [`AnimateInTriggered.svelte`](../src/lib/components/Animation/AnimateInTriggered.svelte) | `trigger`, `style`, `transitionDuration`, `children` | — |  |
@@ -27,6 +28,8 @@ source. It is the fastest way to recognise what a thing does.
 | [`ArrowRight.svelte`](../src/lib/components/ArrowRight.svelte) | — | — | The comp's button arrow, `np_arrow-right_888647` (Noun Project), as exported from Figma node 6904:2083 — the paths below are that export's bytes, not a redraw |
 | [`BrandButton.svelte`](../src/lib/components/BrandButton.svelte) | `href`, `arrow`, `tone`, `children` | 4 | The comp's `button dark` component set (4840:367) — named, as Figma names it, for the BUTTON's tone, so it is the one for LIGHT grounds: garnet outline and text; hover fills garnet with dust text (5.11:1, AA as text) |
 | [`BrandIcon.svelte`](../src/lib/components/BrandIcon.svelte) | `platform` | 5 | Brand glyphs from simple-icons (CC0 / public domain) — facebook/x/reddit/ instagram from v16, linkedin from v10 (pre brand-removal) |
+| [`CarouselArrows.svelte`](../src/lib/components/CarouselArrows.svelte) | `carousel`, `tone` | 12 | The comp's carousel arrows (`l arrow` / `r arrow`, 6843:972 / 6843:977 in the homepage `properties slideshow` set; the same pair on issue #14's 390 cards) for a `createCarousel` instance, plus the pause / play control the comp does not draw and WCAG 2.2.2 requires of anything that autoplays |
+| [`CarouselProgress.svelte`](../src/lib/components/CarouselProgress.svelte) | `carousel`, `tone` | 8 | The comp's 2px carousel progress bar (`progress bar` 6843:964: 888 × 2 at 1440, 350 × 2 at 390, 20px under the photo) for a `createCarousel` instance |
 | [`ContentBand.svelte`](../src/lib/components/ContentBand.svelte) | `sliceType`, `variation`, `sectionClass`, `contentClass`, `fallbackHeight`, `background`, `children` | — |  |
 | [`ContentWidth.svelte`](../src/lib/components/ContentWidth.svelte) | `reveals`, `style`, `children`, `edgeFadeColor` | 2 |  |
 | [`CountUp.svelte`](../src/lib/components/CountUp.svelte) | `value`, `startValue`, `duration`, `startOnVisible`, `once`, `label`, `decimals`, `prefix`, `suffix`, `useGrouping`, `locale` | 12 | The number to count up to |
@@ -84,4 +87,4 @@ source. It is the fastest way to recognise what a thing does.
 | [`scrollLock.ts`](../src/lib/utils/scrollLock.ts) | `lockBodyScroll` | 4 | Stop the document scrolling behind a full-screen overlay; returns the release |
 | [`vimeo.ts`](../src/lib/utils/vimeo.ts) | `checkVimeoVideo` | 5 | True when the Vimeo video exists and is embeddable (oEmbed responds 200) |
 
-66 modules, 458 tests behind them.
+69 modules, 527 tests behind them.
