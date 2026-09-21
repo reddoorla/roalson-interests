@@ -156,9 +156,10 @@ describe("Field styling", () => {
   });
 
   it("spends only theme tokens — nothing from Tailwind's default palette", () => {
-    // `aria-invalid:border-red-600` sat here outside the theme, so
-    // theme-contrast.test.ts never measured it: red-600 is 4.77:1 on white and
-    // 4.15:1 on this site's off-white. The class, enumerated on 2026-09-21:
+    // The invalid border was Tailwind's default red 600, outside the theme, so
+    // theme-contrast.test.ts never measured it: 4.77:1 on white and 4.15:1 on
+    // this site's off-white. (Not written out as a utility: Tailwind's source
+    // scan reads this file.) The class, enumerated on 2026-09-21:
     // this, Form.svelte's summary (×3) and the contact page's two panels (×6).
     const { container } = render(Field, {
       name: "a",

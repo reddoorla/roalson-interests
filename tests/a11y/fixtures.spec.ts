@@ -31,9 +31,11 @@ for (const { path, name } of pages) {
     // `violations` comes back empty and this test used to go green. That is
     // exactly what happened (roalson-interests, 2026-09-18): Tailwind 4.3
     // defines its neutral palette as `oklch(… 0 none)`, axe-core 4.13 cannot
-    // parse `none`, and one `bg-neutral-900` in the Hero slice switched
+    // parse `none`, and one neutral 900 background in the Hero slice switched
     // color-contrast off for every fixture on this page — a 1.73:1 dust label
-    // added on purpose went unreported.
+    // added on purpose went unreported. (The utility is not written out whole:
+    // Tailwind's source scan reads this file, and spelling it here kept that
+    // very rule in the shipped CSS after the Hero had stopped using it.)
     const crashed = results.incomplete.flatMap((rule) =>
       rule.nodes.flatMap((node) =>
         [...node.any, ...node.all, ...node.none]

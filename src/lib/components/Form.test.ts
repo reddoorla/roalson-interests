@@ -65,10 +65,12 @@ describe("Form", () => {
 
 describe("Form's error summary skin", () => {
   it("spends only theme tokens — nothing from Tailwind's default palette", () => {
-    // It was `border-red-600 bg-red-50 text-red-900`: outside the theme, so
-    // theme-contrast.test.ts measured none of it (red-600 is 4.15:1 on this
-    // site's off-white). Same class as Field's invalid border and the contact
-    // page's two panels; fixed together on 2026-09-21.
+    // It was Tailwind's default red — a 600 border, a 50 fill, 900 text:
+    // outside the theme, so theme-contrast.test.ts measured none of it (red 600
+    // is 4.15:1 on this site's off-white). Same class as Field's invalid border
+    // and the contact page's two panels; fixed together on 2026-09-21.
+    // The utilities are NOT written out whole here: Tailwind's source scan
+    // reads this file too, and spelling them shipped them as dead rules.
     const { container, getByRole } = render(Form, { errors: { email: "Required" } });
     expect(container.innerHTML).not.toMatch(
       /\b(?:slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-\d{2,3}\b/,
