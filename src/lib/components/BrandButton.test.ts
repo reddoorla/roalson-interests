@@ -2,7 +2,11 @@ import { cleanup, render } from "@testing-library/svelte";
 import { afterEach, describe, expect, it } from "vitest";
 import { createRawSnippet } from "svelte";
 
-import BrandButton from "./BrandButton.svelte";
+import BrandButton, {
+  BRAND_BUTTON_TONES,
+  brandButtonBase,
+  brandButtonPadding,
+} from "./BrandButton.svelte";
 
 afterEach(cleanup);
 
@@ -59,5 +63,40 @@ describe("BrandButton", () => {
     expect(rest(a)).not.toContain("border-primary");
     expect(a.className).toMatch(/\bhover:bg-dust\b/);
     expect(a.className).toMatch(/\bhover:text-primary\b/);
+  });
+});
+
+// The contact form's submit is a <button> and this component is an <a>, so the
+// page wears the button through the module script's exports. That is only the
+// same button for as long as the component renders FROM those exports — a
+// class added to the markup beside them reaches every link and not the submit.
+describe("BrandButton's exported classes", () => {
+  const tokens = (s: string) => s.split(/\s+/).filter(Boolean);
+
+  it("are exactly what the component renders, in every tone, with and without the arrow", () => {
+    for (const tone of ["garnet", "cream", "dust"] as const) {
+      for (const arrow of [false, true]) {
+        const { getByRole } = render(BrandButton, {
+          props: { href: "/x", tone, arrow, children: label },
+        });
+        expect(tokens(getByRole("link").className)).toEqual(
+          tokens(`${brandButtonBase} ${BRAND_BUTTON_TONES[tone]} ${brandButtonPadding(arrow)}`),
+        );
+        cleanup();
+      }
+    }
+  });
+
+  it("keep geometry and colour apart, so a caller can pick a tone", () => {
+    // Two competing `border-*`/`text-*` sets in one class attribute resolve by
+    // stylesheet order, not by the order they were written.
+    expect(brandButtonBase).not.toMatch(
+      /\b(text|bg|border)-(primary|background|dust|light|dark)\b/,
+    );
+    expect(brandButtonBase).not.toMatch(/\bp[xlr]-/);
+    for (const tone of Object.values(BRAND_BUTTON_TONES)) {
+      expect(tone).toMatch(/(^|\s)border-\w+/);
+      expect(tone).toMatch(/(^|\s)text-\w+/);
+    }
   });
 });
