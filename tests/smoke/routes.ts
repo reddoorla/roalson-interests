@@ -67,4 +67,7 @@ export const smokeRoutes: SmokeRoute[] = [
   // The listing renders on the placeholder repo too — an empty listing is a
   // real state, not a missing document — so it expects 200 either way.
   { path: "/properties", name: "properties listing", hydrationMarker: "footer" },
+  // `load` touches no CMS (a timestamp, a title and the `navOver` claim), so
+  // the contact page answers 200 on the placeholder repo as well.
+  { path: "/contact", name: "contact", hydrationMarker: "footer" },
 ];

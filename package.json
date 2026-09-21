@@ -20,7 +20,10 @@
     "slicemachine": "start-slicemachine"
   },
   "reddoor": {
-    "a11yRoutes": []
+    "a11yRoutes": [
+      "/properties",
+      "/contact"
+    ]
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.11.3",

@@ -1,5 +1,6 @@
 import { env } from "$env/dynamic/private";
 import { createIngestAction } from "@reddoorla/maintenance/forms";
+import { OFFICE } from "$lib/office";
 import { replyCopyFor } from "$lib/server/reply-copy";
 import type { Actions, PageServerLoad } from "./$types";
 
@@ -8,11 +9,19 @@ import type { Actions, PageServerLoad } from "./$types";
 // route is genuinely dynamic.
 export const prerender = false;
 
-// Plant a per-request timestamp for the bot timing screen. `title` flows to
-// the root layout's <Seo> (static routes set head via data, not their own tags).
+// Plant a per-request timestamp for the bot timing screen. `title` and
+// `meta_description` flow to the root layout's <Seo> (static routes set head
+// via data, not their own tags).
 export const load: PageServerLoad = () => ({
   formTs: Date.now(),
-  title: "Contact",
+  title: "Contact Us",
+  meta_description: `Contact Roalson Interests about commercial real estate in San Antonio and across Texas — call ${OFFICE.phone.display} or send us a message.`,
+  // The page opens on PageMasthead, which runs UNDER the bar (Nav.svelte), so
+  // the bar floats over it. A literal on purpose: src/routes/nav-over.test.ts
+  // reads this file for it and holds the claim to the page's markup in both
+  // directions. `load` re-runs after the action, with and without script, so
+  // the success and failure renders keep the floating bar too.
+  navOver: "dark" as const,
 });
 
 export const actions: Actions = {
@@ -22,6 +31,12 @@ export const actions: Actions = {
       url: env.FORMS_INGEST_URL,
       token: env.FORMS_INGEST_TOKEN,
     }),
+    // Copy only. The package's defaults end "Please email us directly", and
+    // this site prints no email address anywhere — the comp has none (0 of 5642
+    // nodes) and the operator has not supplied one. The phone is the one other
+    // way in, so both messages name it, from the office module.
+    unavailableMessage: `This form is temporarily unavailable. Please call us at ${OFFICE.phone.display}.`,
+    errorMessage: `Something went wrong sending your message. Please try again, or call us at ${OFFICE.phone.display}.`,
     buildPayload: async (form, event) => ({
       name: form.get("name")?.toString(),
       email: form.get("email")?.toString(),
