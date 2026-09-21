@@ -44,7 +44,7 @@
   import BrandButton from "$lib/components/BrandButton.svelte";
   import { OFFICE, officeAddressLines } from "$lib/office";
   import { SITE_NAME } from "$lib/seo";
-  import type { FooterLink } from "$lib/site-config";
+  import { FOOTER_NAV_ID, type FooterLink } from "$lib/site-config";
 
   interface Props {
     /** The closing call to action: one string per drawn line, then its
@@ -184,7 +184,7 @@
             <!-- `Primary` is the bar's, so the two landmarks stay distinct. The
                  scroll margin clears the pinned bar (80px) when the menu
                  trigger's fallback jumps here. -->
-            <nav id="footer-nav" aria-label="Footer" class="scroll-mt-24">
+            <nav id={FOOTER_NAV_ID} aria-label="Footer" class="scroll-mt-24">
               <!-- The ramp class sits on the LIST so each row's line box is
                    H6's 18px; on the link alone the row keeps the body's taller
                    strut. Each link's hit area is grown to the full 38px pitch

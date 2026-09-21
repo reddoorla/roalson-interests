@@ -18,9 +18,17 @@ export async function load({ fetch, cookies }) {
   // it as text, and it is safe as a literal because +page.svelte renders that
   // band unconditionally, whatever the document holds (see $lib/home-page).
   // `footerGround`: the homepage is the one page whose footer grades from
-  // off-white to sand (Footer.svelte). Both are literals because
-  // src/routes/nav-over.test.ts reads this file as text.
-  return { ...home, navOver: "dark" as const, footerGround: "fade" as const };
+  // off-white to sand (Footer.svelte). `navWordmark`: the homepage is the one
+  // page whose bar has no wordmark until the hero's RI cutout has scrolled away
+  // (operator call 8; Nav.svelte measures it against HomeHero's band). All
+  // three are literals because src/routes/nav-over.test.ts reads this file as
+  // text.
+  return {
+    ...home,
+    navOver: "dark" as const,
+    navWordmark: "gated" as const,
+    footerGround: "fade" as const,
+  };
 }
 
 // On an unconfigured starter, skip prerendering "/" — the load above would

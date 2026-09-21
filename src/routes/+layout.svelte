@@ -15,8 +15,9 @@
   let { data, children } = $props();
 
   // Site chrome from src/lib/site-config.json. A route speaks to it through
-  // page data: `navOver` (what the bar sits on) and `footerGround` (what the
-  // footer's ground grades from).
+  // page data: `navOver` (what the bar sits on), `navWordmark` (whether the
+  // bar's wordmark waits for the hero's cutout to leave — the homepage only)
+  // and `footerGround` (what the footer's ground grades from).
   const siteConfig = loadSiteConfig();
 
   // Kit's own post-nav scroll (top / hash anchor / popstate restore) runs
@@ -52,6 +53,7 @@
     logo={siteConfig.nav.logo}
     cta={siteConfig.nav.cta}
     over={page.data.navOver}
+    wordmark={page.data.navWordmark}
     currentPath={page.url.pathname}
   />
 

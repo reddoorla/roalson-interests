@@ -2771,3 +2771,248 @@ machine. The same spec alone, a minute later: 8 of 8 in 17s. That wait is
 positive evidence of hydration, not a performance budget, and the 5s is the
 fleet's shared Playwright default, so it is NOT widened here for a condition that
 exists only while this machine is running agents. CI is the clean-machine run.
+
+## 2026-09-21 — The bar's two follow-ups: a trigger that is a link until script proves itself, and a homepage wordmark that waits for a band — with four things only a mutation showed (`feat/nav-wordmark-gate-and-trigger-fallback`)
+
+Two issues against one component, so one branch and two commits: #19 first, then
+#18 on top of it. Both are about the same sentence in `Nav.svelte`'s header —
+_nothing here may depend on script_ — and both turned out to have a half that
+jsdom cannot see at all.
+
+**#19 — why the trigger is now two elements.** Scripting OFF was already
+covered: a `<noscript>` list puts the menu's links in the bar and
+`[data-js-only]` hides the trigger. Scripting ON with a bundle that never arrives
+was not, because `<noscript>` does not apply to it: the hamburger was visible and
+did nothing, and at 390 — CONTACT US is hidden below `sm` — the wordmark was the
+only working link in the bar. The footer batch gave it somewhere to go
+(`<nav id="footer-nav">`), so the server now renders the trigger as
+`<a href="#footer-nav" aria-label="Menu">`, same glyph, same box, same tone, and
+mount — the same evidence that pins the bar — swaps it for today's `<button>`
+with today's name, `aria-expanded`/`aria-controls` contract and press feedback.
+Measured, the two occupy the identical box: 1328,18 44×44 at 1440 and 338,23
+44×44 at 390, in dev and on the production build. The link is named for what it
+does ("Menu", not "Open menu") and carries no menu state, because the dialog it
+would control cannot exist yet. Its press feedback is `ICON_GLYPH`'s
+`group-active:` half, which is CSS.
+
+_Tried and declined: the issue's own suggestion, one `<a role="button">`
+upgraded on mount._ It avoids the swap, and costs a Space-key handler, a
+permanent anchor wearing a button's role, and a decision about modified clicks —
+to avoid a focus hand-off that is four lines. Two native elements, each honest
+about what it is, and the hand-off written down: mount removes a link a keyboard
+user may already be standing on, so the button takes the focus the link held
+(and takes none it was not holding — both are tests).
+
+**The `<noscript>` list stays, and why.** The task asked whether it is still
+needed. It is not needed for _reachability_ any more — the link covers a
+scripting-off browser too. It is kept because scripting-off is the one failure a
+browser DECLARES before first paint, so the server can afford the better answer
+there: the links where the eye already is, instead of a jump to the bottom of
+the page. The jump is for the failure nobody can see coming. With the list in
+the bar the trigger is redundant there and does not fit beside it at 390, so the
+link carries `data-js-only`. The `<button>` no longer does: it exists only where
+script runs, which is where that rule can never apply. What would overturn this:
+a third short menu entry that no longer fits the 390 bar on one line — then
+delete the list and the attribute, and let the link serve both cases. The
+`[data-js-only]` rule itself was left alone on purpose: sibling batches may be
+marking their own controls with it tonight.
+
+`FOOTER_NAV_ID` lives in `$lib/site-config` so `<Footer>` and `<Nav>` cannot
+spell the id differently; `Footer.test.ts` still pins the literal, because it is
+a public fragment.
+
+**#18 — what was built.** Operator call 8: on the homepage only, no wordmark
+until the hero's RI cutout has scrolled away. The rulings were followed as
+written: a separate page-data key `navWordmark: "gated"` (typed in `app.d.ts`,
+its own `wordmark` prop through the layout — a second `navOver` value would have
+read as no claim to `nav-over.test.ts`'s literal match); the gate measured from
+the DOM, `[data-nav-gate]`'s top against the bar's bottom, on scroll, on resize
+and once after mount; the bar stays FLOATING while the gate holds (approach B)
+and takes its ground and its garnet wordmark together; SSR hidden plus a rule in
+`app.html`'s existing `<noscript><style>` (C4). Measured in a browser, with
+neither number written down anywhere in the component:
+
+|                        | comp                         | rendered                                                                                      |
+| ---------------------- | ---------------------------- | --------------------------------------------------------------------------------------------- |
+| gate, 1440 (bar 80)    | scrollY 448                  | band top 81 at 447 → held; 80 at 448 → solid + wordmark                                       |
+| gate, 390 (bar 70)     | scrollY 458                  | band top 71 at 457 → held; 70 at 458 → solid + wordmark                                       |
+| wordmark at rest, 1440 | opacity 0                    | garnet 0, reverse 0, bar transparent                                                          |
+| wordmark at rest, 390  | **opacity 1**                | garnet 0, reverse 0 — see below                                                               |
+| wordmark box, 1440     | 80,16.63 145×46.75           | 80,16.72 145×46.56                                                                            |
+| wordmark box, 390      | 20,30 93.05×30               | 20,30.06 93×29.86                                                                             |
+| glyph                  | 1340,32 / 350,37, 20×16      | 1340,32 / 350,37, 20×16                                                                       |
+| reveal                 | 2s timeout, 2s smart-animate | lands 326 ms (1440) / 310 ms (390) after the scroll that causes it — the existing 300 ms fade |
+
+**A deviation from the comp, flagged:** at 390 the comp's bar is a different
+component (`navbar garnet-mobile`, no variants) and shows its wordmark from the
+start. The operator's call says "only on the homepage" and nothing about width;
+the critic's default — hidden at every width — is what shipped. The cutout does
+cross the wordmark's x-range at 390 (scrollY 273–498), so there is a reason
+beyond consistency, but it is a reading of the call, not the comp.
+
+**One thing that is in neither the comp nor the call:** keyboard focus on the
+home link SHOWS the (reverse) wordmark while the gate holds
+(`group-focus-visible/home:opacity-100`). The ruling was that the link stays in
+the tree and focusable while invisible, and it does — opacity only, named
+"Home", reached by two real Tabs in the spec. But a 2px off-white ring around
+nothing tells a sighted keyboard user nothing, and it is the layout's own
+skip-link pattern. Measured focused: ring `2px solid rgb(242, 239, 233)`, reverse
+1, garnet 0, bar still floating.
+
+**A claim with no gate on the page is no gate.** `/dev/home?bare` — a `home`
+document with no hero slice — renders no band. Without this rule the wordmark
+waits forever, on a bar that floats forever over whatever scrolls under it; with
+it the bar behaves as on every other page (reverse wordmark, re-toned at 24px).
+
+**Residual, same class as #19 and accepted by ruling C4:** script on, bundle
+never arrives, and the homepage's bar has no visible home link — the server hid
+it and nothing will ever measure the gate. It is the page where a home link
+matters least, and the trigger's fallback lands on the footer, whose wordmark is
+one. Filed rather than fixed.
+
+**Four things only a mutation showed.** All the first-draft tests passed. These
+are what breaking the code on purpose found:
+
+1. _The blocked-bundle spec went red for the wrong reason._ With a dead
+   `<button>` put back, it failed on `tagName === "A"` — a precondition — and
+   never asked whether the click got anyone anywhere. The tag check moved to the
+   END (as "and it never hydrated"); the same mutation now fails on
+   `toBeInViewport()` with "viewport ratio 0", which is the defect.
+2. _The first look at the gate must wait for `mounted`, and no jsdom test can
+   tell._ Until mount a floating bar is `absolute`; on a reload past the gate
+   its bottom edge is hundreds of pixels above the viewport, the gate reads
+   "ahead", and the result is a transparent, wordmark-less bar pinned over body
+   copy. With the read moved into `onMount` all 32 unit tests stayed green; the
+   reload spec went red with exactly that (`floating: true, garnet: 0,
+ground: rgba(0,0,0,0)` at a scrollY well past the gate). The `$effect` that
+   runs after the DOM has taken `fixed` is load-bearing, and the comment on it
+   says why.
+3. _Gating every route leaves every hydrated page looking right._ Because of the
+   no-gate rule above, `wordmark="gated"` as a literal in the layout gives
+   `/dev/properties` its wordmark back on mount — the existing "floats over the
+   masthead" spec passed under that mutation. Only the wire is wrong (hidden,
+   and marked for the noscript rule, on every page). So the spec reads the
+   server's markup for three routes, and `nav-over.test.ts` holds "only routes
+   that open on HomeHero claim it" and "the layout passes the ROUTE's claim".
+4. _The navigation unit test was not testing the re-read._ "Follows the claim
+   across a client navigation" stayed green with the effect's re-read deleted,
+   because the gate's state starts at "ahead" — a claim arriving for the first
+   time is held by default. The case that needs it is a "passed" carried from
+   the last visit back to the top of the homepage, top to top, where the window
+   fires no scroll event. That test exists now and goes red without the effect.
+
+Also from a mutation: re-toning a gated bar at 24px (approach A) showed the
+GARNET lockup for the whole hero, because only `floating` was hiding it and
+"held implies floating" lived in a different line. It is `floating || held` now —
+redundant today, and stated where it is applied.
+
+**Every mutation, and what it turned red** (each restored with `cp`, confirmed
+with `cmp`): button in the server's branch → both blocked-bundle specs, the
+server-markup spec, the scripting-off spec, 5 premount unit tests · focus
+hand-off removed → 1 unit + the held-then-released browser spec · hand-off made
+unconditional → "takes no focus it was not holding" · `data-nav-gate` dropped
+from HomeHero → both gate specs and the home-link spec (reverse wordmark at
+opacity 1 at rest), the reload spec (no gate left to scroll past), plus 4 unit
+tests · every route gated → "only the
+homepage" spec on `/dev/properties`' markup, plus the layout unit test ·
+`window.scrollY >= 448` for the rects → the 390 gate spec and the 70px unit test;
+the 1440 spec stays GREEN, because 448 is the right number there — which is the
+whole reason there are two widths · approach A → both gate specs + 3 unit ·
+home link `invisible` → unit + spec (accessible name "") · noscript rule broken →
+the scripting-off homepage spec (computed opacity 0) · effect's re-read removed →
+3 unit tests.
+
+**A vacuous test, found by reading it.** `Nav.test.ts` asserted `data-js-only`
+on the button. `render()` returns after mount, and the button only exists after
+mount — the one state where `app.html`'s noscript rule cannot apply. It was
+replaced, and the server's branch got its own file: `Nav.premount.test.ts` holds
+`onMount` back with `vi.mock("svelte")`, asserts the branch the server renders,
+then releases it by hand. _Tried first and abandoned:_ rendering with
+`svelte/server` inside vitest — this repo sets `resolve.conditions: ["browser"]`
+under VITEST, so `onMount` resolves to the client runtime and a server render is
+a fight. The spec still reads the real bytes off the wire; the premount file is
+the fast half. Note the capability index counts only `<module>.test.ts`, so its
+"33" for Nav omits that file's 10.
+
+**Shared modules read and declined.** `stores/viewport.svelte.ts` (rAF-coalesced
+resize): it publishes a width and a height; the gate needs a re-read _when_ the
+window resizes, not a number, and `<svelte:window onresize>` is one attribute
+beside the `onscroll` already there. `utils/instantNavScroll`: nothing here
+scrolls from script — the fallback is a native fragment link, which is the
+point. `animateIn`/`[data-reveal]`: the same contract on the wire (hidden in the
+markup, released by the noscript block) and the pattern was reused, but not the
+action — a reveal is one-way with a fail-safe timer, the gate is two-way and must
+NOT time out. `afterNavigate` was considered for the re-read and declined to keep
+`Nav` free of `$app/*`; the claim itself is the dependency. An
+IntersectionObserver was considered for the gate and declined: its rootMargin
+needs the viewport height and the bar height in pixels (so it is rebuilt on every
+resize), and it flips back to "not intersecting" once the band has left — it
+would need the rect comparison anyway.
+
+**Verified on a production build — #19 only.** `pnpm build && vite preview`,
+`/properties` and `/contact`, 1440 and 390: hydrated, the trigger is
+`<BUTTON "Open menu">`, the menu opens, 0 console errors; with every script
+request refused (19 on `/properties`, 15 on `/contact`, all under
+`/_app/immutable/`; the dev server only has 2 to refuse) it is
+`<A "Menu" href=#footer-nav>`, a click moves `/properties` 0→197 (1440) and
+0→641 (390), `#footer-nav` lands at 573.56 of 900 and 457.56 of 844, "Our
+portfolio" is wholly in the viewport and is what Tab reaches next; on `/contact`,
+whose bar is solid and pinned in the server's markup, the link lands below the
+bar's bottom edge (80 / 70). Scripting off: trigger present and hidden, list in
+the bar. **#18 is NOT verified on a production build**: `/` and `/dev/home` both
+answer 404 there (measured), so the gate has only ever run under `vite dev`.
+That is #28's class.
+
+**Not done.** `pnpm verify` was not run, by instruction — `pnpm check`,
+`pnpm lint`, 347 targeted unit tests, `nav.spec.ts` (25 with `home-hero.spec.ts`;
+the 10 new cases 4× each, 40/40), and `focus-ring.spec.ts` + `footer.spec.ts`
+because they click the trigger. A same-path data change (a preview refresh that
+adds or removes the hero slice, `/dev/home` → `?bare`) does not re-read the gate
+until the next scroll. And the gated bar now floats over the hero for 448px
+instead of 24, so the bright-poster legibility risk the hero batch filed (R3)
+lasts the whole pin.
+
+**After review, and integration (orchestrator) — including the production
+verification the paragraph above says could not be done.** That paragraph was
+true when it was written and was overtaken within the hour: the 404 it measured
+was the placeholder build's. #36 published the `home` document the same
+afternoon, so `VITE_PRISMIC_ENVIRONMENT=roalson-interests pnpm build && vite
+preview` now serves `/` from real content, and #18 was measured there on the
+rebased branch (the reviewer had done the same in the agent's worktree).
+`/` answers 200 with no console error. At rest both wordmarks are at opacity 0,
+the bar floats, its bottom is at 80 (70 at 390) and `[data-nav-gate]`'s top is
+at 528. Scrolling: at y=446 the band's top is at 82 and the wordmark is still
+hidden; at y=450 it is at 78, the bar has taken its ground and the garnet
+wordmark is at opacity 1 — the flip sits inside a 4px window around the line
+where the band meets the bar, which is the ruling (rect against rect, no number
+in the component). At 390 the same: hidden at 456 (band top 72), shown at 460
+(68). Back at y=0 it hides again. `/properties` shows the reverse wordmark at
+rest, so the gate is the homepage's alone, as the operator asked. With scripting
+off the reverse wordmark is at opacity 1 and the bar lists "Our Properties" and
+"Contact us": the gate needs script to lift, so it is not applied without it.
+The hero pin and the photo band's pin remain on #28; the #18 half is done and
+#28 says so.
+
+The rules reviewer said fix first, and every finding was the orchestrator's
+step rather than the branch's: rebase (the generated `docs/COMPONENTS.md`
+conflicted and was regenerated — 69 modules, 538 tests, the number the reviewer
+predicted), this entry, and the issues. One finding was new. #19 closes the
+TRIGGER's instance of its class — a control visible and dead when script is on
+and the bundle never arrives — and the class has a second member already on
+main: `CarouselArrows` and `CarouselProgress` render their controls in the
+server's markup under `data-js-only`, which hides them only when scripting is
+OFF. Latent until the featured-properties band puts them on `/`; #47 asks for
+the decision before that merges, and the PR body says #19 closes one instance,
+not the class. A nit was declined: while the gate holds, the invisible home link
+still takes clicks over the hero's corner (145×47 at 1440). It navigates to the
+page it is on, and the ruling was that the link stays in the tree and focusable.
+
+`pnpm verify` on the rebased branch: svelte-check 0 errors over 4599 files, axe
+0 violations across 2 routes, 847 unit tests in 89 files, 71 Playwright tests.
+Filed: #43 (script on, bundle missing: the gated wordmark never appears — the
+residual of #18 in #19's class), #44 (the gate is not re-read when content
+changes without a navigation, scroll or resize), #45 (the gated bar floats over
+the hero for the whole pin, 448/458px, so a bright poster under it is a
+legibility risk for the whole pin — critic R3, which no issue carried until
+now), #46 (the capability index counts only `<module>.test.ts`, so a second
+co-located suite is invisible), #47 (above).
