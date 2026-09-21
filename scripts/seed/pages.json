@@ -3,7 +3,13 @@
     "uid": "home",
     "title": "Home",
     "data": {
-      "title": [{ "type": "heading1", "text": "Roalson Interests", "spans": [] }],
+      "title": [
+        {
+          "type": "heading1",
+          "text": "Roalson Interests",
+          "spans": []
+        }
+      ],
       "meta_title": "Roalson Interests — San Antonio Commercial Real Estate Since 1983",
       "meta_description": "Roalson Interests is a San Antonio commercial real estate firm: consulting and brokerage, acquisition and disposition of properties, and buyer and tenant representation since 1983.",
       "slices": [
@@ -19,16 +25,75 @@
               }
             ],
             "buttons": [
-              { "label": "Contact us", "link": { "link_type": "Web", "url": "/contact" } },
-              { "label": "Our portfolio", "link": { "link_type": "Web", "url": "/properties" } }
+              {
+                "label": "Contact us",
+                "link": {
+                  "link_type": "Web",
+                  "url": "/contact"
+                }
+              },
+              {
+                "label": "Our portfolio",
+                "link": {
+                  "link_type": "Web",
+                  "url": "/properties"
+                }
+              }
             ],
             "specialty_label": "Our specialty",
             "specialties": [
-              { "text": "Consulting and brokerage" },
-              { "text": "Acquisition and disposition properties" },
-              { "text": "Buyer and tenant representation" }
+              {
+                "text": "Consulting and brokerage"
+              },
+              {
+                "text": "Acquisition and disposition properties"
+              },
+              {
+                "text": "Buyer and tenant representation"
+              }
             ]
           }
+        },
+        {
+          "slice_type": "partners",
+          "variation": "default",
+          "primary": {
+            "eyebrow": "Our legacy",
+            "heading": [
+              {
+                "type": "heading2",
+                "text": "Representing Your Best Interests in Acquisition and Disposition",
+                "spans": []
+              }
+            ],
+            "body": [
+              {
+                "type": "paragraph",
+                "text": "Roalson Interests was formed in 1983. The firm specializes in commercial / investment brokerage, site selection and tenant representation. Roalson Interests has extensive experience in corporate America real estate acquisition and surplus property disposition as well as representation of individual clients. The firm has also completed a variety of consulting assignments for the real estate community, financial institutions, law firms and government.",
+                "spans": []
+              },
+              {
+                "type": "paragraph",
+                "text": "Roalson Interests has a reputation for leadership and exceptional client service in metropolitan San Antonio and South Texas.",
+                "spans": []
+              }
+            ],
+            "partners": [
+              {
+                "name": "Matt Howard",
+                "role": "Partner"
+              },
+              {
+                "name": "Bart Wilson",
+                "role": "Partner"
+              }
+            ]
+          }
+        },
+        {
+          "slice_type": "photo_band",
+          "variation": "default",
+          "primary": {}
         }
       ]
     },
@@ -36,7 +101,9 @@
       "title": "INFERRED — the firm's name; the home route does not print it",
       "meta_title": "INFERRED — composed from the comp's headline; for the operator's review",
       "meta_description": "INFERRED — composed from the comp's headline and its three specialties; for the operator's review",
-      "home_hero": "MEASURED — the comp's hero copy, as transcribed into src/lib/home-fixture.ts; poster and vimeo_id left empty (operator call 11, issue #29)"
+      "home_hero": "MEASURED — the comp's hero copy, as transcribed into src/lib/home-fixture.ts; poster and vimeo_id left empty (operator call 11, issue #29)",
+      "partners": "MEASURED — the comp's words for the band (6820:119, 6802:1477, 6822:489) and its two visible partner rows, as transcribed into src/lib/home-fixture.ts; no headshot, bio or contact link: neither partner has supplied one (operator call 12, issue #3)",
+      "photo_band": "INFERRED — the band with no image, which is the launch state: the comp's photo is unlicensed stock (#3, #37); the slice must stay LAST to pin"
     }
   }
 ]

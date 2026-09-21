@@ -1385,6 +1385,8 @@ is the last PR of the build, and goes green only once `home` is published.
 
 ## 2026-09-21 — 22 listings staged, released and live; and the preflight that refused a repository that was ready (`feat/seed-listings-run`)
 
+> Superseded in part by 2026-09-21 — The publisher said the home page was live. It was not: the pass it describes ("the public API listing every staged uid") cannot see a re-staged document, and was replaced by a content signature.
+
 Follow-up to the entry above, after #21 merged and its apply run pushed 12 of
 12 models.
 
@@ -3330,3 +3332,89 @@ transform at 5.0 to 6.6s), #51 (WebKit and Firefox have never seen the `:has()`
 fallback or the `<summary>` layout), #52 (axe runs post a CSP report for the
 font stylesheet on every audit), #53 (half-pixel rules at 1x, both bands), #54
 (cards uncapped below `lg`; the 1280 difference).
+
+## 2026-09-21 — The publisher said the home page was live. It was not. (`feat/seed-home-bands`)
+
+> Corrects the 2026-09-21 entry "22 listings staged, released and live", whose
+> closing claim — "its pass is not the 202: it polls the public API until every
+> staged uid is listed" — described a check that cannot see a changed document.
+
+The partners band and the photo band were added to `scripts/seed/pages.json`,
+the `home` document was re-staged, and `publish-release.mjs` answered:
+**"everything staged is already live. Nothing to do."** It was not. Asked
+directly, Prismic held two versions of the document: `arHBJxIAACoALq9O` in the
+migration release, and the single-band `arF6GxIAACsALhaJ` published. The site
+would have kept serving a homepage with one band while every local check said
+the three-band version had shipped.
+
+**The shape of the mistake is the one CLAUDE.md names first, and it was written
+into a test that passed.** The pass condition was "the public API lists every
+staged uid". A uid survives a re-stage — that is the whole point of PUT — so the
+check answers the same question before and after, and answers it yes. It was
+green because nothing had gone wrong, not because something had gone right. The
+test that guarded it was literally named "the pass is the public API listing
+every staged uid — not the 202", and the entry above repeated the claim: two
+places asserting a check by restating what it does rather than what it proves.
+
+**What replaces it: a content signature, recorded when a document is staged and
+held against what the public API serves.** `contentSignature(data)` is computed
+from a payload and from a delivered document by the same function, and covers
+the filled top-level fields, the value of every top-level SCALAR (Text, Number,
+Select, Boolean), and the ordered list of slices by `slice_type/variation`. Both
+seeders now record it in their state file at stage time, so the question the
+publisher asks is "is what I sent what is being served", not "does this uid
+exist". What it deliberately does NOT cover, said in the code and here: rich
+text, groups, links and images count as present or absent only. A paragraph
+reworded inside the partners band's body will not show. The state file was
+always committed because the ids are the only way a re-run can PUT instead of
+duplicating; it now also carries the evidence a publish is checked against.
+
+**The symmetry was measured, not assumed, and the first measurement failed.** A
+probe fingerprinted all 22 already-live listings from both sides: **2 of 22
+matched.** The other 20 differed by exactly one key, `tracts` — Prismic returns
+every Group the model declares, unfilled ones as `[]`, and a payload simply
+omits them. (`stripEmpty` keeps an empty array on purpose: on a payload it is a
+valid unfilled rich text.) So the signature treats an empty array as unfilled.
+Re-probed: **22 of 22.** Had the probe been skipped, the publisher would have
+reported every listing permanently stale and never converged — the safe
+direction, but two hours of confusion.
+
+Then the real run, and it is the behaviour that matters: 22 of 23 live with the
+content that was staged, `! page/home: live content differs from what was
+staged`, 202 accepted with 23 items, and four polls later 23 of 23. The 22
+listings were re-staged first with identical content, purely so that every
+document carries a signature; a document with none is reported by name as
+"no signature recorded" and counted as NOT verified, because an unanswerable
+question must never read as a yes.
+
+**Two bands added to the home document, and what is deliberately empty.** The
+partners band carries the comp's own words and its two visible rows with a name
+and a role each — no bio, no headshot, no contact address, because neither
+partner has supplied one (operator call 12), so no card shows PROFILE and
+CONTACT falls back to `/contact`. The photo band is staged with an empty
+`primary`: that IS the launch state, and it exposed a second small defect —
+`stripEmpty` collapses an all-empty object to `undefined`, so the first payload
+sent a slice with no `primary` at all. A band with no photo yet is a slice with
+nothing in it, not a slice with nothing.
+
+**#28, on a production build of the real `/`.** With `/` answering 200 from real
+content, the three checks that issue was opened for could finally run, at 1440,
+no console errors, in both motion settings. With motion allowed: the hero is
+`sticky` and holds at top 0 through y=200, releasing at -121 by y=600 once the
+specialty band has passed; the photo band is `sticky` and seats at top 0 deep in
+the page with the footer at 587 climbing over it; `--footer-h` reads 512.56px,
+the same number the dev server gave. Under `reduce`: the hero is `relative` and
+moves with the page (-200 at y=200, -600 at y=600) and the band is `static`
+(-212.97) — the ruling from #38 holding on a real page. The #18 wordmark gate was
+measured on a production build earlier today. That is all three of #28's items.
+
+**Mutations**, each restored by copy and `cmp`-confirmed. The signature ignoring
+slices → "changes when a slice is added" and "changes when the slices are
+reordered" red, which is the original defect's exact shape. The empty-array
+normalisation removed → "reads an unfilled field the same whether it is absent
+or empty" red. The publisher comparing uids again → "holds a published document
+to the content that was staged, not to its uid" red. A missing signature counted
+as a pass → "refuses to pass a document it cannot check, and names why" red. The
+empty primary collapsed away → "keeps an empty band's primary" red. The photo
+band moved off the end → "opens on the hero and ends on the photo band" red. A
+bio invented for a partner → "invents nothing about the partners" red.

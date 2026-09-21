@@ -10,7 +10,9 @@ import {
   // @ts-expect-error — plain ESM scripts, no declarations
 } from "./pages.mjs";
 // @ts-expect-error — plain ESM scripts, no declarations
-import { canonical, remoteSliceChoices, sliceOutOfSync } from "./lib.mjs";
+import { canonical, contentSignature, remoteSliceChoices, sliceOutOfSync } from "./lib.mjs";
+// @ts-expect-error — plain ESM scripts, no declarations
+import { notYetLive } from "./publish-release.mjs";
 
 type Slice = { slice_type: string; variation: string; primary: Record<string, unknown> };
 type Entry = {
@@ -114,6 +116,31 @@ describe("the pages data file", () => {
   });
 });
 
+describe("the home document's bands", () => {
+  const home = pages.find((p) => p.uid === "home") as Entry;
+  const order = (home.data.slices ?? []).map((s) => s.slice_type);
+
+  it("opens on the hero and ends on the photo band — which pins only as the LAST slice", () => {
+    expect(order[0]).toBe("home_hero");
+    expect(order.at(-1)).toBe("photo_band");
+    expect(order.filter((s) => s === "photo_band")).toHaveLength(1);
+  });
+
+  it("keeps an empty band's primary: no image yet is a slice with nothing in it, not no slice", () => {
+    const payload = toPayload(home, {});
+    const band = payload.data.slices.find((s: Slice) => s.slice_type === "photo_band");
+    expect(band.primary).toEqual({});
+    expect(band.items).toEqual([]);
+  });
+
+  it("invents nothing about the partners: a name and a role each, and no bio, photo or address", () => {
+    const partners = (home.data.slices ?? []).find((s) => s.slice_type === "partners");
+    const rows = partners?.primary.partners as Record<string, unknown>[];
+    expect(rows.map((r) => r.name)).toEqual(["Matt Howard", "Bart Wilson"]);
+    for (const row of rows) expect(Object.keys(row).sort()).toEqual(["name", "role"]);
+  });
+});
+
 describe("resolving listings into content relationships", () => {
   const data = {
     slices: [
@@ -148,7 +175,13 @@ describe("toPayload", () => {
     expect(payload.data.slices.length).toBe(home.data.slices?.length);
     for (const slice of payload.data.slices) expect(slice.items).toEqual([]);
     expect(JSON.stringify(payload)).not.toContain("$property");
-    expect(JSON.stringify(payload)).not.toMatch(/:(null|""|\{\})[,}]/);
+    // No empty value anywhere — EXCEPT a slice's own `primary`, which is what
+    // an unfilled band is (the photo band, until a licensed photo exists).
+    const withoutPrimaries = JSON.stringify(payload).replaceAll(
+      '"primary":{}',
+      '"primary":{"x":1}',
+    );
+    expect(withoutPrimaries).not.toMatch(/:(null|""|\{\})[,}]/);
   });
 });
 
@@ -203,5 +236,83 @@ describe("the models-in-sync preflight", () => {
     await expect(remoteSliceChoices("page", "body", headers, answer(200, type))).rejects.toThrow(
       /no slice zone named "body"/,
     );
+  });
+});
+
+describe("the content signature — what makes a publish's pass positive evidence", () => {
+  const home = {
+    title: [{ type: "heading1", text: "Home" }],
+    meta_title: "T",
+    slices: [{ slice_type: "home_hero", variation: "default", primary: {} }],
+  };
+
+  it("changes when a slice is added, which is the case the uid check could not see", () => {
+    const withBands = {
+      ...home,
+      slices: [...home.slices, { slice_type: "partners", variation: "default", primary: {} }],
+    };
+    expect(contentSignature(withBands)).not.toBe(contentSignature(home));
+    expect(JSON.parse(contentSignature(withBands)).slices).toEqual([
+      "home_hero/default",
+      "partners/default",
+    ]);
+  });
+
+  it("changes when the slices are reordered, or a scalar is edited", () => {
+    const flipped = {
+      ...home,
+      slices: [{ slice_type: "partners", variation: "default", primary: {} }, ...home.slices],
+    };
+    expect(contentSignature(flipped)).not.toBe(contentSignature(home));
+    expect(contentSignature({ ...home, meta_title: "U" })).not.toBe(contentSignature(home));
+  });
+
+  // The two sides are a payload and a delivered document. They disagree about
+  // an unfilled field unless both are normalised: the API returns every Group
+  // the model declares, unfilled ones as [], and a payload omits them.
+  it("reads an unfilled field the same whether it is absent or empty", () => {
+    expect(contentSignature({ ...home, tracts: [], note: "", extra: null })).toBe(
+      contentSignature(home),
+    );
+  });
+
+  it("says what it cannot see: a word changed inside rich text", () => {
+    const edited = { ...home, title: [{ type: "heading1", text: "Somewhere else" }] };
+    expect(contentSignature(edited)).toBe(contentSignature(home));
+  });
+});
+
+describe("notYetLive", () => {
+  const staged = { page: { home: { id: "X", signature: contentSignature({ meta_title: "T" }) } } };
+  const api = (docs: unknown[]) => async (url: string) =>
+    new Response(
+      JSON.stringify(
+        url.includes("/documents/search")
+          ? { results: docs, total_pages: 1 }
+          : { refs: [{ isMasterRef: true, ref: "R" }] },
+      ),
+      { status: 200 },
+    );
+
+  it("holds a published document to the content that was staged, not to its uid", async () => {
+    await expect(
+      notYetLive("r", staged, api([{ uid: "home", id: "X", data: { meta_title: "T" } }])),
+    ).resolves.toEqual([]);
+    // The defect this replaced: same uid, different content, reported as live.
+    await expect(
+      notYetLive("r", staged, api([{ uid: "home", id: "X", data: { meta_title: "OLD" } }])),
+    ).resolves.toEqual([
+      { type: "page", uid: "home", why: "live content differs from what was staged" },
+    ]);
+  });
+
+  it("refuses to pass a document it cannot check, and names why", async () => {
+    await expect(notYetLive("r", staged, api([]))).resolves.toEqual([
+      { type: "page", uid: "home", why: "not published" },
+    ]);
+    const unsigned = { page: { home: { id: "X" } } };
+    await expect(
+      notYetLive("r", unsigned, api([{ uid: "home", id: "X", data: { meta_title: "T" } }])),
+    ).resolves.toEqual([{ type: "page", uid: "home", why: "no signature recorded" }]);
   });
 });

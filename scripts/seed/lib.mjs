@@ -200,9 +200,46 @@ export async function remoteSliceChoices(type, zone, headers, fetchImpl = fetch)
   throw new Error(`custom type ${type} has no slice zone named ${JSON.stringify(zone)}`);
 }
 
-/** Published documents of one type, as `{ uid: id }`. A published document's
- *  id is the one thing the master ref CAN tell a re-run. */
-export async function publishedByUid(repo, type, ref, fetchImpl = fetch) {
+/** A fingerprint of a document's CONTENT, computable from both sides: the
+ *  payload a seed script sends, and the document the public API delivers.
+ *
+ *  It exists because "the uid is listed" is not "what I staged is live". A
+ *  re-staged document keeps its uid, so a publisher that checks uids reports
+ *  success while the new version sits unpublished in the migration release —
+ *  which is exactly what happened to the `home` page on 2026-09-21, twice: the
+ *  three-band version was staged, the publisher said "everything staged is
+ *  already live", and the single-band version stayed on the site.
+ *
+ *  WHAT IT PROVES, exactly: the document's filled top-level fields, the value
+ *  of every top-level SCALAR one (Text, Number, Select, Boolean), and the
+ *  ordered list of its slices by type and variation. WHAT IT DOES NOT: the
+ *  contents of rich text, groups, links or images — those count as present or
+ *  absent only. A change confined to a paragraph's words will not show here. */
+export function contentSignature(data) {
+  const filled = stripEmpty(data ?? {}) ?? {};
+  const slices = Array.isArray(filled.slices)
+    ? filled.slices.map((s) => `${s.slice_type}/${s.variation ?? "default"}`)
+    : [];
+  // An empty array is UNFILLED here, though `stripEmpty` keeps one (where it is
+  // used, on a payload, `[]` is a valid unfilled rich text and the distinction
+  // matters). The two sides disagree about it otherwise: the public API returns
+  // every Group the model declares, unfilled ones as `[]`, and a payload simply
+  // omits them. Measured before this line existed: 2 of 22 live listings
+  // fingerprinted the same as what staged them; the other 20 differed by the
+  // one key `tracts`, which only Scenic Loop and one other actually fill.
+  const keys = Object.keys(filled)
+    .filter((k) => k !== "slices" && !(Array.isArray(filled[k]) && filled[k].length === 0))
+    .sort();
+  const scalar = (v) => ["string", "number", "boolean"].includes(typeof v);
+  return JSON.stringify({
+    slices,
+    keys,
+    scalars: keys.filter((k) => scalar(filled[k])).map((k) => `${k}=${filled[k]}`),
+  });
+}
+
+/** Published documents of one type, as `{ uid: document }`. */
+export async function publishedDocs(repo, type, ref, fetchImpl = fetch) {
   const out = {};
   for (let page = 1, total = 1; page <= total; page++) {
     const q = encodeURIComponent(`[[at(document.type,"${type}")]]`);
@@ -211,10 +248,17 @@ export async function publishedByUid(repo, type, ref, fetchImpl = fetch) {
     );
     if (!res.ok) throw await failure(res, `search published ${type}`);
     const body = await res.json();
-    for (const doc of body.results) if (doc.uid) out[doc.uid] = doc.id;
+    for (const doc of body.results) if (doc.uid) out[doc.uid] = doc;
     total = body.total_pages;
   }
   return out;
+}
+
+/** Published documents of one type, as `{ uid: id }`. A published document's
+ *  id is the one thing the master ref CAN tell a re-run. */
+export async function publishedByUid(repo, type, ref, fetchImpl = fetch) {
+  const docs = await publishedDocs(repo, type, ref, fetchImpl);
+  return Object.fromEntries(Object.entries(docs).map(([uid, doc]) => [uid, doc.id]));
 }
 
 /** Every asset already in the media library, as `{ filename: { id, url } }`,

@@ -30,6 +30,7 @@ import {
   masterRef,
   repositoryName,
   sleep,
+  contentSignature,
   stageDocument,
   stripEmpty,
   typeExists,
@@ -170,8 +171,16 @@ async function main(argv) {
   let updated = 0;
   for (const e of entries) {
     const id = state.documents[e.uid]?.id ?? published[e.uid];
-    const result = await stageDocument({ id, headers, ...toPayload(e, assetIds) });
-    state.documents[e.uid] = { id: result.id, at: new Date().toISOString() };
+    const payload = toPayload(e, assetIds);
+    const result = await stageDocument({ id, headers, ...payload });
+    // The signature of what was SENT — publish-release.mjs holds the live
+    // document to it, because a uid being listed says nothing about which
+    // version is listed.
+    state.documents[e.uid] = {
+      id: result.id,
+      at: new Date().toISOString(),
+      signature: contentSignature(payload.data),
+    };
     writeState(STATE_PATH, state);
     if (result.created) created++;
     else updated++;
