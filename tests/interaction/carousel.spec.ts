@@ -9,8 +9,9 @@ import sharp from "sharp";
 //  2. a real MOUSE press on Pause leaves it paused. Chromium focuses a button
 //     on mousedown; that focus "enters the carousel", which stops rotation and
 //     flips the control to Play — and a plain toggle on the click that follows
-//     starts it again. (The starter's Slider does exactly that when pressed on
-//     its rim; pressed on its glyph the click is swallowed instead.)
+//     starts it again. (Measured on the starter's Slider: pressed on its rim
+//     it does exactly that; pressed on its glyph it stays paused — why the
+//     glyph differs was not isolated, and nothing here relies on it.)
 //  3. the hit area is 44px. A unit test read `before:-inset-0.5` and called it
 //     44; Chromium measured 42, because an absolute inset starts inside the
 //     1px ring;
@@ -127,7 +128,7 @@ test("the bar and the slide turn on one clock, and the bar waits out the dissolv
 
     // The frame before the turn the bar was all but full; on the turn it is empty.
     // (0.9, not 0.99: a loaded CI runner may drop frames just before the turn;
-    // measured on an idle machine the last frame reads 0.998–0.9997.)
+    // measured on an idle machine the last frame read 0.9979–0.99998.)
     expect(samples[turn - 1].p).toBeGreaterThan(0.9);
     expect(samples[turn].p).toBe(0);
     // It filled for one dwell, and never ran backwards on the way.
@@ -189,8 +190,8 @@ for (const where of ["glyph", "rim"] as const) {
       const toggle = region.locator("button").first();
       await expect(toggle).toHaveAttribute("aria-label", "Pause slides");
 
-      // The rim is the case a plain toggle gets wrong; on the glyph, a toggle
-      // survives only if the browser swallows the click.
+      // Both must hold. With the pause click mutated back to a plain toggle,
+      // both of these went red.
       await toggle.click(where === "rim" ? { position: { x: 3, y: 20 } } : {});
       await pointerAway(page);
 
