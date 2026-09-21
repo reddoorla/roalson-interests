@@ -10,6 +10,7 @@
   import PageMasthead from "$lib/components/PageMasthead.svelte";
   import TurnstileWidget from "$lib/components/TurnstileWidget.svelte";
   import { OFFICE, officeAddressLines, officeDirectionsUrl } from "$lib/office";
+  import { reveal } from "$lib/utils/reveal";
   import type { ActionData, PageData } from "./$types";
 
   let { data, form }: { data: PageData; form: ActionData } = $props();
@@ -20,23 +21,10 @@
   let message = $state("");
   let submitting = $state(false);
 
-  /** Put focus on a panel script has just rendered, and put the panel in view.
-   *
-   *  Two calls, because `focus()`'s own scroll is "only if needed", decided at
-   *  the instant of the call — and `html` is `scroll-behavior: smooth`. Tab to
-   *  the submit and press Enter, and the glide that brought the button into
-   *  view is still in flight when the answer arrives: the alert IS in view at
-   *  that instant, so focus() scrolls nothing, and the glide then finishes with
-   *  the alert under the pinned bar. Measured at 1440×900 on the dev server:
-   *  alert top at −8px behind an 80px bar, focused and invisible.
-   *  `scrollIntoView` replaces the scroll in flight, and honours `html`'s
-   *  `scroll-padding-top` (app.css), so it lands 20px under the bar every time.
-   *  Optional call: jsdom has no scrollIntoView. */
-  function reveal(el: HTMLElement | null) {
-    if (!el) return;
-    el.focus({ preventScroll: true });
-    el.scrollIntoView?.({ block: "start" });
-  }
+  // `reveal`, not `focus()`, for both panels below: a plain focus() left the
+  // failure alert focused and invisible, top at −8px behind the 80px bar. The
+  // race and the measurement are in $lib/utils/reveal, which was lifted from
+  // this page so Form.svelte's summary could stop having the same defect.
 
   /** Focused when the confirmation replaces the form. Without this, focus is
    *  left on a submit button that no longer exists, which drops it to <body> —

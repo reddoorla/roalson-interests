@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { HTMLFormAttributes } from "svelte/elements";
   import type { Snippet } from "svelte";
+  import { reveal } from "$lib/utils/reveal";
 
   interface Props extends HTMLFormAttributes {
     errors?: Record<string, string>;
@@ -18,10 +19,15 @@
   const errorEntries = $derived(errors ? Object.entries(errors) : []);
   let summaryEl: HTMLDivElement | undefined = $state();
 
+  // `reveal`, not `focus()`. The summary is the form's first row and the submit
+  // its last, so it arrives while the glide that brought the button into view
+  // may still be in flight — and a plain focus() then leaves it focused under
+  // the pinned bar. /contact's alert was measured doing exactly that (top −8px
+  // behind an 80px bar) and this was the precedent it had copied. `html`'s
+  // scroll padding alone does not fix it: focus() scrolls nothing at all when
+  // it finds the summary in view mid-glide.
   $effect(() => {
-    if (errorEntries.length > 0) {
-      summaryEl?.focus();
-    }
+    if (errorEntries.length > 0) reveal(summaryEl);
   });
 </script>
 
