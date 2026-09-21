@@ -18,23 +18,33 @@ export const PROPERTY_STATUSES = ["Available", "Under Contract", "Sold"] as cons
 
 export type PropertyStatus = (typeof PROPERTY_STATUSES)[number];
 
+/** Anything carrying these fields of a listing's `data` — a whole
+ *  `PropertyDocument`, or the handful of fields a content relationship embeds
+ *  (the homepage's featured band holds listings that way, and they are not
+ *  documents). The three helpers below read one field each, so they ask for
+ *  one field each rather than being re-derived wherever a listing arrives in
+ *  another shape. */
+type WithPropertyData<K extends keyof PropertyDocument["data"]> = {
+  data: Pick<PropertyDocument["data"], K>;
+};
+
 /** A sold listing keeps its page — links already shared keep working — but
  *  leaves the index and the sitemap, and its card goes unlinked. */
-export function isSold(property: PropertyDocument): boolean {
+export function isSold(property: WithPropertyData<"status">): boolean {
   return property.data.status === "Sold";
 }
 
 /** Status worth announcing. "Available" is the unmarked default, so it gets no
  *  label; an empty Select reads as Available too. */
 export function statusLabel(
-  property: PropertyDocument,
+  property: WithPropertyData<"status">,
 ): Exclude<PropertyStatus, "Available"> | null {
   const status = property.data.status;
   return status === "Under Contract" || status === "Sold" ? status : null;
 }
 
 /** The editor-entered highlight lines, blanks dropped. */
-export function propertyHighlights(property: PropertyDocument): string[] {
+export function propertyHighlights(property: WithPropertyData<"highlights">): string[] {
   return property.data.highlights.map((h) => h.text?.trim() ?? "").filter(Boolean);
 }
 
