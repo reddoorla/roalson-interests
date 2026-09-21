@@ -2759,3 +2759,15 @@ within 0.08 of the line from the first reading; that mutation goes red at frame
 second timing assertion in that test (held at 0 for the dissolve, ± 150ms) has
 the same shape of exposure to a dropped frame and has not failed; it is left
 alone and named here so the next red has a head start.
+
+Honest accounting on this branch's own verify. It ran three times locally and was
+never wholly green. Run one: svelte-check red, because `vite.config.ts` imports
+the new `.mjs` helper and svelte-check types what it imports (JSDoc added). Run
+two: everything green but the carousel flake above. Run three, with that fixed:
+822 unit tests in 88 files and axe green, 60 of 61 Playwright tests, and
+`home-hero.spec.ts` red on its hydration wait — the bar still `absolute` after
+the default 5s, load average 18 with two agents' dev servers and browsers on the
+machine. The same spec alone, a minute later: 8 of 8 in 17s. That wait is
+positive evidence of hydration, not a performance budget, and the 5s is the
+fleet's shared Playwright default, so it is NOT widened here for a condition that
+exists only while this machine is running agents. CI is the clean-machine run.
