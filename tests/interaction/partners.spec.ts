@@ -1,5 +1,6 @@
-import { expect, test, type Locator, type Page } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
+import { expectRing, GARNET, OFF_WHITE } from "./expect-ring";
 
 // The "Our Legacy" band makes promises jsdom cannot check (see
 // src/lib/slices/Partners/index.svelte):
@@ -32,9 +33,7 @@ const LAUNCH = "/dev/home";
 const BIO = "/dev/home?bio";
 const FULL = "/dev/home?bio&photos";
 
-const GARNET = "rgb(101, 35, 35)";
 const SAND = "rgb(232, 225, 209)";
-const OFF_WHITE = "rgb(242, 239, 233)";
 
 const bar = 'nav[aria-label="Primary"]';
 const band = '[data-slice-type="partners"]';
@@ -395,27 +394,6 @@ test("every text link is a 24px target, and the padded zone really takes the poi
     expect(hit.bottom, "the bottom of the padded zone is the link's").toBe(true);
   }
 });
-
-/** Focus as a keyboard user does and require the ring, in this colour — one
- *  synchronous read, polled past `transition-colors` (see focus-ring.spec.ts,
- *  where both halves of that were failures). */
-async function expectRing(page: Page, target: Locator, color: string) {
-  await page.keyboard.press("Tab");
-  await expect
-    .poll(() =>
-      target.evaluate((el) => {
-        (el as HTMLElement).focus();
-        const cs = getComputedStyle(el);
-        return {
-          showing: el.matches(":focus-visible"),
-          color: cs.outlineColor,
-          width: cs.outlineWidth,
-          style: cs.outlineStyle,
-        };
-      }),
-    )
-    .toEqual({ showing: true, color, width: "2px", style: "solid" });
-}
 
 test("PROFILE and CONTACT take the garnet ring of the sand panel they sit on", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
