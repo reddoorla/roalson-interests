@@ -1202,3 +1202,67 @@ opening with focus on its Close and "Our Properties" marked current, one
 200–800 font face loaded and no console errors; with a 420px-tall viewport, so
 the empty listing is tall enough to move, the bar takes its ground at
 scrollY=280 and gives it back at 0.
+
+## 2026-09-20 — CI laid the bar out 15px narrower than its own window: two assertions that hard-coded the environment, and three theories that did not survive a measurement (`feat/nav-overlay`)
+
+Follow-up to the entry above, same branch. It took three pushes to get #20
+green, and none of the three failures was in the bar.
+
+**What failed.** `nav.spec.ts` asserted the trigger's centre at
+`1440 - 80 - 10`. Locally 1350; on the runner 1335, every time. The entry above
+records that the spec compares the Close to the trigger's box — it did, and
+that passed — but it ALSO kept an absolute x, written after thinking "Playwright
+hides scrollbars, so the layout is the window". That was reasoned, not
+measured, and it is the same shape as the comp numbers this spec exists to
+check: a claim about an environment is a claim about code.
+
+**Three theories, in the order they died.**
+
+1. _The runner draws a 15px classic scrollbar, so the layout is 1425._ The
+   second push derived the edge from `documentElement.clientWidth` instead of 1440. It failed with the same numbers — Expected 1350 — so `clientWidth` on
+   the runner IS 1440. The bar lays out 15px narrower than both `innerWidth`
+   and `clientWidth`.
+2. _So the scroll lock double-pays._ The first failure's log showed the Close
+   still matching the trigger's box with body overflow hidden, i.e. the layout
+   did not widen when the lock went on — app.css sets
+   `scrollbar-gutter: stable`. `lockBodyScroll` (lifted verbatim from Modal)
+   pays `innerWidth - clientWidth` back as body padding, which under a stable
+   gutter would narrow the page for a scrollbar that never left. A test for it
+   was pushed WITH the lock unchanged, as the experiment. It passed on the
+   runner. With `clientWidth` at 1440 there was nothing to pay back, so the
+   condition does not exist there either. The theory is neither proven nor
+   refuted; the lock stays as lifted, and the question is filed upstream as
+   unverified (reddoorla/reddoor-starter#160) with the one environment that
+   can answer it: a browser whose scrollbar takes layout space, i.e. Windows.
+3. _A styled `::-webkit-scrollbar` takes layout space on every OS, so the
+   condition can be forced locally._ Written into a test comment as fact.
+   Measured: five variants (`html`, `body`, universal, with `overflow-y:
+scroll`) under two launch modes, `clientWidth` 1440 in all ten.
+
+The test from (2) passed vacuously in both environments that exist, so it was
+removed rather than kept — a green that measures nothing is the pattern this
+repo's rules name first.
+
+**What shipped instead.** The position check derives nothing from the window.
+It reads the bar row's own right edge and computed padding, asserts the gutter
+is the comp's 80 (20 at 390), and that the GLYPH ends on that edge. Mutation:
+without the trigger's `-mr-3` it fails by 12px (1348 against 1360). The
+measurements ride in the assertion message, so a future failure says what it
+saw instead of two bare numbers. WHY the runner's fixed bar is 15px narrower
+than `clientWidth` is still not known — the stable gutter is the likely reason
+and nothing here proves it.
+
+**The second failure was a race.** "Expected 70, Received 80": the bar's height
+was read the instant `setViewportSize(390)` resolved. It passed in the first CI
+run and failed three times out of three in the second, so the resize is not
+laid out synchronously on the runner. Size checks after a resize are
+auto-retrying now (`toHaveCSS`, `expect.poll`). Nothing local ever showed it.
+
+**Honest accounting.** The local `pnpm verify` was green before the first push
+and said nothing about any of this; the only environment that could was CI,
+and it cost three rounds of about three minutes each. The rule that would have
+saved two of them is already in CLAUDE.md. The third — do not assert an
+absolute coordinate when the thing under test is a relationship — is the one
+to keep.
+
+`ci / ci` green on `7f8a474`: 608 unit tests in 76 files, 20 Playwright tests.
