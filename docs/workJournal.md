@@ -1506,3 +1506,35 @@ returned NaN for the theme's `--color-black: black`.
 Not verified on a production build: `/dev/properties` 404s there by design, and
 the production `/properties` has no cards on the placeholder. The rule is plain
 CSS in `app.css`'s base layer; the build does not transform it.
+
+## 2026-09-21 — The focus-ring spec merged an hour ago was flaky, for two different reasons (`fix/focus-ring-spec-race`)
+
+Corrects part of the entry above: `tests/interaction/focus-ring.spec.ts` went
+green locally and on CI for #23, and failed the next branch's `pnpm verify` —
+one run in three, measured by re-running it — with a ring reported as sand
+inside the menu. Nothing in that branch touched the bar, the menu or app.css.
+
+**Cause one: the check and the read were two round trips.** The helper asked
+`matches(":focus-visible")` in one `evaluate` and read `outlineColor` in a
+second. Inside the menu the focus trap moved focus between them, and the second
+call measured an unfocused link — whose outline colour computes to
+`currentcolor`, the link's own sand. The "positive evidence" half of the helper
+was real; it just was not evidence about the same moment as the number.
+
+**Cause two appeared the moment cause one was fixed.** With focus, check and
+read in one synchronous block, EVERY run failed, deterministically, with the
+control's own text colour (dust for the floating trigger). Tailwind's
+`transition-colors` lists `outline-color`: at the instant of focus the ring is
+still leaving `currentcolor`, and the repo's reduced-motion reset shortens that
+transition to 0.01ms but does not make it synchronous. The two-round-trip
+version had been passing BECAUSE of its latency.
+
+The helper is one atomic block — focus, `:focus-visible`, colour, width, style
+— polled until it reads `{ showing: true, color, 2px, solid }`. `showing` has
+to be true in the same read that reports the colour, and the poll outlasts the
+transition and re-focuses after a steal. Eight consecutive runs green; removing
+`.from-primary` and `[data-floating]` from the dark rule still turns both tests
+red, so the poll did not make it a test that cannot fail.
+
+Worth keeping: a flaky test merged to `main` taxes every later PR, so it was
+fixed on its own branch before the branch that tripped over it went anywhere.
