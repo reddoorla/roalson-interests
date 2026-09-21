@@ -37,7 +37,11 @@
   // bio set on a 188px measure is unreadable. A <details> keeps its content
   // inside its own box, and that box is a flex item in the links row. So the
   // <details> holds ONLY the summary, the bio is the card's last child at the
-  // card's full width, and the stylesheet below closes it while the card's
+  // card's full width (KNOWN COST, accepted for the comp's layout: the opened
+  // bio does not follow its trigger in reading order — CONTACT sits between
+  // PROFILE and the bio, so a screen-reader user passes one link to reach what
+  // they opened; `aria-controls` names the bio for the readers that use it),
+  // and the stylesheet below closes it while the card's
   // <details> is not `[open]`.
   //
   // The rule is written as "hide while closed", never "show while open": a
@@ -236,7 +240,8 @@
                             >
                               <span class={LINK_ROW}>
                                 <span class={LINK_TEXT}
-                                  >Profile<span class="sr-only">, {partner.name}</span></span
+                                  >Profile<span class="sr-only normal-case">, {partner.name}</span
+                                  ></span
                                 >
                                 <TextLinkArrow
                                   class="transition-transform duration-200 group-open/profile:rotate-90"
@@ -256,7 +261,7 @@
                                  the drawn line it paints nothing (the text is
                                  61.11 wide with it and without it). -->
                             <span class={LINK_TEXT}
-                              >Contact <span class="sr-only">{partner.name}</span></span
+                              >Contact <span class="sr-only normal-case">{partner.name}</span></span
                             >
                             <TextLinkArrow />
                           </span>

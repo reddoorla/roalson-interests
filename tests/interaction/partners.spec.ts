@@ -186,8 +186,12 @@ test("with scripting OFF, PROFILE opens the bio and closes it again", async ({ b
     await page.goto(BIO, { waitUntil: "domcontentloaded" });
 
     // Positive evidence that script is really off, or "works without script"
-    // is a claim about nothing: only mount pins this bar.
+    // is a claim about nothing. The bar being `absolute` is NOT that evidence
+    // on its own — a script-on page shows the same thing until mount — so this
+    // reads what only a script-off document produces: app.html's <noscript>
+    // stylesheet hiding `[data-js-only]` (measured: "none" off, "flex" on).
     await expect(page.locator(bar)).toHaveCSS("position", "absolute");
+    await expect(page.locator("[data-js-only]").first()).toHaveCSS("display", "none");
     // `evaluate` still runs with page script off; the stylesheet's font does too.
     await fontsArrived(page);
 

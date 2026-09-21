@@ -20,7 +20,7 @@ source. It is the fastest way to recognise what a thing does.
 | [`animateIn.ts`](../src/lib/actions/animateIn.ts) | `animateIn` | 23 |  |
 | [`trapFocus.ts`](../src/lib/actions/trapFocus.ts) | `trapFocus` | 24 | Focus management for modal overlays (WCAG 2.4.3 focus order + 2.1.2 no keyboard trap) |
 | [`carousel.svelte.ts`](../src/lib/carousel.svelte.ts) | `createCarousel` | 49 | Headless carousel / slideshow state — index, loop, autoplay, pause and a progress-bar value, all on ONE clock — for markup Slider.svelte's layout cannot hold (controls INSIDE the slide's panel, a 2px progress bar, a list that is only a carousel below `md`) |
-| [`cms-href.ts`](../src/lib/cms-href.ts) | `SITE_HOSTS`, `sitePath`, `cmsHref` | 6 | A CMS Link field as the href a button should carry |
+| [`cms-href.ts`](../src/lib/cms-href.ts) | `SITE_HOSTS`, `sitePath`, `cmsHref` | 7 | A CMS Link field as the href a button should carry |
 | [`Accordion.svelte`](../src/lib/components/Accordion.svelte) | `items`, `allowMultiple` | 4 |  |
 | [`AnimateInTriggered.svelte`](../src/lib/components/Animation/AnimateInTriggered.svelte) | `trigger`, `style`, `transitionDuration`, `children` | — |  |
 | [`AnimateOutTriggered.svelte`](../src/lib/components/Animation/AnimateOutTriggered.svelte) | `trigger`, `style`, `transitionDuration`, `children` | — |  |
@@ -88,4 +88,4 @@ source. It is the fastest way to recognise what a thing does.
 | [`scrollLock.ts`](../src/lib/utils/scrollLock.ts) | `lockBodyScroll` | 4 | Stop the document scrolling behind a full-screen overlay; returns the release |
 | [`vimeo.ts`](../src/lib/utils/vimeo.ts) | `checkVimeoVideo` | 5 | True when the Vimeo video exists and is embeddable (oEmbed responds 200) |
 
-70 modules, 538 tests behind them.
+70 modules, 539 tests behind them.
