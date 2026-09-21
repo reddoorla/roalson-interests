@@ -253,6 +253,32 @@ describe("carousel navigation, in markup", () => {
     expect(current(container)).toBe(1);
   });
 
+  it("takes the arrow key as its own on a control: the page does not scroll sideways under it", async () => {
+    const { container, getByLabelText } = renderFixture();
+    const event = new KeyboardEvent("keydown", {
+      key: "ArrowRight",
+      bubbles: true,
+      cancelable: true,
+    });
+    getByLabelText("Previous slide").dispatchEvent(event);
+    await tick();
+    expect(current(container)).toBe(2);
+    expect(event.defaultPrevented).toBe(true);
+  });
+
+  it("stands back when something nearer the key already handled it", async () => {
+    const { container, getByLabelText } = renderFixture();
+    const next = getByLabelText("Next slide");
+    // A listener ON the button runs before Svelte's delegated one at the root.
+    next.addEventListener("keydown", (e) => e.preventDefault(), { once: true });
+    await fireEvent.keyDown(next, { key: "ArrowRight" });
+    expect(current(container)).toBe(1);
+    // The same key, unclaimed, is what turns it — so the line above is the
+    // guard and not a dead handler.
+    await fireEvent.keyDown(next, { key: "ArrowRight" });
+    expect(current(container)).toBe(2);
+  });
+
   it("leaves modified arrows alone — Alt+Left is the browser's Back", async () => {
     const { container, getByLabelText } = renderFixture();
     const next = getByLabelText("Next slide");
@@ -504,6 +530,20 @@ describe("carousel autoplay, in markup", () => {
     expect(container.querySelector('[aria-live="polite"]')).toBeTruthy();
   });
 
+  it("does not start in a tab that is already hidden when it mounts", async () => {
+    // A link opened in a background tab fires no visibilitychange: the state
+    // has to be sampled once, not only listened for.
+    vi.useFakeTimers();
+    setVisibility("hidden");
+    const { container } = renderFixture({ autoplay: DWELL });
+    await advance(3 * DWELL);
+    expect(current(container)).toBe(1);
+
+    setVisibility("visible");
+    await advance(DWELL);
+    expect(current(container)).toBe(2);
+  });
+
   it("stops rotating when the tab is hidden", async () => {
     vi.useFakeTimers();
     const { container } = renderFixture({ autoplay: DWELL });
@@ -515,6 +555,40 @@ describe("carousel autoplay, in markup", () => {
     setVisibility("visible");
     await advance(DWELL);
     expect(current(container)).toBe(2);
+  });
+});
+
+describe("carousel switched off, in markup", () => {
+  it("is a plain list: no controls, no bar, no carousel roles, nothing inert — until it is switched on", async () => {
+    // Issue #14 is a stacked list from `md` up and a carousel below it. The
+    // headless case further down reads the empty bags; this reads the markup a
+    // consumer gets, which is where a missing guard in either component shows.
+    const { container, getAllByRole, rerender } = renderFixture({
+      enabled: false,
+      autoplay: DWELL,
+    });
+    // Every slide's link is in the accessibility tree at once — a list.
+    expect(getAllByRole("link").map((a) => a.textContent)).toEqual([
+      "Link in slide 1",
+      "Link in slide 2",
+      "Link in slide 3",
+      "Link in slide 4",
+    ]);
+    expect(container.querySelectorAll("button").length).toBe(0);
+    expect(container.querySelector("[data-carousel-progress]")).toBeNull();
+    expect(container.querySelector('[role="region"], [role="group"]')).toBeNull();
+    expect(container.querySelector("[aria-roledescription]")).toBeNull();
+    expect(container.querySelector("[inert], [aria-hidden], [aria-live]")).toBeNull();
+    expect([...container.querySelectorAll<HTMLElement>("*")].filter(isInert)).toEqual([]);
+
+    // The same fixture, switched on, has all of it — so the absences above are
+    // the switch and not a fixture that renders nothing.
+    await rerender({ enabled: true });
+    expect(container.querySelector('[role="region"]')).toBeTruthy();
+    expect(container.querySelectorAll("button").length).toBe(3);
+    expect(container.querySelector("[data-carousel-progress]")).toBeTruthy();
+    expect(getAllByRole("link").map((a) => a.textContent)).toEqual(["Link in slide 1"]);
+    expect(allSlides(getAllByRole).filter(isInert).length).toBe(3);
   });
 });
 
@@ -749,6 +823,11 @@ describe("createCarousel, headless", () => {
     expect(carousel.swipe).toEqual({});
     expect(carousel.statusText).toBe("");
     expect(carousel.next()).toBe(false);
+    expect(carousel.prev()).toBe(false);
+    // goTo as well: a list has no "current", and an index moved while it is
+    // off is the slide a phone-width user would land on after a resize.
+    carousel.goTo(2);
+    expect(carousel.index).toBe(0);
     await advance(3 * DWELL);
     expect(carousel.index).toBe(0);
     expect(vi.getTimerCount()).toBe(0);
@@ -761,15 +840,43 @@ describe("createCarousel, headless", () => {
     expect(carousel.index).toBe(1);
   });
 
-  it("keeps out of text fields: an arrow key in an input moves the caret, not the slide", () => {
-    const carousel = mount({ count: 3 });
+  /** The region's keydown handler, called as the browser would with `target`. */
+  const pressArrowOn = (carousel: Carousel, target: HTMLElement) => {
     const onkeydown = carousel.region.onkeydown as unknown as (e: KeyboardEvent) => void;
-    const input = document.createElement("input");
     const event = new KeyboardEvent("keydown", { key: "ArrowRight", cancelable: true });
-    Object.defineProperty(event, "target", { value: input });
+    Object.defineProperty(event, "target", { value: target });
     onkeydown(event);
+    return event;
+  };
+
+  // A field in the carousel's own header (a search box over a list of
+  // listings) — NOT one inside a slide, where no arrow key is taken anyway.
+  it.each([
+    ["an <input>", () => document.createElement("input")],
+    ["a <textarea>", () => document.createElement("textarea")],
+    ["a <select>", () => document.createElement("select")],
+    [
+      "a contenteditable",
+      () => {
+        // jsdom has no `isContentEditable` at all (it reads `undefined`), so
+        // the property is given here. That it is TRUE on a real contenteditable
+        // and on its descendants is the browser's promise, not this test's.
+        const el = document.createElement("div");
+        Object.defineProperty(el, "isContentEditable", { value: true });
+        return el;
+      },
+    ],
+  ])("keeps out of %s: the arrow key moves the caret, not the slide", (_, make) => {
+    const carousel = mount({ count: 3 });
+    const event = pressArrowOn(carousel, make());
     expect(carousel.index).toBe(0);
     expect(event.defaultPrevented).toBe(false);
+
+    // The same call on a button turns the slide and claims the key — so the
+    // zeros above are the guard, not a handler that never ran.
+    const claimed = pressArrowOn(carousel, document.createElement("button"));
+    expect(carousel.index).toBe(1);
+    expect(claimed.defaultPrevented).toBe(true);
   });
 
   it("nested in another carousel's slide, its controls still take the keys — that slide is not its own", () => {
@@ -806,6 +913,20 @@ describe("createCarousel, headless", () => {
     expect(press("inner-link"), "inside a slide of both").toBe(false);
     expect([inner.index, outer.index]).toEqual([1, 0]);
     document.body.innerHTML = "";
+  });
+
+  it("does not remember focus as a pause where it could not have been rotating", () => {
+    // Under reduced motion, or with no autoplay, there is no Play control to
+    // undo a pause with — so a pause recorded then would surface later (the OS
+    // preference switched off mid-session) as a carousel stopped by nobody.
+    const carousel = mount({ count: 3 });
+    const onfocusin = carousel.region.onfocusin as unknown as (e: FocusEvent) => void;
+    onfocusin(new FocusEvent("focusin"));
+    expect(carousel.paused).toBe(false);
+
+    const timed = mount({ count: 3, autoplay: DWELL });
+    (timed.region.onfocusin as unknown as (e: FocusEvent) => void)(new FocusEvent("focusin"));
+    expect(timed.paused, "and where it can rotate, focus entering IS a pause").toBe(true);
   });
 
   it("swipes: left goes on, right goes back", () => {

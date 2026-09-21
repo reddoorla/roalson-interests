@@ -46,6 +46,14 @@ describe("CarouselProgress", () => {
     expect(fill(container).className).toContain("origin-left");
   });
 
+  it("draws nothing for a carousel that is switched off", async () => {
+    const { container, rerender } = render(CarouselFixture, { count: 3, enabled: false });
+    expect(container.querySelector("[data-carousel-progress]")).toBeNull();
+    // The same render, switched on, has the bar — the null is the switch.
+    await rerender({ enabled: true });
+    expect(bar(container).dataset.carouselProgress).toBe("position");
+  });
+
   it("draws the carousel's clock while it can autoplay — and freezes with it", async () => {
     vi.useFakeTimers();
     const { container, getByLabelText } = render(CarouselFixture, { count: 3, autoplay: DWELL });

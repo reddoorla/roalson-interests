@@ -46,9 +46,12 @@ describe("CarouselArrows", () => {
     // The 44px hit area is NOT asserted here: a class name said 44 while
     // Chromium measured 42 (an absolute inset starts inside the border). It is
     // measured, with elementFromPoint, in tests/interaction/carousel.spec.ts.
-    const { getByLabelText } = render(CarouselFixture, { count: 3 });
+    const { getByLabelText } = render(CarouselFixture, { count: 3, autoplay: 1600 });
     const next = getByLabelText("Next slide");
-    expect(next.getAttribute("type")).toBe("button");
+    // All three: a consumer may put the carousel inside a <form> (a listings
+    // search), where a bare <button> submits it.
+    for (const name of ["Pause slides", "Previous slide", "Next slide"])
+      expect(getByLabelText(name).getAttribute("type"), name).toBe("button");
     const classes = next.className.split(/\s+/);
     for (const needed of ["size-10", "rounded-full", "border", "relative"])
       expect(classes, needed).toContain(needed);
@@ -86,6 +89,19 @@ describe("CarouselArrows", () => {
     for (const [tone, classes] of Object.entries(ARROW_TONES)) {
       expect(classes, tone).not.toMatch(/(^|[\s:])(outline|ring)-/);
     }
+  });
+
+  it("draws nothing for a carousel that is switched off", async () => {
+    const { container, queryByLabelText, rerender } = render(CarouselFixture, {
+      count: 3,
+      autoplay: 1600,
+      enabled: false,
+    });
+    expect(container.querySelectorAll("button").length).toBe(0);
+    expect(queryByLabelText("Next slide")).toBeNull();
+    // The same render, switched on, has all three — the zero is the switch.
+    await rerender({ enabled: true });
+    expect(arrows(container).querySelectorAll("button").length).toBe(3);
   });
 
   it("never fills on hover at a bound — the arrow there does nothing", () => {
