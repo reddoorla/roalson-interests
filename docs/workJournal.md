@@ -3069,3 +3069,264 @@ Honest accounting on verify: the local run was green through the build, axe and
 load average 15.9, with agents' servers and browsers on the machine — the same
 local condition #42's entry describes, in a spec this branch does not touch. That
 spec alone, straight after: 14 of 14 in 28s. CI is the clean-machine run.
+
+## 2026-09-21 — The "Our Legacy" band: partner cards from the CMS, a PROFILE that needs no script, and a batch finished by a second agent (`feat/home-legacy-partners-2`)
+
+This batch was built by two sessions. The first wrote the `partners` slice and its
+browser spec, and was killed by the machine-wide usage limit with one spec edit
+uncommitted and no handoff written. The second — this entry's author — started from
+its branch, verified what was there rather than trusting it, finished the proofs, and
+wrote this. Where a sentence below is the first session's finding and not something
+I re-measured, it says so.
+
+**What the band is.** The homepage's second `Value Prop #1` (6802:1472 at 1440,
+6994:829 at 390) on the off-white ground: an eyebrow and a 0.5px garnet hairline over
+the partner cards on the left, the H2 "Representing Your Best Interests in Acquisition
+and Disposition" and two paragraphs of Body 1 on the site's right-hand column. Operator
+call 12 decides the cards: name, role and CONTACT come from Prismic; an empty contact
+link goes to `/contact` through `cms-href`; PROFILE renders ONLY for a partner with a
+bio. Neither partner has one, so **no PROFILE renders at launch**, and because both of
+the comp's headshots are placeholders (#3) no photo ships either: the launch card is a
+371 × 153 sand panel with a name, a role and one link.
+
+**Why PROFILE is a `<details>` and the bio is not inside it.** The critic's B10 row asks
+for "SSR HTML + a noscript rule"; the scout's spec proposed a `<button aria-expanded
+data-js-only>` with `hidden` toggled and a `<noscript>` rule opening every bio. A native
+`<details>/<summary>` is strictly better on the property that matters — it opens before
+hydration, with scripting off, and when the bundle never arrives, because there is no
+handler to be missing — and it needs no entry in `app.html`. What is unusual is the
+placement. The comp puts PROFILE inside the 218px info panel beside CONTACT, and a
+`<details>` keeps its content inside its own box, which here is a flex item in the
+links row: the bio would have been set on a 188px measure. So the `<details>` holds only
+the `<summary>`, the bio is the card's last child at the card's full width — always in
+the server's HTML, never behind `{#if}` — and one scoped rule closes it:
+`li:has(details:not([open])) > [data-partner-bio] { display: none }`. It is written as
+"hide while closed" on purpose. A browser without `:has()` (Firefox < 121, Safari <
+15.4) drops the rule and shows every bio; written the other way round it would hide
+them for good. Chromium cannot tell the two directions apart, so that mutant (M5)
+survives the browser spec and is held only by `Partners.test.ts`, which reads the
+source's `<style>` block. That is a known, stated hole, not an oversight.
+
+**DOM order is the phone's, and the price was the heading level.** The scout's plan was
+text first in the DOM with `order-first` on the cards below `lg`, which keeps partner
+names as `<h3>`s after the band's `<h2>`. It also breaks focus order on a phone the day
+an editor puts a link in the body or fills the optional buttons: the cards are drawn
+first and tabbed to last. The band is cards-then-text in the DOM at every width, the
+grid's auto-placement puts the first child left from `lg`, and no `order-*` is used. A
+partner's name is therefore a `<p>` wearing `t-h3`, because an `<h3>` ahead of the
+band's `<h2>` would file both partners under the PREVIOUS band's heading. axe does not
+hold this — the first session tried: with the names as `<h3>`s its heading-order passes
+on /dev/home, because the hero's "Our specialty" h2 comes first and h2 → h3 skips
+nothing. Only the unit test holds it (M7).
+
+**Measured, band-relative, at a LAYOUT width of 1440 and 390** (the viewport is widened
+until the band itself measures the target; `innerWidth` and `clientWidth` both report
+the viewport while this site lays out 15px narrower). Re-measured in this session from
+a fresh dev server, `legacy2-measure.mjs`:
+
+|                              | comp                                             | rendered                                      |
+| ---------------------------- | ------------------------------------------------ | --------------------------------------------- |
+| band, 1440                   | 1440 × 556, `#f2efe9`                            | 1440 × 556.03, rgb(242, 239, 233)             |
+| eyebrow cap top              | x80 y80, 10 tall (Area Normal)                   | x80 y80.01, 8.01 tall (H5, approved call 2)   |
+| hairline                     | x80 y120, 374 wide, 0.5px `#652323`              | x80 y120.03, 371 × 0.5, rgb(101, 35, 35)      |
+| cards                        | y150 and y323, 371 × 153                         | y150.03 and y323.03, 371 × 153                |
+| headshot / panel (`?photos`) | 153 × 153 / x233 218 × 153 `#e8e1d1`             | 153 × 153 / x233 218 × 153 rgb(232, 225, 209) |
+| name / role / links tops     | 180 / 216 / 255; 16, 9, 8 tall                   | 180.04 / 216.05 / 255.06; 16, 9, 8.03 tall    |
+| PROFILE / CONTACT text       | 56 × 8 / 61 × 8                                  | 56.14 × 8.01 / 61.11 × 8.01                   |
+| arrow                        | 10.4 × 7.2                                       | 11 × 8 (the export's own box)                 |
+| CONTACT's x beside PROFILE   | 339.4                                            | 340.14                                        |
+| link target                  | 8 tall                                           | 24.03 tall (72.14 and 77.11 wide)             |
+| right column                 | x514                                             | x513 (ruling C3)                              |
+| headline                     | y80, 586 × 73, 2 lines                           | y80, 586 × 73, 2 lines                        |
+| body                         | y193, 519 × 240, 10 lines, 24 between paragraphs | y193, 519 × 240, 10 lines, 24                 |
+| band, 390                    | 390 × 1161                                       | 390 × 1161.03                                 |
+| hairline, 390                | x20 y120, 350 wide                               | x20 y120.03, 350 × 0.5                        |
+| cards, 390                   | y150 and y323, 350 × 153; 153 + 197              | y150.03 and y323.03, 350 × 153; 153 + 197     |
+| text block, 390              | y536; headline 350 × 169, 4 lines                | y536.03; 350 × 169, 4 lines                   |
+| body, 390                    | y745, 350 × 336, 14 lines                        | y745.03, 350 × 336, 14 lines                  |
+| links row, 390               | 167.8 in a 167 column — one line                 | 169.25 in 182 — one line                      |
+
+Not drawn in the comp, so designed from the system and measured only against
+themselves: the launch card (panel = whole card, 371 × 153, band still 556.03); the
+open state (card 343 with a 190 bio, or 363 / 210 beside a headshot; band 746 / 766 at
+1440 and 1371 / 1391 at 390).
+
+Four numbers deliberately differ from the comp. The right column is at 513, not 514:
+C3 rules one grid site-wide and the comp is 1px inconsistent between its own bands, so
+the grid stays `[397fr_847fr]` and the LEFT column's content is capped at 371 instead.
+The hairline is the column's 371, not 374 — the 374 is drift from the band above, whose
+column is 374. The eyebrow's cap box is 8 where the comp's substitute font reports 10,
+so there is 32 under it rather than 30, which keeps the hairline at 120 and the first
+card at 150 where the comp has them. And the links row is 1.45px wider than drawn
+(169.25 against 167.8): 0.6 from each arrow's export box (11 against the glyph's 10.4)
+and a quarter pixel of text. The comp's row already overhangs its own 167 column by
+0.8px at 390, so the row is allowed into the panel's right padding (`-mr-[15px]`)
+before it wraps — one line at 390 as drawn, two on anything narrower, with wrapped rows
+16 apart so the two 24px targets tile instead of overlapping by 4 (the scout's
+`gap-y-3` would have; mutant P5).
+
+**Defects found while building it (first session's, recorded in its commits; the
+mutants that pin them are in its reports and I re-ran two).** The hairline was first a
+`before:` on the list, as HomeHero draws its own. axe's color-contrast refuses to
+measure text under an ANCESTOR whose pseudo-element is a quarter of the text's area,
+and a 371 × 1 rule is nearly half of a 56 × 14 "PROFILE": all three links — the
+smallest type on the page — came back "needs review", which the gate does not fail on
+and nobody reads. The rule is an element now, and the spec requires color-contrast to
+have MEASURED all 11 text nodes (13 with a bio open) and counts the three links by
+name. Second, the webfont is a `display=swap` Google Fonts face: held back 2s, the
+open card reads 363 before it lands and 343 after. The no-script test went red once
+under a mutation that could not have touched it; sizes are now read only after a
+loaded `FontFace` BY NAME (`document.fonts.check()` answers true for an unregistered
+family) and card-and-bio in one `evaluate`. That run's log was not kept, so the swap is
+the demonstrated mechanism, not the proven cause. Third, CONTACT was named
+"ContactMatt Howard": Svelte trims an element's leading whitespace and the
+accessible-name algorithm trims each child's text, so the space has to belong to the
+outer text, before the hidden span.
+
+**A belief of mine that a measurement corrected.** The spec's header says the shared
+config's forced `reducedMotion: "reduce"` makes the PROFILE arrow's turn instant under
+app.css, "harmless". The slice's `transition-transform duration-200` is bare, I grepped
+app.css for `prefers-reduced-motion`, read the first forty lines of output — all
+`no-preference` gates on single utilities — and concluded nothing stilled it: a real
+defect, the scout's "motion-gated" not honoured. I wrote the test first, expecting
+`transition-property: none` after a `motion-reduce:transition-none` fix. It went red,
+but on `duration: "1e-05s"`: app.css's base layer sets EVERY transition to 0.01ms under
+reduce, at line 442, past where my `head -40` stopped. The header was right; the slice
+is unchanged. What survives is the test, because the claim is about two files and
+nothing held it: reduce → `1e-05s`, a context of its own with `no-preference` → `0.2s`,
+`rotate` in the transition list both times, each half with `matchMedia` evidence of
+which preference the context really holds. The lesson is this file's own rule with a
+new instance: a claim made by reading a truncated read is not a claim made by reading
+the code.
+
+**A flake that is not this band's.** `adopted` — the wait for the bar to go `fixed`,
+the repo's positive evidence of hydration — used the default 5s. Every Playwright run
+starts its own cold vite dev server, and the first test that needs script pays for the
+whole client graph. With four workers, on a machine running four other agents, the
+first scripted test took 5.0s, then failed at 5s (13 polls, all `absolute`), then 6.6s.
+CI's two retries hide that; a laptop's zero do not. This spec now waits 15s — a longer
+wait for positive evidence can delay a red and cannot grant a green. `nav.spec.ts:28`
+and `home-hero.spec.ts:37` carry the same idiom and belong to other batches; that is an
+issue, not a fix.
+
+**Mutation proofs.** The first session's runner (`mut/legacy/run-mutations.mjs`) holds
+17 mutants, each restored with a copy and confirmed with a byte compare; its reports
+are in `mut/legacy/report-*.json`. All 17 were killed by at least one suite. Two are
+invisible to Chromium by nature and are killed by `Partners.test.ts` alone: M5 ("show
+while open") and M7 (names as `<h3>`). Mine (`mut/legacy-2/`), all killed, all restored
+`cmp ok`, `git status` clean after each:
+
+- R1 sand panel → `bg-primary`: the ring test, on `color` rgb(242, 239, 233) instead of
+  garnet (also the geometry test on the panel ground, and axe). This one mattered
+  because the ring test had been moved onto `expect-ring.ts` by the uncommitted edit,
+  AFTER its proofs were taken.
+- R2 `outline-none` on the links: the ring test alone, on `style: "none"`.
+- K1 arrow without `group-open/profile:rotate-90`: the keyboard test alone.
+- K2 `aria-controls` pointing at a non-existent id: the unit test that reads it, the
+  keyboard test, and axe.
+- V1 arrow with no transition: the motion test alone, on `turns: false`.
+- V2 app.css without its `transition-duration: 0.01ms`: the motion test alone, on
+  `0.2s` under reduce.
+- S1, S2: the first session's P1 and M3 re-run in this worktree. P1 reproduced the
+  recorded failing set exactly (five tests); M3 the one unit test. I did not re-run the
+  other fifteen; the code they ran against is byte-identical to this branch's.
+
+**Shared components, read and declined** (docs/COMPONENTS.md): `Accordion.svelte` — its
+panel is mounted with `{#if}`, so without script the bio would not be in the page at
+all; its content is a plain string and its chevron is lucide's. `ArrowRight` — the
+buttons' 25px arrow; the comp's text-link arrow is a different glyph, a flattened "→"
+exported from 6822:501 (6822:504 is byte-identical) as `TextLinkArrow`, hash-pinned in
+the unit test, and the same glyph follows every `text link` in the comp's hidden
+resource lists, so it will be reused. `PrismicLink` — drops a document link's href on
+this routes-free client (#10), so CONTACT is a plain `<a>` over `$lib/cms-href`.
+`PrismicImage`, which the scout proposed for the headshot — the slice uses a plain
+`<img>` over `$lib/utils/image` as `HeroBackgroundImage` does; those helpers pass a
+non-Prismic URL through untouched, which is what lets `/dev/home?photos` use a
+generated `data:` drawing and ship no photograph from any host. Used as they are:
+`BrandButton`, `RichTextBody`, `cms-href`, and `tests/interaction/expect-ring.ts`.
+
+**Honest accounting.** Almost all of this batch is the first session's work, and it was
+good: I found no half-written file, the generated index and types were already fresh
+(both generators ran to no diff), and unit, check and lint were green on arrival. This
+session's own contribution is small — the reviewed helper swap, one new browser test,
+one timeout, eight mutation runs, a fresh measurement, and a production build. The one
+"defect" I thought I had found was mine.
+
+**On a production build.** `/dev/*` 404s under `vite preview` by design and `/` has no
+`partners` slice in Prismic yet, so the band cannot be LOOKED at in a production build
+(#28). What can be checked was: `pnpm build` is green on this branch and the shipped
+CSS holds the closing rule intact after scoping and minification —
+`li.svelte-pgjltn:has(details:where(.svelte-pgjltn):not([open]))>[data-partner-bio]:where(.svelte-pgjltn){display:none}`.
+That is evidence the rule ships, not that a production page closes a bio with it.
+
+**Not done.** The `partners` model is not pushed to the Prismic repository and the
+`home` document does not carry the slice — no external write was made from this batch.
+No WebKit or Firefox was asked about `<summary>` or the no-`:has()` fallback; the
+`block` summary with an inner flex row is a precaution, not a measurement. The
+founder's garnet row (6822:457) is hidden in the comp at every width and is not built;
+`buttons` is modelled because the batch asked for it and renders nothing while empty,
+as the comp draws none. Partner emails are known (critic G11d) and deliberately not
+seeded — CONTACT goes to `/contact` until the operator says otherwise.
+
+**After review, and integration (orchestrator).** Two reviewers: rules said
+merge, fidelity said fix first, and fidelity was right.
+
+**A defect found by sweeping the widths the comp does not draw, with every test
+green.** With a headshot the card turned L-shaped wherever the panel beside it
+grew. The photo box was a fixed 153px square; where the partner's name or the
+links row wraps — 1024 to 1156 wide, and 375 and below — the sand panel is 167.1
+or 201.9 tall, and a notch of band ground showed under the photo: 14.1px, or
+48.9px at 1100 and at 360. An editor reaches it by filling `photo`, with no code
+change; the launch state has no photo and never showed it, and the spec's own
+360 case stood on the defect and passed, because it measured the links and not
+the photo. The box is now 153 wide, at least 153 tall, and stretched to its row
+(`b17fd7a`). It is held at 1100, 1024 and 360, and each case first requires that
+a panel HAS outgrown 153 at that width — without that line the three would pass
+on a layout that never wraps. Mutation: the fixed square put back → all three
+red, "153 vs 201.89".
+
+**An email in CONTACT went to the homepage.** The rules reviewer typed what the
+field's label invites: `mhoward@roalson.com`. `sitePath` gave it a scheme and
+parsed it — user `mhoward` at this site's own host, path `/` — and returned `/`.
+A username, no password and nothing after the host is an address, so it is
+`mailto:` now, and a bare phone number (a dotless word, which meant a route and a 404) is `tel:`. One belief corrected by mutation on the way: a separate regex for
+the BARE address was written first, and removing it changed nothing — the
+no-scheme branch already routes a bare address through the same URL parse. Dead
+code, deleted; the comment says why there is one mechanism.
+
+**"Script is off" was proven by something a script-on page also shows.** The
+no-script cases here and in `home-hero.spec.ts` took the bar being `absolute` as
+their positive evidence. That is true of every page until mount. They now also
+require what only a script-off document produces: app.html's `<noscript>`
+stylesheet hiding `[data-js-only]` (measured by the reviewer: "none" off, "flex"
+on).
+
+Smaller: the hidden partner names reached assistive technology in capitals
+(`normal-case` on the `sr-only` spans); the slice header records the accepted
+cost that CONTACT sits between PROFILE and the bio it opens; two comments were
+cut to what was measured — the half-pixel rule matches Figma at 2x and above and
+is a solid 1px line at 1x (pixel rows: 101,35,35 against Figma's 172,137,134),
+and the text arrow's export is SCALED by 1.059 to fill its 11×8 canvas, not
+padded, so CONTACT sits 0.75px right of the comp.
+
+**The rebase was the expensive one of the day**: seven files, because this band
+and the photo band (#41) both extended the home fixture. Both kept:
+`homeFixture()` returns hero, partners, photo band — the photo band LAST, because
+it only pins as the last thing in `<main>`, and its own unit test holds that;
+`/dev/home` takes `?photo` and `?bio`/`?photos` together; the `page` type offers
+`partners` before `photo_band`; the two generated files were regenerated, never
+hand-merged. A fifth known difference from the comp, from the fidelity sweep: at
+the 1280 frame the site's one grid (C3) makes the card column 345.94 against 359.
+
+`pnpm verify` on the rebased branch, wholly green for the first time since the
+machine started carrying agents: svelte-check 0 errors over 4603 files, axe 0
+violations across 2 routes, 883 unit tests in 90 files, 85 Playwright tests.
+NOT verified on a production build as a page: `/dev/*` answers 404 there and
+`/` carries no partners slice until the home document is re-staged; #28 has the
+`:has()` close added to it. Filed: #50 (the 5s hydration wait is NINE call
+sites and wants one shared helper — this session misread three local reds as a
+purely local condition until this batch's agent measured a cold server's first
+transform at 5.0 to 6.6s), #51 (WebKit and Firefox have never seen the `:has()`
+fallback or the `<summary>` layout), #52 (axe runs post a CSP report for the
+font stylesheet on every audit), #53 (half-pixel rules at 1x, both bands), #54
+(cards uncapped below `lg`; the 1280 difference).
