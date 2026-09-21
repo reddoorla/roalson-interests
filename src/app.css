@@ -422,6 +422,27 @@ main > section.hero-band:first-child {
   html {
     scroll-behavior: smooth;
     scrollbar-gutter: stable;
+
+    /* Focus Not Obscured (WCAG 2.2 SC 2.4.11). The bar is pinned on every route
+       (Nav.svelte: 70px, 80 from `lg`), and the browser does not know it: every
+       scroll it makes ON ITS OWN — Tab, Shift+Tab, a fragment, and native
+       validation focusing the first invalid control — aims at the scrollport's
+       top edge, which is under the bar. /contact, submitted with Name empty,
+       focused an input sitting 48 of its 48px behind it. axe has no rule for
+       this. Scroll padding is the one place that tells the scrollport where its
+       usable top is, so it is said here once: the bar plus 20px of air.
+
+       It ADDS to `scroll-margin-top`. An element that also carries a
+       `scroll-mt-*` sized for the bar lands a bar too low, so nothing should:
+       /contact's panels and Footer's `#footer-nav` gave theirs up to this.
+
+       `@variant lg`, not a width typed here, so this cannot drift from the
+       bar's own `lg:h-20`. With script off the bar is `absolute` and scrolls
+       away; the padding is then plain air above a landing, and harmless. */
+    scroll-padding-top: 90px;
+    @variant lg {
+      scroll-padding-top: 100px;
+    }
   }
 
   body {

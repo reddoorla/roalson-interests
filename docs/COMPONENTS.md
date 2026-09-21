@@ -35,7 +35,7 @@ source. It is the fastest way to recognise what a thing does.
 | [`CountUp.svelte`](../src/lib/components/CountUp.svelte) | `value`, `startValue`, `duration`, `startOnVisible`, `once`, `label`, `decimals`, `prefix`, `suffix`, `useGrouping`, `locale` | 12 | The number to count up to |
 | [`DefaultButton.svelte`](../src/lib/components/DefaultButton.svelte) | `href`, `onclick`, `children` | — | Shape and skin of the shared button, split so callers that must render a different element can still wear it |
 | [`DelayedLink.svelte`](../src/lib/components/DelayedLink.svelte) | `href`, `delay`, `children`, `beforeNavigate`, `onclick` | 5 |  |
-| [`Field.svelte`](../src/lib/components/Field.svelte) | `name`, `label`, `type`, `value`, `description`, `error`, `required`, `autocomplete`, `placeholder`, `minlength`, `maxlength`, `pattern`, `inputmode`, `rows`, `autofocus` | 16 | Marks this control as the one a containing dialog should open onto |
+| [`Field.svelte`](../src/lib/components/Field.svelte) | `name`, `label`, `type`, `value`, `description`, `error`, `required`, `autocomplete`, `placeholder`, `minlength`, `maxlength`, `pattern`, `inputmode`, `rows`, `autofocus` | 17 | Marks this control as the one a containing dialog should open onto |
 | [`Footer.svelte`](../src/lib/components/Footer.svelte) | `cta`, `nav`, `legal`, `logo`, `ground`, `currentPath`, `owner`, `text` | 22 | The site's footer — the comp's last `Value Prop #1` band (6820:188 on the Homepage at 1440, 6903:1117 on Properties; 6996:1026 / 6997:2055 at 390) |
 | [`Form.svelte`](../src/lib/components/Form.svelte) | `errors`, `errorSummaryTitle`, `children` | 5 |  |
 | [`HeroBackgroundImage.svelte`](../src/lib/components/HeroBackgroundImage.svelte) | `image`, `altFallback`, `preload` | 8 | LCP-optimized hero image |
@@ -84,8 +84,9 @@ source. It is the fastest way to recognise what a thing does.
 | [`image.ts`](../src/lib/utils/image.ts) | `DEFAULT_IMAGE_WIDTHS`, `isPrismicImageUrl`, `imgix`, `srcset` | 17 | Helpers for serving responsively-sized Prismic (imgix) images |
 | [`instantNavScroll.ts`](../src/lib/utils/instantNavScroll.ts) | `disableSmoothScroll`, `restoreSmoothScroll` | 5 |  |
 | [`preNavIntercept.ts`](../src/lib/utils/preNavIntercept.ts) | `shouldIntercept` | 11 |  |
+| [`reveal.ts`](../src/lib/utils/reveal.ts) | `reveal`, `revealInvalid` | 8 | Move focus to an element and land it 20px under the pinned bar — an alert, a confirmation or an error summary that script has just rendered (`reveal`), or the control native validation has just refused (`revealInvalid`) — because `focus()` alone loses a race with a smooth scroll in flight and leaves the element focused and hidden |
 | [`richTextHeadings.ts`](../src/lib/utils/richTextHeadings.ts) | `RT_HEADING_CTX`, `defaultLevel`, `buildHeadingLevelMap` | 9 | Editors author arbitrary heading levels inside Prismic rich-text bodies (heading1–6 are all enabled in the slice models) |
 | [`scrollLock.ts`](../src/lib/utils/scrollLock.ts) | `lockBodyScroll` | 4 | Stop the document scrolling behind a full-screen overlay; returns the release |
 | [`vimeo.ts`](../src/lib/utils/vimeo.ts) | `checkVimeoVideo` | 5 | True when the Vimeo video exists and is embeddable (oEmbed responds 200) |
 
-70 modules, 548 tests behind them.
+71 modules, 557 tests behind them.

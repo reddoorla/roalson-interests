@@ -66,17 +66,22 @@ async function submitByKeyboard(page: Page) {
   await page.keyboard.press("Enter");
 }
 
-/** Where a panel sits against the pinned bar, once the page has stopped moving. */
-async function landing(page: Page, selector: string) {
+/** Resolves once two consecutive samples of scrollY agree — a glide is over. */
+async function still(page: Page) {
   let last = Number.NaN;
   await expect
     .poll(async () => {
       const y = await page.evaluate(() => Math.round(scrollY));
-      const still = y === last;
+      const same = y === last;
       last = y;
-      return still;
+      return same;
     })
     .toBe(true);
+}
+
+/** Where a panel sits against the pinned bar, once the page has stopped moving. */
+async function landing(page: Page, selector: string) {
+  await still(page);
   return page.evaluate(
     ([panel, nav]) => {
       const el = document.querySelector(panel)!;
@@ -267,12 +272,15 @@ test("a focused field gains a 2px garnet ring on its 1px border; an invalid one,
 });
 
 /** A context that does NOT ask for reduced motion, so `html`'s smooth scroll
- *  is live — the shared config's default hides the race this test is for. */
-async function withMotion(browser: Browser, width: number, height: number) {
-  const context = await browser.newContext({
-    viewport: { width, height },
-    reducedMotion: "no-preference",
-  });
+ *  is live — the shared config's default hides the race this test is for.
+ *  `reducedMotion` is a parameter for the cases below that need BOTH. */
+async function withMotion(
+  browser: Browser,
+  width: number,
+  height: number,
+  reducedMotion: "no-preference" | "reduce" = "no-preference",
+) {
+  const context = await browser.newContext({ viewport: { width, height }, reducedMotion });
   return { context, page: await context.newPage() };
 }
 
@@ -368,6 +376,137 @@ test("a screened-out send shows the confirmation in place of the form, focused, 
     await context.close();
   }
 });
+
+// ── Focus Not Obscured (WCAG 2.2 SC 2.4.11) ────────────────────────────────
+//
+// The two landings above are the ones SCRIPT makes. The browser makes more of
+// them than script does, and the first review of this page found them all
+// unguarded: native validation — this page's ONLY validation — focuses the
+// first invalid control and scrolls it "into view", and every Tab and
+// Shift+Tab does the same. "In view" means inside the scrollport, and nothing
+// had told the scrollport that its top 80px (70 below `lg`) are under a pinned
+// bar. Submitted with Name empty at 1440×900, the input took focus at top 20 /
+// bottom 68: 48 of its 48px behind the bar. axe has no rule for this, so
+// "wcag22aa: 0 violations" below cannot see it.
+//
+// Two things hold it, and each case below needs both. `html
+// { scroll-padding-top }` in app.css says WHERE the scrollport's usable top is
+// — for every landing the browser makes from rest, which is all the Shift+Tab
+// walk asks of it. It is not enough for a submit: with the padding in place and
+// the keyboard's Tab-then-Enter, the browser's focus was decided mid-glide and
+// Name still ended at top 70 under the 80px bar (and a click made mid-glide
+// left it at −159, off the screen). `revealInvalid` on Field's controls is what
+// makes the landing the same every time: the field's LABEL 20px under the bar.
+//
+// BOTH motion settings, because the defect moved with them — hidden at 1440
+// with the glide live, hidden at 390 with reduced motion, visible at 390 with
+// the glide — and the runner's widths for a 1440 and a 390 LAYOUT (it lays out
+// 15px narrower than its viewport), though nothing below reads an x.
+const SIZES = [
+  [1455, 900],
+  [405, 664],
+] as const;
+const MOTIONS = ["no-preference", "reduce"] as const;
+const nameInput = `${formSection} input[name="name"]`;
+const nameId = (page: Page) => page.locator(nameInput).evaluate((el) => el.id);
+
+for (const [width, height] of SIZES) {
+  for (const motion of MOTIONS) {
+    for (const how of ["keyboard", "mouse"] as const) {
+      test(`submitted with Name empty by ${how}, the focused field is clear of the pinned bar (${width}, ${motion})`, async ({
+        browser,
+      }) => {
+        const { context, page } = await withMotion(browser, width, height, motion);
+        try {
+          await page.goto(ROUTE);
+          await hydrated(page);
+          await expect(page.locator(bar)).toHaveCSS("position", "fixed");
+          // Everything valid but Name, so Name is the control the browser picks.
+          await page.getByLabel(/^Email/).fill("ada@example.com");
+          await page.getByLabel(/^Message/).fill("Name was left empty on purpose.");
+          if (how === "keyboard") await submitByKeyboard(page);
+          else await page.getByRole("button", { name: "Send message" }).click();
+
+          // Positive evidence that the BROWSER refused the submission and moved
+          // focus itself: the field is invalid and holds focus, and neither
+          // answer from the server has rendered.
+          await expect(page.locator(nameInput)).toBeFocused();
+          expect(await page.locator(nameInput).evaluate((el) => el.matches(":invalid"))).toBe(true);
+          await expect(page.locator(`${formSection} [role="alert"]`)).toHaveCount(0);
+          await expect(page.locator(`${formSection} [role="status"]`)).toHaveCount(0);
+
+          const at = await landing(page, nameInput);
+          expect(at.focused, "Name holds focus").toBe(true);
+          expect(at.bottom - at.top, "the 48px control").toBe(48);
+          expect(at.top, "not under the pinned bar").toBeGreaterThanOrEqual(at.barBottom);
+          expect(at.bottom, "inside the viewport").toBeLessThanOrEqual(at.viewport);
+
+          // …and asserted as a LANDING, like the alert's, because "anywhere
+          // clear of the bar" is what a race passes on a lucky run: the label
+          // 20px under the bar, the control under its label.
+          const label = await landing(page, `${formSection} label[for="${await nameId(page)}"]`);
+          expect(label.top - label.barBottom, "20px under the pinned bar").toBeGreaterThanOrEqual(
+            19,
+          );
+          expect(label.top - label.barBottom, "20px under the pinned bar").toBeLessThanOrEqual(21);
+          expect(label.bottom, "the label is above its control").toBeLessThanOrEqual(at.top);
+        } finally {
+          await context.close();
+        }
+      });
+    }
+
+    test(`Shift+Tab from the submit to the bar never parks focus under it (${width}, ${motion})`, async ({
+      browser,
+    }) => {
+      const { context, page } = await withMotion(browser, width, height, motion);
+      try {
+        await page.goto(ROUTE);
+        await hydrated(page);
+        await expect(page.locator(bar)).toHaveCSS("position", "fixed");
+        await page.getByRole("button", { name: "Send message" }).focus();
+        await still(page);
+
+        const stops: { what: string; top: number; barBottom: number }[] = [];
+        let reachedBar = false;
+        for (let i = 0; i < 20 && !reachedBar; i++) {
+          await page.keyboard.press("Shift+Tab");
+          await still(page);
+          const stop = await page.evaluate((nav) => {
+            const el = document.activeElement as HTMLElement;
+            const barEl = document.querySelector(nav)!;
+            return {
+              what: el.getAttribute("name") ?? el.getAttribute("href") ?? el.tagName,
+              top: el.getBoundingClientRect().top,
+              barBottom: barEl.getBoundingClientRect().bottom,
+              inBar: barEl.contains(el),
+            };
+          }, bar);
+          if (stop.inBar) reachedBar = true;
+          else stops.push({ what: stop.what, top: stop.top, barBottom: stop.barBottom });
+        }
+
+        // The walk is only evidence if it WALKED: through all four fields and
+        // the office's two links, and out into the bar at the top.
+        expect(reachedBar, "the walk ended in the bar").toBe(true);
+        expect(stops.map((s) => s.what)).toEqual([
+          "message",
+          "phone",
+          "email",
+          "name",
+          expect.stringMatching(/^https:\/\/www\.google\.com\/maps/),
+          "tel:+12104965800",
+        ]);
+        expect(
+          stops.filter((s) => s.top < s.barBottom),
+          "focused stops under the pinned bar",
+        ).toEqual([]);
+      } finally {
+        await context.close();
+      }
+    });
+  }
+}
 
 for (const state of ["at rest", "after a failed send", "after the confirmation"] as const) {
   test(`/contact has no axe violations ${state}`, async ({ page }) => {

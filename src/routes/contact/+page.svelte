@@ -29,8 +29,8 @@
    *  that instant, so focus() scrolls nothing, and the glide then finishes with
    *  the alert under the pinned bar. Measured at 1440×900 on the dev server:
    *  alert top at −8px behind an 80px bar, focused and invisible.
-   *  `scrollIntoView` replaces the scroll in flight, and honours the panel's
-   *  `scroll-mt` (FOCUS_TARGET), so it lands 20px under the bar every time.
+   *  `scrollIntoView` replaces the scroll in flight, and honours `html`'s
+   *  `scroll-padding-top` (app.css), so it lands 20px under the bar every time.
    *  Optional call: jsdom has no scrollIntoView. */
   function reveal(el: HTMLElement | null) {
     if (!el) return;
@@ -61,10 +61,12 @@
   // (`tabindex="-1"`), so app.css's focus floor — which is written for things a
   // keyboard reaches — leaves them to the UA's ring. This is the floor's own
   // declaration, ground-following variable and all, rather than a colour
-  // picked here. The scroll margin is where `reveal` lands them: 20px under
-  // the pinned bar (70px, 80 from `lg`), not under it.
+  // picked here. WHERE `reveal` lands them — 20px under the pinned bar — is not
+  // said here: it is `html`'s scroll padding in app.css, which covers every
+  // control the browser scrolls to as well. A scroll margin on these would ADD
+  // to it and land them a bar too low.
   const FOCUS_TARGET =
-    "scroll-mt-[90px] lg:scroll-mt-[100px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus-ring,var(--color-primary))]";
+    "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus-ring,var(--color-primary))]";
 
   // The Properties page's section divider (PropertyListing.svelte, comp
   // 6909:1940), unchanged: a 2px garnet rule, the H3 label 18px under it (the
@@ -162,12 +164,9 @@
     <!-- The SECTION carries the accessible name, not the <form>: naming both
          nests a `form` landmark inside a `region` of the same name, and the
          section outlives the form on success. It is also the fragment the form
-         posts to — see `action` below. -->
-    <section
-      id="contact-form"
-      aria-labelledby="contact-form-heading"
-      class="scroll-mt-[90px] lg:scroll-mt-[100px]"
-    >
+         posts to — see `action` below — and it lands clear of the bar by
+         `html`'s scroll padding (app.css), with no margin of its own. -->
+    <section id="contact-form" aria-labelledby="contact-form-heading">
       <div class={DIVIDER}>
         <h2 id="contact-form-heading" class="t-h3 text-primary">Send Us a Message</h2>
       </div>
