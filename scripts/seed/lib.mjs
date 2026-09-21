@@ -1,0 +1,225 @@
+// Zero-dependency helpers for staging documents through Prismic's Migration
+// and Asset APIs. Lifted from the fleet's raw-fetch pattern (beachfront-
+// dentistry `scripts/lib/prismic-migration.mjs`, reddoor-maintenance
+// `runMigration`) rather than from `scripts/import/migrate.example.ts`: the
+// `@prismicio/migrate` route creates documents hollow and PATCHes them,
+// swallows validation `details[]`, re-uploads every asset on a retry and
+// cannot update — the fleet left it after the 2026-07-06 Pointe run.
+//
+// WHAT A STAGED DOCUMENT IS: a draft inside the repository's MIGRATION
+// RELEASE. It is not on the master ref, the release is not exposed as a ref,
+// and the write token cannot read the release back (403 at the gateway). So
+// the `id` in every 201 is the only handle a later run has on its own draft —
+// hence the state file, written after EVERY success, not at the end.
+//
+// ASSETS ARE NOT DRAFTS. An upload lands in the media library immediately.
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+export const SENTINEL = "your-prismic-repo-name";
+/** One request per second per repository is Prismic's limit; the fleet's
+ *  constant leaves headroom. */
+export const THROTTLE_MS = 1200;
+
+export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/** The repository the models CLI targets: `slicemachine.config.json`, then
+ *  `prismic.config.json`, skipping the placeholder sentinel — the same order
+ *  and the same skip as `reddoor-maint`'s `readPrismicConfig`, so the seed and
+ *  the model delivery can never aim at different repositories. Refuses when
+ *  only the sentinel is found: "no repository" must not become a default. */
+export function repositoryName(root = ROOT) {
+  const seen = [];
+  for (const file of ["slicemachine.config.json", "prismic.config.json"]) {
+    const path = join(root, file);
+    if (!existsSync(path)) continue;
+    const name = JSON.parse(readFileSync(path, "utf8")).repositoryName;
+    seen.push(`${file}: ${JSON.stringify(name)}`);
+    if (typeof name === "string" && name !== "" && name !== SENTINEL) return name;
+  }
+  throw new Error(
+    `no real Prismic repository is configured (${seen.join("; ") || "no config file"})`,
+  );
+}
+
+/** `PRISMIC_TOKEN_<REPOSITORY, upper-snaked>` — the fleet's derivation. */
+export const tokenEnvName = (repo) =>
+  `PRISMIC_TOKEN_${repo.toUpperCase().replace(/[^A-Z0-9]+/g, "_")}`;
+
+/** The write token: `PRISMIC_WRITE_TOKEN`, else the per-repository name, else
+ *  that ONE key parsed out of the operator's credentials file. Never logged,
+ *  never in argv, never written anywhere — this repository is public. */
+export function readToken(
+  repo,
+  env = process.env,
+  credentialsPath = join(homedir(), ".config/reddoor-maint/credentials.env"),
+) {
+  const key = tokenEnvName(repo);
+  if (env.PRISMIC_WRITE_TOKEN) return env.PRISMIC_WRITE_TOKEN;
+  if (env[key]) return env[key];
+  if (existsSync(credentialsPath)) {
+    for (const line of readFileSync(credentialsPath, "utf8").split("\n")) {
+      const m = /^\s*(?:export\s+)?([A-Z0-9_]+)\s*=\s*(.*)\s*$/.exec(line);
+      if (m && m[1] === key) return m[2].replace(/^["']|["']$/g, "");
+    }
+  }
+  throw new Error(`no write token: set PRISMIC_WRITE_TOKEN or ${key}`);
+}
+
+export function headersFor(repo, token) {
+  const auth = { repository: repo, Authorization: `Bearer ${token}` };
+  return { auth, json: { ...auth, "Content-Type": "application/json" } };
+}
+
+export async function fetchWithRetry(
+  url,
+  opts,
+  { tries = 4, fetchImpl = fetch, wait = sleep } = {},
+) {
+  for (let attempt = 1; attempt < tries; attempt++) {
+    const res = await fetchImpl(url, opts);
+    if (res.status !== 429) return res;
+    await wait(1500 * attempt);
+  }
+  return fetchImpl(url, opts);
+}
+
+/** Status + the first 300 characters of the body. Never headers. */
+export async function failure(res, label) {
+  return new Error(`${label}: ${res.status} ${(await res.text()).slice(0, 300)}`);
+}
+
+/** Drop what Prismic rejects: `{}` for an unfilled Link or Image, `null`,
+ *  `undefined` and `""`. Arrays keep their order; `false` and `0` are values. */
+export function stripEmpty(value) {
+  if (Array.isArray(value)) return value.map(stripEmpty).filter((v) => v !== undefined);
+  if (value && typeof value === "object") {
+    const out = {};
+    for (const [k, v] of Object.entries(value)) {
+      const c = stripEmpty(v);
+      if (c === undefined) continue;
+      out[k] = c;
+    }
+    return Object.keys(out).length === 0 ? undefined : out;
+  }
+  return value === null || value === "" ? undefined : value;
+}
+
+export function readState(path) {
+  return existsSync(path) ? JSON.parse(readFileSync(path, "utf8")) : { documents: {}, assets: {} };
+}
+
+/** Pretty, sorted, newline-terminated — so the committed file diffs cleanly
+ *  and passes `prettier --check`. */
+export function writeState(path, state) {
+  const sort = (o) => Object.fromEntries(Object.entries(o).sort(([a], [b]) => a.localeCompare(b)));
+  const ordered = { documents: sort(state.documents), assets: sort(state.assets) };
+  writeFileSync(path, `${JSON.stringify(ordered, null, 2)}\n`);
+}
+
+/** The public API's view: the types the repository has, and the master ref. */
+export async function repositoryInfo(repo, fetchImpl = fetch) {
+  const res = await fetchImpl(`https://${repo}.prismic.io/api/v2`);
+  if (!res.ok) throw await failure(res, `read https://${repo}.prismic.io/api/v2`);
+  const api = await res.json();
+  return {
+    types: Object.keys(api.types ?? {}),
+    masterRef: api.refs.find((r) => r.isMasterRef).ref,
+  };
+}
+
+/** Published documents of one type, as `{ uid: id }`. A published document's
+ *  id is the one thing the master ref CAN tell a re-run. */
+export async function publishedByUid(repo, type, masterRef, fetchImpl = fetch) {
+  const out = {};
+  for (let page = 1, total = 1; page <= total; page++) {
+    const q = encodeURIComponent(`[[at(document.type,"${type}")]]`);
+    const res = await fetchImpl(
+      `https://${repo}.prismic.io/api/v2/documents/search?ref=${masterRef}&pageSize=100&page=${page}&q=${q}`,
+    );
+    if (!res.ok) throw await failure(res, `search published ${type}`);
+    const body = await res.json();
+    for (const doc of body.results) if (doc.uid) out[doc.uid] = doc.id;
+    total = body.total_pages;
+  }
+  return out;
+}
+
+/** Every asset already in the media library, as `{ filename: { id, url } }`,
+ *  so a re-run uploads nothing twice. */
+export async function existingAssets(headers, fetchImpl = fetch) {
+  const out = {};
+  let cursor;
+  do {
+    const url = new URL("https://asset-api.prismic.io/assets");
+    url.searchParams.set("limit", "500");
+    if (cursor) url.searchParams.set("cursor", cursor);
+    const res = await fetchWithRetry(url, { headers: headers.auth }, { fetchImpl });
+    if (!res.ok) throw await failure(res, "list assets");
+    const body = await res.json();
+    for (const item of body.items ?? []) out[item.filename] = { id: item.id, url: item.url };
+    cursor = body.cursor;
+  } while (cursor);
+  return out;
+}
+
+export async function uploadAsset({
+  bytes,
+  filename,
+  contentType,
+  alt,
+  headers,
+  fetchImpl = fetch,
+}) {
+  const form = new FormData();
+  form.set("file", new Blob([bytes], { type: contentType }), filename);
+  if (alt) form.set("alt", alt.slice(0, 500));
+  const res = await fetchWithRetry(
+    "https://asset-api.prismic.io/assets",
+    { method: "POST", headers: headers.auth, body: form },
+    { fetchImpl },
+  );
+  if (!res.ok) throw await failure(res, `upload ${filename}`);
+  const body = await res.json();
+  return { id: body.id, url: body.url };
+}
+
+/** Create, or — when this run or a published document already knows the id —
+ *  replace. PUT REPLACES, it never merges, so the caller always sends the
+ *  whole payload. "already exists" with no known id STOPS: the draft is in the
+ *  migration release where nothing can read its id back, and guessing would
+ *  mean a duplicate. */
+export async function stageDocument({ id, type, uid, title, data, headers, fetchImpl = fetch }) {
+  const body = JSON.stringify({ title, type, uid, lang: "en-us", data });
+  if (id) {
+    const res = await fetchWithRetry(
+      `https://migration.prismic.io/documents/${id}`,
+      { method: "PUT", headers: headers.json, body },
+      { fetchImpl },
+    );
+    if (!res.ok) throw await failure(res, `update ${uid}`);
+    return { id, created: false };
+  }
+  const res = await fetchWithRetry(
+    "https://migration.prismic.io/documents",
+    { method: "POST", headers: headers.json, body },
+    { fetchImpl },
+  );
+  if (res.status === 201) {
+    const created = await res.json();
+    if (!created.id) throw new Error(`create ${uid}: 201 with no id`);
+    return { id: created.id, created: true };
+  }
+  const text = await res.text();
+  if (/already exists/i.test(text)) {
+    throw new Error(
+      `create ${uid}: a document with this uid already exists and no id is stored for it. ` +
+        "It is a draft in the migration release, which cannot be read back — find its id in " +
+        "the Prismic editor's URL and add it to the state file, then re-run.",
+    );
+  }
+  throw new Error(`create ${uid}: ${res.status} ${text.slice(0, 300)}`);
+}

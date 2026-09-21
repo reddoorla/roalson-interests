@@ -47,6 +47,41 @@ the operator before the type was written:
    frame for it exists at any width. It is the property card's anatomy at page
    scale.
 
+### Six more calls, made before the homepage batches (2026-09-20/21)
+
+Answered by the operator in the session, and written here the same day because
+a chat log does not survive one:
+
+8. **The homepage bar hides the wordmark until the hero's RI cutout has
+   scrolled away — on the homepage ONLY** (#18: "yes, but only on the
+   homepage"). Every other page keeps the bar as built in #20. The menu
+   "looks good".
+9. **Prismic: connect, deliver models, seed.** The repo points at the real
+   `roalson-interests` repository; models reach it through the fleet's
+   `prismic-models` workflow on merge to `main`, never Slice Machine's Push;
+   the 22 listings are seeded through the Migration API from the client's
+   public My Maps KML (enriched from the client's own `prop.htm` table, which
+   joins to it 22/22 — see the journal).
+10. **Maps are deferred.** #13 stays open until a Google Maps key exists; the
+    map areas stay reserved, on `/properties` and in the homepage's featured
+    band.
+11. **Hero media: the brand's dark ground, with CMS fields.** The hero ships
+    with the RI cutout over a flat ground and Prismic fields for a poster image
+    and a Vimeo id. The licensed 720p clip is not reachable from the build
+    machine.
+12. **A partners block, not profile pages.** Name, role and CONTACT from the
+    CMS; PROFILE renders only when a bio exists and opens an on-page
+    disclosure. No `/team/<uid>`.
+13. **Publishing: the home page and the seeded listings.** Asked once it was
+    clear that a connected repo fails its build unless a `home` document is
+    published, the operator chose to have both published, so the deploy shows
+    the whole site. The site is pre-launch and not on its production domain;
+    KML/table data the operator will want to correct is listed in the PR that
+    seeds it.
+
+Still unanswered, and defaulted: the Properties section order (the comp's —
+Land first) and the reserved empty map column.
+
 Settled without asking, because an earlier decision already answered them:
 the package PDF is a Prismic **media link** (the June architecture call made
 Prismic the client-maintained source of truth, so a PDF in `static/` would need

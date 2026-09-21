@@ -57,7 +57,7 @@
         "type": "Text",
         "config": {
           "label": "Size line",
-          "placeholder": "The line above the name on the card, e.g. Up to 16,700 SF"
+          "placeholder": "The line above the name on the card, e.g. Up to 16,700 SF — or 13.33 acres"
         }
       },
       "feature_image": {
