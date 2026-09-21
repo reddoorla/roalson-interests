@@ -21,8 +21,10 @@ import CarouselFixture from "../routes/dev/a11y-fixtures/CarouselFixture.svelte"
 //
 // The same section holds the three places this deliberately does NOT behave
 // like Slider: a hover pause FREEZES the dwell instead of restarting it; focus
-// moving WITHIN the carousel does not re-pause after Play; and a mouse press
-// on Pause ends paused even though the press focuses the button first.
+// moving between the carousel's own CONTROLS does not re-pause after Play
+// (into a slide it does, as Slider's does — a slide that turns away takes the
+// focus it holds with it); and a mouse press on Pause ends paused even though
+// the press focuses the button first.
 //
 // "headless" drives `createCarousel` alone inside `$effect.root`, for what no
 // Slider case covers: the clock, `progress`, `settle`, `enabled`, the state
@@ -224,10 +226,31 @@ describe("carousel navigation, in markup", () => {
     expect(current(container)).toBe(1);
   });
 
-  it("takes arrow keys from a link inside a slide too — the handler is the region's", async () => {
+  it("leaves an arrow key alone INSIDE a slide — turning it would make the focused link inert", async () => {
+    // The first version took arrows from anywhere in the region and had a test
+    // here that said so ("takes arrow keys from a link inside a slide too"). It
+    // asserted the turn and never looked at focus: the slide that turned away
+    // was the one holding it, `inert` dropped focus on <body>, and the next
+    // arrow key did nothing (measured in Chromium). jsdom has no `inert`, so
+    // the focus loss itself is asserted in tests/interaction/carousel.spec.ts;
+    // what can be held here is that the key is not taken at all.
     const { container, getByText } = renderFixture();
-    await fireEvent.keyDown(getByText("Link in slide 1"), { key: "ArrowRight" });
-    expect(current(container)).toBe(2);
+    const link = getByText("Link in slide 1");
+    link.focus();
+    const event = new KeyboardEvent("keydown", {
+      key: "ArrowRight",
+      bubbles: true,
+      cancelable: true,
+    });
+    link.dispatchEvent(event);
+    await tick();
+    expect(current(container)).toBe(1);
+    expect(event.defaultPrevented, "the key stays the page's").toBe(false);
+    expect(document.activeElement).toBe(link);
+
+    // …and the slide's own text is no different from its link.
+    await fireEvent.keyDown(getByText("Slide body 1"), { key: "ArrowLeft" });
+    expect(current(container)).toBe(1);
   });
 
   it("leaves modified arrows alone — Alt+Left is the browser's Back", async () => {
@@ -334,7 +357,8 @@ describe("carousel autoplay, in markup", () => {
 
   it("does not re-pause when focus moves WITHIN the carousel after Play", async () => {
     // Slider pauses on every focusin, so Play → Tab to the arrows stops it
-    // again against the user's explicit request. "Enters" means from outside.
+    // again against the user's explicit request. "Enters" means from outside —
+    // for the controls. Landing in a slide is the next case.
     vi.useFakeTimers();
     const { container, getByLabelText } = renderFixture({ autoplay: DWELL });
 
@@ -351,6 +375,37 @@ describe("carousel autoplay, in markup", () => {
     expect(toggle.getAttribute("aria-label")).toBe("Pause slides");
     await advance(DWELL);
     expect(current(container)).toBe(2);
+  });
+
+  it("stops when focus lands INSIDE a slide, even coming from the carousel's own controls", async () => {
+    // Play, then Tab on past the arrows into the slide's link. That focus moved
+    // WITHIN the carousel, and the first version exempted every such move — so
+    // one dwell later the clock turned the slide, the link went inert, and
+    // keyboard focus fell to <body> with no user action at all (measured in
+    // Chromium: activeElement BODY, "Slide 2 of 3", 4.8s after the Tab). The
+    // exemption is for the CONTROLS, which never go inert.
+    vi.useFakeTimers();
+    const { container, getByLabelText, getByText } = renderFixture({ autoplay: DWELL });
+    const toggle = getByLabelText("Pause slides");
+    const live = container.querySelector("[aria-live]")!;
+
+    await fireEvent(toggle, new FocusEvent("focusin", { bubbles: true, relatedTarget: null }));
+    await fireEvent.click(toggle); // Play, by keyboard
+    const next = getByLabelText("Next slide");
+    await fireEvent(next, new FocusEvent("focusin", { bubbles: true, relatedTarget: toggle }));
+    await advance(DWELL / 2);
+    // Rotating, positively: the control offers Pause and the live region is muted.
+    expect(toggle.getAttribute("aria-label")).toBe("Pause slides");
+    expect(live.getAttribute("aria-live")).toBe("off");
+
+    await fireEvent(
+      getByText("Link in slide 1"),
+      new FocusEvent("focusin", { bubbles: true, relatedTarget: next }),
+    );
+    expect(toggle.getAttribute("aria-label")).toBe("Play slides");
+    expect(live.getAttribute("aria-live")).toBe("polite");
+    await advance(3 * DWELL);
+    expect(current(container)).toBe(1);
   });
 
   it("a MOUSE press on Pause ends paused, though the press itself focuses the button first", async () => {
@@ -715,6 +770,42 @@ describe("createCarousel, headless", () => {
     onkeydown(event);
     expect(carousel.index).toBe(0);
     expect(event.defaultPrevented).toBe(false);
+  });
+
+  it("nested in another carousel's slide, its controls still take the keys — that slide is not its own", () => {
+    // "Is the target inside a slide?" is asked with `closest`, which from an
+    // inner carousel's arrow finds the OUTER slide the whole inner carousel
+    // sits in. Only a slide the region itself contains counts.
+    const outer = mount({ count: 3 });
+    const inner = mount({ count: 3 });
+    document.body.innerHTML = `
+      <div id="outer"><div data-carousel-slide>
+        <div id="inner">
+          <button id="inner-next">next</button>
+          <div data-carousel-slide><a id="inner-link" href="#x">link</a></div>
+        </div>
+      </div></div>`;
+    const listen = (id: string, carousel: Carousel) =>
+      document
+        .getElementById(id)!
+        .addEventListener("keydown", carousel.region.onkeydown as unknown as EventListener);
+    listen("inner", inner);
+    listen("outer", outer);
+    const press = (id: string) => {
+      const event = new KeyboardEvent("keydown", {
+        key: "ArrowRight",
+        bubbles: true,
+        cancelable: true,
+      });
+      document.getElementById(id)!.dispatchEvent(event);
+      return event.defaultPrevented;
+    };
+
+    expect(press("inner-next"), "the inner carousel's own control").toBe(true);
+    expect([inner.index, outer.index]).toEqual([1, 0]);
+    expect(press("inner-link"), "inside a slide of both").toBe(false);
+    expect([inner.index, outer.index]).toEqual([1, 0]);
+    document.body.innerHTML = "";
   });
 
   it("swipes: left goes on, right goes back", () => {

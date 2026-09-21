@@ -21,6 +21,14 @@
 // need an owner (in a test: inside `$effect.root`). On the server the effects
 // never run, so it renders slide 1 active, nothing rotating, `hydrated` false.
 //
+// KEEP THE CONTROLS OUTSIDE THE SLIDES. A slide that turns away goes `inert`,
+// and an inert element cannot hold focus: the browser drops it on <body>. So
+// nothing here turns a slide while focus is inside one — arrow keys are taken
+// from the controls only, and focus landing in a slide stops the clock — but
+// an arrow button rendered INSIDE `slide(i)` would turn its own slide from
+// under itself, and the primitive cannot see that coming. Draw them inside
+// the panel with CSS; keep them beside the slides in the DOM (CarouselFixture).
+//
 // WHERE THE LOGIC CAME FROM. Slider.svelte, read in full and declined: its
 // controls are a row rendered AFTER the viewport, its index is private
 // `$state` with no change callback, and its autoplay is a `setInterval` that
@@ -81,6 +89,21 @@ export interface CarouselOptions {
 const clamp01 = (n: number) => (n <= 0 ? 0 : n > 1 ? 1 : n);
 
 const EDITABLE = /^(INPUT|TEXTAREA|SELECT)$/;
+
+/** Written by `slide(i)`; how the handlers on the region know a slide's
+ *  content from the carousel's controls without holding a single element. */
+const SLIDE = "data-carousel-slide";
+
+/** The slide of THIS carousel that `target` sits in, if any. A carousel nested
+ *  in another's slide finds that OUTER slide with `closest` — it holds the
+ *  whole inner region, so the inner region does not contain it, and it is not
+ *  ours. (Called with no region — a handler invoked by hand — any slide counts.) */
+function slideHolding(target: EventTarget | null, region: EventTarget | null) {
+  if (!(target instanceof Element)) return null;
+  const slide = target.closest(`[${SLIDE}]`);
+  if (slide && region instanceof Node && !region.contains(slide)) return null;
+  return slide;
+}
 
 export function createCarousel(options: CarouselOptions) {
   let raw = $state(0);
@@ -215,23 +238,36 @@ export function createCarousel(options: CarouselOptions) {
   /** APG: rotation stops when focus ENTERS and stays stopped after it leaves —
    *  only Play restarts it. "Enters" is read off relatedTarget, so a user who
    *  pressed Play and then tabs on to the arrows is not re-paused against
-   *  their own explicit request (Slider pauses on every focusin). */
+   *  their own explicit request (Slider pauses on every focusin).
+   *
+   *  That exemption is for the CONTROLS, which never go inert. Focus landing
+   *  inside a SLIDE always stops the clock, wherever it came from: the first
+   *  version exempted it too, and Play → Tab into the slide's link lost
+   *  keyboard focus to <body> one dwell later, with no user action at all. */
   function onfocusin(event: FocusEvent) {
     if (!eligible) return;
-    const from = event.relatedTarget;
     const region = event.currentTarget;
-    if (from instanceof Node && region instanceof Node && region.contains(from)) return;
+    if (!slideHolding(event.target, region)) {
+      const from = event.relatedTarget;
+      if (from instanceof Node && region instanceof Node && region.contains(from)) return;
+    }
     userPaused = true;
   }
 
-  /** ArrowLeft / ArrowRight from anything focused inside the region — the
-   *  handler sits on the region so no wrapper needs a tabindex. It keeps out
-   *  of the way of text fields and of modified arrows (Alt+Left is Back). */
+  /** ArrowLeft / ArrowRight from the carousel's CONTROLS — anything focused in
+   *  the region that is not inside a slide. The handler sits on the region so
+   *  no wrapper needs a tabindex and a consumer's own control (dots, a "view
+   *  all" link in the header) gets the keys for free. Inside a slide the key
+   *  is left alone, as Slider leaves it: turning the slide makes the element
+   *  that holds focus inert, focus falls to <body>, and the next arrow key
+   *  goes nowhere. It also keeps out of text fields and of modified arrows
+   *  (Alt+Left is Back). */
   function onkeydown(event: KeyboardEvent) {
     if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
     if (event.defaultPrevented) return;
     if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
     const target = event.target;
+    if (slideHolding(target, event.currentTarget)) return;
     if (target instanceof HTMLElement) {
       if (target.isContentEditable || EDITABLE.test(target.tagName)) return;
     }
@@ -342,11 +378,13 @@ export function createCarousel(options: CarouselOptions) {
       };
     },
     /** Slide `i`. Off-stage slides leave the accessibility tree AND the tab
-     *  order (`inert`), so a link in slide 3 is not reachable behind slide 1. */
+     *  order (`inert`), so a link in slide 3 is not reachable behind slide 1.
+     *  Put no carousel control inside it — see the header. */
     slide(i: number): HTMLAttributes<HTMLElement> {
       if (!enabled) return EMPTY;
       const active = i === index;
       return {
+        [SLIDE]: "",
         role: "group",
         "aria-roledescription": "slide",
         "aria-label": `${i + 1} of ${count}`,

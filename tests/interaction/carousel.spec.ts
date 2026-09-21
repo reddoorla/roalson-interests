@@ -16,7 +16,11 @@ import sharp from "sharp";
 //     44; Chromium measured 42, because an absolute inset starts inside the
 //     1px ring;
 //  4. the bar's colours are 3:1 apart AS PAINTED — the track is an alpha, so
-//     what reaches the screen is the compositor's arithmetic, not the token's.
+//     what reaches the screen is the compositor's arithmetic, not the token's;
+//  5. keyboard focus is never left on <body>. jsdom has no `inert`, so the unit
+//     tests passed while a slide that turned away took the focus it held with
+//     it — by an arrow key pressed on the slide's own link, and by the clock
+//     one dwell after Play → Tab into the slide. Found in review, not by a test.
 //
 // The shared config forces `reducedMotion: "reduce"` on every context, under
 // which this carousel never rotates and has no pause control. Every test about
@@ -48,6 +52,49 @@ async function moving(browser: Browser, viewport = { width: 1440, height: 900 })
 
 /** Parks the pointer where it cannot hover the carousel — hover is a pause. */
 const pointerAway = (page: Page) => page.mouse.move(2, 2);
+
+type ArrowKey = { key: string; on: string; claimed: boolean };
+
+/** Every arrow key from here on, as `window` sees it — the last stop of the
+ *  bubble, after Svelte's delegated handler at the root has had its turn. "The
+ *  slide did not turn" could be a key that never arrived; this says it arrived,
+ *  on what, and whether anyone claimed it. */
+const recordArrowKeys = (page: Page) =>
+  page.evaluate(() => {
+    const seen: { key: string; on: string; claimed: boolean }[] = [];
+    (window as unknown as { __keys: typeof seen }).__keys = seen;
+    window.addEventListener("keydown", (e) => {
+      if (!e.key.startsWith("Arrow")) return;
+      const el = e.target as HTMLElement;
+      seen.push({
+        key: e.key,
+        on: el.getAttribute("aria-label") ?? el.textContent?.trim() ?? el.tagName,
+        claimed: e.defaultPrevented,
+      });
+    });
+  });
+
+/** Where keyboard focus IS, by name ("BODY" when nothing holds it), with what
+ *  the carousel says about itself — in ONE read. A test about lost focus has to
+ *  name the element that has it: "the slide did not turn" is the absence of a
+ *  symptom, and this defect was found with every such test green. */
+const focusAnd = (page: Page, selector: string) =>
+  page.evaluate((sel) => {
+    const region = document.querySelector(sel)!;
+    const el = document.activeElement;
+    const live = region.querySelector("[aria-live]")!;
+    return {
+      focus:
+        !el || el === document.body
+          ? "BODY"
+          : (el.getAttribute("aria-label") ?? el.textContent?.trim() ?? el.tagName),
+      inCarousel: !!el && el !== document.body && region.contains(el),
+      status: live.textContent,
+      live: live.getAttribute("aria-live"),
+      firstControl: region.querySelector("button")!.getAttribute("aria-label"),
+      keys: (window as unknown as { __keys?: ArrowKey[] }).__keys ?? [],
+    };
+  }, selector);
 
 test("with scripting off it is slide 1, with no dead controls and nothing claiming to rotate", async ({
   browser,
@@ -260,6 +307,51 @@ test("keyboard: focus entering stops it, Play then Tab does not stop it again, a
   }
 });
 
+test("autoplay never turns a slide out from under keyboard focus", async ({ browser }) => {
+  const { context, page } = await moving(browser);
+  try {
+    await page.goto(FIXTURES);
+    await pointerAway(page);
+    const region = page.locator(AUTO);
+    await adopted(region);
+    const toggle = region.locator("button").first();
+    const status = region.locator("[aria-live]");
+    const link = region.getByRole("link", { name: "Link in slide 1" });
+
+    await toggle.focus();
+    await expect(toggle).toHaveAttribute("aria-label", "Play slides");
+    await page.keyboard.press("Enter");
+    // Rotating, positively: it offers Pause, the live region is muted, and the
+    // bar is moving. Without this the rest would pass on a carousel at rest.
+    await expect(toggle).toHaveAttribute("aria-label", "Pause slides");
+    await expect(status).toHaveAttribute("aria-live", "off");
+    const before = await barScale(region);
+    await expect.poll(() => barScale(region)).toBeGreaterThan(before);
+
+    await page.keyboard.press("Tab"); // Previous
+    await page.keyboard.press("Tab"); // Next
+    await page.keyboard.press("Tab"); // the active slide's link
+    await expect(link).toBeFocused();
+
+    // Longer than a whole dwell and its settle. The first version turned the
+    // slide inside this window — focus had only moved WITHIN the carousel, so
+    // nothing paused it — and the link went inert with focus on it: measured
+    // activeElement BODY, "Slide 2 of 3".
+    await page.waitForTimeout(DWELL + SETTLE + 300);
+    expect(await focusAnd(page, AUTO)).toEqual({
+      focus: "Link in slide 1",
+      inCarousel: true,
+      status: "Slide 1 of 3",
+      // Focus landed in a slide, so rotation stopped — and says so.
+      live: "polite",
+      firstControl: "Play slides",
+      keys: [],
+    });
+  } finally {
+    await context.close();
+  }
+});
+
 for (const viewport of [
   { width: 1440, height: 900 },
   { width: 390, height: 844 },
@@ -342,6 +434,55 @@ test("under reduced motion there is no pause control, and the bar draws position
   await expect.poll(() => barScale(region)).toBeCloseTo(2 / 3, 5);
   await page.waitForTimeout(DWELL + SETTLE + 500);
   expect(await barScale(region), "and nothing rotated in the meantime").toBeCloseTo(2 / 3, 5);
+});
+
+test("an arrow key on a slide's link is the page's; on a control it turns the slide and focus stays put", async ({
+  page,
+}) => {
+  await page.goto(FIXTURES);
+  const region = page.locator(MANUAL);
+  await adopted(region);
+  const next = region.getByLabel("Next slide");
+  const link = region.getByRole("link", { name: "Link in slide 1" });
+
+  await recordArrowKeys(page);
+  const onLink = { key: "ArrowRight", on: "Link in slide 1", claimed: false };
+  const onNext = { key: "ArrowRight", on: "Next slide", claimed: true };
+  const rest = { inCarousel: true, live: "polite", firstControl: "Previous slide" };
+
+  await next.focus();
+  await page.keyboard.press("Tab");
+  await expect(link).toBeFocused();
+
+  // The first version turned the slide here. The slide that left was the one
+  // holding focus; `inert` dropped it on <body>, and the next arrow key did
+  // nothing at all.
+  await page.keyboard.press("ArrowRight");
+  await expect
+    .poll(() => focusAnd(page, MANUAL))
+    .toEqual({ ...rest, focus: "Link in slide 1", status: "Slide 1 of 3", keys: [onLink] });
+
+  // From a control the same key turns it — twice, because "the second press
+  // does nothing" was the symptom — and focus is still ON that control.
+  await page.keyboard.press("Shift+Tab");
+  await expect(next).toBeFocused();
+  await page.keyboard.press("ArrowRight");
+  await expect
+    .poll(() => focusAnd(page, MANUAL))
+    .toEqual({ ...rest, focus: "Next slide", status: "Slide 2 of 3", keys: [onLink, onNext] });
+  await page.keyboard.press("ArrowRight");
+  await expect
+    .poll(() => focusAnd(page, MANUAL))
+    .toEqual({
+      ...rest,
+      focus: "Next slide",
+      status: "Slide 3 of 3",
+      keys: [onLink, onNext, onNext],
+    });
+
+  // Tab goes on into the slide that is showing NOW, not the one that left.
+  await page.keyboard.press("Tab");
+  await expect.poll(() => focusAnd(page, MANUAL).then((now) => now.focus)).toBe("Link in slide 3");
 });
 
 type Rgb = [number, number, number];
