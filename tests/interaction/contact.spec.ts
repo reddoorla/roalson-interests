@@ -298,8 +298,15 @@ for (const [width, height] of [
 
       const at = await landing(page, `${formSection} [role="alert"]`);
       expect(at.focused, "the alert holds focus").toBe(true);
-      // The defect: top −8px behind an 80px bar. 20 under it is the design.
-      expect(at.top - at.barBottom, "clear of the pinned bar").toBeGreaterThanOrEqual(19);
+      // The defect: top −8px behind an 80px bar at 1440. 20 under the bar is the
+      // design, and it is asserted as a LANDING, not as "anywhere clear of it":
+      // with plain focus() the landing is a race against the glide in flight.
+      // Two runs of that mutation at 390 put the same alert in two places —
+      // top at 340, and jammed against the viewport's bottom edge (bottom at
+      // 664.09 of 664), which a lower-bound check passed and a side-check
+      // caught by 0.09px.
+      expect(at.top - at.barBottom, "20px under the pinned bar").toBeGreaterThanOrEqual(19);
+      expect(at.top - at.barBottom, "20px under the pinned bar").toBeLessThanOrEqual(21);
       expect(at.bottom, "inside the viewport").toBeLessThanOrEqual(at.viewport);
 
       // The form survives a failure, with what was typed.
@@ -339,7 +346,9 @@ test("a screened-out send shows the confirmation in place of the form, focused, 
 
     const at = await landing(page, `${formSection} [role="status"]`);
     expect(at.focused, "the confirmation holds focus").toBe(true);
-    expect(at.top - at.barBottom, "clear of the pinned bar").toBeGreaterThanOrEqual(19);
+    // Plain focus() left it 45px BEHIND the bar (top at 35 of an 80px bar).
+    expect(at.top - at.barBottom, "20px under the pinned bar").toBeGreaterThanOrEqual(19);
+    expect(at.top - at.barBottom, "20px under the pinned bar").toBeLessThanOrEqual(21);
 
     // A focus TARGET is outside app.css's floor (tabindex="-1"), so it carries
     // the floor's declaration itself. Polled past the outline-color transition.
@@ -395,6 +404,18 @@ for (const state of ["at rest", "after a failed send", "after the confirmation"]
       ),
     );
     expect(crashed, "axe rules crashed, so they measured nothing").toEqual([]);
+
+    // Violations FIRST, reduced to what a reader needs. A node that fails
+    // contrast leaves `passes`, so with the positive check ahead of this one a
+    // dust paragraph (1.97:1) reported as "never measured" — true of the list
+    // and false about the page. It was measured, and it failed; say that.
+    expect(
+      results.violations.map((v) => ({
+        rule: v.id,
+        nodes: v.nodes.map((n) => `${n.target.join(" ")} — ${n.failureSummary ?? ""}`),
+      })),
+    ).toEqual([]);
+
     // …and contrast must have measured THIS state's own text, not only the
     // chrome's: an empty `violations` cannot tell "legible" from "never looked".
     //
@@ -410,6 +431,5 @@ for (const state of ["at rest", "after a failed send", "after the confirmation"]
       "after the confirmation": "on its way",
     }[state];
     expect(measured, `color-contrast never measured this state's own text (${own})`).toContain(own);
-    expect(results.violations).toEqual([]);
   });
 }
