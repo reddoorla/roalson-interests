@@ -351,7 +351,7 @@ interface PropertyDocumentData {
    * Size line field in *Property*
    *
    * - **Field Type**: Text
-   * - **Placeholder**: The line above the name on the card, e.g. Up to 16,700 SF
+   * - **Placeholder**: The line above the name on the card, e.g. Up to 16,700 SF — or 13.33 acres
    * - **API ID Path**: property.size_label
    * - **Tab**: Main
    * - **Documentation**: https://prismic.io/docs/fields/text

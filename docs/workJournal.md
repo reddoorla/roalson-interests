@@ -1266,3 +1266,119 @@ absolute coordinate when the thing under test is a relationship — is the one
 to keep.
 
 `ci / ci` green on `7f8a474`: 608 unit tests in 76 files, 20 Playwright tests.
+
+## 2026-09-21 — Model delivery without the flip: a second config file on purpose, 22 listings found on the client's own site, and a night lost to a question (`feat/prismic-model-delivery`)
+
+**The night first, because it is the most expensive line in this entry.** At
+about 22:40 on the 20th the operator said: get as far as you can without me
+tonight, take a second to ask what you need. One round of four questions was
+answered in minutes. A seven-agent read-only scouting run was launched. Five
+minutes later a SECOND blocking question was asked — how to break the deadlock
+described below — and the operator had gone. The scouts finished at 23:21. The
+question was answered at 09:29. Ten hours of an unattended run produced six
+spec files and nothing else. The rule that would have prevented it was already
+in the session's instructions: once the operator has left, decide, flag, and
+keep going; queue the irreversible step rather than stopping for it. It is in
+project memory now as its own entry.
+
+**Six operator calls, 8–13, are in `docs/stage-a-inventory.md`.** The ones this
+batch acts on: connect to the real Prismic repository, deliver models through
+the fleet's workflow, seed the listings — and, since the morning, publish the
+home page and the seeded listings.
+
+**The deadlock, and why there are two Prismic config files.** Taken literally,
+"connect the repo" is a cycle. Models reach Prismic only on a merge to `main`
+(the `prismic-models` apply job). A merge needs `ci / ci` green. With the real
+repository name in `slicemachine.config.json`, the build loud-fails unless `/`
+prerenders 200 — by design, NEW-SITE.md is explicit — and `/` needs a PUBLISHED
+`page/home`, whose type does not exist until the models are delivered. Measured
+on the empty repository: `GET /api/v2` answers `types: {}`, and the exact
+predicate `getByUID("page","home")` sends answers 400 `api_parsing_error`,
+which `orNotFound` rightly rethrows — so `/` would be a 500 at prerender, not
+even a 404.
+
+`reddoor-maint`'s config reader opens `slicemachine.config.json` and THEN
+`prismic.config.json`, and `continue`s past the placeholder sentinel in the
+first (installed 0.96.0, `dist/chunk-L5M6G65K.js`). Nothing else in this repo
+or its Prismic toolchain reads `prismic.config.json` (grep across the adapter,
+slice-machine-ui, the manager, plugin-kit, `@prismicio/svelte` and
+`@prismicio/client`: 0 hits). So this PR adds `prismic.config.json` naming
+`roalson-interests` and leaves the sentinel where it is: the models CLI and the
+workflow aim at the real repository while the SvelteKit build stays honestly
+placeholder-green. Positive evidence before pushing: `reddoor-maint
+prismic-models` from this branch printed `repository: roalson-interests`, "12
+model(s) would be pushed; 0 already match", none remote-only — an
+authenticated read, so it also proves the token. The cost is two config files
+that disagree on purpose for as long as it takes to build and publish a home
+page. The PR that flips `slicemachine.config.json` MUST delete
+`prismic.config.json` in the same diff.
+
+**The workflow is a byte copy.** `.github/workflows/prismic-models.yml` is
+`cmp`-identical to 29-navy's (md5 `4c5171fff4a2e7b38ce95bbaff58ead1`, the same
+file in 7 of the 9 fleet repos that have it). Its triggers are PATH-FILTERED to
+`customtypes/**` and `src/lib/slices/**/model.json`, with no
+`workflow_dispatch`: a PR that touches no model file runs neither job, and
+nothing is applied on merge. So this PR carries one real model edit —
+`property.size_label`'s placeholder now reads "…e.g. Up to 16,700 SF — or 13.33
+acres", because 17 of the 22 listings are land measured in acres and the
+placeholder taught only square feet. The apply job pushes every model that
+differs, not only the one that triggered it: on this empty repository that is
+all twelve, the nine template slices included. They reach Prismic but an editor
+only ever sees what a type's slice zone lists, so the `page` type's choices get
+cut to this site's own slices in the batch that flips the connection — one
+deliberate edit once those slices exist, instead of nine conflicts with the
+branches building them.
+
+**The listings were on the client's own site all along.** The operator named
+the public My Maps KML as the seed source, and the inventory had already warned
+that its eight folders are working buckets, not a taxonomy. The scout found
+`roalson.com/prop.htm` — "Available Properties, Last Updated: September 20,
+2026": 22 rows under three headings that ARE the model's three `category`
+options (Improved 5, Land — SA Metro & Surrounding 13, Out of San Antonio 4),
+with size, zoning, total price, price per SF and the bullet copy. It joins to
+the KML **22/22, one to one**, on the package PDF's `props/<dir>/` segment. A
+unit check holds the price column to account: acres × 43,560 × price equals
+the total on all three priced land rows (13.33 × 43,560 × 8.50 = 4,935,566).
+KML alone would have produced 22 documents with a title and a pin.
+`scripts/seed/listings.json` carries a `source` map per listing — MEASURED,
+COMPUTED or INFERRED for every field — and the test that demands one caught
+four listings whose square-footage numbers had none; Lookout's total is now
+recorded as what it is, 1,340 office + 2,890 warehouse = 4,230, computed.
+`order` follows the live page's own row order ×10, +1000 for Out of San
+Antonio, because the page merges both land categories into one section sorted
+by `order`. The bullet copy is the client's verbatim, typos included ("San
+Antono", "accesssibility", "Headquarters in nearby") — listed in the PR for
+the operator, not silently fixed. One spelling was NOT carried: the live table
+prints "General Cavozos" where the KML and the package PDF's own path both say
+Cavazos, and the hand-set title follows those two. (The scout's report listed
+it among the verbatim typos; `grep -c` on the data file said 0.)
+
+**The seed script is zero-dependency and dry by default.** The shipped
+`migrate.example.ts` needs `tsx`, `dotenv` and `@prismicio/migrate`, none
+installed, and the fleet left that route after the 2026-07-06 Pointe run (it
+creates documents hollow then PATCHes, swallows validation `details[]`,
+re-uploads every asset on a retry, cannot update). `scripts/seed/lib.mjs` lifts
+the raw-`fetch` pattern from beachfront-dentistry instead. Three things it is
+built around: a staged document is a draft in the MIGRATION RELEASE, which the
+write token cannot read back (403), so the `id` from every 201 goes into a
+state file immediately — a crash mid-run resumes, and a re-run PUTs instead of
+duplicating; "already exists" with no stored id STOPS rather than guessing;
+and PUT replaces, never merges, so every run sends the whole payload. It
+resolves the repository exactly as the models CLI does (both files, sentinel
+skipped, refusal when only the sentinel exists), so the seed and the model
+delivery cannot aim at different places. Its three preflights each require a
+positive answer — the first was exercised for real before pushing: `--apply`
+against today's repository refused with "has no `property` type yet (types:
+none)". Assets are NOT drafts (an upload is in the media library at once), so
+the 22 package PDFs — 136.5 MB, largest 14.4 MB, all the client's own public
+files — sit behind their own `--with-assets` flag.
+
+**Mutation.** A hyphen typed for the em dash in one land category turns "every
+Select value is one of the model's options, byte for byte" red. That is the
+failure that matters: the Migration API would accept the string, and
+`groupListings` would then find no section for it.
+
+**Not done here, on purpose.** Nothing is staged until the models exist, which
+is after this merges. The `home` document waits for the homepage slices. The
+real flip — `slicemachine.config.json`, `a11yRoutes`, the smoke entry for `/` —
+is the last PR of the build, and goes green only once `home` is published.

@@ -1,0 +1,1093 @@
+[
+  {
+    "uid": "5001-walzem-road",
+    "data": {
+      "title": "5001 Walzem Road",
+      "category": "Improved",
+      "status": "Available",
+      "is_new": false,
+      "location": {
+        "latitude": 29.510603,
+        "longitude": -98.39129
+      },
+      "order": 50,
+      "total_price": "$1,550,000",
+      "size_total_sf": 2898,
+      "size_label": "2,898 SF",
+      "zoning": "B1, City of Windcrest",
+      "highlights": [
+        {
+          "text": "High traffic counts along Walzem Road"
+        },
+        {
+          "text": "Rackspace Headquarters in nearby."
+        }
+      ]
+    },
+    "assets": {
+      "package_pdf": {
+        "url": "https://www.roalson.com/props/5001_Walzem_Road/5001%20Walzem%20Road%20package.pdf",
+        "bytes": 5166277
+      }
+    },
+    "source": {
+      "title": "INFERRED (hand-set from KML name + live name)",
+      "uid": "INFERRED (hand-set, short for sharing)",
+      "category": "MEASURED live prop.htm heading",
+      "status": "MEASURED: all 22 sit on the live 'Available Properties' page",
+      "is_new": "MEASURED live 'NEW' marker",
+      "location": "MEASURED KML coordinates",
+      "order": "MEASURED: the live page's own row order within its heading, x10 (+1000 for Out of San Antonio, because the page merges both land categories into ONE section sorted by order)",
+      "total_price": "MEASURED live TOTAL PRICE cell",
+      "size_label": "MEASURED live SIZE cell",
+      "zoning": "MEASURED live ZONING cell, lines joined",
+      "highlights": "MEASURED live COMMENTS cell, verbatim, MAPSCO grid refs and the contact line stripped",
+      "size_total_sf": "MEASURED live SIZE cell"
+    }
+  },
+  {
+    "uid": "st-marys-at-martin-river-walk",
+    "data": {
+      "title": "St. Mary's St. at E. Martin St. — River Walk",
+      "category": "Land — SA Metro & Surrounding",
+      "status": "Available",
+      "is_new": false,
+      "location": {
+        "latitude": 29.4289662,
+        "longitude": -98.4917414
+      },
+      "order": 120,
+      "total_price": "Contact Broker",
+      "acres": 0.681,
+      "size_label": "0.681 acres",
+      "zoning": "Downtown District, City of San Antonio",
+      "highlights": [
+        {
+          "text": "This site is in the middle of the Central Business District; one block west of Travis Park, two blocks north of the Majestic Theatre, and three blocks west of the Tobin Center for the Performing Arts."
+        },
+        {
+          "text": "The site is one block from the new apartment project \"300 Main\" that includes 354 class A apartments. Opening 2024"
+        },
+        {
+          "text": "Strategic location fronting the #1 tourist attraction in Texas -- The San Antonio River Walk"
+        }
+      ]
+    },
+    "assets": {
+      "package_pdf": {
+        "url": "https://www.roalson.com/props/Riverwalk/Riverwalk%20package.pdf",
+        "bytes": 8048450
+      }
+    },
+    "source": {
+      "title": "INFERRED (hand-set from KML name + live name)",
+      "uid": "INFERRED (hand-set, short for sharing)",
+      "category": "MEASURED live prop.htm heading",
+      "status": "MEASURED: all 22 sit on the live 'Available Properties' page",
+      "is_new": "MEASURED live 'NEW' marker",
+      "location": "MEASURED KML coordinates",
+      "order": "MEASURED: the live page's own row order within its heading, x10 (+1000 for Out of San Antonio, because the page merges both land categories into ONE section sorted by order)",
+      "total_price": "MEASURED live TOTAL PRICE cell",
+      "acres": "MEASURED live SIZE cell",
+      "size_label": "derived from acres",
+      "zoning": "MEASURED live ZONING cell, lines joined",
+      "highlights": "MEASURED live COMMENTS cell, verbatim, MAPSCO grid refs and the contact line stripped"
+    }
+  },
+  {
+    "uid": "25331-ih-10-west",
+    "data": {
+      "title": "25331 IH 10 West",
+      "category": "Improved",
+      "status": "Available",
+      "is_new": false,
+      "location": {
+        "latitude": 29.6773878,
+        "longitude": -98.638346
+      },
+      "order": 10,
+      "transaction_type": "Lease",
+      "total_price": "Contact Broker",
+      "size_label": "Up to 16,700 SF",
+      "highlights": [
+        {
+          "text": "Office Bldg: 975 - 10,000SF"
+        },
+        {
+          "text": "Retail Bldg: 1200 - 6700SF"
+        },
+        {
+          "text": "New Ownership and Property Management!"
+        },
+        {
+          "text": "Great visibility and excellent location in the far NW submarket"
+        },
+        {
+          "text": "Good access to the IH 10 and Ralph Fair intersection"
+        }
+      ]
+    },
+    "assets": {
+      "package_pdf": {
+        "url": "https://www.roalson.com/props/25331%20IH%2010%20West/25331%20IH%2010%20West.pdf",
+        "bytes": 8287155
+      },
+      "feature_image": {
+        "url": "https://mymaps.usercontent.google.com/hostedimage/m/*/3AAjQbR6eri6B3IxfhZ3FJAg4KU_0Y4MPm5_KRUTqDZ3_FYz8gYpgocqyNtMeVLy-_Dl0SBrG6E2GoQJD4f8VOPPrFe2uAJL3-zY7D1OUdTL6aS6oYhjnM7yjyWUUVkQzICCwFhYLolueXh3O0cBVzeUVwSZaTUn3EmDkF5Qf-2KXI7BuTcsiW7EbF_PPyJQ5mhJot2JcP-q7TIQzlAt8fTsybzngOByS_rFtVIwzZ403KiVLS0FgO6wbWLjF0nEYfw?fife=s16383",
+        "filename": "25331-ih-10-west.jpg",
+        "alt": "Two limestone and glass commercial buildings around a parking court at 25331 IH 10 West"
+      }
+    },
+    "source": {
+      "title": "INFERRED (hand-set from KML name + live name)",
+      "uid": "INFERRED (hand-set, short for sharing)",
+      "category": "MEASURED live prop.htm heading",
+      "status": "MEASURED: all 22 sit on the live 'Available Properties' page",
+      "is_new": "MEASURED live 'NEW' marker",
+      "location": "MEASURED KML coordinates",
+      "order": "MEASURED: the live page's own row order within its heading, x10 (+1000 for Out of San Antonio, because the page merges both land categories into ONE section sorted by order)",
+      "transaction_type": "MEASURED live name cell",
+      "total_price": "MEASURED live TOTAL PRICE cell",
+      "size_label": "INFERRED: 10,000 + 6,700 from the live ranges — and the comp's own card text",
+      "highlights": "MEASURED live COMMENTS cell, verbatim, MAPSCO grid refs and the contact line stripped"
+    }
+  },
+  {
+    "uid": "urban-loop-road",
+    "data": {
+      "title": "503 & 523 Urban Loop Road",
+      "category": "Land — SA Metro & Surrounding",
+      "status": "Available",
+      "is_new": false,
+      "location": {
+        "latitude": 29.4213922,
+        "longitude": -98.5011994
+      },
+      "order": 130,
+      "transaction_type": "Sale or Lease",
+      "total_price": "Contact Broker",
+      "acres": 1.87,
+      "size_label": "1.87 acres",
+      "zoning": "Downtown District, City of San Antonio",
+      "highlights": [
+        {
+          "text": "The property is a redevelopment site."
+        },
+        {
+          "text": "The site is within one block of the UTSA Downtown Campus."
+        },
+        {
+          "text": "HEB Headquarters is located one and a half miles to the east of the site."
+        }
+      ]
+    },
+    "assets": {
+      "package_pdf": {
+        "url": "https://www.roalson.com/props/Urban_Loop/Urban%20Loop%20package.pdf",
+        "bytes": 7232479
+      }
+    },
+    "source": {
+      "title": "INFERRED (hand-set from KML name + live name)",
+      "uid": "INFERRED (hand-set, short for sharing)",
+      "category": "MEASURED live prop.htm heading",
+      "status": "MEASURED: all 22 sit on the live 'Available Properties' page",
+      "is_new": "MEASURED live 'NEW' marker",
+      "location": "MEASURED KML coordinates",
+      "order": "MEASURED: the live page's own row order within its heading, x10 (+1000 for Out of San Antonio, because the page merges both land categories into ONE section sorted by order)",
+      "transaction_type": "MEASURED live name cell",
+      "total_price": "MEASURED live TOTAL PRICE cell",
+      "acres": "MEASURED live SIZE cell",
+      "size_label": "derived from acres",
+      "zoning": "MEASURED live ZONING cell, lines joined",
+      "highlights": "MEASURED live COMMENTS cell, verbatim, MAPSCO grid refs and the contact line stripped"
+    }
+  },
+  {
+    "uid": "13810-lookout-road",
+    "data": {
+      "title": "13810 Lookout Road",
+      "category": "Improved",
+      "status": "Available",
+      "is_new": false,
+      "location": {
+        "latitude": 29.5658789,
+        "longitude": -98.3668426
+      },
+      "order": 40,
+      "total_price": "Contact Broker",
+      "size_total_sf": 4230,
+      "size_label": "4,230 SF",
+      "size_office_sf": 1340,
+      "size_warehouse_sf": 2890,
+      "highlights": [
+        {
+          "text": "Excellent accesssibility to IH 35 and Loop 1604"
+        },
+        {
+          "text": "Office area consists of three offices, wet bar/break area and large open office with counter"
+        }
+      ]
+    },
+    "assets": {
+      "package_pdf": {
+        "url": "https://www.roalson.com/props/13810_Lookout_Road/13810%20Lookout%20Rd%20package.pdf",
+        "bytes": 2725549
+      }
+    },
+    "source": {
+      "title": "INFERRED (hand-set from KML name + live name)",
+      "uid": "INFERRED (hand-set, short for sharing)",
+      "category": "MEASURED live prop.htm heading",
+      "status": "MEASURED: all 22 sit on the live 'Available Properties' page",
+      "is_new": "MEASURED live 'NEW' marker",
+      "location": "MEASURED KML coordinates",
+      "order": "MEASURED: the live page's own row order within its heading, x10 (+1000 for Out of San Antonio, because the page merges both land categories into ONE section sorted by order)",
+      "total_price": "MEASURED live TOTAL PRICE cell",
+      "size_label": "MEASURED live SIZE cell",
+      "highlights": "MEASURED live COMMENTS cell, verbatim, MAPSCO grid refs and the contact line stripped",
+      "size_office_sf": "MEASURED live SIZE cell (the split it prints)",
+      "size_warehouse_sf": "MEASURED live SIZE cell (the split it prints)",
+      "size_total_sf": "COMPUTED: 1,340 office + 2,890 warehouse = 4,230"
+    }
+  },
+  {
+    "uid": "402-w-nueva-street",
+    "data": {
+      "title": "402 W. Nueva Street",
+      "category": "Land — SA Metro & Surrounding",
+      "status": "Available",
+      "is_new": true,
+      "location": {
+        "latitude": 29.4231304,
+        "longitude": -98.5008086
+      },
+      "order": 90,
+      "total_price": "Contact Broker",
+      "acres": 2.696,
+      "size_label": "2.696 acres",
+      "zoning": "D (Downtown), City of San Antono",
+      "highlights": [
+        {
+          "text": "Property appears to lie within an Opportunity Zone"
+        },
+        {
+          "text": "Site is adjacent to the UTSA Downtown Campus"
+        },
+        {
+          "text": "Site is one block west of the United State Federal Courthouse and one block south of Market Square"
+        }
+      ]
+    },
+    "assets": {
+      "package_pdf": {
+        "url": "https://www.roalson.com/props/402_W_Nueva_Street/402%20W%20Nueva%20Street%20package.pdf",
+        "bytes": 4763126
+      }
+    },
+    "source": {
+      "title": "INFERRED (hand-set from KML name + live name)",
+      "uid": "INFERRED (hand-set, short for sharing)",
+      "category": "MEASURED live prop.htm heading",
+      "status": "MEASURED: all 22 sit on the live 'Available Properties' page",
+      "is_new": "MEASURED live 'NEW' marker",
+      "location": "MEASURED KML coordinates",
+      "order": "MEASURED: the live page's own row order within its heading, x10 (+1000 for Out of San Antonio, because the page merges both land categories into ONE section sorted by order)",
+      "total_price": "MEASURED live TOTAL PRICE cell",
+      "acres": "MEASURED live SIZE cell",
+      "size_label": "derived from acres",
+      "zoning": "MEASURED live ZONING cell, lines joined",
+      "highlights": "MEASURED live COMMENTS cell, verbatim, MAPSCO grid refs and the contact line stripped"
+    }
+  },
+  {
+    "uid": "ih-10-east-at-loop-1604",
+    "data": {
+      "title": "IH 10 East at Loop 1604",
+      "category": "Land — SA Metro & Surrounding",
+      "status": "Available",
+      "is_new": true,
+      "location": {
+        "latitude": 29.4660314,
+        "longitude": -98.2935417
+      },
+      "order": 40,
+      "total_price": "Contact Broker",
+      "acres": 1.32,
+      "size_label": "1.32 acres",
+      "zoning": "C-3 Commercial, City of San Antonio",
+      "highlights": [
+        {
+          "text": "Excellent pad site opportunity across Loop 1604 from the new H.E.B."
+        },
+        {
+          "text": "Excellent visibility with great access in high population growth area"
+        },
+        {
+          "text": "Cross access in place with development to the north"
+        }
+      ]
+    },
+    "assets": {
+      "package_pdf": {
+        "url": "https://www.roalson.com/props/IH10_East_at_Loop_1604-1.34_acre/IH%2010%20at%20Loop%201604%20(1.34).pdf",
+        "bytes": 5081097
+      }
+    },
+    "source": {
+      "title": "INFERRED (hand-set from KML name + live name)",
+      "uid": "INFERRED (hand-set, short for sharing)",
+      "category": "MEASURED live prop.htm heading",
+      "status": "MEASURED: all 22 sit on the live 'Available Properties' page",
+      "is_new": "MEASURED live 'NEW' marker",
+      "location": "MEASURED KML coordinates",
+      "order": "MEASURED: the live page's own row order within its heading, x10 (+1000 for Out of San Antonio, because the page merges both land categories into ONE section sorted by order)",
+      "total_price": "MEASURED live TOTAL PRICE cell",
+      "acres": "MEASURED live SIZE cell",
+      "size_label": "derived from acres",
+      "zoning": "MEASURED live ZONING cell, lines joined",
+      "highlights": "MEASURED live COMMENTS cell, verbatim, MAPSCO grid refs and the contact line stripped"
+    }
+  },
+  {
+    "uid": "116-old-san-antonio-road",
+    "data": {
+      "title": "116 Old San Antonio Road",
+      "category": "Land — SA Metro & Surrounding",
+      "status": "Available",
+      "is_new": false,
+      "location": {
+        "latitude": 29.767739,
+        "longitude": -98.713165
+      },
+      "order": 100,
+      "total_price": "Contact Broker",
+      "acres": 17.2,
+      "size_label": "17.2 acres",
+      "zoning": "R-E (Residential Estate), City of Boerne",
+      "highlights": [
+        {
+          "text": "Easy access to IH 10"
+        },
+        {
+          "text": "Very strong population growth in the area"
+        },
+        {
+          "text": "Close proximity to Boerne Middle School South, Kendall Elementary, and The Geneva School of Boerne"
+        }
+      ]
+    },
+    "assets": {
+      "package_pdf": {
+        "url": "https://www.roalson.com/props/116_Old_San_Antonio_Road/116%20Old%20San%20Antonio%20Road%20package.pdf",
+        "bytes": 4439211
+      }
+    },
+    "source": {
+      "title": "INFERRED (hand-set from KML name + live name)",
+      "uid": "INFERRED (hand-set, short for sharing)",
+      "category": "MEASURED live prop.htm heading",
+      "status": "MEASURED: all 22 sit on the live 'Available Properties' page",
+      "is_new": "MEASURED live 'NEW' marker",
+      "location": "MEASURED KML coordinates",
+      "order": "MEASURED: the live page's own row order within its heading, x10 (+1000 for Out of San Antonio, because the page merges both land categories into ONE section sorted by order)",
+      "total_price": "MEASURED live TOTAL PRICE cell",
+      "acres": "MEASURED live SIZE cell",
+      "size_label": "derived from acres",
+      "zoning": "MEASURED live ZONING cell, lines joined",
+      "highlights": "MEASURED live COMMENTS cell, verbatim, MAPSCO grid refs and the contact line stripped"
+    }
+  },
+  {
+    "uid": "ih-10-at-menger-springs",
+    "data": {
+      "title": "IH 10 at Menger Springs",
+      "category": "Land — SA Metro & Surrounding",
+      "status": "Available",
+      "is_new": false,
+      "location": {
+        "latitude": 29.7732434,
+        "longitude": -98.7301826
+      },
+      "order": 10,
+      "total_price": "Contact Broker",
+      "acres": 10.24,
+      "size_label": "10.24 acres",
+      "tracts": [
+        {
+          "tract_name": "Tract 1",
+          "tract_acres": 3.84,
+          "tract_status": "Available"
+        },
+        {
+          "tract_name": "Tract 2",
+          "tract_acres": 6.4,
+          "tract_status": "Available"
+        }
+      ],
+      "zoning": "Tract 1: C-3 Tract 2: C-4 Kendall County",
+      "highlights": [
+        {
+          "text": "Quality commercial property fronting IH 10 by Methodist Healthcare and Morningside Ministries"
+        }
+      ]
+    },
+    "assets": {
+      "package_pdf": {
+        "url": "https://www.roalson.com/props/IH10_at_Menger_Springs/IH%2010%20at%20Menger%20Springs%20package.pdf",
+        "bytes": 5274277
+      }
+    },
+    "source": {
+      "title": "INFERRED (hand-set from KML name + live name)",
+      "uid": "INFERRED (hand-set, short for sharing)",
+      "category": "MEASURED live prop.htm heading",
+      "status": "MEASURED: all 22 sit on the live 'Available Properties' page",
+      "is_new": "MEASURED live 'NEW' marker",
+      "location": "MEASURED KML coordinates",
+      "order": "MEASURED: the live page's own row order within its heading, x10 (+1000 for Out of San Antonio, because the page merges both land categories into ONE section sorted by order)",
+      "total_price": "MEASURED live TOTAL PRICE cell",
+      "acres": "COMPUTED: sum of the live tract acreages",
+      "size_label": "derived from acres",
+      "tracts": "MEASURED live SIZE cell + 'TRACT n UNDER CONTRACT' in the name cell",
+      "zoning": "MEASURED live ZONING cell, lines joined",
+      "highlights": "MEASURED live COMMENTS cell, verbatim, MAPSCO grid refs and the contact line stripped"
+    }
+  },
+  {
+    "uid": "cascade-caverns-at-old-san-antonio-road",
+    "data": {
+      "title": "Cascade Caverns at Old San Antonio Road",
+      "category": "Land — SA Metro & Surrounding",
+      "status": "Available",
+      "is_new": false,
+      "location": {
+        "latitude": 29.7569264,
+        "longitude": -98.7052274
+      },
+      "order": 70,
+      "total_price": "Contact Broker",
+      "acres": 5.0106,
+      "size_label": "5.0106 acres",
+      "zoning": "C-3, City of Boerne",
+      "highlights": [
+        {
+          "text": "Excellent commercial corner"
+        },
+        {
+          "text": "Strong I.H. 10 access and visibility"
+        }
+      ]
+    },
+    "assets": {
+      "package_pdf": {
+        "url": "https://www.roalson.com/props/Old_San_Antonio_Road/Old%20San%20Antonio%20Road%20package.pdf",
+        "bytes": 5456166
+      }
+    },
+    "source": {
+      "title": "INFERRED (hand-set from KML name + live name)",
+      "uid": "INFERRED (hand-set, short for sharing)",
+      "category": "MEASURED live prop.htm heading",
+      "status": "MEASURED: all 22 sit on the live 'Available Properties' page",
+      "is_new": "MEASURED live 'NEW' marker",
+      "location": "MEASURED KML coordinates",
+      "order": "MEASURED: the live page's own row order within its heading, x10 (+1000 for Out of San Antonio, because the page merges both land categories into ONE section sorted by order)",
+      "total_price": "MEASURED live TOTAL PRICE cell",
+      "acres": "MEASURED live SIZE cell",
+      "size_label": "derived from acres",
+      "zoning": "MEASURED live ZONING cell, lines joined",
+      "highlights": "MEASURED live COMMENTS cell, verbatim, MAPSCO grid refs and the contact line stripped"
+    }
+  },
+  {
+    "uid": "ih-10-at-scenic-loop",
+    "data": {
+      "title": "IH 10 at Scenic Loop",
+      "category": "Land — SA Metro & Surrounding",
+      "status": "Available",
+      "is_new": false,
+      "location": {
+        "latitude": 29.7553243,
+        "longitude": -98.7044549
+      },
+      "order": 20,
+      "total_price": "Contact Broker",
+      "acres": 2.09,
+      "size_label": "2.09 acres",
+      "tracts": [
+        {
+          "tract_name": "Tract 1",
+          "tract_acres": 0.721,
+          "tract_status": "Under Contract"
+        },
+        {
+          "tract_name": "Tract 3",
+          "tract_acres": 1.369,
+          "tract_status": "Available"
+        }
+      ],
+      "zoning": "C-3 Commercial, City of Boerne",
+      "highlights": [
+        {
+          "text": "Signalized intersection with excellent traffic"
+        },
+        {
+          "text": "Tremendous visibility and access at southern entrance to Boerne"
+        }
+      ]
+    },
+    "assets": {
+      "package_pdf": {
+        "url": "https://www.roalson.com/props/IH10_at_Scenic_Loop_Rd-2.09_Acres/IH%2010%20at%20Scenic%20Loop%20(2.09)%20package.pdf",
+        "bytes": 5843693
+      }
+    },
+    "source": {
+      "title": "INFERRED (hand-set from KML name + live name)",
+      "uid": "INFERRED (hand-set, short for sharing)",
+      "category": "MEASURED live prop.htm heading",
+      "status": "MEASURED: all 22 sit on the live 'Available Properties' page",
+      "is_new": "MEASURED live 'NEW' marker",
+      "location": "MEASURED KML coordinates",
+      "order": "MEASURED: the live page's own row order within its heading, x10 (+1000 for Out of San Antonio, because the page merges both land categories into ONE section sorted by order)",
+      "total_price": "MEASURED live TOTAL PRICE cell",
+      "acres": "MEASURED live SIZE cell",
+      "size_label": "derived from acres",
+      "tracts": "MEASURED live SIZE cell + 'TRACT n UNDER CONTRACT' in the name cell",
+      "zoning": "MEASURED live ZONING cell, lines joined",
+      "highlights": "MEASURED live COMMENTS cell, verbatim, MAPSCO grid refs and the contact line stripped"
+    }
+  },
+  {
+    "uid": "ih-10-at-highway-46",
+    "data": {
+      "title": "IH 10 at Highway 46",
+      "category": "Land — SA Metro & Surrounding",
+      "status": "Available",
+      "is_new": false,
+      "location": {
+        "latitude": 29.7781603,
+        "longitude": -98.7385082
+      },
+      "order": 30,
+      "transaction_type": "Lease",
+      "total_price": "Contact Broker",
+      "acres": 6.552,
+      "size_label": "6.552 acres",
+      "zoning": "C-4 Commercial, City of Boerne",
+      "highlights": [
+        {
+          "text": "Site has excellent frontage and visibility."
+        },
+        {
+          "text": "At entrance to Regent Park, a new 900 lot master planned residential development"
+        }
+      ]
+    },
+    "assets": {
+      "package_pdf": {
+        "url": "https://www.roalson.com/props/IH_10_at_Hwy_46_in_Boerne/IH%2010%20at%20Hwy%2046%20in%20Boerne%20package.pdf",
+        "bytes": 6723982
+      }
+    },
+    "source": {
+      "title": "INFERRED (hand-set from KML name + live name)",
+      "uid": "INFERRED (hand-set, short for sharing)",
+      "category": "MEASURED live prop.htm heading",
+      "status": "MEASURED: all 22 sit on the live 'Available Properties' page",
+      "is_new": "MEASURED live 'NEW' marker",
+      "location": "MEASURED KML coordinates",
+      "order": "MEASURED: the live page's own row order within its heading, x10 (+1000 for Out of San Antonio, because the page merges both land categories into ONE section sorted by order)",
+      "transaction_type": "MEASURED live name cell",
+      "total_price": "MEASURED live TOTAL PRICE cell",
+      "acres": "MEASURED live SIZE cell",
+      "size_label": "derived from acres",
+      "zoning": "MEASURED live ZONING cell, lines joined",
+      "highlights": "MEASURED live COMMENTS cell, verbatim, MAPSCO grid refs and the contact line stripped"
+    }
+  },
+  {
+    "uid": "menger-springs-road",
+    "data": {
+      "title": "Menger Springs Road",
+      "category": "Land — SA Metro & Surrounding",
+      "status": "Available",
+      "is_new": false,
+      "location": {
+        "latitude": 29.7705116,
+        "longitude": -98.7307834
+      },
+      "order": 80,
+      "total_price": "$2,618,827",
+      "price_per_unit": "$4.50 / SF",
+      "acres": 13.36,
+      "size_label": "13.36 acres",
+      "zoning": "C-1, City of Boerne",
+      "highlights": [
+        {
+          "text": "Exceptional growth within the Boerne metro area driving the need for retail, office, healthcare services, and other commercial uses."
+        },
+        {
+          "text": "Property is located along Menger Springs Rd, adjacent to Methodist Healthcare with great access to IH 10"
+        }
+      ]
+    },
+    "assets": {
+      "package_pdf": {
+        "url": "https://www.roalson.com/props/Menger_Springs-13.4_Acres/Menger%20Springs%20-%2013.4%20Acres%20package.pdf",
+        "bytes": 5514839
+      }
+    },
+    "source": {
+      "title": "INFERRED (hand-set from KML name + live name)",
+      "uid": "INFERRED (hand-set, short for sharing)",
+      "category": "MEASURED live prop.htm heading",
+      "status": "MEASURED: all 22 sit on the live 'Available Properties' page",
+      "is_new": "MEASURED live 'NEW' marker",
+      "location": "MEASURED KML coordinates",
+      "order": "MEASURED: the live page's own row order within its heading, x10 (+1000 for Out of San Antonio, because the page merges both land categories into ONE section sorted by order)",
+      "total_price": "MEASURED live TOTAL PRICE cell",
+      "price_per_unit": "MEASURED live PRICE PER SQ. FT. cell (unit checked: acres x 43,560 x price = total on all 3 land rows)",
+      "acres": "MEASURED live SIZE cell",
+      "size_label": "derived from acres",
+      "zoning": "MEASURED live ZONING cell, lines joined",
+      "highlights": "MEASURED live COMMENTS cell, verbatim, MAPSCO grid refs and the contact line stripped"
+    }
+  },
+  {
+    "uid": "5930-bandera-road",
+    "data": {
+      "title": "5930 Bandera Road",
+      "category": "Improved",
+      "status": "Available",
+      "is_new": false,
+      "location": {
+        "latitude": 29.4832616,
+        "longitude": -98.6030709
+      },
+      "order": 20,
+      "total_price": "Contact Broker",
+      "size_total_sf": 5220,
+      "size_label": "5,220 SF",
+      "zoning": "B-3, Commercial, City of Leon Valley",
+      "highlights": [
+        {
+          "text": "Possible covered land play with 4 existing tenants with landlord options to terminate"
+        },
+        {
+          "text": "Excellent visibility with great access"
+        },
+        {
+          "text": "High traffic counts and strong daytime population"
+        },
+        {
+          "text": "Possible Loop 410 signage opportunity"
+        }
+      ]
+    },
+    "assets": {
+      "package_pdf": {
+        "url": "https://www.roalson.com/props/5930_Bandera_Road/5930%20Bandera%20Rd%20package.pdf",
+        "bytes": 7153858
+      }
+    },
+    "source": {
+      "title": "INFERRED (hand-set from KML name + live name)",
+      "uid": "INFERRED (hand-set, short for sharing)",
+      "category": "MEASURED live prop.htm heading",
+      "status": "MEASURED: all 22 sit on the live 'Available Properties' page",
+      "is_new": "MEASURED live 'NEW' marker",
+      "location": "MEASURED KML coordinates",
+      "order": "MEASURED: the live page's own row order within its heading, x10 (+1000 for Out of San Antonio, because the page merges both land categories into ONE section sorted by order)",
+      "total_price": "MEASURED live TOTAL PRICE cell",
+      "size_label": "MEASURED live SIZE cell",
+      "zoning": "MEASURED live ZONING cell, lines joined",
+      "highlights": "MEASURED live COMMENTS cell, verbatim, MAPSCO grid refs and the contact line stripped",
+      "size_total_sf": "MEASURED live SIZE cell"
+    }
+  },
+  {
+    "uid": "11714-perrin-beitel-road",
+    "data": {
+      "title": "11714 Perrin Beitel Road",
+      "category": "Land — SA Metro & Surrounding",
+      "status": "Available",
+      "is_new": false,
+      "location": {
+        "latitude": 29.546801,
+        "longitude": -98.4102378
+      },
+      "order": 110,
+      "total_price": "$1,608,409",
+      "price_per_unit": "$17.00 / SF",
+      "acres": 2.172,
+      "size_label": "2.172 acres",
+      "zoning": "C-2",
+      "highlights": [
+        {
+          "text": "Excellent visibility and access"
+        },
+        {
+          "text": "Prime commercial location on a major thoroughfare in northeast San Antonio"
+        }
+      ]
+    },
+    "assets": {
+      "package_pdf": {
+        "url": "https://www.roalson.com/props/11714_Perrin_Beitel/11714%20Perrin%20Beitel%20package.pdf",
+        "bytes": 3562902
+      }
+    },
+    "source": {
+      "title": "INFERRED (hand-set from KML name + live name)",
+      "uid": "INFERRED (hand-set, short for sharing)",
+      "category": "MEASURED live prop.htm heading",
+      "status": "MEASURED: all 22 sit on the live 'Available Properties' page",
+      "is_new": "MEASURED live 'NEW' marker",
+      "location": "MEASURED KML coordinates",
+      "order": "MEASURED: the live page's own row order within its heading, x10 (+1000 for Out of San Antonio, because the page merges both land categories into ONE section sorted by order)",
+      "total_price": "MEASURED live TOTAL PRICE cell",
+      "price_per_unit": "MEASURED live PRICE PER SQ. FT. cell (unit checked: acres x 43,560 x price = total on all 3 land rows)",
+      "acres": "MEASURED live SIZE cell",
+      "size_label": "derived from acres",
+      "zoning": "MEASURED live ZONING cell, lines joined",
+      "highlights": "MEASURED live COMMENTS cell, verbatim, MAPSCO grid refs and the contact line stripped"
+    }
+  },
+  {
+    "uid": "loop-1604-at-highway-181",
+    "data": {
+      "title": "Loop 1604 at Highway 181, Elmendorf",
+      "category": "Land — SA Metro & Surrounding",
+      "status": "Available",
+      "is_new": false,
+      "location": {
+        "latitude": 29.2685057,
+        "longitude": -98.306694
+      },
+      "order": 50,
+      "total_price": "Contact Broker",
+      "acres": 3.08,
+      "size_label": "3.08 acres",
+      "zoning": "Bexar County San Antonio ETJ",
+      "highlights": [
+        {
+          "text": "Corner location makes the site one of the most appealing development options in the area."
+        },
+        {
+          "text": "Property is located at a signalized intersection."
+        }
+      ]
+    },
+    "assets": {
+      "package_pdf": {
+        "url": "https://www.roalson.com/props/Loop_1604_at_Hwy_181-6.394_Acres/Loop%201604%20at%20Hwy%20181%20package.pdf",
+        "bytes": 4684438
+      }
+    },
+    "source": {
+      "title": "INFERRED (hand-set from KML name + live name)",
+      "uid": "INFERRED (hand-set, short for sharing)",
+      "category": "MEASURED live prop.htm heading",
+      "status": "MEASURED: all 22 sit on the live 'Available Properties' page",
+      "is_new": "MEASURED live 'NEW' marker",
+      "location": "MEASURED KML coordinates",
+      "order": "MEASURED: the live page's own row order within its heading, x10 (+1000 for Out of San Antonio, because the page merges both land categories into ONE section sorted by order)",
+      "total_price": "MEASURED live TOTAL PRICE cell",
+      "acres": "MEASURED live SIZE cell",
+      "size_label": "derived from acres",
+      "zoning": "MEASURED live ZONING cell, lines joined",
+      "highlights": "MEASURED live COMMENTS cell, verbatim, MAPSCO grid refs and the contact line stripped"
+    }
+  },
+  {
+    "uid": "101-w-commerce-street",
+    "data": {
+      "title": "101 W. Commerce Street",
+      "category": "Improved",
+      "status": "Available",
+      "is_new": false,
+      "location": {
+        "latitude": 29.4253747,
+        "longitude": -98.4939913
+      },
+      "order": 30,
+      "total_price": "$2,950,000",
+      "price_per_unit": "$375.17 / SF",
+      "size_total_sf": 7863,
+      "size_label": "7,863 SF",
+      "zoning": "Downtown District, San Antonio",
+      "highlights": [
+        {
+          "text": "The property is one block from the San Antonio River Walk, across the street from Main Plaza and the San Fernando Cathedral."
+        },
+        {
+          "text": "The property is also one block away from the new apartment project called, \"300 Main.\""
+        }
+      ]
+    },
+    "assets": {
+      "package_pdf": {
+        "url": "https://www.roalson.com/props/Commerce_at_Main_Ave/Commerce%20and%20%20Main%20package.pdf",
+        "bytes": 8751969
+      }
+    },
+    "source": {
+      "title": "INFERRED (hand-set from KML name + live name)",
+      "uid": "INFERRED (hand-set, short for sharing)",
+      "category": "MEASURED live prop.htm heading",
+      "status": "MEASURED: all 22 sit on the live 'Available Properties' page",
+      "is_new": "MEASURED live 'NEW' marker",
+      "location": "MEASURED KML coordinates",
+      "order": "MEASURED: the live page's own row order within its heading, x10 (+1000 for Out of San Antonio, because the page merges both land categories into ONE section sorted by order)",
+      "total_price": "MEASURED live TOTAL PRICE cell",
+      "price_per_unit": "MEASURED live PRICE PER SQ. FT. cell (unit checked: acres x 43,560 x price = total on all 3 land rows)",
+      "size_label": "MEASURED live SIZE cell",
+      "zoning": "MEASURED live ZONING cell, lines joined",
+      "highlights": "MEASURED live COMMENTS cell, verbatim, MAPSCO grid refs and the contact line stripped",
+      "size_total_sf": "MEASURED live SIZE cell"
+    }
+  },
+  {
+    "uid": "ih-10-at-fm-725-seguin",
+    "data": {
+      "title": "IH 10 at FM 725, Seguin",
+      "category": "Land — Out of San Antonio",
+      "status": "Available",
+      "is_new": false,
+      "location": {
+        "latitude": 29.5585468,
+        "longitude": -98.0289331
+      },
+      "order": 1010,
+      "total_price": "Contact Broker",
+      "acres": 3,
+      "size_label": "3 acres",
+      "zoning": "C, Commercial, City of Seguin",
+      "highlights": [
+        {
+          "text": "Located on IH 10 coast to coast freeway, with high traffic counts, excellent visibility and easy access"
+        },
+        {
+          "text": "Seguin is a very business-friendly community."
+        }
+      ]
+    },
+    "assets": {
+      "package_pdf": {
+        "url": "https://www.roalson.com/props/3089_IH10_in_Seguin/3089%20IH%2010%20in%20Seguin%20package-new.pdf",
+        "bytes": 5505849
+      }
+    },
+    "source": {
+      "title": "INFERRED (hand-set from KML name + live name)",
+      "uid": "INFERRED (hand-set, short for sharing)",
+      "category": "MEASURED live prop.htm heading",
+      "status": "MEASURED: all 22 sit on the live 'Available Properties' page",
+      "is_new": "MEASURED live 'NEW' marker",
+      "location": "MEASURED KML coordinates",
+      "order": "MEASURED: the live page's own row order within its heading, x10 (+1000 for Out of San Antonio, because the page merges both land categories into ONE section sorted by order)",
+      "total_price": "MEASURED live TOTAL PRICE cell",
+      "acres": "MEASURED live SIZE cell",
+      "size_label": "derived from acres",
+      "zoning": "MEASURED live ZONING cell, lines joined",
+      "highlights": "MEASURED live COMMENTS cell, verbatim, MAPSCO grid refs and the contact line stripped"
+    }
+  },
+  {
+    "uid": "ih-35-at-wonderworld-san-marcos",
+    "data": {
+      "title": "IH 35 at Wonderworld Drive, San Marcos",
+      "category": "Land — Out of San Antonio",
+      "status": "Available",
+      "is_new": false,
+      "location": {
+        "latitude": 29.8573194,
+        "longitude": -97.9566765
+      },
+      "order": 1020,
+      "total_price": "Contact Broker",
+      "acres": 1.47,
+      "size_label": "1.47 acres",
+      "zoning": "General Commercial, City of San Marcos",
+      "highlights": [
+        {
+          "text": "The property is on a hard corner at a major intersection along I-35."
+        },
+        {
+          "text": "It is surrounded by major retail developments."
+        },
+        {
+          "text": "Drive cuts are in place."
+        }
+      ]
+    },
+    "assets": {
+      "package_pdf": {
+        "url": "https://www.roalson.com/props/IH%2035%20at%20Wonderworld%20Drive/IH%2035%20at%20Wonderworld%20Drive%20package.pdf",
+        "bytes": 14367057
+      }
+    },
+    "source": {
+      "title": "INFERRED (hand-set from KML name + live name)",
+      "uid": "INFERRED (hand-set, short for sharing)",
+      "category": "MEASURED live prop.htm heading",
+      "status": "MEASURED: all 22 sit on the live 'Available Properties' page",
+      "is_new": "MEASURED live 'NEW' marker",
+      "location": "MEASURED KML coordinates",
+      "order": "MEASURED: the live page's own row order within its heading, x10 (+1000 for Out of San Antonio, because the page merges both land categories into ONE section sorted by order)",
+      "total_price": "MEASURED live TOTAL PRICE cell",
+      "acres": "MEASURED live SIZE cell",
+      "size_label": "derived from acres",
+      "zoning": "MEASURED live ZONING cell, lines joined",
+      "highlights": "MEASURED live COMMENTS cell, verbatim, MAPSCO grid refs and the contact line stripped"
+    }
+  },
+  {
+    "uid": "ih-10-at-highway-87-comfort",
+    "data": {
+      "title": "IH 10 at Highway 87, Comfort",
+      "category": "Land — Out of San Antonio",
+      "status": "Available",
+      "is_new": false,
+      "location": {
+        "latitude": 29.9813307,
+        "longitude": -98.9022732
+      },
+      "order": 1030,
+      "total_price": "Contact Broker",
+      "acres": 44.83,
+      "size_label": "44.83 acres",
+      "zoning": "Outside City of Comfort",
+      "highlights": [
+        {
+          "text": "Great commercial corner!"
+        },
+        {
+          "text": "There is a house and small barn on Lot 3."
+        }
+      ]
+    },
+    "assets": {
+      "package_pdf": {
+        "url": "https://www.roalson.com/props/IH10_at_Hwy_87_in_Comfort/IH%2010%20at%20Hwy%2087%20package.pdf",
+        "bytes": 6188541
+      }
+    },
+    "source": {
+      "title": "INFERRED (hand-set from KML name + live name)",
+      "uid": "INFERRED (hand-set, short for sharing)",
+      "category": "MEASURED live prop.htm heading",
+      "status": "MEASURED: all 22 sit on the live 'Available Properties' page",
+      "is_new": "MEASURED live 'NEW' marker",
+      "location": "MEASURED KML coordinates",
+      "order": "MEASURED: the live page's own row order within its heading, x10 (+1000 for Out of San Antonio, because the page merges both land categories into ONE section sorted by order)",
+      "total_price": "MEASURED live TOTAL PRICE cell",
+      "acres": "MEASURED live SIZE cell",
+      "size_label": "derived from acres",
+      "zoning": "MEASURED live ZONING cell, lines joined",
+      "highlights": "MEASURED live COMMENTS cell, verbatim, MAPSCO grid refs and the contact line stripped"
+    }
+  },
+  {
+    "uid": "highway-77-at-general-cavazos-kingsville",
+    "data": {
+      "title": "Highway 77 at General Cavazos Blvd., Kingsville",
+      "category": "Land — Out of San Antonio",
+      "status": "Available",
+      "is_new": false,
+      "location": {
+        "latitude": 27.4900712,
+        "longitude": -97.8487066
+      },
+      "order": 1040,
+      "total_price": "Contact Broker",
+      "acres": 1.148,
+      "size_label": "1.148 acres",
+      "zoning": "AG - Agricultural",
+      "highlights": [
+        {
+          "text": "Great pad site with access in rear to Librado Drive"
+        },
+        {
+          "text": "One of Kingsville's major commercial intersections"
+        },
+        {
+          "text": "Excellent visibility and accessibility from Hwy 77 / U.S. 69"
+        }
+      ]
+    },
+    "assets": {
+      "package_pdf": {
+        "url": "https://www.roalson.com/props/Kingsville%20-%20Hwy%2077%20at%20Gen%20Cavazos/Kingsville%20-%20Hwy%2077%20at%20Gen%20Cavazos%20package.pdf",
+        "bytes": 4037824
+      }
+    },
+    "source": {
+      "title": "INFERRED (hand-set from KML name + live name)",
+      "uid": "INFERRED (hand-set, short for sharing)",
+      "category": "MEASURED live prop.htm heading",
+      "status": "MEASURED: all 22 sit on the live 'Available Properties' page",
+      "is_new": "MEASURED live 'NEW' marker",
+      "location": "MEASURED KML coordinates",
+      "order": "MEASURED: the live page's own row order within its heading, x10 (+1000 for Out of San Antonio, because the page merges both land categories into ONE section sorted by order)",
+      "total_price": "MEASURED live TOTAL PRICE cell",
+      "acres": "MEASURED live SIZE cell",
+      "size_label": "derived from acres",
+      "zoning": "MEASURED live ZONING cell, lines joined",
+      "highlights": "MEASURED live COMMENTS cell, verbatim, MAPSCO grid refs and the contact line stripped"
+    }
+  },
+  {
+    "uid": "loop-1604-at-dove-canyon",
+    "data": {
+      "title": "Loop 1604 at Dove Canyon",
+      "category": "Land — SA Metro & Surrounding",
+      "status": "Available",
+      "is_new": false,
+      "location": {
+        "latitude": 29.4170735,
+        "longitude": -98.7107392
+      },
+      "order": 60,
+      "total_price": "$4,935,566",
+      "price_per_unit": "$8.50 / SF",
+      "acres": 13.33,
+      "size_label": "13.33 acres",
+      "zoning": "Bexar County",
+      "highlights": [
+        {
+          "text": "Exceptional growth continues on the west side of the San Antonio metro area, which is driving the need for retail, multifamily, and other commercial uses."
+        },
+        {
+          "text": "Excellent visibility"
+        },
+        {
+          "text": "Excellent access"
+        }
+      ]
+    },
+    "assets": {
+      "package_pdf": {
+        "url": "https://www.roalson.com/props/Loop_1604_at_Dove_Canyon/Loop%201604%20at%20Dove%20Canyon%20package.pdf",
+        "bytes": 7738021
+      }
+    },
+    "source": {
+      "title": "INFERRED (hand-set from KML name + live name)",
+      "uid": "INFERRED (hand-set, short for sharing)",
+      "category": "MEASURED live prop.htm heading",
+      "status": "MEASURED: all 22 sit on the live 'Available Properties' page",
+      "is_new": "MEASURED live 'NEW' marker",
+      "location": "MEASURED KML coordinates",
+      "order": "MEASURED: the live page's own row order within its heading, x10 (+1000 for Out of San Antonio, because the page merges both land categories into ONE section sorted by order)",
+      "total_price": "MEASURED live TOTAL PRICE cell",
+      "price_per_unit": "MEASURED live PRICE PER SQ. FT. cell (unit checked: acres x 43,560 x price = total on all 3 land rows)",
+      "acres": "MEASURED live SIZE cell",
+      "size_label": "derived from acres",
+      "zoning": "MEASURED live ZONING cell, lines joined",
+      "highlights": "MEASURED live COMMENTS cell, verbatim, MAPSCO grid refs and the contact line stripped"
+    }
+  }
+]

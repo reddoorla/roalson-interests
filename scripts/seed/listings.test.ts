@@ -1,0 +1,249 @@
+import { describe, expect, it, vi } from "vitest";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
+// @ts-expect-error — plain ESM scripts, no declarations
+import { assetFilename, toPayload } from "./listings.mjs";
+import {
+  fetchWithRetry,
+  readToken,
+  repositoryName,
+  stageDocument,
+  stripEmpty,
+  tokenEnvName,
+  // @ts-expect-error — plain ESM scripts, no declarations
+} from "./lib.mjs";
+
+type Entry = {
+  uid: string;
+  data: Record<string, unknown>;
+  assets: Record<string, { url: string; bytes?: number; filename?: string; alt?: string }>;
+  source: Record<string, string>;
+};
+
+const root = process.cwd();
+const listings = JSON.parse(
+  readFileSync(resolve(root, "scripts/seed/listings.json"), "utf8"),
+) as Entry[];
+const model = JSON.parse(readFileSync(resolve(root, "customtypes/property/index.json"), "utf8"));
+
+/** Every field of the `property` model, across its tabs. */
+const fields: Record<
+  string,
+  { type: string; config?: { options?: string[]; fields?: Record<string, unknown> } }
+> = Object.assign({}, ...Object.values(model.json as Record<string, object>));
+
+describe("the listings data file", () => {
+  it("holds the 22 listings of the client's table, under unique short uids", () => {
+    expect(listings).toHaveLength(22);
+    const uids = listings.map((l) => l.uid);
+    expect(new Set(uids).size).toBe(22);
+    for (const uid of uids) expect(uid, uid).toMatch(/^[a-z0-9]+(?:-[a-z0-9]+)*$/);
+    for (const uid of uids) expect(uid.length, uid).toBeLessThanOrEqual(40);
+  });
+
+  it("uses only fields the property model declares", () => {
+    const unknown = listings.flatMap((l) =>
+      Object.keys(l.data)
+        .filter((k) => !(k in fields))
+        .map((k) => `${l.uid}.${k}`),
+    );
+    expect(unknown).toEqual([]);
+  });
+
+  // The land categories contain U+2014 EM DASH. A hyphen typed in its place is
+  // accepted by the Migration API and then matches no section on the page.
+  it("every Select value is one of the model's options, byte for byte", () => {
+    const wrong: string[] = [];
+    for (const l of listings) {
+      for (const [key, value] of Object.entries(l.data)) {
+        const options = fields[key]?.type === "Select" ? fields[key].config?.options : undefined;
+        if (options && !options.includes(value as string))
+          wrong.push(`${l.uid}.${key} = ${JSON.stringify(value)}`);
+      }
+    }
+    expect(wrong).toEqual([]);
+    expect(listings.filter((l) => String(l.data.category).includes("—")).length).toBe(17);
+  });
+
+  it("types every value as the model does", () => {
+    const wrong: string[] = [];
+    for (const l of listings) {
+      for (const [key, value] of Object.entries(l.data)) {
+        const type = fields[key]?.type;
+        const ok =
+          type === "Number"
+            ? typeof value === "number" && Number.isFinite(value)
+            : type === "Boolean"
+              ? typeof value === "boolean"
+              : type === "Group"
+                ? Array.isArray(value)
+                : type === "GeoPoint"
+                  ? typeof (value as { latitude?: unknown }).latitude === "number" &&
+                    typeof (value as { longitude?: unknown }).longitude === "number"
+                  : typeof value === "string" && value !== "";
+        if (!ok) wrong.push(`${l.uid}.${key} (${type}) = ${JSON.stringify(value)}`);
+      }
+    }
+    expect(wrong).toEqual([]);
+  });
+
+  it("puts every listing in San Antonio's part of Texas, and says where each field came from", () => {
+    for (const l of listings) {
+      const { latitude, longitude } = l.data.location as { latitude: number; longitude: number };
+      expect(latitude, l.uid).toBeGreaterThan(27);
+      expect(latitude, l.uid).toBeLessThan(31);
+      expect(longitude, l.uid).toBeGreaterThan(-100);
+      expect(longitude, l.uid).toBeLessThan(-97);
+      const unsourced = Object.keys(l.data).filter((k) => !l.source[k]);
+      expect(unsourced, l.uid).toEqual([]);
+    }
+  });
+
+  it("names a package PDF on the client's own site for every listing, and one photo", () => {
+    for (const l of listings)
+      expect(l.assets.package_pdf?.url, l.uid).toMatch(
+        /^https:\/\/www\.roalson\.com\/props\/.+\.pdf$/i,
+      );
+    const photos = listings.filter((l) => l.assets.feature_image);
+    expect(photos.map((l) => l.uid)).toEqual(["25331-ih-10-west"]);
+    expect(photos[0].assets.feature_image.alt).toBeTruthy();
+  });
+});
+
+describe("toPayload", () => {
+  const entry = listings.find((l) => l.uid === "25331-ih-10-west")!;
+
+  it("sends the whole document, with no empty values for Prismic to reject", () => {
+    const payload = toPayload({
+      ...entry,
+      data: { ...entry.data, zoning: "", tracts: [], meta_image: {} },
+    });
+    expect(payload).toMatchObject({
+      type: "property",
+      uid: "25331-ih-10-west",
+      title: "25331 IH 10 West",
+    });
+    expect(payload.data).not.toHaveProperty("zoning");
+    expect(payload.data).not.toHaveProperty("meta_image");
+    expect(payload.data.is_new).toBe(false);
+    expect(payload.data.highlights).toHaveLength(5);
+  });
+
+  it("attaches uploaded assets in the shapes the Migration API takes", () => {
+    const payload = toPayload(entry, {
+      "25331-ih-10-west:package_pdf": "pdf1",
+      "25331-ih-10-west:feature_image": "img1",
+    });
+    expect(payload.data.package_pdf).toEqual({ link_type: "Media", id: "pdf1" });
+    expect(payload.data.feature_image).toEqual({ id: "img1" });
+    expect(toPayload(entry).data).not.toHaveProperty("package_pdf");
+  });
+
+  it("names assets by listing, so a re-run finds them again", () => {
+    expect(
+      assetFilename("x", "package_pdf", { url: "https://www.roalson.com/props/A%20B/A%20B.pdf" }),
+    ).toBe("x-package.pdf");
+    expect(
+      assetFilename("x", "feature_image", { url: "https://h/i?fife=s1", filename: "x.jpg" }),
+    ).toBe("x.jpg");
+  });
+});
+
+describe("seed lib", () => {
+  it("drops null, empty strings and empty objects, and keeps false and 0", () => {
+    expect(
+      stripEmpty({ a: "", b: null, c: {}, d: { e: {} }, f: false, g: 0, h: [{ t: "x" }, {}] }),
+    ).toEqual({
+      f: false,
+      g: 0,
+      h: [{ t: "x" }],
+    });
+  });
+
+  it("targets the repository the models CLI targets: the sentinel is skipped, never used", () => {
+    const dir = mkdtempSync(join(tmpdir(), "seed-"));
+    writeFileSync(
+      join(dir, "slicemachine.config.json"),
+      JSON.stringify({ repositoryName: "your-prismic-repo-name" }),
+    );
+    expect(() => repositoryName(dir)).toThrow(/no real Prismic repository/);
+    writeFileSync(
+      join(dir, "prismic.config.json"),
+      JSON.stringify({ repositoryName: "roalson-interests" }),
+    );
+    expect(repositoryName(dir)).toBe("roalson-interests");
+    writeFileSync(
+      join(dir, "slicemachine.config.json"),
+      JSON.stringify({ repositoryName: "the-real-one" }),
+    );
+    expect(repositoryName(dir)).toBe("the-real-one");
+  });
+
+  it("derives the per-repository token name as the fleet does, and refuses without one", () => {
+    expect(tokenEnvName("roalson-interests")).toBe("PRISMIC_TOKEN_ROALSON_INTERESTS");
+    expect(readToken("r", { PRISMIC_WRITE_TOKEN: "a" }, "/nonexistent")).toBe("a");
+    expect(readToken("r-x", { PRISMIC_TOKEN_R_X: "b" }, "/nonexistent")).toBe("b");
+    expect(() => readToken("r", {}, "/nonexistent")).toThrow(/no write token/);
+    const dir = mkdtempSync(join(tmpdir(), "cred-"));
+    writeFileSync(join(dir, "c.env"), 'OTHER=1\nexport PRISMIC_TOKEN_R="from-file"\n');
+    expect(readToken("r", {}, join(dir, "c.env"))).toBe("from-file");
+  });
+
+  it("backs off on 429 and gives up with the last answer", async () => {
+    const wait = vi.fn(async () => {});
+    const answers = [{ status: 429 }, { status: 429 }, { status: 200 }];
+    const fetchImpl = vi.fn(async () => answers.shift());
+    expect((await fetchWithRetry("u", {}, { fetchImpl, wait })).status).toBe(200);
+    expect(wait.mock.calls.map((c) => c[0])).toEqual([1500, 3000]);
+  });
+
+  it("creates on 201, replaces when an id is known, and STOPS on 'already exists' with no id", async () => {
+    const headers = { auth: {}, json: {} };
+    const ok = vi.fn(async () => ({ status: 201, ok: true, json: async () => ({ id: "new1" }) }));
+    expect(
+      await stageDocument({
+        type: "property",
+        uid: "a",
+        title: "A",
+        data: {},
+        headers,
+        fetchImpl: ok,
+      }),
+    ).toEqual({
+      id: "new1",
+      created: true,
+    });
+    expect(ok.mock.calls[0][1].method).toBe("POST");
+
+    const put = vi.fn(async () => ({ status: 200, ok: true, json: async () => ({}) }));
+    await stageDocument({
+      id: "known",
+      type: "property",
+      uid: "a",
+      title: "A",
+      data: {},
+      headers,
+      fetchImpl: put,
+    });
+    expect(put.mock.calls[0][0]).toBe("https://migration.prismic.io/documents/known");
+    expect(put.mock.calls[0][1].method).toBe("PUT");
+
+    const exists = vi.fn(async () => ({
+      status: 400,
+      ok: false,
+      text: async () => "A document with this UID already exists",
+    }));
+    await expect(
+      stageDocument({
+        type: "property",
+        uid: "a",
+        title: "A",
+        data: {},
+        headers,
+        fetchImpl: exists,
+      }),
+    ).rejects.toThrow(/no id is stored/);
+    expect(exists).toHaveBeenCalledTimes(1);
+  });
+});
