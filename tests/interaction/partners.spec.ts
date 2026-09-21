@@ -28,7 +28,7 @@ import { expectRing, GARNET, OFF_WHITE } from "./expect-ring";
 // for positive evidence of it; the no-script test demands positive evidence of
 // its ABSENCE. The shared config forces `reducedMotion: "reduce"`, under which
 // app.css makes the arrow's turn instant — harmless, the end state is what is
-// read.
+// read (and "instant" is itself measured below, in both preferences).
 const LAUNCH = "/dev/home";
 const BIO = "/dev/home?bio";
 const FULL = "/dev/home?bio&photos";
@@ -43,8 +43,16 @@ const BIO_TEXT = "Fixture copy, not a biography.";
 const TRIM = { h2: 11.5, h3: 9.4, h4: 8.1, h5: 3.2 };
 
 /** Script has run: the bar is `absolute` in the server's markup over a dark
- *  first band, and only mount pins it. */
-const adopted = (page: Page) => expect(page.locator(bar)).toHaveCSS("position", "fixed");
+ *  first band, and only mount pins it.
+ *
+ *  15s, not the default 5: every run starts its own COLD vite dev server, and
+ *  the first test to need script waits for the whole client graph to be
+ *  transformed. With four workers on a loaded machine the first scripted test
+ *  took 5.0s, then failed at 5s (13 polls, all `absolute`), then 6.6s — and CI's
+ *  two retries hide that where a laptop's zero do not. A longer wait for positive
+ *  evidence can only delay a red, never grant a green. */
+const adopted = (page: Page) =>
+  expect(page.locator(bar)).toHaveCSS("position", "fixed", { timeout: 15_000 });
 
 const bandWidth = (page: Page) =>
   page.locator(band).evaluate((el) => el.getBoundingClientRect().width);
@@ -248,6 +256,41 @@ test("from the keyboard, Enter on PROFILE opens the bio and turns the arrow down
   await page.keyboard.press("Enter");
   await expect(bio).toBeHidden();
   await expect(arrow).toHaveCSS("rotate", "none");
+});
+
+test("the arrow's turn is animated only for a visitor who has not asked for less motion", async ({
+  page,
+  browser,
+}) => {
+  // The slice gates nothing itself: `transition-transform duration-200` is
+  // bare, and what stills it is app.css's base-layer rule that sets every
+  // transition to 0.01ms under `reduce`. That is a claim about two files, so
+  // it is measured — in BOTH preferences, each with positive evidence of which
+  // one the context holds. A test that only ever saw the config's forced
+  // `reduce` would pass on a slice with no transition at all; one that only
+  // saw `no-preference` would pass with app.css's rule deleted.
+  const reads = (p: Page) =>
+    p.locator(`${band} summary svg`).evaluate((el) => {
+      const cs = getComputedStyle(el);
+      return {
+        reduce: matchMedia("(prefers-reduced-motion: reduce)").matches,
+        turns: cs.transitionProperty.split(", ").includes("rotate"),
+        duration: cs.transitionDuration,
+      };
+    });
+
+  await page.goto(BIO);
+  // 0.01ms, as Chromium serialises it.
+  expect(await reads(page)).toEqual({ reduce: true, turns: true, duration: "1e-05s" });
+
+  const context = await browser.newContext({ reducedMotion: "no-preference" });
+  try {
+    const moving = await context.newPage();
+    await moving.goto(BIO);
+    expect(await reads(moving)).toEqual({ reduce: false, turns: true, duration: "0.2s" });
+  } finally {
+    await context.close();
+  }
 });
 
 test("at 1440 the band keeps the comp's rhythm and its text stands on the site's column", async ({
