@@ -1454,3 +1454,55 @@ scrollbar that would fill it, and everything lays out 1425 wide while
 
 `scripts/seed/listings.state.json` is committed: document and asset ids are not
 secrets, and they are the only way a later run can PUT instead of duplicating.
+
+## 2026-09-21 — The focus ring was garnet on garnet: it takes its colour from the ground it is drawn on now (`fix/focus-ring-dark-grounds`)
+
+Found by the scouting run's critic, not by any gate: app.css's focus floor was
+`outline: 2px solid var(--color-primary)` on every ground. Garnet on
+`bg-primary` is 1:1 and on `bg-dark` 1.48:1 — no ring at all on the nav
+overlay's links, the floating bar's controls, or the garnet property card's
+LEARN MORE, all shipped in #16 and #20, and the homepage is about to put most
+of its controls on dark bands. axe does not measure focus indicators, which is
+why 0 violations said nothing about it.
+
+**The defect class is "a colour chosen for one ground, used on all of them",
+and the fix is one mechanism rather than a class on every dark component.** A
+ground sets `--focus-ring` for what sits on it: `bg-primary`, `bg-dark`,
+`bg-black`, the `from-primary` gradients (the dark bands carry no `bg-*` at
+all) and `[data-floating]` (the floating bar has no ground of its own — it
+borrows the band beneath it) give off-white; `bg-background`, `bg-light`,
+`bg-white` give garnet back. Two details carry the design. The rules end in
+`> *`: an outline is drawn OUTSIDE its element, offset 2px, so the ground that
+matters is the container's — a garnet badge or a hover fill on an off-white
+page still needs a garnet ring, and a rule that set the variable on the ground
+itself would have made that ring off-white on off-white. And it is an inherited
+custom property rather than descendant selectors, because inheritance resolves
+to the NEAREST ground: with descendant selectors a garnet card inside a sand
+section matches both rules and source order picks the winner. Off-white
+measures 10.07:1 on garnet and above that on dark and black; garnet measures
+8.87:1 on sand and more on off-white and white. WCAG 2.4.11 asks 3:1.
+
+**What holds it.** `src/focus-floor.test.ts` measures both rings against every
+ground from the `@theme` tokens, asserts the `> *` shape, and scans every
+`.svelte` file for unprefixed `bg-*` / `from-*` theme classes — a new ground
+that is classified in neither list fails it (`hover:bg-primary` is a fill, not
+a ground, and the scan does not count it). The cascade itself is only
+reachable in a browser: `tests/interaction/focus-ring.spec.ts` focuses the
+floating bar's trigger, the garnet card's link, the sand card's link beside it,
+the bar again once it has taken its ground, and the menu's Close and first
+link, and reads the computed `outline-color`. Every reading first REQUIRES
+`matches(":focus-visible")` — a real Tab puts the page in keyboard modality so
+a scripted focus shows the ring — because an outline colour on an element whose
+ring is not showing is a number about nothing.
+
+Mutations: `.from-primary` and `[data-floating]` removed from the dark rule turn
+both browser tests red (the menu is a gradient; the bar borrows its ground) and
+the unit shape test red; `> *` dropped turns the shape test red. Two of my own
+test bugs on the way, both the kind this file's header already warns about: a
+rule sliced from the previous `}` dragged the comment above it into an anchored
+regex that could then never match, and a luminance helper that read `#rrggbb`
+returned NaN for the theme's `--color-black: black`.
+
+Not verified on a production build: `/dev/properties` 404s there by design, and
+the production `/properties` has no cards on the placeholder. The rule is plain
+CSS in `app.css`'s base layer; the build does not transform it.

@@ -461,8 +461,34 @@ main > section.hero-band:first-child {
      twice over: higher specificity AND a later cascade layer than `base`. Form
      controls are deliberately absent — Field.svelte styles its own. */
   :where(a, button, summary, [tabindex]:not([tabindex="-1"])):focus-visible {
-    outline: 2px solid var(--color-primary);
+    outline: 2px solid var(--focus-ring, var(--color-primary));
     outline-offset: 2px;
+  }
+
+  /* The ring takes its colour from the GROUND IT IS DRAWN ON. It was garnet
+     everywhere, which is 1:1 on `bg-primary` and 1.48:1 on `bg-dark` — invisible
+     on the nav overlay, the floating bar, the garnet property card, and every
+     control the homepage puts on its dark bands (WCAG 2.4.11 wants 3:1).
+
+     An outline sits OUTSIDE its element, offset 2px, so the ground that matters
+     is the CONTAINER'S, not the element's own fill: a garnet badge or a hover
+     fill on an off-white page still needs a garnet ring. Hence `> *` — a ground
+     sets the ring for what sits ON it, never for itself — and an inherited
+     custom property rather than descendant selectors, because inheritance
+     resolves to the NEAREST ground: a sand card inside a dark band gets garnet
+     back, a garnet card inside a sand section gets off-white, however deep.
+
+     `from-*` is here because the dark bands are gradients with no `bg-*` at
+     all, and `[data-floating]` because the floating bar has no ground of its
+     own — it borrows the dark band beneath it (Nav.svelte).
+
+     src/focus-floor.test.ts fails when a ground class appears in the markup
+     and is classified in neither list, and measures both rings at 3:1. */
+  :where(.bg-primary, .bg-dark, .bg-black, .from-primary, .from-dark, [data-floating]) > * {
+    --focus-ring: var(--color-background);
+  }
+  :where(.bg-background, .bg-light, .bg-white, .from-background, .from-light) > * {
+    --focus-ring: var(--color-primary);
   }
 
   a,
