@@ -47,6 +47,11 @@ export function loadSiteConfig(): SiteConfig {
   return config as SiteConfig;
 }
 
+/** The id of the footer's `<nav>`. It has two readers that must agree —
+ *  <Footer>, which renders the element, and <Nav>, whose menu trigger is a link
+ *  to it until script has mounted (#19) — so neither of them spells it. */
+export const FOOTER_NAV_ID = "footer-nav";
+
 /** The links in the footer's `<nav id="footer-nav">`: the footer's own list if
  *  the config gives one, else the menu's entries, flattened — a group's own
  *  link (when it has one) and then its children, in menu order.

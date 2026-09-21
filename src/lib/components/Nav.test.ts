@@ -95,9 +95,16 @@ describe("Nav — the bar", () => {
     expect(getByRole("link", { name: "Contact us" }).getAttribute("href")).toBe("#contact");
   });
 
-  it("marks the trigger as script-only, for app.html's noscript rule", () => {
-    const { getByLabelText } = render(Nav, { items });
-    expect(getByLabelText("Open menu").hasAttribute("data-js-only")).toBe(true);
+  // This case used to assert `data-js-only` on the button. render() returns
+  // AFTER mount, and the button exists only after mount — where app.html's
+  // noscript rule can never apply — so it was checking an attribute in the one
+  // state it does nothing. The server's trigger is a different element (#19);
+  // Nav.premount.test.ts holds mount back to look at it.
+  it("once mounted, the trigger is the button — the server's fallback link is gone", () => {
+    const { getByLabelText, container } = render(Nav, { items });
+    expect(getByLabelText("Open menu").tagName).toBe("BUTTON");
+    expect(container.querySelector("a[data-menu-fallback]")).toBeNull();
+    expect(container.querySelector('a[href="#footer-nav"]')).toBeNull();
   });
 });
 

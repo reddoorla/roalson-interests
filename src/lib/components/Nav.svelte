@@ -23,15 +23,28 @@
   //    forever, with scripting off or a bundle that never arrives — it is
   //    `absolute`: it sits over the dark band it was toned for and scrolls
   //    away with it. At scroll 0 `absolute` and `fixed` paint identically, so
-  //    hydration swaps them with nothing to see. The menu's links are the same
-  //    rule: a <noscript> list renders them in the bar, and app.html's
-  //    `[data-js-only]` hides the trigger that could not have opened anything.
-  import { onMount } from "svelte";
+  //    hydration swaps them with nothing to see.
+  //
+  // 3. Nor may it depend on script to NAVIGATE. There are two ways for the menu
+  //    never to open, and the server can only see one of them coming:
+  //
+  //    - Scripting OFF is declared before first paint, so it gets the better
+  //      answer: a <noscript> list renders the menu's links into the bar, and
+  //      app.html's `[data-js-only]` hides the trigger, whose job the list has
+  //      already done.
+  //    - Scripting ON, but the bundle never arrives or throws before mount (a
+  //      blocked chunk, a CSP mistake, a train tunnel), is declared by nobody.
+  //      <noscript> does not apply, and a <button> would be visible and dead
+  //      (#19). So the server renders the trigger as a LINK to the footer's
+  //      list of pages — which works with no script executed at all — and it
+  //      is swapped for the real <button> only once mount has proven script
+  //      runs: the same evidence that pins the bar.
+  import { onMount, tick } from "svelte";
   import { trapFocus } from "$lib/actions/trapFocus";
   import { fade, fly } from "$lib/transitions";
   import { lockBodyScroll } from "$lib/utils/scrollLock";
   import BrandButton from "$lib/components/BrandButton.svelte";
-  import type { NavItem } from "$lib/site-config";
+  import { FOOTER_NAV_ID, type NavItem } from "$lib/site-config";
 
   interface Props {
     /** The menu's entries. A leaf is a link; an entry with `children` is a
@@ -59,6 +72,7 @@
 
   let isMenuOpen = $state(false);
   let openButtonEl = $state<HTMLButtonElement>();
+  let fallbackEl = $state<HTMLAnchorElement>();
   let mounted = $state(false);
   let scrollY = $state(0);
 
@@ -77,7 +91,12 @@
   const readScroll = () => (scrollY = window.scrollY);
   onMount(() => {
     readScroll();
+    // Mount swaps the trigger's server-rendered link for the button (see (3)
+    // above). A keyboard user who had already tabbed to the link would be
+    // dropped to <body> by that swap, so the button takes the focus it held.
+    const heldFocus = fallbackEl !== undefined && document.activeElement === fallbackEl;
     mounted = true;
+    if (heldFocus) void tick().then(() => openButtonEl?.focus());
   });
 
   const openMenu = () => (isMenuOpen = true);
@@ -246,21 +265,46 @@
       {/if}
 
       {#if items.length > 0 && !isMenuOpen}
-        <button
-          bind:this={openButtonEl}
-          type="button"
-          data-js-only
-          class="{ICON_BUTTON} transition-colors duration-300 {floating
-            ? 'text-dust'
-            : 'text-primary'}"
-          onclick={openMenu}
-          aria-label="Open menu"
-          aria-expanded={isMenuOpen}
-          aria-controls={MENU_ID}
-          {...pressProps("trigger")}
-        >
-          <span class={ICON_GLYPH}>{@render menuGlyph()}</span>
-        </button>
+        {#if mounted}
+          <button
+            bind:this={openButtonEl}
+            type="button"
+            class="{ICON_BUTTON} transition-colors duration-300 {floating
+              ? 'text-dust'
+              : 'text-primary'}"
+            onclick={openMenu}
+            aria-label="Open menu"
+            aria-expanded={isMenuOpen}
+            aria-controls={MENU_ID}
+            {...pressProps("trigger")}
+          >
+            <span class={ICON_GLYPH}>{@render menuGlyph()}</span>
+          </button>
+        {:else}
+          <!-- What the server sends, and all a browser whose bundle never
+               arrives will ever have: the same glyph in the same box, as a
+               real link to the footer's list of pages. Named for what it does
+               — it opens nothing, so it is not "Open menu", and it carries no
+               aria-expanded / aria-controls: the dialog they would point at
+               cannot exist yet. Its press feedback is ICON_GLYPH's
+               `group-active:` half, which is CSS.
+               `data-js-only`: with scripting OFF the <noscript> list above has
+               already put these links in the bar, so the trigger is hidden
+               there. The attribute is on THIS form only — the button exists
+               only where script runs, which is where that rule never applies. -->
+          <a
+            bind:this={fallbackEl}
+            href="#{FOOTER_NAV_ID}"
+            data-js-only
+            data-menu-fallback
+            class="{ICON_BUTTON} transition-colors duration-300 {floating
+              ? 'text-dust'
+              : 'text-primary'}"
+            aria-label="Menu"
+          >
+            <span class={ICON_GLYPH}>{@render menuGlyph()}</span>
+          </a>
+        {/if}
       {/if}
     </div>
   </div>
