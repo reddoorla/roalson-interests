@@ -10,7 +10,9 @@
 // worktree ignores only a `.claude/` of its own.
 import { resolve, sep } from "node:path";
 
-/** A chokidar `ignored` matcher for `<root>/.claude/` and everything in it. */
+/** A chokidar `ignored` matcher for `<root>/.claude/` and everything in it.
+ *  @param {string} root
+ *  @returns {(path: string) => boolean} */
 export function claudeDirIgnore(root) {
   const dir = resolve(root, ".claude");
   return (path) => path === dir || path.startsWith(dir + sep);
