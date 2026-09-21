@@ -156,7 +156,11 @@
             <!-- The rule is the comp's 0.5px garnet stroke (6820:120), drawn
                  for the reason HomeHero gives: Chromium snaps a 0.5px BORDER
                  up to a whole pixel, and a 1px box scaled to half paints what
-                 Figma paints. `-mb-px` gives its one pixel back, so like the
+                 Figma paints — AT 2x AND ABOVE. Measured by pixel row: at 1x
+                 it is one full device row of solid garnet, indistinguishable
+                 from a 1px border and heavier than Figma's own 1x render (a
+                 50% blend, 172,137,134). HomeHero's rule is the same technique
+                 and the same caveat. `-mb-px` gives its one pixel back, so like the
                  comp's zero-height line it takes no room and the 30 under it
                  stays 30. It is the column's width — the comp's 374 in a 371
                  column is 3px of drift from the band above.
@@ -188,7 +192,15 @@
                       <!-- The frame's own fill shows while the photo loads.
                            alt="" unless the editor wrote one: the name is the
                            next thing in the card. -->
-                      <div data-partner-photo class="size-[153px] shrink-0 overflow-hidden bg-dark">
+                      <!-- 153 wide and AT LEAST 153 tall, stretched to the row:
+                           a fixed 153 square left an L-shaped card — a notch of
+                           band ground under the photo — wherever the panel
+                           beside it grew (the name or the links wrapping:
+                           1024–1156 and 375 and below, up to 48.9px). -->
+                      <div
+                        data-partner-photo
+                        class="min-h-[153px] w-[153px] shrink-0 self-stretch overflow-hidden bg-dark"
+                      >
                         <img
                           src={imgix(partner.photo.url, { w: PHOTO_WIDTHS[1] })}
                           srcset={srcset(partner.photo.url, PHOTO_WIDTHS)}

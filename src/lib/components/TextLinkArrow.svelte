@@ -3,7 +3,10 @@
   // partner cards, and after every `text link` in the comp's (hidden) resources
   // lists. It is NOT ArrowRight: that one is the 25×25 Noun Project arrow the
   // BUTTONS carry. This one is a flattened "→" text glyph, a VECTOR 10.4 × 7.2
-  // in the node data, and Figma exports it on an 11 × 8 canvas.
+  // in the node data, and Figma exports it on an 11 × 8 canvas — SCALED to
+  // fill it, not padded: the exported path spans 0–10.9998, 11 / 10.386 =
+  // 1.059, so the shipped glyph is 5.9% larger than the comp's and CONTACT sits
+  // 0.75px right of it. Kept: the bytes are the export's and the hash pins them.
   //
   // The path below is that export's bytes, not a redraw: node 6822:501
   // (PROFILE), and 6822:504 (CONTACT) exports byte-identically.

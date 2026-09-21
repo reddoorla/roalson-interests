@@ -383,7 +383,13 @@ describe("Partners slice — the headshot", () => {
     });
     const { container } = render(Partners, { props: { slice } });
     const box = cards(container)[0].querySelector<HTMLElement>("[data-partner-photo]")!;
-    expect(box.className).toContain("size-[153px]");
+    // 153 wide, at least 153 tall, and stretched to its row — never a fixed
+    // square, which notched the card where the panel beside it grew.
+    const boxClasses = box.className.split(/\s+/);
+    expect(boxClasses).toEqual(
+      expect.arrayContaining(["w-[153px]", "min-h-[153px]", "self-stretch"]),
+    );
+    expect(boxClasses).not.toContain("size-[153px]");
     expect(box.className).toContain("bg-dark");
     // First in the row: the photo is left of the panel.
     expect(box.parentElement!.firstElementChild).toBe(box);

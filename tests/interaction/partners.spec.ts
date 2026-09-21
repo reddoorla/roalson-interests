@@ -392,6 +392,30 @@ test("at 390 the cards come first, the links share a line, and they wrap below i
   expect(narrow.contact.bottom, "still inside the panel").toBeLessThanOrEqual(narrow.panel.bottom);
 });
 
+// Found by the fidelity reviewer's width sweep, with every test green: a fixed
+// 153px photo square beside a panel that had grown (the name or the links
+// wrapping) left a notch of band ground under the photo — 48.9px at 1100 and at
+// 360. The comp's own widths never showed it; these are the widths between.
+for (const width of [1100, 1024, 360] as const) {
+  test(`with headshots the card stays a rectangle at ${width} — the photo is as tall as its row`, async ({
+    page,
+  }) => {
+    await page.goto("/dev/home?bio&photos");
+    await layOutAt(page, width);
+    const g = await geometry(page);
+    expect(g.cards.length).toBe(2);
+    for (const c of g.cards) {
+      expect(c.photo, "a photo box").not.toBeNull();
+      near(c.photo!.width, 153, "photo width");
+      expect(c.photo!.height, "never shorter than the comp's square").toBeGreaterThanOrEqual(152.5);
+      near(c.photo!.height, c.panel.height, "photo as tall as the panel beside it");
+    }
+    // Positive evidence that this width exercises the defect at all: at least
+    // one panel has outgrown the 153px square.
+    expect(Math.max(...g.cards.map((c) => c.panel.height))).toBeGreaterThan(160);
+  });
+}
+
 test("with no headshot — the launch state — the panel is the whole card, at the comp's height", async ({
   page,
 }) => {
