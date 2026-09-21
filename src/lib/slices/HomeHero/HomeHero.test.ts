@@ -171,7 +171,13 @@ describe("HomeHero slice", () => {
     const root = section(container);
     expect(root.getAttribute("data-slice-variation")).toBe("default");
     const pin = root.querySelector("[data-home-hero-pin]")!;
-    expect(pin.className).toContain("sticky");
+    // The pin is motion-safe ONLY (#38): under `prefers-reduced-motion: reduce`
+    // the hero is `relative` and leaves with the page, like the photo band.
+    const classes = pin.className.split(/\s+/);
+    expect(classes).toContain("motion-safe:sticky");
+    expect(classes).toContain("motion-safe:top-0");
+    expect(classes).toContain("relative");
+    expect(classes, "no unconditional pin").not.toContain("sticky");
     expect(pin.className).toContain("h-[528px]");
     expect(pin.className).toContain("bg-dark");
     // #18 measures "band rect vs bar rect" against this attribute.

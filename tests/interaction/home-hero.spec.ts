@@ -18,9 +18,15 @@ import { expect, test, type Page } from "@playwright/test";
 // Written to the lessons nav.spec.ts paid for: no x derived from the window
 // (the runner lays out 15px narrower than its own innerWidth — every edge below
 // is read from an element's own container); everything after a resize or a
-// scroll auto-retries; hydration is waited for with positive evidence. The
-// shared config forces `reducedMotion: "reduce"`, which is harmless here: a
-// sticky box is not motion, and under `reduce` app.css makes scrollTo instant.
+// scroll auto-retries; hydration is waited for with positive evidence.
+//
+// The shared config forces `reducedMotion: "reduce"` on every test, and since
+// #38 the pin is OFF under `reduce` (ruled once for the page: the photo band at
+// its foot made that call first). This file used to say "a sticky box is not
+// motion" and ran its pin cases under the forced setting; they now opt out with
+// `test.use`, each asserts the media query it believes it is running under, and
+// the `reduce` case is its own test. Under `no-preference` app.css makes
+// scrollTo a smooth glide, so every scroll here is `behavior: "instant"`.
 const HOME = "/dev/home";
 
 const DARK = "rgb(61, 7, 7)";
@@ -57,99 +63,135 @@ const layers = (page: Page) =>
 /** Scroll, then wait until the page has actually arrived — a read taken the
  *  instant scrollTo returns can still be the old frame. */
 async function scrollTo(page: Page, y: number) {
-  await page.evaluate((to) => window.scrollTo(0, to), y);
+  await page.evaluate((to) => window.scrollTo({ top: to, behavior: "instant" }), y);
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(y);
 }
 
-test("the hero stays pinned while the band slides up over it", async ({ page }) => {
-  // Short on purpose: the fixture page is one band tall, and the pin needs
-  // room to be scrolled through.
+const motion = (page: Page) =>
+  page.evaluate(() =>
+    matchMedia("(prefers-reduced-motion: reduce)").matches ? "reduce" : "no-preference",
+  );
+
+test("under prefers-reduced-motion: reduce the hero does not pin — it leaves with the page", async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 1440, height: 500 });
   await page.goto(HOME);
   await adopted(page);
-  await expect(page.locator(pin)).toHaveCount(1);
-  await expect(page.locator(band)).toHaveCount(1);
+  expect(await motion(page), "the shared config's forced setting").toBe("reduce");
+  await expect(page.locator(pin)).toHaveCSS("position", "relative");
 
   const rest = await layers(page);
-  expect(rest.scrollY).toBe(0);
-  expect(rest.pin.top, "the hero starts at the very top, under the bar").toBe(0);
-  expect(rest.pin.height).toBe(528);
+  expect(rest.pin.top).toBe(0);
   expect(rest.band.top, "the band starts where the hero ends").toBe(rest.pin.bottom);
-
   await scrollTo(page, 200);
   const moved = await layers(page);
-  // Positive evidence, all three: the page moved, the band moved with it, and
-  // the hero did NOT.
-  expect(moved.scrollY).toBe(200);
-  expect(rest.band.top - moved.band.top, "the band scrolls normally").toBe(200);
-  expect(moved.pin.top, "the hero is pinned").toBe(0);
-  expect(moved.band.top, "so the band now overlaps it").toBeLessThan(moved.pin.bottom);
-
-  // …and it is the BAND that paints in the overlap, not the hero under it. The
-  // probe point is inside both boxes, read from the band's own rect.
-  const onTop = await page.evaluate(
-    ([bandSel, x, y]) => {
-      const hit = document.elementFromPoint(x as number, y as number);
-      return Boolean(hit && hit.closest(bandSel as string));
-    },
-    [band, moved.band.left + moved.band.width / 2, moved.band.top + 10] as const,
+  expect(moved.pin.top, "the hero went with the page").toBe(-200);
+  expect(moved.band.top, "and the band still starts where it ends").toBe(moved.pin.bottom);
+  expect(moved.cutout.bottom, "the cutout is still seated on the band").toBeCloseTo(
+    moved.band.top,
+    1,
   );
-  expect(onTop, "the band slides OVER the hero").toBe(true);
-
-  // The pin lasts exactly as long as the band is tall — sticky is bounded by
-  // the section the two share — and then the hero leaves with it. The page has
-  // to be able to scroll that far for this to say anything, so that is checked
-  // rather than assumed: the fixture grows a band per batch, the footer changes.
-  const release = Math.round(rest.band.height) + 40;
-  const reach = await page.evaluate(
-    () => document.documentElement.scrollHeight - window.innerHeight,
-  );
-  expect(reach, "the page scrolls past the end of the pin").toBeGreaterThanOrEqual(release);
-  await scrollTo(page, release);
-  const past = await layers(page);
-  expect(past.pin.top, "released once the band has passed").toBeLessThan(0);
-  expect(past.band.top, "and still under the band's top edge").toBeLessThanOrEqual(past.pin.bottom);
 });
 
-for (const [name, width, height] of [
-  ["1440", 1440, 600],
-  ["390", 390, 500],
-] as const) {
-  test(`the cutout rides on the band's top edge at ${name}, at rest and as it moves`, async ({
-    page,
-  }) => {
-    await page.setViewportSize({ width, height });
+test.describe("with motion allowed, the hero pins", () => {
+  test.use({ contextOptions: { reducedMotion: "no-preference" } });
+
+  test("the hero stays pinned while the band slides up over it", async ({ page }) => {
+    // Short on purpose: the fixture page is one band tall, and the pin needs
+    // room to be scrolled through.
+    await page.setViewportSize({ width: 1440, height: 500 });
     await page.goto(HOME);
     await adopted(page);
-    await expect(page.locator(cutout)).toHaveCount(1);
-
-    // Auto-retrying: right after setViewportSize the old layout is still
-    // measurable. Half the BAND, capped at the comp's 451 — read from the band,
-    // never from the window.
-    await expect
-      .poll(async () => {
-        const at = await layers(page);
-        return at.cutout.width - Math.min(at.band.width / 2, 451);
-      })
-      .toBeCloseTo(0, 1);
+    expect(await motion(page)).toBe("no-preference");
+    await expect(page.locator(pin)).toHaveCSS("position", "sticky");
+    await expect(page.locator(pin)).toHaveCount(1);
+    await expect(page.locator(band)).toHaveCount(1);
 
     const rest = await layers(page);
-    expect(rest.cutout.height, "a square").toBeCloseTo(rest.cutout.width, 1);
-    expect(rest.cutout.left, "flush with the band's left edge").toBeCloseTo(rest.band.left, 1);
-    expect(rest.cutout.bottom, "seated on the band at rest").toBeCloseTo(rest.band.top, 1);
-    expect(rest.cutout.top, "over the hero, not over the band").toBeGreaterThanOrEqual(
-      rest.pin.top,
-    );
+    expect(rest.scrollY).toBe(0);
+    expect(rest.pin.top, "the hero starts at the very top, under the bar").toBe(0);
+    expect(rest.pin.height).toBe(528);
+    expect(rest.band.top, "the band starts where the hero ends").toBe(rest.pin.bottom);
 
-    // At rest a cutout INSIDE the pinned hero sits in exactly the same place.
-    // Only movement tells the two apart: it must leave with the band.
-    await scrollTo(page, 150);
+    await scrollTo(page, 200);
     const moved = await layers(page);
-    expect(moved.pin.top, "the hero is still pinned").toBe(0);
-    expect(rest.band.top - moved.band.top).toBe(150);
-    expect(moved.cutout.bottom, "still seated on the band").toBeCloseTo(moved.band.top, 1);
+    // Positive evidence, all three: the page moved, the band moved with it, and
+    // the hero did NOT.
+    expect(moved.scrollY).toBe(200);
+    expect(rest.band.top - moved.band.top, "the band scrolls normally").toBe(200);
+    expect(moved.pin.top, "the hero is pinned").toBe(0);
+    expect(moved.band.top, "so the band now overlaps it").toBeLessThan(moved.pin.bottom);
+
+    // …and it is the BAND that paints in the overlap, not the hero under it. The
+    // probe point is inside both boxes, read from the band's own rect.
+    const onTop = await page.evaluate(
+      ([bandSel, x, y]) => {
+        const hit = document.elementFromPoint(x as number, y as number);
+        return Boolean(hit && hit.closest(bandSel as string));
+      },
+      [band, moved.band.left + moved.band.width / 2, moved.band.top + 10] as const,
+    );
+    expect(onTop, "the band slides OVER the hero").toBe(true);
+
+    // The pin lasts exactly as long as the band is tall — sticky is bounded by
+    // the section the two share — and then the hero leaves with it. The page has
+    // to be able to scroll that far for this to say anything, so that is checked
+    // rather than assumed: the fixture grows a band per batch, the footer changes.
+    const release = Math.round(rest.band.height) + 40;
+    const reach = await page.evaluate(
+      () => document.documentElement.scrollHeight - window.innerHeight,
+    );
+    expect(reach, "the page scrolls past the end of the pin").toBeGreaterThanOrEqual(release);
+    await scrollTo(page, release);
+    const past = await layers(page);
+    expect(past.pin.top, "released once the band has passed").toBeLessThan(0);
+    expect(past.band.top, "and still under the band's top edge").toBeLessThanOrEqual(
+      past.pin.bottom,
+    );
   });
-}
+
+  for (const [name, width, height] of [
+    ["1440", 1440, 600],
+    ["390", 390, 500],
+  ] as const) {
+    test(`the cutout rides on the band's top edge at ${name}, at rest and as it moves`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width, height });
+      await page.goto(HOME);
+      await adopted(page);
+      await expect(page.locator(cutout)).toHaveCount(1);
+
+      // Auto-retrying: right after setViewportSize the old layout is still
+      // measurable. Half the BAND, capped at the comp's 451 — read from the band,
+      // never from the window.
+      await expect
+        .poll(async () => {
+          const at = await layers(page);
+          return at.cutout.width - Math.min(at.band.width / 2, 451);
+        })
+        .toBeCloseTo(0, 1);
+
+      const rest = await layers(page);
+      expect(rest.cutout.height, "a square").toBeCloseTo(rest.cutout.width, 1);
+      expect(rest.cutout.left, "flush with the band's left edge").toBeCloseTo(rest.band.left, 1);
+      expect(rest.cutout.bottom, "seated on the band at rest").toBeCloseTo(rest.band.top, 1);
+      expect(rest.cutout.top, "over the hero, not over the band").toBeGreaterThanOrEqual(
+        rest.pin.top,
+      );
+
+      // At rest a cutout INSIDE the pinned hero sits in exactly the same place.
+      // Only movement tells the two apart: it must leave with the band.
+      await scrollTo(page, 150);
+      const moved = await layers(page);
+      expect(await motion(page)).toBe("no-preference");
+      expect(moved.pin.top, "the hero is still pinned").toBe(0);
+      expect(rest.band.top - moved.band.top).toBe(150);
+      expect(moved.cutout.bottom, "still seated on the band").toBeCloseTo(moved.band.top, 1);
+    });
+  }
+});
 
 test("the list sits left of the headline at 1440 and under it at 390", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
@@ -240,13 +282,17 @@ test("a home document with NO hero slice still opens on the dark ground the bar 
 });
 
 test("with scripting off the hero still pins — it is CSS, not behaviour", async ({ browser }) => {
+  // Its own context, so it states its own motion setting: the pin is
+  // motion-safe only (#38), and `newContext` inherits nothing from `test.use`.
   const context = await browser.newContext({
     javaScriptEnabled: false,
+    reducedMotion: "no-preference",
     viewport: { width: 1440, height: 600 },
   });
   try {
     const page = await context.newPage();
     await page.goto(HOME, { waitUntil: "domcontentloaded" });
+    await expect(page.locator(pin)).toHaveCSS("position", "sticky");
     // Not adopted: the floating bar stays `absolute` and will leave with the page.
     await expect(page.locator(bar)).toHaveCSS("position", "absolute");
 

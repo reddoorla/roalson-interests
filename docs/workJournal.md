@@ -3016,3 +3016,56 @@ the hero for the whole pin, 448/458px, so a bright poster under it is a
 legibility risk for the whole pin — critic R3, which no issue carried until
 now), #46 (the capability index counts only `<module>.test.ts`, so a second
 co-located suite is invisible), #47 (above).
+
+## 2026-09-21 — One ruling for the homepage's two pins: both are off under reduced motion (`fix/hero-pin-reduced-motion`)
+
+The homepage has two "curtain" effects, and they shipped with opposite rulings
+on the same afternoon. The hero (#31) was `sticky top-0` unconditionally, and its
+spec said why in so many words: "a sticky box is not motion". The photo band
+(#41) put its whole pin inside `prefers-reduced-motion: no-preference`, and its
+CSS said why: a full-bleed picture held still while the page slides over it is
+parallax at rate zero, which is what that setting asks a site to drop (WCAG
+2.3.3, AAA), and app.css's own reduced-motion reset cannot reach scroll-linked
+effects. The photo band's reviewer put it best: either is defensible, both on one
+page is not. The operator was away, so it was ruled rather than asked (#38, and
+on their list): **the hero follows the band.** It is the conservative reading, it
+costs a visitor without the preference nothing, and reversing it is one variant
+and one media query.
+
+The change is one class string: `relative z-0 … motion-safe:sticky
+motion-safe:top-0`. `relative` is not decoration — the hero needs a position for
+`z-0` to mean anything once `sticky` is gone. The cutout was the thing to check,
+because it is only distinguishable from a wrong one while it moves: it rides on
+the BAND, not in the hero, so under `reduce` it is still seated on the band's top
+edge after 200px of scroll (tested), and the #18 gate measures the band against
+the bar, so it never depended on the pin either.
+
+**What the shared harness forces, again.** The fleet's Playwright config sets
+`reducedMotion: "reduce"` on every test. Until today that made the hero's pin
+tests pass by coincidence of ruling; with the pin gated, every one of them would
+have gone red — or worse, would have needed weakening. They now sit in a
+`describe` that opts out with `test.use`, each asserts the media query it
+believes it is running under and `position: sticky` as positive evidence, and
+the scripting-off case states `reducedMotion: "no-preference"` in its own
+`newContext`, which inherits nothing from `test.use`. Under `no-preference`
+app.css makes `scrollTo` a smooth glide, so the spec's helper scrolls with
+`behavior: "instant"`. The `reduce` case is its own test, under the forced
+setting: `position: relative`, the hero at -200 after 200px, the band still
+starting where it ends.
+
+**Mutations.** The pin made unconditional again → "under prefers-reduced-motion:
+reduce the hero does not pin" red in the browser and "stamps the slice
+attributes, the pin and the nav gate" red in jsdom (it now refuses a bare
+`sticky` token). The pin removed altogether → all four motion-allowed cases red,
+the scripting-off one included. Restored by copy, `cmp`-confirmed.
+
+NOT verified on a production build: `/dev/home` answers 404 there. `/` now
+answers 200 on a connected build, and #28 already owns re-running the hero's pin
+there — it should run it under both settings.
+
+Honest accounting on verify: the local run was green through the build, axe and
+847 unit tests in 89 files, and 70 of 72 Playwright tests. The two reds were both
+`carousel.spec.ts` waiting 5s for `data-carousel-ready` on the fixtures page at
+load average 15.9, with agents' servers and browsers on the machine — the same
+local condition #42's entry describes, in a spec this branch does not touch. That
+spec alone, straight after: 14 of 14 in 28s. CI is the clean-machine run.

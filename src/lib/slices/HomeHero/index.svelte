@@ -105,7 +105,17 @@
        comp's — 230 of the photo's 337px vertical overflow sits above the band
        (68.2%); at 390 a 16:9 source covers by height, so the same value is a
        no-op there. The comp's extra 1.068× zoom past cover is not reproduced. -->
-  <div data-home-hero-pin class="sticky top-0 z-0 h-[528px] overflow-hidden bg-dark">
+  <!-- The pin is `motion-safe:` — ruled once for the page (#38). A full-bleed
+       band held still while the page slides over it is parallax at rate zero,
+       which is what `prefers-reduced-motion: reduce` asks a site to drop, and
+       the photo band at the foot of this page already drops its pin there. Two
+       opposite rulings 1000px apart was the one wrong answer. Under `reduce`
+       the hero is `relative` (it still needs a position for `z-0`) and leaves
+       with the page; the cutout rides on the BAND, so it is right either way. -->
+  <div
+    data-home-hero-pin
+    class="relative z-0 h-[528px] overflow-hidden bg-dark motion-safe:sticky motion-safe:top-0"
+  >
     {#if poster}
       <HeroBackgroundImage
         image={poster}
