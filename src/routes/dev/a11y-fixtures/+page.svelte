@@ -19,9 +19,11 @@
   import TextColumns from "$lib/slices/TextColumns/index.svelte";
   import Testimonial from "$lib/slices/Testimonial/index.svelte";
   import CtaBanner from "$lib/slices/CtaBanner/index.svelte";
+  import HomeHero from "$lib/slices/HomeHero/index.svelte";
   import PropertyDetail from "$lib/components/PropertyDetail.svelte";
   import PageMasthead from "$lib/components/PageMasthead.svelte";
   import PropertyListing from "$lib/components/PropertyListing.svelte";
+  import { homeHeroFixture } from "$lib/home-fixture";
   import { propertyFixture, propertyListingFixture } from "$lib/property-fixture";
   import { groupListings } from "$lib/property-listing";
   // Aliased: `Accordion` above is the primitive ($lib/components/Accordion.svelte).
@@ -414,6 +416,15 @@
        unlinked Sold grid on sand. -->
   <PageMasthead title="Our Properties" />
   <PropertyListing sections={groupListings(propertyListingFixture())} />
+
+  <!-- The top of the homepage (one more h1 on this page, see above): the sand
+       headline, dust list and cream buttons on the garnet band. Poster-less,
+       which is the launch state — and the hero carries no text, so a poster
+       would add nothing for axe to measure. The band's ground is a gradient,
+       which axe reports as "needs review" rather than measuring; the pairs on
+       it are held by theme-contrast.test.ts at both ends (garnet and dark).
+       Full width, and the pin, are /dev/home's. -->
+  <HomeHero slice={homeHeroFixture()} />
 </div>
 
 <!-- Renders nothing at rest (overlay only appears mid-navigation, aria-hidden);

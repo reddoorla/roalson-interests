@@ -16,9 +16,18 @@ import { dirname, join, relative, resolve } from "node:path";
  *
  * "Opens on" is read from the page's markup: the first element or component
  * after the script block. Add a component to DARK_FIRST_BANDS when it is built
- * to run under the bar (the homepage hero will be the second).
+ * to run under the bar.
+ *
+ * HomeHero is the second, and the one this test cannot fully vouch for: its
+ * band is CMS content, and a first tag says nothing about whether the band
+ * renders. The home route answers that itself — it lifts the hero out of the
+ * document's slices and renders <HomeHero> first and unconditionally, and with
+ * no slice the component still paints its dark 528px ground (asserted in
+ * HomeHero.test.ts and, in a browser, by tests/interaction/home-hero.spec.ts).
+ * The last test below holds the "unconditionally": {#if} is not a tag, so a
+ * band wrapped in one still reads as the first tag.
  */
-const DARK_FIRST_BANDS = ["PageMasthead"];
+const DARK_FIRST_BANDS = ["PageMasthead", "HomeHero"];
 
 const ROUTES = resolve(process.cwd(), "src/routes");
 
@@ -30,13 +39,25 @@ function pages(dir: string): string[] {
   });
 }
 
-/** The first tag a page renders: scripts, comments and Svelte blocks skipped. */
-function firstTag(source: string): string | undefined {
-  const markup = source
+/** A page's markup: scripts, comments and <svelte:head> removed. */
+function markup(source: string): string {
+  return source
     .replace(/<script[\s\S]*?<\/script>/g, "")
     .replace(/<!--[\s\S]*?-->/g, "")
     .replace(/<svelte:head>[\s\S]*?<\/svelte:head>/g, "");
-  return /<([A-Za-z][\w.:-]*)/.exec(markup)?.[1];
+}
+
+/** The first tag a page renders: scripts, comments and Svelte blocks skipped. */
+function firstTag(source: string): string | undefined {
+  return /<([A-Za-z][\w.:-]*)/.exec(markup(source))?.[1];
+}
+
+/** True when a Svelte block ({#if}, {#each}, {#await}…) opens before the first
+ *  tag — i.e. the first band is conditional, whatever its name. */
+function firstTagIsConditional(source: string): boolean {
+  const text = markup(source);
+  const tagAt = text.search(/<[A-Za-z]/);
+  return tagAt !== -1 && text.slice(0, tagAt).includes("{#");
 }
 
 function claimsDark(page: string): boolean {
@@ -49,6 +70,7 @@ function claimsDark(page: string): boolean {
 const all = pages(ROUTES).map((file) => ({
   route: relative(ROUTES, dirname(file)) || "/",
   first: firstTag(readFileSync(file, "utf8")),
+  conditional: firstTagIsConditional(readFileSync(file, "utf8")),
   claims: claimsDark(file),
 }));
 
@@ -68,5 +90,48 @@ describe("navOver — the route's claim about its first band", () => {
   it("every route that says so opens on a dark band", () => {
     const wrong = all.filter((p) => p.claims && !(p.first && DARK_FIRST_BANDS.includes(p.first)));
     expect(wrong.map((p) => `${p.route} opens on <${p.first}>`)).toEqual([]);
+  });
+
+  // The claim is a literal, made before the page has any data — so the band it
+  // describes may not depend on data either. A first band inside {#if hero}
+  // passes both tests above and is a white wordmark on an off-white page the
+  // day the condition is false.
+  it("every route that says so renders that band unconditionally", () => {
+    const conditional = all.filter((p) => p.claims && p.conditional);
+    expect(conditional.map((p) => `${p.route} opens on <${p.first}> inside a block`)).toEqual([]);
+  });
+});
+
+/**
+ * The same kind of claim, about the other end of the page: the HOMEPAGE's
+ * footer grades from off-white to sand (`footerGround: "fade"`, Footer.svelte)
+ * and every other page's is flat sand. The footer batch typed the key and the
+ * hero batch built the route, in parallel, and the review of the second found
+ * that neither had made the claim — nothing failed, the homepage would simply
+ * have shipped with the wrong ground. A route that opens on the homepage's hero
+ * claims it; nothing else does, except the footer's own fixture.
+ */
+describe("footerGround — only the homepage's footer fades", () => {
+  const claimsFade = (page: string) =>
+    ["+page.server.ts", "+page.ts"]
+      .map((name) => join(dirname(page), name))
+      .filter((file) => existsSync(file))
+      .some((file) => /footerGround:\s*"fade"/.test(readFileSync(file, "utf8")));
+
+  const routes = pages(ROUTES).map((file) => ({
+    route: relative(ROUTES, dirname(file)) || "/",
+    first: firstTag(readFileSync(file, "utf8")),
+    fades: claimsFade(file),
+  }));
+
+  it("every route that opens on the homepage's hero claims the fade", () => {
+    const home = routes.filter((p) => p.first === "HomeHero");
+    expect(home.length, "no route opens on HomeHero").toBeGreaterThan(0);
+    expect(home.filter((p) => !p.fades).map((p) => p.route)).toEqual([]);
+  });
+
+  it("no other route does, except the footer's own fixture", () => {
+    const others = routes.filter((p) => p.fades && p.first !== "HomeHero").map((p) => p.route);
+    expect(others).toEqual(["dev/footer"]);
   });
 });

@@ -1,0 +1,127 @@
+[
+  {
+    "__TYPE__": "SharedSliceContent",
+    "variation": "default",
+    "primary": {
+      "heading": {
+        "__TYPE__": "StructuredTextContent",
+        "value": [
+          {
+            "type": "heading1",
+            "content": {
+              "text": "San Antonio's Commercial Real Estate Experts.\nSince 1983."
+            }
+          }
+        ]
+      },
+      "buttons": {
+        "__TYPE__": "GroupContentType",
+        "value": [
+          {
+            "__TYPE__": "GroupItemContent",
+            "key": "ea168b1d-acd8-4816-bf0c-ee727146383a",
+            "value": [
+              [
+                "label",
+                {
+                  "__TYPE__": "FieldContent",
+                  "type": "Text",
+                  "value": "Contact us"
+                }
+              ],
+              [
+                "link",
+                {
+                  "key": "e8412288-c078-4fa1-8a6b-8d14b084340e",
+                  "__TYPE__": "LinkContent",
+                  "value": {
+                    "__TYPE__": "ExternalLink",
+                    "url": "https:///contact"
+                  }
+                }
+              ]
+            ]
+          },
+          {
+            "__TYPE__": "GroupItemContent",
+            "key": "c5d50016-c11b-4520-9576-6b9c120f7d52",
+            "value": [
+              [
+                "label",
+                {
+                  "__TYPE__": "FieldContent",
+                  "type": "Text",
+                  "value": "Our portfolio"
+                }
+              ],
+              [
+                "link",
+                {
+                  "key": "e049aaaf-9e80-416f-8ebc-3af887638ddb",
+                  "__TYPE__": "LinkContent",
+                  "value": {
+                    "__TYPE__": "ExternalLink",
+                    "url": "https:///properties"
+                  }
+                }
+              ]
+            ]
+          }
+        ]
+      },
+      "specialty_label": {
+        "__TYPE__": "FieldContent",
+        "type": "Text",
+        "value": "Our specialty"
+      },
+      "specialties": {
+        "__TYPE__": "GroupContentType",
+        "value": [
+          {
+            "__TYPE__": "GroupItemContent",
+            "key": "5c0e5583-ba53-4ce5-9a33-01f0c4a26333",
+            "value": [
+              [
+                "text",
+                {
+                  "__TYPE__": "FieldContent",
+                  "type": "Text",
+                  "value": "Consulting and brokerage"
+                }
+              ]
+            ]
+          },
+          {
+            "__TYPE__": "GroupItemContent",
+            "key": "3f7f416b-c7db-41cb-89b2-c527b0a354b0",
+            "value": [
+              [
+                "text",
+                {
+                  "__TYPE__": "FieldContent",
+                  "type": "Text",
+                  "value": "Acquisition and disposition properties"
+                }
+              ]
+            ]
+          },
+          {
+            "__TYPE__": "GroupItemContent",
+            "key": "1f6d9189-f98f-48a9-ba30-e9ddaba93d9a",
+            "value": [
+              [
+                "text",
+                {
+                  "__TYPE__": "FieldContent",
+                  "type": "Text",
+                  "value": "Buyer and tenant representation"
+                }
+              ]
+            ]
+          }
+        ]
+      }
+    },
+    "items": []
+  }
+]
