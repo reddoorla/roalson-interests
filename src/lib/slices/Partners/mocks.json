@@ -1,0 +1,105 @@
+[
+  {
+    "__TYPE__": "SharedSliceContent",
+    "variation": "default",
+    "primary": {
+      "eyebrow": {
+        "__TYPE__": "FieldContent",
+        "type": "Text",
+        "value": "Our legacy"
+      },
+      "heading": {
+        "__TYPE__": "StructuredTextContent",
+        "value": [
+          {
+            "type": "heading2",
+            "content": {
+              "text": "Representing Your Best Interests in Acquisition and Disposition"
+            }
+          }
+        ]
+      },
+      "body": {
+        "__TYPE__": "StructuredTextContent",
+        "value": [
+          {
+            "type": "paragraph",
+            "content": {
+              "text": "Roalson Interests was formed in 1983. The firm specializes in commercial / investment brokerage, site selection and tenant representation. Roalson Interests has extensive experience in corporate America real estate acquisition and surplus property disposition as well as representation of individual clients. The firm has also completed a variety of consulting assignments for the real estate community, financial institutions, law firms and government."
+            }
+          },
+          {
+            "type": "paragraph",
+            "content": {
+              "text": "Roalson Interests has a reputation for leadership and exceptional client service in metropolitan San Antonio and South Texas."
+            }
+          }
+        ]
+      },
+      "partners": {
+        "__TYPE__": "GroupContentType",
+        "value": [
+          {
+            "__TYPE__": "GroupItemContent",
+            "key": "64346681-0b6c-4340-8e98-23844b37e36a",
+            "value": [
+              [
+                "name",
+                {
+                  "__TYPE__": "FieldContent",
+                  "type": "Text",
+                  "value": "Matt Howard"
+                }
+              ],
+              [
+                "role",
+                {
+                  "__TYPE__": "FieldContent",
+                  "type": "Text",
+                  "value": "Partner"
+                }
+              ],
+              [
+                "bio",
+                {
+                  "__TYPE__": "StructuredTextContent",
+                  "value": [
+                    {
+                      "type": "paragraph",
+                      "content": {
+                        "text": "Simulator copy, not a biography. The partners' bios are written in Prismic, and neither has one yet, so this paragraph stands in for one: PROFILE appears on a card only when its bio is filled, and this is what it opens."
+                      }
+                    }
+                  ]
+                }
+              ]
+            ]
+          },
+          {
+            "__TYPE__": "GroupItemContent",
+            "key": "63610d83-242a-4ed4-b159-6176b40e6cc1",
+            "value": [
+              [
+                "name",
+                {
+                  "__TYPE__": "FieldContent",
+                  "type": "Text",
+                  "value": "Bart Wilson"
+                }
+              ],
+              [
+                "role",
+                {
+                  "__TYPE__": "FieldContent",
+                  "type": "Text",
+                  "value": "Partner"
+                }
+              ]
+            ]
+          }
+        ]
+      }
+    },
+    "items": []
+  }
+]
