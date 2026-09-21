@@ -19,6 +19,12 @@ function mockMatchMedia(reducedMotion: boolean) {
   }));
 }
 
+/** Move the page and tell the window, as a real scroll does. */
+async function scrollTo(y: number) {
+  vi.spyOn(window, "scrollY", "get").mockReturnValue(y);
+  await fireEvent.scroll(window);
+}
+
 // jsdom performs no layout — treat connected elements as visible so
 // trapFocus's getClientRects() filter keeps them.
 beforeEach(() => {
@@ -31,9 +37,16 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  document.body.style.overflow = "";
+  document.body.style.paddingRight = "";
 });
 
 const frame = () => new Promise((r) => requestAnimationFrame(r));
+
+/** A class list without its variant-prefixed entries (`hover:…`, `lg:…`), so
+ *  "is this the element's resting colour" cannot be answered by a hover class. */
+const resting = (el: Element) =>
+  (el.getAttribute("class") ?? "").split(/\s+/).filter((c) => c && !c.includes(":"));
 
 // Hash hrefs keep jsdom from attempting (unimplemented) page navigation.
 const items = [
@@ -41,9 +54,7 @@ const items = [
   { label: "About", href: "#about" },
 ];
 
-// A top item with dropdown children (renders as a desktop dropdown / mobile
-// accordion).
-const itemsWithDropdown = [
+const itemsWithGroup = [
   {
     label: "Products",
     href: "",
@@ -55,67 +66,137 @@ const itemsWithDropdown = [
   { label: "About", href: "#about" },
 ];
 
-// Flat `navLinks` — a per-route override of the site-config nav. These take
-// precedence over `items` and render the focus-trapped mobile menu below.
-const navLinks = [
-  { text: "Services", href: "#services" },
-  { text: "About", href: "#about" },
-];
+const logo = { url: "/logo.svg", reverseUrl: "/logo-reverse.svg", alt: "Roalson Interests — home" };
+const cta = { label: "Contact us", href: "#contact" };
 
-describe("Nav — logo-only mode", () => {
+describe("Nav — the bar", () => {
   it("renders no menu button without items", () => {
-    const { queryByLabelText, getByText } = render(Nav);
-    expect(getByText("Logo")).toBeTruthy();
+    const { queryByLabelText, getByRole } = render(Nav, {});
     expect(queryByLabelText("Open menu")).toBeNull();
+    expect(getByRole("navigation", { name: "Primary" })).toBeTruthy();
   });
 
-  it("renders the resolved logo image when given a logo", () => {
-    const { getByAltText } = render(Nav, {
-      logo: { url: "https://cdn.example/logo.png", maxWidth: "250px" },
-    });
-    const img = getByAltText("Home") as HTMLImageElement;
-    expect(img.getAttribute("src")).toBe("https://cdn.example/logo.png");
-    expect(img.style.maxWidth).toBe("250px");
+  it("names the home link from the wordmark's alt, once", () => {
+    const { getAllByRole } = render(Nav, { logo });
+    const home = getAllByRole("link").filter((a) => a.getAttribute("href") === "/");
+    expect(home).toHaveLength(1);
+    const images = Array.from(home[0].querySelectorAll("img"));
+    expect(images.map((img) => img.getAttribute("src"))).toEqual([
+      "/logo.svg",
+      "/logo-reverse.svg",
+    ]);
+    // The reverse lockup is the same mark again — it must not name the link twice.
+    expect(images.map((img) => img.getAttribute("alt"))).toEqual(["Roalson Interests — home", ""]);
+  });
+
+  it("renders the CTA as a link, outside the menu", () => {
+    const { getByRole, queryByRole } = render(Nav, { items, logo, cta });
+    expect(queryByRole("dialog")).toBeNull();
+    expect(getByRole("link", { name: "Contact us" }).getAttribute("href")).toBe("#contact");
+  });
+
+  it("marks the trigger as script-only, for app.html's noscript rule", () => {
+    const { getByLabelText } = render(Nav, { items });
+    expect(getByLabelText("Open menu").hasAttribute("data-js-only")).toBe(true);
   });
 });
 
-describe("Nav — mobile menu", () => {
-  it("opens the menu and moves focus into it", async () => {
-    const { getByLabelText, getByRole } = render(Nav, { items });
+describe("Nav — the bar's ground", () => {
+  it("is solid and pinned on a page that makes no claim", () => {
+    const { getByRole, getByLabelText } = render(Nav, { items, logo, cta });
+    const bar = getByRole("navigation", { name: "Primary" });
+    expect(bar.hasAttribute("data-floating")).toBe(false);
+    expect(resting(bar)).toEqual(expect.arrayContaining(["fixed", "bg-background"]));
+    // Dust is fill-only on a light ground: 1.97:1 as a label, and as a glyph.
+    expect(resting(getByLabelText("Open menu"))).toContain("text-primary");
+    expect(resting(getByRole("link", { name: "Contact us" }))).toContain("text-primary");
+  });
+
+  it("floats over a dark first band: no ground, reverse wordmark, dust controls", () => {
+    const { getByRole, getByLabelText } = render(Nav, { items, logo, cta, over: "dark" });
+    const bar = getByRole("navigation", { name: "Primary" });
+    expect(bar.hasAttribute("data-floating")).toBe(true);
+    expect(resting(bar)).toContain("bg-transparent");
+    expect(resting(bar)).not.toContain("bg-background");
+
+    const [garnet, reverse] = Array.from(bar.querySelectorAll("a[href='/'] img"));
+    expect(resting(garnet)).toContain("opacity-0");
+    expect(resting(reverse)).not.toContain("opacity-0");
+
+    expect(resting(getByLabelText("Open menu"))).toContain("text-dust");
+    expect(resting(getByRole("link", { name: "Contact us" }))).toContain("text-dust");
+  });
+
+  it("takes its ground once the page moves, and gives it back at the top", async () => {
+    const { getByRole, getByLabelText } = render(Nav, { items, logo, cta, over: "dark" });
+    const bar = getByRole("navigation", { name: "Primary" });
+
+    await scrollTo(200);
+    expect(bar.hasAttribute("data-floating")).toBe(false);
+    expect(resting(bar)).toContain("bg-background");
+    const [garnet, reverse] = Array.from(bar.querySelectorAll("a[href='/'] img"));
+    expect(resting(garnet)).not.toContain("opacity-0");
+    expect(resting(reverse)).toContain("opacity-0");
+    expect(resting(getByLabelText("Open menu"))).toContain("text-primary");
+    expect(resting(getByLabelText("Open menu"))).not.toContain("text-dust");
+    expect(resting(getByRole("link", { name: "Contact us" }))).toContain("text-primary");
+
+    await scrollTo(0);
+    expect(bar.hasAttribute("data-floating")).toBe(true);
+  });
+
+  it("reads where the page already is on mount — a reload halfway down is not at the top", () => {
+    vi.spyOn(window, "scrollY", "get").mockReturnValue(900);
+    const { getByRole } = render(Nav, { items, logo, over: "dark" });
+    expect(getByRole("navigation", { name: "Primary" }).hasAttribute("data-floating")).toBe(false);
+  });
+
+  it("is pinned once script has mounted it", () => {
+    const { getByRole } = render(Nav, { items, logo, over: "dark" });
+    const bar = getByRole("navigation", { name: "Primary" });
+    expect(resting(bar)).toContain("fixed");
+    expect(resting(bar)).not.toContain("absolute");
+  });
+
+  it("never floats without a reverse wordmark — garnet on garnet is no wordmark", () => {
+    const { getByRole } = render(Nav, { items, logo: { url: "/logo.svg" }, over: "dark" });
+    const bar = getByRole("navigation", { name: "Primary" });
+    expect(bar.hasAttribute("data-floating")).toBe(false);
+    expect(resting(bar)).toContain("bg-background");
+  });
+});
+
+describe("Nav — the menu", () => {
+  it("opens the menu and moves focus to its Close", async () => {
+    const { getByLabelText, getByRole } = render(Nav, { items, logo });
 
     await fireEvent.click(getByLabelText("Open menu"));
-    const dialog = getByRole("dialog");
+    const dialog = getByRole("dialog", { name: "Menu" });
     expect(dialog.getAttribute("aria-modal")).toBe("true");
 
     await frame();
     expect(document.activeElement).toBe(getByLabelText("Close menu"));
   });
 
-  it("wraps Tab from the last link back to the close button", async () => {
+  it("wraps Tab from the last link back to the first control", async () => {
     const { getByLabelText, getByRole } = render(Nav, { items });
     await fireEvent.click(getByLabelText("Open menu"));
     await frame();
 
     const dialog = getByRole("dialog");
-    const links = Array.from(dialog.querySelectorAll("a"));
-    const last = links[links.length - 1];
+    const focusables = Array.from(dialog.querySelectorAll<HTMLElement>("a, button"));
+    const last = focusables[focusables.length - 1];
     last.focus();
 
-    const e = new KeyboardEvent("keydown", {
-      key: "Tab",
-      bubbles: true,
-      cancelable: true,
-    });
+    const e = new KeyboardEvent("keydown", { key: "Tab", bubbles: true, cancelable: true });
     last.dispatchEvent(e);
 
     expect(e.defaultPrevented).toBe(true);
-    expect(document.activeElement).toBe(getByLabelText("Close menu"));
+    expect(document.activeElement).toBe(focusables[0]);
   });
 
   it("closes on Escape and returns focus to the re-mounted trigger", async () => {
-    const { getByLabelText, getByRole, queryByRole } = render(Nav, {
-      items,
-    });
+    const { getByLabelText, getByRole, queryByRole } = render(Nav, { items });
     await fireEvent.click(getByLabelText("Open menu"));
     await frame();
 
@@ -130,229 +211,125 @@ describe("Nav — mobile menu", () => {
   });
 
   it("closes when a menu link is activated", async () => {
-    const { getByLabelText, getByRole, queryByRole } = render(Nav, {
-      items,
-    });
+    const { getByLabelText, getByRole, queryByRole } = render(Nav, { items });
     await fireEvent.click(getByLabelText("Open menu"));
     await frame();
 
-    const link = Array.from(getByRole("dialog").querySelectorAll("a"))[0];
+    const link = getByRole("link", { name: "About" });
     await fireEvent.click(link);
 
     expect(queryByRole("dialog")).toBeNull();
   });
 
-  it("renders duplicate labels/hrefs without crashing (index-keyed each)", () => {
-    // Two children pointing at the same href, and repeated top-level labels —
-    // both would throw each_key_duplicate at hydration if keyed by label/href.
-    const dupes = [
-      {
-        label: "Company",
-        href: "",
-        children: [
-          { label: "About", href: "/contact" },
-          { label: "Team", href: "/contact" },
-        ],
-      },
-      { label: "Company", href: "/company" },
-    ];
-    expect(() => render(Nav, { items: dupes })).not.toThrow();
-  });
-
-  it("renders an empty-href item as non-interactive text, not a dead link", () => {
-    const { container, getByText } = render(Nav, {
-      items: [{ label: "Heading", href: "" }],
-    });
-    expect(getByText("Heading").tagName).toBe("SPAN");
-    // The only <a> is the logo home link; no <a href=""> leaf.
-    const emptyLinks = Array.from(container.querySelectorAll("a")).filter(
-      (a) => a.getAttribute("href") === "",
-    );
-    expect(emptyLinks).toHaveLength(0);
-  });
-
-  it("desktop dropdown is a disclosure: aria-expanded toggles, Escape closes", async () => {
-    const { container } = render(Nav, { items: itemsWithDropdown });
-    // Scoped to the dropdown's own id prefix: the menu trigger carries
-    // aria-controls too (it points at the overlay — see the aria-state suite
-    // below), so a bare `button[aria-controls]` no longer names one button.
-    const toggle = container.querySelector(
-      'button[aria-controls^="nav-dropdown-"]',
-    ) as HTMLButtonElement;
-    expect(toggle).toBeTruthy();
-    // No misleading aria-haspopup (the popup is a list of links, not a menu).
-    expect(toggle.getAttribute("aria-haspopup")).toBeNull();
-    expect(toggle.getAttribute("aria-expanded")).toBe("false");
-
-    await fireEvent.click(toggle);
-    expect(toggle.getAttribute("aria-expanded")).toBe("true");
-
-    await fireEvent.keyDown(toggle, { key: "Escape" });
-    expect(toggle.getAttribute("aria-expanded")).toBe("false");
-  });
-
-  it("expands a dropdown as an accordion and reveals its children", async () => {
+  it("lists every item as a link, and marks the current page", async () => {
     const { getByLabelText, getByRole } = render(Nav, {
-      items: itemsWithDropdown,
+      items: [
+        { label: "Home", href: "/" },
+        { label: "Our Properties", href: "/properties" },
+      ],
+      currentPath: "/properties",
     });
     await fireEvent.click(getByLabelText("Open menu"));
-    await frame();
-
-    // Scope to the dialog: the desktop dropdown <ul> also holds these links and
-    // jsdom applies no stylesheet, so Tailwind's `hidden`/`lg:flex` doesn't hide
-    // it — only the dialog's accordion actually collapses its children.
-    const dialog = getByRole("dialog");
-    expect(dialog.textContent).not.toContain("Chairs");
-
-    const toggle = Array.from(dialog.querySelectorAll("button")).find((b) =>
-      b.textContent?.includes("Products"),
-    )!;
-    expect(toggle.getAttribute("aria-expanded")).toBe("false");
-
-    await fireEvent.click(toggle);
-    expect(toggle.getAttribute("aria-expanded")).toBe("true");
-    expect(dialog.textContent).toContain("Chairs");
-    expect(dialog.textContent).toContain("Tables");
-  });
-});
-
-// The flat-links chrome a route renders when it passes a `navLinks` prop
-// override. Distinct code path from the `items` dropdown nav above.
-describe("Nav — navLinks (per-route override) mode", () => {
-  it("opens the menu and moves focus into it", async () => {
-    const { getByLabelText, getByRole } = render(Nav, { navLinks });
-
-    await fireEvent.click(getByLabelText("Open menu"));
-    const dialog = getByRole("dialog");
-    expect(dialog.getAttribute("aria-modal")).toBe("true");
-
-    await frame();
-    expect(document.activeElement).toBe(getByLabelText("Close menu"));
-  });
-
-  it("wraps Tab from the last link back to the close button", async () => {
-    const { getByLabelText, getByRole } = render(Nav, { navLinks });
-    await fireEvent.click(getByLabelText("Open menu"));
-    await frame();
 
     const dialog = getByRole("dialog");
-    const links = Array.from(dialog.querySelectorAll("a"));
-    const last = links[links.length - 1];
-    last.focus();
-
-    const e = new KeyboardEvent("keydown", {
-      key: "Tab",
-      bubbles: true,
-      cancelable: true,
-    });
-    last.dispatchEvent(e);
-
-    expect(e.defaultPrevented).toBe(true);
-    expect(document.activeElement).toBe(getByLabelText("Close menu"));
+    const links = Array.from(dialog.querySelectorAll("ul a"));
+    expect(links.map((a) => [a.textContent?.trim(), a.getAttribute("href")])).toEqual([
+      ["Home", "/"],
+      ["Our Properties", "/properties"],
+    ]);
+    // "/" is a prefix of every path — it is current only ON the home page.
+    expect(links.map((a) => a.getAttribute("aria-current"))).toEqual([null, "page"]);
   });
 
-  it("closes on Escape and returns focus to the re-mounted trigger", async () => {
-    const { getByLabelText, getByRole, queryByRole } = render(Nav, {
-      navLinks,
-    });
-    await fireEvent.click(getByLabelText("Open menu"));
-    await frame();
+  it("locks the page behind the menu, and releases it on every close path", async () => {
+    const { getByLabelText, getByRole } = render(Nav, { items });
 
+    await fireEvent.click(getByLabelText("Open menu"));
+    expect(document.body.style.overflow).toBe("hidden");
+    await fireEvent.click(getByLabelText("Close menu"));
+    expect(document.body.style.overflow).toBe("");
+
+    await fireEvent.click(getByLabelText("Open menu"));
+    expect(document.body.style.overflow).toBe("hidden");
     await fireEvent.keyDown(getByRole("dialog"), { key: "Escape" });
-    expect(queryByRole("dialog")).toBeNull();
+    expect(document.body.style.overflow).toBe("");
 
-    // The trigger unmounted while the menu was open; focus lands on the fresh
-    // instance one frame after close.
-    await frame();
-    await frame();
-    expect(document.activeElement).toBe(getByLabelText("Open menu"));
-  });
-
-  it("closes when a menu link is activated", async () => {
-    const { getByLabelText, getByRole, queryByRole } = render(Nav, {
-      navLinks,
-    });
     await fireEvent.click(getByLabelText("Open menu"));
-    await frame();
+    await fireEvent.click(getByRole("link", { name: "About" }));
+    expect(document.body.style.overflow).toBe("");
+  });
 
-    const link = Array.from(getByRole("dialog").querySelectorAll("a"))[0];
-    await fireEvent.click(link);
+  it("releases the lock when the component is torn down with the menu open", async () => {
+    const { getByLabelText, unmount } = render(Nav, { items });
+    await fireEvent.click(getByLabelText("Open menu"));
+    expect(document.body.style.overflow).toBe("hidden");
+    unmount();
+    expect(document.body.style.overflow).toBe("");
+  });
 
-    expect(queryByRole("dialog")).toBeNull();
+  it("renders duplicate labels/hrefs without crashing (index-keyed each)", async () => {
+    const dupes = [
+      { label: "Home", href: "#a" },
+      { label: "Home", href: "#a" },
+    ];
+    const { getByLabelText, getByRole } = render(Nav, { items: dupes });
+    await fireEvent.click(getByLabelText("Open menu"));
+    expect(getByRole("dialog").querySelectorAll("ul a")).toHaveLength(2);
+  });
+
+  it("renders a group: an empty-href label as text, never a dead link, over its children", async () => {
+    const { getByLabelText, getByRole } = render(Nav, { items: itemsWithGroup });
+    await fireEvent.click(getByLabelText("Open menu"));
+
+    const dialog = getByRole("dialog");
+    expect(dialog.querySelector('a[href=""]')).toBeNull();
+    expect(dialog.textContent).toContain("Products");
+    const links = Array.from(dialog.querySelectorAll("ul a")).map((a) => a.textContent?.trim());
+    expect(links).toEqual(["Chairs", "Tables", "About"]);
   });
 });
 
-// The trigger unmounts while the menu is open and the overlay renders its own
-// Close in the same slot, so no single element can carry a flipping
-// aria-expanded. Both buttons carry the pair instead, pointing at the dialog's
-// id — which is what makes `[aria-controls="nav-menu"]` a stable handle whose
-// aria-expanded reads false → true across the swap.
 describe("Nav — the trigger announces the menu's state", () => {
-  const MENU_ID = "nav-menu";
-  const stateButton = () =>
-    document.body.querySelector(`button[aria-controls="${MENU_ID}"]`) as HTMLButtonElement;
+  // The trigger unmounts while the menu is open and the overlay renders its own
+  // Close, so no single element carries a flipping aria-expanded. The contract
+  // is the HANDLE: `[aria-controls]` names the dialog on both, and reads
+  // false → true → false across the swap.
+  it("aria-expanded flips false → true and aria-controls names the dialog", async () => {
+    const { getByLabelText, getByRole, container } = render(Nav, { items });
+    const handle = () =>
+      container.ownerDocument.querySelector('button[aria-controls="nav-menu"]') as HTMLElement;
 
-  for (const [mode, props] of [
-    ["site-config items", { items }],
-    ["page-data navLinks", { navLinks }],
-  ] as const) {
-    it(`(${mode}) aria-expanded flips false → true and aria-controls names the dialog`, async () => {
-      const { getByLabelText, getByRole } = render(Nav, props);
+    expect(handle().getAttribute("aria-expanded")).toBe("false");
+    const controls = handle().getAttribute("aria-controls");
 
-      const trigger = getByLabelText("Open menu");
-      expect(trigger.getAttribute("aria-controls")).toBe(MENU_ID);
-      expect(trigger.getAttribute("aria-expanded")).toBe("false");
+    await fireEvent.click(getByLabelText("Open menu"));
+    expect(getByRole("dialog").id).toBe(controls);
+    expect(handle().getAttribute("aria-expanded")).toBe("true");
+    expect(handle().getAttribute("aria-controls")).toBe(controls);
 
-      await fireEvent.click(trigger);
-      await frame();
-
-      // The id the trigger pointed at is the dialog that actually mounted — a
-      // dangling aria-controls is worse than none.
-      const dialog = getByRole("dialog");
-      expect(dialog.id).toBe(MENU_ID);
-
-      // Same handle, now the Close button, now expanded.
-      const open = stateButton();
-      expect(open.getAttribute("aria-label")).toBe("Close menu");
-      expect(open.getAttribute("aria-expanded")).toBe("true");
-
-      await fireEvent.click(open);
-      await frame();
-      await frame();
-      expect(stateButton().getAttribute("aria-expanded")).toBe("false");
-    });
-  }
+    await fireEvent.click(getByLabelText("Close menu"));
+    expect(handle().getAttribute("aria-expanded")).toBe("false");
+  });
 });
 
-// A tap that looks like nothing happened gets tapped again — and the second tap
-// lands after the overlay has mounted, closing it. `hover:` compiles behind
-// `@media (hover: hover)`, so a phone got no feedback at all, and `:active`
-// alone is not enough either: a real dispatched touchStart leaves
-// `matches(":active")` false in Chromium. So the press is driven by POINTER
-// events and surfaced as `data-pressed`, which the glyph's classes key off.
 describe("Nav — the trigger acknowledges a press", () => {
   it("sets data-pressed on pointerdown and clears it on every release path", async () => {
     const { getByLabelText } = render(Nav, { items });
     const trigger = getByLabelText("Open menu");
-    expect(trigger.hasAttribute("data-pressed")).toBe(false);
 
-    // A finger that slides off the control, a drag the browser turns into a
-    // scroll, and a blur must all leave the press state clean — otherwise the
-    // affordance sticks on and the control looks permanently held.
     for (const release of ["pointerUp", "pointerCancel", "pointerLeave", "blur"] as const) {
       await fireEvent.pointerDown(trigger);
       expect(trigger.hasAttribute("data-pressed"), `pressed before ${release}`).toBe(true);
       await fireEvent[release](trigger);
-      expect(trigger.hasAttribute("data-pressed"), `released on ${release}`).toBe(false);
+      expect(trigger.hasAttribute("data-pressed"), `cleared by ${release}`).toBe(false);
     }
   });
 
   it("presses the Close button independently of the trigger", async () => {
     const { getByLabelText } = render(Nav, { items });
     await fireEvent.click(getByLabelText("Open menu"));
-    await frame();
-
     const close = getByLabelText("Close menu");
+
     await fireEvent.pointerDown(close);
     expect(close.hasAttribute("data-pressed")).toBe(true);
     await fireEvent.pointerUp(close);

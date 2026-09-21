@@ -3,12 +3,12 @@
   // it, for the BUTTON's tone, so it is the one for LIGHT grounds: garnet
   // outline and text; hover fills garnet with dust text (5.11:1, AA as text).
   //
-  // Its sibling `button light` (4840:372: dust outline, hover fills dust with
-  // garnet) is NOT here yet. Nothing renders it, and its hover puts text on a
-  // dust ground the contrast guard does not measure — add it with its first
-  // dark-ground use, and teach theme-contrast.test.ts that pair at the same time.
-  // (The garnet property card's cream override is the card's business, via
-  // `class`.)
+  // Its sibling `button light` (4840:372: dust outline and label, hover fills
+  // dust with garnet text) is the "dust" tone — the navbar's CONTACT US while
+  // the bar floats over a dark band. Dust is a fill-only token on LIGHT
+  // grounds (1.97:1 on off-white), so "dust" is for dark grounds only; the nav
+  // swaps to "garnet" the moment it takes its off-white ground.
+  // (The garnet property card's button is "cream", below.)
   //
   // Not DefaultButton: that is the template's rounded, 2px-bordered, px-10
   // button, and this comp's is square, 1px, 40px tall, px-15, with an optional
@@ -26,8 +26,10 @@
     /** "garnet" is the comp's `button dark` as drawn on a light ground. "cream"
      *  is the same button on the garnet property card (6904:2081): off-white
      *  outline and label, filling off-white with garnet text on hover —
-     *  10.5:1 and 10.07:1. Both tones are measured by theme-contrast.test.ts. */
-    tone?: "garnet" | "cream";
+     *  10.5:1 and 10.07:1. "dust" is the comp's `button light` for dark
+     *  grounds: 5.11:1 on garnet, and garnet on the dust fill is the same pair
+     *  inverted. Every tone is measured by theme-contrast.test.ts. */
+    tone?: "garnet" | "cream" | "dust";
     class?: string;
     children: Snippet;
   }
@@ -44,6 +46,7 @@
   const TONES = {
     garnet: "border-primary text-primary hover:bg-primary hover:text-dust",
     cream: "border-background text-background hover:bg-background hover:text-primary",
+    dust: "border-dust text-dust hover:bg-dust hover:text-primary",
   } as const;
 </script>
 

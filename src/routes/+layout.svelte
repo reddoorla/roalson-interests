@@ -43,13 +43,25 @@
 >
   Skip to main content
 </a>
-<!-- Chrome renders from page data when a route supplies navLinks/footerColumns,
-     else from the site-config stub. Each component applies its own
-     page-data-over-config precedence. -->
+<!-- Chrome renders from the site-config stub; a route may supply its own
+     footerColumns, and says what its first band is with `navOver`. -->
 <div class="flex flex-col min-h-screen">
-  <Nav navLinks={page.data.navLinks} items={siteConfig.nav.items} logo={siteConfig.nav.logo} />
+  <Nav
+    items={siteConfig.nav.items}
+    logo={siteConfig.nav.logo}
+    cta={siteConfig.nav.cta}
+    over={page.data.navOver}
+    currentPath={page.url.pathname}
+  />
 
-  <main id="main-content" tabindex="-1" class="flex-1">
+  <!-- The bar is out of flow (70px, 80 from `lg`), so <main> clears it — unless
+       the route's first band is the dark one the bar floats over (`navOver`),
+       which starts at y=0 as the comp draws it. -->
+  <main
+    id="main-content"
+    tabindex="-1"
+    class="flex-1 {page.data.navOver === 'dark' ? '' : 'pt-[70px] lg:pt-20'}"
+  >
     {@render children?.()}
   </main>
 

@@ -198,7 +198,10 @@
   };
 </script>
 
-<main class="max-w-3xl mx-auto px-8 py-16 space-y-12">
+<!-- A <div>, not a second <main>: the layout already renders the page's one
+     main landmark (#main-content) around this. The template shipped a nested
+     <main> here, which gives assistive tech two "main" regions to choose from. -->
+<div class="max-w-3xl mx-auto px-8 py-16 space-y-12">
   <header class="space-y-2">
     <h1 class="text-3xl font-bold">Accessibility fixtures</h1>
     <p class="text-secondary">
@@ -411,7 +414,7 @@
        unlinked Sold grid on sand. -->
   <PageMasthead title="Our Properties" />
   <PropertyListing sections={groupListings(propertyListingFixture())} />
-</main>
+</div>
 
 <!-- Renders nothing at rest (overlay only appears mid-navigation, aria-hidden);
      mounted so the axe gate covers its resting state. -->

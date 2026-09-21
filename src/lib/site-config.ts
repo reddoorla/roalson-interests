@@ -20,8 +20,14 @@ export type FooterColumn = { items: FooterItem[] };
 
 export type SiteConfig = {
   nav: {
-    logo?: { url: string; maxWidth?: string };
+    /** `reverseUrl` is the same lockup for dark grounds — the bar floats over a
+     *  dark first band only when it has one. `alt` names the home link.
+     *  `maxWidth` is the template's knob; this site's Nav sizes the wordmark
+     *  from the comp (93 / 145px) and does not read it. */
+    logo?: { url: string; reverseUrl?: string; alt?: string; maxWidth?: string };
     items: NavItem[];
+    /** The bar's one button — the comp's CONTACT US. */
+    cta?: { label: string; href: string };
   };
   footer: {
     socials: FooterSocial[];

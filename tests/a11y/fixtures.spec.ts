@@ -17,6 +17,11 @@ for (const { path, name } of pages) {
     // The layout's skip link + main landmark render on every page (WCAG 2.4.1).
     await expect(page.locator('a[href="#main-content"]')).toHaveCount(1);
     await expect(page.locator("main#main-content")).toHaveCount(1);
+    // …and it is the ONLY main. The id-scoped line above passed for the life
+    // of the template while this page nested a second, id-less <main> inside
+    // it; axe's duplicate-landmark rules are `best-practice`, outside the tags
+    // below (reddoorla/reddoor-starter#158).
+    await expect(page.locator("main")).toHaveCount(1);
     const results = await new AxeBuilder({ page })
       .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
       .analyze();

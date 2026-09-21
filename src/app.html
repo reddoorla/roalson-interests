@@ -46,11 +46,19 @@
          guard that is live on some routes and dead on others is worse than no
          guard. style-src already allows inline styles, so this half works
          identically everywhere and needs no CSP hash to maintain. -->
+    <!-- `[data-js-only]` is the same contract for CONTROLS: an element that can
+         do nothing without script is not shown to a browser that will never
+         run any. Today that is the menu trigger — Nav.svelte renders the
+         menu's links into the bar inside its own <noscript>, so hiding the
+         dead button costs nobody the navigation. -->
     <noscript>
       <style>
         [data-reveal] {
           opacity: 1 !important;
           transform: none !important;
+        }
+        [data-js-only] {
+          display: none !important;
         }
       </style>
     </noscript>

@@ -45,4 +45,19 @@ describe("BrandButton", () => {
     expect(a.className).toMatch(/\bhover:bg-background\b/);
     expect(a.className).toMatch(/\bhover:text-primary\b/);
   });
+
+  it("is the comp's `button light` on the dust tone: dust at rest, a dust fill with garnet on hover", () => {
+    const rest = (el: Element) => el.className.split(/\s+/).filter((c) => !c.includes(":"));
+    const { getByRole } = render(BrandButton, {
+      props: { href: "/contact", tone: "dust", children: label },
+    });
+    const a = getByRole("link");
+    expect(rest(a)).toEqual(expect.arrayContaining(["border-dust", "text-dust"]));
+    // Dust is fill-only on light grounds — a dust button must never pick up the
+    // garnet tone's resting colours, or the light-ground one dust's.
+    expect(rest(a)).not.toContain("text-primary");
+    expect(rest(a)).not.toContain("border-primary");
+    expect(a.className).toMatch(/\bhover:bg-dust\b/);
+    expect(a.className).toMatch(/\bhover:text-primary\b/);
+  });
 });
