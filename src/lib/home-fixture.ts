@@ -84,10 +84,71 @@ export function homeHeroFixture(primary: Partial<HomeHeroPrimary> = {}): Content
   } as unknown as Content.HomeHeroSlice;
 }
 
+type PhotoBandPrimary = Content.PhotoBandSlice["primary"];
+
+/** A generated picture for the `?photo` state of /dev/home: a 3:2 drawing in
+ *  the brand's own tones, NOT a photograph — the comp's photo is unlicensed
+ *  Unsplash stock (#3) and never enters this repo. Inline, so the fixture
+ *  depends on no host.
+ *
+ *  It is drawn to make the band's crop legible, which is `cover` anchored to
+ *  the bottom: the dark ground strip along its foot must sit ON the band's
+ *  bottom edge at every width, and the garnet stripe across its top 100 units
+ *  is never seen WHERE THE COMP HAS A FRAME — the band crops 160px (320 units)
+ *  off the top at 1440, 53px at 1280 and 20px (148 units) at 390. It IS seen
+ *  at layout widths 1009–1199 (measured: a 42px garnet bar at 1024): there the
+ *  800px band is taller than a full-width 3:2 picture, so `cover` crops the
+ *  SIDES and nothing off the top. That is the fixture being honest about the
+ *  crop, not a broken band. */
+const PHOTO_SVG =
+  `<svg xmlns="http://www.w3.org/2000/svg" width="2880" height="1920" viewBox="0 0 2880 1920">` +
+  `<defs><linearGradient id="s" x1="0" y1="0" x2="0" y2="1">` +
+  `<stop offset="0" stop-color="#b2ac9f"/><stop offset="1" stop-color="#f2efe9"/>` +
+  `</linearGradient></defs>` +
+  `<rect width="2880" height="1920" fill="url(#s)"/>` +
+  `<rect width="2880" height="100" fill="#652323"/>` +
+  `<g fill="#652323">` +
+  `<rect x="180" y="1180" width="300" height="560"/>` +
+  `<rect x="560" y="900" width="220" height="840"/>` +
+  `<rect x="860" y="1320" width="420" height="420"/>` +
+  `<rect x="1400" y="700" width="200" height="1040"/>` +
+  `<rect x="1680" y="1060" width="360" height="680"/>` +
+  `<rect x="2140" y="1260" width="260" height="480"/>` +
+  `<rect x="2480" y="1000" width="240" height="740"/>` +
+  `</g>` +
+  `<rect y="1720" width="2880" height="200" fill="#3d0707"/>` +
+  `</svg>`;
+
+export const HOME_PHOTO_FIXTURE = {
+  url: `data:image/svg+xml,${encodeURIComponent(PHOTO_SVG)}`,
+  alt: "A drawn skyline standing on a dark ground strip",
+  dimensions: { width: 2880, height: 1920 },
+  copyright: null,
+  id: "fixture-home-photo",
+  edit: { x: 0, y: 0, zoom: 1, background: "transparent" },
+};
+
+/** The `photo_band` slice. EMPTY by default: that IS the launch state — no
+ *  licensed photo exists yet, so the band is the garnet gradient at the comp's
+ *  height. Pass `{ image: HOME_PHOTO_FIXTURE }` for the filled state. */
+export function photoBandFixture(primary: Partial<PhotoBandPrimary> = {}): Content.PhotoBandSlice {
+  return {
+    id: "fixture-photo-band",
+    slice_type: "photo_band",
+    slice_label: null,
+    variation: "default",
+    version: "initial",
+    primary: { image: {}, ...primary },
+    items: [],
+  } as unknown as Content.PhotoBandSlice;
+}
+
 /** The homepage's slices, in page order — the shape of `page.data.slices` on
- *  the `home` document. */
+ *  the `home` document. The photo band is LAST, as in the comp: it only pins
+ *  as the last thing in <main> (see app.css). */
 export function homeFixture(
   hero: Partial<HomeHeroPrimary> = {},
+  photo: Partial<PhotoBandPrimary> = {},
 ): Content.PageDocument["data"]["slices"] {
-  return [homeHeroFixture(hero)];
+  return [homeHeroFixture(hero), photoBandFixture(photo)];
 }

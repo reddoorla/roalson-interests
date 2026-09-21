@@ -156,7 +156,8 @@ type PageDocumentDataSlicesSlice =
   | SectionGridSlice
   | TestimonialSlice
   | CtaBannerSlice
-  | HomeHeroSlice;
+  | HomeHeroSlice
+  | PhotoBandSlice;
 
 /**
  * Content for Page documents
@@ -1120,6 +1121,51 @@ export type MediaTextSlice = prismic.SharedSlice<
 >;
 
 /**
+ * Primary content in *PhotoBand → Default → Primary*
+ */
+export interface PhotoBandSliceDefaultPrimary {
+  /**
+   * Photo — 3:2 or wider, at least 2880px wide; its bottom edge is kept, the top is cropped. Describe it in the image's alt text, or leave that empty if it is decoration field in *PhotoBand → Default → Primary*
+   *
+   * - **Field Type**: Image
+   * - **Placeholder**: *None*
+   * - **API ID Path**: photo_band.default.primary.image
+   * - **Documentation**: https://prismic.io/docs/fields/image
+   */
+  image: prismic.ImageField<never>;
+}
+
+/**
+ * Default variation for PhotoBand Slice
+ *
+ * - **API ID**: `default`
+ * - **Description**: One photo, cropped from the top and anchored to the band's bottom edge
+ * - **Documentation**: https://prismic.io/docs/slices
+ */
+export type PhotoBandSliceDefault = prismic.SharedSliceVariation<
+  "default",
+  Simplify<PhotoBandSliceDefaultPrimary>,
+  never
+>;
+
+/**
+ * Slice variation for *PhotoBand*
+ */
+type PhotoBandSliceVariation = PhotoBandSliceDefault;
+
+/**
+ * PhotoBand Shared Slice
+ *
+ * - **API ID**: `photo_band`
+ * - **Description**: A full-width photo band, 800px tall (240 on screens narrower than 1024px). As the LAST slice on a page it pins while the footer slides up over it. Left empty it is the garnet gradient
+ * - **Documentation**: https://prismic.io/docs/slices
+ */
+export type PhotoBandSlice = prismic.SharedSlice<
+  "photo_band",
+  PhotoBandSliceVariation
+>;
+
+/**
  * Primary content in *RichText → Default → Primary*
  */
 export interface RichTextSliceDefaultPrimary {
@@ -1520,6 +1566,10 @@ declare module "@prismicio/client" {
       MediaTextSliceVariation,
       MediaTextSliceImageRight,
       MediaTextSliceImageLeft,
+      PhotoBandSlice,
+      PhotoBandSliceDefaultPrimary,
+      PhotoBandSliceVariation,
+      PhotoBandSliceDefault,
       RichTextSlice,
       RichTextSliceDefaultPrimary,
       RichTextSliceVariation,

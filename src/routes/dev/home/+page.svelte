@@ -14,16 +14,21 @@
   //             default because it is the launch state.
   //   ?bare     a `home` document with NO hero slice: the route still opens on
   //             the dark 528px ground its `navOver` claim promises.
+  //   ?photo    with a picture in the photo band — again a drawing, not the
+  //             comp's unlicensed stock. Empty (the gradient) is the default.
   import { SliceZone } from "@prismicio/svelte";
   import { page } from "$app/state";
-  import { HOME_POSTER_FIXTURE, homeFixture } from "$lib/home-fixture";
+  import { HOME_PHOTO_FIXTURE, HOME_POSTER_FIXTURE, homeFixture } from "$lib/home-fixture";
   import { splitHomeHero } from "$lib/home-page";
   import { components } from "$lib/slices";
   import HomeHero from "$lib/slices/HomeHero/index.svelte";
 
   const params = $derived(page.url.searchParams);
   const slices = $derived(
-    homeFixture(params.has("poster") ? { poster: HOME_POSTER_FIXTURE as never } : {}),
+    homeFixture(
+      params.has("poster") ? { poster: HOME_POSTER_FIXTURE as never } : {},
+      params.has("photo") ? { image: HOME_PHOTO_FIXTURE as never } : {},
+    ),
   );
   const home = $derived(
     splitHomeHero(params.has("bare") ? slices.filter((s) => s.slice_type !== "home_hero") : slices),
