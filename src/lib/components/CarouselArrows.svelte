@@ -1,0 +1,84 @@
+<script lang="ts" module>
+  // The comp's carousel arrows (`l arrow` / `r arrow`, 6843:972 / 6843:977 in
+  // the homepage `properties slideshow` set; the same pair on issue #14's 390
+  // cards) for a `createCarousel` instance, plus the pause / play control the
+  // comp does not draw and WCAG 2.2.2 requires of anything that autoplays.
+  //
+  // Measured: 40 × 40, radius 20, a 1px stroke drawn INSIDE the frame, no fill,
+  // the 25 × 25 glyph centred (7.5 inset), 10px between the two. The glyph is
+  // `np_arrow-right_888647` — both arrows were exported from Figma and the
+  // right one's two paths are ArrowRight.svelte's numbers shifted by the 7.5
+  // inset, to the fourth decimal; the left is the same frame rotated 180°
+  // (`rotate(-180 …)` in the export), not a second drawing. So this renders
+  // ArrowRight, turned, rather than shipping the path a second time.
+  //
+  // The hit area is 44 × 44 (a `::before` 2px proud of the circle): the comp's
+  // 40 clears WCAG 2.5.8's 24 but not the 44 a thumb wants, and the 10px gap
+  // leaves 6 between neighbouring targets. The inset is -3px, not -2: an
+  // absolute box is placed from the PADDING box, which starts inside the 1px
+  // ring. `-inset-0.5` measured 42 × 42 in Chromium.
+  //
+  // Tones are named for the CONTROL's colour, as BrandButton's are, and take
+  // its hovers: "garnet" on the light grounds (sand, off-white; hover fills
+  // garnet with dust glyph, 5.11:1), "cream" on the garnet card and the dark
+  // band (hover fills off-white with garnet glyph, 10.07:1). Cream also moves
+  // the focus ring to off-white — the site's garnet ring is 1:1 on garnet.
+  export const ARROW_TONES = {
+    garnet:
+      "border-primary text-primary not-aria-disabled:hover:bg-primary not-aria-disabled:hover:text-dust",
+    cream:
+      "border-background text-background not-aria-disabled:hover:bg-background not-aria-disabled:hover:text-primary focus-visible:outline-background",
+  } as const;
+</script>
+
+<script lang="ts">
+  import ArrowRight from "$lib/components/ArrowRight.svelte";
+  import type { Carousel } from "$lib/carousel.svelte";
+
+  interface Props {
+    /** The `createCarousel` instance these buttons drive. */
+    carousel: Carousel;
+    tone?: keyof typeof ARROW_TONES;
+    class?: string;
+  }
+
+  let { carousel, tone = "garnet", class: passedClasses = "" }: Props = $props();
+
+  // `border` on a `size-10` border-box IS Figma's inside stroke: the circle
+  // stays 40 wide with the 1px ring inside it.
+  const SHAPE =
+    "relative inline-flex size-10 shrink-0 items-center justify-center rounded-full border " +
+    "border-solid transition-colors before:absolute before:-inset-[3px] before:content-[''] " +
+    "aria-disabled:cursor-default aria-disabled:opacity-40";
+  const button = $derived(`${SHAPE} ${ARROW_TONES[tone]}`);
+</script>
+
+<!-- Nothing to drive with one slide (or a carousel switched off), so nothing is
+     drawn. `data-js-only`: these ship in the server's markup so the row does
+     not jump in at hydration, and app.html's <noscript> rule hides them from a
+     browser that could never run them. -->
+{#if carousel.enabled && carousel.count > 1}
+  <div data-js-only class="flex items-center gap-[10px] {passedClasses}">
+    {#if carousel.eligible}
+      <!-- First in the carousel's tab order (APG), and only where rotation is
+           possible: under reduced motion it never starts, so there is nothing
+           to pause. The glyphs are drawn for this — the comp has none — in the
+           arrow's own box and weight: a 25 box, 14 tall like the arrowhead,
+           bars as thick as its 2.083 shaft. -->
+      <button {...carousel.pauseButton} class={button}>
+        <svg viewBox="0 0 25 25" width="25" height="25" aria-hidden="true" focusable="false">
+          {#if carousel.paused}
+            <path d="M9 5.52L20 12.5L9 19.48V5.52Z" fill="currentColor" />
+          {:else}
+            <path d="M8.4 5.52H10.483V19.48H8.4V5.52Z" fill="currentColor" />
+            <path d="M14.517 5.52H16.6V19.48H14.517V5.52Z" fill="currentColor" />
+          {/if}
+        </svg>
+      </button>
+    {/if}
+    <button {...carousel.prevButton} class={button}>
+      <ArrowRight class="rotate-180" />
+    </button>
+    <button {...carousel.nextButton} class={button}><ArrowRight /></button>
+  </div>
+{/if}

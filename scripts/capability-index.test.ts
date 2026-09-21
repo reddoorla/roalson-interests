@@ -57,7 +57,11 @@ describe("the capability index", () => {
     // …and the surface is what makes them recognisable at a glance. A row that
     // says only "Slider.svelte" is a filename; one that says `autoplay` is an
     // answer.
-    const slider = index.split("\n").find((l) => l.includes("Slider.svelte"))!;
+    // Slider's OWN row, by its module cell. `includes("Slider.svelte")` took the
+    // first row that merely MENTIONED it — carousel.svelte.ts's summary says
+    // what Slider's layout cannot hold, sorts earlier, and was read as Slider.
+    const slider = index.split("\n").find((l) => l.startsWith("| [`Slider.svelte`]"))!;
+    expect(slider, "no row whose module is Slider.svelte").toBeTruthy();
     for (const prop of ["autoplay", "showDots", "showArrows", "loop"])
       expect(slider, `Slider row missing \`${prop}\``).toContain(prop);
   });

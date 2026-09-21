@@ -30,6 +30,7 @@
   import AccordionSlice from "$lib/slices/Accordion/index.svelte";
   import type { ComponentProps } from "svelte";
   import { trapFocus } from "$lib/actions/trapFocus";
+  import CarouselFixture from "./CarouselFixture.svelte";
   import type { RichTextField } from "@prismicio/client";
 
   let modalOpen = $state(false);
@@ -380,6 +381,20 @@
         </div>
       {/snippet}
     </Slider>
+  </section>
+
+  <section aria-labelledby="carousel-heading" class="space-y-4">
+    <h2 id="carousel-heading" class="text-xl font-semibold">Carousel primitive</h2>
+    <!-- The headless carousel ($lib/carousel.svelte.ts) with CarouselArrows and
+         CarouselProgress, as the homepage's featured-properties band will wear
+         it: garnet controls on the sand card, the comp's 4s dwell and 0.5s
+         dissolve. The axe run is under reduced motion, so it audits the state
+         with NO pause control and the bar drawing position; the rotating state
+         is covered by carousel.svelte.test.ts and tests/interaction/carousel.spec.ts. -->
+    <CarouselFixture label="Autoplaying carousel" autoplay={4000} settle={500} />
+    <!-- And as issue #14's featured card will: cream controls on garnet, no
+         autoplay, so the bar is a position indicator. -->
+    <CarouselFixture label="Manual carousel" tone="cream" />
   </section>
 
   <section aria-labelledby="countup-heading" class="space-y-4">
