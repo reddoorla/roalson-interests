@@ -256,9 +256,10 @@ export function createCarousel(options: CarouselOptions) {
    *  entering the carousel", so rotation stops and the label flips to Play —
    *  and a plain toggle on the click that follows starts it again: the user
    *  pressed Pause and got Play. (Measured in Chromium on Slider: pressed on
-   *  its rim it does exactly this; pressed on its glyph the click is swallowed,
-   *  because the node the press began on was swapped out, and it stays paused
-   *  by accident. Both paths end paused here.)
+   *  its rim it does exactly this; pressed on its glyph it stays paused. WHY
+   *  the glyph differs was not isolated — the likely reason is that the press
+   *  began on an <svg> the re-render removed, so no click was dispatched — and
+   *  nothing here depends on it: with or without that click, this ends paused.)
    *
    *  So a POINTER click (`detail > 0`) settles on the opposite of what was on
    *  screen when its own press began. A keyboard click (`detail === 0`) has no
