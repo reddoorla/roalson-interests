@@ -89,6 +89,47 @@ describe("Nav — before script has mounted", () => {
   });
 });
 
+// #18. The server cannot measure the gate, so it renders a gated wordmark
+// HIDDEN — shown-then-hidden would flash a wordmark at every visitor before
+// hydration — and marks the one image app.html's <noscript> style must show.
+describe("Nav — a gated wordmark, before script has mounted", () => {
+  const images = (container: HTMLElement) =>
+    Array.from(bar(container).querySelectorAll("a[href='/'] img"));
+
+  it("is hidden in the server's markup, on a floating bar that is not pinned yet", () => {
+    const { container } = render(Nav, { items, logo, over: "dark", wordmark: "gated" });
+    const [garnet, reverse] = images(container);
+    expect(garnet.className.split(/\s+/)).toContain("opacity-0");
+    expect(reverse.className.split(/\s+/)).toContain("opacity-0");
+    expect(bar(container).hasAttribute("data-floating")).toBe(true);
+    expect(bar(container).className.split(/\s+/)).toContain("absolute");
+  });
+
+  it("marks the REVERSE lockup, and only it, for the noscript rule", () => {
+    const { container } = render(Nav, { items, logo, over: "dark", wordmark: "gated" });
+    const [garnet, reverse] = images(container);
+    // Scripting off, the bar is floating over the dark hero: white is the
+    // wordmark to show. The garnet one must stay at opacity 0 there.
+    expect(reverse.getAttribute("data-nav-wordmark")).toBe("gated");
+    expect(garnet.hasAttribute("data-nav-wordmark")).toBe(false);
+  });
+
+  it("is not hidden, and not marked, on a route that makes no such claim", () => {
+    const dark = render(Nav, { items, logo, over: "dark" });
+    const [, reverse] = images(dark.container);
+    expect(reverse.className.split(/\s+/)).not.toContain("opacity-0");
+    expect(dark.container.querySelector("[data-nav-wordmark]")).toBeNull();
+    dark.unmount();
+
+    // A solid bar: the rule would light a WHITE wordmark on off-white if the
+    // mark were ever unconditional.
+    const light = render(Nav, { items, logo });
+    const [garnet] = images(light.container);
+    expect(garnet.className.split(/\s+/)).not.toContain("opacity-0");
+    expect(light.container.querySelector("[data-nav-wordmark]")).toBeNull();
+  });
+});
+
 describe("Nav — the moment script mounts", () => {
   it("swaps the link for the button, with today's name and menu contract", async () => {
     const { container } = render(Nav, { items, logo });

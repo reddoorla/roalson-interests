@@ -39,7 +39,39 @@
   //      list of pages — which works with no script executed at all — and it
   //      is swapped for the real <button> only once mount has proven script
   //      runs: the same evidence that pins the bar.
-  import { onMount, tick } from "svelte";
+  //
+  // AND ONE THING THE COMP SAYS ONLY ABOUT THE HOMEPAGE
+  //
+  // 4. There the bar has NO WORDMARK until the hero's RI cutout has scrolled
+  //    away (operator call 8, #18; `wordmark="gated"`). The comp fakes it with
+  //    a 2s timeout between two variants of `navbar`; what it means is a
+  //    position — and the hero PINS, so that position is not a scrollY. It is
+  //    the page's `[data-nav-gate]` element (HomeHero's band, whose top edge
+  //    the cutout rides on) reaching the bar's bottom edge, read rect against
+  //    rect. Until it does the bar also stays FLOATING: the pinned hero is
+  //    under it the whole way, so what the dust controls sit on does not
+  //    change, and a solid bar with an empty left side over a hero is neither
+  //    of the comp's variants. At the gate it takes its ground and its garnet
+  //    wordmark together — the comp's two variants, with (1)'s legibility fix
+  //    applied at the change.
+  //
+  //    The home link never leaves the accessibility tree. The wordmark is
+  //    hidden with opacity, never display/visibility/inert; the link stays
+  //    named and focusable; and keyboard focus SHOWS the wordmark, because a
+  //    focus ring around nothing tells a sighted keyboard user nothing.
+  //
+  //    The server renders it hidden — visible-then-hidden would flash a
+  //    wordmark at every visitor before hydration — and app.html's <noscript>
+  //    style shows it to a browser that will never run the gate. The residual
+  //    is (3)'s case: script on, bundle never arrives, and the homepage's bar
+  //    has no VISIBLE home link. That is the page where it matters least, and
+  //    the trigger's fallback lands on the footer, whose wordmark is one.
+  //
+  //    A claim with no gate element in the DOM (a `home` document with no hero
+  //    slice) is no gate: the bar behaves as in (1) and shows its wordmark.
+  //    Otherwise it would wait forever for a band that is not coming, on a bar
+  //    that floats forever over whatever scrolls under it.
+  import { onMount, tick, untrack } from "svelte";
   import { trapFocus } from "$lib/actions/trapFocus";
   import { fade, fly } from "$lib/transitions";
   import { lockBodyScroll } from "$lib/utils/scrollLock";
@@ -64,31 +96,86 @@
      *  <main> by the bar's height. A route claims it with `navOver` in its
      *  page data; src/routes/nav-over.test.ts holds routes to that claim. */
     over?: "dark" | "light";
+    /** "gated": no wordmark, and a bar that keeps floating, until the page's
+     *  `[data-nav-gate]` element reaches the bar — see (4) above. The homepage
+     *  claims it with `navWordmark` in its page data, and ONLY the homepage
+     *  (src/routes/nav-over.test.ts). It means nothing on a bar that cannot
+     *  float: a solid bar's wordmark is never in the cutout's way. */
+    wordmark?: "gated";
     /** The current pathname, for `aria-current` in the menu. */
     currentPath?: string;
   }
 
-  let { items = [], logo, cta, over = "light", currentPath = "" }: Props = $props();
+  let { items = [], logo, cta, over = "light", wordmark, currentPath = "" }: Props = $props();
 
   let isMenuOpen = $state(false);
+  let barEl = $state<HTMLElement>();
   let openButtonEl = $state<HTMLButtonElement>();
   let fallbackEl = $state<HTMLAnchorElement>();
   let mounted = $state(false);
   let scrollY = $state(0);
+  /** Where the page's gate element is against the bar's bottom edge. "ahead"
+   *  until script has looked, which is therefore what the server renders.
+   *  "none": the route made the claim and the DOM holds no such element. */
+  let gate = $state<"ahead" | "passed" | "none">("ahead");
 
   /** How far the page may move before the bar takes its ground. Small on
    *  purpose: the bar is re-toned for what is about to be under it, not once
    *  it already is. */
   const FLOAT_UNTIL = 24;
+  /** What a gated wordmark waits for. HomeHero's band carries it. */
+  const GATE = "[data-nav-gate]";
 
   const canFloat = $derived(over === "dark" && Boolean(logo?.reverseUrl));
-  const floating = $derived(canFloat && scrollY <= FLOAT_UNTIL);
+  const gated = $derived(wordmark === "gated" && canFloat);
+  /** The gate is holding: no wordmark, and the bar floats however far the page
+   *  has moved. */
+  const held = $derived(gated && gate === "ahead");
+  const floating = $derived(
+    canFloat && (gated && gate !== "none" ? gate === "ahead" : scrollY <= FLOAT_UNTIL),
+  );
   /** Pinned, unless it is a floating bar that script has not yet adopted —
    *  see (2) above. A solid bar is legible over anything, so it pins in the
    *  server's markup. */
   const pinned = $derived(!canFloat || mounted);
 
+  /** Rect against rect, never a scrollY: the hero pins, so how far the page
+   *  has moved is not what is under the bar — and the threshold is 448 or 458
+   *  depending on a bar height this component does not want to know twice. */
+  function readGate() {
+    if (!gated || !barEl) return;
+    const el = document.querySelector(GATE);
+    if (!el) gate = "none";
+    else if (el.getBoundingClientRect().top <= barEl.getBoundingClientRect().bottom)
+      gate = "passed";
+    else gate = "ahead";
+  }
+
   const readScroll = () => (scrollY = window.scrollY);
+  /** What the window's scroll and resize run. Resize too: the bar is 70 tall
+   *  below `lg` and 80 from it, and the band moves when the page reflows. */
+  const readPage = () => {
+    readScroll();
+    readGate();
+  };
+
+  // The first look, and the one look no scroll or resize would prompt. The bar
+  // outlives the page, so the claim can arrive by client navigation — and when
+  // both pages are at the top, the window says nothing: a "passed" left over
+  // from the last visit would show the wordmark over the cutout until the
+  // first scroll.
+  //
+  // It waits for `mounted`, for a reason that is easy to lose: until then a
+  // floating bar is `absolute`, and on a reload halfway down the page its
+  // bottom edge is hundreds of pixels ABOVE the viewport, so a gate read
+  // against it says "ahead" on a page well past it — a transparent bar with no
+  // wordmark, pinned over body copy. An effect runs after the DOM has taken
+  // the `fixed` that `mounted` gives it. jsdom has no layout and cannot see
+  // this; tests/interaction/nav.spec.ts reloads past the gate.
+  $effect(() => {
+    if (mounted && gated) untrack(readGate);
+  });
+
   onMount(() => {
     readScroll();
     // Mount swaps the trigger's server-rendered link for the button (see (3)
@@ -163,7 +250,7 @@
   const WORDMARK = "relative block w-[93px] shrink-0 lg:w-[145px]";
 </script>
 
-<svelte:window onscroll={readScroll} />
+<svelte:window onscroll={readPage} onresize={readPage} />
 
 {#snippet menuGlyph()}
   <!-- `np_menu_1814288` as exported from Figma node 6850:1477 — that export's
@@ -196,6 +283,7 @@
 {/snippet}
 
 <nav
+  bind:this={barEl}
   aria-label="Primary"
   data-floating={floating ? "" : undefined}
   class="top-0 left-0 z-50 w-full transition-colors duration-300 {pinned
@@ -203,27 +291,43 @@
     : 'absolute'} {floating ? 'bg-transparent' : 'bg-background'}"
 >
   <div class={BAR}>
-    <a href="/" class={WORDMARK}>
+    <a href="/" class="{WORDMARK} group/home">
       {#if logo}
+        <!-- `|| held` is redundant today — a held bar is a floating bar — and
+             is here so that "no wordmark while the gate holds" is stated where
+             it is applied. Re-toning a gated bar at 24px (tried as a mutation)
+             otherwise showed THIS lockup for the whole hero, because nothing
+             but `floating` was hiding it. -->
         <img
           src={logo.url}
           alt={logo.alt ?? "Home"}
           width="383"
           height="123"
-          class="block h-auto w-full transition-opacity duration-300 {floating ? 'opacity-0' : ''}"
+          class="block h-auto w-full transition-opacity duration-300 {floating || held
+            ? 'opacity-0'
+            : ''}"
         />
         {#if logo.reverseUrl}
           <!-- The same lockup for the dark band. Decorative: the link is
                already named by the image above, which stays in the tree at
-               opacity 0. -->
+               opacity 0.
+
+               While the gate holds (4) this one is at opacity 0 too, and the
+               bar has no wordmark. `data-nav-wordmark="gated"` marks it as the
+               image a browser with scripting off must be shown — this one and
+               not the garnet one, because a held bar is always a floating bar
+               — and app.html's <noscript> style does. Keyboard focus on the
+               link shows it as well: `held` implies floating, so the reverse
+               lockup is the right tone whenever that variant can apply. -->
           <img
             src={logo.reverseUrl}
             alt=""
             width="383"
             height="123"
-            class="absolute inset-0 h-auto w-full transition-opacity duration-300 {floating
+            data-nav-wordmark={held ? "gated" : undefined}
+            class="absolute inset-0 h-auto w-full transition-opacity duration-300 {floating && !held
               ? ''
-              : 'opacity-0'}"
+              : 'opacity-0'} {held ? 'group-focus-visible/home:opacity-100' : ''}"
           />
         {/if}
       {:else}

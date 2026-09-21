@@ -173,6 +173,219 @@ describe("Nav — the bar's ground", () => {
   });
 });
 
+// ON THE HOMEPAGE ONLY the bar has no wordmark until the hero's RI cutout has
+// scrolled away (operator call 8, #18). "Scrolled away" is a position in the
+// DOM — the page's `[data-nav-gate]` element reaching the bar's bottom edge —
+// and not a scrollY, so these tests give jsdom a layout: a band whose top
+// starts 528px down (the pinned hero's height) and moves with the page, under a
+// bar pinned at the top. The numbers are the comp's: the gate is at 528 − 80 =
+// 448 from `lg`, and 528 − 70 = 458 below it.
+describe("Nav — the homepage's gated wordmark", () => {
+  let band: HTMLElement | undefined;
+  let barHeight = 80;
+
+  /** Put a gate on the page. Without this call there is none. */
+  function layOut({ bandTop = 528 } = {}) {
+    band = document.createElement("div");
+    band.setAttribute("data-nav-gate", "");
+    document.body.append(band);
+    const rect = (top: number, height: number) =>
+      ({ top, bottom: top + height, height, left: 0, right: 0, width: 0, x: 0, y: top }) as DOMRect;
+    vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (
+      this: Element,
+    ) {
+      if (this === band) return rect(bandTop - window.scrollY, 478);
+      if (this.matches('nav[aria-label="Primary"]')) return rect(0, barHeight);
+      return rect(0, 0);
+    });
+  }
+
+  afterEach(() => {
+    band?.remove();
+    band = undefined;
+    barHeight = 80;
+  });
+
+  const gatedProps = { items, logo, cta, over: "dark", wordmark: "gated" } as const;
+
+  const parts = (bar: HTMLElement) => {
+    const [garnet, reverse] = Array.from(bar.querySelectorAll("a[href='/'] img"));
+    return { garnet, reverse };
+  };
+  /** No wordmark: both lockups at opacity 0, and the reverse one marked as the
+   *  image app.html's noscript rule must show. */
+  const expectHeld = (bar: HTMLElement) => {
+    const { garnet, reverse } = parts(bar);
+    expect(resting(garnet), "garnet lockup").toContain("opacity-0");
+    expect(resting(reverse), "reverse lockup").toContain("opacity-0");
+    expect(reverse.getAttribute("data-nav-wordmark")).toBe("gated");
+    expect(bar.hasAttribute("data-floating"), "and the bar still floats").toBe(true);
+  };
+
+  it("has no wordmark at the top of the page, on a bar that floats as usual", () => {
+    layOut();
+    const { getByRole, getByLabelText } = render(Nav, gatedProps);
+    const bar = getByRole("navigation", { name: "Primary" });
+    expectHeld(bar);
+    expect(resting(bar)).toContain("bg-transparent");
+    expect(resting(getByLabelText("Open menu"))).toContain("text-dust");
+    expect(resting(getByRole("link", { name: "Contact us" }))).toContain("text-dust");
+  });
+
+  it("keeps the home link in the tree, named and focusable, while its wordmark is invisible", () => {
+    layOut();
+    const { getByRole } = render(Nav, gatedProps);
+    const home = getByRole("link", { name: "Roalson Interests — home" });
+    expect(home.getAttribute("href")).toBe("/");
+    // Hidden with opacity and nothing else: every one of these would take the
+    // link out of the tree or out of the tab order.
+    for (const el of [home, ...Array.from(home.querySelectorAll("img"))]) {
+      expect(el.hasAttribute("hidden")).toBe(false);
+      expect(el.hasAttribute("inert")).toBe(false);
+      expect(el.getAttribute("aria-hidden")).toBeNull();
+      expect(resting(el)).not.toEqual(expect.arrayContaining(["hidden"]));
+      expect(resting(el)).not.toEqual(expect.arrayContaining(["invisible"]));
+    }
+    expect(home.getAttribute("tabindex")).toBeNull();
+    home.focus();
+    expect(document.activeElement).toBe(home);
+    // …and keyboard focus shows the wordmark: a ring around nothing says nothing.
+    expect(resting(home)).toContain("group/home");
+    const { reverse } = parts(getByRole("navigation", { name: "Primary" }));
+    expect(reverse.getAttribute("class")).toContain("group-focus-visible/home:opacity-100");
+  });
+
+  it("floats for the whole hero — not just the 24px that re-tones every other page", async () => {
+    layOut();
+    const { getByRole } = render(Nav, gatedProps);
+    const bar = getByRole("navigation", { name: "Primary" });
+    await scrollTo(200);
+    expectHeld(bar);
+    await scrollTo(447);
+    expectHeld(bar);
+  });
+
+  it("at the gate it takes its ground and its garnet wordmark together, and gives both back", async () => {
+    layOut();
+    const { getByRole, getByLabelText } = render(Nav, gatedProps);
+    const bar = getByRole("navigation", { name: "Primary" });
+
+    await scrollTo(448);
+    expect(bar.hasAttribute("data-floating")).toBe(false);
+    expect(resting(bar)).toContain("bg-background");
+    const { garnet, reverse } = parts(bar);
+    expect(resting(garnet)).not.toContain("opacity-0");
+    expect(resting(reverse)).toContain("opacity-0");
+    expect(reverse.hasAttribute("data-nav-wordmark")).toBe(false);
+    expect(reverse.getAttribute("class")).not.toContain("group-focus-visible/home:opacity-100");
+    expect(resting(getByLabelText("Open menu"))).toContain("text-primary");
+
+    // Long past it, the band's top is far above the bar: still passed.
+    await scrollTo(3000);
+    expect(bar.hasAttribute("data-floating")).toBe(false);
+
+    await scrollTo(447);
+    expectHeld(bar);
+  });
+
+  it("measures the bar, not a number: a 70px bar gates at 458, and a resize re-reads it", async () => {
+    layOut();
+    barHeight = 70;
+    const { getByRole } = render(Nav, gatedProps);
+    const bar = getByRole("navigation", { name: "Primary" });
+    await scrollTo(448);
+    expectHeld(bar);
+    await scrollTo(458);
+    expect(bar.hasAttribute("data-floating")).toBe(false);
+
+    // Back above it, then the bar grows to 80 with no scroll at all.
+    await scrollTo(450);
+    expectHeld(bar);
+    barHeight = 80;
+    await fireEvent(window, new Event("resize"));
+    expect(bar.hasAttribute("data-floating")).toBe(false);
+  });
+
+  it("reads where the page already is on mount — a reload past the gate arrives with its wordmark", () => {
+    layOut();
+    vi.spyOn(window, "scrollY", "get").mockReturnValue(900);
+    const { getByRole } = render(Nav, gatedProps);
+    const bar = getByRole("navigation", { name: "Primary" });
+    expect(bar.hasAttribute("data-floating")).toBe(false);
+    expect(resting(parts(bar).garnet)).not.toContain("opacity-0");
+  });
+
+  it("a claim with no gate on the page is no gate: the wordmark shows and the bar re-tones at 24px", async () => {
+    // No layOut(): a `home` document with no hero slice renders no band.
+    const { getByRole } = render(Nav, gatedProps);
+    const bar = getByRole("navigation", { name: "Primary" });
+    expect(bar.hasAttribute("data-floating")).toBe(true);
+    const { garnet, reverse } = parts(bar);
+    expect(resting(reverse), "the reverse wordmark is showing").not.toContain("opacity-0");
+    expect(reverse.hasAttribute("data-nav-wordmark")).toBe(false);
+
+    await scrollTo(200);
+    expect(bar.hasAttribute("data-floating")).toBe(false);
+    expect(resting(garnet)).not.toContain("opacity-0");
+  });
+
+  it("a gate on the page is nothing without the claim — every other route keeps the bar as built", async () => {
+    layOut();
+    const { getByRole } = render(Nav, { items, logo, cta, over: "dark" });
+    const bar = getByRole("navigation", { name: "Primary" });
+    const { reverse } = parts(bar);
+    expect(resting(reverse)).not.toContain("opacity-0");
+    expect(reverse.hasAttribute("data-nav-wordmark")).toBe(false);
+    await scrollTo(200);
+    expect(bar.hasAttribute("data-floating"), "solid at 200, as on every other page").toBe(false);
+  });
+
+  it("means nothing on a bar that cannot float", () => {
+    layOut();
+    const { getByRole } = render(Nav, { ...gatedProps, logo: { url: "/logo.svg" } });
+    const bar = getByRole("navigation", { name: "Primary" });
+    expect(bar.hasAttribute("data-floating")).toBe(false);
+    expect(resting(bar.querySelector("a[href='/'] img")!)).not.toContain("opacity-0");
+  });
+
+  it("follows the claim across a client navigation, with no scroll to prompt it", async () => {
+    layOut();
+    const { getByRole, rerender } = render(Nav, { items, logo, cta, over: "dark" });
+    const bar = getByRole("navigation", { name: "Primary" });
+    expect(resting(parts(bar).reverse)).not.toContain("opacity-0");
+
+    // → the homepage
+    await rerender({ wordmark: "gated", currentPath: "/" });
+    expectHeld(bar);
+
+    // → away again, scrolled to the top by the router: the wordmark is back.
+    await rerender({ wordmark: undefined, currentPath: "/properties" });
+    expect(resting(parts(bar).reverse)).not.toContain("opacity-0");
+    expect(parts(bar).reverse.hasAttribute("data-nav-wordmark")).toBe(false);
+  });
+
+  // The case above passes with NO re-read at all — the gate's state starts at
+  // "ahead", so a claim that arrives for the first time is held by default
+  // (found by deleting the re-read and watching that test stay green). This is
+  // the one that needs it: the bar outlives the page, and so does what it last
+  // read.
+  it("does not carry a gate it passed on the last visit back to the top of the homepage", async () => {
+    layOut();
+    const { getByRole, rerender } = render(Nav, gatedProps);
+    const bar = getByRole("navigation", { name: "Primary" });
+    await scrollTo(600);
+    expect(bar.hasAttribute("data-floating"), "past the gate").toBe(false);
+
+    // → /properties, which the visitor scrolls back to the top of. No claim, so
+    // nothing reads a gate on the way.
+    await rerender({ wordmark: undefined, currentPath: "/properties" });
+    await scrollTo(0);
+    // → the homepage again. Top to top: the window fires no scroll event.
+    await rerender({ wordmark: "gated", currentPath: "/" });
+    expectHeld(bar);
+  });
+});
+
 describe("Nav — the menu", () => {
   it("opens the menu and moves focus to its Close", async () => {
     const { getByLabelText, getByRole } = render(Nav, { items, logo });

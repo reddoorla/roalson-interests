@@ -58,6 +58,13 @@
          markup — the trigger is a link to the footer's list of pages until
          mount swaps it for the button (#19). This rule is the better answer
          for the one case that announces itself, not the only answer. -->
+    <!-- `[data-nav-wordmark="gated"]` is `[data-reveal]`'s contract again, for
+         the homepage bar's wordmark: the server renders it hidden until the
+         hero's cutout has scrolled away (#18, Nav.svelte), and script is what
+         measures that. A browser that will never run the measurement is shown
+         the wordmark from the start. The attribute is on the REVERSE lockup
+         only, and only while the gate holds, so this cannot light a white
+         wordmark on a page whose bar is solid. -->
     <noscript>
       <style>
         [data-reveal] {
@@ -66,6 +73,9 @@
         }
         [data-js-only] {
           display: none !important;
+        }
+        [data-nav-wordmark="gated"] {
+          opacity: 1 !important;
         }
       </style>
     </noscript>

@@ -1,7 +1,8 @@
 import { expect, test, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 
-// The bar makes two promises jsdom cannot check (see Nav.svelte):
+// The bar makes promises jsdom cannot check (see Nav.svelte) — three here, and
+// a fourth about the homepage alone, at the foot of this file:
 //
 //  1. it FLOATS — no ground, white wordmark, dust controls — only over a dark
 //     first band, and takes the page's off-white ground once the page moves;
@@ -367,4 +368,278 @@ test("the menu marks the page you are on", async ({ page }) => {
   await page.getByLabel("Open menu").click();
   const current = page.getByRole("dialog", { name: "Menu" }).locator('[aria-current="page"]');
   await expect(current).toHaveText(["Our Properties"]);
+});
+
+// ---------------------------------------------------------------------------
+// #18 — ON THE HOMEPAGE ONLY the bar has no wordmark until the hero's RI cutout
+// has scrolled away (operator call 8). HOME is the home route's own markup over
+// fixture data, through the real layout; it claims `navWordmark: "gated"` and
+// its hero's band carries `[data-nav-gate]`.
+//
+// "Scrolled away" is the band's top reaching the bar's bottom, and that is how
+// every step below is stated: the distance to the gate is READ from the two
+// rects at rest, never written down as 448, and every state is asserted
+// together with the geometry it is supposed to follow from. The hero pins, so
+// the page's scrollY is not what is under the bar — and this runner lays the
+// page out 15px narrower than its window, so nothing here comes from the window.
+const HOME = "/dev/home";
+
+/** The bar, the gate, and what the bar is doing about it — one read. */
+const gateState = (page: Page) =>
+  page.evaluate((barSelector) => {
+    const barEl = document.querySelector(barSelector)!;
+    const gateEl = document.querySelector("[data-nav-gate]");
+    const [garnet, reverse] = [...barEl.querySelectorAll('a[href="/"] img')].map((img) =>
+      Number(getComputedStyle(img).opacity),
+    );
+    const barBottom = barEl.getBoundingClientRect().bottom;
+    const gateTop = gateEl ? gateEl.getBoundingClientRect().top : null;
+    return {
+      scrollY: window.scrollY,
+      barBottom,
+      gateTop,
+      reached: gateTop !== null && gateTop <= barBottom,
+      floating: barEl.hasAttribute("data-floating"),
+      ground: getComputedStyle(barEl).backgroundColor,
+      garnet,
+      reverse,
+    };
+  }, bar);
+
+/** Scroll, then wait until the page has actually arrived. */
+async function scrollPageTo(page: Page, y: number) {
+  await page.evaluate((to) => window.scrollTo(0, to), y);
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(y);
+}
+
+const HELD = { reached: false, floating: true, ground: TRANSPARENT, garnet: 0, reverse: 0 };
+const PASSED = { reached: true, floating: false, ground: OFF_WHITE, garnet: 1, reverse: 0 };
+const pick = ({ reached, floating, ground, garnet, reverse }: typeof HELD) => ({
+  reached,
+  floating,
+  ground,
+  garnet,
+  reverse,
+});
+
+for (const [name, viewport] of [
+  ["1440", { width: 1440, height: 600 }],
+  ["390", { width: 390, height: 500 }],
+] as const) {
+  test(`on the homepage the wordmark waits for the band to reach the bar, and leaves with it (${name})`, async ({
+    page,
+  }) => {
+    await page.setViewportSize(viewport);
+    await page.goto(HOME);
+    await adopted(page);
+
+    // At rest: no wordmark — BOTH lockups at opacity 0 — on a bar that floats.
+    await expect.poll(async () => pick(await gateState(page))).toEqual(HELD);
+    const rest = await gateState(page);
+    expect(rest.gateTop, "the fixture has a gate").not.toBeNull();
+    const travel = rest.gateTop! - rest.barBottom;
+    expect(travel, "the band starts below the bar").toBeGreaterThan(24);
+    const reach = await page.evaluate(
+      () => document.documentElement.scrollHeight - window.innerHeight,
+    );
+    expect(reach, "the page can scroll as far as the gate").toBeGreaterThanOrEqual(travel);
+
+    // Far past the 24px that re-tones every other page, and 2px short of the
+    // gate: still nothing, still floating.
+    await scrollPageTo(page, Math.floor(travel) - 2);
+    await expect.poll(async () => pick(await gateState(page))).toEqual(HELD);
+
+    // The band's top on the bar's bottom: the ground and the garnet wordmark,
+    // together.
+    await scrollPageTo(page, Math.ceil(travel));
+    await expect.poll(async () => pick(await gateState(page))).toEqual(PASSED);
+    await expect(page.getByLabel("Open menu")).toHaveCSS("color", GARNET);
+
+    // And on the way back up it goes again.
+    await scrollPageTo(page, Math.floor(travel) - 2);
+    await expect.poll(async () => pick(await gateState(page))).toEqual(HELD);
+    await expect(page.getByLabel("Open menu")).toHaveCSS("color", DUST);
+  });
+}
+
+test("the homepage's invisible wordmark is still a home link: tabbable, named, ringed — and shown on focus", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(HOME);
+  await adopted(page);
+  await expect.poll(async () => pick(await gateState(page))).toEqual(HELD);
+
+  const home = page.locator(`${bar} a[href="/"]`);
+  await expect(home).toHaveRole("link");
+  await expect(home).toHaveAccessibleName("Home");
+
+  // Reached with REAL Tabs, not a scripted focus(): the skip link first, then
+  // the first thing in the bar. `visibility: hidden`, `display: none` and
+  // `inert` would each send this Tab straight past it.
+  await page.keyboard.press("Tab");
+  await expect(page.getByRole("link", { name: "Skip to main content" })).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expect(home).toBeFocused();
+
+  // The ring, in the floating bar's off-white, read in the same task as
+  // :focus-visible and polled past the outline-color transition — see
+  // focus-ring.spec.ts for why both halves are there.
+  await expect
+    .poll(() =>
+      home.evaluate((el) => {
+        const cs = getComputedStyle(el);
+        return {
+          showing: el.matches(":focus-visible"),
+          color: cs.outlineColor,
+          width: cs.outlineWidth,
+          style: cs.outlineStyle,
+        };
+      }),
+    )
+    .toEqual({ showing: true, color: OFF_WHITE, width: "2px", style: "solid" });
+
+  // A ring around nothing tells a sighted keyboard user nothing, so focus
+  // shows the (reverse) wordmark — and only focus: the gate is still holding.
+  await expect
+    .poll(async () => {
+      const at = await gateState(page);
+      return { reached: at.reached, floating: at.floating, garnet: at.garnet, reverse: at.reverse };
+    })
+    .toEqual({ reached: false, floating: true, garnet: 0, reverse: 1 });
+
+  await page.keyboard.press("Tab");
+  await expect(home).not.toBeFocused();
+  await expect.poll(async () => pick(await gateState(page))).toEqual(HELD);
+});
+
+test("only the homepage: the server hides the wordmark there and nowhere else, and every other bar is as built", async ({
+  page,
+}) => {
+  const wordmarks = async (url: string) => {
+    const html = await (await page.request.get(url)).text();
+    const nav = /<nav[^>]*aria-label="Primary"[^>]*>[\s\S]*?<\/nav>/.exec(html)?.[0] ?? "";
+    const home = /<a href="\/"[^>]*>([\s\S]*?)<\/a>/.exec(nav)?.[1] ?? "";
+    return [...home.matchAll(/<img\b[^>]*>/g)].map(([tag]) => ({
+      src: /src="([^"]*)"/.exec(tag)?.[1],
+      hidden: /class="[^"]*\bopacity-0\b/.test(tag),
+      marked: /data-nav-wordmark="gated"/.test(tag),
+    }));
+  };
+
+  // The homepage: both lockups hidden on the wire (so no visitor sees a
+  // wordmark flash before hydration), the reverse one marked for the noscript
+  // rule and the garnet one not.
+  expect(await wordmarks(HOME)).toEqual([
+    { src: "/logo.svg", hidden: true, marked: false },
+    { src: "/logo-reverse.svg", hidden: true, marked: true },
+  ]);
+  // Another page that opens on a dark band, and one that does not. A claim
+  // made for every route would show here first: Nav gives a gated page with no
+  // gate element its wordmark back on mount, so a HYDRATED /dev/properties
+  // looks right either way — the server's markup is what would be wrong.
+  expect(await wordmarks(DARK)).toEqual([
+    { src: "/logo.svg", hidden: true, marked: false },
+    { src: "/logo-reverse.svg", hidden: false, marked: false },
+  ]);
+  expect(await wordmarks(LIGHT)).toEqual([
+    { src: "/logo.svg", hidden: false, marked: false },
+    { src: "/logo-reverse.svg", hidden: true, marked: false },
+  ]);
+
+  // Hydrated, DARK floats with its reverse wordmark showing and re-tones when
+  // the page moves — no gate, no waiting.
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(DARK);
+  await adopted(page);
+  await expect
+    .poll(async () => {
+      const at = await gateState(page);
+      return { gateTop: at.gateTop, floating: at.floating, garnet: at.garnet, reverse: at.reverse };
+    })
+    .toEqual({ gateTop: null, floating: true, garnet: 0, reverse: 1 });
+  await scrollPageTo(page, 200);
+  await expect
+    .poll(async () => {
+      const at = await gateState(page);
+      return { floating: at.floating, ground: at.ground, garnet: at.garnet, reverse: at.reverse };
+    })
+    .toEqual({ floating: false, ground: OFF_WHITE, garnet: 1, reverse: 0 });
+});
+
+test("with scripting off the homepage's wordmark is shown — by the noscript rule, over markup that hides it", async ({
+  browser,
+}) => {
+  const context = await browser.newContext({
+    javaScriptEnabled: false,
+    viewport: { width: 1440, height: 900 },
+  });
+  try {
+    const page = await context.newPage();
+    await page.goto(HOME, { waitUntil: "domcontentloaded" });
+    await expect(page.locator(bar)).toHaveCSS("position", "absolute");
+
+    const [garnet, reverse] = [
+      page.locator(`${bar} a[href="/"] img`).nth(0),
+      page.locator(`${bar} a[href="/"] img`).nth(1),
+    ];
+    // The markup says hidden; the computed style says shown. Only app.html's
+    // `[data-nav-wordmark="gated"]` rule stands between the two.
+    await expect(reverse).toHaveClass(/\bopacity-0\b/);
+    await expect(reverse).toHaveAttribute("data-nav-wordmark", "gated");
+    await expect(reverse).toHaveCSS("opacity", "1");
+    await expect(reverse).toBeVisible();
+    // The white lockup and ONLY it: the bar is floating over the dark hero.
+    await expect(garnet).toHaveCSS("opacity", "0");
+    await expect(page.locator(bar)).toHaveCSS("background-color", TRANSPARENT);
+  } finally {
+    await context.close();
+  }
+});
+
+test("a reload past the gate arrives solid, with its wordmark — the first look waits for the bar to be pinned", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 600 });
+  await page.goto(HOME);
+  await adopted(page);
+  const rest = await gateState(page);
+  const past = Math.ceil(rest.gateTop! - rest.barBottom) + 60;
+  await scrollPageTo(page, past);
+  await expect.poll(async () => pick(await gateState(page))).toEqual(PASSED);
+
+  await page.reload();
+  await adopted(page);
+  // The precondition, checked rather than assumed: the browser put the page
+  // back where it was. Until mount the floating bar is `absolute` — its bottom
+  // edge is then far ABOVE the viewport, and a gate read against it says
+  // "ahead" on a page that is well past it.
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(past);
+  await expect.poll(async () => pick(await gateState(page))).toEqual(PASSED);
+});
+
+test("a gate claim with no band on the page is no gate: the wordmark shows, and the bar re-tones at once", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 600 });
+  await page.goto(`${HOME}?bare`);
+  await adopted(page);
+  await expect
+    .poll(async () => {
+      const at = await gateState(page);
+      return { gateTop: at.gateTop, floating: at.floating, garnet: at.garnet, reverse: at.reverse };
+    })
+    .toEqual({ gateTop: null, floating: true, garnet: 0, reverse: 1 });
+
+  const reach = await page.evaluate(
+    () => document.documentElement.scrollHeight - window.innerHeight,
+  );
+  expect(reach, "the bare fixture still scrolls").toBeGreaterThanOrEqual(100);
+  await scrollPageTo(page, 100);
+  await expect
+    .poll(async () => {
+      const at = await gateState(page);
+      return { floating: at.floating, ground: at.ground, garnet: at.garnet };
+    })
+    .toEqual({ floating: false, ground: OFF_WHITE, garnet: 1 });
 });

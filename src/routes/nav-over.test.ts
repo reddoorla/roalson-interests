@@ -135,3 +135,56 @@ describe("footerGround — only the homepage's footer fades", () => {
     expect(others).toEqual(["dev/footer"]);
   });
 });
+
+/**
+ * And a third: ON THE HOMEPAGE ONLY the bar has no wordmark until the hero's RI
+ * cutout has scrolled away (`navWordmark: "gated"`, operator call 8, #18). "Only
+ * the homepage" is the half of that call nothing else can hold: Nav measures a
+ * `[data-nav-gate]` element, and a route that claims the gate without one
+ * simply gets its wordmark back after mount — so a claim made everywhere would
+ * look right in every hydrated browser, and cost every page its wordmark in the
+ * server's markup (and, script on and bundle missing, for good). A route that
+ * opens on the homepage's hero claims it; nothing else does; and the layout
+ * hands the bar the ROUTE's claim, not one of its own.
+ */
+describe("navWordmark — only the homepage gates the bar's wordmark", () => {
+  const claimsGate = (page: string) =>
+    ["+page.server.ts", "+page.ts"]
+      .map((name) => join(dirname(page), name))
+      .filter((file) => existsSync(file))
+      .some((file) => /navWordmark:\s*"gated"/.test(readFileSync(file, "utf8")));
+
+  const routes = pages(ROUTES).map((file) => ({
+    route: relative(ROUTES, dirname(file)) || "/",
+    first: firstTag(readFileSync(file, "utf8")),
+    gates: claimsGate(file),
+  }));
+
+  it("every route that opens on the homepage's hero claims the gate", () => {
+    const home = routes.filter((p) => p.first === "HomeHero");
+    expect(home.length, "no route opens on HomeHero").toBeGreaterThan(0);
+    expect(home.filter((p) => !p.gates).map((p) => p.route)).toEqual([]);
+  });
+
+  it("no other route does", () => {
+    expect(routes.filter((p) => p.gates && p.first !== "HomeHero").map((p) => p.route)).toEqual([]);
+  });
+
+  it("the layout hands the bar the route's claim, as a prop of its own", () => {
+    const layout = readFileSync(join(ROUTES, "+layout.svelte"), "utf8");
+    const nav = /<Nav\b[\s\S]*?\/>/.exec(layout)?.[0] ?? "";
+    expect(nav).toContain("over={page.data.navOver}");
+    expect(nav).toContain("wordmark={page.data.navWordmark}");
+    // One `wordmark=`, and it is that one: a literal beside it would win or
+    // lose by attribute order, and either way the claim is no longer the route's.
+    expect(nav.match(/\bwordmark=/g)).toHaveLength(1);
+  });
+
+  it("the element the homepage's bar waits for is HomeHero's band", () => {
+    const hero = readFileSync(
+      resolve(process.cwd(), "src/lib/slices/HomeHero/index.svelte"),
+      "utf8",
+    );
+    expect(markup(hero)).toMatch(/<div\s+data-nav-gate\b/);
+  });
+});

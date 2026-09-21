@@ -11,6 +11,14 @@ declare global {
        * out, the bar is solid and <main> clears it. A route that renders a
        * dark first band must say so — src/routes/nav-over.test.ts checks. */
       navOver?: "dark";
+      /** "gated": the bar has no wordmark, and keeps floating, until this
+       * route's `[data-nav-gate]` element reaches it — the homepage, whose hero
+       * opens on a 451px RI cutout (operator call 8, #18). A key of its own
+       * and NOT a second `navOver` value: nav-over.test.ts matches the literal
+       * `navOver: "dark"`, so a route saying `navOver: "hero"` would read as
+       * making no claim at all. Only a route that opens on HomeHero sets it —
+       * the same test checks. */
+      navWordmark?: "gated";
       /** What the footer's ground grades from on this route. "fade": off-white
        * at its top edge to sand at its foot, from `lg` — the comp's Homepage at
        * 1440, where the footer slides over the pinned photo band. Left out, the
