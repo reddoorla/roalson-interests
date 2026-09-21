@@ -23,19 +23,37 @@
     /** The comp's trailing arrow; the button's right padding drops 15 → 10px
      *  with it, as in the LEARN MORE instances. */
     arrow?: boolean;
+    /** "garnet" is the comp's `button dark` as drawn on a light ground. "cream"
+     *  is the same button on the garnet property card (6904:2081): off-white
+     *  outline and label, filling off-white with garnet text on hover —
+     *  10.5:1 and 10.07:1. Both tones are measured by theme-contrast.test.ts. */
+    tone?: "garnet" | "cream";
     class?: string;
     children: Snippet;
   }
 
-  let { href, arrow = false, class: passedClasses = "", children, ...rest }: Props = $props();
+  let {
+    href,
+    arrow = false,
+    tone = "garnet",
+    class: passedClasses = "",
+    children,
+    ...rest
+  }: Props = $props();
+
+  const TONES = {
+    garnet: "border-primary text-primary hover:bg-primary hover:text-dust",
+    cream: "border-background text-background hover:bg-background hover:text-primary",
+  } as const;
 </script>
 
 <a
   {href}
   {...rest}
   class="t-h6 inline-flex h-10 items-center justify-center gap-[5px] border border-solid
-    border-primary whitespace-nowrap text-primary transition-colors hover:bg-primary
-    hover:text-dust {arrow ? 'pr-[10px] pl-[15px]' : 'px-[15px]'} {passedClasses}"
+    whitespace-nowrap transition-colors {TONES[tone]} {arrow
+    ? 'pr-[10px] pl-[15px]'
+    : 'px-[15px]'} {passedClasses}"
 >
   {@render children()}
   {#if arrow}<ArrowRight />{/if}

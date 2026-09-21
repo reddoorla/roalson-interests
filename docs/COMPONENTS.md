@@ -24,7 +24,7 @@ source. It is the fastest way to recognise what a thing does.
 | [`AnimateOutTriggered.svelte`](../src/lib/components/Animation/AnimateOutTriggered.svelte) | `trigger`, `style`, `transitionDuration`, `children` | — |  |
 | [`TriggerTransitionOnMount.svelte`](../src/lib/components/Animation/TriggerTransitionOnMount.svelte) | `children` | — |  |
 | [`ArrowRight.svelte`](../src/lib/components/ArrowRight.svelte) | — | — | The comp's button arrow, `np_arrow-right_888647` (Noun Project), as exported from Figma node 6904:2083 — the paths below are that export's bytes, not a redraw |
-| [`BrandButton.svelte`](../src/lib/components/BrandButton.svelte) | `href`, `arrow`, `children` | — | The comp's `button dark` component set (4840:367) — named, as Figma names it, for the BUTTON's tone, so it is the one for LIGHT grounds: garnet outline and text; hover fills garnet with dust text (5.11:1, AA as text) |
+| [`BrandButton.svelte`](../src/lib/components/BrandButton.svelte) | `href`, `arrow`, `tone`, `children` | 3 | The comp's `button dark` component set (4840:367) — named, as Figma names it, for the BUTTON's tone, so it is the one for LIGHT grounds: garnet outline and text; hover fills garnet with dust text (5.11:1, AA as text) |
 | [`BrandIcon.svelte`](../src/lib/components/BrandIcon.svelte) | `platform` | 5 | Brand glyphs from simple-icons (CC0 / public domain) — facebook/x/reddit/ instagram from v16, linkedin from v10 (pre brand-removal) |
 | [`ContentBand.svelte`](../src/lib/components/ContentBand.svelte) | `sliceType`, `variation`, `sectionClass`, `contentClass`, `fallbackHeight`, `background`, `children` | — |  |
 | [`ContentWidth.svelte`](../src/lib/components/ContentWidth.svelte) | `reveals`, `style`, `children`, `edgeFadeColor` | 2 |  |
@@ -39,8 +39,11 @@ source. It is the fastest way to recognise what a thing does.
 | [`LandscapeModal.svelte`](../src/lib/components/LandscapeModal.svelte) | — | 3 | Orientation lockout — a primitive the template deliberately does NOT mount (tests/smoke/landscape.spec.ts fails if it is re-mounted), because an undismissable landscape overlay fails WCAG 2.1 SC 1.3.4 (Orientation) |
 | [`Modal.svelte`](../src/lib/components/Modal.svelte) | `open`, `onclose`, `label`, `labelledby`, `children` | 16 | Accessible name for the dialog |
 | [`Nav.svelte`](../src/lib/components/Nav.svelte) | `navLinks`, `items`, `logo` | 17 | Optional per-route override of the `$lib/site-config.json` nav (no route in the bare template supplies this) |
+| [`PageMasthead.svelte`](../src/lib/components/PageMasthead.svelte) | `title` | 2 | The comp's `Masthead #1` as the Properties page wears it (6991:978 at 1440, 6992:2865 at 390): a 400px band — 240 on mobile — with the page's H1 sitting on the listing column's left edge, its baseline 72px above the band's bottom (44 on mobile, centred) |
 | [`PreNavTransition.svelte`](../src/lib/components/PreNavTransition.svelte) | `duration`, `holdDuration` | 10 | ms the overlay fades in before the deferred navigation is issued |
+| [`PropertyCard.svelte`](../src/lib/components/PropertyCard.svelte) | `property`, `variant`, `layout` | 9 | The comp's `property` card, three tones |
 | [`PropertyDetail.svelte`](../src/lib/components/PropertyDetail.svelte) | `property` | 9 | The property page |
+| [`PropertyListing.svelte`](../src/lib/components/PropertyListing.svelte) | `sections` | 8 | The Properties page body: the comp's stacked sections (6903:1030 at 1440, 6992:2468 at 390), each a divider — a 2px garnet rule over an H3 label — and its listing |
 | [`RichTextBody.svelte`](../src/lib/components/RichTextBody.svelte) | `field` | 4 |  |
 | [`RichTextHeading.svelte`](../src/lib/components/RichTextHeading.svelte) | `node`, `children` | — |  |
 | [`ScaleTextToContainer.svelte`](../src/lib/components/ScaleTextToContainer.svelte) | `children` | — |  |
@@ -56,7 +59,9 @@ source. It is the fastest way to recognise what a thing does.
 | [`page-load.ts`](../src/lib/page-load.ts) | `orNotFound`, `loadPage` | 4 |  |
 | [`page-meta.ts`](../src/lib/page-meta.ts) | `pageMeta` | 2 |  |
 | [`prismicio.ts`](../src/lib/prismicio.ts) | `repositoryName`, `isPlaceholderRepo`, `linkResolver`, `createClient` | 6 |  |
-| [`property-fixture.ts`](../src/lib/property-fixture.ts) | `propertyFixture` | — |  |
+| [`property-fixture.ts`](../src/lib/property-fixture.ts) | `propertyFixture`, `propertyListingFixture` | — |  |
+| [`property-listing-load.ts`](../src/lib/property-listing-load.ts) | `LISTING_TITLE`, `LISTING_DESCRIPTION`, `emptyListing`, `loadPropertyListing` | 3 |  |
+| [`property-listing.ts`](../src/lib/property-listing.ts) | `LISTING_SECTIONS`, `SOLD_SECTION`, `listingOrder`, `groupListings` | 8 |  |
 | [`property-load.ts`](../src/lib/property-load.ts) | `loadProperty` | 3 |  |
 | [`property-meta.ts`](../src/lib/property-meta.ts) | `propertyDescription`, `propertyJsonLd`, `propertyMeta` | 8 |  |
 | [`property.ts`](../src/lib/property.ts) | `PROPERTY_CATEGORIES`, `PROPERTY_STATUSES`, `isSold`, `statusLabel`, `propertyHighlights`, `propertyFacts`, `propertyTracts`, `propertyPackage`, `mapsUrl` | 15 |  |
@@ -74,4 +79,4 @@ source. It is the fastest way to recognise what a thing does.
 | [`richTextHeadings.ts`](../src/lib/utils/richTextHeadings.ts) | `RT_HEADING_CTX`, `defaultLevel`, `buildHeadingLevelMap` | 9 | Editors author arbitrary heading levels inside Prismic rich-text bodies (heading1–6 are all enabled in the slice models) |
 | [`vimeo.ts`](../src/lib/utils/vimeo.ts) | `checkVimeoVideo` | 5 | True when the Vimeo video exists and is embeddable (oEmbed responds 200) |
 
-56 modules, 384 tests behind them.
+61 modules, 417 tests behind them.

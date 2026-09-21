@@ -42,6 +42,10 @@ describe("GET /sitemap.xml", () => {
     expect(await body()).toContain("<loc>https://example.com/contact</loc>");
   });
 
+  it("lists the filesystem-only /properties listing — the CMS knows the listings, not the page", async () => {
+    expect(await body()).toContain("<loc>https://example.com/properties</loc>");
+  });
+
   it("still emits a well-formed urlset with no Prismic documents", async () => {
     const xml = await body();
     expect(xml).toContain('<?xml version="1.0" encoding="UTF-8"?>');
@@ -119,6 +123,7 @@ describe("GET /sitemap.xml on a netlify.app host", () => {
       "https://www.example.com/about",
       "https://www.example.com/properties/25331-ih-10-west",
       "https://www.example.com/properties/402-nueva",
+      "https://www.example.com/properties",
       "https://www.example.com/contact",
     ]);
   });

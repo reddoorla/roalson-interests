@@ -940,3 +940,103 @@ links to `/properties` ("All properties"). No listing route exists, and no
 listing page is built. That page is the next batch (a filterable listing with
 its state in the URL, Stage A decision 2), and it has an issue (#11) so the launch
 sweep sees it. `listing_brokers` stays unmodelled, as the inventory records.
+
+## 2026-09-20 — The listing page: three stacked sections, a featured card, pinned dividers, and two mechanisms filed rather than guessed (`feat/properties-listing`)
+
+Second Stage B batch, straight after #12 merged: `/properties`, the page the
+detail page's "All properties" link had been 404ing against (#11).
+
+**What the comp actually says, read from the nodes rather than the layers.**
+The Properties frames name their sections wrongly — the layer called
+`Improved` carries the divider text "Land" and vice versa — so the order was
+taken from the divider text at both widths: Land, then Improved Projects, then
+Sold. Stage A's "do not infer section order from the comps" was written about
+placeholder cards; the consistent re-ordering across 1440 and 390 is the only
+signal that exists, and it is a constant (`LISTING_SECTIONS`) so it flips in one
+line if the operator wants Improved first. Three other readings correct what
+the screenshot suggests. **Only the first card in each active section is the
+garnet card** — `6904:2068` is `#652323` with off-white text. **The flat cards
+take whichever light token their section's ground does not use**: `6913:1982`
+in the Land section is sand `#e8e1d1` on the page's off-white, `6913:2062` in
+Improved Projects is off-white `#f2efe9` on the sand the page has warmed to,
+and the Sold cards `6991:1227` are off-white on sand. A first cut had every
+flat card off-white and would have rendered the Land section's cards
+invisible against their own ground; the second node's fill was what caught it.
+And **every gap is 20px**, not 60: card 2 sits at y=327.5 under card 1's bottom
+at 307.5, and the Sold grid's second row at y=508 is 20 under the first's
+bottom at 488. The 60 the eye reads is the card's own 40px bottom padding plus
+the gap.
+
+**The divider pins, and the ground warms, and those two fight.** The prototype
+flags the 136px dividers at y=1933 and y=3606.5 as `STICKY_SCROLLS`; the first
+one (76px, y=400) is not flagged and none are on mobile. Pinned at `top:0`,
+the comp's 100px top pad lands the rule 20px under an 80px nav — which is what
+the pad is for (the template's nav measures 64 today; the nav batch owns
+that). But Stage A also measured the page ground flat off-white to y≈2106 and
+sand from y≈2343, a transition that falls inside the second section, so a
+pinned divider with a flat ground would seam against whatever scrolled under
+it. The build approximates the fade at the second section's top instead: its
+100px pad carries the off-white→sand gradient and everything below is sand.
+That moves the fade about 170px up from the comp and costs nothing else. The
+alternative, a page-level gradient with absolute pixel stops, was rejected
+because the pinned divider cannot carry a background that matches a gradient
+it is scrolling past.
+
+**Measured against the comp, not eyeballed.** A Playwright script read the
+rendered geometry at 1440 and 390 on `vite preview` (`/properties`, the
+placeholder repo's empty listing) and on the dev server (`/dev/properties`,
+the fixture portfolio; `/dev/*` 404s under preview by design). The first pass
+put the first card at y=518 against the comp's 516, at both widths: CSS draws
+the 2px rule outside the 20px pad while Figma strokes it inside the text
+frame, so the pad is 18. The mobile gutter was 16 against the comp's 20
+(`PropertyDetail` still uses 16; not this batch's). After both: H1 at x=513
+with its baseline 72 above the band's bottom, first card at y=516, cards 847
+wide with a 423.5 photo, 20px gaps, Sold cards 413.3 (the comp's 412 leaves 2px
+slack in a 1280 row), second and third dividers `position: sticky`, first
+static, all static at 390. Fonts load as one 200–800 face and the production
+route logs no console errors; the fixture page logs one per data-URL photo,
+which PrismicImage turns into an imgix URL, as the dev page's note says.
+
+**Reuse read and declined, twice.** `Slider.svelte` (23 tests) was read before
+the mobile carousel was considered, per the rule. Its semantics are right and
+its markup fights the comp: the 390 comp's arrows and 2px progress bar live
+INSIDE the card's panel (`feature scroll` `6997:1715`, `regular scroll`
+`6997:1882`), and Slider renders its controls in a navigation row outside the
+slides. Positioning that row over the panel would depend on the photo's
+rendered height, which scales with the viewport. So the cards stack below `md`
+— the carousel's own no-JS state — and #14 records the lift-the-logic plan.
+`DefaultButton` was declined by the previous batch for its geometry; this one
+extends `BrandButton` with a `tone` instead, because the garnet card's button
+is the same geometry with the colours swapped, and the contrast guard now
+measures off-white on every dark ground (10.5:1 on garnet).
+
+**Two things deliberately not built, each with an issue.** The per-section map
+(#13): 397×595 beside the listing at 1440, 350×200 with tap-to-expand at 390.
+It needs a tile provider, and every provider is a CSP host, a key or a new
+dependency — brief Q4–Q6, still open — so the column is reserved empty
+(`lg:grid-cols-[397fr_847fr]`, list on `col-start-2`) and the cards sit at the
+comp's x=513 rather than closing up and moving when the map lands. And the
+masthead photo (#15): the comp's skyline is unlicensed Unsplash stock (#3) and
+no CMS field carries a masthead image, so the band renders at the comp's
+height with the H1 at the comp's position on the garnet-to-dark gradient. The
+390 masthead's 42px title is not a ramp style; it renders in H2 (38/48).
+
+**Tests proven by mutation, and two runs that failed on time.** Setting every
+card featured turns "features only the first card" red; dropping the `!sold`
+guard turns "renders a sold listing with no link" red. Both mutations were then
+found still live — `git checkout --` does nothing to an untracked file — and
+reverted by hand. The listing suite's first test failed at 5077ms against the
+5s default: eight cards of accessible-name computation under a cold jsdom, not
+an assertion; it carries a 20s budget now. A later full `pnpm verify` failed
+six tests by timeout and could not start two vitest workers at all, with the
+1-minute load at 13.9 and an idle Playwright test-server from the VS Code
+extension host alongside; the same code passed unchanged on the next run.
+Timeouts in a green suite are a machine story until proven otherwise.
+
+**The route renders on the placeholder repo.** Unlike the document routes,
+`/properties` answers 200 with an empty listing before Prismic exists — an
+empty listing is a real state — so the smoke manifest covers it in the bare
+starter (13 smoke tests now), and the sitemap lists it as a filesystem route
+beside `/contact`. `pnpm verify` green: prettier, eslint, svelte-check, build,
+axe 0 violations across 2 routes + the hydration smoke, 591 unit tests in 73
+files.

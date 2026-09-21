@@ -20,7 +20,10 @@
   import Testimonial from "$lib/slices/Testimonial/index.svelte";
   import CtaBanner from "$lib/slices/CtaBanner/index.svelte";
   import PropertyDetail from "$lib/components/PropertyDetail.svelte";
-  import { propertyFixture } from "$lib/property-fixture";
+  import PageMasthead from "$lib/components/PageMasthead.svelte";
+  import PropertyListing from "$lib/components/PropertyListing.svelte";
+  import { propertyFixture, propertyListingFixture } from "$lib/property-fixture";
+  import { groupListings } from "$lib/property-listing";
   // Aliased: `Accordion` above is the primitive ($lib/components/Accordion.svelte).
   import AccordionSlice from "$lib/slices/Accordion/index.svelte";
   import type { ComponentProps } from "svelte";
@@ -401,6 +404,13 @@
        table semantics. Under Contract + the fixture's NEW flag render both
        garnet badges; Sold uses the same markup. -->
   <PropertyDetail property={propertyFixture({ status: "Under Contract" })} />
+
+  <!-- The listing page: its masthead (a third h1 on this page, see above) and
+       every card variant — garnet featured with the cream button, flat with
+       the garnet button, Under Contract + New badges on both grounds, and the
+       unlinked Sold grid on sand. -->
+  <PageMasthead title="Our Properties" />
+  <PropertyListing sections={groupListings(propertyListingFixture())} />
 </main>
 
 <!-- Renders nothing at rest (overlay only appears mid-navigation, aria-hidden);
