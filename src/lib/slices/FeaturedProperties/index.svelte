@@ -38,9 +38,11 @@
   // THE CARD'S LEFT EDGE IS THE SITE'S COLUMN LINE, not the comp's 512. Every
   // other band puts its right column at x=513 (1440) through the gutters and
   // `[397fr_847fr] gap-9`; the comp draws this one at 512 as a bare 512 : 928
-  // ratio, which agrees at 1440 to the pixel and nowhere else (6px out at
-  // 1280). The column below is that same arithmetic, so the H1 above and this
-  // card share one edge at every width.
+  // ratio. The two are 1px apart at 1440 (513 against 512 — the pixel critic
+  // ruling C3 accepts, and why the card measures 927 × 541.41 for the comp's
+  // 928 × 542) and drift from there: 6.83px at 1280, where the ratio gives
+  // 455.11 and the site's line is 461.94. The column below is the site's
+  // arithmetic, so the H1 above and this card share one edge at every width.
   import type { Content } from "@prismicio/client";
   import { cappedWidths } from "@reddoorla/maintenance/images";
 
