@@ -1989,3 +1989,403 @@ really stores for a Link typed as `/contact`).
 
 `pnpm verify` on the rebased branch: 0 errors, axe 0 violations, 717 unit tests in
 81 files, 39 Playwright tests.
+
+## 2026-09-21 — A headless carousel on one clock, and a progress bar that can be seen (`feat/carousel-primitive`)
+
+Two features need a carousel and neither can use the one the starter ships: the
+homepage's featured-properties slideshow (autoplay, the arrows INSIDE the card's
+panel, a 2px bar that fills with the dwell) and #14's in-card carousel at 390.
+No page uses any of this yet; this batch is the primitive, its two parts, a
+fixture and the tests, so both consumers start from something already proven.
+
+**`Slider.svelte` was read in full, with its 23 tests, and declined — its LOGIC
+is what `src/lib/carousel.svelte.ts` is made of.** Four things in the file rule
+it out, none of them taste: its controls are one row rendered after the viewport
+(`flex justify-center … mt-8`), and the comp puts them between the photo and the
+text; `currentSlide` is private `$state` with no callback, so nothing outside
+can follow the index (the bar now, the active map pin later); autoplay is a
+`setInterval` that restarts the FULL delay after a hover, which a bar that was
+half full cannot follow; and it keeps a private `matchMedia` listener, the exact
+copy CLAUDE.md names, where `transitions.ts` says long-lived consumers should
+read the shared `reducedMotion` store. It stays untouched — it is starter code.
+Of its 23 cases, 18 are mirrored under the same names against the new markup,
+1 is adapted (dots became `goTo`; the comp draws no dots) and 4 are dropped
+because the feature is not in the primitive: the three `cardsPerView` cases and
+"keeps the dots when arrows are hidden". The module is headless — state,
+commands, and attribute bags to spread (`region`, `slide(i)`, `status`, `swipe`,
+the three buttons) — because #14 is a plain stacked list from `md` up and
+without script, so the primitive cannot own layout. Two options go beyond the
+brief and each has a named consumer: `enabled` (every bag comes back empty and
+nothing rotates — #14 above `md`), and `settle`.
+
+**One clock.** A single `requestAnimationFrame` loop accumulates `elapsed`;
+`progress` and the auto-advance are both read off it, and every pause is that
+effect tearing down, so the bar freezes where it is and resumes from there.
+`settle` is the consumer's dissolve, counted down on the same clock with the bar
+held at 0. Measured in Chromium with the comp's 4000 + 500: first dwell 4008 and
+4009ms, then 4498 / 4508 / 4501 / 4500ms per slide, the bar at 0 for 501–509ms
+after each turn, 0.9979–0.99998 on the last frame before it, and never once
+smaller than the frame before within a slide. The turn from slide 3 back to 1
+landed 13 010 and 13 014ms after the bar first moved (two runs), which is the
+comp's timeline: its dissolves START at 4.0, 8.5 and 13.0.
+
+**Four defects were found by measuring, and every one of them had a passing
+test at the time.**
+
+- _The 44px hit area was 42._ `before:absolute before:-inset-0.5` reads as "2px
+  proud of the 40px ring". An absolute box is placed from the PADDING box, which
+  starts inside the 1px border, so it was 1px proud: `::before` computed
+  42 × 42. It is `-inset-[3px]` now. The unit test that asserted the class was
+  green throughout; it is gone, and the spec asserts `elementFromPoint` 1.5px
+  outside the ring on all four sides IS the button and 3.5px is not. (2.5px was
+  the first choice and was wrong: Chromium rounds the probe, and "2.5px above"
+  still hit.) This is the Figma-inside-stroke trap again, one level down.
+- _A mouse press on Pause must end paused._ Chromium focuses a button on
+  mousedown; that focus "enters the carousel" (APG: rotation stops), the label
+  flips to Play, and a plain toggle on the click that follows starts rotation
+  again. Measured on the starter's Slider in the fixtures page: pressed on its
+  RIM, the label is back to "Pause slides" and the live region is "off" — still
+  rotating after the user pressed Pause. Pressed on its GLYPH it ends paused.
+  Why the glyph differs was NOT isolated; the likely reason is that the press
+  began on an `<svg>` the re-render removed, so no click was dispatched (this
+  primitive swaps `<path>`s inside one `<svg>`, and under the plain-toggle
+  mutation it fails on the glyph too, which fits). Here a pointer click
+  (`detail > 0`) settles on the
+  opposite of what was showing when its own press began; a keyboard click
+  toggles what it sees. With that logic mutated back to a plain toggle, both the
+  rim and the glyph cases go red in the browser. Tried on top and removed:
+  `pointer-events-none` on the glyph, so the press could never begin on a node
+  that gets swapped. No test could turn it red — with or without that click the
+  pointer logic ends paused — so it was an unprovable line, not a guard.
+- _The server said the carousel was rotating._ `rotating` was true in SSR, so a
+  browser with no script got `aria-live="off"` on a carousel that would never
+  move. It is gated on `hydrated` now; without script the region is slide 1,
+  slides 2 and 3 carry `inert` and `aria-hidden`, the three controls and the bar
+  are in the markup (so the row does not jump in at hydration) and hidden by
+  app.html's `[data-js-only]` rule.
+- _`inert: false` through a spread is inert._ Svelte sets a spread key as a
+  property only where the element has that setter; elsewhere it writes the
+  attribute, and `inert="false"` is a present boolean attribute. jsdom has no
+  `inert` setter, which is how the first test run found it. The bag hands back
+  `undefined` for the active slide. (Also: `elapsed = -settle` with settle 0 is
+  `-0`, and the bar's style read `scaleX(-0)`.)
+
+Two deliberate departures from Slider, both tested: focus stops rotation only
+when it ENTERS (read off `relatedTarget`) — Slider pauses on every `focusin`, so
+Play followed by Tab to the arrows stops it again against the user's explicit
+request; and a hover freezes the dwell rather than restarting it. One departure
+from the prototype, kept from Slider: after an arrow CLICK the comp keeps
+autoplaying, while here the click focuses the control and rotation stops until
+Play (APG).
+
+**The bar's colours are not the comp's, and the brief's premise about where it
+sits was wrong.** The brief asked for colours that pass on "the #3d0707 homepage
+band and the sand listing page". Read from the node data, the homepage bar sits
+on the SAND card (`Component 6` `6843:960`, fill `#e8e1d1`) inside that band,
+and #14's cards are garnet and off-white — where the comp draws `Rectangle 1`
+and `Rectangle 2` in ONE colour, so there is no bar there at all. So five
+grounds were measured, not two. The comp's homepage pair is garnet over dust:
+5.11:1 fill against track, but the track is 1.73:1 on sand. Where nothing is
+timing out (#14, or reduced motion, where the bar draws `(index + 1) / count`
+instead of a dead empty track) the bar is the only VISIBLE "2 of 3", so both of
+its edges are information. Three colours each 3:1 apart need 9:1 between the
+outer two, and garnet on sand is 8.87: no track exists for the comp's fill on
+the homepage card (the best possible is 2.98 / 2.97, and the test searches every
+alpha to say so). The fill is `dark` `#3d0707` with the track the same colour at
+53% on light grounds, off-white with 44% on dark ones — an alpha, so one class
+serves every ground of its tone; the passing windows are 48–59% and 42–46%.
+Painted, sampled from screenshots: sand `rgb(141,110,102)` 3.70 fill:track /
+3.54 track:ground; off-white 4.03 / 3.69; white 4.47 / 3.81; garnet
+`rgb(162,124,121)` 3.21 / 3.13; `#3d0707` 4.10 / 3.62. The garnet margins are
+thin and the window is narrow; a palette change re-runs the arithmetic in
+`CarouselProgress.test.ts`. Tones are named for the control, as BrandButton's
+are ("garnet", "cream"); cream also moves the focus ring to off-white, because
+the site's garnet ring is 1:1 on a garnet card.
+
+The arrows are the comp's vector, and that is recomputed rather than asserted:
+both were exported (`6843:972`, `6843:977`), and the right one's two paths are
+`ArrowRight.svelte`'s numbers moved by the 7.5 inset to within 0.001 (the
+component rounds the group offset 5.5205 to 5.52); the left is the same frame
+ROTATED 180° about the ring's centre, to 0.0001 — not mirrored; the shaft sits
+0.0006 off the glyph's centre line, so the two differ by 0.0012px. So
+`CarouselArrows` renders `ArrowRight`, turned, instead of shipping the path a
+second time, and the two exports (823 bytes) are kept beside it as the test's
+evidence. Rendered at 1440 and 390: ring 40 × 40, 1px `rgb(101,35,35)` border
+inside it, glyph 25 × 25 at 7.5, 10 between buttons, bar 2px with 20 either
+side. The pause / play glyphs are designed — the comp has none — in the arrow's
+box and weight: 14 tall like the arrowhead, bars as thick as its 2.083 shaft.
+
+**Two things the mutation pass found in the TESTS.** A spy on
+`cancelAnimationFrame` was restored at the end of its own test; when that test
+failed the spy leaked, pointed at a dead fake clock, and no later test could
+cancel a frame — 6 honest failures were reported as 13. Spies are restored in
+`afterEach` now. And a pause test waited exactly 5 dwells: a clock that IGNORED
+the pause is back at the same fraction after a whole number of them, so it
+passed under the very mutation it exists for. Pauses last 5.25 and 7.3 dwells.
+Separately, `capability-index.test.ts` found "the Slider row" by
+`includes("Slider.svelte")` and took the new module's row, which sorts earlier
+and mentions Slider; it matches the module cell now.
+
+And one the harness did to me. The mutation scripts restore each file from a
+copy and confirm with `cmp`. The copy of `carousel.svelte.ts` was taken before
+the last commit (three comment corrections), so the final mutation run put the
+OLD comments back in the working tree and `cmp` reported "identical" — to the
+stale copy. `git status` caught it and the file was restored from HEAD; nothing
+was committed wrong. `cmp` against the copy proves the restore happened, not
+that the tree is right: the check that means something is `git diff --stat`
+against HEAD, and the copies are now re-taken after every commit.
+
+Mutations, each restored and confirmed with `cmp`: autoplay ignoring pause (6
+unit tests red); the bar on a second clock (6 unit, 4 in the browser); loop
+off-by-one forward (5) and back (3); reduced motion ignored (4); plain toggle (1
+unit, 2 browser); every focusin pauses (1); hover restarts the dwell (2);
+`inert: false` (2); settle ignored (2); hit area back to `-inset-0.5` (2
+browser, 0 unit — by design); the comp's colours (3 unit, 1 browser); a 30%
+track (3 unit, 1 browser: "track:ground painted 1.94:1"); rotating before
+hydration (1 unit, after a test was written for it — it had survived — and 1
+browser); CSS easing on the timed bar (1).
+
+**Honest accounting.** NOT verified on a production build: `/dev/*` 404s under
+`vite preview` by design and no page consumes the primitive, so hydration, the
+server-rendered `inert` and the `[data-js-only]` rule were proven on the dev
+server only — the consumer batch owes that. Swipe is lifted with Slider's
+thresholds and only its left/right handling is tested; nothing has touched it
+in a browser. The claim that a touch fires `pointerleave` before its click is
+the spec's ordering, not a measurement. Only Chromium was run. The clock keeps
+running while the carousel is off-screen (one style write a frame). The axe run
+audits the reduced-motion state, where there is no pause control; the rotating
+state's markup differs by one labelled button and is covered by unit tests and
+the spec. `tests/a11y/fixtures.spec.ts` was run once although the batch rules
+allowed only a spec I wrote, because step 5 exists for axe and a fixture nobody
+ran axe over proves nothing: 2 passed.
+
+**After review.** Two adversarial reviewers read the branch; one said merge, one
+said fix first, and the second was right. The orchestrator rebased the branch
+onto main (`1ca8de4`, as `integrate/carousel`; full verify green there, 713 unit
+and 41 Playwright) and the four commits below sit on top of that as
+`fix/carousel-review`: `0403085`, `15aa9ac`, `05b0b70`, `b45e5fc`. Two
+statements above stopped being true and are corrected here, where they are
+named; nothing above was edited.
+
+**A fifth defect, and this one was not found by measuring — a reviewer found it,
+with every test green. Keyboard focus was dumped on `<body>` whenever the slide
+that held it turned away.** Two paths, both measured by the reviewer in
+Chromium. (a) On the manual fixture: focus Next, Tab to "Link in slide 1", press
+ArrowRight — `document.activeElement === document.body`, the status reads "Slide
+2 of 3", and a second ArrowRight does nothing at all. The key handler sat on the
+region and took arrows "from anything focused inside", the slide that left was
+the one holding focus, and an `inert` element cannot keep it. (b) On the autoplay
+fixture with motion allowed: focus Pause, Enter to play, Tab three times to the
+slide's link, wait 4.8s — BODY, "Slide 2 of 3", and the user did nothing. The
+homepage band puts a LEARN MORE in every slide, so the next batch would have
+shipped both.
+
+What made it invisible is one fact about the test environment: **jsdom has no
+`inert`.** Checked rather than assumed — in jsdom 30.0.1 `"inert" in element` is
+false and an `inert` button still takes `.focus()` and keeps it. The entry above
+already knew half of this (it is how `inert: false` was found) and did not draw
+the other half: no unit test here can ever see focus leave. So "takes arrow keys
+from a link inside a slide too — the handler is the region's" asserted the turn,
+passed, and was a test FOR the defect. And the implementer's own browser
+measurement pressed ArrowRight from Previous — a control — never from the link.
+
+Path (b) corrects the paragraph above that begins "Two deliberate departures
+from Slider". The first of them — focus stops rotation only when it ENTERS — was
+judged on the one annoyance it removed (Play, Tab to the arrows, paused again)
+and not on what Slider's blunt rule was also buying: in Slider, focus inside a
+slide ALWAYS means stopped, because every `focusin` pauses, and its key handler
+is bound to its three controls only (`Slider.svelte` 286, 309, 331). Both of the
+things the first version improved on were load-bearing for exactly this. "Everything
+Slider gets RIGHT is lifted here" was the claim in the module header; these were
+two things it got right that the lift dropped. The rule now is one sentence:
+**nothing turns a slide while focus is inside one.** Arrow keys are taken from
+the carousel's controls — anything in the region that is NOT in a slide, so a
+consumer's own dots still get them for free — and inside a slide the key is left
+to the page, unclaimed. Focus landing in a slide always stops the clock; the
+"moved within" exemption survives for the controls only, which never go inert,
+so Play then Tab to the arrows still plays (that test is untouched and green).
+The slide bag writes `data-carousel-slide`, which is how a handler on the region
+tells a slide from a control without the headless module holding an element, and
+`closest` is checked against `region.contains(slide)` so a carousel nested in
+another's slide does not take that OUTER slide for its own.
+
+The class, enumerated, because the instance was two members of it: the focused
+element going inert or unmounting under a keyboard user. Closed: arrow keys in a
+slide; the clock. NOT closable from inside the primitive, and said in its
+header: a consumer that renders an arrow INSIDE `slide(i)` turns its own slide
+from under itself — the comp draws the arrows inside the panel, so #14 is where
+this will be tempting; draw them there with CSS and keep them beside the slides
+in the DOM, as the fixture does. Open, with an issue drafted: a consumer calling
+`next()` / `goTo()` from its own code while focus is in a slide; `enabled`
+switching ON at a breakpoint while focus is in the second card of the list; and
+the Pause button unmounting under focus when the OS preference flips to reduced
+motion mid-session (Slider's own comment knows that one). Not a member: a swipe
+or a mouse drag, because a pointer press on a slide's non-focusable content has
+already moved focus to the body by the platform's own rule.
+
+The browser cases had to be written twice. The first draft asserted in sequence —
+the keys `window` saw, then where focus was, then the status — and under the
+mutation it went red on the first line (`claimed: true`) without ever showing the
+symptom the case exists for. Now one `evaluate` reads WHERE focus is, by name
+(`"BODY"` when nothing holds it), whether the region contains it, the status, the
+live region, the first control's label and every arrow key as `window` saw it
+(the last stop of the bubble, after Svelte's delegated handler), and the whole
+object is compared. "The slide did not turn" is the absence of a symptom; what
+the case requires is `focus: "Link in slide 1"` with the key recorded as arrived
+on that link and `claimed: false`, then `focus: "Next slide"` after each of two
+turns from the control — two, because "the second press does nothing" was the
+symptom — and finally that Tab goes on into "Link in slide 3", the slide showing
+NOW. With the keydown guard reverted the read comes back `focus: "BODY",
+inCarousel: false, status: "Slide 2 of 3", claimed: true`; with the focusin guard
+reverted, after 4.8s, `focus: "BODY", status: "Slide 2 of 3", firstControl:
+"Pause slides", live: "off"` — the reviewer's measurements, reproduced by the
+test that now forbids them. The autoplay case first proves it IS rotating before
+it Tabs in (Pause offered, live region "off", the bar's scale rising), because
+every line after that would pass on a carousel at rest.
+
+**The focus ring: the sentence above, "cream also moves the focus ring to
+off-white, because the site's garnet ring is 1:1 on a garnet card", is no longer
+true, and the code and the unit assertion that said the same were false against
+main.** The branch was cut from `36cc2d2`; #23 then replaced the ring this
+reasoned about — each GROUND class sets `--focus-ring` for what sits on it
+(`.bg-primary > *`, `.bg-dark > *` give off-white), inherited to the nearest
+ground. Decided from `app.css` rather than kept as a belt: the tone sets no ring.
+A cream arrow is only legible on a dark ground; every dark ground in the markup
+is classified, and `focus-floor.test.ts` fails on one that is not;
+`not-aria-disabled:hover:bg-background` is not the class `.bg-background`, so the
+hover fill does not re-point anything; and a second rule is the one that silently
+keeps the old colour the day the first changes — which is what the implementer's
+own drafted issue asked for ("fold the local override into it so there is one
+rule") before the rule existed. Read in Chromium with #24's read — focus,
+`:focus-visible` and the outline in ONE evaluate, polled past `transition-colors`
+— and in a context with motion allowed, because under the shared config's reduced
+motion app.css cuts every transition to 0.01ms and the poll would have nothing to
+wait out: on the garnet card, Next and the slide's link both `rgb(242, 239, 233)`
+2px solid; on the sand card both `rgb(101, 35, 35)`. `expectRing` moved to
+`tests/interaction/expect-ring.ts` — Playwright will not let one spec import
+another, and a second copy is how that read got flaky the first time;
+`focus-ring.spec.ts` changes only at its head, so the hero branch's case appended
+at its foot still merges.
+
+Honest accounting on the ring, twice. The slide link on the garnet card is the
+case the reviewer measured at `rgb(101, 35, 35)` — garnet on garnet, 1:1 — and
+NOTHING on this branch fixed it: the rebase onto #23 did, alone. And the browser
+case cannot tell the dropped utility from the ground: with
+`focus-visible:outline-background` put back it was run and stayed green (1
+passed), because both paint the same colour. What holds the DECISION is the unit test on the class strings
+(no tone carries an `outline-*` or `ring-*`); what the browser case holds is the
+colour, from whichever rule.
+
+**The `enabled` switch was unproven where a consumer meets it**, and #14 rests on
+it. The reviewer removed `carousel.enabled &&` from CarouselArrows, then from
+CarouselProgress, then `!enabled ||` from `goTo`: 64 of 64 green each time. The
+one case that knew about the switch read the headless bags; nothing rendered a
+switched-off carousel. Now the fixture is rendered with `enabled: false` — all
+four slides' links in the accessibility tree at once, no button, no bar, no
+region or group role, nothing inert, hidden or live — and then switched ON in the
+same render, so the absences are the switch and not a fixture that draws nothing.
+Each component's suite holds its own guard as well. The reviewer's other
+survivors each got the case that kills them; two are worth a line. A tab that is
+ALREADY hidden at mount fires no `visibilitychange`, so the state has to be
+sampled once — with the sample removed the carousel ran to slide 4 in a
+background tab. And jsdom has no `isContentEditable` at all (it reads
+`undefined`), so that case is handed the property and says so in its own comment;
+each editable case then presses the same key on a button, which DOES turn the
+slide and claim the key, so their zeros are the guard and not a handler that
+never ran. The editable targets are placed in the carousel's header, not in a
+slide — inside a slide no arrow is taken any more, and the cases would have
+passed for the wrong reason.
+
+**The comment about handlers was false twice.** "Declared once: a bag that minted
+new closures on every read would have Svelte re-attach the listeners each time
+the label changed" sat directly above `pauseButton`, which minted two closures on
+every read and owns the label that changes. The handlers are hoisted and a test
+reads all eight off their bags, pauses, and requires the same functions. But the
+claim itself was also wrong, and was found wrong by reading Svelte rather than
+the comment: in svelte 5.56.10 `set_attributes` (`attributes.js` 399–431) a
+delegated event — click, pointerdown, keydown, focusin — is a property write on
+the element, and a non-delegated one with a previous handler hits `continue`: one
+wrapper stays attached and calls whatever the bag currently holds (the source
+cites sveltejs/svelte#11903 for why it never removes-and-adds). Nothing is ever
+re-attached. A stable identity only lets the spread skip the key, and the comment
+now says that, so nobody builds on it.
+
+Mutations, each applied by a script that asserts its target occurs exactly once,
+restored by copy and confirmed byte-identical (`scratchpad/mut/carousel-fix/`);
+78 unit cases in the three suites at the time. Focus: every move within the
+region exempt again → "stops when focus lands INSIDE a slide…" (`'Pause slides'`
+for `'Play slides'`), and in the browser "autoplay never turns a slide out from
+under keyboard focus"; arrows taken inside a slide again → "leaves an arrow key
+alone INSIDE a slide…" (2 for 1) and the nested case, and in the browser "an arrow
+key on a slide's link is the page's…"; no exemption at all (Slider's) → "does not
+re-pause when focus moves WITHIN…" and the lands-inside case at its "is rotating"
+line; the nested clause dropped → "nested in another carousel's slide…" (the inner
+control stops claiming the key); the slide marker dropped → both focus cases.
+Ring: the utility put back → "sets no focus ring of its own…"; `.bg-primary` out
+of app.css's dark list → the browser ring case, `rgb(101, 35, 35)` where off-white
+was required. Switch: either component's guard removed → that component's "draws
+nothing for a carousel that is switched off" and the in-markup list case (2 for
+0; a bar where null was required); `goTo` ignoring it → "switched off, hands back
+empty bags…" (2 for 0); the region or the slide bag ignoring it → the list case
+and the headless one. Survivors: no `preventDefault` → 6 red, first "takes the
+arrow key as its own on a control…"; `defaultPrevented` ignored → "stands back
+when something nearer the key already handled it"; no initial visibility sample →
+"does not start in a tab that is already hidden…" (4 for 1); EDITABLE cut to INPUT
+→ the textarea and select cases; `isContentEditable` dropped → the contenteditable
+case; Pause without `type` → "is a 40px ring, and never a submit button" (null for
+"button"); the `!eligible` guard dropped → "does not remember focus as a pause
+where it could not have been rotating"; closures minted per read → "hands back
+the same handlers on every read" (handler 4). Nineteen unit, three browser, none
+survived — bar the one above that was run to show it would. One line was ADDED without a test and caught before the pass: the
+nested-carousel clause, which its own mutation would have survived; the case was
+written first.
+
+Numbers now: the three suites run 78 (53 + 12 + 13; the index counts `it(` and
+reads 49 / 12 / 8), `carousel.spec.ts` 14, `focus-ring.spec.ts` 2 with the moved
+helper, `pnpm check` 0 errors over 4581 files, `pnpm lint` clean,
+`capability-index.mjs --check` current at 66 modules and 516 tests. The PR body's
+"64" and "11" were true of the first version.
+
+Process, because it cost time. The worktree's command guard reads the "git" in
+`Documents/GitHub` as a git operation and refuses any shell line that pairs it
+with a variable, a loop or a heredoc — so every edit was a small Python script
+with exactly-once assertions, run as one plain command. The four commits were
+built as four STAGES derived from the verified end state (so each finding has its
+own commit and each commit is green with a regenerated `COMPONENTS.md`), and
+stage four was `cmp`'d byte-identical to that end state before it was committed:
+the tree that was mutation-tested is the tree on the branch. Taking the
+implementer's lesson, the snapshot was re-taken after every change and the last
+word was `git status`, clean.
+
+Not done, and whose it is. The bar's colours were not touched: a design question,
+with the operator. `docs/accessibility.md` still has no carousel bullet — it goes
+in with the first consumer, which also owes the production build (no-JS,
+hydration, the dissolve), WebKit and a touch device for the Pause press, the
+eyebrow wrapping at 376 and below once Pause makes the row 140 wide, and the bar
+snapping to 0 where the comp dissolves it. Not run here: `pnpm verify`, a build,
+the axe fixtures spec (the fixture's markup gained one attribute,
+`data-carousel-slide`, and lost none), anything but Chromium.
+
+**Integration (orchestrator).** The fix branch was rebased a second time, onto
+`c7e7232` (#31, the hero), as `integrate/carousel-fix`. The only conflicts were
+in the generated `docs/COMPONENTS.md` — five stops, regenerated at each, never
+hand-merged. The hero's focus-ring case, appended at the foot of
+`focus-ring.spec.ts` by #31, merged under the moved `expect-ring.ts` helper with
+no hand edit, as the fix agent predicted. `pnpm verify` on the rebased branch:
+prettier clean, svelte-check 0 errors over 4593 files, axe 0 violations across 2
+routes, 795 unit tests in 84 files, 53 Playwright tests. That run is the first
+time the fix commits met a build, the axe fixtures spec and the full suite; the
+fix agent had run the three carousel suites, two specs, `check` and `lint` only,
+and said so.
+
+Filed from this batch: #32 (the first consumer owes the production-build checks
+— no-JS, hydration, the dissolve — plus WebKit and touch for the Pause press, the
+`docs/accessibility.md` bullet, the eyebrow wrap at 376 and the bar's snap to 0),
+#33 (the Noun Project licence or attribution for `np_arrow-right_888647`, which
+`ArrowRight.svelte` already ships on main), #34 (the rest of the focus-loss
+class: a control inside `slide(i)`, consumer calls to `next()`/`goTo()`,
+`enabled` flipping at a breakpoint, Pause unmounting under focus). The
+implementer's drafted issue about a site-wide ring invisible on dark grounds was
+NOT filed: #23 landed that rule and this branch removed the local override.
+NOT verified on a production build — `/dev/*` answers 404 there, and nothing
+consumes the primitive yet; #32 carries that debt to the batch that does.
