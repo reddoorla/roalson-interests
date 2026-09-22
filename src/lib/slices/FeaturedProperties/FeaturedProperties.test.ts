@@ -291,20 +291,116 @@ describe("FeaturedProperties slice", () => {
     expect(band(container).className).toContain("bg-dark");
   });
 
-  it("draws no link of its own out of the band — every link is a slide's LEARN MORE", () => {
-    // The comp's "View More" lives in a hidden, superseded layer, and the spec
-    // and the critic both rule it out: the hero one band up and the footer
-    // carry "Our portfolio" already, and the column beside the card is the
-    // map's (#13). A button here was built once and removed in review.
-    for (const slice of [featuredPropertiesFixture(), featuredLaunchFixture()]) {
-      const { container, unmount } = render(FeaturedProperties, { props: { slice } });
-      const links = [...band(container).querySelectorAll("a")];
-      expect(links.length).toBeGreaterThan(0);
-      for (const link of links) {
-        expect(link.closest("[data-featured-slide]"), link.textContent ?? "").not.toBeNull();
-        expect(link.getAttribute("href")).toMatch(/^\/properties\/.+/);
+  describe("the portfolio link", () => {
+    // Removed in review on 2026-09-21 and restored by the operator's call the
+    // same day, on ONE condition: it goes in the card's own column and never
+    // again as a band-wide overlay. Every assertion below is that condition or
+    // the reasons the removal gave.
+    it("goes to /properties — a path an editor can only TYPE, resolved by cmsHref", () => {
+      const { getByRole } = render(FeaturedProperties, {
+        props: { slice: featuredPropertiesFixture() },
+      });
+      const link = getByRole("link", { name: "Our portfolio" });
+      expect(link.getAttribute("href")).toBe("/properties");
+    });
+
+    it("is INSIDE the card and outside every slide, and is the band's last link", () => {
+      // The condition on the restoration. Inside the card is inside the card's
+      // COLUMN — the removal's second reason was that the old one parked a
+      // control in the column reserved for the map (#13). Outside every slide
+      // is the carousel's contract: a slide that turns away goes `inert`, so a
+      // control inside one goes with it (#34).
+      for (const slice of [featuredPropertiesFixture(), featuredLaunchFixture()]) {
+        const { container, getByRole, unmount } = render(FeaturedProperties, { props: { slice } });
+        const link = getByRole("link", { name: "Our portfolio" });
+        expect(link.closest("[data-featured-card]")).not.toBeNull();
+        expect(link.closest("[data-featured-slide]")).toBeNull();
+        expect(link.closest("[data-map-slot]")).toBeNull();
+        // "all of them" follows "these three": after the last slide in the DOM.
+        const lastSlide = slidesOf(container).at(-1)!;
+        expect(
+          lastSlide.compareDocumentPosition(link) & Node.DOCUMENT_POSITION_FOLLOWING,
+        ).toBeTruthy();
+        unmount();
       }
-      unmount();
-    }
+    });
+
+    it("is NEVER an overlay — no absolutely positioned ancestor inside the band", () => {
+      // THE defect the removal measured: as `lg:absolute lg:inset-0` across the
+      // whole band it painted over the card, and axe answered `color-contrast`
+      // with `bgOverlap` for the card's words — 1 node measured and 9
+      // incomplete at 1440 on the one-listing state, 9 and 0 with it gone.
+      // jsdom has no layout, so what is held here is the CLASS that did it; the
+      // contrast numbers themselves are the browser spec's.
+      const { getByRole } = render(FeaturedProperties, {
+        props: { slice: featuredLaunchFixture() },
+      });
+      const link = getByRole("link", { name: "Our portfolio" });
+      for (
+        let el: HTMLElement | null = link;
+        el && el.dataset.sliceType !== "featured_properties";
+        el = el.parentElement
+      ) {
+        expect(el.className.split(/\s+/).filter((c) => /(^|:)(absolute|fixed)$/.test(c))).toEqual(
+          [],
+        );
+        expect(el.className).not.toContain("inset-0");
+      }
+    });
+
+    it("is drawn on the CARD's ground, so it wears the tone for a light one", () => {
+      // The old one was `cream` because it sat on the band's dark ground. It is
+      // on the sand card now (8.87:1, theme-contrast.test.ts) — garnet, which
+      // is BrandButton's default and what the slide's LEARN MORE beside it
+      // wears.
+      const { getByRole } = render(FeaturedProperties, {
+        props: { slice: featuredLaunchFixture() },
+      });
+      const link = getByRole("link", { name: "Our portfolio" });
+      expect(link.className).toContain("border-primary");
+      expect(link.className).toContain("text-primary");
+      expect(link.className).not.toContain("border-background");
+    });
+
+    it("is not drawn without BOTH a label and somewhere to go", () => {
+      for (const primary of [
+        { portfolio_label: "" },
+        { portfolio_label: null },
+        { portfolio_link: { link_type: "Any" } },
+        { portfolio_link: { link_type: "Web", url: "" } },
+      ]) {
+        const { queryByRole, unmount } = render(FeaturedProperties, {
+          props: { slice: featuredPropertiesFixture(primary as never) },
+        });
+        expect(queryByRole("link", { name: /portfolio/i }), JSON.stringify(primary)).toBeNull();
+        unmount();
+      }
+    });
+
+    it("stays with the band in the one-slide state, and goes with it in the empty one", () => {
+      const one = render(FeaturedProperties, { props: { slice: featuredLaunchFixture() } });
+      expect(one.getByRole("link", { name: "Our portfolio" })).toBeTruthy();
+      one.unmount();
+      const none = render(FeaturedProperties, {
+        props: { slice: featuredPropertiesFixture({ properties: [] }) },
+      });
+      expect(none.queryByRole("link", { name: "Our portfolio" })).toBeNull();
+    });
+
+    it("leaves every OTHER link in the band a slide's own LEARN MORE", () => {
+      // What the removal's replacement test promised, kept: the band draws one
+      // link of its own and no more, and everything else points at the listing
+      // it sits on.
+      for (const slice of [featuredPropertiesFixture(), featuredLaunchFixture()]) {
+        const { container, unmount } = render(FeaturedProperties, { props: { slice } });
+        const links = [...band(container).querySelectorAll("a")];
+        expect(links.filter((l) => l.getAttribute("href") === "/properties")).toHaveLength(1);
+        for (const link of links.filter((l) => l.getAttribute("href") !== "/properties")) {
+          expect(link.closest("[data-featured-slide]"), link.textContent ?? "").not.toBeNull();
+          expect(link.getAttribute("href")).toMatch(/^\/properties\/.+/);
+        }
+        unmount();
+      }
+    });
   });
 });

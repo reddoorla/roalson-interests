@@ -151,6 +151,7 @@ const geometry = (page: Page) =>
         text: rel(active.querySelector("h3")!.parentElement!.parentElement)!,
         sizeLine: rel(active.querySelector("p.t-h4"))!,
         button: rel(active.querySelector("a"))!,
+        portfolio: rel(card.querySelector("[data-featured-portfolio] a")),
         slot: {
           display: getComputedStyle(slot).display,
           right: slot.getBoundingClientRect().right - C.left,
@@ -531,11 +532,155 @@ test.describe("rotation", () => {
       expect(measured, "axe measured contrast at all").toBeTruthy();
       expect(measured!.nodes.length, "every text node in the card").toBeGreaterThanOrEqual(6);
 
-      // garnet on the sand card — the only ground this band puts a control on
-      // now that the portfolio button is gone (the hero and the footer carry
-      // that link). The off-white ring on the dark ground is held by the hero's
-      // and the footer's own specs.
+      // garnet on the sand card — the only ground this band puts a control on.
+      // The portfolio button is on that same card ground and wears the same
+      // tone; the off-white ring on the dark ground is held by the hero's and
+      // the footer's own specs.
       await expectRing(page, page.getByRole("button", { name: "Next slide" }), GARNET);
+    } finally {
+      await context.close();
+    }
+  });
+});
+
+test.describe("the portfolio button", () => {
+  // Removed on 2026-09-21 for three reasons and restored by the operator's call
+  // the same day on one condition — the card's own column, never a band-wide
+  // overlay. These are the reasons, as numbers.
+  test("1440 and 1280: it is in the CARD, clear of the map column, and level with LEARN MORE", async ({
+    browser,
+  }) => {
+    // THE OLD COMPLAINT, closed. It used to sit on the band's floor at
+    // `lg:pb-[43px]` — the ARROWS' line — so it was 3px under LEARN MORE at
+    // 1440 on launch day and 12 at 1280. It is pinned to the text column's
+    // bottom edge now (the card's 40px foot padding, the slide's own `mb-10`),
+    // which is exactly where LEARN MORE lands whenever the slide's text is what
+    // sizes the panel — every one-listing state, which is the state this site
+    // ships. Measured 0.00 at both widths.
+    for (const width of [1440, 1280]) {
+      const { context, page } = await moving(browser, viewportFor(width));
+      try {
+        await page.goto(`${HOME}?featured=one`);
+        await page.locator(`${CARD} [data-featured-portfolio]`).waitFor();
+        const g = await geometry(page);
+        expect(g.portfolio, `drawn at ${width}`).not.toBeNull();
+        // In the CARD, which is the card's column — the reserved map column is
+        // the other one, and the reason the old placement was removed.
+        expect(g.portfolio!.left, `${width}: not in the map column`).toBeGreaterThan(0);
+        expect(g.card.width - g.portfolio!.right, `${width}: on the card's 20`).toBeCloseTo(20, 0);
+        expect(g.slot.right, `${width}: the map column is still empty`).toBeCloseTo(0, 0);
+        // Level with LEARN MORE, to the pixel, at both widths.
+        expect(
+          g.portfolio!.bottom - g.button.bottom,
+          `${width}: level with LEARN MORE`,
+        ).toBeCloseTo(0, 1);
+        expect(g.card.height - g.portfolio!.bottom, `${width}: the card's 40`).toBeCloseTo(40, 0);
+        // …and clear of it: the two never share a pixel of x.
+        expect(g.portfolio!.left, `${width}: clear of LEARN MORE`).toBeGreaterThan(g.button.right);
+        expect(g.overflowX, `${width}`).toBeLessThanOrEqual(0);
+      } finally {
+        await context.close();
+      }
+    }
+  });
+
+  test("a card too narrow for both buttons drops it to its own row rather than over the text", async ({
+    browser,
+  }) => {
+    // WHY THE QUERY IS ON THE CARD AND NOT THE VIEWPORT. /dev/a11y-fixtures
+    // renders this band inside a `max-w-3xl` wrapper, so at a 1455 viewport the
+    // card is 425.89 — and on LEARN MORE's line this button landed ACROSS it
+    // (left 236.42 against LEARN MORE's right 355.13). Axe answered the launch
+    // band 9 measured / 1 INCOMPLETE, which is the bgOverlap defect the button
+    // was removed for, reintroduced by the placement that fixed the alignment.
+    // A viewport media query cannot see it. `@container` can.
+    const { context, page } = await moving(browser, viewportFor(1440));
+    try {
+      await page.goto("/dev/a11y-fixtures");
+      const card = page.locator(CARD).nth(1);
+      const learn = card.getByRole("link", { name: /Learn more/ });
+      const portfolio = card.getByRole("link", { name: "Our portfolio" });
+      const [c, l, p] = await Promise.all([
+        card.boundingBox(),
+        learn.boundingBox(),
+        portfolio.boundingBox(),
+      ]);
+      expect(c!.width, "the wrapper squeezes the card").toBeLessThan(640);
+
+      // THE CONSEQUENCE FIRST, because it is the claim: axe can still MEASURE
+      // the card here. The geometry below is only the explanation.
+      await card.evaluate((el) => el.setAttribute("data-narrow-scope", ""));
+      const results = await new AxeBuilder({ page }).include("[data-narrow-scope]").analyze();
+      const incomplete = results.incomplete.find((r) => r.id === "color-contrast");
+      expect(
+        incomplete?.nodes.map((n) => n.html.slice(0, 60)) ?? [],
+        "axe could not measure these",
+      ).toEqual([]);
+      expect(
+        results.passes.find((r) => r.id === "color-contrast")!.nodes.length,
+        "nine and this one, on a 425.89 card too",
+      ).toBe(10);
+
+      // Its own row UNDER the text, on the card's left padding — not beside it.
+      expect(p!.y, "below LEARN MORE").toBeGreaterThanOrEqual(l!.y + l!.height);
+      expect(p!.x - c!.x, "on the card's 20").toBeCloseTo(20, 0);
+    } finally {
+      await context.close();
+    }
+  });
+
+  test("1440, one listing: axe measures the card's nine nodes AND this button — none incomplete", async ({
+    browser,
+  }) => {
+    // THE GATE THE REMOVAL SET. As a `lg:absolute lg:inset-0` overlay this
+    // button painted over the whole band, and axe answered `color-contrast`
+    // with `bgOverlap` for the card's words: 1 node measured and 9 INCOMPLETE
+    // at 1440 on the one-listing state; 9 and 0 with the button gone. An
+    // incomplete is not a pass, so what is required here is that the same nine
+    // are still measured — the eyebrow, the size line, the title, five bullets
+    // and LEARN MORE — and that this button is a TENTH measurement rather than
+    // a reason nine become unmeasurable.
+    const { context, page } = await moving(browser, viewportFor(1440));
+    try {
+      await page.goto(`${HOME}?featured=one`);
+      await page.locator(`${CARD} [data-featured-portfolio]`).waitFor();
+      const results = await new AxeBuilder({ page }).include(BAND).analyze();
+      expect(results.violations.map((v) => `${v.id}: ${v.nodes.length}`)).toEqual([]);
+
+      const incomplete = results.incomplete.find((r) => r.id === "color-contrast");
+      expect(
+        incomplete?.nodes.map((n) => n.html.slice(0, 60)) ?? [],
+        "axe could not measure these",
+      ).toEqual([]);
+
+      const measured = results.passes.find((p) => p.id === "color-contrast");
+      expect(measured, "axe measured contrast at all").toBeTruthy();
+      const html = measured!.nodes.map((n) => n.html);
+      expect(
+        html.filter((h) => h.startsWith("<h2")),
+        "the eyebrow",
+      ).toHaveLength(1);
+      expect(
+        html.filter((h) => h.startsWith("<h3")),
+        "the listing's title",
+      ).toHaveLength(1);
+      expect(
+        html.filter((h) => h.startsWith("<p")),
+        "the size line",
+      ).toHaveLength(1);
+      expect(
+        html.filter((h) => h.startsWith("<li")),
+        "the five bullets",
+      ).toHaveLength(5);
+      expect(
+        html.filter((h) => /href="\/properties\/[^"]+"/.test(h)),
+        "LEARN MORE",
+      ).toHaveLength(1);
+      expect(
+        html.filter((h) => /href="\/properties"/.test(h)),
+        "this button",
+      ).toHaveLength(1);
+      expect(measured!.nodes.length, "nine and this one").toBe(10);
     } finally {
       await context.close();
     }
@@ -639,12 +784,15 @@ test.describe("the other states", () => {
       // WITHOUT THE BUNDLE THE BAND IS ITS FIRST LISTING, and that is the
       // decision, not an oversight: slides 2..N are `inert` in the server's
       // markup by the primitive's reviewed design, and CSS cannot undo `inert`.
-      // Every listing is reachable from /properties, which the hero one band
-      // up, the menu and the footer all link — so this band draws no second
-      // route to it (#47, and the critic's ruling on the portfolio button).
-      await expect(page.locator(`${BAND} a`, { hasText: "Our portfolio" })).toHaveCount(0);
+      // Every listing is reachable from /properties — and THAT is the one link
+      // this band draws of its own, server-rendered like everything else here,
+      // so a visitor without the bundle still has a way to all of them (#47).
+      // It is a plain <a> in the markup: nothing about it waits on hydration.
+      const portfolio = card.getByRole("link", { name: "Our portfolio" });
+      await expect(portfolio).toBeVisible();
+      await expect(portfolio).toHaveAttribute("href", "/properties");
       for (const link of await page.locator(`${BAND} a`).all())
-        await expect(link).toHaveAttribute("href", /^\/properties\/.+/);
+        await expect(link).toHaveAttribute("href", /^\/properties(\/.+)?$/);
     } finally {
       await context.close();
     }
