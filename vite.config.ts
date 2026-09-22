@@ -7,6 +7,15 @@ import { claudeDirIgnore } from "./scripts/claude-dir-ignore.mjs";
 
 export default defineConfig({
   plugins: [sveltekit(), imagetools(), tailwindcss()],
+  // maplibre-gl is pre-bundled at dev-server START rather than discovered when
+  // the first map mounts. It is only reached through a dynamic import (see
+  // $lib/map-engine), so Vite would otherwise not find it during its initial
+  // scan and would optimize it mid-session — a second-long stall, and on a
+  // first page view of /dev/home it lands inside the featured carousel's first
+  // 4s dwell. Measured there: 2609.8ms of overshoot on a turn the spec allows
+  // 300ms of slack. None of this exists in a production build, where the chunk
+  // is already built (#103).
+  optimizeDeps: { include: ["maplibre-gl"] },
   server: {
     fs: {
       // Allow access to files from the project root.
@@ -30,6 +39,19 @@ export default defineConfig({
     // repo-invariant test that never runs is a comment.
     include: ["src/**/*.test.{js,ts}", "scripts/**/*.test.{js,ts}"],
     setupFiles: ["./vitest-setup.ts"],
+    // The property map's engine is not transformed for unit tests. `?worker&url`
+    // inside $lib/map-engine makes Vite BUILD maplibre's 507 KB worker at
+    // transform time, once per Vitest worker that reaches PropertyMap.svelte —
+    // measured at 95.4s to import that component and assert nothing, against
+    // 33.2s without the worker import. See vitest-map-engine-stub.ts for what
+    // is lost (nothing jsdom could have measured) and where it is measured
+    // instead.
+    alias: [
+      {
+        find: /^\$lib\/map-engine$/,
+        replacement: new URL("./vitest-map-engine-stub.ts", import.meta.url).pathname,
+      },
+    ],
     server: {
       deps: {
         inline: ["@testing-library/svelte"],

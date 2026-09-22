@@ -66,6 +66,7 @@
     "@reddoorla/maintenance": "^0.96.0",
     "@tailwindcss/vite": "^4.3.0",
     "@zerodevx/svelte-img": "^2.1.2",
+    "maplibre-gl": "6.10.0",
     "svelte-gestures": "^5.2.2"
   }
 }

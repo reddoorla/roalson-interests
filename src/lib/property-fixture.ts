@@ -120,7 +120,18 @@ export function propertyFixture(
 /** A small portfolio for the listing page: both land categories, improved
  *  listings with and without a photo, an order tie-breaker case, an empty
  *  order, and sold listings from BOTH categories so the Sold section proves it
- *  is a status, not a category. Titles are the outline's real listings. */
+ *  is a status, not a category. Titles are the outline's real listings.
+ *
+ *  THE COORDINATES ARE CONSTRUCTED, and deliberately. `propertyFixture` gives
+ *  every listing 25331 IH 10 West's pin, so before the map (#13) every card on
+ *  /dev/properties stood on the same spot — a map fixture that would have
+ *  drawn one marker at maximum zoom and proved nothing. Each listing below now
+ *  carries a pin near the road it is named for, and the LAND section's four
+ *  are shaped to put both of the map's jobs on the page at once: Potranco Road
+ *  and FM 1560 & Galm Road are 0.7 km apart, so they cluster at every zoom the
+ *  panel fits to, while Castroville and New Braunfels are 66 km apart, so the
+ *  fit has to open up to hold them. The real portfolio's own numbers — the
+ *  ones the clustering was tuned against — are in property-map.test.ts. */
 export function propertyListingFixture(): PropertyDocument[] {
   const at = (
     id: string,
@@ -129,7 +140,12 @@ export function propertyListingFixture(): PropertyDocument[] {
   ) => propertyFixture(data, { id, uid: id, ...doc });
 
   return [
-    at("25331-ih-10-west", { category: "Improved", order: 1, is_new: true }),
+    at("25331-ih-10-west", {
+      category: "Improved",
+      order: 1,
+      is_new: true,
+      location: { latitude: 29.6773878, longitude: -98.638346 },
+    }),
     at("402-nueva", {
       title: "402 Nueva",
       category: "Improved",
@@ -137,6 +153,7 @@ export function propertyListingFixture(): PropertyDocument[] {
       is_new: false,
       size_label: "12,400 SF",
       feature_image: {},
+      location: { latitude: 29.4231304, longitude: -98.5008086 },
     }),
     at("potranco-road", {
       title: "Potranco Road tract",
@@ -145,6 +162,7 @@ export function propertyListingFixture(): PropertyDocument[] {
       order: 2,
       is_new: false,
       size_label: "38.6 acres",
+      location: { latitude: 29.529, longitude: -98.7101 },
     }),
     at("fm-1560-galm", {
       title: "FM 1560 & Galm Road",
@@ -153,6 +171,7 @@ export function propertyListingFixture(): PropertyDocument[] {
       is_new: false,
       size_label: "12.2 acres",
       feature_image: {},
+      location: { latitude: 29.5316, longitude: -98.7154 },
     }),
     at("hwy-90-castroville", {
       title: "Hwy 90 West, Castroville",
@@ -161,6 +180,7 @@ export function propertyListingFixture(): PropertyDocument[] {
       is_new: false,
       size_label: "210 acres",
       feature_image: {},
+      location: { latitude: 29.3552, longitude: -98.8845 },
     }),
     at("ih-35-new-braunfels", {
       title: "IH-35, New Braunfels",
@@ -168,6 +188,7 @@ export function propertyListingFixture(): PropertyDocument[] {
       order: null,
       is_new: false,
       size_label: "4.8 acres",
+      location: { latitude: 29.703, longitude: -98.1245 },
     }),
     at("5001-walzem-road", {
       title: "5001 Walzem Road",
@@ -176,6 +197,7 @@ export function propertyListingFixture(): PropertyDocument[] {
       order: 1,
       is_new: false,
       size_label: "22,000 SF",
+      location: { latitude: 29.510603, longitude: -98.39129 },
     }),
     at("culebra-road", {
       title: "Culebra Road tract",
@@ -185,6 +207,7 @@ export function propertyListingFixture(): PropertyDocument[] {
       is_new: false,
       size_label: "6.1 acres",
       feature_image: {},
+      location: { latitude: 29.4692, longitude: -98.6621 },
     }),
   ];
 }

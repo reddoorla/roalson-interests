@@ -387,7 +387,11 @@ describe("FeaturedProperties slice", () => {
       const { container } = render(FeaturedProperties, {
         props: { slice: featuredLaunchFixture() },
       });
-      expect(container.querySelectorAll("li")).toHaveLength(5);
+      // The SLIDE's bullets. `container.querySelectorAll("li")` used to be
+      // the same thing and is not any more: the map's own list of Google Maps
+      // links is <li>s in this band too (#13), so an unqualified count reads
+      // six and says nothing about the text block this test is about.
+      expect(container.querySelectorAll("[data-featured-slide] li")).toHaveLength(5);
       // No fixed height anywhere on the slide's text: the comp's 285 is a MINIMUM
       // held by the chrome column, and a fifth bullet line would overflow it.
       const text = container.querySelector("h3")!.parentElement!.parentElement!;
@@ -443,19 +447,54 @@ describe("FeaturedProperties slice", () => {
     }
   });
 
-  it("reserves the map's column from lg with nothing in it — no fill, no pins, not in the a11y tree", () => {
+  // WAS "reserves the map's column from lg with nothing in it". The map landed
+  // (#13), and the two halves of that old assertion went opposite ways: the
+  // slot is no longer empty or aria-hidden, and it is no longer `hidden` below
+  // `lg` either — the 390 comp draws a 390 x 200 map full bleed at the top of
+  // the band, which the old build read as "not drawn". What survives unchanged
+  // is that the SLOT paints nothing of its own; the comp's map frame has no
+  // fill, and the band's #3d0707 is what shows while tiles are arriving.
+  it("fills the map's column at every width, and paints nothing of its own", () => {
     const { container } = render(FeaturedProperties, {
       props: { slice: featuredPropertiesFixture() },
     });
     const slot = container.querySelector<HTMLElement>("[data-map-slot]")!;
-    expect(slot.getAttribute("aria-hidden")).toBe("true");
-    expect(slot.children).toHaveLength(0);
+    expect(slot.getAttribute("aria-hidden"), "the map is content, not decoration").toBeNull();
+    expect(slot.querySelector("[data-property-map]"), "a map is mounted in it").not.toBeNull();
     const classes = slot.className.split(/\s+/);
-    expect(classes).toContain("hidden");
-    expect(classes).toContain("lg:block");
+    expect(classes, "drawn below lg too — the 390 comp has it").not.toContain("hidden");
+    expect(classes).toContain("lg:col-start-1");
+    expect(classes).toContain("lg:row-start-1");
+    // LAST in the DOM (the card is the band's content) and FIRST on the phone.
+    expect(classes, "ordered above the card below lg").toContain("max-lg:order-first");
+    const card = container.querySelector("[data-featured-card]")!;
+    expect(
+      card.compareDocumentPosition(slot) & Node.DOCUMENT_POSITION_FOLLOWING,
+      "the card comes first in the DOM",
+    ).toBeTruthy();
     // The band's own ground is what shows: a bg-* here is a placeholder drawn.
     expect(classes.filter((c) => /(^|:)(bg|border|from|to)-/.test(c))).toEqual([]);
     expect(band(container).className).toContain("bg-dark");
+  });
+
+  it("gives the map a pin for every slide whose listing has one", () => {
+    const { container } = render(FeaturedProperties, {
+      props: { slice: featuredPropertiesFixture() },
+    });
+    const slot = container.querySelector<HTMLElement>("[data-map-slot]")!;
+    const slides = container.querySelectorAll("[data-featured-slide]").length;
+    const links = slot.querySelectorAll("[data-map-link]");
+    // The three fixture picks all carry a GeoPoint, so this is 3 = 3 — and the
+    // point of writing it as a comparison is that `FeaturedSlide.location` is
+    // new (it was requested by the model's graphQuery and dropped on the floor
+    // in $lib/featured-properties until #13). A slide arriving without it
+    // would silently cost a pin.
+    expect(links).toHaveLength(slides);
+    for (const link of links) {
+      expect(link.getAttribute("href")).toMatch(
+        /^https:\/\/www\.google\.com\/maps\/search\/\?api=1&query=-?\d+(\.\d+)?,-?\d+(\.\d+)?$/,
+      );
+    }
   });
 
   describe("the portfolio link", () => {
@@ -558,9 +597,13 @@ describe("FeaturedProperties slice", () => {
       // What the removal's replacement test promised, kept: the band draws one
       // link of its own and no more, and everything else points at the listing
       // it sits on.
+      // …plus the map's, which are a different promise and get their own
+      // assertion below rather than an exemption buried in this loop.
       for (const slice of [featuredPropertiesFixture(), featuredLaunchFixture()]) {
         const { container, unmount } = render(FeaturedProperties, { props: { slice } });
-        const links = [...band(container).querySelectorAll("a")];
+        const links = [...band(container).querySelectorAll("a")].filter(
+          (l) => !l.hasAttribute("data-map-link"),
+        );
         expect(links.filter((l) => l.getAttribute("href") === "/properties")).toHaveLength(1);
         for (const link of links.filter((l) => l.getAttribute("href") !== "/properties")) {
           expect(link.closest("[data-featured-slide]"), link.textContent ?? "").not.toBeNull();
