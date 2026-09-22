@@ -36,10 +36,12 @@ const LIGHT_GROUND_TEXT = ["secondary", "primary", "dark", "black", "error"] as 
  *  garnet text — see the note below, which predicted exactly this. */
 const LIGHT_GROUNDS = ["background", "white", "light"] as const;
 
-/** Tokens the template renders as text on a DARK ground. `dust` is the comp's
- *  button-hover text on a garnet fill, and `light` (sand) the status badges on
- *  garnet — both are text ONLY on dark grounds, where they measure 5.11:1 and
- *  8.87:1 on garnet. Neither may appear as text on a light ground.
+/** Tokens the template renders as text on a DARK ground. `dust` is HomeHero's
+ *  specialty line and the open menu's type, and `light` (sand) the status
+ *  badges on garnet AND — since the operator's 2026-09-22 call — every
+ *  button's light tone, label and 1px outline both. Both are text ONLY on dark
+ *  grounds, where they measure 5.11:1 and 8.87:1 on garnet. Neither may appear
+ *  as text on a light ground.
  *  `background` (the page's off-white) joined 2026-09-20: the listing's
  *  featured card is the comp's garnet card with off-white text and an
  *  off-white-outlined button — 10.5:1 on garnet. */
@@ -48,11 +50,26 @@ const DARK_GROUND_TEXT = ["white", "dust", "light", "background"] as const;
 const DARK_GROUNDS = ["primary", "dark", "black"] as const;
 
 /** Fills that carry exactly ONE text token, so they are measured as pairs and
- *  not as grounds. `dust` is a hover fill — the comp's `button light`, the
- *  navbar's CONTACT US over a dark band, fills dust and turns its label garnet
- *  (5.11:1). It is NOT a light ground: secondary on dust is 2.75:1, so adding
- *  it to LIGHT_GROUNDS would be a claim the palette cannot keep. */
-const FILL_PAIRS = [{ text: "primary", ground: "dust" }] as const;
+ *  not as grounds.
+ *
+ *  `dust` is here because it is NOT a light ground: secondary on dust is
+ *  2.75:1, so adding it to LIGHT_GROUNDS would be a claim the palette cannot
+ *  keep. Until 2026-09-22 it was the navbar's CONTACT US fill (the comp's
+ *  `button light`); the operator moved every button's light colour to the tan
+ *  that day, so no BUTTON fills dust now — HomeHero's half-pixel rule is the
+ *  only `bg-dust` left in src/, and that carries no text at all. The pair is
+ *  kept, not deleted: dust is still the one token the palette permits as a
+ *  non-ground fill, and 5.11:1 is what has to hold the next time something
+ *  fills it.
+ *
+ *  `light` (sand) is the button's hover fill since that call. It is also a
+ *  real LIGHT_GROUND below, so this row is deliberately redundant — it is
+ *  here so the file NAMES the button, rather than covering it by accident
+ *  through a list that exists for another reason. */
+const FILL_PAIRS = [
+  { text: "primary", ground: "dust" },
+  { text: "primary", ground: "light" },
+] as const;
 
 /**
  * `bg-light` was deliberately left OUT of LIGHT_GROUNDS until something put text

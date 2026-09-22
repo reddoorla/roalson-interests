@@ -20,8 +20,10 @@
   //
   // Tones are named for the CONTROL's colour, as BrandButton's are, and take
   // its hovers: "garnet" on the light grounds (sand, off-white; hover fills
-  // garnet with dust glyph, 5.11:1), "cream" on the garnet card and the dark
-  // band (hover fills off-white with garnet glyph, 10.07:1).
+  // garnet with a SAND glyph, 8.87:1 — dust, at 5.11:1, until the operator's
+  // 2026-09-22 call moved every button's light colour to the tan; see
+  // BrandButton), "cream" on the garnet card and the dark band (hover fills
+  // off-white with garnet glyph, 10.07:1).
   //
   // Neither tone sets a focus ring. app.css's floor draws it in `--focus-ring`,
   // which each GROUND class sets for what sits on it (`.bg-primary > *` and
@@ -34,7 +36,7 @@
   // (tests/interaction/carousel.spec.ts).
   export const ARROW_TONES = {
     garnet:
-      "border-primary text-primary not-aria-disabled:hover:bg-primary not-aria-disabled:hover:text-dust",
+      "border-primary text-primary not-aria-disabled:hover:bg-primary not-aria-disabled:hover:text-light",
     cream:
       "border-background text-background not-aria-disabled:hover:bg-background not-aria-disabled:hover:text-primary",
   } as const;

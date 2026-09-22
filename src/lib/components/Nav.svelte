@@ -12,7 +12,8 @@
   //    (`STICKY_SCROLLS`), so as drawn it stays transparent while cards and
   //    body copy scroll underneath it. "navbar garnet" names the WORDMARK's
   //    colour, not a ground. Here the bar FLOATS — transparent, reverse
-  //    wordmark, the comp's dust controls — only at the top of a page whose
+  //    wordmark, the comp's light controls (sand — see BrandButton) — only
+  //    at the top of a page whose
   //    first band is dark (`over="dark"`), and takes the page's off-white
   //    ground with garnet marks as soon as the page moves. Dust cannot follow
   //    it there: 1.97:1 on off-white, as text or as a control's glyph.
@@ -49,7 +50,7 @@
   //    the page's `[data-nav-gate]` element (HomeHero's band, whose top edge
   //    the cutout rides on) reaching the bar's bottom edge, read rect against
   //    rect. Until it does the bar also stays FLOATING: the pinned hero is
-  //    under it the whole way, so what the dust controls sit on does not
+  //    under it the whole way, so what the sand controls sit on does not
   //    change, and a solid bar with an empty left side over a hero is neither
   //    of the comp's variants. At the gate it takes its ground and its garnet
   //    wordmark together — the comp's two variants, with (1)'s legibility fix
@@ -349,7 +350,7 @@
         <noscript>
           <ul
             class="t-h6 mr-3 flex flex-wrap items-center justify-end gap-x-5 gap-y-1 {floating
-              ? 'text-dust'
+              ? 'text-light'
               : 'text-primary'}"
           >
             {#each items.filter((item) => item.href && item.href !== "/") as item, i (i)}
@@ -364,7 +365,8 @@
 
       {#if cta}
         <div class="hidden sm:block">
-          <BrandButton href={cta.href} tone={floating ? "dust" : "garnet"}>{cta.label}</BrandButton>
+          <BrandButton href={cta.href} tone={floating ? "light" : "garnet"}>{cta.label}</BrandButton
+          >
         </div>
       {/if}
 
@@ -374,7 +376,7 @@
             bind:this={openButtonEl}
             type="button"
             class="{ICON_BUTTON} transition-colors duration-300 {floating
-              ? 'text-dust'
+              ? 'text-light'
               : 'text-primary'}"
             onclick={openMenu}
             aria-label="Open menu"
@@ -402,7 +404,7 @@
             data-js-only
             data-menu-fallback
             class="{ICON_BUTTON} transition-colors duration-300 {floating
-              ? 'text-dust'
+              ? 'text-light'
               : 'text-primary'}"
             aria-label="Menu"
           >
@@ -444,7 +446,7 @@
       <button
         type="button"
         data-autofocus
-        class="{ICON_BUTTON} text-dust"
+        class="{ICON_BUTTON} text-light"
         onclick={closeMenu}
         aria-label="Close menu"
         aria-expanded={isMenuOpen}

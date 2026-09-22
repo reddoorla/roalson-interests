@@ -5752,3 +5752,78 @@ the three aerials carrying a baked-in "Map data ©2016 Google" strip are a
 licensing question, and the uncropped exhibits are deliberate because the crop
 that frames best is the crop that removes the attribution; and two partner
 headshots need replacing (#73).
+
+## 2026-09-22 — Every button's light colour is the tan, not the grey (operator call)
+
+The operator: _"use the tan as the light color for buttons rather than the
+grey."_ One sentence, and it lands on a token whose NAME was already the
+answer. The palette carries `--color-light: #e8e1d1` — sand, the tan — and a
+separate `--color-dust: #b2ac9f`, the grey. Figma's component set calls the
+pair `button dark` / `button light`. Our tone for `button light` was called
+`dust` and drew dust. So the tone named "light" did not exist and the one that
+did was named after a colour the operator did not want.
+
+The rename is the fix, not a cosmetic follow-on. CLAUDE.md's corollary — _a
+field that can only observe configuration must never be named after the thing
+it cannot observe_ — generalises: a tone named `dust` that renders sand is the
+same defect one level down. `BRAND_BUTTON_TONES.dust` is now
+`BRAND_BUTTON_TONES.light`, and `tone="dust"` is gone from the API.
+
+**Measured, and it is free.** Every pair the swap touches goes up; none goes
+down. Recomputed from `app.css` with the same relative-luminance code
+`theme-contrast.test.ts` uses:
+
+|             | label + 1px outline on garnet | on `#3d0707` | garnet on the filled button |
+| ----------- | ----------------------------- | ------------ | --------------------------- |
+| dust (comp) | 5.11:1                        | 7.55:1       | 5.11:1                      |
+| sand (ours) | 8.87:1                        | 13.09:1      | 8.87:1                      |
+
+That is a taste call that happened to buy 1.7× on the floating navbar's
+CONTACT US and its menu trigger, which sit over the homepage hero — the
+surface #45 already flags as a legibility risk for the whole pin. It does not
+close #45: a bright POSTER under the bar is worse for sand than for dust,
+because sand is lighter. #45 is about the ground, not the label, and the swap
+neither fixes nor worsens the case that issue describes.
+
+**What moved and what deliberately did not.** The operator said _buttons_, and
+the floating bar is one control cluster — the CTA, the menu trigger, the
+trigger's pre-hydration fallback link, and the `<noscript>` link list all take
+the bar's light colour together, or the bar is two colours. The overlay's
+Close glyph moved with them because it occupies the trigger's own screen
+position once the menu is open: leaving it dust would have swapped a sand
+glyph for a grey one in place. `CarouselArrows`' garnet tone moved too — its
+hover glyph was dust by the same inheritance, 5.11:1, now 8.87:1.
+
+Dust did NOT leave the palette. It is still the type the comp draws in dust:
+HomeHero's specialty line, the open menu's "Menu" eyebrow, its sub-labels and
+its underline decoration. Those are typography on garnet, not controls, and
+nothing in the note pointed at them.
+
+**A belief corrected on contact.** `theme-contrast.test.ts` carried
+`FILL_PAIRS = [{ text: "primary", ground: "dust" }]` with a comment asserting
+that "the navbar's CONTACT US over a dark band fills dust and turns its label
+garnet". After this change that sentence is false, and grepping for `bg-dust`
+across `src/` turns up exactly one survivor: HomeHero's half-pixel rule
+(`before:bg-dust`), which carries no text at all. **Dust is a fill nowhere.**
+`CarouselProgress` had already refused it in its own header — its track is
+1.73:1 on sand — so the token has been fill-less in practice longer than the
+comment admitted. The pair is kept rather than deleted, because dust is still
+the one token the palette permits as a non-ground fill and 5.11:1 is what has
+to hold the next time something fills it; `light` joined it so the file NAMES
+the button instead of covering it by accident through `LIGHT_GROUNDS`, which
+exists for another reason.
+
+**The guard, and it was watched going red.** A test that only checks for
+`border-light`/`text-light` passes just as happily if one tone quietly goes
+back to dust, so the new case names the thing that must NOT be there: every
+tone in `BRAND_BUTTON_TONES` is matched against `/-dust\b/` and must fail it.
+Mutated twice on purpose. Reverting the `light` tone to dust fails two cases
+with _"the light tone still spends dust: border-dust text-dust hover:bg-dust
+hover:text-primary"_; reverting only the `garnet` tone's hover label fails the
+new one alone, naming `garnet`. Both restored.
+
+Green: prettier + eslint clean, svelte-check 4627 files 0 errors, 102 test
+files / 1075 tests, axe 0 violations across 5 routes, and the 31 Chromium
+cases in `nav.spec.ts` + `carousel.spec.ts` — the four computed-colour
+assertions there moved from `rgb(178, 172, 159)` to `rgb(232, 225, 209)` and
+are the browser-level proof the swap actually reaches a pixel.
