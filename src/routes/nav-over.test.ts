@@ -9,7 +9,7 @@ import HomeHero from "$lib/slices/HomeHero/index.svelte";
 import PageMasthead from "$lib/components/PageMasthead.svelte";
 
 /**
- * The bar floats — transparent, white wordmark, dust controls — only over a
+ * The bar floats — transparent, white wordmark, sand controls — only over a
  * dark first band, and it learns that from the ROUTE (`navOver: "dark"` in its
  * page data), because the layout renders the bar before it has seen the page.
  * That is a claim made in one file about markup in another, so nothing but

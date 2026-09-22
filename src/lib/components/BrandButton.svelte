@@ -9,14 +9,32 @@
   // They were first written as the second sentence, and were nowhere.)
   //
   // Named, as Figma names it, for the BUTTON's tone, so it is the one for LIGHT
-  // grounds: garnet outline and text; hover fills garnet with dust text
-  // (5.11:1, AA as text).
+  // grounds: garnet outline and text; hover fills garnet with SAND text
+  // (8.87:1).
   //
-  // Its sibling `button light` (4840:372: dust outline and label, hover fills
-  // dust with garnet text) is the "dust" tone — the navbar's CONTACT US while
-  // the bar floats over a dark band. Dust is a fill-only token on LIGHT
-  // grounds (1.97:1 on off-white), so "dust" is for dark grounds only; the nav
-  // swaps to "garnet" the moment it takes its off-white ground.
+  // Its sibling `button light` (4840:372) is the "light" tone — the navbar's
+  // CONTACT US while the bar floats over a dark band.
+  //
+  // THE COMP DRAWS `button light` IN DUST AND THIS SITE DRAWS IT IN SAND.
+  // Operator call, 2026-09-22: "use the tan as the light color for buttons
+  // rather than the grey". It is a taste call and it needed no defending, but
+  // it happens to be free: every pair it touches goes UP and none goes down.
+  //
+  //                    label + 1px outline        garnet on
+  //                    on garnet   on #3d0707     the filled button
+  //     dust (comp)      5.11:1       7.55:1          5.11:1
+  //     sand  (ours)     8.87:1      13.09:1          8.87:1
+  //
+  // The tone is still for DARK grounds only — sand is 1.14:1 on the off-white
+  // page — so the nav still swaps to "garnet" the moment it takes its
+  // off-white ground. What changed is which light token the swap lands on.
+  //
+  // Dust did not leave the palette, it left the BUTTONS. It is still text on
+  // garnet where the comp puts it: HomeHero's specialty line, the open menu's
+  // "Menu" eyebrow and its sub-labels, the menu links' underline. After this
+  // change dust is a fill NOWHERE — CarouselProgress had already refused it
+  // (its track is 1.73:1 on sand), so `theme-contrast.test.ts`'s FILL_PAIRS
+  // moved to sand with it.
   // (The garnet property card's button is "cream", below.)
   //
   // Not DefaultButton: that is the template's rounded, 2px-bordered, px-10
@@ -28,7 +46,7 @@
   // THE EXPORTS follow DefaultButton's precedent, and exist because this
   // component is an <a> with a required href: the contact form's submit has to
   // be a <button type="submit">. They are literal strings, so Tailwind's
-  // source scan still sees every class. Nav.test.ts reads `text-dust` /
+  // source scan still sees every class. Nav.test.ts reads `text-light` /
   // `text-primary` off the CTA's resting classes and BrandButton.test.ts reads
   // the rest, so the rendered class list did not change when these strings
   // moved here — and BrandButton.test.ts now pins the exports to what the
@@ -43,13 +61,14 @@
   /** "garnet" is the comp's `button dark` as drawn on a light ground. "cream"
    *  is the same button on the garnet property card (6904:2081): off-white
    *  outline and label, filling off-white with garnet text on hover —
-   *  10.5:1 and 10.07:1. "dust" is the comp's `button light` for dark
-   *  grounds: 5.11:1 on garnet, and garnet on the dust fill is the same pair
-   *  inverted. Every tone is measured by theme-contrast.test.ts. */
+   *  10.5:1 and 10.07:1. "light" is the comp's `button light` for dark
+   *  grounds, in SAND rather than the comp's dust: 8.87:1 on garnet and
+   *  13.09:1 on #3d0707, with garnet on the sand fill the same pair inverted.
+   *  Every tone is measured by theme-contrast.test.ts. */
   export const BRAND_BUTTON_TONES = {
-    garnet: "border-primary text-primary hover:bg-primary hover:text-dust",
+    garnet: "border-primary text-primary hover:bg-primary hover:text-light",
     cream: "border-background text-background hover:bg-background hover:text-primary",
-    dust: "border-dust text-dust hover:bg-dust hover:text-primary",
+    light: "border-light text-light hover:bg-light hover:text-primary",
   } as const;
 
   /** The comp's trailing arrow drops the right padding 15 → 10px, as in the

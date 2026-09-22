@@ -119,7 +119,7 @@ describe("Nav — the bar's ground", () => {
     expect(resting(getByRole("link", { name: "Contact us" }))).toContain("text-primary");
   });
 
-  it("floats over a dark first band: no ground, reverse wordmark, dust controls", () => {
+  it("floats over a dark first band: no ground, reverse wordmark, sand controls", () => {
     const { getByRole, getByLabelText } = render(Nav, { items, logo, cta, over: "dark" });
     const bar = getByRole("navigation", { name: "Primary" });
     expect(bar.hasAttribute("data-floating")).toBe(true);
@@ -130,8 +130,8 @@ describe("Nav — the bar's ground", () => {
     expect(resting(garnet)).toContain("opacity-0");
     expect(resting(reverse)).not.toContain("opacity-0");
 
-    expect(resting(getByLabelText("Open menu"))).toContain("text-dust");
-    expect(resting(getByRole("link", { name: "Contact us" }))).toContain("text-dust");
+    expect(resting(getByLabelText("Open menu"))).toContain("text-light");
+    expect(resting(getByRole("link", { name: "Contact us" }))).toContain("text-light");
   });
 
   it("takes its ground once the page moves, and gives it back at the top", async () => {
@@ -145,7 +145,7 @@ describe("Nav — the bar's ground", () => {
     expect(resting(garnet)).not.toContain("opacity-0");
     expect(resting(reverse)).toContain("opacity-0");
     expect(resting(getByLabelText("Open menu"))).toContain("text-primary");
-    expect(resting(getByLabelText("Open menu"))).not.toContain("text-dust");
+    expect(resting(getByLabelText("Open menu"))).not.toContain("text-light");
     expect(resting(getByRole("link", { name: "Contact us" }))).toContain("text-primary");
 
     await scrollTo(0);
@@ -228,8 +228,8 @@ describe("Nav — the homepage's gated wordmark", () => {
     const bar = getByRole("navigation", { name: "Primary" });
     expectHeld(bar);
     expect(resting(bar)).toContain("bg-transparent");
-    expect(resting(getByLabelText("Open menu"))).toContain("text-dust");
-    expect(resting(getByRole("link", { name: "Contact us" }))).toContain("text-dust");
+    expect(resting(getByLabelText("Open menu"))).toContain("text-light");
+    expect(resting(getByRole("link", { name: "Contact us" }))).toContain("text-light");
   });
 
   it("keeps the home link in the tree, named and focusable, while its wordmark is invisible", () => {

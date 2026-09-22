@@ -81,7 +81,7 @@ describe("Nav — before script has mounted", () => {
 
     const floating = render(Nav, { items, logo, over: "dark" });
     const onDark = bar(floating.container).querySelector("a[data-menu-fallback]")!;
-    expect(onDark.className.split(/\s+/)).toContain("text-dust");
+    expect(onDark.className.split(/\s+/)).toContain("text-light");
     floating.unmount();
 
     const bare = render(Nav, { logo });

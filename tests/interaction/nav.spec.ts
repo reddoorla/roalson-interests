@@ -5,7 +5,7 @@ import { hydrated } from "./hydrated";
 // The bar makes promises jsdom cannot check (see Nav.svelte) — three here, and
 // a fourth about the homepage alone, at the foot of this file:
 //
-//  1. it FLOATS — no ground, white wordmark, dust controls — only over a dark
+//  1. it FLOATS — no ground, white wordmark, sand controls — only over a dark
 //     first band, and takes the page's off-white ground once the page moves;
 //  2. it never needs script to stay legible: a floating bar is `absolute` in
 //     the server's markup and is pinned only once script has mounted, and the
@@ -21,7 +21,10 @@ const LIGHT = "/dev/property";
 
 const OFF_WHITE = "rgb(242, 239, 233)";
 const GARNET = "rgb(101, 35, 35)";
-const DUST = "rgb(178, 172, 159)";
+/** #e8e1d1 — sand. The floating bar's controls were DUST (#b2ac9f) until
+ *  the operator moved every button's light colour to the tan on 2026-09-22;
+ *  on garnet that took them from 5.11:1 to 8.87:1. See BrandButton. */
+const SAND = "rgb(232, 225, 209)";
 const TRANSPARENT = "rgba(0, 0, 0, 0)";
 
 const bar = 'nav[aria-label="Primary"]';
@@ -103,7 +106,7 @@ test("with scripting off, the floating bar stays on its dark band and the links 
     const links = page.locator(`${bar} noscript a`);
     await expect(links).toHaveText(["Our Properties", "Contact Us"]);
     await expect(links.first()).toBeVisible();
-    await expect(links.first()).toHaveCSS("color", DUST);
+    await expect(links.first()).toHaveCSS("color", SAND);
     // At this width the CTA is in the bar and already is the second link…
     await expect(links.nth(1)).toBeHidden();
     await expect(page.locator(`${bar} a`, { hasText: "Contact us" }).last()).toBeVisible();
@@ -275,8 +278,8 @@ test("the bar floats over the masthead, and takes its ground when the page moves
   await hydrated(page);
   await expect(page.locator(bar)).toHaveAttribute("data-floating", "");
   await expect(page.locator(bar)).toHaveCSS("background-color", TRANSPARENT);
-  await expect(trigger).toHaveCSS("color", DUST);
-  await expect(cta).toHaveCSS("color", DUST);
+  await expect(trigger).toHaveCSS("color", SAND);
+  await expect(cta).toHaveCSS("color", SAND);
 
   // The scripting-off list is in the tree here too — as raw text inside a
   // <noscript> that Chromium gives no box. `display: contents` on that element
@@ -459,7 +462,7 @@ for (const [name, viewport] of [
     // And on the way back up it goes again.
     await scrollPageTo(page, Math.floor(travel) - 2);
     await expect.poll(async () => pick(await gateState(page))).toEqual(HELD);
-    await expect(page.getByLabel("Open menu")).toHaveCSS("color", DUST);
+    await expect(page.getByLabel("Open menu")).toHaveCSS("color", SAND);
   });
 }
 
