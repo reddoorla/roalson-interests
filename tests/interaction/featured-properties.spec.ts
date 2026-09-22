@@ -598,7 +598,7 @@ test.describe("motion", () => {
     lines: { opacity: number; ty: number }[];
     /** The on-stage photo's scale, out of its computed matrix; null = none. */
     scale: number | null;
-    bar: { opacity: number; value: number; mode: string };
+    bar: { opacity: number; value: number; mode: string; dur: string };
   }
 
   /** Waits IN THE PAGE for the next clock turn — the live region changing is
@@ -639,6 +639,7 @@ test.describe("motion", () => {
               opacity: Number(getComputedStyle(fill).opacity),
               value: Number(/scaleX\(([^)]+)\)/.exec(fill.getAttribute("style") ?? "")?.[1]),
               mode: fill.dataset.carouselFill ?? "",
+              dur: getComputedStyle(fill).transitionDuration,
             },
           };
         };
@@ -929,13 +930,29 @@ test.describe("motion", () => {
         "the handover was drawn",
       ).toBe(true);
 
-      // …and the OPACITY faded across it. Sampled, not asserted off a class:
-      // the fade's duration is the carousel's own settle, written inline.
-      const mid = series
-        .filter((s) => s.t > 150 && s.t < DISSOLVE - 100)
-        .map((s) => s.v.bar.opacity);
-      expect(Math.min(...mid), `mid-handover opacities ${mid.join(", ")}`).toBeLessThan(0.8);
-      expect(Math.max(...mid)).toBeLessThan(1);
+      // …and the OPACITY FADED across it, rather than snapping to 0 behind the
+      // same `data-carousel-fill` flag. That distinction is the whole change,
+      // and the first version of this case could not see it: `min < 0.8` is as
+      // true of an instant drop to 0 as of a fade, so a mutation that set the
+      // duration to 0ms passed. Three assertions replace it, each of which a
+      // snap fails — the fade is GRADUAL (many samples strictly between), it
+      // is HALF SPENT at the halfway mark, and it is only ever going DOWN.
+      const mid = series.filter((s) => s.t > 60 && s.t < DISSOLVE - 60).map((s) => s.v.bar);
+      const opacities = mid.map((b) => b.opacity);
+      const partial = opacities.filter((o) => o > 0.02 && o < 0.98);
+      expect(partial.length, `mid-handover opacities ${opacities.join(", ")}`).toBeGreaterThan(5);
+      const halfway = mid[Math.floor(mid.length / 2)].opacity;
+      expect(halfway, `halfway through the handover the fill was at ${halfway}`).toBeGreaterThan(
+        0.25,
+      );
+      expect(halfway).toBeLessThan(0.75);
+      for (let i = 1; i < opacities.length; i++)
+        expect(opacities[i], `frame ${i} of the fade`).toBeLessThanOrEqual(opacities[i - 1]);
+
+      // The fade lasts the carousel's OWN settle — the number is read off the
+      // inline style the component writes from `carousel.settle`, not off a
+      // constant repeated in the component.
+      expect(new Set(mid.map((b) => b.dur))).toEqual(new Set([`${DISSOLVE / 1000}s`]));
 
       // By the end of the handover the fill is opaque again and filling — the
       // bar is never left faded out, which is what gating on `rotating` buys.
@@ -1003,6 +1020,13 @@ test.describe("motion", () => {
         // and NOT the 50% app.css would have hidden a marked element at.
         await expect(page.locator(CARD)).toHaveCSS("transform", "matrix(1, 0, 0, 1, 0, 24)");
         await expect(page.locator(CARD)).toHaveCSS("transition-duration", "0.6s, 0.6s");
+        // `delayMax: 0`, and this is the only place that can see it. The
+        // default 400 is multiplied by `left / innerWidth`, and jsdom has no
+        // layout: `getBoundingClientRect().left` is 0 there, so the product is
+        // 0 whatever `delayMax` says and the unit assertion on this cannot
+        // fail. In a browser at 1440 the card's left edge is 513 of a 1455
+        // viewport, which would buy 141ms of nothing happening.
+        await expect(page.locator(CARD)).toHaveCSS("transition-delay", "0s");
 
         await page.locator(BAND).scrollIntoViewIfNeeded();
         await revealed(page);

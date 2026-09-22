@@ -197,8 +197,12 @@ describe("FeaturedProperties slice", () => {
       expect(lines.map((l) => l.tagName)).toEqual(["P", "H3", "UL", "DIV"]);
 
       // The delays are read off the rendered classes, not off a constant in
-      // the component: a `delay-[${n}ms]` built at runtime would render
-      // exactly this and ship no CSS for it, which is the defect.
+      // the component. NOTE WHAT THIS CANNOT SEE: a `delay-[${n}ms]` built at
+      // runtime renders exactly the same class attribute and ships no CSS at
+      // all, and that mutation left this case green. The assertion that
+      // catches it reads the COMPUTED delay in a browser
+      // (tests/interaction/featured-properties.spec.ts, "four lines 60ms
+      // apart"), where the same markup measures 0s on all four.
       const delays = lines.map((l) => /(?:^|\s)delay-\[(\d+)ms\]/.exec(l.className)?.[1]);
       expect(delays).toEqual(["150", "210", "270", "330"]);
       for (const line of lines) {
@@ -275,8 +279,14 @@ describe("FeaturedProperties slice", () => {
       // and drops it the moment the element is on its way to visible — so it
       // being here is positive evidence the action ran, not a defect.
       expect(region.getAttribute("data-reveal")).toBe("");
-      // delayMax: 0. The default 400 × (left / innerWidth) would buy an
-      // unasked-for delay from the card's own horizontal position.
+      // delayMax: 0 — and THIS ASSERTION CANNOT FAIL HERE, which is worth
+      // saying rather than leaving to be discovered. The delay is
+      // `delayMax × (getBoundingClientRect().left / innerWidth)` and jsdom has
+      // no layout, so `left` is 0 and the product is 0 whatever `delayMax`
+      // says: dropping the option entirely left this green. It is kept as the
+      // statement of intent; the assertion that bites is in
+      // tests/interaction/featured-properties.spec.ts, where the card's real
+      // 513px left edge turns the default into 141ms.
       expect(region.style.transitionDelay).toBe("0ms");
     });
 
