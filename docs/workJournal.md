@@ -4641,3 +4641,162 @@ Not done and not in scope here: there is no web app manifest, so Android's
 install prompt still has no 192/512 icon. Nothing on the site asks for one yet.
 Filed as #78 rather than left in this paragraph — a journal line is not a
 tracker, and a launch sweep reads the issue list.
+
+## 2026-09-21 — The hero's video layer: one controller, a pause control 528px off the page, and a CSP that needed nothing (#29)
+
+`vimeo_id` had been modelled on `home_hero` since the hero batch and rendered
+nothing — a field an editor could fill with no effect. The operator supplied
+"Suburban to Country" (id `1229048743`, Reddoor Creative's own footage, so no
+licensing question) and this built the layer behind it.
+
+**The reuse decision, named.** `docs/COMPONENTS.md` lists two components that
+already take a `vimeoId`, and neither was taken whole. `VimeoBanner` IS its
+markup — a `w-screen aspect-video` `<section>` with its own `?as=run` poster
+underneath; `ScreenWidthMedia` is an `lvh`-tall backdrop driven by a viewport
+store and the player.js SDK. The hero is a 528px band with a Prismic poster
+cropped to `object-position: 50% 68.2%`, inside a `sticky` pin whose height and
+stacking context are load-bearing (#38, #45). Neither box fits, and changing
+either box is a bigger change than not using it. But "lift the logic" is only
+half an answer: lifting it by COPYING would have made the heartbeat its third
+transcription in this repo. So the gate, the heartbeat and the pause flag came
+OUT of VimeoBanner into `$lib/utils/vimeoBackground.svelte` as a
+`VimeoBackground` controller, VimeoBanner now renders that controller, and the
+hero's `HeroBackgroundVideo` is a second rendering of it. Two of the three
+background embeds here now share one implementation; `ScreenWidthMedia`'s SDK
+variant is still its own, and is issue #81 along with the 2.2.2 gap both of them
+still have.
+
+The evidence the lift changed nothing is that **`VimeoBanner.test.ts` was not
+edited**. Its seven cases — the engagement gate, the reduced-motion refusal, the
+origin check, the sibling-iframe check, the junk-payload guards, the watchdog —
+all still pass against a component whose body is now four lines and two effects.
+A rewrite that also rewrote its tests would have proved nothing.
+
+**The defect that cost the most, and could not have been caught where I was
+looking.** The pause control carried its placement on the button, after
+`ARROW_SHAPE` in the class string: `class="{ARROW_SHAPE} {ARROW_TONES.cream}
+absolute right-5 bottom-5 …"`. `ARROW_SHAPE` opens with `relative` — a carousel
+arrow needs it to seat its `before:` hit area in a flex row — and **a class
+attribute's order does not decide Tailwind's cascade; the stylesheet's does**,
+and it emits `relative` after `absolute`. So `relative` won, `bottom-5 right-5`
+became offsets from a static position, and the control rendered at left −80, top
+−20: off the page, invisible, and still focusable. Measured in Chromium:
+`getBoundingClientRect()` gave `{left: -80, top: -20, w: 40, h: 40}`, and
+`document.elementFromPoint` at its centre returned `null`.
+
+Eleven jsdom cases were green through all of it, and could not have been
+otherwise — jsdom resolves no stylesheets, so `position` is whatever the class
+string says it is, which is nothing. What found it was Playwright refusing to
+click: "element is visible, enabled and stable / scrolling into view if needed /
+done scrolling / element is outside of the viewport", sixty times over. The fix
+is a wrapper that owns the positioning, which also leaves the shared ring string
+exactly what the carousel needs. After it: `{left: 1320, top: 468, w: 40, h: 40}`
+in a 1440×528 band — 80 in (the `xl` gutter), 20 up — and `elementFromPoint`
+returns the button.
+
+The regression gate for it asserts the WRAPPER, not the button, so it needs no
+player: the seat ships whenever the layer does. Mutated back to `relative
+absolute` to reproduce the collision, it reads 528px off and fails.
+
+**The CSP needed nothing, and that is a measured claim.** The brief said a Vimeo
+iframe needs directives the policy does not grant. It already granted all of
+them: `frame-src` has carried `https://player.vimeo.com` since the baseline, and
+the player's own subresources are governed by the iframe document's policy, not
+ours. Rather than read that off `svelte.config.js`, it was measured on a
+production build — `pnpm build && pnpm preview`, `/` served with its real
+`<meta http-equiv="content-security-policy">` — by mounting the hero's exact
+`src` in that page and requiring an artifact only a working embed produces: a
+message posted BACK from `https://player.vimeo.com` with `e.source ===
+iframe.contentWindow`. Both `ready` and `playProgress` arrived, with zero
+`securitypolicyviolation` events, zero console refusals and zero POSTs to
+`/api/csp-report`. **Directives added: none.** An absence of violations alone
+would not have been evidence; the `playProgress` is.
+
+The production build could not exercise the shipped path itself — `/dev/*` 404s
+on every production build (by design, #717) and the live `home` document has no
+`vimeo_id` yet (the orchestrator sets the content). So the CSP was proven on the
+production build and the COMPONENT was driven end to end on the dev server, and
+those are two claims, not one.
+
+**What it does, and the numbers.** Source is 1280×720, 8 seconds, read from
+`window.playerConfig.video` on the player page. Vimeo's oEmbed reports 426×240,
+which is the default embed box and says nothing about the master — quoting that
+would have been the wrong number. The band is 528 tall, so covering it needs
+`528 × 16/9 = 938.67 → 939`px, and the embed is `width: max(100%, 939px)` with
+`aspect-video`, centred, cropped by the pin's own `overflow-hidden`. No viewport
+store, no resize listener, no layout read. At 1440 the iframe measures 1440×810
+at `top: -141`, which is the crop the comp's poster takes. That also means the
+clip is upscaled 1.13× at a 1440 layout and 1.5× at 1920, and DOWNscaled at 390.
+Shipped deliberately — a soft aerial with motion blur, behind a hero that carries
+no type of its own — and written up as #82 with the arithmetic, in case a 1080p
+master exists.
+
+**Reduced motion shows a still, because it shows nothing.** Under `reduce` the
+gate returns before the IntersectionObserver is even constructed, so no iframe is
+created: the hero is the flat #3d0707 ground (or the poster), identical to the
+hero that shipped without the field. The same is true of an empty field, an
+unparseable one, a blocked network and a player that never beats — not by four
+fallback branches but by one rule: nothing is revealed until playback progress is
+actually arriving. `?background=1` with `muted=1` also means there is no unmuted
+autoplay to be a 1.4.2 failure.
+
+The trap CLAUDE.md names was live here: the shared Playwright config forces
+`contextOptions.reducedMotion: "reduce"` on every test, which is exactly the
+setting under which this component does nothing — a whole file of video tests
+would have passed while measuring an empty div. Every test states the setting it
+believes it is under and asserts it first; the three that need motion opt out
+with `test.use`. Proven by mutation rather than by reading: flipping that
+`test.use` back to `"reduce"` turns all three red, and deleting the
+`prefersReducedMotion()` guard from the controller turns the `reduce` case red
+and nothing else.
+
+**SC 2.2.2: a visible pause control, and the reasoning.** The clip is 8s and
+loops, so it is moving content that starts automatically, lasts more than five
+seconds and sits in parallel with the headline band — all three conditions, so a
+mechanism is required rather than optional, and `?background=1` draws none of its
+own. (The loop is what settles it, but 8 > 5 on its own would too.) It is the
+carousel's own 40px cream ring and `PlayPauseGlyph` — extracted to a file so the
+glyph is not drawn a third time — bottom-right on the band's gutter scale, since
+the RI cutout owns bottom-left and the floating bar the top, with a `bg-dark/70`
+disc added: over a moving photographic frame the ring's 1.4.11 contrast would
+otherwise be whatever the video happened to be showing. Pressing it posts `pause`
+AND drops the layer's opacity, so the motion stops even if the cross-origin
+player ignores the message — "pause, stop, or hide" satisfied by the half we
+control.
+
+It renders only once a heartbeat has arrived, and `offered` latches so it never
+vanishes out from under a pointer between Play and the first beat back. So
+reduced motion, an empty field and a blocked player all render no button at all:
+a control for motion that never started is worse than none. Driven end to end
+against the real player on the dev server: label "Pause the hero film" → press →
+"Play the hero film", iframe opacity 0, `data-hero-video-playing` gone → press →
+playing again. Focus ring measured under real `:focus-visible` at `#f2efe9`, the
+off-white the `.bg-dark > *` ground hands down — custom properties inherit, so
+the new wrapper does not break it. An earlier reading said garnet; that was
+`.focus()` not triggering `:focus-visible`, a bad measurement rather than a bug,
+and it is recorded because it nearly bought a fix for nothing.
+
+**The axe gate does not audit the control, and that is stated rather than
+implied.** The run forces `reduce`, so the moving state is unreachable there by
+construction. The fixtures page therefore renders the hero WITH the field filled,
+which audits what a motion-averse visitor actually gets — same ground, no iframe,
+no control, nothing extra in the accessibility tree — and the control's name,
+ring and tab order are held by `HeroBackgroundVideo.test.ts` and the interaction
+spec. That is the same split the carousel's own 2.2.2 control already lives
+under, three fixtures down the same page.
+
+**Honest accounting, two items.** The engagement gate — mount only after a real
+pointer, key or touch, never on `scroll` — is VimeoBanner's, kept for its
+measured reason: Vimeo's `__cf_bm` cookie stays out of an automated audit's load.
+Issue #29 asked for ScreenWidthMedia's idle defer instead, which would start the
+clip with no input at all. The engagement gate is the better trade here, but it
+is not free: a visitor who loads the homepage and never moves sees the dark
+ground. In practice `pointermove` and `wheel` fire on the smallest gesture — but
+that is an assumption about behaviour, not a measurement, and it is the first
+thing to revisit if the hero is ever reported as "not playing".
+
+And `tests/interaction/featured-properties.spec.ts:170` is RED, at
+`g.text.left = 436.890625` against a gate of `< 435`. It is not this branch's:
+isolated by restoring `CarouselArrows.svelte` — the only file changed here that
+that page renders — from `origin/main` and re-running, where it reproduced
+byte-for-byte. Filed as #80. Everything else in `pnpm verify` is green.
