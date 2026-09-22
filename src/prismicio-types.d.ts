@@ -232,6 +232,38 @@ export type PageDocument<Lang extends string = string> =
   prismic.PrismicDocumentWithUID<Simplify<PageDocumentData>, "page", Lang>;
 
 /**
+ * Content for Page media documents
+ */
+interface PageMediaDocumentData {
+  /**
+   * Properties masthead field in *Page media*
+   *
+   * - **Field Type**: Image
+   * - **Placeholder**: *None*
+   * - **API ID Path**: page_media.properties_masthead
+   * - **Tab**: Main
+   * - **Documentation**: https://prismic.io/docs/fields/image
+   */
+  properties_masthead: prismic.ImageField<never>;
+}
+
+/**
+ * Page media document from Prismic
+ *
+ * - **API ID**: `page_media`
+ * - **Repeatable**: `false`
+ * - **Documentation**: https://prismic.io/docs/content-modeling
+ *
+ * @typeParam Lang - Language API ID of the document.
+ */
+export type PageMediaDocument<Lang extends string = string> =
+  prismic.PrismicDocumentWithoutUID<
+    Simplify<PageMediaDocumentData>,
+    "page_media",
+    Lang
+  >;
+
+/**
  * Item in *Property → Highlights*
  */
 export interface PropertyDocumentDataHighlightsItem {
@@ -563,7 +595,7 @@ export type PropertyDocument<Lang extends string = string> =
   >;
 
 export type AllDocumentTypes =
-  FormRepliesDocument | PageDocument | PropertyDocument;
+  FormRepliesDocument | PageDocument | PageMediaDocument | PropertyDocument;
 
 /**
  * Item in *Accordion → Default → Primary → items*
@@ -1819,6 +1851,8 @@ declare module "@prismicio/client" {
       PageDocument,
       PageDocumentData,
       PageDocumentDataSlicesSlice,
+      PageMediaDocument,
+      PageMediaDocumentData,
       PropertyDocument,
       PropertyDocumentData,
       PropertyDocumentDataHighlightsItem,

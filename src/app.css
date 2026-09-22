@@ -470,6 +470,47 @@ main > section.hero-band:first-child {
   }
 }
 
+/* The two scrim layers $lib/components/PageMasthead.svelte draws over its
+   photograph — the reason that band stays legible, and therefore measured
+   values, which is why they live here beside the palette rather than in a
+   scoped <style> block. (Svelte's scoping also stamps its hash class onto the
+   band itself, and the band with no photo has to stay byte-identical to what
+   it was before the photo existed. PageMasthead.test.ts pins that.)
+
+   Sized against a PURE WHITE photo pixel, not against the photo we happen to
+   have: the picture is content an editor replaces, so the guarantee has to
+   hold for whatever they upload next. PageMasthead.test.ts parses these stops
+   and recomputes both ratios; the component's header comment carries the
+   reasoning and the numbers measured on the real asset.
+
+   `rgb(0 0 0 / 0)` rather than `transparent` — the keyword interpolates
+   through premultiplied black in some engines and grey in others. */
+
+/* The band. >= 0.60 black from 66% down, which is where the h1's line box
+   starts at both breakpoints: white clears 5.74:1 on pure white there. */
+.masthead-scrim {
+  background-image: linear-gradient(
+    to bottom,
+    rgb(0 0 0 / 0) 38%,
+    rgb(0 0 0 / 0.3) 56%,
+    rgb(0 0 0 / 0.6) 66%,
+    rgb(0 0 0 / 0.72) 100%
+  );
+}
+
+/* The bar's. Its box is sized so the floating nav's 80px (70 below lg) lands
+   in the top 45.45%, held at >= 0.78 — dust at 5.12:1 on pure white. Dust is a
+   mid tone, so a LIGHTER shade here makes a bright sky worse, not better. */
+.masthead-shade {
+  background-image: linear-gradient(
+    to bottom,
+    rgb(0 0 0 / 0.82) 0%,
+    rgb(0 0 0 / 0.78) 45%,
+    rgb(0 0 0 / 0.3) 72%,
+    rgb(0 0 0 / 0) 100%
+  );
+}
+
 @layer base {
   html {
     scroll-behavior: smooth;

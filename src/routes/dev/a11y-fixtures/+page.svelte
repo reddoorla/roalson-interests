@@ -28,7 +28,11 @@
   import { homeHeroFixture, HOME_VIMEO_FIXTURE } from "$lib/home-fixture";
   import { HOME_PHOTO_FIXTURE, photoBandFixture } from "$lib/home-fixture";
   import PhotoBand from "$lib/slices/PhotoBand/index.svelte";
-  import { propertyFixture, propertyListingFixture } from "$lib/property-fixture";
+  import {
+    PROPERTIES_MASTHEAD_FIXTURE,
+    propertyFixture,
+    propertyListingFixture,
+  } from "$lib/property-fixture";
   import { groupListings } from "$lib/property-listing";
   // Aliased: `Accordion` above is the primitive ($lib/components/Accordion.svelte).
   import AccordionSlice from "$lib/slices/Accordion/index.svelte";
@@ -431,11 +435,20 @@
        garnet badges; Sold uses the same markup. -->
   <PropertyDetail property={propertyFixture({ status: "Under Contract" })} />
 
-  <!-- The listing page: its masthead (a third h1 on this page, see above) and
-       every card variant — garnet featured with the cream button, flat with
-       the garnet button, Under Contract + New badges on both grounds, and the
-       unlinked Sold grid on sand. -->
-  <PageMasthead title="Our Properties" />
+  <!-- The listing page: its masthead in BOTH states (two more h1s on this page,
+       see above) and every card variant — garnet featured with the cream
+       button, flat with the garnet button, Under Contract + New badges on both
+       grounds, and the unlinked Sold grid on sand.
+
+       The photo state first, on a drawn near-white ground (#15). axe cannot
+       measure text over an image — it files colour-contrast as `incomplete`,
+       "needs review" — so what this gate actually covers here is the alt text,
+       the heading and the aria-hidden scrim layers; the ratio itself is
+       computed from the scrim's own stops in PageMasthead.test.ts. Neither
+       instance preloads: the hero fixture above already injects the page's one
+       fetchpriority=high link, and a second would fight it for bandwidth. -->
+  <PageMasthead title="Our Properties" image={PROPERTIES_MASTHEAD_FIXTURE} preload={false} />
+  <PageMasthead title="Our Properties, no photo" preload={false} />
   <PropertyListing sections={groupListings(propertyListingFixture())} />
 
   <!-- The top of the homepage (one more h1 on this page, see above): the sand
