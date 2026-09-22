@@ -44,7 +44,7 @@ source. It is the fastest way to recognise what a thing does.
 | [`LandscapeModal.svelte`](../src/lib/components/LandscapeModal.svelte) | — | 3 | Orientation lockout — a primitive the template deliberately does NOT mount (tests/smoke/landscape.spec.ts fails if it is re-mounted), because an undismissable landscape overlay fails WCAG 2.1 SC 1.3.4 (Orientation) |
 | [`Modal.svelte`](../src/lib/components/Modal.svelte) | `open`, `onclose`, `label`, `labelledby`, `children` | 16 | Accessible name for the dialog |
 | [`Nav.svelte`](../src/lib/components/Nav.svelte) | `items`, `logo`, `cta`, `over`, `wordmark`, `currentPath` | 33 | The site's bar and its menu |
-| [`PageMasthead.svelte`](../src/lib/components/PageMasthead.svelte) | `title` | 2 | The comp's `Masthead #1` as the Properties page wears it (6991:978 at 1440, 6992:2865 at 390): a 400px band — 240 on mobile — with the page's H1 sitting on the listing column's left edge, its baseline 72px above the band's bottom (44 on mobile, centred) |
+| [`PageMasthead.svelte`](../src/lib/components/PageMasthead.svelte) | `title`, `image`, `preload` | 8 | Today's band, unchanged: what the header wears with NO photo |
 | [`PlayPauseGlyph.svelte`](../src/lib/components/PlayPauseGlyph.svelte) | `paused` | — | The pause / play glyph for every WCAG 2.2.2 control on this site — the carousel's (CarouselArrows) and the homepage hero's video (HeroBackgroundVideo) |
 | [`PreNavTransition.svelte`](../src/lib/components/PreNavTransition.svelte) | `duration`, `holdDuration` | 10 | ms the overlay fades in before the deferred navigation is issued |
 | [`PropertyCard.svelte`](../src/lib/components/PropertyCard.svelte) | `property`, `variant`, `layout` | 9 | The comp's `property` card, three tones |
@@ -68,9 +68,10 @@ source. It is the fastest way to recognise what a thing does.
 | [`indexability.ts`](../src/lib/indexability.ts) | `MIRROR_ROBOTS_TAG`, `isNetlifyMirrorHost` | 6 | Which HOST a request arrived on decides whether it may be indexed (#140) |
 | [`office.ts`](../src/lib/office.ts) | `telHref`, `OFFICE`, `officeAddressLines`, `officePostalAddress`, `officeDirectionsUrl` | 8 | The firm's one office — the ONE place its address and numbers are written |
 | [`page-load.ts`](../src/lib/page-load.ts) | `orNotFound`, `loadPage` | 4 |  |
+| [`page-media-load.ts`](../src/lib/page-media-load.ts) | `loadPropertiesMasthead` | 5 | The `page_media` singleton: media for pages that have no Prismic document |
 | [`page-meta.ts`](../src/lib/page-meta.ts) | `pageMeta` | 2 |  |
 | [`prismicio.ts`](../src/lib/prismicio.ts) | `repositoryName`, `isPlaceholderRepo`, `linkResolver`, `createClient` | 6 |  |
-| [`property-fixture.ts`](../src/lib/property-fixture.ts) | `propertyFixture`, `propertyListingFixture` | — |  |
+| [`property-fixture.ts`](../src/lib/property-fixture.ts) | `PROPERTIES_MASTHEAD_FIXTURE`, `propertyFixture`, `propertyListingFixture` | — |  |
 | [`property-listing-load.ts`](../src/lib/property-listing-load.ts) | `LISTING_TITLE`, `LISTING_DESCRIPTION`, `emptyListing`, `loadPropertyListing` | 3 |  |
 | [`property-listing.ts`](../src/lib/property-listing.ts) | `LISTING_SECTIONS`, `SOLD_SECTION`, `listingOrder`, `groupListings` | 8 |  |
 | [`property-load.ts`](../src/lib/property-load.ts) | `loadProperty` | 3 |  |
@@ -93,4 +94,4 @@ source. It is the fastest way to recognise what a thing does.
 | [`vimeo.ts`](../src/lib/utils/vimeo.ts) | `checkVimeoVideo`, `parseVimeoId` | 11 | True when the Vimeo video exists and is embeddable (oEmbed responds 200) |
 | [`vimeoBackground.svelte.ts`](../src/lib/utils/vimeoBackground.svelte.ts) | `VIMEO_PLAYER_ORIGIN`, `backgroundEmbedSrc`, `VimeoBackground` | 5 | The gate, the heartbeat and the pause flag behind every chrome-less Vimeo background embed in this repo — lifted OUT of VimeoBanner.svelte so the homepage hero could have all three without taking VimeoBanner's markup with them |
 
-75 modules, 595 tests behind them.
+76 modules, 606 tests behind them.
