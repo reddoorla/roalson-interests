@@ -5,7 +5,13 @@
   import { repositoryName } from "$lib/prismicio";
   import "../app.css";
   import Seo from "$lib/components/Seo.svelte";
-  import { composeTitle, DEFAULT_OG_IMAGE, isNoindexPage, NOINDEX_ENFORCED } from "$lib/seo";
+  import {
+    composeTitle,
+    DEFAULT_OG_IMAGE,
+    DEFAULT_OG_IMAGE_ALT,
+    isNoindexPage,
+    NOINDEX_ENFORCED,
+  } from "$lib/seo";
   import TransitionOverlay from "$lib/components/TransitionOverlay.svelte";
   import Nav from "$lib/components/Nav.svelte";
   import Footer from "$lib/components/Footer.svelte";
@@ -33,7 +39,7 @@
   title={composeTitle(page.data.meta_title || page.data.title)}
   description={page.data.meta_description}
   image={page.data.meta_image || DEFAULT_OG_IMAGE || undefined}
-  imageAlt={page.data.meta_image_alt}
+  imageAlt={page.data.meta_image_alt ?? (page.data.meta_image ? undefined : DEFAULT_OG_IMAGE_ALT)}
   url={page.url}
   noindex={NOINDEX_ENFORCED && isNoindexPage(page.url.pathname, page.data.noindex)}
   jsonLd={page.data.jsonLd}
