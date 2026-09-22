@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { flushSync, mount, unmount } from "svelte";
 import { cleanup, fireEvent, render } from "@testing-library/svelte";
 import { ARROW_TONES } from "./CarouselArrows.svelte";
 import CarouselFixture from "../../routes/dev/a11y-fixtures/CarouselFixture.svelte";
@@ -63,6 +64,42 @@ describe("CarouselArrows", () => {
     // The contract that attribute relies on, read from the file that keeps it.
     const appHtml = readFileSync(resolve(process.cwd(), "src/app.html"), "utf8");
     expect(appHtml).toMatch(/<noscript>[\s\S]*\[data-js-only\]\s*\{\s*display:\s*none/);
+  });
+
+  it("ships QUIET and goes live only when an effect has run (#47)", () => {
+    // The state between the server's markup and hydration, which `render`
+    // cannot show: @testing-library flushes effects, so `hydrated` is already
+    // true by the time it hands back a container. `mount` + a read BEFORE
+    // `flushSync` is the same DOM the browser holds while the bundle is on its
+    // way — or forever, if it never arrives.
+    const target = document.createElement("div");
+    document.body.append(target);
+    const app = mount(CarouselFixture, { target, props: { count: 3, autoplay: 1600 } });
+    try {
+      const wrapper = arrows(target);
+      expect(wrapper.querySelectorAll("button").length, "in the markup, holding the row").toBe(3);
+      expect(wrapper.hasAttribute("data-carousel-quiet")).toBe(true);
+      // `inert` reaches the DOM as the IDL property (Svelte prefers a setter
+      // when one exists), which real browsers reflect back to the attribute
+      // and jsdom does not — so the ATTRIBUTE is asserted in the browser, in
+      // tests/interaction/featured-properties.spec.ts.
+      expect(wrapper.inert, "not focusable, not clickable").toBe(true);
+      const classes = wrapper.className.split(/\s+/);
+      // `visibility: hidden`, never `display: none` — the row's height is the
+      // whole reason these ship at all. (The pixels are measured in
+      // tests/interaction/featured-properties.spec.ts; jsdom resolves no
+      // stylesheet.)
+      expect(classes).toContain("invisible");
+      expect(classes).not.toContain("hidden");
+
+      flushSync();
+      expect(wrapper.hasAttribute("data-carousel-quiet"), "script adopted it").toBe(false);
+      expect(wrapper.inert).toBe(false);
+      expect(wrapper.className.split(/\s+/)).not.toContain("invisible");
+    } finally {
+      unmount(app);
+      target.remove();
+    }
   });
 
   it("takes its colours from the tone: garnet on light grounds, cream on dark", () => {

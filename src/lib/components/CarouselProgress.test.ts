@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render } from "@testing-library/svelte";
-import { tick } from "svelte";
+import { flushSync, mount, tick, unmount } from "svelte";
 import { PROGRESS_TONES } from "./CarouselProgress.svelte";
 import CarouselFixture from "../../routes/dev/a11y-fixtures/CarouselFixture.svelte";
 
@@ -44,6 +44,30 @@ describe("CarouselProgress", () => {
     expect(bar(container).getAttribute("aria-hidden")).toBe("true");
     expect(bar(container).hasAttribute("data-js-only")).toBe(true);
     expect(fill(container).className).toContain("origin-left");
+  });
+
+  it("ships QUIET and goes live only when an effect has run (#47)", () => {
+    // The arrows' rule and the arrows' test (CarouselArrows.test.ts): the bar
+    // keeps its 2px of the row from the server's markup on, but a line that
+    // cannot move is not shown as if it could.
+    const target = document.createElement("div");
+    document.body.append(target);
+    const app = mount(CarouselFixture, { target, props: { count: 3, autoplay: DWELL } });
+    try {
+      const line = bar(target);
+      expect(line.hasAttribute("data-carousel-quiet")).toBe(true);
+      const classes = line.className.split(/\s+/);
+      expect(classes).toContain("invisible");
+      expect(classes, "the 2px is still reserved").toContain("h-0.5");
+      expect(classes).not.toContain("hidden");
+
+      flushSync();
+      expect(bar(target).hasAttribute("data-carousel-quiet"), "script adopted it").toBe(false);
+      expect(bar(target).className.split(/\s+/)).not.toContain("invisible");
+    } finally {
+      unmount(app);
+      target.remove();
+    }
   });
 
   it("draws nothing for a carousel that is switched off", async () => {
