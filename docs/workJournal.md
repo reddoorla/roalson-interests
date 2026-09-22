@@ -3692,3 +3692,32 @@ guard names), #59 (the index extractor). The handoff journal above was written
 before review; the fix agent was stopped by a usage limit before it could append
 its own account, so this section is the orchestrator's, from the four commits and
 its own production measurements.
+
+## 2026-09-21 — A closed PR that could not be reopened, and the step that closed it (`integrate/contact`)
+
+A short entry for a loss that cost one PR number and twenty minutes, because the
+shape will recur.
+
+The contact batch was merged with the session's standing command:
+`gh pr merge <n> --squash --match-head-commit "$(git rev-parse HEAD)"`, followed
+in the same shell line by `git push origin --delete <branch>` and a pull. The
+merge was REFUSED — #56 had landed while #60's checks ran, and both had appended
+to `docs/workJournal.md`, which is append-only and therefore conflicts every time
+two branches are in flight — but the delete ran anyway, because it had been
+written to follow a merge that succeeds. Deleting the head branch CLOSES the pull
+request. Re-pushing the branch restored it, but by then it had been rebased, and
+GitHub refuses to reopen a pull request whose head has moved: "Could not open the
+pull request." The work was re-opened as #61 from the same branch, rebased, with
+both journal entries kept and `pnpm verify` re-run green.
+
+CLAUDE.md already says a closed PR whose BASE is gone cannot be reopened. This is
+its sibling and it is easier to hit: a closed PR whose HEAD has been rewritten
+cannot be reopened either. Two things follow, and both are cheap:
+
+- **Never chain the branch delete onto the merge.** Read the merge's own output,
+  then delete. The chain exists to save a round trip and costs a PR the first
+  time the merge is refused.
+- **Expect the journal to conflict, always.** It is the one file every batch
+  touches and the one file that can never be merged by taking a side. Both
+  entries are kept, in merge order; that is a mechanical resolution, and it is
+  the third time today it has been needed.
