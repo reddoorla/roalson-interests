@@ -6522,6 +6522,98 @@ margin collapses all the way out and pulls the next block up by exactly 9.4.
 The layout gap is the comp's 20. Asserting 20 between the rects would have
 meant deleting the trim.
 
+## 2026-09-22 — The bar's dissolve shipped, passed four new assertions, and was never once on screen (`fix/carousel-bar-dissolve`)
+
+The adversarial review of #102 came back SHIP_WITH_FIXES with a critical
+finding, and it was right. **Animation C did not exist.**
+
+`CarouselProgress` drew the fill at `scaleX(carousel.progress)` and, during the
+handover, faded its opacity from 1 to 0 over the carousel's settle. But
+`progress` is `clamp01(elapsed / dwell)` and `elapsed` is **negative** through
+the settle, so it reads 0 for the whole handover. The fill is
+`absolute inset-0 origin-left`: at `scaleX(0)` it is a box with no width, and a
+500ms opacity ramp on a box with no width paints nothing at all. The bar
+snapped to empty exactly as it had before the change.
+
+**How thoroughly it was certified anyway.** Four assertions were written for
+this, each deliberately stronger than the last — the fade is GRADUAL (more than
+five samples strictly between 0.02 and 0.98), it is HALF SPENT at the midpoint
+(0.25–0.75), it is MONOTONE non-increasing, and its duration is exactly 0.5s
+read off the inline style. Every one of them is true of an invisible ramp,
+because every one of them reads `opacity`. The PR's own mutation log shows the
+author catching a weaker version of the same assertion (a 0ms duration passed
+`min < 0.8`) and replacing it with **four more assertions on the same
+unobservable channel** rather than with one that requires a pixel. That is
+CLAUDE.md's most expensive pattern one step along, and it is the fifth instance
+in this repo (#79, #85, #94, #86 are the others).
+
+The review's evidence, measured twice and independently on a production build:
+painted width **0.00px for every frame** of the handover (max 0.02) while
+computed opacity went 1.000 → 0.102, first non-zero at 507ms when the fill
+flipped back to `timed`; and three element screenshots 290ms apart that were
+**byte-identical** (sha1 `ed776b5b`, 122 bytes, three times) while a mid-dwell
+shot differed. The tool could see a difference; there was none to see.
+
+**The fix is one derivation.** During the handover the fill holds `scaleX(1)`.
+That is not a second clock and not a lie about the value: a handover only ever
+follows a COMPLETED dwell — the turn fires when `elapsed >= dwell`, i.e. at
+progress 1, and `restart()` then parks `elapsed` at `-settle` — so "full" is
+what the clock last said. The transform is still never eased.
+
+It also answers the review's finding 5 for free. That finding predicted a
+visible pop when the clock stops mid-handover, because `rotating` going false
+flips the fill's opacity 0 → 1 and its transition-duration to 0ms in the same
+frame, cancelling the running transition. It does — but the same flag drives
+the value, so the fill returns to `progress` (0) in that same frame, and a
+zero-width box paints nothing at any opacity. Gating, not new state.
+
+**The test now requires a pixel**, which is the whole point:
+`fill.getBoundingClientRect().width` must exceed 90% of the track's width for
+every frame of the handover, and fall below 20% once it is over. Mutated back
+to the shipped behaviour and watched go red — _"a fading fill with no width
+paints nothing: expected +0 to be 1"_.
+
+**A remedy the review proposed that does not work, tried and reported rather
+than quietly dropped.** It flagged `FeaturedProperties.test.ts`'s
+`data-reveal` case as source-scraping — correctly, it greps index.svelte for
+`/\sdata-reveal[\s=>]/` and is blind to a spread or a computed name — and
+proposed rendering instead. Rendering was tried and **cannot answer the
+question**: `animateIn` writes `data-reveal` itself while an element is hidden
+(animateIn.ts:77) and removes it on reveal (:88), so a client render reports
+the attribute PRESENT — measured — whether or not the template contained it.
+The claim is about what the SERVER emits, and a client render cannot see that.
+The source read stays, with its blindness stated and the no-JS browser case
+named as what actually covers it.
+
+**Numbers corrected, because two in one comment block did not survive
+re-derivation.** The comment justifying the reveal's missing `data-reveal`
+claimed the card's top is 1391px at 1440×900 and 1072 at 390×844, "2.5 and 2.3
+viewports below the fold". Re-measured: ~1031 and ~1173, 1.15 and 1.39
+viewports. Its own arithmetic disagreed with itself (1391/900 = 1.55), it had
+the two widths the wrong way round relative to each other, and it contradicted
+the journal entry in its own PR — which was right to about 1%. The `delayMax`
+cost likewise: 141.031ms, not "142ms".
+
+That correction surfaced a real behaviour limit, now **#105**: at any viewport
+1080px tall or more the card is ALREADY in view on load, so the observer fires
+immediately, `hide()` and `show()` collapse into one style recalc, and the
+reveal does not play at all. Measured above the fold at 1920×1080 — the most
+common desktop resolution there is — and at 1920×1200, 2560×1440, 3440×1440,
+1024×1366 and 834×1112. Nothing looks broken (460 sampled frames never dropped
+below opacity 1); the animation is simply absent. The browser case that was
+meant to cover this asserts `fold.top > fold.viewport` at exactly the two
+viewports where the claim happens to hold. Left as a product call rather than
+fixed here.
+
+**What the review checked and found clean**, worth recording because it is the
+other half of trusting it: the known macOS red (#80/#83) is byte-identical
+between base and head and was not silenced or widened; the Tailwind
+default-palette guard passes and the PR's new utilities carry no colour; all
+six motion-measuring cases open their own `reducedMotion: "no-preference"`
+context, so none is vacuous; Ken Burns really does freeze on every pause path
+(Pause, focus-entering, hover, hidden tab) and writes no transform at all under
+reduce; and the stagger's arithmetic and measured timings hold to within 7ms.
+
 ## 2026-09-22 — The map's review: a sand slab over the dark band, and an axe exclusion that silenced the licence (`fix/map-review`)
 
 The adversarial review of #107 came back SHIP_WITH_FIXES with three majors.

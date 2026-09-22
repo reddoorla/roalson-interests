@@ -424,16 +424,17 @@ test.describe("rotation", () => {
 
       await expect(status(page)).toHaveText("Slide 2 of 3", { timeout: TURN_CEILING });
       expect(await onStage(page)).toEqual(["101 W. Commerce Street"]);
-      // DECIDED, THEN REVERSED — and this is the half that survived. The bar's
-      // VALUE still snaps to 0 on the frame the slide turns: `scaleX` is drawn
-      // by the carousel's clock and by nothing else, so there is still exactly
-      // one clock and a pause still freezes the bar where it stands. What was
-      // reversed is that the fill now DISSOLVES over the 500ms handover rather
-      // than disappearing with the count — the comp cross-fades a full bar into
-      // an empty one, and the operator asked for the comp. The fade itself is
-      // measured in "the bar dissolves across the handover" below; here the
-      // point is that nothing eased the NUMBER.
-      expect(await barScale(page)).toBeLessThan(0.15);
+      // DECIDED, THEN REVERSED, AND THEN THE REVERSAL WAS WRONG TOO. The comp
+      // cross-fades a FULL bar into an empty one, so through the handover the
+      // fill holds at 1 and only its opacity moves. The first attempt at this
+      // kept the old snap to 0 underneath the fade, which meant fading a box
+      // with no width — nothing on screen at all. `scaleX` is still drawn by
+      // carousel state and by nothing else (no transition on the transform),
+      // so there is still exactly one clock and a pause still freezes the bar
+      // where it stands. The fade itself is measured in "the bar dissolves
+      // across the handover" below; here the point is only that the number was
+      // not EASED into place.
+      expect(await barScale(page), "the fill holds full through the handover").toBe(1);
 
       // …and it loops.
       await expect(status(page)).toHaveText("Slide 3 of 3", { timeout: TURN_CEILING });
@@ -698,7 +699,13 @@ test.describe("motion", () => {
     lines: { opacity: number; ty: number }[];
     /** The on-stage photo's scale, out of its computed matrix; null = none. */
     scale: number | null;
-    bar: { opacity: number; value: number; mode: string; dur: string };
+    /** `width` is the PAINTED width of the fill, and it is the only one of
+     *  these that can see the dissolve. `value` is the scaleX the component
+     *  declared; `opacity` is what it is fading. A fill at scaleX(0) paints a
+     *  zero-width box, so opacity can ramp beautifully across 500ms and put no
+     *  pixel on the screen — which is exactly what shipped in #102 and passed
+     *  four assertions that all read `opacity`. */
+    bar: { opacity: number; value: number; width: number; mode: string; dur: string };
   }
 
   /** Waits IN THE PAGE for the next clock turn — the live region changing is
@@ -738,6 +745,7 @@ test.describe("motion", () => {
             bar: {
               opacity: Number(getComputedStyle(fill).opacity),
               value: Number(/scaleX\(([^)]+)\)/.exec(fill.getAttribute("style") ?? "")?.[1]),
+              width: fill.getBoundingClientRect().width,
               mode: fill.dataset.carouselFill ?? "",
               dur: getComputedStyle(fill).transitionDuration,
             },
@@ -1020,15 +1028,30 @@ test.describe("motion", () => {
 
       const series = await sampleAfterTurn(page, 1400);
 
-      // The VALUE snapped on the frame of the turn and never eased back: this
-      // is the half of the old decision that did not change.
-      expect(series[0].v.bar.value).toBeLessThan(0.15);
       const duringSettle = series.filter((s) => s.t < DISSOLVE - 100);
-      expect(Math.max(...duringSettle.map((s) => s.v.bar.value))).toBeLessThan(0.15);
       expect(
         duringSettle.some((s) => s.v.bar.mode === "handover"),
         "the handover was drawn",
       ).toBe(true);
+
+      // THE FILL IS ON SCREEN WHILE IT FADES, AND THIS IS THE ASSERTION THAT
+      // MATTERS. The first version of this feature snapped `scaleX` to 0 and
+      // then faded the opacity of a box with no width — the bar vanished
+      // instantly, exactly as it had before the change, and every assertion
+      // below still passed because every one of them reads `opacity`. Painted
+      // width is the channel that can tell the feature from its absence.
+      const track = await page.locator("[data-carousel-progress]").boundingBox();
+      for (const s of duringSettle)
+        expect(
+          s.v.bar.width,
+          `t=${Math.round(s.t)}ms the fill painted ${s.v.bar.width}px at opacity ${s.v.bar.opacity}`,
+        ).toBeGreaterThan(track!.width * 0.9);
+
+      // …and it is GONE once the handover is over: the value returns to the
+      // clock, which is at the start of a fresh dwell.
+      const resumed = series.filter((s) => s.t > DISSOLVE + 60 && s.t < DISSOLVE + 200);
+      expect(resumed.length).toBeGreaterThan(2);
+      expect(Math.min(...resumed.map((s) => s.v.bar.width))).toBeLessThan(track!.width * 0.2);
 
       // …and the OPACITY FADED across it, rather than snapping to 0 behind the
       // same `data-carousel-fill` flag. That distinction is the whole change,
