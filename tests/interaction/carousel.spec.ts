@@ -140,7 +140,7 @@ test("with scripting off it is slide 1, with no dead controls and nothing claimi
   }
 });
 
-test("the bar and the slide turn on one clock, and the bar waits out the dissolve", async ({
+test("the bar and the slide turn on one clock, and the bar HOLDS FULL through the dissolve", async ({
   browser,
 }) => {
   const { context, page } = await moving(browser);
@@ -178,11 +178,17 @@ test("the bar and the slide turn on one clock, and the bar waits out the dissolv
     expect(samples[turn - 1].n).toBe(0);
     expect(samples[turn].n).toBe(1);
 
-    // The frame before the turn the bar was all but full; on the turn it is empty.
-    // (0.9, not 0.99: a loaded CI runner may drop frames just before the turn;
-    // measured on an idle machine the last frame read 0.9979–0.99998.)
+    // The frame before the turn the bar was all but full, and ON the turn it
+    // STAYS full — it holds there through the consumer's settle while its
+    // opacity fades, and only then returns to the clock. (0.9, not 0.99: a
+    // loaded CI runner may drop frames just before the turn; measured on an
+    // idle machine the last frame read 0.9979–0.99998.)
+    //
+    // This used to assert `toBe(0)` on the turn, and that was the bug: a fill
+    // at scaleX(0) is a box with no width, so the 500ms opacity fade layered
+    // over it painted nothing whatsoever. See CarouselProgress's `value`.
     expect(samples[turn - 1].p).toBeGreaterThan(0.9);
-    expect(samples[turn].p).toBe(0);
+    expect(samples[turn].p, "the fill holds full while it fades").toBe(1);
     // It filled on the clock that turned the slide, and never ran backwards on
     // the way. Measured from the bar's OWN first reading, not from zero:
     // `progress` is elapsed / dwell, so a first sample that lands late already
@@ -206,12 +212,21 @@ test("the bar and the slide turn on one clock, and the bar waits out the dissolv
       expect(Math.abs(samples[i].p - expected), `frame ${i} of ${turn}`).toBeLessThan(0.08);
     }
 
-    // …then it holds at 0 through the dissolve and starts again.
+    // …then it HOLDS AT FULL through the dissolve, and drops to the clock when
+    // the settle is over. This used to read "holds at 0", and that was the
+    // defect: at scaleX(0) the fill is a box with no width, so the opacity
+    // fade layered over it was invisible. Holding at 1 is what the clock last
+    // said — the turn fires at progress 1 — and it is what makes the comp's
+    // cross-fade of a full bar into an empty one something you can see.
     const after = samples.slice(turn);
-    const restarts = after.find((s) => s.p > 0);
-    expect(restarts, "the bar started its second dwell").toBeTruthy();
-    const held = restarts!.t - samples[turn].t;
-    expect(Math.abs(held - SETTLE), `held at 0 for ${held}ms`).toBeLessThan(150);
+    for (const s of after.filter((s) => s.t < samples[turn].t + SETTLE - 80))
+      expect(s.p, `t+${Math.round(s.t - samples[turn].t)}ms into the dissolve`).toBe(1);
+
+    const drops = after.find((s) => s.p < 1);
+    expect(drops, "the bar started its second dwell").toBeTruthy();
+    const held = drops!.t - samples[turn].t;
+    expect(Math.abs(held - SETTLE), `held full for ${held}ms, not ${SETTLE}`).toBeLessThan(150);
+    expect(drops!.p, "and it restarts from the bottom of a fresh dwell").toBeLessThan(0.3);
   } finally {
     await context.close();
   }

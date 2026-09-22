@@ -52,7 +52,6 @@
   let { carousel, tone = "garnet", class: passedClasses = "" }: Props = $props();
 
   const timed = $derived(carousel.eligible);
-  const value = $derived(timed ? carousel.progress : carousel.position);
 
   // THE BAR DISSOLVES AT A CLOCK TURN — a decision REVERSED, not a bug fixed.
   // It used to snap to 0 on the frame the index changed and wait out the
@@ -61,12 +60,11 @@
   // one and the operator asked for the comp. See the journal entry of
   // 2026-09-21 on the featured band, and the forward pointer under it.
   //
-  // WHAT DISSOLVES IS OPACITY, AND ONLY OPACITY. `scaleX` still snaps to 0
-  // behind the fade, so the bar's VALUE is drawn by the clock every frame and
-  // by nothing else. A `transition-transform` here would be the second clock
-  // this component's header refuses — it would keep sliding after a pause —
-  // and app.css would zero it under reduced motion anyway. A fade over a value
-  // that has already changed is decoration; a fade of the value is a lie.
+  // WHAT DISSOLVES IS OPACITY, AND ONLY OPACITY. There is no
+  // `transition-transform` here and never will be: that would be the second
+  // clock this component's header refuses — it would keep sliding after a
+  // pause — and app.css would zero it under reduced motion anyway. The value
+  // is written from carousel state every frame; only its opacity eases.
   //
   // `rotating`, not `settling` alone: after a MANUAL turn `elapsed` is parked
   // at -settle with no frame loop to run it down, so `settling` stays true
@@ -74,6 +72,33 @@
   // back. The user's own turns are instant, which is what the consumer's
   // slides do too (see the featured band's `fade`).
   const handover = $derived(timed && carousel.rotating && carousel.settling);
+
+  // AND IT HOLDS FULL WHILE IT FADES. This is the correction that made the
+  // dissolve exist: `progress` is `clamp01(elapsed / dwell)` and `elapsed` is
+  // NEGATIVE through the settle, so it reads 0 for the whole handover. The
+  // first version of this drew `scaleX(0)` and faded the opacity of that —
+  // a 500ms cross-fade on a box with no width, which paints nothing. Measured
+  // on a production build: painted width 0.00px for every frame of the
+  // handover (max 0.02) while computed opacity went 1.000 -> 0.102, and three
+  // element screenshots 290ms apart were byte-identical. The bar snapped to
+  // empty exactly as it had before, and four new assertions all passed,
+  // because every one of them read `opacity` — a channel that ramps just as
+  // prettily on something invisible.
+  //
+  // So the handover draws 1. That is not a second clock and not a lie about
+  // the value: a handover only ever follows a COMPLETED dwell (the turn fires
+  // when `elapsed >= dwell`, i.e. at progress 1, and `restart()` then parks
+  // `elapsed` at -settle), so "full" is what the clock last said. It is still
+  // a pure function of carousel state with no transition on the transform.
+  //
+  // The same flag drives both, which is what keeps the two ends honest. When
+  // the clock stops mid-handover — a hover, a hidden tab — `rotating` goes
+  // false, and the fill returns to `progress` (0) in the SAME frame that its
+  // opacity returns to 1. A `scaleX(0)` box paints nothing at any opacity, so
+  // there is no pop to see: the review that caught the bug above predicted one
+  // here, and it is answered by the gating rather than by new state.
+
+  const value = $derived(timed ? (handover ? 1 : carousel.progress) : carousel.position);
 
   // The arrows' rule, for the same reason (#47): a bar drawn before script
   // runs is a timer that will never move, or a "2 of 3" that cannot change.
