@@ -4641,3 +4641,160 @@ Not done and not in scope here: there is no web app manifest, so Android's
 install prompt still has no 192/512 icon. Nothing on the site asks for one yet.
 Filed as #78 rather than left in this paragraph — a journal line is not a
 tracker, and a launch sweep reads the issue list.
+
+## 2026-09-21 — Four photographs into the seed, and the fingerprint that would have hidden them (#PRNUM, `2f2942e`)
+
+The operator authorised placeholder photography and four files were already in
+the Prismic media library when this session started — a San Antonio skyline for
+the photo band, a poster frame for the hero, and a headshot each for Matt Howard
+and Bart Wilson. `scripts/seed/pages.json` had no way to say "this Image field is
+that asset", so it said nothing, and three bands on the live homepage were empty
+for a reason that had stopped being true.
+
+**`{ "$image": "<filename>" }`**, resolved through `existingAssets()`, is the
+other half of the `{ "$property": "<uid>" }` pattern that was already there. By
+FILENAME and not by asset id, deliberately: `home-photo-band-san-antonio-skyline.jpg`
+is a claim a reviewer can argue with in a diff and `agtBAmy8vnmVs8Zy` is not, and
+the media library is already keyed by filename so the lookup is free. An unknown
+filename throws, and it throws in the **dry run** — which now reads the media
+library (a GET; it writes nothing) for exactly that reason. Shown, not assumed:
+typing `.jpeg` for `.jpg` printed `image: home-photo-band-san-antonio-skyline.jpeg
+-> MISSING` and exited 1 before anything was staged.
+
+**The shape an Image field takes is `{ id }`, and that was measured rather than
+looked up.** `scripts/seed/listings.mjs` has staged `feature_image = { id }`
+since the listings run, and the published `25331-ih-10-west` serves back
+`url`, `dimensions`, `copyright`, `edit` and
+`alt: "Two limestone and glass commercial buildings around a parking court at
+25331 IH 10 West"` — none of which was ever in a payload. So Prismic writes all
+of that into the document off the asset, the alt included, and the four uploads
+carry their own alt text (the hero poster deliberately carries none: it sits
+behind the h1). Nothing in the seed data had to carry alt, and nothing in the
+components had to change to read it — `PhotoBand` hands the image to
+`HeroBackgroundImage`, and `Partners` already renders `partner.photo.alt ?? ""`.
+
+### The belief that was wrong, and would have shipped as a green
+
+The task came with the expectation — which I held too — that filling
+`photo_band.primary.image` would change the document's content signature, so the
+publisher would re-stage and promote it. **It would not have.** Read
+`contentSignature` in `scripts/seed/lib.mjs`: its slice list was
+`` `${s.slice_type}/${s.variation}` `` and nothing else. A slice's `primary` was
+invisible to it. Four photographs could go into three slices and the fingerprint
+would not move one byte.
+
+That matters because that string **is** the publisher's pass.
+`publish-release.mjs` compares the live document's signature with the one
+recorded at stage time, and `if (before.length === 0)` returns — with the
+message "everything staged is live, with the content that was staged." —
+_before_ it ever looks at `--yes`. So the run would have been: stage four
+photographs into the migration release, compare, find no difference, report
+success, publish nothing. The photographs would have sat unpublished with a
+green log over them.
+
+This is the 2026-09-21 defect the signature was built for, one step along, and
+the same shape CLAUDE.md's worked example describes: each correction
+reintroduces the error one notch further out. The uid check could not see a
+slice being added; the slice-list check could not see a slice being filled.
+
+**The fix** is that a slice now fingerprints as
+`type/variation(sorted filled primary keys)`. Measured, both sides:
+
+- live today: `home_hero/default(buttons,heading,specialties,specialty_label)`,
+  `featured_properties/default(properties)`,
+  `partners/default(body,eyebrow,heading,partners)`, `photo_band/default()`
+- what this branch stages:
+  `home_hero/default(buttons,heading,poster,specialties,specialty_label,vimeo_id)`,
+  `featured_properties/default(properties)`,
+  `partners/default(body,eyebrow,heading,partners)`, `photo_band/default(image)`
+
+The publisher now sees a difference, which is the whole point.
+
+**The empty-array filter had to go inside the slice too, and that was found by
+measuring rather than by reasoning.** The live `partners` band's primary carries
+`buttons: []` — a group its model declares and the comp draws none of — and the
+payload that staged it has no `buttons` key at all. Without the same filter the
+top-level `keys` list has carried since the listings run, those two sides could
+never agree and the publisher could never pass on this page again. That is the
+identical disagreement documented one level up, rediscovered one level down.
+
+**Blast radius, measured and not assumed:** all 22 live `property` documents
+fingerprint **byte-identically** under the old and the new function, because a
+property document has no `slices` key at all and the branch that changed is the
+only one it never enters. Each of the 22 was computed both ways against the
+public API and compared, and a test now pins the exact string a slice-less
+document produces.
+
+**One pre-existing drift turned up in that sweep and is not mine.**
+`402-w-nueva-street`'s recorded signature already disagreed with its live
+document under the OLD function: that is #75's typo fix, staged and awaiting the
+next publish, exactly as the previous entry says it left it. The orchestrator's
+publish run settles it along with the home page.
+
+### A latent crash, found by the test that holds a contract
+
+`toPayload` did `const data = stripEmpty(rest)` and then `data.slices = …`. A
+document whose only filled thing is its slices collapses `rest` to `undefined`
+and the next line throws `Cannot set properties of undefined`. No seed entry
+reaches it today — every page has a title — but the new test that holds the
+`stripEmpty(...) ?? {}` contract for an EMPTY slice `primary` does, because the
+home page no longer exercises that contract itself now that the photo band is
+filled. One `?? {}`, with the reason beside it.
+
+### What the fingerprint still cannot see, said out loud
+
+**A partner's headshot.** It goes in a row of the `partners` GROUP, so the
+primary's key list does not move. Both headshots reach the site only because
+they ride on the same document as the poster and the band, which do move it. The
+next person to put a photograph inside a group will get no help from this
+mechanism, and should not assume it is watching.
+
+### Provenance, which was the other half of the job
+
+The three `source` notes that recorded these fields as deliberately empty were
+true when written and are now false, so they were replaced with what is
+actually true — which is not one answer:
+
+- **the photo band is an unlicensed placeholder.** `home-photo-band-san-antonio-skyline.jpg`
+  is one of two stock San Antonio skylines now in the media library and is
+  squarely inside what **#3** blocks launch on. It stands in until the client
+  supplies a licensed photo (**#37**).
+- **the hero poster is a placeholder but NOT an unlicensed one.** It is a frame
+  of Reddoor's own 8-second film "Suburban to Country", which is what
+  `vimeo_id` `1229048743` plays over it. Both supersede operator call 11's
+  empty hero; **#29** is still the video layer itself, which nothing here
+  builds.
+- **the headshots are the client's own people** and carry no licence question.
+  Bart Wilson's is 140×177 in a 153px box — **#73**, referenced and not
+  restated, and the only file that exists of him.
+
+### Honest accounting
+
+**The rendering side needed nothing, and no fixture was written.**
+`HOME_PHOTO_FIXTURE`, `PARTNER_PHOTO_FIXTURE` and the hero's own poster case
+were already in `src/lib/home-fixture.ts` and already exercised by
+`PhotoBand.test.ts` (including the `alt: null` path), `Partners.test.ts` and
+`HomeHero.test.ts`. Not one component was touched. The entire change is
+seed-side, and anyone reading "photographs landed on the homepage" should know
+the rendering was done weeks ago and only the data was missing.
+
+**The mutation pass**, because a test that has not been watched to fail is a
+hypothesis. Six mutations, each red for its own reason and no other:
+
+1. `$image` throw removed → the unknown-filename test fails with
+   `expected [Function] to throw error matching /no asset in the media library
+named "…/ but got 'Cannot read properties of undefined (…'`.
+2. resolver returns `{ id, url }` → four tests red, including
+   `expected [ 'id', 'url' ] to deeply equal [ 'id' ]`.
+3. slice primary keys dropped from the signature → the "gains a field" test
+   fails with the two signatures _equal_, which is the defect itself.
+4. empty-array filter dropped inside the slice → only the payload-vs-delivered
+   test goes red, naming `partners/default(a,button…` against
+   `partners/default(a)`.
+5. `$image` moved onto the Text field `vimeo_id` → the model guard names
+   `home_hero.vimeo_id`.
+6. one filename typed wrong → the four-photograph test and the partner-row test.
+
+**Nothing was run against live Prismic but GETs.** The dry run, the asset list
+and the public API reads, all read-only; `--apply` was not run and the migration
+release was not published. That is the orchestrator's step after this merges.
