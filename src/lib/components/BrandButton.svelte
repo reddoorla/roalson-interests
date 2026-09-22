@@ -20,8 +20,9 @@
   // (The garnet property card's button is "cream", below.)
   //
   // Not DefaultButton: that is the template's rounded, 2px-bordered, px-10
-  // button, and this comp's is square, 1px, 40px tall, px-15, with an optional
-  // arrow and a FILL on hover. DefaultButton is split so a caller can swap its
+  // button, and this comp's is square, 1px, 40px tall, 15px of border-plus-
+  // padding (see brandButtonPadding), with an optional arrow and a FILL on
+  // hover. DefaultButton is split so a caller can swap its
   // skin and keep its geometry — and the geometry is exactly what differs.
   //
   // THE EXPORTS follow DefaultButton's precedent, and exist because this
@@ -52,9 +53,19 @@
   } as const;
 
   /** The comp's trailing arrow drops the right padding 15 → 10px, as in the
-   *  LEARN MORE instances. */
+   *  LEARN MORE instances.
+   *
+   *  14 and 9, not the comp's 15 and 10, and that is the fix for #26 rather
+   *  than a departure from it: **Figma strokes a frame's border INSIDE its
+   *  box and CSS draws it outside the padding.** A 117-wide comp button is 15
+   *  + label + 15 with the 1px stroke eating into that; ours was 1 + 15 +
+   *  label + 15 + 1, so every button on the site was 2px wider than drawn (120
+   *  against 117, 146.45 against 143). Taking the border's pixel out of the
+   *  padding puts border + padding back at the comp's 15 and the whole button
+   *  back on its number. Measured on every consumer, not just the one that
+   *  found it. */
   export const brandButtonPadding = (arrow: boolean) =>
-    arrow ? "pr-[10px] pl-[15px]" : "px-[15px]";
+    arrow ? "pr-[9px] pl-[14px]" : "px-[14px]";
 </script>
 
 <script lang="ts">

@@ -4402,3 +4402,42 @@ Interests/01_Logos/FINAL` → Make available offline — and no amount of work h
 substitutes for it. The Figma mark bleeds off its artboard by design and reads
 as a sliced-off bar at 32px, and padding someone's logo to fit is a design
 change, not a build fix.
+
+## 2026-09-21 — The button was 3px wide of the comp because CSS and Figma put the border on opposite sides of the padding (`fix/button-width`, #26)
+
+Closes #26, which three batches had measured and none had fixed, because all
+three were editing `BrandButton` the same day and the issue said to do it once,
+across every consumer. Nothing is in flight now.
+
+**Figma strokes a frame's border INSIDE its box; CSS draws it outside the
+padding.** A 117-wide comp button is 15 + label + 15 with its 1px stroke eating
+into that padding. Ours was 1 + 15 + label + 15 + 1. So every button on the site
+was 2px wider than drawn, and the remaining pixel the issue measured is text
+rendering. The fix is one line: the padding gives the border its pixel back —
+`px-[14px]`, and `pr-[9px] pl-[14px]` beside the arrow, so border + padding is
+the comp's 15 and 10.
+
+Measured on a production build, every consumer, at 1440:
+
+| button                                         | comp | was    | now             |
+| ---------------------------------------------- | ---- | ------ | --------------- |
+| CONTACT US (nav, hero, footer, detail)         | 117  | 120    | 118             |
+| OUR PORTFOLIO                                  | 143  | 146.45 | 144.45          |
+| Property package / View on Google Maps (arrow) | —    | —      | 196.59 / 222.77 |
+
+The residual 1 and 1.45 is the text rendering the issue predicted, not the
+border. The nav's CONTACT US still ends on x=1320, which is the number the
+issue said had to hold: these buttons are right-aligned, so taking 2px out of
+the box moved the left edge and nothing else.
+
+**The height is NOT changed, and that is a decision.** The issue records that
+the component is `h-10` where the navbar's instance is 39. Trading a pixel off
+a 40px touch target for a pixel of fidelity is the wrong way round, and every
+right edge and gap already matches. Noted here rather than left for someone to
+rediscover as an oversight.
+
+**What holds it.** jsdom has no layout, so the unit test holds the ARITHMETIC
+instead of the pixels: it reads the padding out of the class string and requires
+border + padding to be 15, and 10 beside the arrow. That is the claim; a test
+that only pinned the literal `px-[14px]` would pass a future border of 2px
+happily.
