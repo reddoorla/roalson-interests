@@ -10,5 +10,6 @@ export const load: PageLoad = () => ({
   title: "Homepage fixture",
   navOver: "dark" as const,
   navWordmark: "gated" as const,
+  canvasTop: "dark" as const,
   footerGround: "fade" as const,
 });

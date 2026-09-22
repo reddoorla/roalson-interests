@@ -6,4 +6,5 @@ import type { PageLoad } from "./$types";
 export const load: PageLoad = () => ({
   title: "Properties listing fixture",
   navOver: "dark" as const,
+  canvasTop: "primary" as const,
 });

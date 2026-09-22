@@ -25,6 +25,16 @@ declare global {
        * footer is flat sand, which is what the comp draws everywhere else
        * (Properties at every width; the Homepage itself at 1280 and 390). */
       footerGround?: "fade";
+      /** The colour shown ABOVE this route's first band — what a rubber-band
+       * overscroll at the top of the page reveals. The theme token of the band
+       * the route opens on: "dark" for HomeHero's flat #3d0707, "primary" for
+       * PageMasthead's gradient, whose top stop is garnet. Left out, the page
+       * ground, which is what a route with no dark first band already shows.
+       * Every route that claims `navOver: "dark"` must claim this too, and no
+       * other route may — src/routes/nav-over.test.ts checks both directions
+       * against the band component's own ground class. Resolved by
+       * $lib/canvas-top and painted by `.canvas-top` in app.css. */
+      canvasTop?: "dark" | "primary";
       /** A route asking to be kept out of search while staying reachable —
        * a sold listing. The layout ORs it with NOINDEX_PREFIXES. */
       noindex?: boolean;
