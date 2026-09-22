@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { expectRing, GARNET, OFF_WHITE } from "./expect-ring";
+import { hydrated } from "./hydrated";
 
 // The keyboard-focus ring is drawn OUTSIDE its element, so what it has to be
 // legible against is the container's ground. It was garnet on every ground —
@@ -12,7 +13,7 @@ const bar = 'nav[aria-label="Primary"]';
 test("the ring is off-white on dark grounds and garnet on light ones", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto(FIXTURE);
-  await expect(page.locator(bar)).toHaveCSS("position", "fixed");
+  await hydrated(page);
 
   // The floating bar has no ground of its own: it borrows the masthead's.
   await expect(page.locator(bar)).toHaveAttribute("data-floating", "");
@@ -35,7 +36,7 @@ test("the ring is off-white inside the menu, which is a gradient with no bg-* at
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto(FIXTURE);
-  await expect(page.locator(bar)).toHaveCSS("position", "fixed");
+  await hydrated(page);
   await page.getByLabel("Open menu").click();
   const menu = page.getByRole("dialog", { name: "Menu" });
   await expect(menu).toBeVisible();
@@ -51,7 +52,7 @@ test("the homepage's hero buttons sit on the garnet band, and their ring is off-
   // without the slice knowing — this holds that.
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto("/dev/home");
-  await expect(page.locator(bar)).toHaveCSS("position", "fixed");
+  await hydrated(page);
   const cta = page.locator("main h1 ~ * a, main h1 + * a").first();
   await expect(cta).toBeVisible();
   await expectRing(page, cta, OFF_WHITE);

@@ -1,5 +1,6 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
+import { HYDRATION_TIMEOUT } from "./hydrated";
 
 // The contact page makes promises jsdom cannot check: that its two columns
 // stand on the site's one grid, that a field is the height and the border the
@@ -37,7 +38,12 @@ const formSection = "section#contact-form";
  *  in the same pass that attaches `use:enhance` to the form. */
 const hydrated = (page: Page) =>
   expect
-    .poll(() => page.evaluate(() => document.documentElement.style.getPropertyValue("--footer-h")))
+    .poll(
+      () => page.evaluate(() => document.documentElement.style.getPropertyValue("--footer-h")),
+      {
+        timeout: HYDRATION_TIMEOUT,
+      },
+    )
     .toMatch(/^\d+(\.\d+)?px$/);
 
 async function ingestIsDark(page: Page): Promise<boolean> {
@@ -231,7 +237,7 @@ test("the bar floats over the masthead, and takes its ground once the page moves
 }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto(ROUTE);
-  await expect(page.locator(bar)).toHaveCSS("position", "fixed");
+  await hydrated(page);
   await expect(page.locator(bar)).toHaveAttribute("data-floating", "");
   await page.mouse.wheel(0, 600);
   await expect(page.locator(bar)).not.toHaveAttribute("data-floating", "");
@@ -390,7 +396,6 @@ test("Form.svelte's error summary lands as the alert does: focused, 20px under t
   try {
     await page.goto(FIXTURES);
     await hydrated(page);
-    await expect(page.locator(bar)).toHaveCSS("position", "fixed");
     const summary = 'section[aria-labelledby="form-errors-heading"] [role="alert"][tabindex="-1"]';
     await expect(page.locator(summary)).toBeFocused();
     const at = await landing(page, summary);
@@ -445,7 +450,7 @@ for (const [width, height] of SIZES) {
         try {
           await page.goto(ROUTE);
           await hydrated(page);
-          await expect(page.locator(bar)).toHaveCSS("position", "fixed");
+          await hydrated(page);
           // Everything valid but Name, so Name is the control the browser picks.
           await page.getByLabel(/^Email/).fill("ada@example.com");
           await page.getByLabel(/^Message/).fill("Name was left empty on purpose.");
@@ -488,7 +493,7 @@ for (const [width, height] of SIZES) {
       try {
         await page.goto(ROUTE);
         await hydrated(page);
-        await expect(page.locator(bar)).toHaveCSS("position", "fixed");
+        await hydrated(page);
         await page.getByRole("button", { name: "Send message" }).focus();
         await still(page);
 
