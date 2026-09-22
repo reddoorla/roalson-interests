@@ -5377,7 +5377,7 @@ constant — so the regex matched `<header class={bandClasses}>` and found no
 ground in it. CI went red on the merge, not on either PR: neither branch alone
 contains both halves, so nothing before the merge could have caught it.
 
-The red was *correct* — the guard genuinely could no longer see the class — but
+The red was _correct_ — the guard genuinely could no longer see the class — but
 it was red about the wrong thing, and the obvious repair (teach the regex to
 resolve one identifier) would be a second parser for Svelte that the next
 refactor breaks again. The guard now RENDERS each band and reads the class its
