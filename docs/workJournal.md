@@ -4284,3 +4284,68 @@ in 95 files, 124 Playwright tests.
 Not done, and noted rather than acted on: the IABS names both partners' direct
 email addresses and phone numbers. They are public in that document already, but
 putting them on the site is the client's call, not a thing to infer from a PDF.
+
+## 2026-09-21 — The parity harness, finally run against the finished pages (`docs/parity-run`)
+
+`/figma-slices`' definition of done says the harness is run and its deltas
+reported as a number, per page. It was stood up at Stage A and then not run over
+a finished page — the partners batch's agent said so plainly, that no spec said
+whose job it was. It is the orchestrator's. Repeatable:
+
+```sh
+FIGMA_PAT=… FIGMA_FILE=U5KIPY7HmZOQwqJXGGsEIl \
+  node scripts/figma-compare/pull-figma.mjs $D home=6802:1416 home390=6994:796 properties=6903:1030
+pnpm build && pnpm vite preview --port 4477 &
+BASE=http://127.0.0.1:4477 OUT=$D ROUTES="/,/properties" node scripts/figma-compare/extract-dom.mjs
+node scripts/figma-compare/compare.mjs $D home
+```
+
+**The homepage, band by band, against the comp's own frames at 1440.** This is
+the number:
+
+| band                   | comp    | built | delta     |
+| ---------------------- | ------- | ----- | --------- |
+| hero (Frame 202)       | 1006    | 1007  | +1.0      |
+| featured (Properties)  | 827     | 837.5 | **+10.5** |
+| legacy (Value Prop #1) | 556     | 556   | 0         |
+| photo band (Frame 205) | 800     | 800   | 0         |
+| footer (Value Prop #1) | 512.7   | 512.6 | −0.1      |
+| whole page             | 3701.65 | 3713  | +11.35    |
+
+Four of the five bands are within a pixel, and the page's total delta is that one
+band's. **The +10.5 is content, not layout, and was measured rather than
+assumed:** the photo is 927 × 541.41, which is the comp's ratio exactly; the
+title is 34.8; the difference is the bullet list at 100px over five single-line
+bullets, where the comp drew this listing with two. The client's own copy for
+25331 IH 10 West has five. The panel's 200px floor absorbs most of it and the
+card grows the remaining 10.5 — which is the behaviour decision C was made for,
+after review found the arrows floating 60px above the card's foot instead of 43
+whenever the text outgrew a fixed height.
+
+**The listing page cannot be compared this way, and saying so is the finding.**
+`/properties` reports 69 deltas against 3 matches, and none of them is a defect:
+the comp is a design holding about six cards and the live page holds 22, so the
+site is 6981 tall against the comp's 5311 and every `dy` after the first section
+wanders by thousands. A whole-page diff is only meaningful where both sides have
+the same number of things. That page was measured per section and per card when
+it was built (#16), which is the right unit for it, and this run does not
+supersede those numbers.
+
+**What the text diff flags that is not a defect**, listed because the next
+person to run this will see the same and should not re-derive it. The headline
+is two `<h1>` runs where the comp is one text node (the conditional `<br>`); the
+address is three `<address>` lines where the comp is one; `PROFILE` is absent
+because neither partner has a bio; the partner name sits at x=95 rather than the
+comp's 248 because the launch state has no headshot and the panel spans the whole
+card; the navbar's `x` deltas are the comp's navbar being its own frame at its
+own origin; and every "site text not in the comp" line is either a screen-reader
+addition ("Skip to main content", "about 25331 IH 10 West", "(opens in a new
+tab)") or the rights line the comp hides, which is already on the operator's
+list.
+
+**Two real deltas for the operator, neither a defect.** The specialty labels and
+eyebrows render in Atkinson Hyperlegible Next 600 where the comp specifies Area
+Normal 700 — approved call 2 at Stage A, because Area Normal is a commercial face
+that was in no style guide; the harness reports it on every such run and it is
+not going to change. And the size line reads "Up to 16,700 SF" where the comp
+writes "Up to 16,700SF": the space is ours, from the client's own table.
