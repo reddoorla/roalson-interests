@@ -29,11 +29,14 @@
   // text down instead of printing over it. From `lg` the same four rows hold
   // two columns, 414fr | 514fr = the comp's 20 + 394 | 20 + 474 + 20.
   //
-  // THE MAP IS DEFERRED (operator call 10, #13). Its column is reserved from
-  // `lg` and is nothing but the band's own ground — the comp's map frame has no
-  // fill either. Below `lg` it is not rendered: the comp's 390 × 200 box would
-  // be 200px of blank scroll. No pins and no captures: those are Google's
-  // imagery, and a pin without a map is decoration pretending to be data.
+  // THE MAP IS IN (#13), and the paragraph this replaces was wrong twice. It
+  // said the column was reserved "from `lg`" and that below `lg` the comp's
+  // 390 × 200 box "would be 200px of blank scroll" — the comp draws that box,
+  // full bleed, as the first thing in the band, and it has never been blank.
+  // It also said pins were out because "those are Google's imagery"; the pins
+  // are the comp's own `np_pin-map` component and the tiles are OpenStreetMap's.
+  // The slot itself still has no fill, which is true of the comp's frame too.
+  // See $lib/components/PropertyMap.svelte and the 2026-09-22 journal entry.
   //
   // THE CARD'S LEFT EDGE IS THE SITE'S COLUMN LINE, not the comp's 512. Every
   // other band puts its right column at x=513 (1440) through the gutters and
@@ -58,10 +61,12 @@
   import BrandButton from "$lib/components/BrandButton.svelte";
   import CarouselArrows from "$lib/components/CarouselArrows.svelte";
   import CarouselProgress from "$lib/components/CarouselProgress.svelte";
+  import PropertyMap from "$lib/components/PropertyMap.svelte";
   import { createCarousel } from "$lib/carousel.svelte";
   import { cmsHref } from "$lib/cms-href";
   import { featuredListings } from "$lib/featured-properties";
   import { linkResolver } from "$lib/prismicio";
+  import { slidePoints } from "$lib/property-map";
   import { DEFAULT_IMAGE_WIDTHS, imgix, srcset } from "$lib/utils/image";
 
   let { slice }: { slice: Content.FeaturedPropertiesSlice } = $props();
@@ -362,16 +367,44 @@
       {/if}
     </div>
 
-    <!-- Where the map will mount (#13): the band's own ground and nothing else. -->
-    <div
-      data-map-slot
-      aria-hidden="true"
-      class="hidden lg:col-start-1 lg:row-start-1 lg:block"
-    ></div>
+    <!-- THE MAP (#13). The comp draws it 512 x 827 at (0, 0) at 1440 — full
+         bleed to the left viewport edge, the band's whole height, no gap to
+         the card — and 390 x 200 full bleed at (0, 0) at 390, where it is the
+         FIRST thing in the band and sits flush on top of the card. The build
+         used to render nothing below `lg`; that was a reading of the comp, and
+         the comp was re-read.
+         It is LAST in the DOM and first on the phone. That is deliberate and
+         it is `order`, not a move: the card is the band's content and the map
+         is a picture of three of its listings, so the card stays first for a
+         screen reader and for anything that ignores CSS, while the `max-lg`
+         grid in this file's <style> puts the map above it visually where the
+         comp draws it there. Above `lg` grid PLACEMENT decides, so the DOM
+         order is not consulted at all.
+         No background of its own: the comp's map frame has no fill either, and
+         tests/interaction/featured-properties.spec.ts measures that this slot
+         stays transparent so the band's #3d0707 is what shows through the
+         reserved column while the tiles are still arriving. -->
+    <div data-map-slot class="max-lg:order-first lg:col-start-1 lg:row-start-1">
+      <PropertyMap points={slidePoints(slides)} label={heading} class="h-50 w-full lg:h-full" />
+    </div>
   </section>
 {/if}
 
 <style>
+  /* Below `lg` the band is a one-column grid rather than block flow, for one
+     reason: so the map slot — last in the DOM, because the card is the band's
+     content — can take `order: -1` and sit where the 390 comp draws it, on
+     top of the card. A single-column grid is layout-neutral against the block
+     flow it replaces here (the section has exactly two children, neither of
+     which carries a vertical margin to collapse), and it stops at `lg`, where
+     the explicit `col-start` / `row-start` placements below take over. */
+  @media (width < 64rem) {
+    .featured-band {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+    }
+  }
+
   /* The site's column line, as every gutter-ed band computes it:
      gutter + (content − gap) × 397/1244 + gap, with content capped at 1440 and
      centred. 513px at 1440. Tailwind's `lg` and `xl`, where the gutter changes

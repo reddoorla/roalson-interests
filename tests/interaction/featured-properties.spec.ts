@@ -31,6 +31,14 @@ const CARD = "[data-featured-card]";
 
 const DWELL = 4000;
 const DISSOLVE = 500;
+/** How long to WAIT for a turn before calling it a failure — a ceiling, never
+ *  a measurement. What a lap actually took is stamped in the page by
+ *  `stampTurns` and asserted from those numbers, so this only decides how
+ *  patient the wait is, and being patient costs a green run nothing. Raised
+ *  from `DWELL + 2000` when the homepage band gained its map (#13, #103): a
+ *  426 KB MapLibre boot lands inside the first dwell on a cold dev server and
+ *  pushed one turn past 6s, which read as "the carousel never turned". */
+const TURN_CEILING = DWELL + DISSOLVE + 6000;
 /** Half the leading the ramp trims off `t-h4` (25.2 line, 9 cap box). The comp
  *  measures from the CAP box, CSS from the line box. */
 const H4_TRIM = 8.1;
@@ -232,8 +240,10 @@ test.describe("where the comp draws it", () => {
           { message: `card vs h1 left edge at ${width}` },
         )
         .toBeLessThanOrEqual(1);
-      // …and the reserved column is the rest of the band: the band's own
-      // ground, nothing drawn, flush against the card.
+      // …and the map's column is the rest of the band, flush against the card.
+      // The SLOT still paints nothing of its own — the comp's map frame has no
+      // fill, and the band's #3d0707 is what shows through while the tiles are
+      // arriving (#13).
       const g = await geometry(page);
       expect(g.slot.display, `${width}`).toBe("block");
       expect(g.slot.right, `${width}`).toBeCloseTo(0, 0);
@@ -289,7 +299,7 @@ test.describe("where the comp draws it", () => {
     }
   });
 
-  test("390: photo, bar, [eyebrow | controls], text — and no map box", async ({ browser }) => {
+  test("390: map, photo, bar, [eyebrow | controls], text", async ({ browser }) => {
     const { context, page } = await moving(browser, viewportFor(390, 844));
     try {
       await page.goto(HOME);
@@ -298,7 +308,14 @@ test.describe("where the comp draws it", () => {
       await page.locator(`${CARD} h2`).hover();
       const g = await geometry(page);
 
-      expect(g.slot.display).toBe("none");
+      // WAS `toBe("none")`, with the title "and no map box". The comp does
+      // draw one at 390 — 390 x 200, full bleed, the first thing in the band —
+      // and #13 built it; the old assertion was a reading of the comp that
+      // re-reading it overturned. Everything the map does with that box is
+      // measured in tests/interaction/property-map.spec.ts; what belongs here
+      // is only that it is drawn and that it did not move the card's anatomy,
+      // which is what every line below this one is about.
+      expect(g.slot.display).toBe("block");
       expect(g.photo.width / g.photo.height).toBeCloseTo(390 / 227.8, 2);
       expect(g.bar!.top - g.photo.bottom).toBeCloseTo(20, 0);
       // comp: 10 between the bar and the chrome row at 390 (20 at 1440)
@@ -371,7 +388,7 @@ test.describe("rotation", () => {
       // The bar is filling before anything turns.
       await expect.poll(() => barScale(page)).toBeGreaterThan(0.2);
 
-      await expect(status(page)).toHaveText("Slide 2 of 3", { timeout: DWELL + 2000 });
+      await expect(status(page)).toHaveText("Slide 2 of 3", { timeout: TURN_CEILING });
       expect(await onStage(page)).toEqual(["101 W. Commerce Street"]);
       // DECIDED: the bar SNAPS to 0 on the frame the slide turns and waits out
       // the dissolve there (the comp cross-fades a full bar into an empty one —
@@ -379,8 +396,8 @@ test.describe("rotation", () => {
       expect(await barScale(page)).toBeLessThan(0.15);
 
       // …and it loops.
-      await expect(status(page)).toHaveText("Slide 3 of 3", { timeout: DWELL + DISSOLVE + 2000 });
-      await expect(status(page)).toHaveText("Slide 1 of 3", { timeout: DWELL + DISSOLVE + 2000 });
+      await expect(status(page)).toHaveText("Slide 3 of 3", { timeout: TURN_CEILING });
+      await expect(status(page)).toHaveText("Slide 1 of 3", { timeout: TURN_CEILING });
 
       // THE LAP IS MEASURED IN THE PAGE, not out here. Two Date.now() readings
       // around two `expect(...).toHaveText()` calls measure Playwright's POLL
@@ -402,7 +419,24 @@ test.describe("rotation", () => {
       expect(
         Math.abs(toFirstTurn - (1 - first.p) * DWELL),
         `first turn after ${toFirstTurn}ms with ${(1 - first.p) * DWELL}ms of the dwell left`,
-      ).toBeLessThan(300);
+        // 700, RAISED FROM 300, and it is not the clock that changed (#103).
+        // This is the one reading here taken across the page's own load, and
+        // the homepage band now boots a 426 KB MapLibre map beside the card —
+        // at 1440x900 the 512x827 map is already intersecting at scrollY 0, so
+        // its parse and its WebGL context land inside this very dwell and push
+        // one `setTimeout` out by however long they block. Measured on this
+        // machine: 458.6 / 1029.7 / 2609.8ms of overshoot before
+        // `optimizeDeps.include: ["maplibre-gl"]` stopped Vite discovering the
+        // dependency mid-session, and 364.6ms worst case after it. 700 is
+        // twice that and still 17.5% of a 4000ms dwell.
+        //
+        // NOTHING IS LOST BY IT. The loop below is the stronger guard and is
+        // untouched: every WHOLE lap must be 4400-4700ms, ±150 on the comp's
+        // 4500, and those are measured in-page after the load has settled. A
+        // dwell that was actually wrong — 3s, 5s, no dissolve — fails there
+        // whatever this line says. What this line still catches is the first
+        // turn being unrelated to what the bar was showing.
+      ).toBeLessThan(700);
       // Every lap after it is a WHOLE one: dwell + dissolve on one clock.
       for (let i = 1; i < turns.length; i++) {
         const lap = turns[i].t - turns[i - 1].t;
@@ -444,7 +478,7 @@ test.describe("rotation", () => {
       await expect(page.getByRole("button", { name: "Pause slides" })).toBeVisible();
       // Focus is still inside the carousel, so rotation restarts only because
       // Play was pressed — and it resumes from where the bar stood.
-      await expect(status(page)).toHaveText("Slide 2 of 3", { timeout: DWELL + 2000 });
+      await expect(status(page)).toHaveText("Slide 2 of 3", { timeout: TURN_CEILING });
     } finally {
       await context.close();
     }
@@ -509,7 +543,20 @@ test.describe("rotation", () => {
       await page.getByRole("button", { name: "Pause slides" }).click();
       await expect(page.getByRole("button", { name: "Play slides" })).toBeVisible();
 
-      const results = await new AxeBuilder({ page }).include(BAND).analyze();
+      // The map's subtree is excluded (#13), and it has to be: a cluster
+      // marker draws its count in sand on garnet ON TOP OF A CANVAS, and axe
+      // cannot see through a canvas — it answers `color-contrast` for that
+      // <span> with `incomplete`, which the assertion below reads as "axe
+      // could not measure these" and fails on. It is NOT deterministic, which
+      // is how it was found: this case passed two full `pnpm verify` runs and
+      // went red on the third, depending on whether a cluster had rendered
+      // before axe ran. The pair's own ratio is 8.87:1 and is held by
+      // theme-contrast.test.ts; the markers are `aria-hidden` drawings of the
+      // list beside them either way.
+      const results = await new AxeBuilder({ page })
+        .include(BAND)
+        .exclude(`${BAND} [data-property-map]`)
+        .analyze();
       expect(results.violations.map((v) => `${v.id}: ${v.nodes.length}`)).toEqual([]);
       // Positive evidence that axe looked at the controls at all.
       expect(results.passes.map((p) => p.id)).toContain("button-name");
@@ -568,7 +615,7 @@ test.describe("the portfolio button", () => {
         // the other one, and the reason the old placement was removed.
         expect(g.portfolio!.left, `${width}: not in the map column`).toBeGreaterThan(0);
         expect(g.card.width - g.portfolio!.right, `${width}: on the card's 20`).toBeCloseTo(20, 0);
-        expect(g.slot.right, `${width}: the map column is still empty`).toBeCloseTo(0, 0);
+        expect(g.slot.right, `${width}: flush against the card's left edge`).toBeCloseTo(0, 0);
         // Level with LEARN MORE, to the pixel, at both widths.
         expect(
           g.portfolio!.bottom - g.button.bottom,
@@ -644,7 +691,17 @@ test.describe("the portfolio button", () => {
     try {
       await page.goto(`${HOME}?featured=one`);
       await page.locator(`${CARD} [data-featured-portfolio]`).waitFor();
-      const results = await new AxeBuilder({ page }).include(BAND).analyze();
+      // The map's subtree is EXCLUDED rather than the audit narrowed to the
+      // card: the band's ground is part of what this measures, and the map
+      // (#13) brings text nodes of its own — the section's listings, as links.
+      // Counting them here would turn "nine and this one" into a number that
+      // moves whenever an editor adds a listing. The map's own contrast is
+      // covered on /dev/a11y-fixtures, where it is mounted with `engine="off"`
+      // so the gate never waits on a tile host.
+      const results = await new AxeBuilder({ page })
+        .include(BAND)
+        .exclude(`${BAND} [data-property-map]`)
+        .analyze();
       expect(results.violations.map((v) => `${v.id}: ${v.nodes.length}`)).toEqual([]);
 
       const incomplete = results.incomplete.find((r) => r.id === "color-contrast");
@@ -722,7 +779,10 @@ test.describe("the other states", () => {
       await expect(
         band.getByRole("link", { name: /Learn more about 25331 IH 10 West/ }),
       ).toBeVisible();
-      await expect(band.locator("li")).toHaveCount(5);
+      // The SLIDE's five bullets. The band also holds the map's list of
+      // Google Maps links (#13), which is <li>s too — an unqualified count
+      // reads six and stops being about the panel this test is measuring.
+      await expect(band.locator("[data-featured-slide] li")).toHaveCount(5);
 
       // The live listing's five bullets GROW the panel past the comp's 285;
       // LEARN MORE keeps the panel's 40 under it.
@@ -791,7 +851,19 @@ test.describe("the other states", () => {
       const portfolio = card.getByRole("link", { name: "Our portfolio" });
       await expect(portfolio).toBeVisible();
       await expect(portfolio).toHaveAttribute("href", "/properties");
-      for (const link of await page.locator(`${BAND} a`).all())
+      // `:not([data-map-link])` — the map's own links go to Google Maps by
+      // design (#13), and they are the OTHER thing a visitor without the
+      // bundle still gets here: the band's map is a list of its listings'
+      // pins until MapLibre replaces it, and with scripting off it stays one.
+      // Asserted as its own claim rather than folded into the loop below.
+      const pins = page.locator(`${BAND} [data-map-link]`);
+      await expect(pins).toHaveCount(3);
+      for (const pin of await pins.all())
+        await expect(pin).toHaveAttribute(
+          "href",
+          /^https:\/\/www\.google\.com\/maps\/search\/\?api=1&query=/,
+        );
+      for (const link of await page.locator(`${BAND} a:not([data-map-link])`).all())
         await expect(link).toHaveAttribute("href", /^\/properties(\/.+)?$/);
     } finally {
       await context.close();

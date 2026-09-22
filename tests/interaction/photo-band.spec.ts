@@ -1,6 +1,8 @@
 import { expect, test, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 
+import { HYDRATION_TIMEOUT } from "./hydrated";
+
 // The homepage's photo band makes promises jsdom cannot check (see
 // src/lib/slices/PhotoBand/index.svelte and the `[data-pinned-band]` block in
 // src/app.css):
@@ -40,10 +42,25 @@ const SPACER = ".pinned-band-spacer";
 const GARNET = "rgb(101, 35, 35)";
 const DARK = "rgb(61, 7, 7)";
 
-/** Positive evidence of hydration: only the footer's own effect writes this. */
+/** Positive evidence of hydration: only the footer's own effect writes this.
+ *
+ *  The timeout is `hydrated.ts`'s and not Playwright's 5s, and this file went
+ *  red for the want of it: every run starts its own dev server, so the first
+ *  test that needs script pays for the whole client graph being transformed,
+ *  and /dev/home's graph grew when the property map landed on the featured
+ *  band (#13). Measured on this machine, under `pnpm verify`'s parallel load:
+ *  this poll timed out at 5s with `--footer-h` still `""`, and the same file
+ *  passed 8/8 in 17.8s run on its own. That is the defect `hydrated.ts`'s own
+ *  header records paying for three times in one session — the shared helper
+ *  was fixed and this private copy was not. */
 const hydrated = (page: Page) =>
   expect
-    .poll(() => page.evaluate(() => document.documentElement.style.getPropertyValue("--footer-h")))
+    .poll(
+      () => page.evaluate(() => document.documentElement.style.getPropertyValue("--footer-h")),
+      {
+        timeout: HYDRATION_TIMEOUT,
+      },
+    )
     .toMatch(/^\d+(\.\d+)?px$/);
 
 const motion = (page: Page) =>

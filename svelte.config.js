@@ -156,7 +156,25 @@ const config = {
           // Cloudflare Turnstile renders its challenge in an iframe from this host.
           "https://challenges.cloudflare.com",
         ],
-        "connect-src": ["self", "https://*.prismic.io"],
+        // THE PROPERTY MAP'S ONLY CSP ENTRY (#13). Measured in Chromium
+        // against the built site on 2026-09-22: with the policy otherwise
+        // untouched, `https://tiles.openfreemap.org` is the single blocked
+        // host, and adding it here alone takes the map to zero violations.
+        //
+        // What it covers is everything, and that is not obvious: MapLibre
+        // fetches the style JSON, the TileJSON, the vector .pbf tiles, the
+        // low-zoom Natural Earth raster .png AND the sprite sheet and the
+        // glyph .pbf ranges with `fetch()` — never as an <img> or a webfont —
+        // so img-src and font-src need nothing. Its worker is same-origin
+        // (see $lib/map-engine on why that takes an explicit URL), so it
+        // resolves through child-src to `script-src 'self'` and worker-src
+        // needs nothing either. NO 'unsafe-eval': MapLibre 6 compiles its
+        // style expressions without it.
+        //
+        // The host is a pair with PUBLIC_MAP_STYLE_URL's default
+        // ($lib/property-map). Point that variable at a keyed provider and
+        // this line is the other half of the swap.
+        "connect-src": ["self", "https://*.prismic.io", "https://tiles.openfreemap.org"],
         "font-src": ["self", "data:", "https://fonts.gstatic.com"],
         "base-uri": ["self"],
         "form-action": ["self"],

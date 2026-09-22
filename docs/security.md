@@ -43,6 +43,39 @@ The endpoint is at [`/api/csp-report`](../src/routes/api/csp-report/+server.ts).
 
 **Before launch**, replace the `console.warn` with a forwarder to your monitoring system (Sentry, Datadog, Logflare). Treat repeated violations from the same `blocked-uri` as a real signal — either a misconfigured CDN or an exploit attempt.
 
+## The property map's tile provider (#13)
+
+The per-section map on `/properties` and the homepage band is **MapLibre GL JS 6.10.0** drawing **OpenFreeMap** vector tiles (`https://tiles.openfreemap.org/styles/liberty`). It was chosen over the Google Maps JS API and a Google My Maps embed for three reasons that are security decisions rather than design ones: **no API key** (this repository is public, so a key could not be committed anyway), **no account**, and **no third-party cookie set on our pages**.
+
+### It costs exactly one CSP entry
+
+```js
+"connect-src": ["self", "https://*.prismic.io", "https://tiles.openfreemap.org"],
+```
+
+That is the whole change, and it was measured in Chromium against a production build on 2026-09-22: with the rest of the policy untouched, `tiles.openfreemap.org` is the single blocked host, and adding it there alone takes the map to **zero violations**.
+
+What surprises people is which directives are **not** involved:
+
+| directive                  | why it needs nothing                                                                                                                                                                             |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `img-src`                  | MapLibre fetches the sprite sheet PNG and the low-zoom Natural Earth raster tiles with `fetch()`, not as `<img>` elements. They are `connect-src`.                                               |
+| `font-src`                 | Map labels come from glyph `.pbf` ranges, also fetched. They are not webfonts.                                                                                                                   |
+| `worker-src` / `child-src` | The worker is **same-origin** — Vite emits it into `_app/immutable/workers/` and `$lib/map-engine` hands MapLibre that URL explicitly. It falls back through `child-src` to `script-src 'self'`. |
+| `script-src`               | **No `'unsafe-eval'`.** MapLibre 6 compiles its style expressions without `eval` or `new Function`. Do not add it; `scripts/csp-policy.test.ts` fails if anyone does.                            |
+
+`$lib/map-engine` explains why the worker URL has to be passed in: MapLibre derives it from `import.meta.url` by default, which after bundling points into the app's own chunk directory where no such file exists. Left alone the worker 404s, the map renders nothing — and nothing in the console says "CSP".
+
+### Swapping providers
+
+The style URL is `PUBLIC_MAP_STYLE_URL`, defaulting to OpenFreeMap (`$lib/property-map`, `mapStyleUrl`). Moving to a keyed provider — MapTiler, Stadia, Protomaps on your own bucket — is **one env var plus one `connect-src` host**, and nothing else in the app changes. An empty or whitespace value falls back to the default rather than rendering a blank map, which is the way an unset variable on a host's dashboard usually shows up.
+
+If the new provider serves its sprite or glyphs from a **different** host, add that host too — `mapStyleUrl` only covers the style document.
+
+### Attribution is not optional
+
+OpenStreetMap data is **ODbL**. MapLibre's `AttributionControl` stays mounted (bottom-left, toned to the brand) and `tests/interaction/property-map.spec.ts` asserts the string "OpenStreetMap" is actually rendered. The Figma comp has no attribution anywhere and the Google capture it was drawn over has Google's own cropped out; that is not a precedent this build follows.
+
 ## Adding a new origin to CSP
 
 Whenever you add a third-party CDN, analytics tag, or embed:
