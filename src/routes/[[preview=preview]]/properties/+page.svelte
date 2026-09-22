@@ -5,5 +5,5 @@
   let { data } = $props();
 </script>
 
-<PageMasthead title={data.title} />
+<PageMasthead title={data.title} image={data.masthead} />
 <PropertyListing sections={data.sections} />

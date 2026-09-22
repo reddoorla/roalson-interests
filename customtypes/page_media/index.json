@@ -1,0 +1,22 @@
+{
+  "format": "custom",
+  "id": "page_media",
+  "label": "Page media",
+  "repeatable": false,
+  "status": true,
+  "json": {
+    "Main": {
+      "properties_masthead": {
+        "type": "Image",
+        "config": {
+          "label": "Properties masthead",
+          "constraint": {
+            "width": 2560,
+            "height": null
+          },
+          "thumbnails": []
+        }
+      }
+    }
+  }
+}

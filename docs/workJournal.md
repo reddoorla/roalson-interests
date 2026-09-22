@@ -5254,6 +5254,184 @@ worth an issue rather than a paragraph.
 svelte-check 0 errors over 4622 files, build green, axe 0 violations across 5
 routes, 1012 unit tests in 99 files, 133 of 134 Playwright.
 
+## 2026-09-21 — The Properties masthead takes a photo, and a scrim sized for the photo we do NOT have yet (#15, `aa6e40b`)
+
+The band had been the brand's garnet-to-dark gradient since #11, for two
+reasons that both went away at once: the comp's file was unlicensed Unsplash
+stock (#3), and no field in Prismic carried a masthead image. The operator
+authorised placeholder photography and uploaded
+`properties-masthead-san-antonio-skyline.jpg` (2560×1739) to the CMS — to the
+CMS and not to `static/`, precisely because it is a placeholder the client
+replaces.
+
+**Where the field lives, and the trap that decided it.** The obvious home was a
+`masthead` Image field on the `page` type plus a `page` document with uid
+`properties`. That is a prerender collision. `/properties` is a filesystem
+route, and the catch-all `[uid]` route's `entries()` enumerates every published
+`page` document, so such a document would emit a SECOND entry for `/properties`
+— and for a path SvelteKit resolves to the filesystem route regardless, so the
+document's own masthead would never reach a pixel. Closing it would mean
+teaching the CMS route's `entries()` (and its `load`) a list of paths the
+filesystem owns, re-derived by whoever adds the next filesystem page. So:
+`customtypes/page_media`, `repeatable: false`, no UID. A UID is the only thing
+the catch-all enumerates, so a UID-less singleton cannot collide at all, and
+/contact later costs one more Image field rather than one more trap. The build
+emits exactly one `/properties` (`build/properties.html`, and no
+`build/properties/index.html`); `build/` holds three top-level pages in total,
+which is `home` plus this route plus the slice simulator, so `[uid]` enumerated
+nothing.
+
+**The contrast numbers, which are the actual work.** The comp draws a 0→20%
+black gradient over the photo. Measured against the real asset, resized with
+`fit: cover` exactly as the browser does, the worst pixel under the H1's line
+box gives white **1.02:1 at 1440 and 1.04:1 at 390**. The sunrise haze band
+runs straight through where the title sits. 20% black is not a rounding error
+away from AA; it is nowhere near it.
+
+The decision that followed is the one worth keeping: **the scrim is sized
+against a pure-white pixel, not against this photograph.** The picture is
+content an editor replaces, so a gradient tuned to the file we happen to have
+is a gate that passes today and silently stops being true the first time the
+client uploads their own. Against pure white the two layers give white
+**5.74:1** across the H1's line box and dust **5.12:1** across the bar; against
+the real photo, **6.20:1 / 6.84:1** and **5.19:1**; measured live in Chromium
+under the real glyph box (with the ink hidden so the ground is what gets
+sampled), **5.82:1 / 5.92:1** and **5.18:1 / 5.17:1**. The analytic model and
+the browser agree to within 0.1, which is the cross-check that made the
+unit-test version believable.
+
+One geometry fact made a single scrim serve both breakpoints: the H1's line box
+is **66.5%→86.5% of the band at both widths** — 44px of an 80px line-height
+above a 72px pad in 400, and 25 of 48 above 44 in 240. That is a coincidence of
+the comp's numbers, not a design principle, so the test asserts the two spans
+are equal rather than assuming it.
+
+**The belief that was wrong, and it was wrong in the expensive direction.** The
+floating nav bar sits over this band (`navOver: "dark"`), and its CONTACT US is
+`t-h6` — 12px at weight 600, which is normal text, so 4.5:1, not the 3:1 the
+66px/38px H1 gets as large text. The assumption going in was that a modest top
+scrim would help the bar a little and a heavy one would help a lot. It does not
+work like that. **Dust (#b2ac9f) is a MID tone, L 0.415.** Darkening a bright
+sky moves it TOWARD dust before it moves away: 0.30 black took the bar's worst
+pixel from 2.19:1 to **1.04:1** — measurably worse than no scrim at all. The
+first candidate shipped exactly that and scored it as an improvement until the
+numbers came back. So the choice is binary — dark enough (≥ 0.744 alpha over a
+white sky) or nothing — and `.masthead-shade` takes the dark side: 0.82→0.78
+across a box whose height puts the bar's 80px (70 below `lg`) in its top
+45.45%. It costs a visibly dark top to the picture. It is the /properties half
+of #45; the homepage's half stays open, and a third bar tone would buy the
+picture back.
+
+**Where the stops live, and why not in the component.** They started as a Svelte
+`<style>` block and moved to `app.css`. Svelte's scoping stamps its hash class
+onto the band itself, and the no-photo band has to stay byte-identical to what
+it was — `relative` is the only class the photo adds, and the test pins the
+fallback against a literal transcribed from the pre-change file, so an inert
+extra class would have cost that proof. They also belong beside the palette:
+they are measured values, like everything else `theme-contrast.test.ts` reads
+out of that file.
+
+**What holds it.** `PageMasthead.test.ts` parses the two gradients out of
+`app.css`, the band's height and pad out of the component's own class list, the
+H1's line box out of `app.css`'s type ramp, and the floating bar's height out of
+`Nav.svelte` — then recomputes both ratios. Nothing in it trusts a number in a
+comment. Mutated, all of it goes red for the right reason: the scrim's 66% stop
+0.6→0.4 fails both breakpoints at 2.89:1 and 2.87:1 naming the exact line box;
+the shade 0.78→0.45 fails both bar assertions; shrinking the shade box 176→96
+fails the bar and the geometry guard; dropping `relative` fails one test and
+adding it unconditionally fails five; removing `aria-hidden` fails one. The
+loader's two guards were mutated too — deleting the `RepositoryNotFoundError`
+rethrow makes a misconfigured repository read as "no masthead yet", and that
+test goes red.
+
+**A measurement that was wrong for an embarrassing reason, recorded because it
+will happen again.** The first live browser pass reported the fallback rendering
+the OLD pre-change class string and no photo at all. The cause was not the code:
+eleven sibling worktrees are open on this repo right now, one of them already
+held port 5173, and Vite had quietly put mine on 5174. The numbers looked
+plausible — the geometry even matched — because it was a real render of a real
+build of this site, just not of this branch. A hardcoded `localhost:5173` in a
+throwaway measurement script is not a safe default in a fleet-parallel session.
+Read the port out of the server's own log.
+
+**Not fixed here.** `tests/interaction/featured-properties.spec.ts` fails on this
+machine (text column 436.89, gate wants < 435). Confirmed pre-existing by
+running it in a clean worktree at this branch's base `9248828` and again at
+current main `c97a818` — red in both, untouched by anything here. Already
+tracked as #80 and #83; #83 has the diagnosis (green in CI, red on macOS).
+
+**Still needed before this draws anything.** CI pushes `customtypes/page_media`
+to Prismic on merge; an editor then creates the singleton and sets
+`properties_masthead`. Until that document exists the route's loader returns
+null and the band is the gradient — which is what the production build rendered
+during this session, against the real repository, and is therefore tested
+rather than assumed.
+
+**A cross-batch red, found only after both halves were on the same branch.**
+The canvas-ground batch (#86) landed `nav-over.test.ts`'s new guard "each band
+really does wear that ground on its own first element", which read the
+component's SOURCE and regexed its first opening tag for the ground class. That
+worked against a `<header class="… from-primary …">`. This batch turned the same
+header into `class={bandClasses}` — a `$derived` over the `MASTHEAD_BAND`
+constant — so the regex matched `<header class={bandClasses}>` and found no
+ground in it. CI went red on the merge, not on either PR: neither branch alone
+contains both halves, so nothing before the merge could have caught it.
+
+The red was _correct_ — the guard genuinely could no longer see the class — but
+it was red about the wrong thing, and the obvious repair (teach the regex to
+resolve one identifier) would be a second parser for Svelte that the next
+refactor breaks again. The guard now RENDERS each band and reads the class its
+root element actually carries. That is also the stronger claim: scraping could
+only ever prove a string appears in a file, while the class a visitor gets is
+the one the component computes. Mutation-proven both ways —
+`from-primary`→`from-accent` on the masthead reddens it naming what the root
+actually wears, and `bg-dark`→`bg-light` on HomeHero's root does the same.
+
+One thing that mutation pass caught about itself: the first attempt at the
+HomeHero mutant edited the INNER pinned div (line 126, also `bg-dark`) and the
+test stayed green — correctly, because the root `<section>` at line 108 is what
+the canvas colour has to match. A mutation that does not go red is either a gap
+in the test or a mistake in the mutation, and assuming the first is how a real
+gap gets papered over; here it was the second.
+
+**Two sessions were writing into the same worktree, and it nearly got committed.**
+The paragraphs above were appended by a second session working in
+`.claude/worktrees/agent-a9351e3ef4ad28f67` while the masthead session was still
+in it — the same checkout, not a sibling of it. It also merged main into the
+branch twice and pushed, so the branch's head moved three times without the
+session that opened it running a single git command. Nothing was lost, but the
+near-miss was real: a `git add -A` during the window when `nav-over.test.ts` was
+half-rewritten would have committed a file whose imports were already there and
+whose uses were not, and the only evidence at that moment was two transient
+`'PageMasthead' is defined but never used` errors from eslint that vanished on
+the next run. What saved it was staging **four named paths** instead of `-A`,
+and verifying the resulting commit in a throwaway worktree (`git worktree add
+/tmp/… <sha>`) rather than in the dirty checkout — which is the only way to
+learn what the commit actually contains when someone else's edits are sitting
+next to it. CLAUDE.md already says never to commit from a checkout another
+session may be using; it is worth adding that you cannot tell you are in one
+except by watching `git status` grow files you did not touch.
+
+**The gate was red for one character.** `*correct*` where `.prettierrc` wants
+`_correct_`, in the journal paragraph above. `prettier --check .` is the first
+thing `pnpm verify` and CI run, so a branch whose 1055 unit tests, axe run and
+production build were all green reported a red gate over an emphasis marker. A
+journal entry is the one artifact written last, by hand, after the gate has
+already been run — which is exactly when it escapes it.
+
+**Found and not fixed: #91.** `canvasTop` paints what a rubber-band overscroll
+pulls into view above y=0, and `/properties` claims `"primary"` because
+`PageMasthead`'s gradient starts on `from-primary`. With a photo that stops
+being the pixel anyone sees: the photo covers the gradient and `.masthead-shade`
+puts ~0.82 black over its first row, so the band opens near-black while the
+overscroll above it still pulls garnet `#652323`. It cannot be fixed by changing
+the value, because `canvasTop` is a literal in the route's source that
+`nav-over.test.ts` checks against the component's ground CLASS — it is
+structurally incapable of varying with whether a CMS image field is filled. The
+merge that brought the two together also left a comment asserting "the pixel
+above the page is garnet either way", which is false the moment the field is
+filled; that comment is corrected in place, because it is code and not history.
+
 ## 2026-09-22 — Twenty listing photographs, out of the listings' own marketing packages — and the page-1 premise that held for five of twenty-two (`feat/listing-feature-images`, PR #92)
 
 Twenty-one of the twenty-two listings had no photo, which was the largest

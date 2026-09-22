@@ -1,8 +1,49 @@
+import type { ImageField } from "@prismicio/client";
+
 import type { PropertyDocument } from "../prismicio-types";
 
 /** Inline pixel, so a fixture never depends on an external host — the axe run
  *  must stay hermetic (see /dev/a11y-fixtures). */
 const PIXEL = "data:image/gif;base64,R0lGODlhAQABAAAAACw=";
+
+/** A drawn stand-in for the Properties masthead photograph, on
+ *  HOME_POSTER_FIXTURE's precedent: the real file is a placeholder the client
+ *  replaces and lives in the CMS, never in this public repo.
+ *
+ *  Deliberately the WORST case rather than a flattering one. Every value in it
+ *  is >= #d8cfbb, and the top band is pure white — so /dev/properties and the
+ *  axe fixtures render the masthead over the brightest ground a photograph can
+ *  present, which is exactly the ground PageMasthead's scrim is sized against.
+ *  A pretty fixture would have hidden that the scrim is load-bearing.
+ *  2560x1739 — the aspect of the real asset, so the object-cover crop matches. */
+const MASTHEAD_SVG =
+  `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2560 1739">` +
+  `<defs><linearGradient id="m" x1="0" y1="0" x2="0" y2="1">` +
+  `<stop offset="0" stop-color="#ffffff"/><stop offset="0.58" stop-color="#fdfaf3"/>` +
+  `<stop offset="1" stop-color="#f4ecdc"/>` +
+  `</linearGradient></defs>` +
+  `<rect width="2560" height="1739" fill="url(#m)"/>` +
+  `<g fill="#e8e1d1">` +
+  `<rect x="180" y="980" width="220" height="759"/>` +
+  `<rect x="520" y="820" width="160" height="919"/>` +
+  `<rect x="1180" y="620" width="150" height="1119"/>` +
+  `<rect x="1560" y="900" width="260" height="839"/>` +
+  `<rect x="2040" y="1040" width="300" height="699"/>` +
+  `</g>` +
+  `<g fill="#d8cfbb">` +
+  `<rect x="0" y="1360" width="2560" height="379"/>` +
+  `<rect x="880" y="700" width="90" height="1039"/>` +
+  `<ellipse cx="925" cy="700" rx="130" ry="46"/>` +
+  `</g></svg>`;
+
+export const PROPERTIES_MASTHEAD_FIXTURE = {
+  url: `data:image/svg+xml,${encodeURIComponent(MASTHEAD_SVG)}`,
+  alt: "A drawn San Antonio skyline at sunrise, the Tower of the Americas at its centre",
+  dimensions: { width: 2560, height: 1739 },
+  copyright: null,
+  id: "fixture-properties-masthead",
+  edit: { x: 0, y: 0, zoom: 1, background: "transparent" },
+} as unknown as ImageField;
 
 /** A fully filled `property` document, for the a11y fixtures page and tests.
  *  Content is the outline's real listing shape (improved, split SF, a land
