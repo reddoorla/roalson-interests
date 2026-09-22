@@ -38,10 +38,24 @@
     cream:
       "border-background text-background not-aria-disabled:hover:bg-background not-aria-disabled:hover:text-primary",
   } as const;
+
+  // `border` on a `size-10` border-box IS Figma's inside stroke: the circle
+  // stays 40 wide with the 1px ring inside it.
+  //
+  // Exported because the homepage hero's video control is the same 40px ring
+  // with the same hit area and the same glyph, on a surface that has no
+  // carousel in it (HeroBackgroundVideo). Sharing the string is what keeps the
+  // site's ONE control shape one string — the alternative was a second
+  // transcription of these eleven utilities, which is how two controls drift.
+  export const ARROW_SHAPE =
+    "relative inline-flex size-10 shrink-0 items-center justify-center rounded-full border " +
+    "border-solid transition-colors before:absolute before:-inset-[3px] before:content-[''] " +
+    "aria-disabled:cursor-default aria-disabled:opacity-40";
 </script>
 
 <script lang="ts">
   import ArrowRight from "$lib/components/ArrowRight.svelte";
+  import PlayPauseGlyph from "$lib/components/PlayPauseGlyph.svelte";
   import type { Carousel } from "$lib/carousel.svelte";
 
   interface Props {
@@ -64,13 +78,7 @@
   // is the point: this row must not jump when script arrives.
   const quiet = $derived(!carousel.hydrated);
 
-  // `border` on a `size-10` border-box IS Figma's inside stroke: the circle
-  // stays 40 wide with the 1px ring inside it.
-  const SHAPE =
-    "relative inline-flex size-10 shrink-0 items-center justify-center rounded-full border " +
-    "border-solid transition-colors before:absolute before:-inset-[3px] before:content-[''] " +
-    "aria-disabled:cursor-default aria-disabled:opacity-40";
-  const button = $derived(`${SHAPE} ${ARROW_TONES[tone]}`);
+  const button = $derived(`${ARROW_SHAPE} ${ARROW_TONES[tone]}`);
 </script>
 
 <!-- Nothing to drive with one slide (or a carousel switched off), so nothing is
@@ -89,18 +97,11 @@
     {#if carousel.eligible}
       <!-- First in the carousel's tab order (APG), and only where rotation is
            possible: under reduced motion it never starts, so there is nothing
-           to pause. The glyphs are drawn for this — the comp has none — in the
-           arrow's own box and weight: a 25 box, 14 tall like the arrowhead,
-           bars as thick as its 2.083 shaft. -->
+           to pause. The glyphs are drawn for this — the comp has none — and
+           live in PlayPauseGlyph.svelte since the homepage hero's video control
+           needs the same pair. -->
       <button {...carousel.pauseButton} class={button}>
-        <svg viewBox="0 0 25 25" width="25" height="25" aria-hidden="true" focusable="false">
-          {#if carousel.paused}
-            <path d="M9 5.52L20 12.5L9 19.48V5.52Z" fill="currentColor" />
-          {:else}
-            <path d="M8.4 5.52H10.483V19.48H8.4V5.52Z" fill="currentColor" />
-            <path d="M14.517 5.52H16.6V19.48H14.517V5.52Z" fill="currentColor" />
-          {/if}
-        </svg>
+        <PlayPauseGlyph paused={carousel.paused} />
       </button>
     {/if}
     <button {...carousel.prevButton} class={button}>

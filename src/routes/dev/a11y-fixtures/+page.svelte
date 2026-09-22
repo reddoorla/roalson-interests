@@ -25,7 +25,7 @@
   import PropertyDetail from "$lib/components/PropertyDetail.svelte";
   import PageMasthead from "$lib/components/PageMasthead.svelte";
   import PropertyListing from "$lib/components/PropertyListing.svelte";
-  import { homeHeroFixture } from "$lib/home-fixture";
+  import { homeHeroFixture, HOME_VIMEO_FIXTURE } from "$lib/home-fixture";
   import { HOME_PHOTO_FIXTURE, photoBandFixture } from "$lib/home-fixture";
   import PhotoBand from "$lib/slices/PhotoBand/index.svelte";
   import { propertyFixture, propertyListingFixture } from "$lib/property-fixture";
@@ -444,8 +444,20 @@
        would add nothing for axe to measure. The band's ground is a gradient,
        which axe reports as "needs review" rather than measuring; the pairs on
        it are held by theme-contrast.test.ts at both ends (garnet and dark).
-       Full width, and the pin, are /dev/home's. -->
-  <HomeHero slice={homeHeroFixture()} />
+       Full width, and the pin, are /dev/home's.
+
+       WITH THE VIDEO FIELD FILLED (#29), which is the state the site ships. It
+       is audited under this gate's forced reduced motion, and that is the
+       point: `reduce` is exactly when HeroBackgroundVideo must add nothing at
+       all, so what axe measures here is the hero a motion-averse visitor gets —
+       the same dark ground, no iframe, no control, no extra name in the
+       accessibility tree. The MOVING state cannot be reached here (the layer
+       mounts on genuine engagement only, and never under `reduce`), so the
+       pause control's name, its focus ring and its place in the tab order are
+       held by HeroBackgroundVideo.test.ts and
+       tests/interaction/home-hero-video.spec.ts — the same split the carousel's
+       own 2.2.2 control already lives under, three fixtures down. -->
+  <HomeHero slice={homeHeroFixture({ vimeo_id: HOME_VIMEO_FIXTURE })} />
 
   <!-- The homepage's featured band, twice: the comp's three listings (a
        carousel — garnet arrows and bar on the sand card) and launch day's ONE

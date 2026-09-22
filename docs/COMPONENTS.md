@@ -39,11 +39,13 @@ source. It is the fastest way to recognise what a thing does.
 | [`Footer.svelte`](../src/lib/components/Footer.svelte) | `cta`, `nav`, `legal`, `logo`, `ground`, `currentPath`, `owner`, `text` | 22 | The site's footer — the comp's last `Value Prop #1` band (6820:188 on the Homepage at 1440, 6903:1117 on Properties; 6996:1026 / 6997:2055 at 390) |
 | [`Form.svelte`](../src/lib/components/Form.svelte) | `errors`, `errorSummaryTitle`, `children` | 6 |  |
 | [`HeroBackgroundImage.svelte`](../src/lib/components/HeroBackgroundImage.svelte) | `image`, `altFallback`, `preload` | 8 | LCP-optimized hero image |
+| [`HeroBackgroundVideo.svelte`](../src/lib/components/HeroBackgroundVideo.svelte) | `vimeoId`, `bandHeight`, `label` | 11 | The homepage hero's moving layer — the half HeroBackgroundImage paints still |
 | [`Img.svelte`](../src/lib/components/Img.svelte) | `src` | 5 | Progressive-loading wrapper around @zerodevx/svelte-img: the image renders blurred (`.progressive-img` in app.css) and sharpens once the underlying <img> finishes — or fails — loading |
 | [`LandscapeModal.svelte`](../src/lib/components/LandscapeModal.svelte) | — | 3 | Orientation lockout — a primitive the template deliberately does NOT mount (tests/smoke/landscape.spec.ts fails if it is re-mounted), because an undismissable landscape overlay fails WCAG 2.1 SC 1.3.4 (Orientation) |
 | [`Modal.svelte`](../src/lib/components/Modal.svelte) | `open`, `onclose`, `label`, `labelledby`, `children` | 16 | Accessible name for the dialog |
 | [`Nav.svelte`](../src/lib/components/Nav.svelte) | `items`, `logo`, `cta`, `over`, `wordmark`, `currentPath` | 33 | The site's bar and its menu |
 | [`PageMasthead.svelte`](../src/lib/components/PageMasthead.svelte) | `title` | 2 | The comp's `Masthead #1` as the Properties page wears it (6991:978 at 1440, 6992:2865 at 390): a 400px band — 240 on mobile — with the page's H1 sitting on the listing column's left edge, its baseline 72px above the band's bottom (44 on mobile, centred) |
+| [`PlayPauseGlyph.svelte`](../src/lib/components/PlayPauseGlyph.svelte) | `paused` | — | The pause / play glyph for every WCAG 2.2.2 control on this site — the carousel's (CarouselArrows) and the homepage hero's video (HeroBackgroundVideo) |
 | [`PreNavTransition.svelte`](../src/lib/components/PreNavTransition.svelte) | `duration`, `holdDuration` | 10 | ms the overlay fades in before the deferred navigation is issued |
 | [`PropertyCard.svelte`](../src/lib/components/PropertyCard.svelte) | `property`, `variant`, `layout` | 9 | The comp's `property` card, three tones |
 | [`PropertyDetail.svelte`](../src/lib/components/PropertyDetail.svelte) | `property` | 9 | The property page |
@@ -60,7 +62,7 @@ source. It is the fastest way to recognise what a thing does.
 | [`TurnstileWidget.svelte`](../src/lib/components/TurnstileWidget.svelte) | — | 6 |  |
 | [`VimeoBanner.svelte`](../src/lib/components/VimeoBanner.svelte) | `vimeoId`, `poster`, `alt` | 7 | Full-bleed background-video banner |
 | [`featured-properties.ts`](../src/lib/featured-properties.ts) | `featuredListings` | 8 | Which of the editor's picks the homepage's featured band can actually show |
-| [`home-fixture.ts`](../src/lib/home-fixture.ts) | `HOME_POSTER_FIXTURE`, `homeHeroFixture`, `HOME_PHOTO_FIXTURE`, `photoBandFixture`, `PARTNER_PHOTO_FIXTURE`, `PARTNER_BIO_FIXTURE`, `partnerFixture`, `partnersFixture`, `partnersFixtureState`, `featuredPickFixture`, `featuredPropertiesFixture`, `featuredLaunchFixture`, `stageFeatured`, `homeFixture` | — | The homepage as fixture data — what /dev/home renders through the real layout, and what /dev/a11y-fixtures and the unit tests build on |
+| [`home-fixture.ts`](../src/lib/home-fixture.ts) | `HOME_POSTER_FIXTURE`, `HOME_VIMEO_FIXTURE`, `homeHeroFixture`, `HOME_PHOTO_FIXTURE`, `photoBandFixture`, `PARTNER_PHOTO_FIXTURE`, `PARTNER_BIO_FIXTURE`, `partnerFixture`, `partnersFixture`, `partnersFixtureState`, `featuredPickFixture`, `featuredPropertiesFixture`, `featuredLaunchFixture`, `stageFeatured`, `homeFixture` | — | The homepage as fixture data — what /dev/home renders through the real layout, and what /dev/a11y-fixtures and the unit tests build on |
 | [`home-page.ts`](../src/lib/home-page.ts) | `splitHomeHero` | 5 | The home route's shape, as data |
 | [`index.ts`](../src/lib/index.ts) | — | — | place files you want to import through the `$lib` alias in this folder |
 | [`indexability.ts`](../src/lib/indexability.ts) | `MIRROR_ROBOTS_TAG`, `isNetlifyMirrorHost` | 6 | Which HOST a request arrived on decides whether it may be indexed (#140) |
@@ -88,6 +90,7 @@ source. It is the fastest way to recognise what a thing does.
 | [`reveal.ts`](../src/lib/utils/reveal.ts) | `reveal`, `revealInvalid` | 8 | Move focus to an element and land it 20px under the pinned bar — an alert, a confirmation or an error summary that script has just rendered (`reveal`), or the control native validation has just refused (`revealInvalid`) — because `focus()` alone loses a race with a smooth scroll in flight and leaves the element focused and hidden |
 | [`richTextHeadings.ts`](../src/lib/utils/richTextHeadings.ts) | `RT_HEADING_CTX`, `defaultLevel`, `buildHeadingLevelMap` | 9 | Editors author arbitrary heading levels inside Prismic rich-text bodies (heading1–6 are all enabled in the slice models) |
 | [`scrollLock.ts`](../src/lib/utils/scrollLock.ts) | `lockBodyScroll` | 4 | Stop the document scrolling behind a full-screen overlay; returns the release |
-| [`vimeo.ts`](../src/lib/utils/vimeo.ts) | `checkVimeoVideo` | 5 | True when the Vimeo video exists and is embeddable (oEmbed responds 200) |
+| [`vimeo.ts`](../src/lib/utils/vimeo.ts) | `checkVimeoVideo`, `parseVimeoId` | 11 | True when the Vimeo video exists and is embeddable (oEmbed responds 200) |
+| [`vimeoBackground.svelte.ts`](../src/lib/utils/vimeoBackground.svelte.ts) | `VIMEO_PLAYER_ORIGIN`, `backgroundEmbedSrc`, `VimeoBackground` | 5 | The gate, the heartbeat and the pause flag behind every chrome-less Vimeo background embed in this repo — lifted OUT of VimeoBanner.svelte so the homepage hero could have all three without taking VimeoBanner's markup with them |
 
-72 modules, 573 tests behind them.
+75 modules, 595 tests behind them.
