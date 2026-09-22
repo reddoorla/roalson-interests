@@ -35,7 +35,20 @@ const DISSOLVE = 500;
  *  measures from the CAP box, CSS from the line box. */
 const H4_TRIM = 8.1;
 
-async function moving(browser: Browser, viewport = { width: 1440, height: 900 }) {
+/** Headless Chromium keeps `scrollbar-gutter: stable`'s 15px and hides the
+ *  scrollbar that would fill it, so the page lays out 15px NARROWER than the
+ *  viewport — and than `clientWidth`, which still reports the viewport. Every
+ *  width in this file is the layout width the comp is drawn at; this is the
+ *  one place that turns it into the viewport that produces it. Asked for 1440
+ *  directly, the card measures 916.8 where the comp says 927, and four
+ *  assertions here read as defects in the band. */
+const GUTTER = 15;
+const viewportFor = (layoutWidth: number, height = 900) => ({
+  width: layoutWidth + GUTTER,
+  height,
+});
+
+async function moving(browser: Browser, viewport = viewportFor(1440)) {
   const context = await browser.newContext({ reducedMotion: "no-preference", viewport });
   const page = await context.newPage();
   return { context, page };
@@ -144,6 +157,9 @@ const geometry = (page: Page) =>
           width: slot.getBoundingClientRect().width,
           background: getComputedStyle(slot).backgroundColor,
         },
+        // Positive means content wider than the box, which is the defect.
+        // It reads -15 here even when nothing overflows: `clientWidth` reports
+        // the viewport while the page lays out inside the reserved gutter.
         overflowX: document.documentElement.scrollWidth - document.documentElement.clientWidth,
       };
     },
@@ -202,7 +218,7 @@ test.describe("where the comp draws it", () => {
     page,
   }) => {
     for (const width of [1440, 1280, 1100, 1920]) {
-      await page.setViewportSize({ width, height: 900 });
+      await page.setViewportSize(viewportFor(width));
       await page.goto(HOME);
       const h1 = page.locator('[data-slice-type="home_hero"] h1');
       // Auto-retrying: the first read after a viewport change can be the old layout.
@@ -222,7 +238,7 @@ test.describe("where the comp draws it", () => {
       expect(g.slot.right, `${width}`).toBeCloseTo(0, 0);
       expect(g.slot.width, `${width}`).toBeGreaterThan(300);
       expect(g.slot.background, `${width}`).toBe("rgba(0, 0, 0, 0)");
-      expect(g.overflowX, `${width}`).toBe(0);
+      expect(g.overflowX, `${width}`).toBeLessThanOrEqual(0);
     }
   });
 
@@ -249,7 +265,7 @@ test.describe("where the comp draws it", () => {
       [1280, "taller"],
       [1024, "taller"],
     ] as const) {
-      const { context, page } = await moving(browser, { width, height: 900 });
+      const { context, page } = await moving(browser, viewportFor(width));
       try {
         await page.goto(HOME);
         await adopted(page);
@@ -273,7 +289,7 @@ test.describe("where the comp draws it", () => {
   });
 
   test("390: photo, bar, [eyebrow | controls], text — and no map box", async ({ browser }) => {
-    const { context, page } = await moving(browser, { width: 390, height: 844 });
+    const { context, page } = await moving(browser, viewportFor(390, 844));
     try {
       await page.goto(HOME);
       await adopted(page);
@@ -293,7 +309,7 @@ test.describe("where the comp draws it", () => {
       expect(g.controls!.width).toBeCloseTo(140, 0);
       // text 20 under the row
       expect(g.text.top - g.controls!.bottom).toBeCloseTo(20, 0);
-      expect(g.overflowX).toBe(0);
+      expect(g.overflowX).toBeLessThanOrEqual(0);
     } finally {
       await context.close();
     }
@@ -308,7 +324,7 @@ test.describe("where the comp draws it", () => {
     // the 40px row, so the text below does not move — rather than the controls
     // dropping to their own row and costing every phone 60px.
     for (const width of [360, 320]) {
-      const { context, page } = await moving(browser, { width, height: 780 });
+      const { context, page } = await moving(browser, viewportFor(width, 780));
       try {
         await page.goto(HOME);
         await adopted(page);
@@ -321,7 +337,7 @@ test.describe("where the comp draws it", () => {
         expect(g.eyebrow.bottom - H4_TRIM, `${width}`).toBeLessThanOrEqual(g.controls!.bottom);
         expect(g.text.top - g.controls!.bottom, `${width}`).toBeCloseTo(20, 0);
         expect(g.controls!.width, `${width}`).toBeCloseTo(140, 0);
-        expect(g.overflowX, `${width}`).toBe(0);
+        expect(g.overflowX, `${width}`).toBeLessThanOrEqual(0);
       } finally {
         await context.close();
       }
@@ -644,7 +660,7 @@ test.describe("the other states", () => {
     // `visibility: hidden` + `inert` until `carousel.hydrated` is true.
     const blocked = await browser.newContext({
       reducedMotion: "no-preference",
-      viewport: { width: 1440, height: 900 },
+      viewport: viewportFor(1440),
     });
     try {
       const page = await blocked.newPage();
