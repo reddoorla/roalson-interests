@@ -140,6 +140,12 @@ export function createCarousel(options: CarouselOptions) {
 
   const progress = $derived(!eligible ? 0 : atEnd ? 1 : clamp01(elapsed / dwell));
   const position = $derived(count > 0 ? (index + 1) / count : 0);
+  // `progress` cannot answer "is a turn handing over right now": it is
+  // clamp01(elapsed / dwell) and `elapsed` is NEGATIVE through `settle`, so it
+  // reads 0 for the handover, for the first frame of an ordinary dwell, and
+  // for a slide parked after a manual turn alike. `elapsed < 0` tells those
+  // apart, and is the only thing that can.
+  const settling = $derived(eligible && elapsed < 0);
 
   /** Every change of slide — a click, a key, a swipe, the clock — starts the
    *  next dwell from the top (after `settle`). */
@@ -345,6 +351,24 @@ export function createCarousel(options: CarouselOptions) {
     /** The clock is running right now. */
     get rotating() {
       return rotating;
+    },
+    /** The consumer's own slide transition is still running and the dwell has
+     *  not started counting — the handover between two slides. False wherever
+     *  nothing is timing out, and false for the whole of an ordinary dwell.
+     *
+     *  It says nothing about whether the CLOCK is turning: after a manual turn
+     *  `elapsed` is parked at `-settle` with no frame loop to run it down, so
+     *  this stays true until rotation resumes. Anything that must end by
+     *  itself pairs it with `rotating`. */
+    get settling() {
+      return settling;
+    },
+    /** How long that handover lasts, in ms — the `settle` this carousel was
+     *  built with. A consumer drawing the handover needs the number, and a
+     *  second copy of it in the component would be a second clock's worth of
+     *  drift waiting to happen. */
+    get settle() {
+      return settle;
     },
     /** Stopped by the user — the pause button, or focus entering. */
     get paused() {

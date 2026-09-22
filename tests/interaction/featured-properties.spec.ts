@@ -71,6 +71,24 @@ const barScale = (page: Page) =>
     .locator(`${CARD} [data-carousel-progress] > div`)
     .evaluate((el) => Number(/scaleX\(([^)]+)\)/.exec(el.getAttribute("style") ?? "")?.[1]));
 
+/** The four staggered text lines of whichever slide is on stage. */
+const LINES = `${CARD} [data-featured-slide]:not([inert]) [data-featured-line]`;
+
+/** The card's scroll reveal has finished. animateIn hands the element back to
+ *  its stylesheet when the reveal is over — every inline style it wrote is
+ *  removed — so this is the revealed state and not merely "opacity says 1". */
+const revealed = (page: Page) =>
+  expect
+    .poll(
+      () =>
+        page.locator(CARD).evaluate((el) => {
+          const cs = getComputedStyle(el);
+          return { opacity: cs.opacity, transform: cs.transform };
+        }),
+      { timeout: 10_000 },
+    )
+    .toEqual({ opacity: "1", transform: "none" });
+
 /** Which slides are on stage, by title — read off `inert`, the thing that
  *  actually takes a slide out of the tab order. */
 const onStage = (page: Page) =>
@@ -373,9 +391,15 @@ test.describe("rotation", () => {
 
       await expect(status(page)).toHaveText("Slide 2 of 3", { timeout: DWELL + 2000 });
       expect(await onStage(page)).toEqual(["101 W. Commerce Street"]);
-      // DECIDED: the bar SNAPS to 0 on the frame the slide turns and waits out
-      // the dissolve there (the comp cross-fades a full bar into an empty one —
-      // an artefact of dissolving the whole variant frame, not a drawn timer).
+      // DECIDED, THEN REVERSED — and this is the half that survived. The bar's
+      // VALUE still snaps to 0 on the frame the slide turns: `scaleX` is drawn
+      // by the carousel's clock and by nothing else, so there is still exactly
+      // one clock and a pause still freezes the bar where it stands. What was
+      // reversed is that the fill now DISSOLVES over the 500ms handover rather
+      // than disappearing with the count — the comp cross-fades a full bar into
+      // an empty one, and the operator asked for the comp. The fade itself is
+      // measured in "the bar dissolves across the handover" below; here the
+      // point is that nothing eased the NUMBER.
       expect(await barScale(page)).toBeLessThan(0.15);
 
       // …and it loops.
@@ -506,6 +530,18 @@ test.describe("rotation", () => {
     try {
       await page.goto(HOME);
       await adopted(page);
+      // THE BAND HAS TO BE SCROLLED TO, AND ITS REVEAL HAS TO BE OVER. The
+      // card reveals on first intersection (use:animateIn), so with the band
+      // below the fold — which it is at every width — it sits at opacity 0
+      // until a reader arrives, and axe answers `color-contrast` with an
+      // INCOMPLETE for every word under a transparent ancestor instead of a
+      // ratio. That is the same shape as the `bgOverlap` defect this case was
+      // written for, reached by a different route, and an incomplete is still
+      // not a pass. So: scroll as a reader does, then wait for positive
+      // evidence the reveal has finished (animateIn removes every style it
+      // wrote), and only then audit.
+      await page.locator(BAND).scrollIntoViewIfNeeded();
+      await revealed(page);
       await page.getByRole("button", { name: "Pause slides" }).click();
       await expect(page.getByRole("button", { name: "Play slides" })).toBeVisible();
 
@@ -540,6 +576,485 @@ test.describe("rotation", () => {
     } finally {
       await context.close();
     }
+  });
+});
+
+// ── the four animations ─────────────────────────────────────────────────────
+//
+// All four were asked for by the operator, and all four are invisible to a
+// unit test: jsdom resolves no stylesheet, runs no transition and lays nothing
+// out. They are also invisible to a test that forgets to opt OUT of the shared
+// config's `reducedMotion: "reduce"` — every case below opens its own
+// no-preference context through `moving()`, and the reduced-motion cases
+// deliberately use the shared one.
+//
+// Each measurement is taken FROM THE PAGE, off the same clock the animation
+// runs on. Round-tripping a read through Playwright measures the round trip:
+// carousel.spec.ts's lesson, paid for again by the lap assertion above.
+test.describe("motion", () => {
+  /** One frame's reading of everything these cases measure. */
+  interface Frame {
+    /** Each on-stage text line's opacity and vertical translate, in order. */
+    lines: { opacity: number; ty: number }[];
+    /** The on-stage photo's scale, out of its computed matrix; null = none. */
+    scale: number | null;
+    bar: { opacity: number; value: number; mode: string; dur: string };
+  }
+
+  /** Waits IN THE PAGE for the next clock turn — the live region changing is
+   *  the one thing in the DOM that says "the slide changed" at the instant it
+   *  does — then samples every frame for `ms` and hands back the series with
+   *  its own timestamps. Sampled in the page, and not by polling from here,
+   *  for carousel.spec.ts's reason: a read that round-trips measures the round
+   *  trip. The sampler is written out in full rather than passed in, because
+   *  the site's CSP ships no `unsafe-eval` and a `new Function` built here
+   *  would be blocked in the page — silently, as a violation report. */
+  async function sampleAfterTurn(page: Page, ms: number): Promise<{ t: number; v: Frame }[]> {
+    return page.evaluate(
+      async ({ card, ms }) => {
+        const region = document.querySelector(card)!;
+        const live = region.querySelector("[aria-live]")!;
+        const verticalTranslate = (el: Element) => {
+          const t = getComputedStyle(el).translate;
+          if (!t || t === "none") return 0;
+          const parts = t.split(/\s+/);
+          return Number.parseFloat(parts[1] ?? "0") || 0;
+        };
+        const read = () => {
+          const lines = [
+            ...region.querySelectorAll("[data-featured-slide]:not([inert]) [data-featured-line]"),
+          ].map((el) => ({
+            opacity: Number(getComputedStyle(el).opacity),
+            ty: verticalTranslate(el),
+          }));
+          const photo = region.querySelector(
+            "[data-featured-slide]:not([inert]) [data-featured-photo]",
+          )!;
+          const transform = getComputedStyle(photo).transform;
+          const fill = region.querySelector<HTMLElement>("[data-carousel-progress] > div")!;
+          return {
+            lines,
+            scale: transform === "none" ? null : Number(/matrix\(([^,]+),/.exec(transform)![1]),
+            bar: {
+              opacity: Number(getComputedStyle(fill).opacity),
+              value: Number(/scaleX\(([^)]+)\)/.exec(fill.getAttribute("style") ?? "")?.[1]),
+              mode: fill.dataset.carouselFill ?? "",
+              dur: getComputedStyle(fill).transitionDuration,
+            },
+          };
+        };
+        await new Promise<void>((resolve) => {
+          const observer = new MutationObserver(() => {
+            observer.disconnect();
+            resolve();
+          });
+          observer.observe(live, { childList: true, characterData: true, subtree: true });
+        });
+        const t0 = performance.now();
+        const series: { t: number; v: ReturnType<typeof read> }[] = [];
+        await new Promise<void>((resolve) => {
+          const tick = () => {
+            const t = performance.now() - t0;
+            series.push({ t, v: read() });
+            if (t >= ms) resolve();
+            else requestAnimationFrame(tick);
+          };
+          requestAnimationFrame(tick);
+        });
+        return series;
+      },
+      { card: CARD, ms },
+    );
+  }
+
+  // ── A: the staggered text entrance ───────────────────────────────────────
+
+  test("the text arrives as four lines 60ms apart, all of it inside the settle", async ({
+    browser,
+  }) => {
+    test.setTimeout(40_000);
+    const { context, page } = await moving(browser);
+    try {
+      await page.goto(HOME);
+      await adopted(page);
+      await pointerAway(page);
+
+      // What the browser resolved, not what the source says: a `delay-[${n}ms]`
+      // built at runtime renders exactly the same class attribute and ships no
+      // CSS at all, so the class list is not evidence and the computed value is.
+      const wired = await page.locator(LINES).evaluateAll((els) =>
+        els.map((el) => {
+          const cs = getComputedStyle(el);
+          return { delay: cs.transitionDelay, duration: cs.transitionDuration };
+        }),
+      );
+      expect(wired).toEqual([
+        { delay: "0.15s", duration: "0.17s" },
+        { delay: "0.21s", duration: "0.17s" },
+        { delay: "0.27s", duration: "0.17s" },
+        { delay: "0.33s", duration: "0.17s" },
+      ]);
+
+      // …and that they actually arrive in that order. Each line's opacity is
+      // sampled every frame from the turn on; `done` is the first frame it
+      // reached 1. The assertion is the SHAPE — a strictly later arrival per
+      // line, and the whole cascade over by the 500ms settle — not four exact
+      // timestamps, which would measure the machine's frame budget.
+      const series = await sampleAfterTurn(page, 900);
+      const done = [0, 1, 2, 3].map(
+        (s) => series.find((f) => (f.v.lines[s]?.opacity ?? 0) >= 0.999)?.t ?? null,
+      );
+      expect(
+        done.every((t) => t !== null),
+        `arrivals: ${done.join(", ")}`,
+      ).toBe(true);
+      const at = done as number[];
+      for (let i = 1; i < at.length; i++)
+        expect(at[i], `line ${i} at ${at[i]}ms, line ${i - 1} at ${at[i - 1]}ms`).toBeGreaterThan(
+          at[i - 1],
+        );
+      // Three 60ms steps between the first and the last.
+      expect(at[3] - at[0], `spread ${at[3] - at[0]}ms`).toBeGreaterThan(120);
+      expect(at[3] - at[0], `spread ${at[3] - at[0]}ms`).toBeLessThan(300);
+      // The bar starts filling at the settle; nothing may still be arriving.
+      expect(at[3], `last line landed at ${at[3]}ms`).toBeLessThan(DISSOLVE + 200);
+      // Nothing is left part-way, and nothing is left 8px out of place: a line
+      // stranded at partial opacity over the card is the `bgOverlap` shape the
+      // axe case exists for.
+      expect(series[series.length - 1].v.lines).toEqual([
+        { opacity: 1, ty: 0 },
+        { opacity: 1, ty: 0 },
+        { opacity: 1, ty: 0 },
+        { opacity: 1, ty: 0 },
+      ]);
+      // …and they came from 8px below, which is the rise that was asked for.
+      expect(series[0].v.lines.map((l) => l.ty)).toEqual([8, 8, 8, 8]);
+    } finally {
+      await context.close();
+    }
+  });
+
+  test("a USER turn does not stagger: the lines are simply there", async ({ browser }) => {
+    // `rotating` is false whenever the user is driving — pressing an arrow
+    // focuses it, and focus entering stops the clock (APG) — so the whole
+    // `fade` object, this stagger included, drops its transitions. Measured as
+    // opacity in the same task as the press, which is the only way to tell
+    // "instant" from "fast".
+    const { context, page } = await moving(browser);
+    try {
+      await page.goto(HOME);
+      await adopted(page);
+      await pointerAway(page);
+
+      const arrived = await page.evaluate(async (card) => {
+        const region = document.querySelector(card)!;
+        const next = [...region.querySelectorAll("button")].find(
+          (b) => b.getAttribute("aria-label") === "Next slide",
+        )!;
+        next.focus();
+        next.click();
+        return [
+          ...region.querySelectorAll("[data-featured-slide]:not([inert]) [data-featured-line]"),
+        ].map((el) => {
+          const cs = getComputedStyle(el);
+          const t = cs.translate;
+          return {
+            opacity: cs.opacity,
+            ty: !t || t === "none" ? 0 : Number.parseFloat(t.split(/\s+/)[1] ?? "0") || 0,
+          };
+        });
+      }, CARD);
+      // Opaque and at rest in the SAME task as the press — no frame has passed.
+      expect(arrived).toEqual([
+        { opacity: "1", ty: 0 },
+        { opacity: "1", ty: 0 },
+        { opacity: "1", ty: 0 },
+        { opacity: "1", ty: 0 },
+      ]);
+    } finally {
+      await context.close();
+    }
+  });
+
+  test("reduced motion: the incoming lines are opaque in the same frame as the press", async ({
+    page,
+  }) => {
+    // The shared config's context. There is no rotation at all under reduce,
+    // so the only turn available is the user's — and the evidence that nothing
+    // animates is that the new slide's words are fully opaque before a frame
+    // has passed, not that a class is missing.
+    await page.goto(HOME);
+    await adopted(page);
+    const arrived = await page.evaluate(async (card) => {
+      const region = document.querySelector(card)!;
+      const next = [...region.querySelectorAll("button")].find(
+        (b) => b.getAttribute("aria-label") === "Next slide",
+      )!;
+      next.click();
+      return [
+        ...region.querySelectorAll("[data-featured-slide]:not([inert]) [data-featured-line]"),
+      ].map((el) => {
+        const cs = getComputedStyle(el);
+        const t = cs.translate;
+        return {
+          opacity: cs.opacity,
+          ty: !t || t === "none" ? 0 : Number.parseFloat(t.split(/\s+/)[1] ?? "0") || 0,
+        };
+      });
+    }, CARD);
+    expect(arrived).toEqual([
+      { opacity: "1", ty: 0 },
+      { opacity: "1", ty: 0 },
+      { opacity: "1", ty: 0 },
+      { opacity: "1", ty: 0 },
+    ]);
+  });
+
+  // ── B: the Ken Burns drift ───────────────────────────────────────────────
+
+  /** The active photo's scale, read out of the computed matrix. */
+  const photoScale = (page: Page) =>
+    page
+      .locator(`${CARD} [data-featured-slide]:not([inert]) [data-featured-photo]`)
+      .evaluate((el) => {
+        const t = getComputedStyle(el).transform;
+        if (t === "none") return null;
+        return Number(/matrix\(([^,]+),/.exec(t)![1]);
+      });
+
+  test("the photo drifts 1.00 → 1.03 across its dwell, on the carousel's own clock", async ({
+    browser,
+  }) => {
+    test.setTimeout(40_000);
+    const { context, page } = await moving(browser);
+    try {
+      await page.goto(HOME);
+      await adopted(page);
+      await pointerAway(page);
+
+      // Sampled from a turn, so the dwell's start is known: the settle runs
+      // 0–500 with `progress` pinned at 0, then 4000ms of dwell. 0.03 over
+      // 4000ms is 7.5e-6 per ms, so a 1200ms window is ~0.009 of travel —
+      // three orders of magnitude above the matrix's resolution.
+      const series = await sampleAfterTurn(page, 2000);
+      const settle = series.filter((s) => s.t < DISSOLVE - 100).map((s) => s.v.scale);
+      const late = series
+        .filter((s) => s.t > DISSOLVE + 100)
+        .map((s) => ({ t: s.t, v: s.v.scale }));
+
+      // It sits STILL through the handover — `progress` is 0 while `elapsed`
+      // is negative — and only then starts to travel. That is the one-clock
+      // property: the zoom begins when the slide is fully shown, with the bar.
+      expect(settle.length, "sampled the settle").toBeGreaterThan(5);
+      expect(new Set(settle.map((v) => v!.toFixed(4)))).toEqual(new Set(["1.0000"]));
+
+      const first = late[0].v!;
+      const last = late[late.length - 1].v!;
+      expect(
+        last,
+        `${first} → ${last} over ${late[late.length - 1].t - late[0].t}ms`,
+      ).toBeGreaterThan(first);
+      expect(first).toBeGreaterThanOrEqual(1);
+      expect(last).toBeLessThanOrEqual(1.03);
+      // Monotone, never a jump back: a second clock would beat against this one.
+      for (let i = 1; i < late.length; i++)
+        expect(late[i].v!, `frame ${i} at ${late[i].t}ms`).toBeGreaterThanOrEqual(late[i - 1].v!);
+    } finally {
+      await context.close();
+    }
+  });
+
+  test("the drift FREEZES with the bar on pause — one clock, not two", async ({ browser }) => {
+    test.setTimeout(40_000);
+    const { context, page } = await moving(browser);
+    try {
+      await page.goto(HOME);
+      await adopted(page);
+      await pointerAway(page);
+      await expect.poll(() => barScale(page)).toBeGreaterThan(0.15);
+
+      await page.getByRole("button", { name: "Pause slides" }).click();
+      await expect(page.getByRole("button", { name: "Play slides" })).toBeVisible();
+      await pointerAway(page);
+
+      const frozenScale = await photoScale(page);
+      const frozenBar = await barScale(page);
+      expect(frozenScale).toBeGreaterThan(1);
+      expect(frozenScale).toBeLessThan(1.03);
+      // Longer than a whole lap: a CSS animation would have run to its end.
+      await page.waitForTimeout(DWELL + DISSOLVE + 700);
+      expect(await photoScale(page)).toBe(frozenScale);
+      expect(await barScale(page)).toBe(frozenBar);
+    } finally {
+      await context.close();
+    }
+  });
+
+  test("reduced motion: the photo carries no transform at all", async ({ page }) => {
+    // Not `scale(1)` — NO transform. app.css zeroes animation-duration to
+    // 0.01ms with iteration-count 1, so a @keyframes with `forwards` would
+    // snap to its end state and hold it: a permanently zoomed photo dressed up
+    // as "no animation". Driving it off `progress`, which is 0 wherever the
+    // carousel is not `eligible`, is what makes the style disappear entirely.
+    await page.goto(HOME);
+    await adopted(page);
+    const photos = await page.locator(`${CARD} [data-featured-photo]`).evaluateAll((els) =>
+      els.map((el) => ({
+        style: el.getAttribute("style"),
+        transform: getComputedStyle(el).transform,
+      })),
+    );
+    expect(photos).toHaveLength(3);
+    for (const photo of photos) expect(photo).toEqual({ style: null, transform: "none" });
+  });
+
+  // ── C: the bar dissolves at a turn ───────────────────────────────────────
+
+  test("the bar dissolves across the handover while its value snaps", async ({ browser }) => {
+    test.setTimeout(40_000);
+    const { context, page } = await moving(browser);
+    try {
+      await page.goto(HOME);
+      await adopted(page);
+      await pointerAway(page);
+
+      const series = await sampleAfterTurn(page, 1400);
+
+      // The VALUE snapped on the frame of the turn and never eased back: this
+      // is the half of the old decision that did not change.
+      expect(series[0].v.bar.value).toBeLessThan(0.15);
+      const duringSettle = series.filter((s) => s.t < DISSOLVE - 100);
+      expect(Math.max(...duringSettle.map((s) => s.v.bar.value))).toBeLessThan(0.15);
+      expect(
+        duringSettle.some((s) => s.v.bar.mode === "handover"),
+        "the handover was drawn",
+      ).toBe(true);
+
+      // …and the OPACITY FADED across it, rather than snapping to 0 behind the
+      // same `data-carousel-fill` flag. That distinction is the whole change,
+      // and the first version of this case could not see it: `min < 0.8` is as
+      // true of an instant drop to 0 as of a fade, so a mutation that set the
+      // duration to 0ms passed. Three assertions replace it, each of which a
+      // snap fails — the fade is GRADUAL (many samples strictly between), it
+      // is HALF SPENT at the halfway mark, and it is only ever going DOWN.
+      const mid = series.filter((s) => s.t > 60 && s.t < DISSOLVE - 60).map((s) => s.v.bar);
+      const opacities = mid.map((b) => b.opacity);
+      const partial = opacities.filter((o) => o > 0.02 && o < 0.98);
+      expect(partial.length, `mid-handover opacities ${opacities.join(", ")}`).toBeGreaterThan(5);
+      const halfway = mid[Math.floor(mid.length / 2)].opacity;
+      expect(halfway, `halfway through the handover the fill was at ${halfway}`).toBeGreaterThan(
+        0.25,
+      );
+      expect(halfway).toBeLessThan(0.75);
+      for (let i = 1; i < opacities.length; i++)
+        expect(opacities[i], `frame ${i} of the fade`).toBeLessThanOrEqual(opacities[i - 1]);
+
+      // The fade lasts the carousel's OWN settle — the number is read off the
+      // inline style the component writes from `carousel.settle`, not off a
+      // constant repeated in the component.
+      expect(new Set(mid.map((b) => b.dur))).toEqual(new Set([`${DISSOLVE / 1000}s`]));
+
+      // By the end of the handover the fill is opaque again and filling — the
+      // bar is never left faded out, which is what gating on `rotating` buys.
+      const after = series.filter((s) => s.t > DISSOLVE + 300);
+      expect(after.length).toBeGreaterThan(5);
+      for (const s of after) expect(s.v.bar.opacity).toBe(1);
+      expect(after[after.length - 1].v.bar.value).toBeGreaterThan(after[0].v.bar.value);
+      expect(after[after.length - 1].v.bar.mode).toBe("timed");
+    } finally {
+      await context.close();
+    }
+  });
+
+  test("reduced motion: the bar is position mode, and never dissolves", async ({ page }) => {
+    await page.goto(HOME);
+    await adopted(page);
+    const fill = page.locator(`${CARD} [data-carousel-progress] > div`);
+    await expect(fill).toHaveAttribute("data-carousel-fill", "position");
+    await expect(fill).toHaveCSS("opacity", "1");
+    await page.getByRole("button", { name: "Next slide" }).click();
+    await expect(status(page)).toHaveText("Slide 2 of 3");
+    await expect(fill).toHaveCSS("opacity", "1");
+    await expect(fill).toHaveAttribute("data-carousel-fill", "position");
+  });
+
+  // ── D: the card reveals on scroll ────────────────────────────────────────
+
+  for (const width of [1440, 390]) {
+    test(`${width}: the card is below the fold, hidden at 24px, and reveals ONCE`, async ({
+      browser,
+    }) => {
+      test.setTimeout(40_000);
+      const { context, page } = await moving(
+        browser,
+        viewportFor(width, width === 390 ? 844 : 900),
+      );
+      try {
+        await page.goto(HOME);
+        await adopted(page);
+
+        // THE FIRST-PAINT HAZARD, MEASURED RATHER THAN ASSUMED. The card may
+        // not ship `data-reveal` — its travel is not app.css's hard-coded 50%
+        // — so it paints in its final position and is put back to opacity 0
+        // when the action runs at hydration. That is only acceptable because
+        // it happens off screen, which is this assertion and nothing else.
+        const fold = await page.locator(CARD).evaluate((el) => ({
+          top: el.getBoundingClientRect().top,
+          viewport: window.innerHeight,
+          scrollY: window.scrollY,
+        }));
+        expect(
+          fold.top,
+          `card top ${fold.top}, viewport ${fold.viewport}, scrollY ${fold.scrollY}`,
+        ).toBeGreaterThan(fold.viewport);
+
+        // AND IT IS NOT A YANK, IT IS A 600ms FADE-OUT. animateIn writes the
+        // hidden opacity and the transition in one block, so the browser
+        // starts a transition INTO the hidden state: measured here at 0.92 and
+        // 0.97 while it ran, which is why this polls for the settled value
+        // instead of reading once. Below the fold nobody sees either version,
+        // but the distinction is the whole cost of shipping no marker, so it
+        // is measured rather than described.
+        await expect(page.locator(CARD)).toHaveCSS("opacity", "0");
+        // matrix(1, 0, 0, 1, 0, 24) — 24px down, which is the travel asked for
+        // and NOT the 50% app.css would have hidden a marked element at.
+        await expect(page.locator(CARD)).toHaveCSS("transform", "matrix(1, 0, 0, 1, 0, 24)");
+        await expect(page.locator(CARD)).toHaveCSS("transition-duration", "0.6s, 0.6s");
+        // `delayMax: 0`, and this is the only place that can see it. The
+        // default 400 is multiplied by `left / innerWidth`, and jsdom has no
+        // layout: `getBoundingClientRect().left` is 0 there, so the product is
+        // 0 whatever `delayMax` says and the unit assertion on this cannot
+        // fail. In a browser at 1440 the card's left edge is 513 of a 1455
+        // viewport, which would buy 141ms of nothing happening.
+        await expect(page.locator(CARD)).toHaveCSS("transition-delay", "0s");
+
+        await page.locator(BAND).scrollIntoViewIfNeeded();
+        await revealed(page);
+
+        // ONCE. Scroll away and back: the observer disconnected on the first
+        // intersection, so nothing hides it again.
+        await page.evaluate(() => window.scrollTo(0, 0));
+        await page.waitForTimeout(200);
+        await page.locator(BAND).scrollIntoViewIfNeeded();
+        await page.waitForTimeout(200);
+        await expect(page.locator(CARD)).toHaveCSS("opacity", "1");
+        await expect(page.locator(CARD)).toHaveCSS("transform", "none");
+      } finally {
+        await context.close();
+      }
+    });
+  }
+
+  test("reduced motion: the card is never hidden — the action is a no-op", async ({ page }) => {
+    await page.goto(HOME);
+    await adopted(page);
+    const card = page.locator(CARD);
+    // No inline style AT ALL: animateIn tears itself down before it hides
+    // anything when the preference is already on, so there is nothing to
+    // reveal and nothing that could be stranded at opacity 0.
+    expect(await card.evaluate((el) => el.getAttribute("style"))).toBeNull();
+    await expect(card).toHaveCSS("opacity", "1");
+    await expect(card).toHaveCSS("transform", "none");
   });
 });
 
