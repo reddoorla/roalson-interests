@@ -2,6 +2,8 @@ import { readFileSync, readdirSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { describe, it, expect } from "vitest";
 
+import { PALETTE } from "../../scripts/map-style.mjs";
+
 /**
  * The palette a site sets in `app.css` has to be legible where the TEMPLATE
  * already spends it, and nothing checked that.
@@ -209,5 +211,94 @@ describe("theme contrast", () => {
     ).toEqual([]);
     // Guard the guard: if this found nothing at all, the scan is broken.
     expect(found.size).toBeGreaterThan(0);
+  });
+});
+
+/**
+ * THE PROPERTY MAP'S TINTED PALETTE (#13 follow-up).
+ *
+ * `scripts/map-style.mjs` repaints OpenFreeMap's liberty style into this
+ * site's colours, and the labels it writes are TEXT — drawn into a WebGL
+ * canvas, where axe cannot see them and the a11y gate will never say a word.
+ * So the numbers live here, beside the rest of the palette's, measured with
+ * the same WCAG 2.x implementation rather than a second copy of it.
+ *
+ * Every number below was computed here first and then written down; three of
+ * the four figures in the brief that commissioned this work did not survive
+ * that (see the notes on each).
+ */
+describe("the property map's tinted palette", () => {
+  const rgb = (hex: string) => toRgb(hex, `map ${hex}`);
+  const ratio = (fg: string, bg: string) => contrast(rgb(fg), rgb(bg));
+  /** `alpha` of `fg` composited over opaque `bg`, as the GPU blends it. */
+  const over = (fg: string, bg: string, alpha: number) =>
+    ("#" +
+      rgb(fg)
+        .map((c, i) => Math.round(c * alpha + rgb(bg)[i] * (1 - alpha)).toString(16))
+        .map((h) => h.padStart(2, "0"))
+        .join("")) as string;
+
+  it("puts water labels on water at 8.02:1", () => {
+    expect(ratio(PALETTE.darkGarnet, PALETTE.water)).toBeCloseTo(8.0248, 3);
+  });
+
+  it("puts place labels on the ground at 14.85:1", () => {
+    expect(ratio(PALETTE.darkGarnet, PALETTE.ground)).toBeCloseTo(14.8543, 3);
+  });
+
+  /**
+   * The brief said 6.98:1 for garnet on park and that is wrong by any reading.
+   * The park FILL is `#d3d7bd` — 7.82:1 — and it is never even painted neat:
+   * the layer carries `fill-opacity: 0.7`, so what a label actually sits on is
+   * that fill blended over the ground, `#dcdeca`, at 8.44:1. Both are recorded,
+   * because the composite is what a visitor sees and the literal is what the
+   * style file says.
+   */
+  it("puts country and state labels on parkland at 7.82:1 neat, 8.44:1 as painted", () => {
+    expect(ratio(PALETTE.garnet, PALETTE.park)).toBeCloseTo(7.8243, 3);
+    expect(ratio(PALETTE.garnet, over(PALETTE.park, PALETTE.ground, 0.7))).toBeCloseTo(8.4402, 3);
+  });
+
+  /**
+   * The brief said "secondary on sand road 4.80:1". 4.80 is `--color-secondary`
+   * on the BRAND's sand `#e8e1d1` — the number already in app.css's table — and
+   * no road on this map is that colour. The sand roads measure 4.76 (trunk,
+   * primary and link), 5.12 (secondary/tertiary) and 4.45 (motorway).
+   *
+   * That 4.45 is the whole reason `highway-name-major` and `-minor` gained a
+   * `text-halo-color` they did not have upstream: a 1px halo in the ground
+   * colour is the pixel a glyph's edge is actually read against, and it takes
+   * the worst case to 5.45:1. Without it the road label on a motorway fill is
+   * the one sub-AA pair in the palette.
+   */
+  it("keeps road labels legible on every road fill, via the halo it added", () => {
+    expect(ratio(PALETTE.secondary, PALETTE.arterial)).toBeCloseTo(4.7598, 3);
+    expect(ratio(PALETTE.secondary, PALETTE.secondaryRoad)).toBeCloseTo(5.1215, 3);
+    expect(ratio(PALETTE.secondary, PALETTE.motorway)).toBeCloseTo(4.4511, 3);
+    expect(ratio(PALETTE.secondary, PALETTE.motorway)).toBeLessThan(AA_NORMAL_TEXT);
+    expect(ratio(PALETTE.secondary, PALETTE.ground)).toBeCloseTo(5.4472, 3);
+    expect(ratio(PALETTE.secondary, PALETTE.ground)).toBeGreaterThanOrEqual(AA_NORMAL_TEXT);
+  });
+
+  /**
+   * NOT A PASS, and recorded as a number rather than left out. `highway-name-path`
+   * is footpath and track names at minzoom 15.5 — well past every section's fit
+   * (6.948 land, 9.644 improved) but reachable by pinching in — and at 3.27:1 on
+   * its halo it is below AA for normal text. Tracked as an issue rather than
+   * quietly darkened here, because the tone came from the operator's table.
+   */
+  it("records the one map label that is BELOW AA, so it cannot be forgotten", () => {
+    expect(ratio(PALETTE.pathLabel, PALETTE.ground)).toBeCloseTo(3.2686, 3);
+    expect(ratio(PALETTE.pathLabel, PALETTE.ground)).toBeLessThan(AA_NORMAL_TEXT);
+  });
+
+  /** The map's ground IS the page's ground, so a tile that has not arrived is
+   *  invisible rather than a white flash. That is a palette claim, not a
+   *  coincidence, so it is asserted against app.css. */
+  it("paints the map's ground in the page's own --color-background", () => {
+    expect(PALETTE.ground).toBe(colors.background);
+    expect(PALETTE.garnet).toBe(colors.primary);
+    expect(PALETTE.darkGarnet).toBe(colors.dark);
+    expect(PALETTE.secondary).toBe(colors.secondary);
   });
 });

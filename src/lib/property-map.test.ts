@@ -106,8 +106,33 @@ describe("the tile provider", () => {
     expect(mapStyleUrl("   ")).toBe(DEFAULT_MAP_STYLE_URL);
   });
 
-  it("names the host svelte.config.js has to allow", () => {
-    expect(DEFAULT_MAP_STYLE_URL.startsWith(`${MAP_TILE_HOST}/`)).toBe(true);
+  // THIS USED TO ASSERT `DEFAULT_MAP_STYLE_URL.startsWith(MAP_TILE_HOST)`, and
+  // that stopped being true the day the style became ours (see
+  // scripts/map-style.mjs). The two halves it was conflating are now separate
+  // claims, and both are load-bearing:
+  //
+  //   - the STYLE is same-origin, so `connect-src 'self'` covers it and no
+  //     third party can repaint this map by deploying;
+  //   - the TILES are still on MAP_TILE_HOST, which is why svelte.config.js
+  //     still carries exactly that one external connect-src entry. The
+  //     assertion that the committed style points NOWHERE else lives in
+  //     scripts/map-style.test.ts, which can read the file.
+  it("loads the style from our own origin, not from the tile provider", () => {
+    expect(DEFAULT_MAP_STYLE_URL.startsWith("/")).toBe(true);
+    expect(DEFAULT_MAP_STYLE_URL.startsWith("//")).toBe(false);
+    expect(DEFAULT_MAP_STYLE_URL).not.toContain(MAP_TILE_HOST);
+    // A relative URL has no host to allow, and `new URL` says so for us.
+    expect(() => new URL(DEFAULT_MAP_STYLE_URL)).toThrow();
+    expect(new URL(DEFAULT_MAP_STYLE_URL, "https://roalsoninterests.com").origin).toBe(
+      "https://roalsoninterests.com",
+    );
+  });
+
+  // The CSP entry is still spent, and still on the tiles. A bare origin with no
+  // path, because it is a source expression in a header, not a URL to fetch.
+  it("still names the tile host svelte.config.js has to allow", () => {
+    expect(MAP_TILE_HOST).toBe("https://tiles.openfreemap.org");
+    expect(new URL(MAP_TILE_HOST).pathname).toBe("/");
   });
 });
 

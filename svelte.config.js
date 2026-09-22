@@ -162,16 +162,23 @@ const config = {
         // host, and adding it here alone takes the map to zero violations.
         //
         // What it covers is everything, and that is not obvious: MapLibre
-        // fetches the style JSON, the TileJSON, the vector .pbf tiles, the
-        // low-zoom Natural Earth raster .png AND the sprite sheet and the
-        // glyph .pbf ranges with `fetch()` — never as an <img> or a webfont —
-        // so img-src and font-src need nothing. Its worker is same-origin
+        // fetches the TileJSON, the vector .pbf tiles AND the sprite sheet and
+        // the glyph .pbf ranges with `fetch()` — never as an <img> or a
+        // webfont — so img-src and font-src need nothing. Its worker is
+        // same-origin
         // (see $lib/map-engine on why that takes an explicit URL), so it
         // resolves through child-src to `script-src 'self'` and worker-src
         // needs nothing either. NO 'unsafe-eval': MapLibre 6 compiles its
         // style expressions without it.
         //
-        // The host is a pair with PUBLIC_MAP_STYLE_URL's default
+        // 'self' IS ALSO LOAD-BEARING FOR THE MAP since 2026-09-22: the STYLE
+        // document is now ours and same-origin (static/map-style.json, built
+        // by scripts/map-style.mjs), and MapLibre fetches it like any other.
+        // Only the tiles, sprite and glyphs are still on the host below —
+        // scripts/map-style.test.ts asserts the committed style points nowhere
+        // else, and the Natural Earth raster .png fetches went with it.
+        //
+        // The host is a pair with PUBLIC_MAP_STYLE_URL's override
         // ($lib/property-map). Point that variable at a keyed provider and
         // this line is the other half of the swap.
         "connect-src": ["self", "https://*.prismic.io", "https://tiles.openfreemap.org"],
