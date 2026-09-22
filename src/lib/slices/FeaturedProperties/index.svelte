@@ -59,7 +59,9 @@
   import CarouselArrows from "$lib/components/CarouselArrows.svelte";
   import CarouselProgress from "$lib/components/CarouselProgress.svelte";
   import { createCarousel } from "$lib/carousel.svelte";
+  import { cmsHref } from "$lib/cms-href";
   import { featuredListings } from "$lib/featured-properties";
+  import { linkResolver } from "$lib/prismicio";
   import { DEFAULT_IMAGE_WIDTHS, imgix, srcset } from "$lib/utils/image";
 
   let { slice }: { slice: Content.FeaturedPropertiesSlice } = $props();
@@ -79,6 +81,16 @@
   // the h1 and the slide titles are h3s. It also names the carousel, so an
   // empty field falls back to the comp's words rather than to no name.
   const heading = $derived(primary.heading?.trim() || "Featured Properties");
+
+  // A label AND somewhere to go, as the hero's buttons — and through cmsHref,
+  // because /properties is a filesystem route an editor can only TYPE.
+  const portfolio = $derived.by(() => {
+    const text = primary.portfolio_label?.trim() ?? "";
+    const href = cmsHref(primary.portfolio_link, { linkResolver });
+    if (text === "" || href === null) return null;
+    const link = primary.portfolio_link;
+    return { text, href, blank: "target" in link && link.target === "_blank" };
+  });
 
   // ONE listing is not a carousel: `enabled: false` hands back empty attribute
   // bags, so it renders as a plain card — no roles, no "1 of 1", no swipe —
@@ -170,11 +182,11 @@
       {...carousel.region}
       data-featured-card
       data-carousel-ready={carousel.hydrated ? "" : undefined}
-      class="relative isolate bg-light text-primary lg:col-start-2 lg:row-start-1"
+      class="@container relative isolate bg-light text-primary lg:col-start-2 lg:row-start-1"
     >
       <div
         {...carousel.swipe}
-        class="grid grid-cols-1 grid-rows-[auto_auto_auto_1fr] lg:grid-cols-[414fr_514fr]"
+        class="grid grid-cols-1 grid-rows-[auto_auto_auto_1fr_auto] lg:grid-cols-[414fr_514fr]"
       >
         <!-- The chrome comes FIRST in the DOM so Pause is the first stop inside
              the carousel (APG), and sits in row 3 by placement. From `lg` it is
@@ -277,6 +289,72 @@
             </div>
           </div>
         {/each}
+
+        {#if portfolio}
+          <!-- THE BAND'S OWN LINK TO THE REST OF THE PORTFOLIO. Restored after
+               review removed it (operator call, 2026-09-21), and NOT where it
+               was: it used to be a `lg:absolute lg:inset-0` overlay across the
+               whole band, which parked it on the RESERVED MAP COLUMN (#13) and
+               made axe answer `color-contrast` with `bgOverlap` for every word
+               in the card under it — 1 node measured and 9 incomplete at 1440
+               on the one-listing state. It is a grid item in the CARD now, so
+               there is no overlay and nothing is painted over anything.
+
+               ON LEARN MORE'S OWN LINE, not the arrows'. It is pinned to the
+               text column's bottom edge — the card's 40px foot padding, the
+               same `mb-10` the slide's text block carries — and right-aligned
+               on the card's 20, so it clears the arrows (bottom-LEFT, 43 above
+               the foot) and clears LEARN MORE (bottom-left of the text
+               column). Where the slide's own text is what sizes the panel,
+               which is every one-listing state, that puts the two buttons'
+               bottoms on one line to the pixel. Where the chrome's 200px floor
+               or a TALLER SIBLING SLIDE sizes it instead, the active slide's
+               LEARN MORE floats above that edge by the difference and no
+               static placement can follow it.
+
+               THE 40rem IS A COLLISION, MEASURED, AND IT IS THE CARD'S WIDTH
+               AND NOT THE VIEWPORT'S. In the two-column layout the text column
+               starts at 0.446 × the card, so clearance between LEARN MORE's
+               right edge and this button's left edge falls linearly with it:
+               158.86 at a 927 card (1440), 98.50 at 818.06 (1280), 40.26 at
+               712.88 (1100), 11.58 at 661.13 (1024) — 0 at about 640. Below
+               that they overlap, and an element painted over text is the
+               `bgOverlap` defect this button was removed for in the first
+               place: rendered inside /dev/a11y-fixtures' `max-w-3xl` wrapper,
+               which squeezes the card to 425.89, the row-4 placement put this
+               button across LEARN MORE (left 236.42 against its right 355.13)
+               and axe answered the launch band with 9 measured and 1
+               INCOMPLETE. A viewport media query cannot see that — the
+               viewport there is 1440 — so the query is on the CARD
+               (`@container`), and under 40rem the button takes its own row
+               under the text instead. That is also what every phone gets (390
+               at 390), where the single-column card puts LEARN MORE's left
+               edge on the same 20 as this button's.
+
+               `row-start-5` is a row the four-row grid did not have; over
+               40rem the button moves into row 4 and row 5 collapses to
+               nothing, so the comp's 285 panel and the arrows' 43 above the
+               card's foot are untouched at every width the site is drawn at.
+               Focus landing here stops the clock and ArrowLeft/Right turn the
+               slide, both for free: the primitive's handlers sit on the region
+               and treat anything in it that is not inside a slide as a
+               control (see carousel.svelte.ts — "a consumer's own control
+               (dots, a 'view all' link in the header) gets the keys"). -->
+          <div
+            data-featured-portfolio
+            class="relative z-[2] col-span-full row-start-5 mx-5 mb-10 justify-self-start
+              @min-[40rem]:row-start-4 @min-[40rem]:self-end @min-[40rem]:justify-self-end"
+          >
+            <BrandButton
+              href={portfolio.href}
+              arrow
+              target={portfolio.blank ? "_blank" : undefined}
+              rel={portfolio.blank ? "noopener noreferrer" : undefined}
+            >
+              {portfolio.text}
+            </BrandButton>
+          </div>
+        {/if}
       </div>
 
       {#if carousel.enabled}

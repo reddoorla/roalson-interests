@@ -166,9 +166,15 @@ describe("the home document's bands", () => {
       "101-w-commerce-street",
       "13810-lookout-road",
     ]);
-    // The heading is not set: the slice's own default reads "Featured
+    // The heading is STILL not set: the slice's own default reads "Featured
     // Properties", and a second copy in the seed is a second thing to edit.
-    expect(Object.keys(band!.primary)).toEqual(["properties"]);
+    // The portfolio pair IS set, and has to be — the button draws only with
+    // both a label and a link, so an unseeded document is a band with no way
+    // out of it. Its link is the typed path $lib/cms-href reduces, the same
+    // shape the hero's second button is seeded with.
+    expect(Object.keys(band!.primary)).toEqual(["properties", "portfolio_label", "portfolio_link"]);
+    expect(band!.primary.portfolio_label).toBe("Our portfolio");
+    expect(band!.primary.portfolio_link).toEqual({ link_type: "Web", url: "/properties" });
   });
 
   it("opens on the hero and ends on the photo band — which pins only as the LAST slice", () => {

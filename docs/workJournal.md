@@ -3772,6 +3772,11 @@ tests, axe 0 violations across 4 routes, at load average 8.
 
 ## 2026-09-21 — The featured band: the carousel's first consumer, and a card that was 259px too tall with every test green (`feat/home-featured-properties-2`)
 
+> Superseded in part by 2026-09-21 — The "Our portfolio" button, put back on the
+> operator's call — and the placement that fixed its alignment reintroduced the
+> defect it was removed for. Its "After review" section's removal of the button
+> stands as the reasoning of the day; the button itself is drawn again.
+
 The homepage's "Properties" band (`6802:1460` at 1440, `6994:820` at 390): a
 reserved map column on `#3d0707` beside a sand card that turns through the
 editor's featured listings. This entry covers two agents' work. The first was
@@ -5118,6 +5123,136 @@ single test gives 436.890625 byte-identical, and `main`'s CI is green. So it is
 a gate that passes on the Linux runner and fails on macOS, deterministically,
 and it predates this work. Filed as #83 with the attribution evidence rather
 than left in a comment; the eight canvas-ground tests pass inside that same run.
+
+## 2026-09-21 — The "Our portfolio" button, put back on the operator's call — and the placement that fixed its alignment reintroduced the defect it was removed for (`feat/portfolio-button`, PR #90)
+
+Corrects, in part, **2026-09-21 — The featured band: the carousel's first
+consumer**, whose "After review" section removed this button and both its CMS
+fields. That removal's reasoning is not retracted here; the operator reviewed it
+and overruled one of its three reasons, with one condition.
+
+**What was overruled, and what was not.** The removal gave three reasons. The
+first — the link is already on the page three times (the hero's second button,
+the menu, the footer) — is a judgment about how many ways out of a band is too
+many, and the operator's answer is four. That is the whole of the overrule.
+The other two were defects, and both are answered rather than argued with: the
+button is not in the column this band reserves for the map (#13), and it is not
+an overlay. The condition attached to the restoration was the card's own column,
+which is what makes the first of those true.
+
+**The gate, and the honest count.** The removal measured the overlay at 1 contrast
+node passing and 9 INCOMPLETE at 1440 on the one-listing state, 9 and 0 with the
+button gone. Measured on `main` before touching anything, as this batch's own
+baseline: **9 and 0** — the eyebrow, the size line, the h3, five bullets and
+LEARN MORE. Measured on the branch: **10 and 0**. The tenth is the button. It is
+worth saying plainly that the required number was "still 9", and 10 is the right
+answer rather than a miss: the nine are the same nine and all still measured, and
+the tenth exists because axe can now measure a button that is drawn beside the
+card's text instead of over it. A gate phrased as a count would have been
+satisfied by nine of anything, so the test names all ten by shape instead.
+
+**The alignment, and why 0 is only available in one state.** The old button sat on
+the band's floor at `lg:pb-[43px]` — the ARROWS' line — and so 3px under LEARN
+MORE at 1440 and 12 at 1280. It is pinned to the text column's own bottom edge
+now, the card's 40px foot padding, which is the same `mb-10` the slide's text
+block carries. Measured at true layout widths on the one-listing state: **0.00 at
+1440 (card 927) and 0.00 at 1280 (card 818.06)**, and 0.00 at 1100 and 1024 too.
+
+In the three-listing state it is 42.97 at 1440 and 60.00 at 1280, and that is not
+a placement that failed. There the panel is sized by the chrome's 200px floor
+(1440) or by a taller sibling slide (1280), so the ACTIVE slide's LEARN MORE
+floats above the text column's bottom edge by the difference — a line that moves
+with whichever slide is on stage. No static placement can follow it, and the
+alternatives that could (JS, or bottom-aligning the slide's text) cost more than
+the pixels are worth. The button is on the edge LEARN MORE reaches whenever the
+slide's own text sizes the panel, which is every one-listing state — including
+the one the live site is in, where one of the three picks has a feature image.
+
+**THE EXPENSIVE FINDING, and it is a belief corrected on contact.** The placement
+that produced those zeros — bottom-right of the card, on LEARN MORE's line —
+reintroduced the exact defect the button was removed for, and it took a
+measurement to see it. `/dev/a11y-fixtures` renders this band inside the page's
+`max-w-3xl` wrapper, which squeezes the card to **425.89 at a 1440 viewport**
+against the **927** the same card measures on `/dev/home` and on the production
+`/`. At 425.89 there is no room for two buttons on one line, so this one landed
+across LEARN MORE — left 236.42 against its right 355.13 — and axe answered the
+launch band **9 measured / 1 INCOMPLETE**, naming LEARN MORE. That is `bgOverlap`
+again, from a different cause, in the act of fixing the thing `bgOverlap` was
+about.
+
+The belief that was wrong: that a `lg:` breakpoint is a statement about how much
+room there is. It is not. It is a statement about the VIEWPORT, and the viewport
+on that page says 1440 while the card says 425.89. So the placement is a
+container query on the card (`@container`, `@min-[40rem]:`), and under 40rem the
+button takes its own row under the text.
+
+**Where the 40rem comes from, as arithmetic rather than taste.** In the two-column
+layout the text column starts at 0.446 × the card, so clearance between LEARN
+MORE's right edge and this button's left edge is `0.554 × card − 354.59`:
+158.86 at a 927 card (1440), 98.50 at 818.06 (1280), 40.26 at 712.88 (1100),
+11.58 at 661.13 (1024), and 0 at about 640. 1024 is the thin one and it is the
+narrowest card the two-column layout ever produces on a real viewport; every card
+below that is either single-column (where LEARN MORE starts at 20 and clearance is
+hundreds of pixels) or inside a container narrower than the design. The residual
+risk is written down rather than solved: the label is CMS text, and a much longer
+one narrows that 11.58 at 1024. Nothing in CSS can measure a sibling's text.
+
+**What is deliberately unchanged.** The card's geometry. The button needed a row
+the four-row grid did not have, and a fifth row at the card's foot would have
+moved the arrows' 43 and grown the comp's 285 panel at every width. So row 5
+exists only for the narrow-card layout and measures **0** from `lg` up: the panel
+is 285.00 in the three-listing state at 1440 and the arrows are 43 above the
+card's foot at 1440 / 1280 / 1100 / 1024, exactly as before. The production build
+of `/` renders the card's rows as `541.406px 22px 0px 280.031px 0px`.
+
+**What the button gets for free, and it was designed for.** `carousel.svelte.ts`
+puts its focus and arrow-key handlers on the REGION and treats anything in it
+that is not inside a slide as a control — its own comment says "a consumer's own
+control (dots, a 'view all' link in the header) gets the keys for free". So
+focus landing on this button stops the clock, as it does on the arrows, and
+ArrowLeft/Right turn the slide while it is focused. Neither was written here.
+
+**Production build.** `pnpm build && pnpm preview`, `/` at a true 1440: card
+927 × 843.44, `container-type: inline-size` applied, the query in the shipped CSS
+as `@container (width>=40rem){…}`, the fifth row 0px, LEARN MORE 40 above the
+foot, no console errors, `overflowX` 0. The font matters here and was checked
+rather than assumed — `Atkinson Hyperlegible Next` loads in dev as well as prod
+(the CSP report for `fonts.googleapis.com` under `vite dev` is #52 and is a
+preload, not the stylesheet), and LEARN MORE measures 145.14 in both, so the 640
+arithmetic holds under the shipped font. The BUTTON itself is absent on `/`,
+because the published `home` document has no such fields: the model reaches
+Prismic through the `prismic-models` workflow, not from here, and the document
+needs the pair before a visitor sees anything. Filed as #88 rather than left in a
+commit message.
+
+**Mutations, all restored and `cmp`-confirmed.** Nine, and two of them are the
+ones that matter. Moving the button back to the arrows' line turns the alignment
+test red with `Expected: 0  Received: -3` — the old complaint, reproduced to the
+pixel. Dropping the container query turns the narrow-card test red with `axe
+could not measure these: ["<a href="/properties/25331-ih-10-west"…"]`, which is
+the defect itself rather than a proxy for it. The other seven: the button not
+rendered (6 unit cases red), moved out of the card, the `lg:absolute lg:inset-0`
+overlay put back, the tone swapped to `cream`, the label/link guard removed,
+placed before the slides, placed inside one, and the seeded label changed.
+
+**Two things found and not fixed.** `/dev/a11y-fixtures`' wrapper squeezes every
+full-bleed band on it and the page scrolls sideways by 368px — pre-existing, and
+now the reason a real defect was caught, which is an argument for keeping it and
+an argument for saying so on the page; #87. And `pnpm exec playwright test` is 1
+red on this machine for #80, the macOS/Linux `scrollbar-gutter` split
+(`g.text.left` 436.890625 against `< 435`): confirmed pre-existing by restoring
+this slice from `origin/main` and watching it fail identically, and confirmed not
+moved by this change — 436.890625 before and after, byte-identical.
+
+One observation recorded rather than claimed: `home-hero.spec.ts`'s "the hero
+stays pinned while the band slides up over it" failed once under four parallel
+workers, then passed in a full re-run and three targeted runs, with and without
+this change. Flake under load on the evidence available; if it returns it is
+worth an issue rather than a paragraph.
+
+`pnpm verify` minus that one known red: prettier clean, eslint clean,
+svelte-check 0 errors over 4622 files, build green, axe 0 violations across 5
+routes, 1012 unit tests in 99 files, 133 of 134 Playwright.
 
 ## 2026-09-21 — The Properties masthead takes a photo, and a scrim sized for the photo we do NOT have yet (#15, `aa6e40b`)
 

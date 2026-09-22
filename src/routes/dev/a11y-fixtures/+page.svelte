@@ -473,8 +473,9 @@
   <HomeHero slice={homeHeroFixture({ vimeo_id: HOME_VIMEO_FIXTURE })} />
 
   <!-- The homepage's featured band, twice: the comp's three listings (a
-       carousel — garnet arrows and bar on the sand card) and launch day's ONE
-       (a plain card: no region, no arrows, no bar — under its own heading,
+       carousel — garnet arrows and bar on the sand card, and the garnet
+       "Our portfolio" button at the card's foot) and launch day's ONE (a plain
+       card: no region, no arrows, no bar — under its own heading,
        because two landmarks may not share a name on one page). This gate runs
        under reduced motion, so the Pause control is never in what axe sees
        here; its name and its place in the tab order are held by
@@ -494,7 +495,18 @@
        by the dissolve. Measured on this page after the change: 15 nodes
        measured across the two bands, 0 incomplete, 0 violations. The
        CarouselFixture stacks above never had it (3 passed / 0 incomplete
-       each) — their slides carry no opaque background. -->
+       each) — their slides carry no opaque background.
+
+       17 NOW, still 0 incomplete: the operator's call on 2026-09-21 put the
+       "Our portfolio" button back, one measurable node per band. And THIS
+       PAGE is where its first placement was caught — `max-w-3xl` squeezes
+       this band's card to 425.89 at a 1440 viewport, 500px narrower than the
+       927 the site ever draws, and on LEARN MORE's line the button landed
+       across it: 9 measured / 1 incomplete on the launch band, the same
+       `bgOverlap` the paragraph above is about. A `lg:` query could not see
+       it — the viewport here says 1440 — so the button's placement is a
+       container query on the CARD, and this page draws its narrow-card
+       layout: its own row under the text. -->
 
   <FeaturedProperties slice={featuredPropertiesFixture()} />
   <FeaturedProperties slice={featuredLaunchFixture({ heading: "Featured Property" })} />

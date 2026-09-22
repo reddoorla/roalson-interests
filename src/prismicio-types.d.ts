@@ -814,6 +814,32 @@ export interface FeaturedPropertiesSliceDefaultPrimary {
   properties: prismic.GroupField<
     Simplify<FeaturedPropertiesSliceDefaultPrimaryPropertiesItem>
   >;
+
+  /**
+   * Portfolio button — label. With no label or no link the button is not shown field in *FeaturedProperties → Default → Primary*
+   *
+   * - **Field Type**: Text
+   * - **Placeholder**: Our portfolio
+   * - **API ID Path**: featured_properties.default.primary.portfolio_label
+   * - **Documentation**: https://prismic.io/docs/fields/text
+   */
+  portfolio_label: prismic.KeyTextField;
+
+  /**
+   * Portfolio button — link. A page on this site can be typed as a path, e.g. /properties field in *FeaturedProperties → Default → Primary*
+   *
+   * - **Field Type**: Link
+   * - **Placeholder**: /properties
+   * - **API ID Path**: featured_properties.default.primary.portfolio_link
+   * - **Documentation**: https://prismic.io/docs/fields/link
+   */
+  portfolio_link: prismic.LinkField<
+    string,
+    string,
+    unknown,
+    prismic.FieldState,
+    never
+  >;
 }
 
 /**
