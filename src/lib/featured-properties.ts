@@ -23,7 +23,7 @@
 // prints the counts on its element. `unembedded > 0` on a published page means
 // "add `fetchLinks` to $lib/page-load" (the response shape is the same, and
 // nothing in here changes), not "the editor picked badly".
-import { isFilled, type Content, type ImageField } from "@prismicio/client";
+import { isFilled, type Content, type GeoPointField, type ImageField } from "@prismicio/client";
 
 import { cmsHref } from "$lib/cms-href";
 import { linkResolver } from "$lib/prismicio";
@@ -40,6 +40,12 @@ export interface FeaturedSlide {
   sizeLabel: string;
   image: ImageField<never, "filled">;
   highlights: string[];
+  /** The listing's map pin, or null when the GeoPoint is empty. The model's
+   *  `customtypes` entry has always asked for `location`, so it was arriving
+   *  and being dropped on the floor here; the band's map (#13) is what reads
+   *  it. A slide with no pin still shows — the photo is what the band is for,
+   *  and the map simply has one fewer marker than the carousel has slides. */
+  location: GeoPointField<"filled"> | null;
 }
 
 export interface FeaturedListings {
@@ -86,6 +92,7 @@ export function featuredListings(
       sizeLabel: data.size_label?.trim() ?? "",
       image: data.feature_image,
       highlights: propertyHighlights(listing),
+      location: isFilled.geoPoint(data.location) ? data.location : null,
     });
   }
 

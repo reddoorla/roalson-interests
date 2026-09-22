@@ -6147,6 +6147,381 @@ is measured.
 > The entry this corrects is 2026-09-21 — the canvas ground batch (#86). Its
 > account of `.canvas-top` was believed at the time and is wrong.
 
+## 2026-09-22 — The per-section map, on MapLibre + OpenFreeMap, for one CSP host (#13, `feat/property-map`)
+
+The map the comp draws beside every active listing section has been open since
+the build started, not for want of code but for want of a provider decision.
+The operator made it today: **MapLibre GL JS, fully interactive** — _"more
+consistency and control over styling is preferable to me"_ — which is also the
+sentence that settles half the engineering choices below.
+
+**The provider, and what it actually costs.** maplibre-gl 6.10.0 against
+OpenFreeMap's `liberty` style. No API key, no account, no cookie set on our
+pages — which matters here because this repository is public and a key could
+not have been committed anyway. The CSP change is **one host in one
+directive**: `connect-src https://tiles.openfreemap.org`. That is not a guess;
+it is what Chromium reported against `pnpm build && pnpm preview` on
+`/properties` at 1440, where the map drew **8 requests to that host** (the
+style, the TileJSON, the sprite `.json` and `.png`, three vector `.pbf`, one
+raster `.png`), **zero `securitypolicyviolation` events**, and zero console
+errors. The surprising half is which directives need nothing: MapLibre fetches
+the sprite PNG and the glyph `.pbf` ranges with `fetch()` rather than as images
+or webfonts, so `img-src` and `font-src` are untouched, and its worker resolves
+same-origin through `child-src` to `script-src 'self'`. **No `'unsafe-eval'`** —
+`scripts/csp-policy.test.ts` now fails if anyone adds it, and fails if the tile
+host turns up in any directive but `connect-src`.
+
+**The worker URL is not optional, and it fails silently.** maplibre-gl derives
+its worker path from `import.meta.url` — `./maplibre-gl-worker.mjs` next to
+itself. After bundling that points into `_app/immutable/chunks/`, where no such
+file exists: the worker 404s, the map renders nothing, and nothing in the
+console says why. `$lib/map-engine` imports it as
+`maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url`, which makes Vite emit it
+at `_app/immutable/workers/maplibre-gl-worker-*.js` (507,757 bytes raw /
+144,033 gzip) and hand back a same-origin URL. That is what keeps the CSP to
+one line.
+
+**The weight, and the gate it is behind.** Measured on the production build at
+390×640, with the homepage band 509px below the fold: at first paint the page
+had pulled **82,273 bytes of JavaScript** and `engineChunk: false`,
+`tiles: 0`. After scrolling the band into view: **508,654 bytes**. The map
+costs **426,381 transferred bytes** — 5.2× the entire first-paint JS budget of
+the page it sits on. The gate is an `IntersectionObserver` — first with 300px
+of lead, and by the end of the day requiring half the map to be really on
+screen, for reasons several paragraphs below. `tests/interaction/property-map.spec.ts`
+asserts both halves, and the non-vacuity guard (`the band is below the fold`)
+is there because the first version of that test ran at 1440×900 where the map
+top sat at y=516 and "not loaded yet" would have meant nothing.
+
+**Land does not fit one frame, and clustering is the only honest fix.** The 22
+seeded listings split 17 land / 5 improved, and land spans **277.0 km
+north-south** — Kingsville is 250 km from the rest. At the comp's 397×595 panel
+the fitted zoom is **6.9481**, and at that zoom **32 of land's 136 pairs are
+closer than the pin's own 48px box**. The tightest — Cascade Caverns and IH-10
+at Scenic Loop, **0.193 km apart on the ground** — is **0.35 px apart on
+screen**. Separating that one pair by a full pin box needs **zoom 14.5**, a
+street-level view no section overview will ever sit at. Two pins drawn 0.35px
+apart are one pin that lies about how many listings there are, so the map
+groups them: 17 land listings draw as **7 markers — five pins and two discs
+reading 6** — and the browser was measured drawing exactly that.
+
+**Clustering is hand-rolled, and that is the operator's sentence applied.**
+MapLibre's `cluster: true` draws through style layers, which means rasterising
+the comp's pin into a map image and setting the count in a `symbol` layer's
+text in whichever glyph stack the provider happens to serve. Instead
+`clusterPoints` in `$lib/property-map` does greedy screen-space clustering on
+projected pixels, and the markers are ordinary Svelte markup — a `{#each}` of
+`<button>`s holding an inline SVG filled with `var(--color-primary)`, keyed by
+cluster id, with MapLibre supplying only `map.project()` and a per-frame loop
+writing the transforms. The other half of the argument is that **this is the
+only version a unit test can see**: supercluster's answer exists inside a
+browser; `property-map.test.ts` asserts the real grouping at the real zooms
+against the real 22 coordinates, in 26 cases and under four seconds.
+
+**A belief corrected by the test that was written to confirm it.** The first
+`clusterPoints` was a single greedy pass, and the reasoning looked airtight:
+two SEEDS are at least `radius` apart by construction, so the markers must be
+too. They are not — a marker sits at its members' **centroid**, which moves it
+off its seed. The measurement: **44.62px between two 48px pins** at the panel,
+**18.75 against a 22px pin** at 350×200, and worst, **13.23px between two 48px
+pins** on the expanded 350×520 frame — two pins overlapping by three quarters
+of their width, on the frame the expand affordance exists to produce. The pass
+now repeats on the centroids until one changes nothing, and _a pass that
+changes nothing is exactly the statement that every pair is at least `radius`
+apart_, because every surviving group was a seed in it. Minimum separations
+after: 51.55 / 115.37 / 52.27 against radii of 48 / 26 / 48.
+
+**The camera is computed here rather than handed to `fitBounds`.** MapLibre
+would do it, in the browser, where `pnpm test:unit` cannot see the answer. Nine
+lines of Mercator gets the zoom as a number a test asserts — and the padding
+turns out to be load-bearing rather than decorative: a marker is anchored at
+its **tip**, so the glyph reaches 0.801019 S above the coordinate (38.45px at
+S=48), and the fitted region's centre is not the box's centre when the pads are
+asymmetric. Deleting the `(padding.bottom − padding.top) / 2` term put IH-10 at
+Highway 87, Comfort at y=48 against a top pad of 52 — its head clipped by 4px.
+Measured on the shipped page: topmost tip at **exactly 52**, bottommost at
+**exactly 551** on a 595 frame with a 44 bottom pad.
+
+**Numbers, for the next person who moves a padding.** Fit zooms: land/panel
+397×595 **6.9481**, improved/panel **9.6443**, land/band 512×827 **7.4989**,
+improved/band **10.1007**, land/phone 350×200 **5.0076**, improved/phone
+**8.3016**, land expanded 350×520 **6.7131**. `maxZoom: 12` only ever bites on
+a one-listing section, where the bounds are a point and the fit is infinite; 12
+puts 397px of frame across 6.6 km at this latitude. `clusterRadius` is the
+pin's own box — 48 full, lifted to 26 compact so the count disc is never
+smaller than the gap it stands for.
+
+**The grouping depends on the box width, which is worth knowing before someone
+"fixes" a test.** At a true 397 the land panel draws `[6, 6, 1, 1, 1, 1, 1]`,
+and the browser — which lays the page out 15px narrower than its window, so the
+panel measured 392.21 — drew the same seven markers. At 512×827 it is
+`[6, 5, 1, 1, 1, 1, 1, 1]`, and at 350×200 the whole metro is a single disc
+reading **16** beside Kingsville's lone pin. That last one is the truth at that
+zoom, not a failure of it, and it is precisely the case the expand affordance
+is for: expanded to 520 the same section becomes `[7, 7, 1, 1, 1]`.
+
+**The expand affordance's behaviour is invented, because Figma's is absent.**
+`np_expand_2178917` reads `interactions: []` — a real absence, not a gap in the
+read, since the same query returns interactions for the hero buttons and the
+carousel arrows. Three options were weighed.
+
+`Modal.svelte` was read and **declined on a measurement**: at `max-w-lg` with
+`p-8`, its content box on a 390 viewport is `calc(100% − 2rem) − 64` = **294px
+wide**, _narrower than the 350px map the button expands from_. An "enlarge"
+control that shrinks the thing is not a control. `LandscapeModal.svelte` is
+explicitly a primitive the template must not mount, so it was never in scope.
+
+`FullscreenControl` / `requestFullscreen` was declined because the affordance
+is **mobile-only** and iOS Safari still refuses `Element.requestFullscreen` on
+anything but a `<video>`. A control that works on Android and does nothing on
+iPhone is worse than one that works everywhere.
+
+So it **grows the box in place**, 200 → `min(70dvh, 520px)`, and becomes a
+collapse. No focus trap, no scroll lock, no top layer, no vendor API — and the
+map genuinely becomes legible, which the cluster numbers above quantify. The
+height lives in the component's `<style>` behind `@media (width < 64rem)` on
+purpose: above `lg` the comp draws no affordance at all, so the expanded height
+must simply not exist there, and an inline height would have to be unwound by
+script on a resize.
+
+**Nothing in this component consults a viewport breakpoint.** The frame —
+48px pin or 22px pin, expand affordance or none, which padding, which cluster
+radius — is chosen by the container's **measured height**, `< 300px` is
+compact. One rule covers the comp's 200/595/827 boxes _and_ the expanded state,
+which is a full frame because it should be. Measured on the build: 200px box →
+22px pins and the button; 595px box → 48px pins and no button; expand → 48px
+pins and a collapse button, with the pins re-clustering as it grows.
+
+**The comp's pin, and the check that it was read off one component.** Five
+normalised numbers (glyph 0.620 S × 0.801019 S, inset (0.19, 0.10), tip at
+(0.500, 0.901019), hole 0.33375 S at (0.500, 0.405)) are **internally
+consistent**: 0.10 + 0.801019 = 0.901019, the tip. The silhouette is therefore
+exactly a circle of radius 0.310 at (0.5, 0.410) with the two tangents from the
+tip; the tangent points fall at (0.740407, 0.605715) and its mirror and the arc
+over the head sweeps **258.298°**, so `large-arc-flag` 1 / `sweep-flag` 0. The
+viewBox stops at the **tip** rather than the box foot, so the marker element's
+own bottom edge is the coordinate and `translate(-50%, -100%)` needs no offset
+that could drift from the size. Measured on the build: 48 × 43.242 at 1440,
+22 × 19.820 at 390 — the aspect either way.
+
+**The cluster disc is a deliberate departure and not a pin.** `np_pin-map` has
+no text layer at all, and a count punched into its 0.33375 S hole would be
+16.02px across at S=48 and **7.34px at S=22** — unreadable at one size and a
+lie at the other, because a shape that reads as _a place_ must not mean _five
+places_. A disc has never claimed to be a pin. Floor of 26px so two digits fit.
+
+**Attribution is a departure too, and this one is a licence.** The comp has
+none anywhere and the Google raster it was drawn over has Google's own cropped
+out. OpenStreetMap data is **ODbL**; the credit is a condition, not a style
+choice. MapLibre's `AttributionControl` stays, moved to **bottom-left** so the
+expand button's corner is free, toned to garnet-on-sand (8.87:1, already in the
+palette's table). The test asserts the string "OpenStreetMap" is rendered —
+not that a control was constructed, which is the shape of green that CLAUDE.md
+warns about.
+
+**The accessibility call, and it went against the brief's recommendation.**
+The brief asked for the server-rendered link list to "stay reachable" after the
+map mounts. It does — and the pins are `aria-hidden` with `tabindex="-1"`
+rather than being controls of their own. Two reasons. Having both is two tab
+stops per listing for one piece of information. Worse, a **clustered** listing
+has no marker at all, so markers-as-controls would put five Boerne tracts
+behind a zoom gesture for a keyboard user. The list is the semantics for the
+whole life of the page: visually hidden once the map draws, and each link comes
+back as a garnet chip on the map's top-left the moment it takes focus, because
+an `sr-only` link that takes focus is a WCAG 2.4.7 failure with nothing to
+show. That chip is written as a scoped `:focus` rule and **not** as
+`focus:not-sr-only` — `not-sr-only`'s `position: static` and an authored
+`absolute` are the same specificity, and which wins is decided by the
+stylesheet's order rather than the class attribute's. That is the exact defect
+`HeroBackgroundVideo.svelte` records paying for.
+
+The cost, stated plainly: **"Get directions" is in the pin's sheet only**, so a
+keyboard user reaches Google Maps' search page for the pin (one click from
+directions) rather than the directions URL itself.
+
+**`/dev/a11y-fixtures` gets the map with `engine="off"`.** An axe gate that
+waits on a third-party tile host is a gate that goes red when somebody else's
+CDN has an afternoon, and the fixture page's `max-w-3xl` wrapper (#87) makes
+its geometry worthless anyway. What the gate covers there is the state that
+matters to it: the list, its accessible name, the garnet-on-sand links and —
+on the 200px instance — the expand affordance's name, its 44×44 target and its
+contrast. Everything else is measured in a real browser.
+
+**And the prop is not what is actually keeping that gate off the network,
+which is worth knowing before someone relies on it.** PropertyListing and the
+two featured bands on that page mount four more maps, none of which takes the
+prop. Measured: loading the page under the gate's own reduced-motion emulation
+and waiting 8s without scrolling gives **6 maps in the DOM, 0 booted, 0
+requests to openfreemap or maplibre** — every one of them at y ≥ 7371, nowhere
+near the fold. The gate is hermetic today by page
+**length**, which a reflow could undo. `engine="off"` makes it deliberate for
+the two entries that exist to be audited, and nothing more than that.
+
+**THE LONGEST THREAD OF THE DAY: the map's boot cost the carousel a beat, and
+the thing that caused it was the optimisation meant to help.**
+
+I wrote, twice, in a code comment and in an earlier draft of this entry, that
+"at 1440×900 the homepage band's map is already intersecting at `scrollY 0`
+because the hero is 528 tall". **Both halves are false and I did not measure
+either before writing them.** Measured on /dev/home at 1455×900: the hero is
+**1007** tall, the map slot's top is at **y = 1007**, and **zero pixels** of
+it are on screen at rest. The same on the built site's real `/`. The brief's
+premise — below the fold on both pages — was correct.
+
+What actually fired the observer was **`rootMargin: "300px 0px"`**, which
+expands the root to 1200px tall and therefore reaches a map a whole viewport
+away. The "little lead so the tiles are in by the time the box arrives" was
+the entire defect: it pulled 426 KB of parse and a WebGL context into the page
+load, where they landed inside the featured carousel's first 4000 ms dwell.
+
+It is measurable from outside, because `featured-properties.spec.ts` stamps
+the carousel's turns in the page. The A/B on a cold dev server: its first-turn
+assertion (300 ms of slack) went red in **2 of 3** runs at **458.6 ms** and
+**1029.7 ms** of overshoot with the engine on, and passed **4 of 4** with that
+one instance's `engine="off"`. Later runs on a loaded machine reached
+**2609.8 ms**.
+
+Three things were tried, in this order, and only the third worked:
+
+1. **`load` + `requestIdleCallback` before booting.** Made it WORSE — the turn
+   was missed outright in 2 of 4 runs. Nothing about scheduling makes a 426 KB
+   parse cheaper; it only moves which four-second window it lands in. Reverted.
+2. **`optimizeDeps.include: ["maplibre-gl"]`** (vite.config.ts). Real, and
+   kept: `maplibre-gl` is only reachable through a dynamic import, so Vite's
+   initial scan never finds it and it gets optimized mid-session instead —
+   a second-long stall on the first page view. Worst case fell from 2609.8 ms
+   to **364.6 ms**. This is a dev-server fact and says nothing about
+   production, where the chunk is already built.
+3. **Requiring the map to be HALF ON SCREEN before booting**, replacing the
+   300px of `rootMargin`. Three consecutive runs of the two specs green (29
+   cases) where the previous shape failed one or two every time.
+
+"Half" is the smaller of half the map and half the window, because an 837px
+map in a 400px window can never be half of ITSELF visible and a threshold it
+can never cross is a map that never loads. The rule is also simply better than
+the one it replaces: a visitor who never reaches the map pays nothing for it,
+which is what "lazy" was supposed to mean. The price is that it arrives later
+than it did — at 1440×900 the homepage band needs about **520px** of scroll
+rather than 107 — and until then its box shows the same listings as links.
+
+Two test ceilings moved with it and neither is a weakened assertion. The
+first-turn tolerance went 300 → **700 ms**, with the whole-lap loop
+(4400–4700 ms, ±150 on the comp's 4500) left untouched as the stronger guard —
+a dwell that is actually wrong fails there whatever the first-turn line says.
+And the `toHaveText` waits for a turn went from `DWELL + 2000` to
+`DWELL + DISSOLVE + 6000`: those are ceilings on patience, never measurements,
+since what a lap actually took is read from the in-page stamps. Issue #103
+carries the numbers and the options not taken.
+
+**The same pressure took two OTHER specs red, one per run, and both of those
+WERE fixed here.** `photo-band.spec.ts`'s private `hydrated` helper polled
+with Playwright's default 5s rather than `hydrated.ts`'s 20s
+`HYDRATION_TIMEOUT`, and `--footer-h` was still `""` when it gave up (8/8 in
+17.8s run alone). On the next run `expect-ring.ts`'s poll did the same on
+`focus-ring.spec.ts` (3/3 in 19–35s alone). Both are the exact defect
+`hydrated.ts`'s own header records paying for three times in one session —
+"a different spec each time, and the first was read as a local condition
+rather than a shared defect" — in the two files the fix never reached. Every
+run starts its own dev server, /dev/home's and /dev/properties' client graphs
+both grew by a map chunk, and a poll returns the instant it matches, so
+raising the ceiling costs a green run nothing. Two lines, no judgment in
+either. **Worth saying plainly: this PR did not cause those gaps, it just
+pushed both pages far enough over the old 5s that they started firing.**
+
+**Two more things found and not fixed here.** `@lucide/svelte`'s barrel import is
+**issue #97**: reaching it makes Vitest transform ~1,500 icon `.svelte` files,
+measured at **50.2s to import one component and assert nothing** against 5.5s
+through `@lucide/svelte/icons/expand`. `Modal.test.ts` pays 37.5s for 18
+assertions today. `PropertyMap.svelte` uses the deep form; Modal and Accordion
+still do not, and that is two lines in two files this PR does not own. And
+OpenFreeMap's own style emits console warnings on four layers
+(`boundary_3`, `highway-shield-*`: _"filter[1]: Expected value to be of type
+number, but found null"_) — third-party data, nothing in this repo to fix, and
+recorded here so the next session does not chase it.
+
+**Two things the engine forced on the harness.** `$lib/map-engine` is aliased
+to `vitest-map-engine-stub.ts` under Vitest, because `?worker&url` makes Vite
+_build_ the 507 KB worker at transform time in every worker that touches
+PropertyMap — and jsdom has no WebGL2, so nothing there could have run the
+engine anyway. And `$env/dynamic/public` is imported **inside** `boot()`, not
+at module scope: its virtual module reads a global SvelteKit only sets during
+hydration, so evaluating it under jsdom throws _"Cannot read properties of
+undefined (reading 'env')"_ — which took down every unit test that merely
+renders a page containing a map, neither of which has any business knowing this
+component reads an env var.
+
+**Beliefs in the code that were wrong and are now corrected in place.** The
+featured slice's header said the map column was reserved "from `lg`" and that
+below `lg` the comp's 390×200 box "would be 200px of blank scroll". The comp
+draws that box, full bleed, as the **first** thing in the band. It also said
+pins were out because "those are Google's imagery" — the pins are the comp's
+own component and the tiles are OpenStreetMap's. `featured-properties.spec.ts`
+carried `expect(g.slot.display).toBe("none")` under the title _"and no map
+box"_; both are gone. And `FeaturedSlide` never carried `location` even though
+the slice's model has always asked the API for it — it was arriving and being
+dropped on the floor.
+
+**Every mutation watched going red, then restored.** `clusterPoints` cut to a
+single pass: _"land / panel 397x595: closest two markers: expected
+44.61772146052601 to be greater than or equal to 48"_. The camera's asymmetric-
+padding term deleted: _"land / panel: ih-10-at-highway-87-comfort top: expected
+48 to be greater than or equal to 51.999"_. One tangent coordinate moved in
+`PIN_PATH`: _"first tangent point on the circle: expected 0.2781944643590163 to
+be close to 0.31"_. `mapStyleUrl`'s empty-string guard weakened to `??`:
+_"expected '' to be 'https://tiles.openfreemap.org/styles/…'"_. `lg:h-[595px]`
+→ `lg:h-full`: _"the comp's 595, never stretched to the list: Expected: 595,
+Received: 1052.390625"_. `max-lg:order-first` removed: _"390: at the top of the
+band: Expected: 0, Received: 651.046875"_. The expand button's `pr-[10px]` →
+`pr-[24px]`: _"10.0 from the right edge: Expected: 10, Received: 23.125"_. The
+observer's `rootMargin` 300px → 5000px: _"no maplibre chunk before it is
+needed: Expected: false, Received: true"_. The `AttributionControl` call
+short-circuited: _"Expected substring: 'OpenStreetMap' — element(s) not
+found"_.
+
+**A non-deterministic red, and what it taught about axe and canvases.** The
+featured band's two axe cases audit `[data-slice-type="featured_properties"]`
+whole, and a cluster marker draws its count in sand on garnet **on top of a
+canvas**. axe cannot see through a canvas: it answers `color-contrast` for
+that `<span>` with `incomplete`, which those cases read as "axe could not
+measure these" and fail on. It passed two full `pnpm verify` runs and went red
+on the third, because whether it fires depends on whether a cluster had
+rendered before axe ran — which is the worst kind of red, the kind that gets
+blamed on the machine. The map's subtree is excluded from both calls now; the
+pair's own ratio is 8.87:1 and lives in `theme-contrast.test.ts`, and the
+markers are `aria-hidden` drawings of the list beside them either way.
+
+**A read that was impossible, and what it actually was.** This PR's own chip
+test read a 184 × 40 focused link whose `background-color` computed to
+`rgba(0, 0, 0, 0)` — two halves of a single CSS declaration block disagreeing,
+which cannot happen, and the tell that the measurement rather than the code
+was wrong. An inline `background-color: #652323 !important` read back
+transparent too, which ruled out the cascade; a screenshot at the same instant
+showed a garnet chip. The cause: `getBoundingClientRect()` forces a **layout**,
+so the layout half of the just-focused element's style was recalculated and the
+PAINT half was still the pre-focus value. `expect-ring.ts` already insists on
+polling here and gives a different reason for it (a focus trap moving focus
+between calls); both are real, and the remedy is the same one. **Roughly an
+hour went into proving a rule that works.** Worth it only because the
+alternative reading — "the chip has no background, garnet text on a map" —
+would have been a genuine WCAG failure to ship.
+
+**And two tests that were passing for the wrong reason, found by the same
+habit.** `rect(page, "section ul")` measured the MAP's own list — first in the
+DOM now — so "the list is taller than the map" was comparing 595 to 595 and
+would have passed whatever `h-full` did. And counting `/data-map-link/` in the
+SSR bytes read **7 for six links**, because Svelte inlines the scoped
+`[data-map-ready] [data-map-link]:focus` selector into the page's stylesheet;
+the count is on `data-map-link=""` now. Neither was a mutation — both were the
+mutation refusing to go red.
+
+One more measured thing worth keeping: the divider-to-map gap at 390 reads
+**10.6px between the two rects** where the comp says 20. That is not slack.
+`t-h3` carries `margin-block: -9.4px` (app.css's `(34.8 − 16) / 2` cap trim);
+with no padding or border between it and the divider block's outer edge that
+margin collapses all the way out and pulls the next block up by exactly 9.4.
+The layout gap is the comp's 20. Asserting 20 between the rects would have
+meant deleting the trim.
+
 ## 2026-09-22 — The bar's dissolve shipped, passed four new assertions, and was never once on screen (`fix/carousel-bar-dissolve`)
 
 The adversarial review of #102 came back SHIP_WITH_FIXES with a critical

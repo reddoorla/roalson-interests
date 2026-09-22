@@ -52,9 +52,19 @@ describe("PropertyListing", () => {
   it("links every active listing and none of the sold ones", () => {
     const { getAllByRole } = render(PropertyListing, { props: { sections: sections() } });
     const [land, improved, sold] = getAllByRole("region");
-    expect(within(land).getAllByRole("link")).toHaveLength(4);
-    expect(within(improved).getAllByRole("link")).toHaveLength(2);
-    expect(within(sold).queryAllByRole("link")).toEqual([]);
+    // The map's own list is in the section too, one Google Maps link per pin
+    // (#13) — the no-JS state PropertyMap server-renders. Excluded here so
+    // this stays a statement about the CARDS: it used to read 4 and 2 by
+    // counting everything, and would now read 8 and 4 for a reason that has
+    // nothing to do with which listing got a link.
+    const cards = (el: HTMLElement) =>
+      within(el)
+        .getAllByRole("link")
+        .filter((a) => !a.hasAttribute("data-map-link"));
+    expect(cards(land!)).toHaveLength(4);
+    expect(cards(improved!)).toHaveLength(2);
+    // Sold has no map either, so this stays an unqualified none.
+    expect(within(sold!).queryAllByRole("link")).toEqual([]);
   });
 
   it("pins every divider but the first, on large screens only, and never the first", () => {
@@ -78,14 +88,43 @@ describe("PropertyListing", () => {
     ]);
   });
 
-  it("lays the Sold section out as a grid and the active ones as a column beside the map slot", () => {
+  it("lays the Sold section out as a grid and the active ones as a column beside the map", () => {
     const { getAllByRole } = render(PropertyListing, { props: { sections: sections() } });
     const [land, , sold] = getAllByRole("region");
-    expect(sold.querySelector("ul")!.className).toMatch(/\blg:grid-cols-3\b/);
-    expect(land.querySelector("ul")!.className).toMatch(/\blg:col-start-2\b/);
-    expect(land.querySelector("ul")!.parentElement!.className).toMatch(
-      /lg:grid-cols-\[397fr_847fr\]/,
-    );
+    expect(sold!.querySelector("ul")!.className).toMatch(/\blg:grid-cols-3\b/);
+    // `:not([data-map-list])`: the map is FIRST in the grid, so its own list
+    // of Google Maps links is the first <ul> in the section now. Reading
+    // `querySelector("ul")` measured that one and said the cards had lost
+    // their column.
+    const cards = land!.querySelector<HTMLElement>("ul:not([data-map-list])")!;
+    expect(cards.className).toMatch(/\blg:col-start-2\b/);
+    expect(cards.parentElement!.className).toMatch(/lg:grid-cols-\[397fr_847fr\]/);
+  });
+
+  it("puts a map in column 1 of every active section and none in Sold (#13)", () => {
+    const { getAllByRole } = render(PropertyListing, { props: { sections: sections() } });
+    const [land, improved, sold] = getAllByRole("region");
+    for (const [name, section, pins] of [
+      ["land", land!, 4],
+      ["improved", improved!, 2],
+    ] as const) {
+      const map = section.querySelector<HTMLElement>("[data-property-map]");
+      expect(map, `${name} has a map`).not.toBeNull();
+      expect(map!.className, `${name}: the comp's 200 / 595, never stretched`).toMatch(
+        /\bh-50\b.*\blg:h-\[595px\]/,
+      );
+      expect(map!.className, `${name}: column 1, row 1`).toMatch(/lg:col-start-1/);
+      expect(map!.querySelectorAll("[data-map-link]"), `${name}: one link per pin`).toHaveLength(
+        pins,
+      );
+      // It is FIRST, so the comp's 390 order (map, then cards) needs no CSS.
+      expect(
+        map!.compareDocumentPosition(section.querySelector("article")!) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+        `${name}: the map precedes the first card`,
+      ).toBeTruthy();
+    }
+    expect(sold!.querySelector("[data-property-map]"), "Sold gets no map").toBeNull();
   });
 
   it("says so, rather than rendering nothing, when there are no listings", () => {

@@ -21,11 +21,23 @@
   //   first section's flat cards flat (off-white on off-white, as drawn) and
   //   every later card reading as a panel on sand.
   //
-  // Not here yet, each with its own issue: the per-section map that fills the
-  // left column (#13), and the 390 comp's in-card carousel (#14 — this stacks
-  // the cards, which is also that carousel's no-JS state).
+  // THE MAP IS IN (#13). It is ONE component per active section at both
+  // widths, not two: the comp draws a 397 x 595 panel in column 1 at 1440 and
+  // a 350 x 200 box above the cards at 390, and those are the same map in a
+  // different box. The box is what PropertyMap measures to decide its pin size
+  // and whether to draw the expand affordance, so the switch is CSS here and
+  // nothing in this file consults a breakpoint twice.
+  //
+  // TOP-ALIGNED, NEVER STRETCHED. The comp holds the panel at 595 beside a
+  // 5-card list 1457.48 tall, so `lg:h-[595px]` and no `h-full`/`self-stretch`
+  // — the grid's default `stretch` would grow the map to the list's height.
+  //
+  // Still not here: the 390 comp's in-card carousel (#14 — this stacks the
+  // cards, which is also that carousel's no-JS state).
   import PropertyCard from "$lib/components/PropertyCard.svelte";
+  import PropertyMap from "$lib/components/PropertyMap.svelte";
   import type { ListingSection } from "$lib/property-listing";
+  import { sectionPoints } from "$lib/property-map";
 
   interface Props {
     sections: ListingSection[];
@@ -77,14 +89,24 @@
           {/each}
         </ul>
       {:else}
-        <!-- Column 1 is the section's map, 397 × 595 in the comp. No map ships
-             in this batch (#13), so the column is reserved rather than closed
-             up: the listing stays at the comp's x and the map drops in later. -->
+        {@const points = sectionPoints(section.properties)}
+        <!-- Column 1 is the section's map, 397 × 595 in the comp; `lg:gap-9`
+             is its measured 36.0 to the cards. The top pad is the comp's at
+             both widths and they differ: 40 from the divider to the first card
+             at 1440, but at 390 the map sits 20 below the divider block and
+             the first card 20 below the map — so `pt-5` under `lg` whenever
+             there is a map to draw, and `lg:pt-10` always. -->
         <div
-          class="{GUTTERS} pt-10 lg:grid lg:grid-cols-[397fr_847fr] lg:gap-9 {last
-            ? 'pb-[100px]'
-            : ''}"
+          class="{GUTTERS} {points.length > 0 ? 'pt-5' : 'pt-10'} lg:grid
+            lg:grid-cols-[397fr_847fr] lg:gap-9 lg:pt-10 {last ? 'pb-[100px]' : ''}"
         >
+          {#if points.length > 0}
+            <PropertyMap
+              {points}
+              label={section.label}
+              class="mb-5 h-50 lg:col-start-1 lg:row-start-1 lg:mb-0 lg:h-[595px]"
+            />
+          {/if}
           <ul class="flex flex-col gap-5 lg:col-start-2">
             {#each section.properties as property, j (property.id)}
               <li>

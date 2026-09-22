@@ -8,6 +8,8 @@
 import { describe, it, expect } from "vitest";
 import { SVELTE_EVENT_REPLAY_HASH } from "@reddoorla/maintenance/configs/svelte";
 
+import { MAP_TILE_HOST } from "../src/lib/property-map";
+
 // The served policy is asserted where it is authored. Svelte 5 server-renders
 // `onload="this.__e=event"` (and onerror) on every element that takes an
 // attribute spread — i.e. every `<img {...getImageProps(field)} />` the Prismic
@@ -24,6 +26,8 @@ const { default: config } = (await import("../svelte.config.js")) as unknown as 
   default: CspConfig;
 };
 const scriptSrc = config.kit?.csp?.directives?.["script-src"] ?? [];
+const connectSrc = config.kit?.csp?.directives?.["connect-src"] ?? [];
+const directives = config.kit?.csp?.directives ?? {};
 
 describe("the template's Content-Security-Policy", () => {
   it("allows Svelte's SSR event-replay stub by its exact hash", () => {
@@ -46,5 +50,28 @@ describe("the template's Content-Security-Policy", () => {
     );
     expect(source).toContain("SVELTE_EVENT_REPLAY_HASH");
     expect(source).not.toContain(SVELTE_EVENT_REPLAY_HASH);
+  });
+
+  // The property map (#13) is one host in one directive, and this is the test
+  // that says so out loud — the policy is where a map silently stops working,
+  // and "the map looks fine on my machine" is not evidence about a header.
+  describe("the property map's tile provider", () => {
+    it("is allowed in connect-src and NOWHERE else", () => {
+      expect(connectSrc).toContain(MAP_TILE_HOST);
+      for (const [name, values] of Object.entries(directives)) {
+        if (name === "connect-src") continue;
+        expect(values, `${name} should not need the tile host`).not.toContain(MAP_TILE_HOST);
+      }
+    });
+
+    // MapLibre 6 compiles style expressions without `eval`/`new Function`, and
+    // its worker is same-origin (see $lib/map-engine), so neither of the two
+    // escape hatches a map is usually asked for may appear.
+    it("costs neither 'unsafe-eval' nor a blob: worker", () => {
+      expect(scriptSrc).not.toContain("unsafe-eval");
+      expect(scriptSrc).not.toContain("blob:");
+      expect(directives["worker-src"]).toBeUndefined();
+      expect(directives["child-src"]).toBeUndefined();
+    });
   });
 });

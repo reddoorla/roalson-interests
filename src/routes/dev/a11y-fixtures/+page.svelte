@@ -25,6 +25,8 @@
   import PropertyDetail from "$lib/components/PropertyDetail.svelte";
   import PageMasthead from "$lib/components/PageMasthead.svelte";
   import PropertyListing from "$lib/components/PropertyListing.svelte";
+  import PropertyMap from "$lib/components/PropertyMap.svelte";
+  import { sectionPoints } from "$lib/property-map";
   import { homeHeroFixture, HOME_VIMEO_FIXTURE } from "$lib/home-fixture";
   import { HOME_PHOTO_FIXTURE, photoBandFixture } from "$lib/home-fixture";
   import PhotoBand from "$lib/slices/PhotoBand/index.svelte";
@@ -447,6 +449,49 @@
        computed from the scrim's own stops in PageMasthead.test.ts. Neither
        instance preloads: the hero fixture above already injects the page's one
        fetchpriority=high link, and a second would fight it for bandwidth. -->
+  <!-- The per-section map (#13) in BOTH of the comp's frames, and with
+       `engine="off"` in both. MapLibre is 426 KB that talks to
+       tiles.openfreemap.org, and an axe gate that waits on a third-party tile
+       host is a gate that goes red when somebody else's CDN has a bad
+       afternoon. `off` renders exactly what the server renders and never
+       imports the engine, so what is audited here is the state that matters
+       for this gate anyway: the list of listings, its accessible name, the
+       garnet-on-sand of its links, and — on the 200px instance — the expand
+       affordance's name, its 44 x 44 target and its contrast. The pins, the
+       sheet, the focused chip and the attribution are measured in a real
+       browser by tests/interaction/property-map.spec.ts instead, and the
+       geometry could not be measured here anyway (`max-w-3xl` squeezes every
+       band on this page, #87).
+
+       IT IS NOT THE ONLY THING KEEPING THE GATE OFF THE NETWORK, and the
+       difference is worth writing down. PropertyListing and the two featured
+       bands below mount FOUR more maps, none of which takes this prop.
+       Measured on 2026-09-22, loading this page under the gate's own
+       reduced-motion emulation and waiting 8s without scrolling: **6 maps in
+       the DOM, 0 booted, 0 requests to openfreemap or maplibre**, every one of
+       them at y >= 7371 and therefore nowhere near the fold — a map only
+       boots once half of it is really on screen (#103, and see
+       PropertyMap.svelte for why that is not the rule it started with). So
+       the gate is hermetic today by page LENGTH, which a reflow could
+       undo — `engine="off"` is what makes it deliberate for the two entries
+       that exist to be audited.
+
+       Two boxes because the frame is chosen by the container's HEIGHT: 200 is
+       the comp's phone map and draws the expand button, 595 is its 1440 panel
+       and must not. -->
+  <PropertyMap
+    points={sectionPoints(groupListings(propertyListingFixture())[0].properties)}
+    label="Land"
+    engine="off"
+    class="h-50"
+  />
+  <PropertyMap
+    points={sectionPoints(groupListings(propertyListingFixture())[0].properties)}
+    label="Land, at the 1440 panel's height"
+    engine="off"
+    class="h-[595px]"
+  />
+
   <PageMasthead title="Our Properties" image={PROPERTIES_MASTHEAD_FIXTURE} preload={false} />
   <PageMasthead title="Our Properties, no photo" preload={false} />
   <PropertyListing sections={groupListings(propertyListingFixture())} />
