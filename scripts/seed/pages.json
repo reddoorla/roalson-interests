@@ -17,6 +17,10 @@
           "slice_type": "home_hero",
           "variation": "default",
           "primary": {
+            "poster": {
+              "$image": "home-hero-poster-suburban-to-country.jpg"
+            },
+            "vimeo_id": "1229048743",
             "heading": [
               {
                 "type": "heading1",
@@ -109,11 +113,17 @@
             "partners": [
               {
                 "name": "Matt Howard",
-                "role": "Partner"
+                "role": "Partner",
+                "photo": {
+                  "$image": "partner-matt-howard.jpg"
+                }
               },
               {
                 "name": "Bart Wilson",
-                "role": "Partner"
+                "role": "Partner",
+                "photo": {
+                  "$image": "partner-bart-wilson.jpg"
+                }
               }
             ]
           }
@@ -121,7 +131,11 @@
         {
           "slice_type": "photo_band",
           "variation": "default",
-          "primary": {}
+          "primary": {
+            "image": {
+              "$image": "home-photo-band-san-antonio-skyline.jpg"
+            }
+          }
         }
       ]
     },
@@ -129,9 +143,9 @@
       "title": "INFERRED — the firm's name; the home route does not print it",
       "meta_title": "INFERRED — composed from the comp's headline; for the operator's review",
       "meta_description": "INFERRED — composed from the comp's headline and its three specialties; for the operator's review",
-      "home_hero": "MEASURED — the comp's hero copy, as transcribed into src/lib/home-fixture.ts; poster and vimeo_id left empty (operator call 11, issue #29)",
-      "partners": "MEASURED — the comp's words for the band (6820:119, 6802:1477, 6822:489) and its two visible partner rows, as transcribed into src/lib/home-fixture.ts; no headshot, bio or contact link: neither partner has supplied one (operator call 12, issue #3)",
-      "photo_band": "INFERRED — the band with no image, which is the launch state: the comp's photo is unlicensed stock (#3, #37); the slice must stay LAST to pin",
+      "home_hero": "MEASURED — the comp's hero copy, as transcribed into src/lib/home-fixture.ts; the poster is a placeholder but a LICENSED one — home-hero-poster-suburban-to-country.jpg is a frame of Reddoor's own 8-second film \"Suburban to Country\", which is what vimeo_id 1229048743 plays over it, so neither is among the files #3 blocks launch on. Both supersede operator call 11's empty hero; #29 is the video layer itself",
+      "partners": "MEASURED — the comp's words for the band (6820:119, 6802:1477, 6822:489) and its two visible partner rows, as transcribed into src/lib/home-fixture.ts; the two headshots are the client's own people and carry no licence question, but Bart Wilson's is 140×177 in a 153px box and renders soft beside Matt Howard's (#73). Still no bio and no contact link: neither partner has supplied one (operator call 12)",
+      "photo_band": "INFERRED — the band's photo is an UNLICENSED PLACEHOLDER: home-photo-band-san-antonio-skyline.jpg, one of the two stock San Antonio skylines in the media library and squarely inside what #3 blocks launch on. It stands in until the client supplies a licensed photo (#37); the slice must stay LAST to pin",
       "featured_properties": "MEASURED — the three listings the comp features (6843:993 / 6843:1089 / 6846:1185), in the comp's order; the heading is left empty so the slice's own default reads. Only 25331 has a photo today, so the band renders as ONE card until more are uploaded (#37 covers the photography)"
     }
   }
