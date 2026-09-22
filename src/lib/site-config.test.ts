@@ -1,4 +1,7 @@
 import { describe, it, expect } from "vitest";
+import { existsSync, readFileSync, statSync } from "node:fs";
+import { resolve } from "node:path";
+
 import { loadSiteConfig, footerNav, type SiteConfig } from "./site-config";
 
 describe("loadSiteConfig", () => {
@@ -33,15 +36,18 @@ describe("the checked-in footer", () => {
   // Prescribed wording: the Texas Real Estate Commission names these two links
   // for a broker's site. Exact strings on purpose — "tidying" a label is the
   // defect.
-  it("labels the two TREC links exactly, and points them at the file's own hyperlinks", () => {
+  // The labels are TREC's own wording and are not ours to shorten. The hrefs
+  // were the client's current site until #25: they are this repo's files now,
+  // and the describe block at the foot of this file holds why.
+  it("labels the two TREC links exactly, and points them at documents this site serves", () => {
     expect(footer.legal).toEqual([
       {
         label: "Texas Real Estate Commission Information About Brokerage Services",
-        href: "https://roalson.com/IABS%20Roalson%20Form%202026.pdf",
+        href: "/texas-information-about-brokerage-services.pdf",
       },
       {
         label: "Texas Real Estate Commission Consumer Protection Notice",
-        href: "https://roalson.com/CPN4.pdf",
+        href: "/texas-consumer-protection-notice.pdf",
       },
     ]);
   });
@@ -107,5 +113,43 @@ describe("footerNav", () => {
       footer: { nav: own },
     };
     expect(footerNav(config)).toBe(own);
+  });
+});
+
+describe("the footer's legal documents — the two a Texas broker's site must carry", () => {
+  const config = JSON.parse(
+    readFileSync(resolve(process.cwd(), "src/lib/site-config.json"), "utf8"),
+  ) as SiteConfig;
+  const legal = config.footer.legal ?? [];
+
+  // They were linked at https://roalson.com/... — the CLIENT'S CURRENT SITE.
+  // The day this one takes over that domain, both 404, on every page, in the
+  // two links TREC requires. The files ship here instead (#25).
+  it("links nothing on a domain this site is about to replace", () => {
+    expect(legal.length).toBe(2);
+    for (const link of legal) {
+      expect(link.href, link.label).not.toMatch(/roalson\.com/i);
+      expect(link.href, link.label).toMatch(/^\//);
+    }
+  });
+
+  it("links a file this repository actually ships, and it is a PDF", () => {
+    for (const link of legal) {
+      const file = resolve(process.cwd(), "static", link.href.replace(/^\//, ""));
+      expect(existsSync(file), `${link.href} is in static/`).toBe(true);
+      // Positive evidence that what ships is the document, not a 404 page or an
+      // HTML redirect saved with the wrong extension.
+      const head = readFileSync(file).subarray(0, 5).toString("latin1");
+      expect(head, link.href).toBe("%PDF-");
+      expect(statSync(file).size, link.href).toBeGreaterThan(50_000);
+    }
+  });
+
+  // The paths carry no year or revision number on purpose: TREC's Information
+  // About Brokerage Services is reissued, and a dated path would mean editing
+  // this file and every link to it. The file is replaced in place; git records
+  // which revision was served when.
+  it("names the documents by what they are, not by which revision they are", () => {
+    for (const link of legal) expect(link.href).not.toMatch(/\d{4}|[-_]v?\d+\.pdf$/i);
   });
 });

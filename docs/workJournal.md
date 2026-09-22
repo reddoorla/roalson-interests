@@ -4223,3 +4223,64 @@ now — and the variable keeps only its local-only hatch meaning, which both
 `pnpm verify`: svelte-check 0 errors over 4614 files, axe 0 violations across 5
 routes, 966 unit tests in 95 files, 124 Playwright tests. The build prerenders
 `/` at 32,017 bytes with all four bands, `/properties`, and 22 detail pages.
+
+## 2026-09-21 — The two documents a Texas broker's site must carry now come from this site (`fix/trec-documents`, #25)
+
+Closes #25, which the footer batch filed as a launch blocker and which was the
+last one this session could clear without the client.
+
+The footer's two Texas Real Estate Commission links pointed at
+`https://roalson.com/...` — the client's CURRENT site. The day this one takes
+over that domain, both 404, on every page, in the two links a Texas broker is
+required to carry. Both files were still served this evening, so they were
+fetched and committed: `static/texas-information-about-brokerage-services.pdf`
+(1,587,707 bytes) and `static/texas-consumer-protection-notice.pdf` (200,043).
+
+**Looked at, not trusted by filename.** Page one of each was opened. The first
+is the client's own completed Information About Brokerage Services, TREC form
+IABS 1-2 dated 11-03-2025, naming Roalson Interests, James Bartlett Wilson as
+designated broker and Matthew William Howard as sales agent — the two partners
+the homepage's legacy band names. The second is TREC's Consumer Protection
+Notice, form CN 1-5, despite the client's filename `CPN4.pdf`, which is an older
+revision's number. Nothing was renamed on that basis; the shipped names say what
+the documents are.
+
+**Why `static/` and not Prismic's media library**, which the issue offered first
+and whose stated advantage was that the client could replace the yearly IABS
+without a deploy. That advantage does not survive contact: a replaced Prismic
+asset gets a NEW url, so the link would need editing and deploying anyway —
+unless the href came from a CMS document, which is a custom type and a load this
+close to launch. Shipping the file removes the cutover risk today, with no
+external dependency at all, and the follow-up for making the href CMS-editable
+is worth its own decision rather than a rushed one. The paths carry no year or
+revision on purpose: the file is replaced in place, and git records which
+revision was served when.
+
+**A defect this change would have introduced, quietly.** `Footer.svelte` opened
+a link in a new tab when it matched `^https?://`, with a comment saying "the
+TREC documents are PDFs on another origin" — true until this commit made it
+false. Moving them onto this origin would have dropped their `target="_blank"`
+and their "(opens in a new tab)" hint without a word: a PDF would replace the
+page with a viewer whose only way back is the back button, on exactly the two
+links a visitor is most likely to want open beside what they were reading. The
+rule now turns on whether the visitor LEAVES — another origin, or a document
+served from ours — and the `rel` stays the cross-origin case's alone, since a
+document of ours opens no window on another site and `noopener` is implied by
+the target. The footer spec found this, because it selects those links by
+`a[target="_blank"]` and suddenly matched nothing.
+
+**Mutations**, restored and `cmp`-confirmed. The old domain put back → four
+tests red across two files. A link to a file that does not ship → three red. An
+HTML page saved with a `.pdf` name → "links a file this repository actually
+ships, and it is a PDF" red, which is the check that a 404 page saved by mistake
+cannot pass. The origin test alone, as it was → three red. The cross-origin
+`rel` given to every leaving link → two red.
+
+Verified on a production build by following the footer's own links rather than
+typing the paths: both answer 200, `application/pdf`, at their exact byte counts,
+starting `%PDF-`. `pnpm verify`: axe 0 violations across 5 routes, 969 unit tests
+in 95 files, 124 Playwright tests.
+
+Not done, and noted rather than acted on: the IABS names both partners' direct
+email addresses and phone numbers. They are public in that document already, but
+putting them on the site is the client's call, not a thing to infer from a PDF.

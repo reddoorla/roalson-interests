@@ -76,7 +76,7 @@ source. It is the fastest way to recognise what a thing does.
 | [`property.ts`](../src/lib/property.ts) | `PROPERTY_CATEGORIES`, `PROPERTY_STATUSES`, `isSold`, `statusLabel`, `propertyHighlights`, `propertyFacts`, `propertyTracts`, `propertyPackage`, `mapsUrl` | 15 |  |
 | [`seo.ts`](../src/lib/seo.ts) | `SITE_NAME`, `SITE_LOCALE`, `DEFAULT_DESCRIPTION`, `DEFAULT_OG_IMAGE`, `OG_IMAGE_WIDTH`, `OG_IMAGE_HEIGHT`, `NOINDEX_PREFIXES`, `isNoindexPath`, `isNoindexPage`, `NOINDEX_ENFORCED`, `composeTitle`, `jsonLdScript`, `canonicalUrl`, `resolveOgImage`, `organizationJsonLd` | 26 | Site-wide SEO configuration + helpers |
 | [`reply-copy.ts`](../src/lib/server/reply-copy.ts) | `replyCopyFor` | — |  |
-| [`site-config.ts`](../src/lib/site-config.ts) | `loadSiteConfig`, `FOOTER_NAV_ID`, `footerNav` | 8 | Site chrome (navigation + footer) from a checked-in JSON file |
+| [`site-config.ts`](../src/lib/site-config.ts) | `loadSiteConfig`, `FOOTER_NAV_ID`, `footerNav` | 11 | Site chrome (navigation + footer) from a checked-in JSON file |
 | [`viewport.svelte.ts`](../src/lib/stores/viewport.svelte.ts) | `viewport` | — |  |
 | [`transitions.ts`](../src/lib/transitions.ts) | `prefersReducedMotion`, `reducedMotion`, `fade`, `fly`, `slide` | 10 |  |
 | [`turnstile.ts`](../src/lib/turnstile.ts) | `loadTurnstile` | — | Cloudflare Turnstile explicit-render helper |
@@ -90,4 +90,4 @@ source. It is the fastest way to recognise what a thing does.
 | [`scrollLock.ts`](../src/lib/utils/scrollLock.ts) | `lockBodyScroll` | 4 | Stop the document scrolling behind a full-screen overlay; returns the release |
 | [`vimeo.ts`](../src/lib/utils/vimeo.ts) | `checkVimeoVideo` | 5 | True when the Vimeo video exists and is embeddable (oEmbed responds 200) |
 
-72 modules, 569 tests behind them.
+72 modules, 572 tests behind them.

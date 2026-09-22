@@ -42,10 +42,13 @@ const NAV = [
   { label: "Our Properties", href: "/properties" },
   { label: "Contact Us", href: "/contact" },
 ];
+/** Deliberately mixed: the site's own document and one on another origin. Both
+ *  take the visitor off the page, so both open in a new tab; only the second
+ *  earns a `rel`. The real config has two of the first kind since #25. */
 const LEGAL = [
   {
     label: "Texas Real Estate Commission Information About Brokerage Services",
-    href: "https://roalson.com/IABS%20Roalson%20Form%202026.pdf",
+    href: "/texas-information-about-brokerage-services.pdf",
   },
   {
     label: "Texas Real Estate Commission Consumer Protection Notice",
@@ -154,16 +157,19 @@ describe("Footer — the office", () => {
 });
 
 describe("Footer — the Texas Real Estate Commission links", () => {
-  it("labels them exactly as given, and opens the PDFs in a new tab with the safe rel", () => {
+  it("labels them exactly as given, and opens both documents in a new tab", () => {
     const { container } = render(Footer, { legal: LEGAL });
     const links = [...container.querySelectorAll<HTMLAnchorElement>('a[target="_blank"]')];
     expect(links.map(visibleText)).toEqual(LEGAL.map((l) => l.label));
     expect(links.map((a) => a.getAttribute("href"))).toEqual(LEGAL.map((l) => l.href));
     for (const a of links) {
-      expect(a.getAttribute("rel")).toBe("noopener noreferrer");
       expect(a.className).toContain("underline");
       expect(a.querySelector(".sr-only")?.textContent).toContain("opens in a new tab");
     }
+    // The rel is the cross-origin one's alone: a document of ours opens no
+    // window on another site, and `noopener` is implied by target anyway.
+    expect(links[0].getAttribute("rel")).toBeNull();
+    expect(links[1].getAttribute("rel")).toBe("noopener noreferrer");
   });
 
   it("keeps the label's text directly in the link, where the underline reaches it", () => {
@@ -180,14 +186,24 @@ describe("Footer — the Texas Real Estate Commission links", () => {
     expect(ownText).toBe(LEGAL[0].label);
   });
 
-  it("keeps a same-site document in this tab, with no new-tab hint", () => {
+  // What the rule turns on is whether the visitor LEAVES, not where the file
+  // lives. #25 moved the two PDFs onto this origin, and an origin test alone
+  // would have swapped their tab silently on the way.
+  it("a page of this site stays in this tab; a document of this site does not", () => {
     const { container } = render(Footer, {
-      legal: [{ label: "Consumer Protection Notice", href: "/docs/cpn.pdf" }],
+      legal: [
+        { label: "Accessibility", href: "/accessibility" },
+        { label: "Consumer Protection Notice", href: "/docs/cpn.pdf" },
+      ],
     });
-    const link = container.querySelector('a[href="/docs/cpn.pdf"]')!;
-    expect(link.getAttribute("target")).toBeNull();
-    expect(link.getAttribute("rel")).toBeNull();
-    expect(link.querySelector(".sr-only")).toBeNull();
+    const page = container.querySelector('a[href="/accessibility"]')!;
+    expect(page.getAttribute("target")).toBeNull();
+    expect(page.querySelector(".sr-only")).toBeNull();
+
+    const doc = container.querySelector('a[href="/docs/cpn.pdf"]')!;
+    expect(doc.getAttribute("target")).toBe("_blank");
+    expect(doc.getAttribute("rel")).toBeNull();
+    expect(doc.querySelector(".sr-only")?.textContent).toContain("opens in a new tab");
   });
 });
 
