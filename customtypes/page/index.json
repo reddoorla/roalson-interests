@@ -57,6 +57,9 @@
             "home_hero": {
               "type": "SharedSlice"
             },
+            "featured_properties": {
+              "type": "SharedSlice"
+            },
             "partners": {
               "type": "SharedSlice"
             },

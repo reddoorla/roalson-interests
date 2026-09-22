@@ -1,0 +1,70 @@
+[
+  {
+    "__TYPE__": "SharedSliceContent",
+    "variation": "default",
+    "primary": {
+      "heading": {
+        "__TYPE__": "FieldContent",
+        "type": "Text",
+        "value": "Featured Properties"
+      },
+      "properties": {
+        "__TYPE__": "GroupContentType",
+        "value": [
+          {
+            "__TYPE__": "GroupItemContent",
+            "key": "5f0b6d0e-6a0b-4c0f-9d4e-3a1c52b7e001",
+            "value": [
+              [
+                "property",
+                {
+                  "key": "5f0b6d0e-6a0b-4c0f-9d4e-3a1c52b7e011",
+                  "__TYPE__": "LinkContent",
+                  "value": {
+                    "__TYPE__": "DocumentLink",
+                    "id": "arFgoxIAAC4ALcBx"
+                  }
+                }
+              ]
+            ]
+          },
+          {
+            "__TYPE__": "GroupItemContent",
+            "key": "5f0b6d0e-6a0b-4c0f-9d4e-3a1c52b7e002",
+            "value": [
+              [
+                "property",
+                {
+                  "key": "5f0b6d0e-6a0b-4c0f-9d4e-3a1c52b7e012",
+                  "__TYPE__": "LinkContent",
+                  "value": {
+                    "__TYPE__": "DocumentLink",
+                    "id": "arFhaRIAACcALcQN"
+                  }
+                }
+              ]
+            ]
+          },
+          {
+            "__TYPE__": "GroupItemContent",
+            "key": "5f0b6d0e-6a0b-4c0f-9d4e-3a1c52b7e003",
+            "value": [
+              [
+                "property",
+                {
+                  "key": "5f0b6d0e-6a0b-4c0f-9d4e-3a1c52b7e013",
+                  "__TYPE__": "LinkContent",
+                  "value": {
+                    "__TYPE__": "DocumentLink",
+                    "id": "arFhUhIAACkALcOD"
+                  }
+                }
+              ]
+            ]
+          }
+        ]
+      }
+    },
+    "items": []
+  }
+]

@@ -157,6 +157,7 @@ type PageDocumentDataSlicesSlice =
   | TestimonialSlice
   | CtaBannerSlice
   | HomeHeroSlice
+  | FeaturedPropertiesSlice
   | PartnersSlice
   | PhotoBandSlice;
 
@@ -725,6 +726,92 @@ type CtaBannerSliceVariation = CtaBannerSliceDefault;
 export type CtaBannerSlice = prismic.SharedSlice<
   "cta_banner",
   CtaBannerSliceVariation
+>;
+
+/**
+ * Item in *FeaturedProperties → Default → Primary → Featured listings — shown in this order*
+ */
+export interface FeaturedPropertiesSliceDefaultPrimaryPropertiesItem {
+  /**
+   * Listing field in *FeaturedProperties → Default → Primary → Featured listings — shown in this order*
+   *
+   * - **Field Type**: Content Relationship
+   * - **Placeholder**: Pick a listing — only listings with a feature image are shown; sold ones are skipped
+   * - **API ID Path**: featured_properties.default.primary.properties[].property
+   * - **Documentation**: https://prismic.io/docs/fields/content-relationship
+   */
+  property: ContentRelationshipFieldWithData<
+    [
+      {
+        id: "property";
+        fields: [
+          "title",
+          "status",
+          "size_label",
+          "feature_image",
+          { id: "highlights"; fields: ["text"] },
+          "location",
+        ];
+      },
+    ]
+  >;
+}
+
+/**
+ * Primary content in *FeaturedProperties → Default → Primary*
+ */
+export interface FeaturedPropertiesSliceDefaultPrimary {
+  /**
+   * Heading — left empty it reads “Featured Properties” field in *FeaturedProperties → Default → Primary*
+   *
+   * - **Field Type**: Text
+   * - **Placeholder**: Featured Properties
+   * - **API ID Path**: featured_properties.default.primary.heading
+   * - **Documentation**: https://prismic.io/docs/fields/text
+   */
+  heading: prismic.KeyTextField;
+
+  /**
+   * Featured listings — shown in this order field in *FeaturedProperties → Default → Primary*
+   *
+   * - **Field Type**: Group
+   * - **Placeholder**: *None*
+   * - **API ID Path**: featured_properties.default.primary.properties[]
+   * - **Documentation**: https://prismic.io/docs/fields/repeatable-group
+   */
+  properties: prismic.GroupField<
+    Simplify<FeaturedPropertiesSliceDefaultPrimaryPropertiesItem>
+  >;
+}
+
+/**
+ * Default variation for FeaturedProperties Slice
+ *
+ * - **API ID**: `default`
+ * - **Description**: Featured listings, one at a time, auto-advancing with a pause control
+ * - **Documentation**: https://prismic.io/docs/slices
+ */
+export type FeaturedPropertiesSliceDefault = prismic.SharedSliceVariation<
+  "default",
+  Simplify<FeaturedPropertiesSliceDefaultPrimary>,
+  never
+>;
+
+/**
+ * Slice variation for *FeaturedProperties*
+ */
+type FeaturedPropertiesSliceVariation = FeaturedPropertiesSliceDefault;
+
+/**
+ * FeaturedProperties Shared Slice
+ *
+ * - **API ID**: `featured_properties`
+ * - **Description**: Homepage band: a slideshow of hand-picked listings beside the (reserved) map column
+ * - **Documentation**: https://prismic.io/docs/slices
+ */
+export type FeaturedPropertiesSlice = prismic.SharedSlice<
+  "featured_properties",
+  FeaturedPropertiesSliceVariation
 >;
 
 /**
@@ -1720,6 +1807,11 @@ declare module "@prismicio/client" {
       CtaBannerSliceDefaultPrimary,
       CtaBannerSliceVariation,
       CtaBannerSliceDefault,
+      FeaturedPropertiesSlice,
+      FeaturedPropertiesSliceDefaultPrimaryPropertiesItem,
+      FeaturedPropertiesSliceDefaultPrimary,
+      FeaturedPropertiesSliceVariation,
+      FeaturedPropertiesSliceDefault,
       HeroSlice,
       HeroSliceDefaultPrimary,
       HeroSliceVariation,

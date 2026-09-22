@@ -53,6 +53,17 @@
 
   let { carousel, tone = "garnet", class: passedClasses = "" }: Props = $props();
 
+  // QUIET UNTIL SCRIPT PROVES ITSELF (#47). `data-js-only` only covers the
+  // browser that says it will never run script; a browser that WOULD run it
+  // and never receives the bundle (a CDN 404, a blocked host, a parse error)
+  // gets controls that look live and do nothing. `carousel.hydrated` is the
+  // one signal that is false in both cases and true only once an effect has
+  // run — so the controls SHIP, holding the row's height, and stay
+  // `visibility: hidden` + `inert` until then: not visible, not focusable,
+  // not clickable. `visibility` and not `display`, because the reserved space
+  // is the point: this row must not jump when script arrives.
+  const quiet = $derived(!carousel.hydrated);
+
   // `border` on a `size-10` border-box IS Figma's inside stroke: the circle
   // stays 40 wide with the 1px ring inside it.
   const SHAPE =
@@ -65,9 +76,16 @@
 <!-- Nothing to drive with one slide (or a carousel switched off), so nothing is
      drawn. `data-js-only`: these ship in the server's markup so the row does
      not jump in at hydration, and app.html's <noscript> rule hides them from a
-     browser that could never run them. -->
+     browser that could never run them. `data-carousel-quiet` is `quiet` made
+     visible — the attribute a browser test reads to prove the state exists at
+     all, rather than inferring it from a class name. -->
 {#if carousel.enabled && carousel.count > 1}
-  <div data-js-only class="flex items-center gap-[10px] {passedClasses}">
+  <div
+    data-js-only
+    data-carousel-quiet={quiet ? "" : undefined}
+    inert={quiet}
+    class="flex items-center gap-[10px] {quiet ? 'invisible' : ''} {passedClasses}"
+  >
     {#if carousel.eligible}
       <!-- First in the carousel's tab order (APG), and only where rotation is
            possible: under reduced motion it never starts, so there is nothing

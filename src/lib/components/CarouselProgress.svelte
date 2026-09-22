@@ -53,6 +53,11 @@
 
   const timed = $derived(carousel.eligible);
   const value = $derived(timed ? carousel.progress : carousel.position);
+
+  // The arrows' rule, for the same reason (#47): a bar drawn before script
+  // runs is a timer that will never move, or a "2 of 3" that cannot change.
+  // It holds its 2px of the row either way — `visibility`, never `display`.
+  const quiet = $derived(!carousel.hydrated);
 </script>
 
 <!-- aria-hidden: it is a timer, or a picture of "n of N" — the slide labels and
@@ -66,7 +71,9 @@
     aria-hidden="true"
     data-js-only
     data-carousel-progress={timed ? "timed" : "position"}
-    class="relative h-0.5 w-full overflow-hidden {PROGRESS_TONES[tone].track} {passedClasses}"
+    data-carousel-quiet={quiet ? "" : undefined}
+    class="relative h-0.5 w-full overflow-hidden {quiet ? 'invisible' : ''} {PROGRESS_TONES[tone]
+      .track} {passedClasses}"
   >
     <div
       class="absolute inset-0 origin-left {PROGRESS_TONES[tone].fill} {timed

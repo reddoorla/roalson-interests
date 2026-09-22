@@ -35,6 +35,8 @@
   import type { ComponentProps } from "svelte";
   import { trapFocus } from "$lib/actions/trapFocus";
   import CarouselFixture from "./CarouselFixture.svelte";
+  import FeaturedProperties from "$lib/slices/FeaturedProperties/index.svelte";
+  import { featuredLaunchFixture, featuredPropertiesFixture } from "$lib/home-fixture";
   import type { RichTextField } from "@prismicio/client";
 
   let modalOpen = $state(false);
@@ -444,6 +446,33 @@
        it are held by theme-contrast.test.ts at both ends (garnet and dark).
        Full width, and the pin, are /dev/home's. -->
   <HomeHero slice={homeHeroFixture()} />
+
+  <!-- The homepage's featured band, twice: the comp's three listings (a
+       carousel — garnet arrows and bar on the sand card) and launch day's ONE
+       (a plain card: no region, no arrows, no bar — under its own heading,
+       because two landmarks may not share a name on one page). This gate runs
+       under reduced motion, so the Pause control is never in what axe sees
+       here; its name and its place in the tab order are held by
+       FeaturedProperties.test.ts and tests/interaction/featured-properties.spec.ts.
+       Rotation and the full width are /dev/home's.
+
+       WHAT AXE DOES NOT MEASURE HERE — nothing, now, and that is new. Until
+       2026-09-21 an off-stage slide sat over the card at opacity 0 carrying an
+       OPAQUE photo box (`bg-background`), and axe answered `color-contrast`
+       for everything under it with "needs review" (`bgOverlap`) rather than a
+       ratio. The comment this replaces said that cost "the eyebrow's
+       contrast"; it cost nearly all of the card's text — measured 1 node
+       passed / 6 incomplete on the three-listing band at 1440, and 1 / 9 on
+       the launch one, whose blind spot was in fact the portfolio button's
+       inset-0 overlay (since removed) and not the subgrids at all. The slice
+       now takes an off-stage slide out of the paint with `invisible`, delayed
+       by the dissolve. Measured on this page after the change: 15 nodes
+       measured across the two bands, 0 incomplete, 0 violations. The
+       CarouselFixture stacks above never had it (3 passed / 0 incomplete
+       each) — their slides carry no opaque background. -->
+
+  <FeaturedProperties slice={featuredPropertiesFixture()} />
+  <FeaturedProperties slice={featuredLaunchFixture({ heading: "Featured Property" })} />
 
   <!-- The homepage's "Our Legacy" band in its FULLEST state, not its launch
        one: a headshot on both cards and a bio on the first, so axe sees the

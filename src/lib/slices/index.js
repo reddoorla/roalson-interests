@@ -2,6 +2,7 @@
 
 import Accordion from "./Accordion/index.svelte";
 import CtaBanner from "./CtaBanner/index.svelte";
+import FeaturedProperties from "./FeaturedProperties/index.svelte";
 import Hero from "./Hero/index.svelte";
 import HomeHero from "./HomeHero/index.svelte";
 import LeadText from "./LeadText/index.svelte";
@@ -16,6 +17,7 @@ import TextColumns from "./TextColumns/index.svelte";
 export const components = {
   accordion: Accordion,
   cta_banner: CtaBanner,
+  featured_properties: FeaturedProperties,
   hero: Hero,
   home_hero: HomeHero,
   lead_text: LeadText,
