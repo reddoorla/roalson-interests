@@ -1,14 +1,30 @@
 // The colour a route shows ABOVE the top of its own document — what a
-// rubber-band overscroll at the top of the page pulls away to reveal.
+// rubber-band overscroll at the top of the page pulls away to reveal — and,
+// on Safari, the tint the browser puts on its own toolbar.
 //
-// The other end of the page is a canvas colour (`html { background-color }` in
-// app.css, the footer's sand, the same on every route). This end cannot be: the
-// top of the page is the homepage hero's flat dark garnet, the Properties and
-// Contact mastheads' garnet, or the page ground — three colours, one canvas. So
-// app.css paints it with an element at negative coordinates (`.canvas-top`),
-// the root layout renders that element once, and the ROUTE says what colour it
-// is, the way it already says what its first band is (`navOver`) and what its
-// footer grades from (`footerGround`).
+// THIS FILE WAS WRONG UNTIL 2026-09-22, and the way it was wrong is worth
+// keeping. The first build painted the top with an ELEMENT at negative
+// coordinates (`.canvas-top`, `position: absolute; bottom: 100%`), reasoning
+// that a pull translates the scrolling contents and would therefore carry it
+// into view. The premise that made it seem free is the same one that makes it
+// impossible: scrollable overflow only ever grows DOWN and RIGHT, so an
+// element above y=0 costs no scroll range — and is clipped out of the
+// scrollable area entirely. The operator pulled on a real Mac and saw the
+// canvas (sand), never the element. Headless Chromium had "proved" it by
+// translating the contents from script, which assumes the thing in question.
+//
+// So it is inverted. A canvas has exactly one colour, the browser paints it at
+// BOTH ends, and it comes from the root element's background. The TOP is the
+// end that can only be the canvas, so the canvas is the top:
+//
+//   html { background-color: var(--canvas-top, var(--color-background)) }
+//
+// and the route declares `--canvas-top` on `:root` through the layout's head.
+// The FOOT is then painted by `.canvas-foot` — a zero-height element after the
+// footer whose `box-shadow` lays 100vh of sand below the last thing drawn.
+// Painting BELOW the document end is the direction that is not clipped, and
+// `box-shadow` is specified not to contribute to scrollable overflow, so that
+// end costs no scroll range either. Same trick, the one way round that works.
 //
 // Why a token and not a colour: the claim a route is making is "the band I open
 // on is this one of the theme's colours", and a route that spelled `#3d0707`
@@ -29,17 +45,70 @@ export const CANVAS_TOP_COLORS = {
 export type CanvasTop = keyof typeof CANVAS_TOP_COLORS;
 
 /**
- * The `style` attribute for the layout's `.canvas-top` element, or `undefined`
- * for a route that claims nothing.
+ * The same grounds as LITERAL hexes, for `<meta name="theme-color">`.
  *
- * `undefined` is a real answer, not a failure: the CSS declares
- * `var(--canvas-top, var(--color-background))`, so an unclaimed route keeps the
- * page ground — which is exactly what it shows above its first band today. An
- * unrecognised token answers the same way rather than interpolating itself into
- * the style attribute, so a typo in page data is the old behaviour and never a
- * broken declaration.
+ * A second spelling of a colour is a drift risk, and this one cannot be
+ * avoided: `theme-color` is read by the browser's own chrome, outside the
+ * document, and it does not resolve `var()`. So the duplication is held still
+ * instead — `canvas-top.test.ts` parses app.css's `@theme` block and fails if
+ * either value stops matching the variable it claims to be.
  */
-export function canvasTopStyle(token?: string | null): string | undefined {
+export const CANVAS_TOP_HEX = {
+  dark: "#3d0707",
+  primary: "#652323",
+} as const satisfies Record<CanvasTop, string>;
+
+/** The page ground, for a route that claims nothing. Same guard. */
+export const CANVAS_TOP_DEFAULT_HEX = "#f2efe9";
+
+/**
+ * The CSS text of the `:root` rule the layout puts in the document head, or
+ * `undefined` for a route that claims nothing.
+ *
+ * `undefined` is a real answer, not a failure: `html`'s declaration in app.css
+ * is `var(--canvas-top, var(--color-background))`, so an unclaimed route keeps
+ * the page ground — which is exactly what it shows above its first band today.
+ * An unrecognised token answers the same way rather than interpolating itself
+ * into a stylesheet, so a typo in page data is the old behaviour and never a
+ * broken rule (nor an injection point: nothing but a value from the map above
+ * is ever written).
+ */
+export function canvasTopRule(token?: string | null): string | undefined {
   const color = token ? CANVAS_TOP_COLORS[token as CanvasTop] : undefined;
-  return color ? `--canvas-top: ${color}` : undefined;
+  return color ? `:root{--canvas-top:${color}}` : undefined;
+}
+
+/**
+ * The whole `<style>` element, as markup, or `undefined`.
+ *
+ * WHY THIS IS A STRING AND NOT A TAG IN THE LAYOUT. A literal `<style>` written
+ * inside `<svelte:head>` is taken by the compiler as the COMPONENT's stylesheet
+ * and hoisted out of the markup — it never reaches the document. Measured on a
+ * production build 2026-09-22: `theme-color` shipped correctly on all four
+ * routes and the rule was simply absent, so every page fell through to
+ * `var(--color-background)` and the top went off-white. So the layout renders
+ * this with `{@html}` instead, and the escaping question lives HERE, once.
+ *
+ * It is safe by construction rather than by sanitising: the only interpolated
+ * value is `CANVAS_TOP_COLORS[token]`, a lookup on a frozen map of two literals
+ * that the caller cannot add to. An unknown token returns `undefined` and
+ * nothing is written. `canvas-top.test.ts` asserts that every possible output
+ * is one of exactly three values, so a future edit that starts interpolating
+ * the token itself fails there rather than in a browser.
+ */
+export function canvasTopStyleTag(token?: string | null): string | undefined {
+  const rule = canvasTopRule(token);
+  return rule ? `<style>${rule}</style>` : undefined;
+}
+
+/**
+ * The `content` for `<meta name="theme-color">`: the literal hex of the band
+ * this route opens on, falling back to the page ground.
+ *
+ * Always a colour, never `undefined` — the tag ships on every route, because a
+ * route that omitted it would inherit whatever the last route set on a
+ * client-side navigation.
+ */
+export function canvasTopThemeColor(token?: string | null): string {
+  return (token && CANVAS_TOP_HEX[token as CanvasTop]) || CANVAS_TOP_DEFAULT_HEX;
 }

@@ -19,7 +19,7 @@ source. It is the fastest way to recognise what a thing does.
 | --- | --- | --- | --- |
 | [`animateIn.ts`](../src/lib/actions/animateIn.ts) | `animateIn` | 23 |  |
 | [`trapFocus.ts`](../src/lib/actions/trapFocus.ts) | `trapFocus` | 24 | Focus management for modal overlays (WCAG 2.4.3 focus order + 2.1.2 no keyboard trap) |
-| [`canvas-top.ts`](../src/lib/canvas-top.ts) | `CANVAS_TOP_COLORS`, `canvasTopStyle` | 2 | The colour a route shows ABOVE the top of its own document — what a rubber-band overscroll at the top of the page pulls away to reveal |
+| [`canvas-top.ts`](../src/lib/canvas-top.ts) | `CANVAS_TOP_COLORS`, `CANVAS_TOP_HEX`, `CANVAS_TOP_DEFAULT_HEX`, `canvasTopRule`, `canvasTopStyleTag`, `canvasTopThemeColor` | 8 | The colour a route shows ABOVE the top of its own document — what a rubber-band overscroll at the top of the page pulls away to reveal — and, on Safari, the tint the browser puts on its own toolbar |
 | [`carousel.svelte.ts`](../src/lib/carousel.svelte.ts) | `createCarousel` | 49 | Headless carousel / slideshow state — index, loop, autoplay, pause and a progress-bar value, all on ONE clock — for markup Slider.svelte's layout cannot hold (controls INSIDE the slide's panel, a 2px progress bar, a list that is only a carousel below `md`) |
 | [`cms-href.ts`](../src/lib/cms-href.ts) | `SITE_HOSTS`, `sitePath`, `cmsHref` | 7 | A CMS Link field as the href a button should carry |
 | [`Accordion.svelte`](../src/lib/components/Accordion.svelte) | `items`, `allowMultiple` | 4 |  |
@@ -95,4 +95,4 @@ source. It is the fastest way to recognise what a thing does.
 | [`vimeo.ts`](../src/lib/utils/vimeo.ts) | `checkVimeoVideo`, `parseVimeoId` | 11 | True when the Vimeo video exists and is embeddable (oEmbed responds 200) |
 | [`vimeoBackground.svelte.ts`](../src/lib/utils/vimeoBackground.svelte.ts) | `VIMEO_PLAYER_ORIGIN`, `backgroundEmbedSrc`, `VimeoBackground` | 5 | The gate, the heartbeat and the pause flag behind every chrome-less Vimeo background embed in this repo — lifted OUT of VimeoBanner.svelte so the homepage hero could have all three without taking VimeoBanner's markup with them |
 
-77 modules, 609 tests behind them.
+77 modules, 615 tests behind them.
