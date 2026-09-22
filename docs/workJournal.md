@@ -3418,3 +3418,277 @@ as a pass → "refuses to pass a document it cannot check, and names why" red. T
 empty primary collapsed away → "keeps an empty band's primary" red. The photo
 band moved off the end → "opens on the hero and ends on the photo band" red. A
 bio invented for a partner → "invents nothing about the partners" red.
+
+## 2026-09-21 — The contact page, designed from the system: the office, the form, and an alert that landed behind the bar (`feat/contact-page`)
+
+`/contact` was the last page still wearing the template: a centred `max-w-2xl`
+column, a black `text-3xl` H1, a rounded `bg-primary` submit, and a green and a
+red panel in Tailwind's default palette. It is now the site's own page — and
+**there is no comp for it at any width**, so nothing here is transcribed. It is
+assembled from what the comp does draw: the Properties masthead
+(`PageMasthead`, "Contact Us"), the site's one `397fr/847fr` grid, the listing
+page's 2px section divider (twice, one per column), `button dark`, and
+PropertyDetail's `dt.t-h5` / `dd.t-body-1` pair. Its "390" is a system design,
+not a measurement, and the PR says so.
+
+**The office is consumed, not restated.** `src/lib/office.ts` came from the
+footer batch (critic C1); this page reads `officeAddressLines()`,
+`OFFICE.phone` and `officeDirectionsUrl()` and adds no second source. The
+client's ZIP (78258, not the comp's 7825) arrives with it. The office is first
+in the DOM and on a phone: an address and a tap-to-call number are 328px and
+are what a phone visitor most often came for. No partner block — operator call
+12 puts partners' contact details in Prismic, and that model does not exist.
+
+**Why the field looks the way it does.** The comp draws no form control
+anywhere (0 of 5642 nodes on the Designs page named input, field, textarea,
+select or placeholder; the only ones in the file are the third-party wireframe
+kit's). So `Field` is the comp's only OUTLINED control, `button dark`
+(4840:368), worn as a field: square, 1px garnet, no fill, Body 1 inside — never
+under 16px, or iOS Safari zooms the page on focus. 24 line + 22 padding + 2
+border = **48px**; `rows={6}` = **168px**; labels H6, help and errors Body 2.
+Focus adds a 2px garnet ring outside the border (off-white → garnet, 10.07:1).
+`error` against `primary` is only 1.79:1, so an invalid border is never the
+sole signal — the `role="alert"` message always accompanies it — and the
+invalid ring turns with the border by specificity (`aria-invalid:focus:…`, two
+variants) rather than by stylesheet order. It is a LIGHT-GROUND control and its
+comment says so: garnet on garnet is 1:1.
+
+**The defect class, enumerated before fixing: default-palette colours in form
+UI.** Four instances, all outside the theme and so measured by nothing —
+`theme-contrast.test.ts` only sees theme tokens: `Field`'s
+`aria-invalid:border-red-600`; `Form`'s summary (`border-red-600 bg-red-50
+text-red-900`); the contact page's green panel (×3) and red panel (×3).
+red-600 is 4.77:1 on white and **4.15:1 on this site's off-white**. All four
+went to tokens in one PR (`error` is 5.64 / 6.47 / 4.97:1 on off-white / white
+/ sand), and each of the three files now has a test that fails on any
+`<palette>-<NN>` class. `Slider.svelte`'s greys are a different class and were
+left.
+
+**Nothing the ingest action or the fleet's form-e2e probe reads has changed** —
+POST, the `use:enhance` callback, the hidden `ts` token, the honeypot verbatim,
+the four field names, native validation (no `novalidate`: `createIngestAction`
+validates NO field), Turnstile inside the `<form>`. Before this batch that
+contract was held by nothing: `page.test.ts` had 3 tests, all about the submit
+button and focus. It has 20 now and a new `page.server.test.ts` has 7, because
+a redesign is exactly when a contract gets changed by accident. Likewise
+`Form`'s focus-on-errors — the behaviour I was told not to disturb — had no
+test at all (its 3 checked that the alert exists and has a tabindex); deleting
+the effect now goes red. One stale claim corrected on the way: the page's
+comment said "a 2s fill-timing screen". The package says `MIN_FILL_MS = 800`.
+
+Copy only, as permitted: the package's failure messages end "Please email us
+directly", and this site prints no email address anywhere. Both now name the
+office phone, from `OFFICE.phone.display`.
+
+**The defect found by measuring, which no design review would have caught.**
+The spec recommended focusing the failure alert, as the confirmation always
+has been (the alert is the form's first row and the submit its last — 518px
+apart at 1440, 648 at 390). I did that, measured where it landed, and the alert
+was at **top −8px behind the 80px pinned bar: focused, announced, and
+invisible.** Cause: `focus()` scrolls "only if needed", decided at the instant
+of the call, and `html` is `scroll-behavior: smooth`. Tab to the submit and
+press Enter, and the glide that revealed the button is still in flight when the
+answer arrives; the alert IS in view at that instant, so nothing scrolls, and
+the glide then finishes with the alert under the bar. `reveal()` now focuses
+with `preventScroll` and calls `scrollIntoView({ block: "start" })`, which
+replaces the scroll in flight and honours `scroll-mt`. Settled landings,
+measured on the production build with smooth scrolling live: **100px at 1440
+(bar bottom 80), 90.1px at 390 (bar bottom 70)** — 20 under the bar, with and
+without reduced motion. Before: −8 at 1440; at 390, wherever the race left it
+(340 in one run, against the viewport's bottom edge in another — see below).
+
+_The shared Playwright config hides this entirely._ It forces
+`reducedMotion: "reduce"`, under which the scroll is instant and there is no
+race. The spec opens its own `no-preference` context for these tests. That is
+the second time on this site the forced setting has made a class of test
+vacuous (CLAUDE.md records the first).
+
+**A belief corrected, about my own first measurement.** My first hand
+measurement showed the CONFIRMATION landing correctly at 100 and only the alert
+broken, and I nearly wrote the fix up as alert-only. The mutation run said
+otherwise: with plain `focus()` the confirmation lands at top 35, **45px behind
+the bar**. The hand measurement had submitted the honeypot AFTER the failure
+case, on a page that had already settled, so there was no glide in flight. Same
+defect, both panels; one measurement order hid half of it.
+
+**`action="#contact-form"` — the spec's UNVERIFIED hypothesis, now measured
+against a control.** Production build, script off, 390×664. With the fragment:
+the failed POST answers 500, the URL keeps `?utm_source=prodcheck` and gains
+`#contact-form`, the page loads at scrollY 544 with the alert at y=264–338, in
+view. **With the fragment stripped: scrollY 0, alert at y=808 — under a 664px
+fold.** The confirmation: scrollY 547, panel at y=177–376. The query string
+survives, so `sourceUrl` still carries UTM params.
+
+**Two weaknesses in my own tests, found by reading WHY a mutation went red
+rather than counting reds.** (1) The landing tests asserted a lower bound only
+(≥19px clear of the bar). Reverting `reveal()` turned 1440 red by 107px, but at
+390 the lower bound PASSED and the run was red only on a side-check, by
+**0.09px** — the alert clear of the bar and jammed against the viewport's
+bottom edge (bottom 664.09 of 664). A second run of the same mutation put the
+same alert somewhere else entirely (top at 340). That is the defect stated
+properly: with plain `focus()` the landing is a RACE against the glide in
+flight, not a position — and I had first written it up, in a commit message, as
+one deterministic place; the message was amended before the branch left this
+machine. A lower bound calls either landing a pass the day the rounding goes
+the other way. The design is "20 under the bar", so it is asserted from both
+sides now; the two observed landings are red by 499px and 249px. (2) The axe
+tests checked "contrast measured this state's own
+text" BEFORE "no violations". A node that fails contrast leaves `passes`, so a
+dust paragraph reported as "never measured" — true of the list, false about the
+page. Violations are asserted first now, reduced to rule, target and axe's own
+summary (`contrast of 1.96 … #b2ac9f on #f2efe9`). A third, caught before it
+was ever run: my first draft of that positive check was
+`expect(a + b).toBeGreaterThan(0)` directly under `expect(b).toBeGreaterThan(0)`
+— a guard that could only pass. And one that failed honestly on first contact:
+matching the alert's COPY in axe's `node.html` went red on a node axe had
+measured, because axe truncates a long element to its opening tag; it matches
+`role="alert"` now.
+
+**Honest accounting.** `text-dust` on a light ground passes every unit test in
+this repo — `theme-contrast.test.ts`'s completeness scan checks that a token is
+classified SOMEWHERE, not where it is used. Axe on a real route is the only
+gate for it, and until this branch `reddoor.a11yRoutes` was `[]`: axe had
+scanned no page of this site. It is `["/properties", "/contact"]` now (critic
+C9), both answering 200 on the placeholder repository. The confirmation panel
+is reached in tests through the honeypot, which answers `{ success: true }` BY
+DESIGN — that proves the panel and **nothing about delivery**. A lead reaching
+the dashboard has not been shown by anything in this branch; it needs a deploy
+with `FORMS_INGEST_*` and a `testMode=true` submission traced to the dashboard.
+No test here can deliver a lead: the three that submit read `/health` first and
+SKIP when ingest is configured (0 skipped in the runs reported).
+
+**BrandButton, and the one place "byte-identical" is not literally true.** It
+is an `<a>` with a required href; a submit cannot be one. Following
+`DefaultButton`'s precedent its strings moved to a module script
+(`brandButtonBase`, `BRAND_BUTTON_TONES`, `brandButtonPadding`). I dumped the
+rendered `className` for all 12 tone × arrow × class variants before and after:
+**12 of 12 the same tokens in the same order; 0 of 12 byte-identical** — the
+old attribute carried the source's own line-wrap (`"\n    "`, a Prettier
+artefact inside the attribute), which is now one space. `Nav.test.ts` and
+`BrandButton.test.ts` split on whitespace and are green untouched. A new test
+pins the exports to what the component renders; adding a class to the markup
+beside them turns it red while `Nav.test.ts`'s 22 stay green, which is the gap
+it closes.
+
+**Declined from `docs/COMPONENTS.md`, having read it:** `Form.svelte` is
+re-skinned here but NOT used by the page — its summary is for multi-field
+validation errors, and this action returns a single top-level `error` and
+validates no field; wrapping the form in it would render a summary that can
+never have entries. `DefaultButton` — the template's rounded 2px `px-10`
+button; the geometry is exactly what differs. `Modal`/`trapFocus`/`Accordion`
+— nothing on this page opens.
+
+**A trap for the next agent in a worktree.** `vite.config.ts` ignores
+`**/.claude/**` in the dev server's watcher, and a worktree's absolute path
+contains `.claude/`, so **`vite dev` started inside a worktree never
+hot-reloads.** I applied the `reveal()` fix, re-measured, got the identical
+−8px, and for a moment read that as "the fix does not work". It was the old
+page. Restart the server after every edit, or measure through Playwright's own
+`webServer`, which boots fresh per run.
+
+**Found, not fixed** (returned to the orchestrator as issues): with script off a
+failed send re-renders the form EMPTY — `fail()` returns only `{ error }`, so
+there is nothing to repopulate from; that is the shared package's contract, in
+another repo. `scripts/capability-index.mjs` indexes a `.svelte` file's props
+but not its `<script module>` exports, so `brandButtonBase` (and
+`DefaultButton`'s `buttonBaseClasses`) appear nowhere in COMPONENTS.md. The
+bar's CONTACT US is a self-link with no `aria-current` on `/contact`.
+`PropertyDetail`'s divider is 1px where the comp's is 2px. Partners' direct
+lines and Organization JSON-LD are waiting on the partners model and the
+operator's word on the ZIP. `nav-over.test.ts`'s claim regex runs over the whole
+file, so a COMMENT containing the literal would keep it green after the
+property is deleted.
+
+**Not done.** `pnpm verify` was not run in this worktree, by instruction:
+targeted vitest (14 files, 173 tests), `pnpm check` (0 errors), `pnpm lint`
+(clean), `tests/interaction/contact.spec.ts` (10/10, 0 skipped) and
+`tests/a11y/fixtures.spec.ts` (2/2 — it renders the re-skinned Field and Form)
+were. The dev server logs a `connect-src` CSP report for the Google Fonts
+stylesheet on every page; the production build logs **zero** console errors or
+warnings, so it is dev-only noise and was not chased. Autofill's own field
+background (Chrome paints autofilled inputs) was not restyled.
+
+**After review, and integration (orchestrator).** One reviewer read this branch
+(the comp-fidelity lens was dropped to save a budget that a usage limit had
+already cost us once today; `/contact` has no comp, and the implementer had
+measured it against the system). It said fix first, and its blocker was real —
+and larger than the batch that found it.
+
+**The pinned bar hid whatever the browser focused, on every route.** This batch
+had already fixed "focused and invisible behind the bar" for the two panels IT
+focuses with script. The reviewer typed into the page instead: leave Name empty,
+submit, and the browser's own validation focuses an input that is 48 of its 48px
+behind the bar. Measured again here on a PRODUCTION build after the fix, which
+the fix agent was cut off before it could do: the refused input now lands at top
+128 against a bar bottom of 80 at 1440, and 118.1 against 70 at 390 — **48px of
+clear air, where there had been 48px of nothing visible.** WCAG 2.2 SC 2.4.11
+(Focus Not Obscured) fails when the focused component is entirely hidden, and
+axe has no rule for it, so the batch's own "wcag22aa: 0 violations" could not
+see it.
+
+Fixed as the class, once, in `app.css`: `scroll-padding-top` on `html`, 90px and
+100 from `lg`, sized with `@variant lg` rather than a typed width so it cannot
+drift from the bar's own `lg:h-20`. It is the one place that tells a scrollport
+where its usable top is, so it covers every scroll the browser makes for itself
+— Tab, Shift+Tab, a fragment, native validation — on every route. Scroll padding
+ADDS to `scroll-margin-top`, so the two elements that carried their own gave it
+up: `/contact`'s panels and the footer's `#footer-nav`. That second one is why
+this rebase touched `Footer.svelte`: #48 had since given the id a constant, and
+the resolution keeps the constant and drops the margin. The footer jump
+re-measured on a production build: `#footer-nav` lands 207.7px below the bar at
+390 and 493.6 at 1440, both clear.
+
+**Scroll padding does not fix the case this batch started from**, and the commit
+says so: when `focus()` finds its target in view mid-glide it scrolls nothing at
+all, so there is no scroll for the padding to inform. That is what
+`$lib/utils/reveal` is for — focus with `preventScroll`, then `scrollIntoView` —
+and the reviewer found that `Form.svelte`'s error summary, which the batch's own
+journal called "the precedent followed", was still the bare `summaryEl?.focus()`
+the precedent was supposed to have cured. Nothing shipping was wrong (Form is
+mounted only on the fixtures page); the next multi-field form would have
+inherited it. Both now call the shared util, and `docs/COMPONENTS.md` puts "land
+it under the pinned bar" next to a module name, which is the point of lifting it.
+
+**The comments were shipping CSS.** "Spends only theme tokens" was true of
+Form.svelte's markup and false of the shipped stylesheet: Tailwind's source scan
+reads every text file the repo does not gitignore, not just markup, and emits
+whatever spells a whole utility — so a comment RECORDING the classes that had
+been replaced kept `.bg-red-50`, `.text-red-900` and `.border-red-600` in the
+production bundle. Svelte strips comments, so no rendered-HTML guard could see
+it. Enumerated rather than fixed one at a time: the same sentence sat in
+`Form.test.ts` and `Field.test.ts`, and a comment in `tests/a11y/fixtures.spec.ts`
+kept `.bg-neutral-900` alive — the very rule whose `oklch(... 0 none)` crashed
+axe in #9, long after the Hero stopped using it. `docs/workJournal.md` is the one
+source that cannot be reworded: it is append-only and names old classes on
+purpose, and this batch's own draft entry spelled the same three utilities again,
+so appending it would have re-emitted what the fix removed. Hence `@source not
+"../docs"`. Checked by diffing two production builds' class tokens: 481 → 465,
+nothing added, and every one of the 16 removed is spelled only in `docs/` or in
+one of those comments. `src/tailwind-sources.test.ts` now reads what Tailwind
+reads.
+
+**The index did not carry what a comment said it carried.** The batch exported
+`brandButtonBase`, `BRAND_BUTTON_TONES` and `brandButtonPadding` so a `<button>`
+could wear the comp's button, and named them in the second sentence of
+`BrandButton.svelte`'s leading comment. `capability-index.mjs` keeps the FIRST
+sentence only, so `grep -c` for the three names in `docs/COMPONENTS.md` returned
+0 while a drafted issue described them as indexed. The first sentence carries
+them now, and `BrandButton.test.ts` holds it without a list to go stale: it reads
+the module script's `export const` names from the source and requires each in the
+file's index row. The extractor itself is untouched and #59 carries it — it
+cannot see a `<script module>` export at all, and changing it would have
+rewritten rows that three other branches were regenerating that evening.
+
+`pnpm verify` on the rebased branch: svelte-check 0 errors over 4608 files, **axe
+0 violations across 4 routes — 2 fixtures and, for the first time, the 2 real
+routes from `package.json`** (`/properties` and `/contact`), 930 unit tests in 93
+files, 109 Playwright tests. A gate pointed only at fixtures measures nothing
+about the site; this batch is what put real routes behind it.
+
+Filed: #57 (smoke's `hydrationMarker: "footer"` cannot prove hydration — the
+footer is server-rendered, and the field is named for what it cannot observe),
+#58 (Slider's six default-palette greys, the one exception the new Tailwind
+guard names), #59 (the index extractor). The handoff journal above was written
+before review; the fix agent was stopped by a usage limit before it could append
+its own account, so this section is the orchestrator's, from the four commits and
+its own production measurements.
