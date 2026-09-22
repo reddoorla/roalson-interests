@@ -1,4 +1,4 @@
-import { describe, it, expect, afterEach } from "vitest";
+import { describe, it, expect, afterEach, vi } from "vitest";
 import { render, cleanup } from "@testing-library/svelte";
 import Form from "./Form.svelte";
 
@@ -26,5 +26,63 @@ describe("Form", () => {
     });
     const alert = getByRole("alert");
     expect(alert.getAttribute("tabindex")).toBe("-1");
+  });
+
+  it("takes focus when errors arrive, and names itself by its title", async () => {
+    // The behaviour the skin below must not disturb: a failed submit leaves the
+    // visitor on a button at the bottom of the form, and the summary is at the
+    // top of it.
+    const { getByRole } = render(Form, { errors: { email: "Required" } });
+    const alert = getByRole("alert");
+    await vi.waitFor(() => expect(document.activeElement).toBe(alert));
+    const title = document.getElementById(alert.getAttribute("aria-labelledby") ?? "");
+    expect(title?.textContent?.trim()).toBe("There was a problem with your submission");
+  });
+
+  it("takes that focus through reveal — no scroll of focus()'s own, then the summary to the start", async () => {
+    // A plain focus() is decided mid-glide and leaves the summary focused under
+    // the pinned bar ($lib/utils/reveal). jsdom cannot scroll, so what is held
+    // here is the two calls; tests/interaction/contact.spec.ts holds the landing.
+    const proto = Element.prototype as { scrollIntoView?: (arg?: unknown) => void };
+    const scrolls: [Element, unknown][] = [];
+    proto.scrollIntoView = function (this: Element, arg) {
+      scrolls.push([this, arg]);
+    };
+    const focus = vi.spyOn(HTMLElement.prototype, "focus");
+    try {
+      const { getByRole } = render(Form, { errors: { email: "Required" } });
+      const alert = getByRole("alert");
+      await vi.waitFor(() => expect(document.activeElement).toBe(alert));
+      expect(focus.mock.contexts).toEqual([alert]);
+      expect(focus).toHaveBeenCalledWith({ preventScroll: true });
+      expect(scrolls).toEqual([[alert, { block: "start" }]]);
+    } finally {
+      delete proto.scrollIntoView;
+      focus.mockRestore();
+    }
+  });
+});
+
+describe("Form's error summary skin", () => {
+  it("spends only theme tokens — nothing from Tailwind's default palette", () => {
+    // It was Tailwind's default red — a 600 border, a 50 fill, 900 text:
+    // outside the theme, so theme-contrast.test.ts measured none of it (red 600
+    // is 4.15:1 on this site's off-white). Same class as Field's invalid border
+    // and the contact page's two panels; fixed together on 2026-09-21.
+    // The utilities are NOT written out whole here: Tailwind's source scan
+    // reads this file too, and spelling them shipped them as dead rules.
+    const { container, getByRole } = render(Form, { errors: { email: "Required" } });
+    expect(container.innerHTML).not.toMatch(
+      /\b(?:slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-\d{2,3}\b/,
+    );
+    const alert = getByRole("alert");
+    expect(alert.className.split(/\s+/)).toEqual(
+      expect.arrayContaining(["border", "border-error"]),
+    );
+    expect(alert.className).not.toMatch(/rounded|border-\d/);
+    // Every line of text in it is the measured error token.
+    for (const el of [alert.querySelector("h2"), alert.querySelector("ul")]) {
+      expect(el?.className.split(/\s+/)).toContain("text-error");
+    }
   });
 });

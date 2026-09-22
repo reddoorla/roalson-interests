@@ -181,10 +181,12 @@
 
         <div class="flex flex-col gap-5">
           {#if nav.length > 0}
-            <!-- `Primary` is the bar's, so the two landmarks stay distinct. The
-                 scroll margin clears the pinned bar (80px) when the menu
-                 trigger's fallback jumps here. -->
-            <nav id={FOOTER_NAV_ID} aria-label="Footer" class="scroll-mt-24">
+            <!-- `Primary` is the bar's, so the two landmarks stay distinct. When
+                 the menu trigger's fallback jumps here, `html`'s scroll padding
+                 (app.css) is what clears the pinned bar — for every jump target
+                 on the site, so this one carries no scroll margin of its own:
+                 the two ADD, and it would land a bar too low. -->
+            <nav id={FOOTER_NAV_ID} aria-label="Footer">
               <!-- The ramp class sits on the LIST so each row's line box is
                    H6's 18px; on the link alone the row keeps the body's taller
                    strut. Each link's hit area is grown to the full 38px pitch

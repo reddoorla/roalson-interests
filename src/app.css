@@ -1,6 +1,18 @@
 /* Tailwind CSS v4 configuration */
 @import "tailwindcss";
 
+/* Tailwind's source scan reads every text file the repo does not gitignore —
+   not only markup: comments, tests, and docs/. Whatever spells a whole utility
+   ships it. On 2026-09-21 the built CSS carried five rules nothing renders:
+   three from a comment in Form.svelte recording the classes it had REPLACED
+   (Tailwind's default red, as a 600 border, a 50 fill and 900 text), and two
+   whose only source in the repo was docs/workJournal.md.
+
+   Comments can be reworded, and were. The journal cannot: it is append-only,
+   it names old classes on purpose, and the entry recording this fix spells the
+   same three again. So docs/ is not a source. Nothing there is markup. */
+@source not "../docs";
+
 @theme {
   --screen-sm: 560px;
   --screen-md: 768px;
@@ -422,6 +434,27 @@ main > section.hero-band:first-child {
   html {
     scroll-behavior: smooth;
     scrollbar-gutter: stable;
+
+    /* Focus Not Obscured (WCAG 2.2 SC 2.4.11). The bar is pinned on every route
+       (Nav.svelte: 70px, 80 from `lg`), and the browser does not know it: every
+       scroll it makes ON ITS OWN — Tab, Shift+Tab, a fragment, and native
+       validation focusing the first invalid control — aims at the scrollport's
+       top edge, which is under the bar. /contact, submitted with Name empty,
+       focused an input sitting 48 of its 48px behind it. axe has no rule for
+       this. Scroll padding is the one place that tells the scrollport where its
+       usable top is, so it is said here once: the bar plus 20px of air.
+
+       It ADDS to `scroll-margin-top`. An element that also carries a
+       `scroll-mt-*` sized for the bar lands a bar too low, so nothing should:
+       /contact's panels and Footer's `#footer-nav` gave theirs up to this.
+
+       `@variant lg`, not a width typed here, so this cannot drift from the
+       bar's own `lg:h-20`. With script off the bar is `absolute` and scrolls
+       away; the padding is then plain air above a landing, and harmless. */
+    scroll-padding-top: 90px;
+    @variant lg {
+      scroll-padding-top: 100px;
+    }
   }
 
   body {

@@ -26,7 +26,7 @@ source. It is the fastest way to recognise what a thing does.
 | [`AnimateOutTriggered.svelte`](../src/lib/components/Animation/AnimateOutTriggered.svelte) | `trigger`, `style`, `transitionDuration`, `children` | — |  |
 | [`TriggerTransitionOnMount.svelte`](../src/lib/components/Animation/TriggerTransitionOnMount.svelte) | `children` | — |  |
 | [`ArrowRight.svelte`](../src/lib/components/ArrowRight.svelte) | — | — | The comp's button arrow, `np_arrow-right_888647` (Noun Project), as exported from Figma node 6904:2083 — the paths below are that export's bytes, not a redraw |
-| [`BrandButton.svelte`](../src/lib/components/BrandButton.svelte) | `href`, `arrow`, `tone`, `children` | 4 | The comp's `button dark` component set (4840:367) — named, as Figma names it, for the BUTTON's tone, so it is the one for LIGHT grounds: garnet outline and text; hover fills garnet with dust text (5.11:1, AA as text) |
+| [`BrandButton.svelte`](../src/lib/components/BrandButton.svelte) | `href`, `arrow`, `tone`, `children` | 7 | The comp's `button dark` component set (4840:367) as a link, with its classes EXPORTED from this module script — `brandButtonBase`, `BRAND_BUTTON_TONES`, `brandButtonPadding` — so a caller that must render a different element, a form's submit `<button>`, can still wear it |
 | [`BrandIcon.svelte`](../src/lib/components/BrandIcon.svelte) | `platform` | 5 | Brand glyphs from simple-icons (CC0 / public domain) — facebook/x/reddit/ instagram from v16, linkedin from v10 (pre brand-removal) |
 | [`CarouselArrows.svelte`](../src/lib/components/CarouselArrows.svelte) | `carousel`, `tone` | 12 | The comp's carousel arrows (`l arrow` / `r arrow`, 6843:972 / 6843:977 in the homepage `properties slideshow` set; the same pair on issue #14's 390 cards) for a `createCarousel` instance, plus the pause / play control the comp does not draw and WCAG 2.2.2 requires of anything that autoplays |
 | [`CarouselProgress.svelte`](../src/lib/components/CarouselProgress.svelte) | `carousel`, `tone` | 8 | The comp's 2px carousel progress bar (`progress bar` 6843:964: 888 × 2 at 1440, 350 × 2 at 390, 20px under the photo) for a `createCarousel` instance |
@@ -35,9 +35,9 @@ source. It is the fastest way to recognise what a thing does.
 | [`CountUp.svelte`](../src/lib/components/CountUp.svelte) | `value`, `startValue`, `duration`, `startOnVisible`, `once`, `label`, `decimals`, `prefix`, `suffix`, `useGrouping`, `locale` | 12 | The number to count up to |
 | [`DefaultButton.svelte`](../src/lib/components/DefaultButton.svelte) | `href`, `onclick`, `children` | — | Shape and skin of the shared button, split so callers that must render a different element can still wear it |
 | [`DelayedLink.svelte`](../src/lib/components/DelayedLink.svelte) | `href`, `delay`, `children`, `beforeNavigate`, `onclick` | 5 |  |
-| [`Field.svelte`](../src/lib/components/Field.svelte) | `name`, `label`, `type`, `value`, `description`, `error`, `required`, `autocomplete`, `placeholder`, `minlength`, `maxlength`, `pattern`, `inputmode`, `rows`, `autofocus` | 11 | Marks this control as the one a containing dialog should open onto |
+| [`Field.svelte`](../src/lib/components/Field.svelte) | `name`, `label`, `type`, `value`, `description`, `error`, `required`, `autocomplete`, `placeholder`, `minlength`, `maxlength`, `pattern`, `inputmode`, `rows`, `autofocus` | 17 | Marks this control as the one a containing dialog should open onto |
 | [`Footer.svelte`](../src/lib/components/Footer.svelte) | `cta`, `nav`, `legal`, `logo`, `ground`, `currentPath`, `owner`, `text` | 22 | The site's footer — the comp's last `Value Prop #1` band (6820:188 on the Homepage at 1440, 6903:1117 on Properties; 6996:1026 / 6997:2055 at 390) |
-| [`Form.svelte`](../src/lib/components/Form.svelte) | `errors`, `errorSummaryTitle`, `children` | 3 |  |
+| [`Form.svelte`](../src/lib/components/Form.svelte) | `errors`, `errorSummaryTitle`, `children` | 6 |  |
 | [`HeroBackgroundImage.svelte`](../src/lib/components/HeroBackgroundImage.svelte) | `image`, `altFallback`, `preload` | 8 | LCP-optimized hero image |
 | [`Img.svelte`](../src/lib/components/Img.svelte) | `src` | 5 | Progressive-loading wrapper around @zerodevx/svelte-img: the image renders blurred (`.progressive-img` in app.css) and sharpens once the underlying <img> finishes — or fails — loading |
 | [`LandscapeModal.svelte`](../src/lib/components/LandscapeModal.svelte) | — | 3 | Orientation lockout — a primitive the template deliberately does NOT mount (tests/smoke/landscape.spec.ts fails if it is re-mounted), because an undismissable landscape overlay fails WCAG 2.1 SC 1.3.4 (Orientation) |
@@ -84,8 +84,9 @@ source. It is the fastest way to recognise what a thing does.
 | [`image.ts`](../src/lib/utils/image.ts) | `DEFAULT_IMAGE_WIDTHS`, `isPrismicImageUrl`, `imgix`, `srcset` | 17 | Helpers for serving responsively-sized Prismic (imgix) images |
 | [`instantNavScroll.ts`](../src/lib/utils/instantNavScroll.ts) | `disableSmoothScroll`, `restoreSmoothScroll` | 5 |  |
 | [`preNavIntercept.ts`](../src/lib/utils/preNavIntercept.ts) | `shouldIntercept` | 11 |  |
+| [`reveal.ts`](../src/lib/utils/reveal.ts) | `reveal`, `revealInvalid` | 8 | Move focus to an element and land it 20px under the pinned bar — an alert, a confirmation or an error summary that script has just rendered (`reveal`), or the control native validation has just refused (`revealInvalid`) — because `focus()` alone loses a race with a smooth scroll in flight and leaves the element focused and hidden |
 | [`richTextHeadings.ts`](../src/lib/utils/richTextHeadings.ts) | `RT_HEADING_CTX`, `defaultLevel`, `buildHeadingLevelMap` | 9 | Editors author arbitrary heading levels inside Prismic rich-text bodies (heading1–6 are all enabled in the slice models) |
 | [`scrollLock.ts`](../src/lib/utils/scrollLock.ts) | `lockBodyScroll` | 4 | Stop the document scrolling behind a full-screen overlay; returns the release |
 | [`vimeo.ts`](../src/lib/utils/vimeo.ts) | `checkVimeoVideo` | 5 | True when the Vimeo video exists and is embeddable (oEmbed responds 200) |
 
-70 modules, 539 tests behind them.
+71 modules, 559 tests behind them.
