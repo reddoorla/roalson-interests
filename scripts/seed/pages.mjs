@@ -35,6 +35,7 @@ import {
   repositoryName,
   sleep,
   sliceOutOfSync,
+  contentSignature,
   stageDocument,
   stripEmpty,
   typeExists,
@@ -99,13 +100,23 @@ const listDirs = (dir) =>
     .filter((d) => d.isDirectory())
     .map((d) => d.name);
 
-/** The whole document payload. Slices get the empty `items` the API expects. */
+/** The whole document payload. Every slice keeps its `primary` and `items`
+ *  even when both are empty — a band with no image yet IS an empty primary, and
+ *  `stripEmpty` on the whole document would delete the key and leave a slice
+ *  the API has nothing to validate against. */
 export function toPayload(entry, propertyIds = {}) {
-  const data = resolveRefs(entry.data, propertyIds);
-  if (Array.isArray(data.slices)) {
-    data.slices = data.slices.map((s) => ({ items: [], ...s }));
+  const { slices, ...rest } = resolveRefs(entry.data, propertyIds);
+  const data = stripEmpty(rest);
+  if (Array.isArray(slices)) {
+    data.slices = slices.map((s) => ({
+      ...s,
+      // `?? {}` because stripEmpty collapses an all-empty object to undefined,
+      // and a slice with no `primary` at all is not what an empty band is.
+      primary: stripEmpty(s.primary ?? {}) ?? {},
+      items: s.items ?? [],
+    }));
   }
-  return { type: TYPE, uid: entry.uid, title: entry.title, data: stripEmpty(data) };
+  return { type: TYPE, uid: entry.uid, title: entry.title, data };
 }
 
 async function main(argv) {
@@ -188,8 +199,16 @@ async function main(argv) {
   let updated = 0;
   for (const e of entries) {
     const id = state.documents[e.uid]?.id ?? published[e.uid];
-    const result = await stageDocument({ id, headers, ...toPayload(e, listingIds) });
-    state.documents[e.uid] = { id: result.id, at: new Date().toISOString() };
+    const payload = toPayload(e, listingIds);
+    const result = await stageDocument({ id, headers, ...payload });
+    // The signature of what was SENT — publish-release.mjs holds the live
+    // document to it, because a uid being listed says nothing about which
+    // version is listed.
+    state.documents[e.uid] = {
+      id: result.id,
+      at: new Date().toISOString(),
+      signature: contentSignature(payload.data),
+    };
     writeState(STATE_PATH, state);
     if (result.created) created++;
     else updated++;

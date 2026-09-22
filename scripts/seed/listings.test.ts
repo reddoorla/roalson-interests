@@ -7,6 +7,7 @@ import { assetFilename, toPayload } from "./listings.mjs";
 // @ts-expect-error — plain ESM scripts, no declarations
 import { notYetLive, stagedByType } from "./publish-release.mjs";
 import {
+  contentSignature,
   fetchWithRetry,
   publishMigrationRelease,
   readToken,
@@ -283,25 +284,43 @@ describe("publishing the migration release", () => {
     );
   });
 
-  it("reads what was staged from the state files, by type", () => {
+  it("reads what was staged from the state files, by type — the whole record, not just the uid", () => {
     const dir = mkdtempSync(join(tmpdir(), "staged-"));
-    writeFileSync(
-      join(dir, "listings.state.json"),
-      JSON.stringify({ documents: { a: { id: "1" }, b: { id: "2" } }, assets: {} }),
-    );
+    const documents = { a: { id: "1", signature: "SIG-A" }, b: { id: "2" } };
+    writeFileSync(join(dir, "listings.state.json"), JSON.stringify({ documents, assets: {} }));
     writeFileSync(join(dir, "unrelated.json"), "{}");
-    expect(stagedByType(dir)).toEqual({ property: ["a", "b"] });
+    expect(stagedByType(dir)).toEqual({ property: documents });
   });
 
-  it("the pass is the public API listing every staged uid — not the 202", async () => {
-    const fetchImpl = vi.fn(async (url: string) => ({
-      ok: true,
-      status: 200,
-      json: async () =>
-        String(url).endsWith("/api/v2")
-          ? { refs: [{ isMasterRef: true, ref: "m" }] }
-          : { results: [{ uid: "a", id: "1" }], total_pages: 1 },
-    }));
-    expect(await notYetLive("r", { property: ["a", "b"] }, fetchImpl)).toEqual(["property/b"]);
+  // This test used to read "the pass is the public API listing every staged
+  // uid — not the 202", and that was the defect, not the contract: a re-staged
+  // document keeps its uid, so on 2026-09-21 a three-band `home` was staged and
+  // the publisher reported it live while the one-band version stayed on the
+  // site. The pass is the live CONTENT matching what was staged.
+  it("the pass is the live content matching what was staged — not the 202, and not the uid", async () => {
+    const api = (data: unknown) =>
+      vi.fn(async (url: string) => ({
+        ok: true,
+        status: 200,
+        json: async () =>
+          String(url).endsWith("/api/v2")
+            ? { refs: [{ isMasterRef: true, ref: "m" }] }
+            : { results: [{ uid: "a", id: "1", data }], total_pages: 1 },
+      }));
+    const staged = {
+      property: {
+        a: { id: "1", signature: contentSignature({ title: "A", price: 8.5 }) },
+        b: { id: "2", signature: "anything" },
+      },
+    };
+    expect(await notYetLive("r", staged, api({ title: "A", price: 8.5 }))).toEqual([
+      { type: "property", uid: "b", why: "not published" },
+    ]);
+    // Same uid, same id, one number edited: caught.
+    expect(await notYetLive("r", staged, api({ title: "A", price: 9 }))).toContainEqual({
+      type: "property",
+      uid: "a",
+      why: "live content differs from what was staged",
+    });
   });
 });
