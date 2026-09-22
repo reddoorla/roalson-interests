@@ -1,8 +1,12 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
+import { cleanup, render } from "@testing-library/svelte";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 
 import { CANVAS_TOP_COLORS } from "$lib/canvas-top";
+import { homeHeroFixture } from "$lib/home-fixture";
+import HomeHero from "$lib/slices/HomeHero/index.svelte";
+import PageMasthead from "$lib/components/PageMasthead.svelte";
 
 /**
  * The bar floats — transparent, white wordmark, dust controls — only over a
@@ -221,15 +225,17 @@ describe("canvasTop — the ground above the top of the document", () => {
     HomeHero: {
       token: "dark",
       ground: "bg-dark",
-      file: "src/lib/slices/HomeHero/index.svelte",
+      mount: () => render(HomeHero, { props: { slice: homeHeroFixture() } }).container,
     },
     // A gradient, so the token is its FIRST stop — `to-dark` is the bottom.
     PageMasthead: {
       token: "primary",
       ground: "from-primary",
-      file: "src/lib/components/PageMasthead.svelte",
+      mount: () => render(PageMasthead, { props: { title: "Properties" } }).container,
     },
   } as const;
+
+  afterEach(cleanup);
 
   const claimed = (page: string): string | undefined =>
     ["+page.server.ts", "+page.ts"]
@@ -283,15 +289,32 @@ describe("canvasTop — the ground above the top of the document", () => {
     expect(wrong).toEqual([]);
   });
 
-  it("and each band really does wear that ground on its own first element", () => {
-    for (const [band, { token, ground, file }] of Object.entries(BAND_GROUNDS)) {
-      const open = /<[A-Za-z][\s\S]*?>/.exec(
-        markup(readFileSync(resolve(process.cwd(), file), "utf8")),
-      )?.[0];
-      expect(open, `${band}: no opening tag in ${file}`).toBeTruthy();
-      expect(open, `${band}'s first element does not wear ${ground}`).toContain(ground);
+  // This RENDERS each band and reads the class its root element actually
+  // carries, rather than scraping the opening tag out of the source file.
+  //
+  // The source-scraping version shipped first and broke the moment PageMasthead
+  // grew a photo: its <header> went from a literal class string to
+  // `class={bandClasses}`, a `$derived` over a `<script module>` constant, so
+  // the regex found `<header class={bandClasses}>` and the ground was nowhere
+  // in it. That red was correct — the guard genuinely could no longer see the
+  // class — but it was red about the wrong thing, and the obvious repair
+  // (teach the regex to resolve one identifier) would be a second parser that
+  // the next refactor breaks again.
+  //
+  // Rendering is also the stronger claim: the scrape could only ever prove a
+  // string appears in a file, while the class a visitor gets is the one the
+  // component computes.
+  it("and each band really does wear that ground on its own root element", () => {
+    for (const [band, { token, ground, mount }] of Object.entries(BAND_GROUNDS)) {
+      const root = mount().firstElementChild;
+      expect(root, `${band}: rendered nothing`).toBeTruthy();
+      expect(
+        root!.className.split(/\s+/),
+        `${band}'s root element does not wear ${ground} — it wears "${root!.className}"`,
+      ).toContain(ground);
       // …and the class really is the token, so neither can be renamed alone.
       expect(ground.endsWith(`-${token}`), `${ground} does not name "${token}"`).toBe(true);
+      cleanup();
     }
   });
 

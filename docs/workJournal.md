@@ -5231,3 +5231,30 @@ to Prismic on merge; an editor then creates the singleton and sets
 null and the band is the gradient — which is what the production build rendered
 during this session, against the real repository, and is therefore tested
 rather than assumed.
+
+**A cross-batch red, found only after both halves were on the same branch.**
+The canvas-ground batch (#86) landed `nav-over.test.ts`'s new guard "each band
+really does wear that ground on its own first element", which read the
+component's SOURCE and regexed its first opening tag for the ground class. That
+worked against a `<header class="… from-primary …">`. This batch turned the same
+header into `class={bandClasses}` — a `$derived` over the `MASTHEAD_BAND`
+constant — so the regex matched `<header class={bandClasses}>` and found no
+ground in it. CI went red on the merge, not on either PR: neither branch alone
+contains both halves, so nothing before the merge could have caught it.
+
+The red was *correct* — the guard genuinely could no longer see the class — but
+it was red about the wrong thing, and the obvious repair (teach the regex to
+resolve one identifier) would be a second parser for Svelte that the next
+refactor breaks again. The guard now RENDERS each band and reads the class its
+root element actually carries. That is also the stronger claim: scraping could
+only ever prove a string appears in a file, while the class a visitor gets is
+the one the component computes. Mutation-proven both ways —
+`from-primary`→`from-accent` on the masthead reddens it naming what the root
+actually wears, and `bg-dark`→`bg-light` on HomeHero's root does the same.
+
+One thing that mutation pass caught about itself: the first attempt at the
+HomeHero mutant edited the INNER pinned div (line 126, also `bg-dark`) and the
+test stayed green — correctly, because the root `<section>` at line 108 is what
+the canvas colour has to match. A mutation that does not go red is either a gap
+in the test or a mistake in the mutation, and assuming the first is how a real
+gap gets papered over; here it was the second.
