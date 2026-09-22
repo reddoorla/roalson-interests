@@ -1,6 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Browser, type Page } from "@playwright/test";
-import { expectRing, GARNET, OFF_WHITE } from "./expect-ring";
+import { expectRing, GARNET } from "./expect-ring";
 
 // The homepage's featured band (src/lib/slices/FeaturedProperties) is the
 // headless carousel's first consumer, and makes promises jsdom cannot check:
@@ -68,6 +68,43 @@ const onStage = (page: Page) =>
         .filter((el) => !el.hasAttribute("inert"))
         .map((el) => el.querySelector("h3")!.textContent),
     );
+
+/** What the in-page clock recorded: every change of the live region, stamped
+ *  with `performance.now()`, plus the first reading of the bar (and when) so a
+ *  partly-run dwell can be told from a whole one. */
+interface Timed {
+  __turns: { t: number; text: string }[];
+  __start: { t: number; p: number } | null;
+}
+
+/** Installs that clock before the page's first script. The live region is the
+ *  carousel's own announcement of a turn — the one thing in the DOM that says
+ *  "the slide changed" at the instant it does. */
+const stampTurns = (page: Page) =>
+  page.addInitScript((card: string) => {
+    const w = window as unknown as Timed;
+    w.__turns = [];
+    w.__start = null;
+    const scale = (region: Element) =>
+      Number(
+        /scaleX\(([^)]+)\)/.exec(
+          region.querySelector("[data-carousel-progress] > div")?.getAttribute("style") ?? "",
+        )?.[1],
+      );
+    const arm = () => {
+      const region = document.querySelector(card);
+      const live = region?.querySelector("[aria-live]");
+      // Only once script has adopted the carousel: before that there is no
+      // clock, and the bar's 0 would look like a dwell that just started.
+      if (!region?.hasAttribute("data-carousel-ready") || !live || !Number.isFinite(scale(region)))
+        return requestAnimationFrame(arm);
+      w.__start = { t: performance.now(), p: scale(region) };
+      new MutationObserver(() => {
+        w.__turns.push({ t: performance.now(), text: live.textContent ?? "" });
+      }).observe(live, { childList: true, characterData: true, subtree: true });
+    };
+    requestAnimationFrame(arm);
+  }, CARD);
 
 /** Every box relative to the CARD's own top-left — the comp's card-relative
  *  table (home-featured-properties §3) — never to the window. */
@@ -189,6 +226,52 @@ test.describe("where the comp draws it", () => {
     }
   });
 
+  test("the arrows are 43 above the card's foot however tall the text runs", async ({
+    browser,
+  }) => {
+    // The comp puts the arrows' bottom and the slide's LEARN MORE on one line
+    // (y=784). `lg:h-[200px]` made the chrome a FIXED box top-aligned in its
+    // grid area, so the moment a slide's text ran past 203px the area grew
+    // underneath it and the arrows stayed put: measured 60.03 above the foot at
+    // 1024 / 1100 / 1280 with the three-listing fixture (slide 2 runs to five
+    // bullet lines) and at 1440 with the launch listing's five. `lg:h-auto
+    // lg:min-h-[200px]` lets the grid item stretch, which is its default.
+    //
+    // Two shapes, both real, on the SAME three-listing fixture: at 1440 its
+    // copy fits the comp's 285 and the floor is what holds the panel there; at
+    // 1280 and 1024 slide 2 runs to five bullet lines, the stack grows to the
+    // tallest of them, and the arrows must follow. (The launch listing's five
+    // bullets do this at a true 1440, but ?featured=one draws no arrows at all
+    // — one listing is not a carousel — so the width is the repro that can be
+    // asserted without a fourth fixture.)
+    for (const [width, panel] of [
+      [1440, "285"],
+      [1280, "taller"],
+      [1024, "taller"],
+    ] as const) {
+      const { context, page } = await moving(browser, { width, height: 900 });
+      try {
+        await page.goto(HOME);
+        await adopted(page);
+        await page.locator(`${CARD} h2`).hover();
+        const g = await geometry(page);
+        expect(g.card.height - g.controls!.bottom, `arrows above the foot at ${width}`).toBeCloseTo(
+          43,
+          0,
+        );
+        const panelHeight = g.card.height - g.photo.height;
+        if (panel === "285") {
+          expect(panelHeight, `panel at ${width}`).toBeGreaterThanOrEqual(284);
+          expect(panelHeight, `panel at ${width}`).toBeLessThanOrEqual(286);
+        } else {
+          expect(panelHeight, `panel at ${width} outgrew the comp's 285`).toBeGreaterThan(286);
+        }
+      } finally {
+        await context.close();
+      }
+    }
+  });
+
   test("390: photo, bar, [eyebrow | controls], text — and no map box", async ({ browser }) => {
     const { context, page } = await moving(browser, { width: 390, height: 844 });
     try {
@@ -253,6 +336,7 @@ test.describe("rotation", () => {
     test.setTimeout(40_000);
     const { context, page } = await moving(browser);
     try {
+      await stampTurns(page);
       await page.goto(HOME);
       await adopted(page);
       await pointerAway(page);
@@ -271,22 +355,43 @@ test.describe("rotation", () => {
       await expect.poll(() => barScale(page)).toBeGreaterThan(0.2);
 
       await expect(status(page)).toHaveText("Slide 2 of 3", { timeout: DWELL + 2000 });
-      const t2 = Date.now();
       expect(await onStage(page)).toEqual(["101 W. Commerce Street"]);
       // DECIDED: the bar SNAPS to 0 on the frame the slide turns and waits out
       // the dissolve there (the comp cross-fades a full bar into an empty one —
       // an artefact of dissolving the whole variant frame, not a drawn timer).
       expect(await barScale(page)).toBeLessThan(0.15);
 
-      await expect(status(page)).toHaveText("Slide 3 of 3", { timeout: DWELL + DISSOLVE + 2000 });
-      const lap = Date.now() - t2;
-      // One lap is dwell + dissolve on ONE clock: 4500. Generous either side —
-      // this is a loaded machine — but it cannot be 4000, and it cannot be 0.
-      expect(lap).toBeGreaterThan(DWELL + DISSOLVE - 500);
-      expect(lap).toBeLessThan(DWELL + DISSOLVE + 1500);
-
       // …and it loops.
+      await expect(status(page)).toHaveText("Slide 3 of 3", { timeout: DWELL + DISSOLVE + 2000 });
       await expect(status(page)).toHaveText("Slide 1 of 3", { timeout: DWELL + DISSOLVE + 2000 });
+
+      // THE LAP IS MEASURED IN THE PAGE, not out here. Two Date.now() readings
+      // around two `expect(...).toHaveText()` calls measure Playwright's POLL
+      // checkpoint, not the carousel: replicated four times, they read
+      // 4340–4342ms while the true lap was 4499–4503, because both turns are
+      // seen at the same ~4335ms checkpoint after the expect starts. A carousel
+      // wired with `settle: 0` — a true 4000 lap — lands in the same poll
+      // window and reads the same ~4340, so `toBeGreaterThan(4000)` passed for
+      // a band that had lost its dissolve entirely.
+      const turns = await page.evaluate(() => (window as unknown as Timed).__turns);
+      expect(turns.length, "stamped at least two turns").toBeGreaterThanOrEqual(2);
+      // The FIRST turn is only as long as the dwell that was left when we
+      // started watching — `progress` is elapsed / dwell, so the bar's own
+      // first reading says how much is gone (carousel.spec.ts's lesson: a bare
+      // "one dwell" went red at 3613ms on a correct carousel).
+      const first = await page.evaluate(() => (window as unknown as Timed).__start!);
+      expect(first.p, "watched most of the first dwell").toBeLessThan(0.5);
+      const toFirstTurn = turns[0].t - first.t;
+      expect(
+        Math.abs(toFirstTurn - (1 - first.p) * DWELL),
+        `first turn after ${toFirstTurn}ms with ${(1 - first.p) * DWELL}ms of the dwell left`,
+      ).toBeLessThan(300);
+      // Every lap after it is a WHOLE one: dwell + dissolve on one clock.
+      for (let i = 1; i < turns.length; i++) {
+        const lap = turns[i].t - turns[i - 1].t;
+        expect(lap, `lap ${i} was ${lap}ms — dwell + dissolve is 4500`).toBeGreaterThan(4400);
+        expect(lap, `lap ${i} was ${lap}ms — dwell + dissolve is 4500`).toBeLessThan(4700);
+      }
     } finally {
       await context.close();
     }
@@ -392,9 +497,29 @@ test.describe("rotation", () => {
       // Positive evidence that axe looked at the controls at all.
       expect(results.passes.map((p) => p.id)).toContain("button-name");
 
-      // garnet on the sand card; off-white on the band's dark ground
+      // AND THAT IT COULD MEASURE THE CARD'S TEXT. A violation count of zero
+      // is not a contrast result: axe answers `color-contrast` with
+      // "incomplete — bgOverlap" for anything it thinks something else is
+      // painted over, and an off-stage slide left at opacity 0 covers the whole
+      // card. Measured on this band before the fix: 1 node passed and 6 were
+      // incomplete at 1440 (the h2, the size line, the h3, both bullets and
+      // LEARN MORE). Incomplete is not a pass — so the assertion is that
+      // nothing in the band is incomplete FOR CONTRAST, and that the ratios
+      // axe did compute cover the card's own words.
+      const incomplete = results.incomplete.find((r) => r.id === "color-contrast");
+      expect(
+        incomplete?.nodes.map((n) => n.html.slice(0, 60)) ?? [],
+        "axe could not measure these",
+      ).toEqual([]);
+      const measured = results.passes.find((p) => p.id === "color-contrast");
+      expect(measured, "axe measured contrast at all").toBeTruthy();
+      expect(measured!.nodes.length, "every text node in the card").toBeGreaterThanOrEqual(6);
+
+      // garnet on the sand card — the only ground this band puts a control on
+      // now that the portfolio button is gone (the hero and the footer carry
+      // that link). The off-white ring on the dark ground is held by the hero's
+      // and the footer's own specs.
       await expectRing(page, page.getByRole("button", { name: "Next slide" }), GARNET);
-      await expectRing(page, page.locator(`${BAND} a`, { hasText: "Our portfolio" }), OFF_WHITE);
     } finally {
       await context.close();
     }
@@ -481,13 +606,109 @@ test.describe("the other states", () => {
       await expect(card.locator("button")).toHaveCount(3);
       for (const button of await card.locator("button").all()) await expect(button).toBeHidden();
       await expect(card.locator("[data-carousel-progress]")).toBeHidden();
-      // Every other listing is one link away.
-      await expect(page.locator(`${BAND} a`, { hasText: "Our portfolio" })).toHaveAttribute(
-        "href",
-        "/properties",
-      );
+
+      // #32's first promise, and the thing the unit tests cannot see: the
+      // SERVER's markup puts exactly one slide on stage. A regression that
+      // shipped all three stacked at opacity 1 would still pass every
+      // assertion above — slide 1's link is visible either way.
+      const slides = card.locator("[data-featured-slide]");
+      await expect(slides).toHaveCount(3);
+      await expect(card.locator("[data-featured-slide]:not([inert])")).toHaveCount(1);
+      await expect(slides.nth(0)).not.toHaveAttribute("inert", "");
+      for (const i of [1, 2]) {
+        await expect(slides.nth(i)).toHaveAttribute("inert", "");
+        await expect(slides.nth(i)).toHaveAttribute("aria-hidden", "true");
+        await expect(slides.nth(i).locator("h3")).toBeHidden();
+      }
+      // WITHOUT THE BUNDLE THE BAND IS ITS FIRST LISTING, and that is the
+      // decision, not an oversight: slides 2..N are `inert` in the server's
+      // markup by the primitive's reviewed design, and CSS cannot undo `inert`.
+      // Every listing is reachable from /properties, which the hero one band
+      // up, the menu and the footer all link — so this band draws no second
+      // route to it (#47, and the critic's ruling on the portfolio button).
+      await expect(page.locator(`${BAND} a`, { hasText: "Our portfolio" })).toHaveCount(0);
+      for (const link of await page.locator(`${BAND} a`).all())
+        await expect(link).toHaveAttribute("href", /^\/properties\/.+/);
     } finally {
       await context.close();
+    }
+  });
+
+  test("script ON, bundle never arrives: the controls are QUIET, and the row does not move when it does (#47)", async ({
+    browser,
+  }) => {
+    // The state `data-js-only` cannot reach. The browser WILL run script, so
+    // the <noscript> rule never applies — and before this fix the arrows, Pause
+    // and the bar were drawn, focusable and clickable, doing nothing. The
+    // decision on #47: they stay in the markup (the row must not jump) and are
+    // `visibility: hidden` + `inert` until `carousel.hydrated` is true.
+    const blocked = await browser.newContext({
+      reducedMotion: "no-preference",
+      viewport: { width: 1440, height: 900 },
+    });
+    try {
+      const page = await blocked.newPage();
+      await page.route("**/*", (route) =>
+        route.request().resourceType() === "script" ? route.abort() : route.continue(),
+      );
+      await page.goto(HOME, { waitUntil: "domcontentloaded" });
+      const card = page.locator(CARD);
+      await expect(card, "script never adopted it").not.toHaveAttribute("data-carousel-ready", "");
+
+      const controls = card.locator("div[data-js-only]:has(> button)");
+      const bar = card.locator("[data-carousel-progress]");
+      // Present — three buttons and a bar, holding their space …
+      await expect(card.locator("button")).toHaveCount(3);
+      await expect(controls).toHaveAttribute("data-carousel-quiet", "");
+      await expect(bar).toHaveAttribute("data-carousel-quiet", "");
+      // … and quiet: not visible, not focusable, not clickable. `inert` is the
+      // property Svelte sets; a real browser reflects it to the attribute.
+      await expect(controls).toHaveAttribute("inert", "");
+      await expect(controls).toBeHidden();
+      await expect(bar).toBeHidden();
+      await expect(card.getByRole("button", { name: "Next slide" })).toHaveCount(0);
+      await page.keyboard.press("Tab");
+      await page.keyboard.press("Tab");
+      expect(
+        await page.evaluate(
+          () =>
+            document
+              .activeElement!.closest("[data-js-only]")
+              ?.hasAttribute("data-carousel-quiet") ?? false,
+        ),
+        "no tab stop inside the quiet controls",
+      ).toBe(false);
+
+      // The eyebrow's width IS the webfont's: measured before `document.fonts`
+      // settles it reads 182 against Atkinson's 176.56, which is a font race,
+      // not a layout shift.
+      await page.evaluate(() => document.fonts.ready);
+      const quietBoxes = await geometry(page);
+
+      // …and the SAME page with script gives the same boxes: reserving the
+      // space is the whole reason the controls ship at all. (The eyebrow/photo
+      // are read from the card, never the window — house rule.)
+      const { context, page: live } = await moving(browser);
+      try {
+        await live.goto(HOME);
+        await adopted(live);
+        await live.locator(`${CARD} h2`).hover(); // holds the clock on slide 1
+        await live.evaluate(() => document.fonts.ready);
+        const liveBoxes = await geometry(live);
+        for (const key of ["card", "photo", "bar", "eyebrow", "controls", "text"] as const) {
+          const [before, after] = [quietBoxes[key]!, liveBoxes[key]!] as Record<string, number>[];
+          for (const edge of Object.keys(before)) {
+            expect(
+              Math.abs(after[edge] - before[edge]),
+              `${key}.${edge} moved at hydration: ${before[edge]} → ${after[edge]}`,
+            ).toBeLessThan(0.5);
+          }
+        }
+      } finally {
+        await context.close();
+      }
+    } finally {
+      await blocked.close();
     }
   });
 });
