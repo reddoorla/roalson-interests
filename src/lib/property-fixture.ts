@@ -128,8 +128,9 @@ export function propertyFixture(
  *  drawn one marker at maximum zoom and proved nothing. Each listing below now
  *  carries a pin near the road it is named for, and the LAND section's four
  *  are shaped to put both of the map's jobs on the page at once: Potranco Road
- *  and FM 1560 & Galm Road are 0.7 km apart, so they cluster at every zoom the
- *  panel fits to, while Castroville and New Braunfels are 66 km apart, so the
+ *  and FM 1560 & Galm Road are 0.589 km apart, so they cluster at every zoom
+ *  the panel fits to, while Castroville and New Braunfels are 83.08 km apart,
+ *  so the
  *  fit has to open up to hold them. The real portfolio's own numbers — the
  *  ones the clustering was tuned against — are in property-map.test.ts. */
 export function propertyListingFixture(): PropertyDocument[] {

@@ -184,6 +184,13 @@ const geometry = (page: Page) =>
           width: slot.getBoundingClientRect().width,
           background: getComputedStyle(slot).backgroundColor,
         },
+        // The child of the slot, which is the element that actually paints the
+        // column before the tiles arrive. Reading only the slot's background
+        // is what let a sand rectangle ship over the band's #3d0707.
+        map: {
+          background: getComputedStyle(slot.firstElementChild!).backgroundColor,
+          width: slot.firstElementChild!.getBoundingClientRect().width,
+        },
         // Positive means content wider than the box, which is the defect.
         // It reads -15 here even when nothing overflows: `clientWidth` reports
         // the viewport while the page lays out inside the reserved gutter.
@@ -259,15 +266,24 @@ test.describe("where the comp draws it", () => {
         )
         .toBeLessThanOrEqual(1);
       // …and the map's column is the rest of the band, flush against the card.
-      // The SLOT still paints nothing of its own — the comp's map frame has no
-      // fill, and the band's #3d0707 is what shows through while the tiles are
-      // arriving (#13).
       const g = await geometry(page);
       expect(g.slot.display, `${width}`).toBe("block");
       expect(g.slot.right, `${width}`).toBeCloseTo(0, 0);
       expect(g.slot.width, `${width}`).toBeGreaterThan(300);
-      expect(g.slot.background, `${width}`).toBe("rgba(0, 0, 0, 0)");
       expect(g.overflowX, `${width}`).toBeLessThanOrEqual(0);
+
+      // THE GROUND, READ OFF THE ELEMENT THAT ACTUALLY PAINTS. The slot is
+      // transparent and always was — and that is not the claim worth making,
+      // because the slot is transparent whatever its child does. The first
+      // version of this asserted only the slot and passed while PropertyMap's
+      // own root filled the whole column with hard-coded SAND over the band's
+      // #3d0707. Until the tiles arrive the map IS its ground plus a list of
+      // links, so the ground is the child's, and it is the child that is read.
+      expect(g.slot.background, `${width}: the slot itself`).toBe("rgba(0, 0, 0, 0)");
+      expect(g.map.background, `${width}: what the visitor sees before tiles`).toBe(
+        "rgb(61, 7, 7)",
+      );
+      expect(g.map.background, `${width}: sand over the dark band`).not.toBe("rgb(232, 225, 209)");
     }
   });
 
@@ -445,15 +461,30 @@ test.describe("rotation", () => {
         Math.abs(toFirstTurn - (1 - first.p) * DWELL),
         `first turn after ${toFirstTurn}ms with ${(1 - first.p) * DWELL}ms of the dwell left`,
         // 700, RAISED FROM 300, and it is not the clock that changed (#103).
-        // This is the one reading here taken across the page's own load, and
-        // the homepage band now boots a 426 KB MapLibre map beside the card —
-        // at 1440x900 the 512x827 map is already intersecting at scrollY 0, so
-        // its parse and its WebGL context land inside this very dwell and push
-        // one `setTimeout` out by however long they block. Measured on this
-        // machine: 458.6 / 1029.7 / 2609.8ms of overshoot before
+        //
+        // THE REASON FIRST GIVEN FOR THIS WAS WRONG, and it is corrected here
+        // rather than quietly. It read: "at 1440x900 the 512x827 map is
+        // already intersecting at scrollY 0, so its parse and its WebGL
+        // context land inside this very dwell". Measured at this exact
+        // viewport: the band's map slot top is y=1007 against a 900 viewport,
+        // `data-map-ready` is false after 4s, and there is no canvas and no
+        // attribution control. This test never scrolls, so MapLibre cannot
+        // boot inside it at all. The same PR's journal retracted the belief;
+        // the comment kept it.
+        //
+        // What the overshoots really were is in the same sentence that
+        // measured them: 458.6 / 1029.7 / 2609.8ms BEFORE
         // `optimizeDeps.include: ["maplibre-gl"]` stopped Vite discovering the
-        // dependency mid-session, and 364.6ms worst case after it. 700 is
-        // twice that and still 17.5% of a 4000ms dwell.
+        // dependency mid-session, and 364.6ms worst case after. That is the
+        // DEV SERVER's module loading on first paint — the map's chunk being
+        // resolved even though the map never runs — not the map booting.
+        //
+        // The width is kept, not the reason. Re-measured on a quiet machine
+        // with the tree as it stands: 4/4 green at 300ms, so most of this
+        // headroom is currently unused. It stays because the overshoot that
+        // forced it was real and was measured on a LOADED machine, and
+        // because this suite already has assertions that fail under load and
+        // pass alone (#80). Tighten it when that is fixed, not before.
         //
         // NOTHING IS LOST BY IT. The loop below is the stronger guard and is
         // untouched: every WHOLE lap must be 4400-4700ms, ±150 on the comp's
@@ -580,23 +611,45 @@ test.describe("rotation", () => {
       await page.getByRole("button", { name: "Pause slides" }).click();
       await expect(page.getByRole("button", { name: "Play slides" })).toBeVisible();
 
-      // The map's subtree is excluded (#13), and it has to be: a cluster
-      // marker draws its count in sand on garnet ON TOP OF A CANVAS, and axe
-      // cannot see through a canvas — it answers `color-contrast` for that
-      // <span> with `incomplete`, which the assertion below reads as "axe
-      // could not measure these" and fails on. It is NOT deterministic, which
-      // is how it was found: this case passed two full `pnpm verify` runs and
-      // went red on the third, depending on whether a cluster had rendered
-      // before axe ran. The pair's own ratio is 8.87:1 and is held by
-      // theme-contrast.test.ts; the markers are `aria-hidden` drawings of the
-      // list beside them either way.
-      const results = await new AxeBuilder({ page })
-        .include(BAND)
-        .exclude(`${BAND} [data-property-map]`)
-        .analyze();
+      // THE MAP IS IN THIS RUN, AND THE EXCLUSION THAT USED TO TAKE IT OUT WAS
+      // BOTH WRONGLY EXPLAINED AND HARMFUL. It read: "a cluster marker draws
+      // its count in sand on garnet ON TOP OF A CANVAS, and axe cannot see
+      // through a canvas". The homepage band has three slides and
+      // `clusterPoints` never groups three pins that far apart — measured on
+      // /dev/home: clusters 0, pins 3 — so the stated cause cannot occur on
+      // the page the exclusion was written for. What axe actually could not
+      // measure was the ATTRIBUTION: `.maplibregl-ctrl-attrib-inner` and its
+      // three links, "Element's background color could not be determined
+      // because element contains an image node", because the chip was 88%
+      // sand over the canvas.
+      //
+      // Excluding the map's whole subtree therefore silenced axe over the
+      // OpenStreetMap credit — which this component argues is a LICENCE
+      // CONDITION and not a style choice, so it is the last thing that should
+      // go unmeasured. The chip is opaque now (see PropertyMap's <style>) and
+      // nothing is excluded: axe measures the map's text along with the card's.
+      const results = await new AxeBuilder({ page }).include(BAND).analyze();
       expect(results.violations.map((v) => `${v.id}: ${v.nodes.length}`)).toEqual([]);
       // Positive evidence that axe looked at the controls at all.
       expect(results.passes.map((p) => p.id)).toContain("button-name");
+
+      // …and that it measured the MAP'S OWN TEXT, which is what the exclusion
+      // was really hiding. Measured at this exact viewport: the band's map slot
+      // top is y=1007 against a 900 viewport, so the lazy gate never opens and
+      // MapLibre never boots here — `data-map-ready` false, no canvas, no
+      // attribution control and no cluster markers at all. What IS on the page
+      // is the map's server-rendered list of three listing links, on the
+      // band's ground, and the old exclusion took those out of the run. They
+      // are off-white on #3d0707 (14.85:1) and they are now measured.
+      //
+      // The attribution cannot be asserted from here for the same reason —
+      // there isn't one. property-map.spec.ts covers it where the map really
+      // renders.
+      const contrast = results.passes.find((p) => p.id === "color-contrast");
+      expect(
+        contrast?.nodes.some((n) => n.html.includes("data-map-link")),
+        "axe measured the map's listing links, rather than skipping them",
+      ).toBe(true);
 
       // AND THAT IT COULD MEASURE THE CARD'S TEXT. A violation count of zero
       // is not a contrast result: axe answers `color-contrast` with

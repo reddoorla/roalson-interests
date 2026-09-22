@@ -1,7 +1,7 @@
 // Everything the per-section map knows that is NOT MapLibre (#13).
 //
 // This module is deliberately free of `maplibre-gl`, of the DOM and of
-// `$env`: the map's 403 KB engine is dynamically imported by
+// `$env`: the map's 426 KB engine is dynamically imported by
 // PropertyMap.svelte only once its box is on screen, and none of the
 // arithmetic below may be trapped inside that chunk — it is the part a unit
 // test can measure against the real portfolio's 22 coordinates.
@@ -212,7 +212,7 @@ export interface Camera {
  * and the fit zoom is infinite. 12 puts 397px of frame across 6.6 km at this
  * latitude — a district with its road names and its town label, which is what
  * a single listing wants. Every real multi-pin section fits well below it
- * (land 6.948, improved 9.606 at 397 x 595), so it changes nothing there.
+ * (land 6.948, improved 9.644 at 397 x 595), so it changes nothing there.
  *
  * `clusterRadius` is the pin's own box: two pins closer than one box overlap,
  * and overlapping pins are the defect clustering exists to remove. On the

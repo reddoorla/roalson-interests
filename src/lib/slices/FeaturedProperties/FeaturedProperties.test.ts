@@ -489,9 +489,18 @@ describe("FeaturedProperties slice", () => {
       card.compareDocumentPosition(slot) & Node.DOCUMENT_POSITION_FOLLOWING,
       "the card comes first in the DOM",
     ).toBeTruthy();
-    // The band's own ground is what shows: a bg-* here is a placeholder drawn.
+    // The SLOT draws nothing; a bg-* here would be a placeholder drawn.
     expect(classes.filter((c) => /(^|:)(bg|border|from|to)-/.test(c))).toEqual([]);
     expect(band(container).className).toContain("bg-dark");
+    // …but the slot's transparency is not the interesting claim, because the
+    // slot is transparent whatever its child does. The MAP is what paints the
+    // column until the tiles arrive, and it must paint the BAND's ground —
+    // hard-coded sand there was a full-bleed pale rectangle on #3d0707 that
+    // this assertion's earlier form could not see.
+    const map = slot.querySelector<HTMLElement>("[data-property-map]")!;
+    const mapClasses = map.className.split(/\s+/);
+    expect(mapClasses, "the map wears the band's ground").toContain("bg-dark");
+    expect(mapClasses, "and not the light-ground tone").not.toContain("bg-light");
   });
 
   it("gives the map a pin for every slide whose listing has one", () => {

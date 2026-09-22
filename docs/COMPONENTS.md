@@ -51,7 +51,7 @@ source. It is the fastest way to recognise what a thing does.
 | [`PropertyCard.svelte`](../src/lib/components/PropertyCard.svelte) | `property`, `variant`, `layout` | 9 | The comp's `property` card, three tones |
 | [`PropertyDetail.svelte`](../src/lib/components/PropertyDetail.svelte) | `property` | 9 | The property page |
 | [`PropertyListing.svelte`](../src/lib/components/PropertyListing.svelte) | `sections` | 9 | The Properties page body: the comp's stacked sections (6903:1030 at 1440, 6992:2468 at 390), each a divider — a 2px garnet rule over an H3 label — and its listing |
-| [`PropertyMap.svelte`](../src/lib/components/PropertyMap.svelte) | `points`, `label`, `engine` | 19 | The comp's per-section property map (#13): 397 x 595 in the Properties page's left column at 1440, 350 x 200 above the cards at 390, 512 x 827 full-bleed on the homepage band and 390 x 200 full-bleed on its phone frame |
+| [`PropertyMap.svelte`](../src/lib/components/PropertyMap.svelte) | `points`, `label`, `engine`, `tone` | 19 | The comp's per-section property map (#13), with its ground tones EXPORTED from this module script as `MAP_TONES` |
 | [`RichTextBody.svelte`](../src/lib/components/RichTextBody.svelte) | `field` | 4 |  |
 | [`RichTextHeading.svelte`](../src/lib/components/RichTextHeading.svelte) | `node`, `children` | — |  |
 | [`ScaleTextToContainer.svelte`](../src/lib/components/ScaleTextToContainer.svelte) | `children` | — |  |

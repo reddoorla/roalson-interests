@@ -6613,3 +6613,110 @@ six motion-measuring cases open their own `reducedMotion: "no-preference"`
 context, so none is vacuous; Ken Burns really does freeze on every pause path
 (Pause, focus-entering, hover, hidden tab) and writes no transform at all under
 reduce; and the stagger's arithmetic and measured timings hold to within 7ms.
+
+## 2026-09-22 — The map's review: a sand slab over the dark band, and an axe exclusion that silenced the licence (`fix/map-review`)
+
+The adversarial review of #107 came back SHIP_WITH_FIXES with three majors.
+#107 was already merged, so this is the follow-up. Its numbers were checked
+before they were acted on — the two fixture distances were re-derived
+independently from the fixture's own coordinates (closest pair **0.589 km**,
+farthest **83.08 km**, against a comment claiming 0.7 and 66) and the band's
+state was re-measured rather than taken on trust.
+
+**THE SAND SLAB.** `PropertyMap`'s root carried a hard-coded `bg-light`. On the
+Properties page that is right — a sand panel on an off-white page, 8.87:1 — and
+on the homepage band it painted a full-bleed **sand rectangle over the band's
+#3d0707** until MapLibre finished booting: 513 × 826.4 at 1455 × 900, 375 × 200
+at 390 × 844, i.e. the whole reserved column. Three separate comments asserted
+the opposite ("the band's #3d0707 is what shows through"), and the guard that
+claimed to measure it read `[data-map-slot]` — which is transparent **whatever
+its child does**, so it passed throughout. The child was the thing that painted.
+
+Fixed with a `tone` prop, the way CarouselArrows and CarouselProgress already
+do it: `garnet` (sand ground, garnet text, 8.87:1) and `cream` (#3d0707 ground,
+off-white text, **14.85:1**). Both guards now read the element that paints.
+Mutated by deleting `tone="cream"` and watched red in both layers — unit _"the
+map wears the band's ground: expected [...] to include 'bg-dark'"_, browser
+_"1440: what the visitor sees before tiles — Expected rgb(61, 7, 7), Received
+rgb(232, 225, 209)"_.
+
+**THE AXE EXCLUSION, AND WHAT IT WAS REALLY HIDING.** The band's axe case
+excluded the map's whole subtree, explained as "a cluster marker draws its
+count in sand on garnet ON TOP OF A CANVAS". The homepage band has three
+slides and `clusterPoints` never groups three pins that far apart, so the
+stated cause cannot occur there. Measured at that viewport: **clusters 0, pins
+3** — and in fact `data-map-ready` is false, there is no canvas and no
+attribution control at all, because the map slot's top is **y=1007 against a
+900 viewport** and the lazy gate never opens. What the exclusion actually
+removed from the run was the map's server-rendered **list of three listing
+links**.
+
+The real cause of the `incomplete` was the attribution chip: 88% sand over the
+canvas, which axe answers with "Element's background color could not be
+determined because element contains an image node". That made it **opaque** —
+which is the right answer anyway, because a translucent chip over map tiles has
+no fixed contrast at all — and then the exclusion could simply go. Nothing is
+excluded from the band's run now, and the case asserts by name that axe
+measured the map's links rather than skipping them.
+
+**THE SHEET OVER THE LICENCE.** A pin's sheet is `inset-x-0 bottom-0` and sat
+above both the OpenStreetMap credit and the expand control: measured at
+390 × 844 with a pin open, sheet 471..536, attribution 522..536, and
+`elementFromPoint` at the credit's centre returning the sheet. On a 200px map
+it ate the bottom third. A licence condition a UI state can hide is not being
+met, so the stack is now unambiguous — markers 1, sheet 2, chrome 3 — and the
+test **hit-tests** both controls with a sheet open rather than asserting the
+element exists. Mutated the sheet back above them: _"the OpenStreetMap credit
+is still hit-testable"_.
+
+**THE INTERACTIVE SURFACE HAD NO TEST AT ALL.** `press()`, the pin sheet, the
+cluster `easeTo` and the window Escape handler were unguarded — and the unit
+harness building an `eases` recorder that nothing ever read was the tell. One
+browser case now presses a cluster and requires it to come apart, requires a
+cluster press NOT to open a sheet, presses a pin and requires one, and presses
+Escape. Mutated the handler to the legacy `"Esc"` key name and watched it go
+red on _"Escape closes it"_.
+
+**A TOLERANCE WIDENED FOR A CAUSE THAT CANNOT HAPPEN.** The first-turn window
+went 300 → 700ms citing "at 1440x900 the 512x827 map is already intersecting at
+scrollY 0, so its parse and its WebGL context land inside this very dwell".
+That test never scrolls and the map is 107px below the fold, so MapLibre cannot
+boot inside it. The same PR's journal retracted the belief; the comment kept
+it. What the measured overshoots really were is in the sentence that measured
+them — 458.6 / 1029.7 / 2609.8ms **before** `optimizeDeps.include` stopped Vite
+discovering the dependency mid-session — i.e. the DEV SERVER resolving the
+map's chunk even though the map never runs. **The width is kept and the reason
+is replaced**: re-measured 4/4 green at 300ms on a quiet machine, so most of the
+headroom is unused, but the overshoot was real on a loaded one and this suite
+already has assertions that fail under load and pass alone (#80). #103 carries
+the correction.
+
+**A GUARD THAT COULD NOT FAIL ON THE THING IT CLAIMS.** The laziness case tested
+`/maplibre/` against resource names. That works under `vite dev`
+(`/node_modules/.vite/deps/maplibre-gl.js`) and on a production build matches
+nothing a visitor fetches — the chunk is content-hashed
+(`_app/immutable/chunks/DxiPY6e9.js`) — so it would report "not loaded" even
+with the engine statically imported. A **weight** assertion now runs beside it:
+scrolling the box in must pull more than 200 KB of script, which is the
+property being claimed and fails the same way in either environment.
+
+**Filed, not fixed:** **#108** — at 1440 the first map on `/properties` is 64%
+visible at rest, so the gate opens immediately and 503,023 bytes land before any
+scroll. Correct behaviour, but the PR's headline 426 KB figure describes the
+390 homepage case, the laziness test runs only at that geometry, and the
+Lighthouse gate sees only `/dev/a11y-fixtures` where every map is `engine="off"`.
+No budget anywhere sees the map.
+
+**Corrected in passing:** `property-map.ts`'s header said "403 KB engine"
+(426 everywhere else in the same PR, 427 measured) and "improved 9.606" (the
+value its own test asserts is 9.644); `PUBLIC_MAP_STYLE_URL` was missing from
+`.env.example`, the file that exists so the variable set is discoverable
+without reading the code. And moving `MAP_TONES` into a `<script module>` block
+took the capability index's summary with it — #59 keeps the first sentence of
+the FIRST comment — so that comment now opens by naming the export, as
+BrandButton's does for the same reason.
+
+**Not chased, recorded here:** `press()` eases to `expansionZoom(cluster,
+frame.clusterRadius, instance.getMaxZoom())` — the Map's 16, not `frame.maxZoom`'s 12. It looks deliberate and nothing records why. The new case asserts the
+cluster comes apart, which is the behaviour; the zoom it lands on is still
+unwritten-down.

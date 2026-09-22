@@ -522,12 +522,23 @@
          grid in this file's <style> puts the map above it visually where the
          comp draws it there. Above `lg` grid PLACEMENT decides, so the DOM
          order is not consulted at all.
-         No background of its own: the comp's map frame has no fill either, and
-         tests/interaction/featured-properties.spec.ts measures that this slot
-         stays transparent so the band's #3d0707 is what shows through the
-         reserved column while the tiles are still arriving. -->
+         `tone="cream"`, AND THE SLOT'S OWN TRANSPARENCY IS NOT ENOUGH. This
+         comment used to say the slot has no background so the band's #3d0707
+         shows through while the tiles arrive. The slot is indeed transparent —
+         and it was never the element that paints. `PropertyMap`'s own root
+         filled it, hard-coded `bg-light`, so what actually showed was a
+         full-bleed SAND rectangle over the dark band: measured 513 × 826.4 at
+         1455 × 900 and 375 × 200 at 390 × 844. The guard "measuring" it read
+         the slot, which is transparent whatever the child does, so it passed
+         throughout. The ground is the child's to draw, so the child is told
+         which one: off-white on #3d0707, 14.85:1. -->
     <div data-map-slot class="max-lg:order-first lg:col-start-1 lg:row-start-1">
-      <PropertyMap points={slidePoints(slides)} label={heading} class="h-50 w-full lg:h-full" />
+      <PropertyMap
+        points={slidePoints(slides)}
+        label={heading}
+        tone="cream"
+        class="h-50 w-full lg:h-full"
+      />
     </div>
   </section>
 {/if}
