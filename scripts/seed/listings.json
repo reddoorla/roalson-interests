@@ -28,6 +28,18 @@
       "package_pdf": {
         "url": "https://www.roalson.com/props/5001_Walzem_Road/5001%20Walzem%20Road%20package.pdf",
         "bytes": 5166277
+      },
+      "feature_image": {
+        "filename": "5001-walzem-road-feature.jpg",
+        "alt": "Single-tenant retail building on Walzem Road with a yellow title-loan sign band across its front, seen from across the street",
+        "source": {
+          "pdf": "package_pdf",
+          "page": 1,
+          "object": 997,
+          "width": 640,
+          "height": 374,
+          "rotate": 0
+        }
       }
     },
     "source": {
@@ -77,6 +89,18 @@
       "package_pdf": {
         "url": "https://www.roalson.com/props/Riverwalk/Riverwalk%20package.pdf",
         "bytes": 8048450
+      },
+      "feature_image": {
+        "filename": "st-marys-at-martin-river-walk-feature.jpg",
+        "alt": "Aerial view of downtown San Antonio with a small block outlined in red at St. Mary's Street and East Martin Street, beside the San Antonio River's Museum Reach",
+        "source": {
+          "pdf": "package_pdf",
+          "page": 6,
+          "object": 19,
+          "width": 2550,
+          "height": 3299,
+          "rotate": 0
+        }
       }
     },
     "source": {
@@ -185,6 +209,18 @@
       "package_pdf": {
         "url": "https://www.roalson.com/props/Urban_Loop/Urban%20Loop%20package.pdf",
         "bytes": 7232479
+      },
+      "feature_image": {
+        "filename": "urban-loop-road-feature.jpg",
+        "alt": "Concrete warehouse on Urban Loop Road with two roll-up bay doors, a canopied entrance and a parking apron",
+        "source": {
+          "pdf": "package_pdf",
+          "page": 1,
+          "object": 1054,
+          "width": 1467,
+          "height": 1100,
+          "rotate": 0
+        }
       }
     },
     "source": {
@@ -233,6 +269,18 @@
       "package_pdf": {
         "url": "https://www.roalson.com/props/13810_Lookout_Road/13810%20Lookout%20Rd%20package.pdf",
         "bytes": 2725549
+      },
+      "feature_image": {
+        "filename": "13810-lookout-road-feature.jpg",
+        "alt": "Single-storey masonry office and warehouse building with a roll-up door and a concrete apron",
+        "source": {
+          "pdf": "package_pdf",
+          "page": 1,
+          "object": 396,
+          "width": 1717,
+          "height": 866,
+          "rotate": 0
+        }
       }
     },
     "source": {
@@ -283,6 +331,18 @@
       "package_pdf": {
         "url": "https://www.roalson.com/props/402_W_Nueva_Street/402%20W%20Nueva%20Street%20package.pdf",
         "bytes": 4763126
+      },
+      "feature_image": {
+        "filename": "402-w-nueva-street-feature.jpg",
+        "alt": "Aerial view of a downtown San Antonio block outlined in red, holding a low office building and its parking, beside Cesar E. Chavez Boulevard",
+        "source": {
+          "pdf": "package_pdf",
+          "page": 6,
+          "object": 18,
+          "width": 2550,
+          "height": 3299,
+          "rotate": 0
+        }
       }
     },
     "source": {
@@ -332,6 +392,18 @@
       "package_pdf": {
         "url": "https://www.roalson.com/props/IH10_East_at_Loop_1604-1.34_acre/IH%2010%20at%20Loop%201604%20(1.34).pdf",
         "bytes": 5081097
+      },
+      "feature_image": {
+        "filename": "ih-10-east-at-loop-1604-feature.jpg",
+        "alt": "Aerial view of a paved pad site outlined in red on West Weichold Road, off the Interstate 10 frontage at Loop 1604",
+        "source": {
+          "pdf": "package_pdf",
+          "page": 6,
+          "object": 20,
+          "width": 2550,
+          "height": 3299,
+          "rotate": 0
+        }
       }
     },
     "source": {
@@ -381,6 +453,18 @@
       "package_pdf": {
         "url": "https://www.roalson.com/props/116_Old_San_Antonio_Road/116%20Old%20San%20Antonio%20Road%20package.pdf",
         "bytes": 4439211
+      },
+      "feature_image": {
+        "filename": "116-old-san-antonio-road-feature.jpg",
+        "alt": "Aerial view of wooded acreage in Boerne with its boundary outlined in red, beside an RV storage yard and the Interstate 10 frontage road",
+        "source": {
+          "pdf": "package_pdf",
+          "page": 6,
+          "object": 19,
+          "width": 960,
+          "height": 1191,
+          "rotate": 0
+        }
       }
     },
     "source": {
@@ -436,6 +520,18 @@
       "package_pdf": {
         "url": "https://www.roalson.com/props/IH10_at_Menger_Springs/IH%2010%20at%20Menger%20Springs%20package.pdf",
         "bytes": 5274277
+      },
+      "feature_image": {
+        "filename": "ih-10-at-menger-springs-feature.jpg",
+        "alt": "Aerial view of two tracts outlined in yellow either side of Interstate 10 at Menger Springs in Boerne, beside a Methodist Healthcare campus",
+        "source": {
+          "pdf": "package_pdf",
+          "page": 6,
+          "object": 26,
+          "width": 2569,
+          "height": 3872,
+          "rotate": 90
+        }
       }
     },
     "source": {
@@ -483,6 +579,18 @@
       "package_pdf": {
         "url": "https://www.roalson.com/props/Old_San_Antonio_Road/Old%20San%20Antonio%20Road%20package.pdf",
         "bytes": 5456166
+      },
+      "feature_image": {
+        "filename": "cascade-caverns-at-old-san-antonio-road-feature.jpg",
+        "alt": "Aerial view of a cleared corner at Cascade Caverns Road and Old San Antonio Road outlined in red, between a cinema and a hotel on the Interstate 10 frontage",
+        "source": {
+          "pdf": "package_pdf",
+          "page": 6,
+          "object": 29,
+          "width": 1497,
+          "height": 2121,
+          "rotate": 90
+        }
       }
     },
     "source": {
@@ -541,6 +649,18 @@
       "package_pdf": {
         "url": "https://www.roalson.com/props/IH10_at_Scenic_Loop_Rd-2.09_Acres/IH%2010%20at%20Scenic%20Loop%20(2.09)%20package.pdf",
         "bytes": 5843693
+      },
+      "feature_image": {
+        "filename": "ih-10-at-scenic-loop-feature.jpg",
+        "alt": "Aerial view of a cleared corner outlined in red at Cascade Caverns Road and Scenic Loop Road, with a convenience store, an auto-parts store and a car dealership around it",
+        "source": {
+          "pdf": "package_pdf",
+          "page": 6,
+          "object": 19,
+          "width": 585,
+          "height": 722,
+          "rotate": 0
+        }
       }
     },
     "source": {
@@ -589,6 +709,18 @@
       "package_pdf": {
         "url": "https://www.roalson.com/props/IH_10_at_Hwy_46_in_Boerne/IH%2010%20at%20Hwy%2046%20in%20Boerne%20package.pdf",
         "bytes": 6723982
+      },
+      "feature_image": {
+        "filename": "ih-10-at-highway-46-feature.jpg",
+        "alt": "Aerial view of a cleared tract outlined in red on the Interstate 10 frontage in Boerne, with a Home Depot, a Whataburger, a Chili's and a Starbucks around it",
+        "source": {
+          "pdf": "package_pdf",
+          "page": 6,
+          "object": 19,
+          "width": 2569,
+          "height": 3872,
+          "rotate": 90
+        }
       }
     },
     "source": {
@@ -637,6 +769,18 @@
       "package_pdf": {
         "url": "https://www.roalson.com/props/Menger_Springs-13.4_Acres/Menger%20Springs%20-%2013.4%20Acres%20package.pdf",
         "bytes": 5514839
+      },
+      "feature_image": {
+        "filename": "menger-springs-road-feature.jpg",
+        "alt": "Aerial view of an irregular wooded tract outlined in red on Menger Springs Road in Boerne, wrapping south and east of the Methodist Boerne Emergency Center",
+        "source": {
+          "pdf": "package_pdf",
+          "page": 6,
+          "object": 21,
+          "width": 2323,
+          "height": 2890,
+          "rotate": 0
+        }
       }
     },
     "source": {
@@ -690,6 +834,18 @@
       "package_pdf": {
         "url": "https://www.roalson.com/props/5930_Bandera_Road/5930%20Bandera%20Rd%20package.pdf",
         "bytes": 7153858
+      },
+      "feature_image": {
+        "filename": "5930-bandera-road-feature.jpg",
+        "alt": "Aerial view of the Bandera Road and Loop 410 corner outlined in red, with the existing dealership buildings and their parking inside it",
+        "source": {
+          "pdf": "package_pdf",
+          "page": 6,
+          "object": 23,
+          "width": 2550,
+          "height": 3299,
+          "rotate": 0
+        }
       }
     },
     "source": {
@@ -737,6 +893,18 @@
       "package_pdf": {
         "url": "https://www.roalson.com/props/11714_Perrin_Beitel/11714%20Perrin%20Beitel%20package.pdf",
         "bytes": 3562902
+      },
+      "feature_image": {
+        "filename": "11714-perrin-beitel-road-feature.jpg",
+        "alt": "Aerial view of a cleared lot on Perrin Beitel Road outlined in red, with the mapped floodplain shaded along its eastern edge",
+        "source": {
+          "pdf": "package_pdf",
+          "page": 6,
+          "object": 20,
+          "width": 2550,
+          "height": 3299,
+          "rotate": 0
+        }
       }
     },
     "source": {
@@ -831,6 +999,18 @@
       "package_pdf": {
         "url": "https://www.roalson.com/props/Commerce_at_Main_Ave/Commerce%20and%20%20Main%20package.pdf",
         "bytes": 8751969
+      },
+      "feature_image": {
+        "filename": "101-w-commerce-street-feature.jpg",
+        "alt": "Two-storey brick corner building at Main Avenue with Bill Miller Bar-B-Q lettering across its facade, a red mural above it and downtown towers behind",
+        "source": {
+          "pdf": "package_pdf",
+          "page": 1,
+          "object": 1068,
+          "width": 1872,
+          "height": 1290,
+          "rotate": 0
+        }
       }
     },
     "source": {
@@ -878,6 +1058,18 @@
       "package_pdf": {
         "url": "https://www.roalson.com/props/3089_IH10_in_Seguin/3089%20IH%2010%20in%20Seguin%20package-new.pdf",
         "bytes": 5505849
+      },
+      "feature_image": {
+        "filename": "ih-10-at-fm-725-seguin-feature.jpg",
+        "alt": "Aerial view of a wedge of open ground outlined in red at the Interstate 10 frontage road and FM 725 in Seguin, across from a truck stop",
+        "source": {
+          "pdf": "package_pdf",
+          "page": 6,
+          "object": 22,
+          "width": 2319,
+          "height": 2519,
+          "rotate": 0
+        }
       }
     },
     "source": {
@@ -927,6 +1119,18 @@
       "package_pdf": {
         "url": "https://www.roalson.com/props/IH%2035%20at%20Wonderworld%20Drive/IH%2035%20at%20Wonderworld%20Drive%20package.pdf",
         "bytes": 14367057
+      },
+      "feature_image": {
+        "filename": "ih-35-at-wonderworld-san-marcos-feature.jpg",
+        "alt": "Aerial view of a corner pad outlined in yellow at Interstate 35 and Wonderworld Drive in San Marcos, with the surrounding hotels and restaurants numbered",
+        "source": {
+          "pdf": "package_pdf",
+          "page": 6,
+          "object": 18,
+          "width": 1542,
+          "height": 2124,
+          "rotate": 90
+        }
       }
     },
     "source": {
@@ -973,6 +1177,18 @@
       "package_pdf": {
         "url": "https://www.roalson.com/props/IH10_at_Hwy_87_in_Comfort/IH%2010%20at%20Hwy%2087%20package.pdf",
         "bytes": 6188541
+      },
+      "feature_image": {
+        "filename": "ih-10-at-highway-87-comfort-feature.jpg",
+        "alt": "Aerial view of three lots shaded yellow around a travel stop at Interstate 10 and Highway 87 in Comfort",
+        "source": {
+          "pdf": "package_pdf",
+          "page": 5,
+          "object": 25,
+          "width": 2537,
+          "height": 3462,
+          "rotate": 0
+        }
       }
     },
     "source": {
@@ -1022,6 +1238,18 @@
       "package_pdf": {
         "url": "https://www.roalson.com/props/Kingsville%20-%20Hwy%2077%20at%20Gen%20Cavazos/Kingsville%20-%20Hwy%2077%20at%20Gen%20Cavazos%20package.pdf",
         "bytes": 4037824
+      },
+      "feature_image": {
+        "filename": "highway-77-at-general-cavazos-kingsville-feature.jpg",
+        "alt": "Aerial view of a vacant pad site outlined in red beside a Whataburger and a Chili's at Highway 77 and East General Cavazos Boulevard in Kingsville",
+        "source": {
+          "pdf": "package_pdf",
+          "page": 6,
+          "object": 25,
+          "width": 960,
+          "height": 1242,
+          "rotate": 0
+        }
       }
     },
     "source": {
@@ -1072,6 +1300,18 @@
       "package_pdf": {
         "url": "https://www.roalson.com/props/Loop_1604_at_Dove_Canyon/Loop%201604%20at%20Dove%20Canyon%20package.pdf",
         "bytes": 7738021
+      },
+      "feature_image": {
+        "filename": "loop-1604-at-dove-canyon-feature.jpg",
+        "alt": "Aerial view of a wooded tract outlined in red and labelled 13.33 acres, between a subdivision and Loop 1604, with the mapped floodplain shaded to the north",
+        "source": {
+          "pdf": "package_pdf",
+          "page": 6,
+          "object": 20,
+          "width": 2550,
+          "height": 3299,
+          "rotate": 0
+        }
       }
     },
     "source": {

@@ -105,14 +105,25 @@ describe("the listings data file", () => {
     }
   });
 
-  it("names a package PDF on the client's own site for every listing, and one photo", () => {
+  // Superseded on 2026-09-21: this used to require that exactly one listing
+  // carried a photo, off the client's Google My Map. Twenty more now come out
+  // of the packages themselves — see feature-images.test.ts, which owns the
+  // rules about them. What stays here is the invariant this file is for: every
+  // listing names a package on the client's own site, and no photo is attached
+  // without alt text.
+  it("names a package PDF on the client's own site for every listing, and alt text for every photo", () => {
     for (const l of listings)
       expect(l.assets.package_pdf?.url, l.uid).toMatch(
         /^https:\/\/www\.roalson\.com\/props\/.+\.pdf$/i,
       );
     const photos = listings.filter((l) => l.assets.feature_image);
-    expect(photos.map((l) => l.uid)).toEqual(["25331-ih-10-west"]);
-    expect(photos[0].assets.feature_image.alt).toBeTruthy();
+    expect(photos.length).toBe(21);
+    for (const l of photos) expect(l.assets.feature_image.alt, l.uid).toBeTruthy();
+    // The one that is not lifted out of a package: it came off the client's own
+    // Google My Map, so it has a url and `feature-images.mjs` leaves it alone.
+    expect(photos.filter((l) => l.assets.feature_image.url).map((l) => l.uid)).toEqual([
+      "25331-ih-10-west",
+    ]);
   });
 });
 
