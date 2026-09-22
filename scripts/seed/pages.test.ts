@@ -135,11 +135,7 @@ describe("the home document's bands", () => {
     // both a label and a link, so an unseeded document is a band with no way
     // out of it. Its link is the typed path $lib/cms-href reduces, the same
     // shape the hero's second button is seeded with.
-    expect(Object.keys(band!.primary)).toEqual([
-      "properties",
-      "portfolio_label",
-      "portfolio_link",
-    ]);
+    expect(Object.keys(band!.primary)).toEqual(["properties", "portfolio_label", "portfolio_link"]);
     expect(band!.primary.portfolio_label).toBe("Our portfolio");
     expect(band!.primary.portfolio_link).toEqual({ link_type: "Web", url: "/properties" });
   });
