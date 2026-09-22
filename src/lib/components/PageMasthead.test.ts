@@ -221,17 +221,17 @@ describe("PageMasthead", () => {
     const breakpoints = [
       {
         name: "1440 (lg)",
-        height: px(SOURCE, /lg:h-\[(\d+px)\]/),
+        height: px(SOURCE, /lg:h-\[(\d+px)\]\s+lg:pb-/),
         pad: px(SOURCE, /lg:pb-\[(\d+px)\]/),
-        shade: px(SOURCE, /lg:h-\[(\d+px)\]\s*"/),
+        shade: px(SOURCE, /masthead-shade[^"]*\slg:h-\[(\d+px)\]/),
         bar: px(NAV, /lg:h-(\d+) /),
         ...ramp("t-h1"),
       },
       {
         name: "390 (base)",
-        height: px(SOURCE, /"flex h-(\d+) /),
-        pad: px(SOURCE, / pb-(\d+) /),
-        shade: px(SOURCE, /top-0 h-\[(\d+px)\]/),
+        height: px(SOURCE, /class="flex h-(\d+)\s/),
+        pad: px(SOURCE, /\spb-(\d+)\s+sm:/),
+        shade: px(SOURCE, /masthead-shade[^"]*\stop-0 h-\[(\d+px)\]/),
         bar: px(NAV, /flex h-\[(\d+px)\]/),
         ...ramp("t-h2"),
       },

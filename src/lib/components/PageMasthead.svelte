@@ -1,17 +1,3 @@
-<script module lang="ts">
-  /** Today's band, unchanged: what the header wears with NO photo. Kept as a
-   *  literal so the no-photo render is byte-comparable in the test — the
-   *  gradient fallback is a promise about pixels, not about intent. */
-  export const MASTHEAD_BAND =
-    "flex h-60 items-end bg-gradient-to-b from-primary to-dark px-5 pb-11 sm:px-8 " +
-    "lg:h-[400px] lg:pb-[72px] xl:px-20";
-
-  /** The shade's box, tall enough that the floating bar sits in its darkest
-   *  45%: 80/176 and 70/154 are both 45.45%, so the bar lands on the same
-   *  alpha at both breakpoints. See the contrast note below. */
-  export const MASTHEAD_SHADE_BOX = "absolute inset-x-0 top-0 h-[154px] lg:h-[176px]";
-</script>
-
 <script lang="ts">
   // The comp's `Masthead #1` as the Properties page wears it (6991:978 at
   // 1440, 6992:2865 at 390): a 400px band — 240 on mobile — with the page's
@@ -79,22 +65,34 @@
   let { title, image = null, preload = true, class: passedClasses = "" }: Props = $props();
 
   const hasPhoto = $derived(Boolean(image?.url));
-
-  // `relative` is the ONLY class the photo adds to the band, and it is added
-  // only with a photo: absolutely-positioned layers paint above static ones,
-  // so without it the scrim would cover the H1 — and with no photo the class
-  // list has to stay what it was.
-  const bandClasses = $derived(
-    [MASTHEAD_BAND, hasPhoto ? "relative" : "", passedClasses].filter(Boolean).join(" "),
-  );
 </script>
 
-<header class={bandClasses}>
+<!-- The band's classes stay SPELLED OUT on this tag, not assembled in the
+     script. src/routes/nav-over.test.ts reads the first opening tag of this
+     file looking for the literal `from-primary` — the gradient's first stop is
+     what `canvasTop` mirrors above the document — and a `class={…}` binding
+     hides it. That is exactly how it was caught: the binding read better and
+     failed a test that had landed on main meanwhile.
+
+     `relative` is the ONLY class the photo adds, and only with a photo:
+     absolutely-positioned layers paint above static ones, so without it the
+     scrim would cover the H1 — and with no photo the list has to stay what it
+     was before the photo existed. PageMasthead.test.ts pins that. -->
+<header
+  class="flex h-60 items-end bg-gradient-to-b from-primary to-dark px-5 pb-11 sm:px-8 lg:h-[400px]
+    lg:pb-[72px] xl:px-20 {hasPhoto ? 'relative ' : ''}{passedClasses}"
+>
   {#if hasPhoto}
     <HeroBackgroundImage image={image as ImageField} {preload} />
     <!-- Decorative, and named here rather than in the CSS: both layers are
-         `aria-hidden` boxes that exist only to darken pixels. -->
-    <div class="masthead-shade {MASTHEAD_SHADE_BOX}" aria-hidden="true"></div>
+         `aria-hidden` boxes that exist only to darken pixels. The shade's box is
+         tall enough that the floating bar sits in its darkest 45%: 80/176 and
+         70/154 are both 45.45%, so the bar lands on the same alpha at both
+         breakpoints. -->
+    <div
+      class="masthead-shade absolute inset-x-0 top-0 h-[154px] lg:h-[176px]"
+      aria-hidden="true"
+    ></div>
     <div class="masthead-scrim absolute inset-0" aria-hidden="true"></div>
   {/if}
   <div
