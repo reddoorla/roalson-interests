@@ -70,4 +70,22 @@ export const smokeRoutes: SmokeRoute[] = [
   // `load` touches no CMS (a timestamp, a title and the `navOver` claim), so
   // the contact page answers 200 on the placeholder repo as well.
   { path: "/contact", name: "contact", hydrationMarker: "footer" },
+  // One listing detail page, only where a repository can answer for it. It is
+  // the site's one route with a dynamic segment, so it is the only place a
+  // broken `[uid]` load shows up — and on the placeholder it would 404 like
+  // every other Prismic route.
+  //
+  // It names a uid, and that is a real coupling: this goes red if the client
+  // unpublishes 25331 IH 10 West. That is the right kind of red — it says the
+  // seeded content changed — but the fix is to point it at another published
+  // uid (`scripts/seed/listings.state.json` lists them), not to delete it.
+  ...(isPlaceholderRepo
+    ? []
+    : [
+        {
+          path: "/properties/25331-ih-10-west",
+          name: "property detail",
+          hydrationMarker: "footer",
+        },
+      ]),
 ];

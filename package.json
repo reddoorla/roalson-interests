@@ -21,6 +21,7 @@
   },
   "reddoor": {
     "a11yRoutes": [
+      "/",
       "/properties",
       "/contact"
     ]
