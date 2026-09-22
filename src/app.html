@@ -2,8 +2,29 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <link rel="icon" type="image/png" href="%sveltekit.assets%/favicon.png" />
-    <link rel="apple-touch-icon" href="%sveltekit.assets%/favicon.png" />
+    <!-- The brand mark, converted from `RI Logo Garnet` (the bounded vector
+         master, not the Figma artboard — there the letterforms bleed off the
+         frame by design and read as a sliced-off bar at 32px, #4).
+
+         All three icons are OPAQUE and carry a full-bleed garnet ground, which
+         is a decision and not a default. The mark is a CUTOUT: the fill is the
+         block and the R and I are holes in it. With a transparent ground the
+         holes take the browser's own tab colour, so 38% of a 16px icon is
+         chrome — measured — and the garnet block itself sits at 1.4:1 against
+         Chrome's dark tab strip. Rendered at 16px on both chromes it all but
+         disappeared on the dark one. An opaque tile is legible on both, and it
+         is also what iOS needs: a home-screen icon's transparency composites
+         onto BLACK, which would put a black RI inside a garnet square.
+
+         `favicon.png` is gone rather than replaced. netlify.toml pinned
+         `immutable` for a year on that literal path, so new bytes there would
+         have left returning visitors on the SvelteKit skeleton for up to 12
+         months. New paths cost one edit here, which an .svg needed anyway —
+         the old markup hardcoded `type="image/png"` and pointed
+         `apple-touch-icon` at the same file. -->
+    <link rel="icon" type="image/png" sizes="32x32" href="%sveltekit.assets%/favicon-32.png" />
+    <link rel="icon" type="image/svg+xml" href="%sveltekit.assets%/favicon.svg" />
+    <link rel="apple-touch-icon" href="%sveltekit.assets%/apple-touch-icon.png" />
     <meta name="viewport" content="width=device-width" />
     <!-- Atkinson Hyperlegible Next — the design's only licensed face. OFL on
          Google Fonts, which answers the licence question Erik raised on
