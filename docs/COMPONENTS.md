@@ -26,7 +26,7 @@ source. It is the fastest way to recognise what a thing does.
 | [`AnimateOutTriggered.svelte`](../src/lib/components/Animation/AnimateOutTriggered.svelte) | `trigger`, `style`, `transitionDuration`, `children` | — |  |
 | [`TriggerTransitionOnMount.svelte`](../src/lib/components/Animation/TriggerTransitionOnMount.svelte) | `children` | — |  |
 | [`ArrowRight.svelte`](../src/lib/components/ArrowRight.svelte) | — | — | The comp's button arrow, `np_arrow-right_888647` (Noun Project), as exported from Figma node 6904:2083 — the paths below are that export's bytes, not a redraw |
-| [`BrandButton.svelte`](../src/lib/components/BrandButton.svelte) | `href`, `arrow`, `tone`, `children` | 7 | The comp's `button dark` component set (4840:367) as a link, with its classes EXPORTED from this module script — `brandButtonBase`, `BRAND_BUTTON_TONES`, `brandButtonPadding` — so a caller that must render a different element, a form's submit `<button>`, can still wear it |
+| [`BrandButton.svelte`](../src/lib/components/BrandButton.svelte) | `href`, `arrow`, `tone`, `children` | 8 | The comp's `button dark` component set (4840:367) as a link, with its classes EXPORTED from this module script — `brandButtonBase`, `BRAND_BUTTON_TONES`, `brandButtonPadding` — so a caller that must render a different element, a form's submit `<button>`, can still wear it |
 | [`BrandIcon.svelte`](../src/lib/components/BrandIcon.svelte) | `platform` | 5 | Brand glyphs from simple-icons (CC0 / public domain) — facebook/x/reddit/ instagram from v16, linkedin from v10 (pre brand-removal) |
 | [`CarouselArrows.svelte`](../src/lib/components/CarouselArrows.svelte) | `carousel`, `tone` | 13 | The comp's carousel arrows (`l arrow` / `r arrow`, 6843:972 / 6843:977 in the homepage `properties slideshow` set; the same pair on issue #14's 390 cards) for a `createCarousel` instance, plus the pause / play control the comp does not draw and WCAG 2.2.2 requires of anything that autoplays |
 | [`CarouselProgress.svelte`](../src/lib/components/CarouselProgress.svelte) | `carousel`, `tone` | 9 | The comp's 2px carousel progress bar (`progress bar` 6843:964: 888 × 2 at 1440, 350 × 2 at 390, 20px under the photo) for a `createCarousel` instance |
@@ -90,4 +90,4 @@ source. It is the fastest way to recognise what a thing does.
 | [`scrollLock.ts`](../src/lib/utils/scrollLock.ts) | `lockBodyScroll` | 4 | Stop the document scrolling behind a full-screen overlay; returns the release |
 | [`vimeo.ts`](../src/lib/utils/vimeo.ts) | `checkVimeoVideo` | 5 | True when the Vimeo video exists and is embeddable (oEmbed responds 200) |
 
-72 modules, 572 tests behind them.
+72 modules, 573 tests behind them.

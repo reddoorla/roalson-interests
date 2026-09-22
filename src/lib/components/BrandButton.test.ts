@@ -24,15 +24,36 @@ describe("BrandButton", () => {
     expect(a.className).not.toMatch(/rounded/);
   });
 
-  it("drops the right padding 15 → 10px only when the arrow is there", () => {
+  // 14 and 9, because the 1px border is OUTSIDE the padding in CSS and inside
+  // the frame in Figma: border + padding is the comp's 15 and 10 (#26).
+  it("drops the right padding only when the arrow is there, and leaves the border its pixel", () => {
     const plain = render(BrandButton, { props: { href: "/x", children: label } });
-    expect(plain.getByRole("link").className).toMatch(/(^|\s)px-\[15px\](\s|$)/);
+    expect(plain.getByRole("link").className).toMatch(/(^|\s)px-\[14px\](\s|$)/);
     cleanup();
     const arrowed = render(BrandButton, { props: { href: "/x", arrow: true, children: label } });
     const a = arrowed.getByRole("link");
-    expect(a.className).toMatch(/(^|\s)pr-\[10px\](\s|$)/);
-    expect(a.className).not.toMatch(/px-\[15px\]/);
+    expect(a.className).toMatch(/(^|\s)pr-\[9px\](\s|$)/);
+    expect(a.className).toMatch(/(^|\s)pl-\[14px\](\s|$)/);
+    expect(a.className).not.toMatch(/px-\[14px\]/);
     expect(a.querySelector("svg[aria-hidden='true']")).not.toBeNull();
+  });
+
+  // The whole point of #26 is a NUMBER, and jsdom has no layout — so what this
+  // file can hold is the arithmetic: the border is 1px and the padding is one
+  // less than the comp's, on both sides that have one.
+  it("border plus padding is the comp's 15, and 10 beside the arrow", () => {
+    const px = (cls: string, side: "px" | "pl" | "pr") =>
+      Number(new RegExp(`(?:^|\\s)${side}-\\[(\\d+)px\\]`).exec(cls)?.[1]);
+    const BORDER = 1;
+    const plain = render(BrandButton, { props: { href: "/x", children: label } }).getByRole("link");
+    expect(plain.className).toContain("border");
+    expect(px(plain.className, "px") + BORDER).toBe(15);
+    cleanup();
+    const arrowed = render(BrandButton, {
+      props: { href: "/x", arrow: true, children: label },
+    }).getByRole("link");
+    expect(px(arrowed.className, "pl") + BORDER).toBe(15);
+    expect(px(arrowed.className, "pr") + BORDER).toBe(10);
   });
 
   it("swaps garnet for off-white on the cream tone: rest colours never mix, hover inverts", () => {
