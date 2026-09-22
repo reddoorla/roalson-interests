@@ -79,13 +79,22 @@
   // which on a client's site is a wrong legal line rather than a visible TODO.
   const rights = $derived(text ?? (owner ? `© ${new Date().getFullYear()} ${owner}` : undefined));
 
-  // Only http(s) links open in a new tab — the TREC documents are PDFs on
-  // another origin. Site paths, tel: and mailto: stay in this one.
-  const isExternal = (href: string) => /^https?:\/\//i.test(href);
+  // A link that takes the visitor OFF the site opens in a new tab. Two kinds
+  // do: another origin, and a document served from ours — the two TREC PDFs
+  // used to be both at once, and #25 moved them into `static/`, which would
+  // otherwise have swapped their tab quietly. A PDF replaces the page with a
+  // viewer whose only way back is the back button, and these are the documents
+  // a visitor is most likely to want open BESIDE the page they were reading.
+  // Site paths, tel: and mailto: stay in this tab.
+  const isCrossOrigin = (href: string) => /^https?:\/\//i.test(href);
+  const isDocument = (href: string) => /\.pdf($|[?#])/i.test(href);
   const linkAttrs = (href: string) => ({
     href,
-    target: isExternal(href) ? "_blank" : undefined,
-    rel: isExternal(href) ? "noopener noreferrer" : undefined,
+    target: isCrossOrigin(href) || isDocument(href) ? "_blank" : undefined,
+    // `noopener` is implied by `target="_blank"` in every current browser; it
+    // is spelled out for the cross-origin case, where `noreferrer` also earns
+    // its place. A document of ours needs neither.
+    rel: isCrossOrigin(href) ? "noopener noreferrer" : undefined,
   });
 
   const isCurrent = (href: string) =>
@@ -226,7 +235,9 @@
                 {#each legal as link, i (i)}
                   <li class="max-w-[298px]">
                     <a {...linkAttrs(link.href)} class="underline hover:no-underline">
-                      {link.label}{#if isExternal(link.href)}<span class="sr-only">
+                      {link.label}{#if isCrossOrigin(link.href) || isDocument(link.href)}<span
+                          class="sr-only"
+                        >
                           (opens in a new tab)</span
                         >{/if}
                     </a>
