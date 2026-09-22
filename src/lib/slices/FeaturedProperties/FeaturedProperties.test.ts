@@ -299,6 +299,23 @@ describe("FeaturedProperties slice", () => {
       // way the attribute could reach the server's output is a literal in the
       // template, which is what this reads — the same way
       // reveal-hidden-state.test.ts reads app.css and app.html.
+      // WHY THIS READS SOURCE AND NOT A RENDER, WHICH IS NOT THE OBVIOUS
+      // ANSWER. The review of #102 called this out as the source-scraping
+      // technique CLAUDE.md names for making two separately-green branches red
+      // on merge (#86/#89), and proposed rendering instead. That was tried and
+      // it CANNOT work here: `animateIn` writes `data-reveal` ITSELF while the
+      // element is hidden (animateIn.ts:77) and removes it on reveal
+      // (animateIn.ts:88), so a client render shows the attribute present —
+      // measured, `hasAttribute("data-reveal") === true` — whether or not the
+      // template ever contained it. A render cannot tell the server's markup
+      // from the action's own bookkeeping, so it answers a different question.
+      //
+      // The claim being made is about what the SERVER emits, and the only
+      // things that can see that are this read and a no-JS page fetch. The
+      // blindness is real and stated: a spread, a computed attribute name or
+      // the card moving into its own component would all pass this. That is
+      // what tests/interaction/featured-properties.spec.ts's no-JS case is
+      // for; this one fails fast, in milliseconds, for the ordinary edit.
       const source = readFileSync(
         resolve(process.cwd(), "src/lib/slices/FeaturedProperties/index.svelte"),
         "utf8",

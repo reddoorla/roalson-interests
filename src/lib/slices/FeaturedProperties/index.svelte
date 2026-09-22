@@ -81,8 +81,9 @@
 
   /** The card's scroll reveal: 24px and 600ms, not the action's 50% / 2400ms.
    *  `delayMax: 0` because the default 400 is multiplied by the element's
-   *  `left / innerWidth` — at 1440 the card's left edge is 513, which would
-   *  buy an unasked-for 142ms before a reveal nobody staggered against. */
+   *  `left / innerWidth` — at a 1440 window the card's left edge is 513 of a
+   *  1455 layout width, so 400 × 513 / 1455 = 141.031ms of unasked-for delay
+   *  before a reveal nobody staggered against. */
   const REVEAL = { translateY: "24px", duration: 600, delayMax: 0 } as const;
 
   /** The staggered text entrance, as FOUR LITERAL class strings, because
@@ -261,13 +262,32 @@
          action's default; a call site travelling its own 24px may therefore
          not ship the marker, or CSS would hide it at one distance and JS
          reveal it from another. The cost is that the card paints in its final
-         position and is yanked to opacity 0 at hydration. MEASURED, because it
-         is the whole reason this is safe: on a production build at 1440 × 900
-         the card's top is 1391px down the page and at 390 × 844 it is 1072 —
-         2.5 and 2.3 viewports below the fold, so the yank happens where nobody
-         is looking. The band is never the first thing on the homepage; if it
-         ever becomes that, this reveal has to go back to the default travel
-         with a server-rendered marker and a `failSafe`.
+         position and is yanked to opacity 0 at hydration, so this is only safe
+         where nobody is looking at it when that happens.
+
+         MEASURED — and the first version of this comment was WRONG, which is
+         why the numbers are spelled out rather than summarised. It claimed
+         1391px at 1440 × 900 and 1072 at 390 × 844, "2.5 and 2.3 viewports
+         below the fold". Its own arithmetic did not agree with itself
+         (1391 / 900 = 1.55) and it had the two widths the wrong way round
+         relative to each other. Re-measured on a production build of the real
+         `/`: the card's top is ~1031px at 1440 × 900 and ~1173px at 390 × 844,
+         i.e. 1.15 and 1.39 viewports — only 131px of headroom at 1440, not two
+         and a half screens of it.
+
+         WHAT THAT MEANS, SAID PLAINLY: on a tall viewport the card is ALREADY
+         IN VIEW on load, so the observer fires immediately, `hide()` and
+         `show()` collapse into one style recalc, and THE REVEAL SIMPLY DOES
+         NOT PLAY. Measured above the fold at 1920 × 1080 (card top 1007), and
+         also at 1920 × 1200, 2560 × 1440, 3440 × 1440, 1024 × 1366 and
+         834 × 1112. There is no yank there — 460 sampled frames never dropped
+         below opacity 1 — so nothing is broken; the animation is just absent
+         on the most common desktop resolution there is. That is the honest
+         cost of shipping no marker, and it is a product call, not a bug: #105.
+
+         If the band ever moves up the page, or the reveal has to play at 1080,
+         this goes back to the action's default travel with a server-rendered
+         marker and a `failSafe`.
 
          `use:animateIn` and not a local IntersectionObserver: one-shot on
          first intersection at threshold 0 is already what the action does, and

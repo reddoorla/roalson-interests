@@ -112,9 +112,15 @@ describe("CarouselProgress", () => {
   //
   // REVERSED DECISION. The bar used to snap to 0 at a turn and wait out the
   // consumer's dissolve there; the comp cross-dissolves a full bar into an
-  // empty one, and the operator asked for the comp. What changed is OPACITY
-  // only — `scaleX` still snaps, so the clock is still the only thing that
-  // draws the value, and the case above proves the transform is not eased.
+  // empty one, and the operator asked for the comp.
+  //
+  // AND THE FIRST ATTEMPT AT IT DID NOT EXIST ON SCREEN. It faded the opacity
+  // while leaving `scaleX` snapped to 0, which is a 500ms cross-fade on a box
+  // with no width: measured on a production build, painted width 0.00px for
+  // every frame of the handover while opacity went 1.000 -> 0.102. The fill
+  // now HOLDS 1 through the handover, which is what the clock last said
+  // (a handover only ever follows a completed dwell). The transform is still
+  // never eased — the case above proves that — so there is still one clock.
 
   it("dissolves the fill across the consumer's settle when the CLOCK turns", async () => {
     vi.useFakeTimers();
@@ -135,12 +141,16 @@ describe("CarouselProgress", () => {
     // The fade lasts exactly the carousel's own settle — not a number written
     // into this component, which would drift from whatever the consumer uses.
     expect(fill(container).getAttribute("style")).toContain(`transition-duration: ${SETTLE}ms`);
-    // …and the value itself still SNAPPED. This is the half that did not change.
-    expect(scale(container)).toBe(0);
+    // …and the fill is AT FULL WIDTH while it fades. This is the assertion the
+    // first version got backwards: it asserted `scale === 0`, which is exactly
+    // the state in which the fade cannot be seen at all.
+    expect(scale(container), "a fading fill with no width paints nothing").toBe(1);
 
-    // The handover ends with the settle, and the fill comes back instantly —
-    // at scaleX(0) there is nothing to watch arrive.
+    // The handover ends with the settle: the value returns to the clock, which
+    // is at the start of a fresh dwell, and the fill comes back opaque at
+    // 0ms — at scaleX(0) there is nothing to watch arrive.
     await advance(SETTLE);
+    expect(scale(container)).toBeLessThan(0.1);
     expect(fill(container).dataset.carouselFill).toBe("timed");
     expect(fill(container).className.split(/\s+/)).toContain("opacity-100");
     expect(fill(container).getAttribute("style")).toContain("transition-duration: 0ms");
