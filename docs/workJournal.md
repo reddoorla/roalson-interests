@@ -4558,3 +4558,5 @@ eslint and svelte-check clean, 0 errors across 4,616 files.
 
 Not done and not in scope here: there is no web app manifest, so Android's
 install prompt still has no 192/512 icon. Nothing on the site asks for one yet.
+Filed as #78 rather than left in this paragraph — a journal line is not a
+tracker, and a launch sweep reads the issue list.
