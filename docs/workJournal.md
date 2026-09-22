@@ -4441,3 +4441,120 @@ instead of the pixels: it reads the padding out of the class string and requires
 border + padding to be 15, and 10 beside the arrow. That is the claim; a test
 that only pinned the literal `px-[14px]` would pass a future border of 2px
 happily.
+
+## 2026-09-21 — The favicon, decided by rendering it at 16px rather than by reasoning about it (`feat/favicon`, #4)
+
+Closes #4. Every browser tab on this site showed the SvelteKit skeleton icon —
+`static/favicon.png`, 128×128 8-bit grey, sha256 `5146ed79…`, byte-identical to
+`reddoor-starter`'s and dated 2023-12-14. The blocker #4 recorded is gone: the
+operator pulled four bounded vector masters out of Dropbox
+(`RI-Logo-Garnet/White/Dust.svg` and `RI-Wordmark-Garnet-Dust.svg`), so the
+brand files were readable for the first time.
+
+**The inset #4 predicted is real, and I measured it rather than taking it.** A
+path-data bbox of `RI-Logo-Garnet.svg` — cubic extrema solved, not sampled —
+puts the single path at x 3.77→219.77 and y 3.82→220.15 inside a 223.53×223.97
+viewBox. Insets 3.77 / 3.82 / 3.76 / 3.82, symmetric to 0.01, so the mark is
+216.00 × 216.33 and sits 1.69% clear on every side. That is the difference from
+the Figma artboard `6788:3779`, where the R's stem is flush at x=0 and the
+letters run off the bottom.
+
+**The belief that had to be corrected on contact was about the ARTWORK, not the
+geometry.** I had assumed the mark was letterforms that could be placed on a
+ground. It is the inverse: a solid garnet BLOCK with R and I knocked out of it,
+so the fill is the field and the letters are the holes. Rendered at 320px that
+is obvious and it is also what #4 meant by "the cityscape shows through the
+counters". Everything downstream follows from it — in particular, a transparent
+ground does not give you a floating logo, it gives you a logo whose letters are
+made of whatever is behind the icon.
+
+**Eight candidates, rendered to PNG at 16 and 32, blown up 16× nearest-neighbour
+and looked at on a light (#f2efe9) and a dark (#202124) chrome.** What the
+pictures said, which is not all what reasoning said:
+
+- The transparent-ground master died on dark chrome, and the pixel counts say
+  why: of a 16px icon's 256 pixels, **97 (38%) are transparent** — that is the
+  browser's tab colour rendering the letterforms — and the garnet block itself
+  is about 1.4:1 against Chrome's dark tab strip. On a dark tab the icon is very
+  nearly a blank square. The prediction in the brief was right, and this is the
+  measurement behind it.
+- Dark garnet `#3d0707` as the tile was worse, not better: it merges with dark
+  chrome while giving up contrast against light chrome.
+- **Margin around the block is a net loss at 16px.** Two framed candidates (the
+  master's own 1.69%, and 6.25%) both read worse: on light chrome the frame is
+  invisible and only shrinks the mark, and on dark chrome it becomes a light
+  border box competing with the mark inside it. So the shipped icons bleed the
+  block to the icon's edge — the block _is_ the tile. This was the one call I
+  expected to go the other way.
+- Knockout colour barely moved the 16px result: off-white 89 light pixels, sand
+  85, pure white 92, out of 256. Off-white `#f2efe9` wins on grounds other than
+  legibility — it is the site's own `--color-background`, so the icon is made of
+  exactly two colours the site already ships and nothing new was invented.
+
+**What the 16px render actually looks like:** the R is unambiguous, with its
+bowl surviving as an open garnet counter roughly 5×2 px and the leg running
+into the bottom-left corner. The I keeps its square counter as a clean 2×2
+garnet block — but at that size the counter separates the I's head from its
+stem, so the glyph reads as a lowercase "i" with a square dot. That is the mark
+faithfully reproduced, not an artifact of the downsample; it does the same thing
+at 320px, only there you read it as a counter. Nobody should be surprised by it
+later, and it is not worth altering someone's logo to fix.
+
+**Three files, all opaque, under new names.** `favicon.svg` (631 B, the master's
+path over a full-bleed `#f2efe9` rect), `favicon-32.png` (559 B) and
+`apple-touch-icon.png` (180×180, 1,840 B). Both PNGs are colour type 3 with no
+`tRNS` chunk, so they cannot carry alpha at all — iOS composites a home-screen
+icon's transparency onto BLACK, which on a cutout mark means a black RI inside a
+garnet square.
+
+**The cache decision: new filenames, and the old path deleted.** `netlify.toml`
+pinned `Cache-Control: public, max-age=31536000, immutable` on the literal path
+`/favicon.png`, so replacing those bytes would have left any visitor who had
+already loaded the site on the SvelteKit skeleton until 2027. `app.html` had to
+change regardless — it hardcoded `type="image/png"` and pointed
+`apple-touch-icon` at the same file — so new paths cost nothing extra and also
+get the template bytes out of the repository. The new paths are **not** pinned
+immutable: `immutable` is a promise that the bytes at a path never change, which
+is only ever true of a content-hashed path, and an icon is precisely the asset a
+client asks to revise after launch. They ship at `max-age=604800`, which bounds
+the same mistake to a week.
+
+**`src/lib/favicon.test.ts`, because #4's sharpest line was "a wrong favicon
+ships green".** Eight cases, and every one demands an artifact only a working
+icon set produces rather than the absence of an error: PNG magic and IHDR
+dimensions that agree with the `sizes` attribute claiming them, a colour type
+that cannot carry alpha plus no `tRNS`, a full-bleed `<rect>` painted before the
+`<path>` in the SVG, and the link set in `app.html` matching the icon files in
+`static/` **in both directions**. The template check is by sha256, not filename,
+so renaming the skeleton does not get past it.
+
+Mutated, each break watched go red, each restored:
+
+| mutation                                                       | red                                                                                    |
+| -------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| the template `favicon.png` put back in `static/`               | 3 cases (template bytes; unlinked file; and it is grey+alpha, so the opacity case too) |
+| `apple-touch-icon.png` re-encoded with an alpha channel        | opacity                                                                                |
+| `app.html` href typo'd to `favicon-brand.svg`                  | link set                                                                               |
+| `type="image/svg+xml"` dropped                                 | icon types                                                                             |
+| `immutable` re-pinned in `netlify.toml`                        | cache                                                                                  |
+| `apple-touch-icon.png` re-encoded at 120×120                   | dimensions                                                                             |
+| the SVG's `<rect>` ground removed                              | opaque ground                                                                          |
+| `apple-touch-icon` pointed back at the same href as `rel=icon` | link set + icon types                                                                  |
+
+**No new dependency.** `sharp` was already a devDependency; the SVG→PNG raster
+is `sharp(svg, { density: 576 }).resize(n).flatten()`. The og-card entry above
+says Chromium composed that card, which is true and is a different tool for a
+different job — an SVG with one path and one rect does not need a browser. The
+path data is read out of `RI-Logo-Garnet.svg` and never transcribed, so nothing
+here is a redrawn letterform.
+
+Verified on a production build, not the dev server: `pnpm build && pnpm preview`
+then a request per path — `/favicon.svg` 200 `image/svg+xml` 631 B,
+`/favicon-32.png` 200 `image/png` 559 B, `/apple-touch-icon.png` 200 `image/png`
+1,840 B, and `/favicon.png` now a 404. Chromium loading `/` requested
+`/favicon.svg` and got a 200, which is the only evidence that the markup
+actually points somewhere. `pnpm exec vitest run`: 982 tests in 97 files.
+eslint and svelte-check clean, 0 errors across 4,616 files.
+
+Not done and not in scope here: there is no web app manifest, so Android's
+install prompt still has no 192/512 icon. Nothing on the site asks for one yet.

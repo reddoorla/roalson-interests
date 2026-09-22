@@ -13,16 +13,16 @@ grep -rn "your-prismic-repo-name\|reddoor-wireframer\|<Site name>\|<Client>" \
 
 ## Identity
 
-| File                                  | Change                                                                                                                                         |
-| ------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `package.json` → `name`               | The site slug. Fleet audits match sites to Airtable rows by this.                                                                              |
-| `.github/workflows/ci.yml`            | `netlify-site: "<slug>"` — drives the deploy-preview link CI comments on every PR.                                                             |
-| `slicemachine.config.json`            | `repositoryName` → the real Prismic repo. **See "Placeholder builds" below.**                                                                  |
-| `src/lib/seo.ts`                      | `SITE_NAME` (defaults to `"Reddoor"` — every `<title>` says so until you change it), `SITE_LOCALE`, `DEFAULT_DESCRIPTION`, `DEFAULT_OG_IMAGE`. |
-| `src/app.html`                        | `<html lang>` if the primary language is not English.                                                                                          |
-| `static/favicon.png`                  | The client's icon.                                                                                                                             |
-| `README.md`                           | `<Site name>` and `<Client>`.                                                                                                                  |
-| `package.json` → `reddoor.a11yRoutes` | The site's real routes, once the Prismic repo has content. Ships `[]`. **See "The a11y gate's routes" below.**                                 |
+| File                                  | Change                                                                                                                                                                                                                      |
+| ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `package.json` → `name`               | The site slug. Fleet audits match sites to Airtable rows by this.                                                                                                                                                           |
+| `.github/workflows/ci.yml`            | `netlify-site: "<slug>"` — drives the deploy-preview link CI comments on every PR.                                                                                                                                          |
+| `slicemachine.config.json`            | `repositoryName` → the real Prismic repo. **See "Placeholder builds" below.**                                                                                                                                               |
+| `src/lib/seo.ts`                      | `SITE_NAME` (defaults to `"Reddoor"` — every `<title>` says so until you change it), `SITE_LOCALE`, `DEFAULT_DESCRIPTION`, `DEFAULT_OG_IMAGE`.                                                                              |
+| `src/app.html`                        | `<html lang>` if the primary language is not English.                                                                                                                                                                       |
+| `static/favicon.png`                  | The client's icon. Replace it with opaque `favicon.svg` + `favicon-32.png` + `apple-touch-icon.png` and point `src/app.html` at them; see `src/lib/favicon.test.ts`, which fails while the template file is still shipping. |
+| `README.md`                           | `<Site name>` and `<Client>`.                                                                                                                                                                                               |
+| `package.json` → `reddoor.a11yRoutes` | The site's real routes, once the Prismic repo has content. Ships `[]`. **See "The a11y gate's routes" below.**                                                                                                              |
 
 ## Design
 
