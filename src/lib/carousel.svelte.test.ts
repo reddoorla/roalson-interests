@@ -767,6 +767,69 @@ describe("createCarousel, headless", () => {
     expect(carousel.index).toBe(2);
   });
 
+  it("says `settling` for exactly the handover, which `progress` cannot", async () => {
+    // The point of the flag: `progress` is clamp01(elapsed / dwell) and
+    // `elapsed` is negative through `settle`, so it reads 0 for the handover,
+    // for the first frame of an ordinary dwell and for a slide parked after a
+    // manual turn alike. Every assertion below pairs the two to show that.
+    vi.useFakeTimers();
+    const SETTLE = 32 * FRAME;
+    const carousel = mount({ count: 3, autoplay: DWELL, settle: SETTLE });
+
+    // Slide 1 has nothing to hand over from: settling false, progress 0.
+    expect(carousel.settling).toBe(false);
+    expect(carousel.progress).toBe(0);
+    expect(carousel.settle).toBe(SETTLE);
+
+    await advance(DWELL);
+    expect(carousel.index).toBe(1);
+    expect(carousel.settling, "the clock has just turned it").toBe(true);
+    expect(carousel.progress, "and progress cannot tell this from the line above").toBe(0);
+
+    // Right up to the last frame of the settle, and not one frame past it.
+    await advance(SETTLE - FRAME);
+    expect(carousel.settling).toBe(true);
+    await advance(FRAME);
+    expect(carousel.settling).toBe(false);
+    expect(carousel.progress).toBe(0);
+
+    await advance(DWELL / 2);
+    expect(carousel.settling).toBe(false);
+    expect(carousel.progress).toBeCloseTo(0.5, 10);
+  });
+
+  it("stays `settling` after a manual turn, because nothing is running it down", async () => {
+    // Why a consumer drawing the handover must pair it with `rotating`: a
+    // manual turn parks `elapsed` at -settle, and if the clock is not turning
+    // there is no frame loop to bring it back to 0. Measured, not assumed.
+    vi.useFakeTimers();
+    const SETTLE = 32 * FRAME;
+    const carousel = mount({ count: 3, autoplay: DWELL, settle: SETTLE });
+    await advance(DWELL / 2);
+
+    carousel.pause();
+    carousel.next();
+    expect(carousel.rotating).toBe(false);
+    expect(carousel.settling).toBe(true);
+    await advance(10 * (DWELL + SETTLE));
+    expect(carousel.settling, "still true, with nothing to end it").toBe(true);
+
+    carousel.play();
+    await advance(SETTLE);
+    expect(carousel.settling).toBe(false);
+  });
+
+  it("is never `settling` where nothing is timing out", () => {
+    // No autoplay, one slide, reduced motion: the same `eligible` gate that
+    // zeroes `progress`, so a consumer gets one answer and not two.
+    expect(mount({ count: 3 }).settling).toBe(false);
+    expect(mount({ count: 1, autoplay: DWELL, settle: 500 }).settling).toBe(false);
+    prefersReduced = true;
+    const reduced = mount({ count: 3, autoplay: DWELL, settle: 500 });
+    reduced.next();
+    expect(reduced.settling).toBe(false);
+  });
+
   it("restarts the dwell after any manual change, settle included", async () => {
     vi.useFakeTimers();
     const carousel = mount({ count: 4, autoplay: DWELL, settle: 2 * FRAME });

@@ -54,6 +54,27 @@
   const timed = $derived(carousel.eligible);
   const value = $derived(timed ? carousel.progress : carousel.position);
 
+  // THE BAR DISSOLVES AT A CLOCK TURN — a decision REVERSED, not a bug fixed.
+  // It used to snap to 0 on the frame the index changed and wait out the
+  // handover there, on the reading that a bar still fading says "counting"
+  // after the count is over. The comp cross-dissolves a full bar into an empty
+  // one and the operator asked for the comp. See the journal entry of
+  // 2026-09-21 on the featured band, and the forward pointer under it.
+  //
+  // WHAT DISSOLVES IS OPACITY, AND ONLY OPACITY. `scaleX` still snaps to 0
+  // behind the fade, so the bar's VALUE is drawn by the clock every frame and
+  // by nothing else. A `transition-transform` here would be the second clock
+  // this component's header refuses — it would keep sliding after a pause —
+  // and app.css would zero it under reduced motion anyway. A fade over a value
+  // that has already changed is decoration; a fade of the value is a lie.
+  //
+  // `rotating`, not `settling` alone: after a MANUAL turn `elapsed` is parked
+  // at -settle with no frame loop to run it down, so `settling` stays true
+  // indefinitely and a bar gated on it alone would fade out and never come
+  // back. The user's own turns are instant, which is what the consumer's
+  // slides do too (see the featured band's `fade`).
+  const handover = $derived(timed && carousel.rotating && carousel.settling);
+
   // The arrows' rule, for the same reason (#47): a bar drawn before script
   // runs is a timer that will never move, or a "2 of 3" that cannot change.
   // It holds its 2px of the row either way — `visibility`, never `display`.
@@ -61,11 +82,18 @@
 </script>
 
 <!-- aria-hidden: it is a timer, or a picture of "n of N" — the slide labels and
-     the live region already say both. No CSS transition while it is timed: the
-     clock draws every frame, and easing on top would be a second clock that
-     keeps moving after a pause. Position mode has no clock, so it may glide
-     (and app.css zeroes that under reduced motion). `data-js-only`, like the
-     arrows: without script nothing will ever move it. -->
+     the live region already say both. No CSS transition on the TRANSFORM while
+     it is timed: the clock draws every frame, and easing on top would be a
+     second clock that keeps moving after a pause. Opacity is not the value, so
+     it may dissolve — see `handover` above. Position mode has no clock, so its
+     transform may glide (and app.css zeroes that under reduced motion).
+     `data-js-only`, like the arrows: without script nothing will ever move it.
+
+     The fade's duration is the carousel's OWN `settle`, not a number written
+     here, so the bar is gone exactly when the consumer's slide has finished
+     handing over whatever that consumer's dissolve costs. Coming back it is
+     0ms: by then the fill is already at scaleX(0) and there is nothing to
+     watch arrive. -->
 {#if carousel.enabled && carousel.count > 1}
   <div
     aria-hidden="true"
@@ -76,10 +104,13 @@
       .track} {passedClasses}"
   >
     <div
+      data-carousel-fill={handover ? "handover" : timed ? "timed" : "position"}
       class="absolute inset-0 origin-left {PROGRESS_TONES[tone].fill} {timed
-        ? ''
+        ? `transition-opacity ease-linear ${handover ? 'opacity-0' : 'opacity-100'}`
         : 'transition-transform duration-300 ease-out'}"
-      style="transform: scaleX({value})"
+      style="transform: scaleX({value}){timed
+        ? `; transition-duration: ${handover ? carousel.settle : 0}ms`
+        : ''}"
     ></div>
   </div>
 {/if}

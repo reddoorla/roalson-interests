@@ -9,30 +9,50 @@ import { hydrated } from "./hydrated";
 // above the homepage's dark garnet hero and a pale band under the footer's sand
 // (the operator's report, 2026-09-21).
 //
-// The fix is two halves, because a canvas has exactly one colour and the top of
-// the page has three:
+// THE FIRST FIX WAS THE RIGHT IDEA THE WRONG WAY ROUND, and this file is mostly
+// the record of that. A canvas has exactly one colour and the top of the page
+// has three, so the first build put the FOOT on the canvas (`html`, sand,
+// the same everywhere) and painted the TOP with an element at negative
+// coordinates — `.canvas-top`, `position: absolute; bottom: 100%`, a viewport
+// of the route's own colour seated on the document's y=0.
 //
-//   - the FOOT is the canvas — `html { background-color: var(--color-light) }`
-//     in app.css, sand, the same on every route, because the footer is the last
-//     band everywhere. Naming it there also takes `body` OUT of the root's
-//     background propagation, so body paints #f2efe9 in its own box instead;
-//   - the TOP is an ELEMENT at negative coordinates — `.canvas-top` in app.css,
-//     rendered once by the root layout, coloured by the route's own `canvasTop`
-//     claim ($lib/canvas-top). It sits entirely above the document's y=0, so it
-//     adds nothing to the scroll range, while remaining part of the scrolling
-//     CONTENTS — which is the layer a pull translates, and the whole reason it
-//     is revealed by one.
+// The argument for it was that scrollable overflow only ever grows DOWN and
+// RIGHT, so the element cost no scroll range. That is true, and it is the same
+// sentence that kills it: the scroll origin is clamped at 0, so anything above
+// it is clipped out of the scrollable area and no overscroll ever reaches it.
+// The operator pulled on a real Mac on 2026-09-22 and saw sand — the canvas —
+// exactly where the hero's #3d0707 was supposed to be.
 //
-// WHAT THIS FILE CANNOT DO, stated plainly because a test that implies more
-// than it measures is worse than none: headless Chromium cannot rubber-band.
-// There is no API for an overscroll, and `window.scrollTo(0, -120)` clamps to
-// 0. So every test here uses the DEFENSIBLE PROXY: a pull translates the
-// scrolling contents, so the contents are translated from script and the pixel
-// that a pull would expose is sampled where it lands. The proxy is checked
-// before it is trusted — the pull assertions read `body`'s own rect and the
-// element's, and fail unless both moved by exactly the pull. That a REAL
-// two-finger pull on a Mac reveals the same pixels is the operator's to
-// confirm, and nothing in this file should be read as having confirmed it.
+// So it is inverted, and the two halves are now:
+//
+//   - the TOP is the CANVAS — `html { background-color: var(--canvas-top,
+//     var(--color-background)) }`, with `--canvas-top` declared on `:root` by a
+//     rule the root layout renders into the document HEAD from the route's own
+//     `canvasTop` claim ($lib/canvas-top). The top is the end that cannot be
+//     painted any other way, so it gets the one colour there is;
+//   - the FOOT is the ELEMENT — `.canvas-foot`, zero height, rendered after the
+//     footer, laying 100vh of sand below the last thing drawn with a
+//     `box-shadow`. Painting below the document's end is the direction that is
+//     NOT clipped, and `box-shadow` is specified not to contribute to
+//     scrollable overflow, so this end still costs no scroll range.
+//
+// WHAT THIS FILE CAN AND CANNOT MEASURE, stated plainly because the previous
+// version of it measured the wrong half and said so honestly and was believed
+// anyway:
+//
+//   - the TOP is now DIRECTLY OBSERVABLE and needs no proxy at all. The colour
+//     an overscroll shows at the top IS the root element's background, so
+//     `getComputedStyle(document.documentElement).backgroundColor` is the
+//     answer rather than a stand-in for it. That is the single biggest gain
+//     from the inversion, and it is why the top tests below take no screenshot.
+//   - the FOOT still needs one: headless Chromium cannot rubber-band, there is
+//     no API for an overscroll, and `window.scrollTo(0, -120)` clamps to 0. So
+//     the foot tests use the DEFENSIBLE PROXY — a pull translates the scrolling
+//     contents, so the contents are translated from script and the pixel a pull
+//     would expose is sampled where it lands. The proxy is checked before it is
+//     trusted: every pull assertion reads `body`'s own rect and fails unless it
+//     moved by exactly the pull. That a REAL two-finger pull reveals the same
+//     pixels at the FOOT is still the operator's to confirm.
 //
 // TWO THINGS THE SHARED HARNESS FORCES:
 //
@@ -45,45 +65,41 @@ import { hydrated } from "./hydrated";
 //    `getComputedStyle(document.body).transform` returns
 //    `matrix(1, 0, 0, 1, 0, 0)` in the same task, and the element's rect is
 //    unmoved. The first draft of this file did exactly that and sampled the
-//    hero's own garnet while believing it had sampled `.canvas-top` — a
+//    hero's own garnet while believing it had sampled the ground above it — a
 //    vacuous green of precisely the shape CLAUDE.md warns about. Every write
 //    from script therefore goes through `writeStyle`, which suppresses the
 //    transition and POLLS until the page is wearing the declaration.
-//  - a window is not a layout width, and NEITHER IS `clientWidth`. Every
-//    viewport here is a round layout width plus 15 because nav.spec.ts records
-//    headless Chromium laying the page out 15px narrower than its window under
-//    `scrollbar-gutter: stable` — and it records something sharper: on the
-//    Linux CI runner `window.innerWidth` AND `documentElement.clientWidth` both
-//    report 1440 while the bar is laid out at 1425, so neither number sees the
-//    gutter. Measured on this machine at a 1455 window, all three agree at 1455
-//    (an overlay scrollbar reserving nothing), which is exactly the pair of
-//    behaviours an assertion must survive. So no width here is a literal and
-//    none is compared to `clientWidth`: the element's width is compared to
-//    `body`'s and to the root's own rect, boxes laid out against the same
-//    containing block, which is right under either. Every sampled x likewise
-//    comes from the element's own rect.
+//  - a window is not a layout width. Every viewport here is a round layout
+//    width plus 15, because nav.spec.ts records headless Chromium laying the
+//    page out 15px narrower than its window under `scrollbar-gutter: stable` —
+//    and something sharper: on the Linux CI runner `window.innerWidth` AND
+//    `documentElement.clientWidth` both report 1440 while the bar is laid out
+//    at 1425, so neither number sees the gutter. No width here is a literal
+//    compared to `clientWidth`; every sampled x comes from a real element rect.
 //
 // The routes are the /dev/* fixtures, as in photo-band.spec.ts: the real layout
 // over static data, no network, and the same three `canvasTop` states the
 // shipping routes have (`dark` → /, `primary` → /properties and /contact, and
-// none → a listing detail). A production build was checked by hand against
-// `pnpm preview` on the real routes; see docs/workJournal.md for the numbers.
+// none → a listing detail). The real routes were checked by hand on a
+// production build; see docs/workJournal.md for the head bytes.
 
 /** #3d0707 — HomeHero's flat ground, the homepage's `canvasTop: "dark"`. */
 const DARK = [61, 7, 7];
 /** #652323 — PageMasthead's top gradient stop, `canvasTop: "primary"`. */
 const GARNET = [101, 35, 35];
-/** #e8e1d1 — sand: the footer's foot, and now the canvas at both ends. */
+/** #e8e1d1 — sand: the footer's foot, and the ground past it. */
 const SAND = [232, 225, 209];
 /** #f2efe9 — the page ground. What BOTH ends used to show, and the defect. */
 const OFF_WHITE = [242, 239, 233];
+
+const rgb = (c: number[]) => `rgb(${c.join(", ")})`;
 
 /** How far the contents are pulled. Any value inside the viewport will do; 120
  *  is roughly a firm two-finger pull and leaves room to sample well inside the
  *  exposed band rather than on its edge. */
 const PULL = 120;
 
-const TOP = ".canvas-top";
+const FOOT = ".canvas-foot";
 
 /** The RGB of the pixel at a viewport point, from a real screenshot. The clip is
  *  2×2 and the centre pixel is taken from the decoded raster, so this is right
@@ -138,32 +154,37 @@ async function writeStyle(page: Page, selector: string, prop: string, value: str
     .toBe(want);
 }
 
-/** Where `body` and `.canvas-top` are, in viewport coordinates. */
-const boxes = (page: Page) =>
-  page.evaluate(() => {
-    const top = document.querySelector(".canvas-top")?.getBoundingClientRect();
+/** The two backgrounds the fix is made of, the foot element's box, and the
+ *  document's own extent. */
+const measure = (page: Page) =>
+  page.evaluate((sel) => {
+    const el = document.querySelector(sel);
+    const r = el?.getBoundingClientRect();
+    const body = document.body.getBoundingClientRect();
+    const root = document.documentElement;
     return {
-      body: document.body.getBoundingClientRect().top,
-      transform: getComputedStyle(document.body).transform,
-      top: top ? { top: top.top, bottom: top.bottom, height: top.height } : null,
+      rootGround: getComputedStyle(root).backgroundColor,
+      canvasTopVar: getComputedStyle(root).getPropertyValue("--canvas-top").trim(),
+      bodyGround: getComputedStyle(document.body).backgroundColor,
+      bodyBox: { top: body.top, height: body.height },
+      footCount: document.querySelectorAll(sel).length,
+      footRect: r ? { top: r.top, height: r.height, width: r.width } : null,
+      footShadow: el ? getComputedStyle(el).boxShadow : null,
+      themeColor: document.querySelector('meta[name="theme-color"]')?.getAttribute("content"),
+      scrollHeight: root.scrollHeight,
+      scrollWidth: root.scrollWidth,
+      innerHeight: window.innerHeight,
     };
-  });
+  }, FOOT);
 
-/**
- * The pull proxy, and its own evidence. Translates the scrolling contents by
- * `by` (positive = a pull at the TOP, negative = at the FOOT) and reports how
- * far `body` and `.canvas-top` actually MOVED. Deltas, not absolute positions:
- * `getBoundingClientRect()` is viewport-relative, so at the foot of a 3706px
- * page body's top is already -2806 before anything is pulled — the first draft
- * asserted the absolute -120 and went red at -2926, which is the mechanism
- * working exactly as intended.
- *
- * Every caller asserts these before reading a pixel. Without that, a transform
- * that silently failed to apply leaves the page at rest and the sample measures
- * whatever happened to be on screen.
- */
+/** Translate the scrolling contents by `by` (negative = a pull at the FOOT) and
+ *  report how far `body` actually MOVED. Deltas, not absolute positions: at the
+ *  foot of a 3706px page body's top is already -2806 before anything is pulled.
+ *  Every caller asserts the delta before reading a pixel — without that, a
+ *  transform that silently failed to apply leaves the page at rest and the
+ *  sample measures whatever happened to be on screen. */
 async function pull(page: Page, by: number) {
-  const before = await boxes(page);
+  const before = await page.evaluate(() => document.body.getBoundingClientRect().top);
   await writeStyle(
     page,
     "body",
@@ -171,223 +192,184 @@ async function pull(page: Page, by: number) {
     `translateY(${by}px)`,
     `matrix(1, 0, 0, 1, 0, ${by})`,
   );
-  const after = await boxes(page);
-  return {
-    ...after,
-    bodyMoved: after.body - before.body,
-    topMoved: after.top && before.top ? after.top.bottom - before.top.bottom : null,
-  };
+  const after = await page.evaluate(() => ({
+    top: document.body.getBoundingClientRect().top,
+    transform: getComputedStyle(document.body).transform,
+  }));
+  return { ...after, bodyMoved: after.top - before };
 }
-
-/** The element's box, the page's, and the two backgrounds the fix is made of. */
-const measure = (page: Page) =>
-  page.evaluate((sel) => {
-    const el = document.querySelector(sel);
-    if (!el) throw new Error("no .canvas-top");
-    const r = el.getBoundingClientRect();
-    const body = document.body.getBoundingClientRect();
-    return {
-      style: el.getAttribute("style"),
-      ground: getComputedStyle(el).backgroundColor,
-      position: getComputedStyle(el).position,
-      rect: { top: r.top, bottom: r.bottom, left: r.left, width: r.width, height: r.height },
-      rootGround: getComputedStyle(document.documentElement).backgroundColor,
-      bodyGround: getComputedStyle(document.body).backgroundColor,
-      bodyBox: { top: body.top, height: body.height, width: body.width },
-      docWidth: document.documentElement.getBoundingClientRect().width,
-      scrollHeight: document.documentElement.scrollHeight,
-      innerHeight: window.innerHeight,
-      scrollY: window.scrollY,
-    };
-  }, TOP);
 
 async function open(page: Page, url: string, width = 1455, height = 900) {
   await page.setViewportSize({ width, height });
   await page.goto(url);
   await hydrated(page);
-  await expect(page.locator(TOP), "the layout renders exactly one").toHaveCount(1);
 }
 
+// ───────────────────────────────────────────────────────────────────────────
+// THE TOP. No proxy: the colour an overscroll shows above the document IS the
+// root element's background, so these read it directly.
+// ───────────────────────────────────────────────────────────────────────────
+
 test.describe("the ground ABOVE the top of the document", () => {
-  test("at rest it is one viewport tall, seated on y=0, and as wide as the page", async ({
+  const ROUTES = [
+    { url: "/dev/home", claim: "dark", colour: DARK, theme: "#3d0707" },
+    { url: "/dev/properties", claim: "primary", colour: GARNET, theme: "#652323" },
+  ] as const;
+
+  for (const route of ROUTES) {
+    test(`${route.url} claims "${route.claim}", so the CANVAS is that band's own ground`, async ({
+      page,
+    }) => {
+      await open(page, route.url);
+      const at = await measure(page);
+
+      // THE WHOLE FIX, IN ONE READ. This is the colour a rubber-band shows,
+      // not a stand-in for it.
+      expect(at.rootGround, "the root's background is the band's ground").toBe(rgb(route.colour));
+      expect(at.rootGround, "not the off-white the operator reported").not.toBe(rgb(OFF_WHITE));
+      expect(at.rootGround, "and not the sand they saw after the first fix").not.toBe(rgb(SAND));
+
+      // And it got there from the route's claim, through the head rule.
+      // NOTE the browser hands back the RESOLVED value, not the `var(…)` text
+      // the rule was written with — custom properties substitute at
+      // computed-value time. That is the more useful read anyway: comparing it
+      // to `theme-color` proves the stylesheet and the meta tag, which are two
+      // separate spellings of the same colour by necessity, actually agree.
+      expect(at.canvasTopVar, "--canvas-top is declared on :root").toBe(route.theme);
+      expect(at.themeColor, "and the browser's own chrome is told the same").toBe(route.theme);
+      expect(at.canvasTopVar, "the two spellings have not drifted").toBe(at.themeColor);
+
+      // THE MUTATION, KEPT. Delete the layout's own <style> and the canvas
+      // falls back to the page ground — the white flash that started this.
+      // Without this step the assertion above would pass on a page where the
+      // head rule did nothing, if the theme happened to make the fallback the
+      // same colour.
+      //
+      // It removes the ELEMENT rather than clearing an inline property,
+      // because there is no inline property to clear: the declaration is a
+      // `:root` rule in a stylesheet, and `style.removeProperty` on `html`
+      // silently does nothing to it. The first draft did exactly that and hung
+      // for 5s polling for a value that was never going to change — a mutation
+      // that fails to mutate, which is the one kind that must never be read as
+      // "the test is fine".
+      const removed = await page.evaluate(() => {
+        // The DECLARATION, not every mention: app.css's own
+        // `background-color: var(--canvas-top, …)` carries the string too, and
+        // under `vite dev` that sheet is a <style> tag as well. Matching the
+        // substring found two and deleting both would have taken the fallback
+        // with it — the test would still have gone to off-white, for the wrong
+        // reason, and proved nothing about the layout's rule.
+        const tags = [...document.querySelectorAll("style")].filter((s) =>
+          /:root\s*\{\s*--canvas-top:/.test(s.textContent ?? ""),
+        );
+        tags.forEach((s) => s.remove());
+        return tags.length;
+      });
+      expect(removed, "the layout ships exactly one rule for this").toBe(1);
+      await expect
+        .poll(() => page.evaluate(() => getComputedStyle(document.documentElement).backgroundColor))
+        .toBe(rgb(OFF_WHITE));
+    });
+  }
+
+  test("a route that claims nothing keeps the page ground, and says so out loud", async ({
     page,
   }) => {
-    await open(page, "/dev/home");
-    const at = await measure(page);
-
-    expect(at.position).toBe("absolute");
-    expect(at.scrollY, "measured at the top of the page").toBe(0);
-    // The three numbers the mechanism is: its foot is the document's y=0, it is
-    // a whole viewport tall, and it spans the layout width (NOT the window's —
-    // 1455 here is 1440 of layout plus the 15px stable scrollbar gutter).
-    expect(at.rect.bottom, "its foot is the document's own top edge").toBe(0);
-    expect(at.rect.height, "a whole viewport tall").toBe(at.innerHeight);
-    expect(at.rect.top, "so all of it lies above y=0").toBe(-at.innerHeight);
-    expect(at.rect.left).toBe(0);
-    expect(at.rect.width, "as wide as the page's own content box").toBe(at.bodyBox.width);
-    expect(at.rect.width, "which is the root's box too").toBe(at.docWidth);
-
-    // …and it follows the viewport, not one remembered size. The assertion is
-    // against the page's OWN layout width and height, never the window's.
-    await page.setViewportSize({ width: 405, height: 844 });
-    await expect
-      .poll(async () => (await measure(page)).innerHeight, "the phone viewport arrived")
-      .toBe(844);
-    const phone = await measure(page);
-    expect(phone.rect.height, "still exactly one viewport").toBe(phone.innerHeight);
-    expect(phone.rect.height, "which is a different number from before").not.toBe(at.rect.height);
-    expect(phone.rect.width, "and still the full layout width").toBe(phone.bodyBox.width);
-    expect(phone.rect.width).not.toBe(at.rect.width);
-    expect(phone.rect.bottom, "still seated on y=0").toBe(0);
-  });
-
-  test("a pull at the top exposes the HOMEPAGE hero's garnet, not the page ground", async ({
-    page,
-  }) => {
-    await open(page, "/dev/home");
-    const at = await measure(page);
-    // The route's claim, resolved: `canvasTop: "dark"` → HomeHero's flat #3d0707.
-    expect(at.style).toBe("--canvas-top: var(--color-dark)");
-    expect(at.ground).toBe(`rgb(${DARK.join(", ")})`);
-
-    const pulled = await pull(page, PULL);
-    // The proxy's own evidence, before any pixel is read: the contents really
-    // moved, and the element moved WITH them — which is the property that makes
-    // a rubber-band reveal it at all.
-    expect(pulled.transform).toBe(`matrix(1, 0, 0, 1, 0, ${PULL})`);
-    expect(pulled.bodyMoved, "the scrolling contents were pulled down").toBe(PULL);
-    expect(pulled.topMoved, "and the ground came with them").toBe(PULL);
-    expect(pulled.top!.bottom, "so its foot now sits inside the viewport").toBe(PULL);
-    expect(pulled.top!.height, "without being relaid out").toBe(at.rect.height);
-
-    // The exposed band is now viewport y ∈ [0, 120). Sample its middle, in the
-    // element's own column.
-    const x = Math.round(at.rect.left + at.rect.width / 2);
-    const y = PULL / 2;
-    expect(await pixel(page, x, y), "the hero's own dark garnet").toEqual(DARK);
-
-    // THE DISCRIMINATOR. On this route the first band is the same colour, so
-    // "it is garnet" alone would pass with no element at all. Take the element
-    // away and the same pixel must change — to the canvas, which is sand.
-    await page.evaluate((sel) => document.querySelector(sel)!.remove(), TOP);
-    await expect(page.locator(TOP), "it really is gone for this reading").toHaveCount(0);
-    const without = await pixel(page, x, y);
-    expect(without, "with the element gone it is the bare canvas").toEqual(SAND);
-    expect(without, "and never the off-white that caused the report").not.toEqual(OFF_WHITE);
-  });
-
-  test("on a masthead route it exposes the gradient's TOP stop", async ({ page }) => {
-    await open(page, "/dev/properties");
-    const at = await measure(page);
-    // PageMasthead is `bg-gradient-to-b from-primary to-dark`: the pixel a pull
-    // exposes continues `from-primary`, not the `to-dark` it ends on.
-    expect(at.style).toBe("--canvas-top: var(--color-primary)");
-    expect(at.ground).toBe(`rgb(${GARNET.join(", ")})`);
-
-    const pulled = await pull(page, PULL);
-    expect(pulled.bodyMoved).toBe(PULL);
-    expect(pulled.topMoved).toBe(PULL);
-    expect(pulled.top!.bottom).toBe(PULL);
-
-    const x = Math.round(at.rect.left + at.rect.width / 2);
-    expect(await pixel(page, x, PULL / 2)).toEqual(GARNET);
-    await page.evaluate((sel) => document.querySelector(sel)!.remove(), TOP);
-    await expect(page.locator(TOP)).toHaveCount(0);
-    expect(await pixel(page, x, PULL / 2)).toEqual(SAND);
-  });
-
-  test("a route that claims nothing keeps the page ground — no declaration at all", async ({
-    page,
-  }) => {
-    // A listing detail opens under a SOLID bar, so the layout pads <main> by
-    // 70/80px and the thing above its y=0 is the page ground already. Claiming
-    // nothing is the answer, not an omission: $lib/canvas-top returns undefined
-    // and the CSS default `var(--color-background)` stands.
     await open(page, "/dev/property");
     const at = await measure(page);
-    expect(at.style, "no --canvas-top is written at all").toBeNull();
-    expect(at.ground).toBe(`rgb(${OFF_WHITE.join(", ")})`);
-
-    const pulled = await pull(page, PULL);
-    expect(pulled.bodyMoved).toBe(PULL);
-    expect(pulled.topMoved).toBe(PULL);
-    const x = Math.round(at.rect.left + at.rect.width / 2);
-    expect(await pixel(page, x, PULL / 2), "the ground it already showed").toEqual(OFF_WHITE);
+    // Nothing is the answer, not an omission: $lib/canvas-top returns undefined
+    // and app.css's own fallback stands.
+    expect(at.canvasTopVar, "no --canvas-top is declared at all").toBe("");
+    expect(at.rootGround, "so the canvas is the page ground").toBe(rgb(OFF_WHITE));
+    // theme-color, unlike the rule, still ships — a route that omitted the tag
+    // would keep whatever the PREVIOUS route set across a client-side nav.
+    expect(at.themeColor, "and the tag is present anyway").toBe("#f2efe9");
   });
 
-  test("it costs the page NO scroll range, at either height", async ({ page }) => {
-    // The claim written into app.css: scrollable overflow only ever grows down
-    // and right, so a box entirely above y=0 adds nothing. Measured rather than
-    // reasoned — with the element in the page and with it taken out.
+  test("the two claiming routes do not agree — a hard-coded colour cannot pass", async ({
+    page,
+  }) => {
+    // Belt and braces for the block above: if the mechanism were stuck, both
+    // routes would read the same and every per-route assertion would still
+    // pass on whichever colour it was stuck at.
     await open(page, "/dev/home");
-    for (const height of [900, 400]) {
-      await page.setViewportSize({ width: 1455, height });
-      await expect.poll(async () => (await measure(page)).innerHeight).toBe(height);
-      const both = await page.evaluate((sel) => {
-        const el = document.querySelector(sel)!;
-        const withIt = document.documentElement.scrollHeight;
-        const present = document.querySelectorAll(sel).length;
-        const parent = el.parentNode!;
-        const next = el.nextSibling;
-        el.remove();
-        const without = document.documentElement.scrollHeight;
-        const absent = document.querySelectorAll(sel).length;
-        parent.insertBefore(el, next);
-        return {
-          withIt,
-          without,
-          restored: document.documentElement.scrollHeight,
-          present,
-          absent,
-        };
-      }, TOP);
-      // Not vacuous: the element was really there for one reading and really
-      // gone for the other.
-      expect(both.present, `one element at ${height}`).toBe(1);
-      expect(both.absent, `and none for the second reading at ${height}`).toBe(0);
-      expect(both.without, `the page is the same height without it at ${height}`).toBe(both.withIt);
-      expect(both.restored, "and putting it back changes nothing").toBe(both.withIt);
-    }
-
-    // The other half of "no scroll range": the top of the page is still the top.
-    await page.evaluate(() => window.scrollTo({ top: -400, behavior: "instant" }));
-    expect(await page.evaluate(() => window.scrollY)).toBe(0);
+    const home = (await measure(page)).rootGround;
+    await open(page, "/dev/properties");
+    const properties = (await measure(page)).rootGround;
+    expect(home).not.toBe(properties);
+    expect([home, properties]).toEqual([rgb(DARK), rgb(GARNET)]);
   });
 
-  test("with scripting off it is already there — the colour is the server's", async ({
+  test("with scripting off the colour is already right — it is the server's", async ({
     browser,
   }) => {
-    // Nothing here needs script: the layout writes the custom property into the
-    // style attribute server-side, and the rest is CSS. A browser that never
-    // runs the bundle gets the same ground.
-    const context = await browser.newContext({
-      javaScriptEnabled: false,
-      reducedMotion: "reduce",
-      viewport: { width: 1455, height: 900 },
-    });
-    try {
-      const page = await context.newPage();
-      await page.goto("/dev/home", { waitUntil: "domcontentloaded" });
-      await expect(page.locator(TOP)).toHaveCount(1);
-      const at = await measure(page);
-      expect(at.style).toBe("--canvas-top: var(--color-dark)");
-      expect(at.ground).toBe(`rgb(${DARK.join(", ")})`);
-      expect(at.rect.bottom).toBe(0);
-      expect(at.rect.height).toBe(at.innerHeight);
-      expect(at.rootGround).toBe(`rgb(${SAND.join(", ")})`);
-    } finally {
-      await context.close();
-    }
+    // The rule is rendered into the head by the layout, so it is in the HTML
+    // the server sent. A browser that never runs the bundle still gets it.
+    const context = await browser.newContext({ javaScriptEnabled: false });
+    const page = await context.newPage();
+    await page.setViewportSize({ width: 1455, height: 900 });
+    await page.goto("/dev/home");
+    expect(
+      await page.evaluate(() => getComputedStyle(document.documentElement).backgroundColor),
+    ).toBe(rgb(DARK));
+    await context.close();
+  });
+
+  test("naming the canvas did not stop body painting the page ground", async ({ page }) => {
+    // The risk in the fix: `body`'s background reaches the canvas only while
+    // `html` has none. Giving `html` one takes body OUT of that propagation —
+    // which is the point — but body must then still paint #f2efe9 in its own
+    // box, or every page turns the colour of its first band.
+    await open(page, "/dev/properties");
+    const at = await measure(page);
+    expect(at.bodyGround, "body keeps a background of its own").toBe(rgb(OFF_WHITE));
+    expect(at.bodyBox.top, "and its box starts at the document's top").toBe(0);
+    expect(
+      Math.abs(at.bodyBox.height - at.scrollHeight),
+      "and runs the whole document — no strip anywhere for the canvas to show through",
+    ).toBeLessThan(1);
   });
 });
 
+// ───────────────────────────────────────────────────────────────────────────
+// THE FOOT. The half that still needs the pull proxy.
+// ───────────────────────────────────────────────────────────────────────────
+
 test.describe("the ground PAST THE FOOT of the document", () => {
-  test("the canvas is the footer's sand, and a pull at the foot exposes it", async ({ page }) => {
+  test("it is one element, it has no height, and its colour is a shadow", async ({ page }) => {
     await open(page, "/dev/home");
     const at = await measure(page);
-    expect(at.rootGround, "the root's own background is the canvas").toBe(
-      `rgb(${SAND.join(", ")})`,
-    );
+    expect(at.footCount, "the layout renders exactly one").toBe(1);
+    expect(at.footRect!.height, "zero height, so it moves nothing").toBe(0);
+    expect(at.footShadow, "and 100vh of sand hangs off it").toContain(rgb(SAND));
+  });
+
+  test("it costs the page NO scroll range, in EITHER axis", async ({ page }) => {
+    // The trap this rule is shaped to avoid. A 100vh element here would paint
+    // the right pixels and add a viewport of scroll to every page — overflow
+    // DOWN is the half that is NOT clipped, which is the whole reason the foot
+    // can be an element at all. `box-shadow` is specified not to contribute to
+    // scrollable overflow; the shadow also runs 50vh wide of both edges, so the
+    // horizontal axis is measured too.
+    for (const url of ["/dev/home", "/dev/properties"]) {
+      await open(page, url);
+      const withIt = await measure(page);
+      await page.evaluate((sel) => document.querySelector(sel)!.remove(), FOOT);
+      const without = await page.evaluate(() => ({
+        scrollHeight: document.documentElement.scrollHeight,
+        scrollWidth: document.documentElement.scrollWidth,
+      }));
+      expect(withIt.scrollHeight, `${url}: it added scroll height`).toBe(without.scrollHeight);
+      expect(withIt.scrollWidth, `${url}: it added scroll width`).toBe(without.scrollWidth);
+      expect(without.scrollWidth, `${url}: the page scrolls sideways`).toBeLessThanOrEqual(
+        withIt.scrollWidth,
+      );
+    }
+  });
+
+  test("a pull at the foot exposes the footer's sand, seamlessly", async ({ page }) => {
+    await open(page, "/dev/home");
+    const at = await measure(page);
 
     // To the end of the page, then pull the contents UP.
     const reach = at.scrollHeight - at.innerHeight;
@@ -405,77 +387,21 @@ test.describe("the ground PAST THE FOOT of the document", () => {
     expect(pulled.bodyMoved, "the contents were pulled up").toBe(-PULL);
 
     const exposed = await pixel(page, x, at.innerHeight - PULL / 2);
-    expect(exposed, "the canvas past the foot is sand").toEqual(SAND);
+    expect(exposed, "the ground past the foot is sand").toEqual(SAND);
     expect(exposed, "not the off-white band the operator reported").not.toEqual(OFF_WHITE);
     // And it is SEAMLESS: the last row the footer actually paints is the same
-    // colour, which is the whole reason sand is the right canvas.
+    // colour, which is the whole reason sand is the right foot.
     const foot = await page.locator("footer").boundingBox();
     expect(await pixel(page, x, Math.round(foot!.y + foot!.height) - 3)).toEqual(SAND);
 
-    // THE MUTATION, kept: take the `html` background away and the exposed band
-    // falls back to body's #f2efe9 — the pale strip under the sand that started
-    // this. Without this step the assertion above would pass on a page where
-    // the rule did nothing, because sand is also what a lot of the footer is.
-    await writeStyle(page, "html", "background-color", "transparent", "rgba(0, 0, 0, 0)");
+    // THE MUTATION, kept: take the shadow away and the exposed band falls back
+    // to the CANVAS — which is now the homepage's dark garnet, not off-white.
+    // Without this step the assertion above would pass on a page where the rule
+    // did nothing, because sand is also what a lot of the footer is.
+    await writeStyle(page, FOOT, "box-shadow", "none", "none");
     expect(
       await pixel(page, x, at.innerHeight - PULL / 2),
-      "and with the rule gone, the operator's pale band is back",
-    ).toEqual(OFF_WHITE);
-  });
-
-  test("naming the canvas did not stop body painting the page ground", async ({ page }) => {
-    // The risk in the fix: `body`'s background reaches the canvas only while
-    // `html` has none. Giving `html` one takes body OUT of that propagation —
-    // which is the point — but body must then still paint #f2efe9 in its own
-    // box, or every page turns sand.
-    await open(page, "/dev/properties");
-    const at = await measure(page);
-    expect(at.bodyGround, "body keeps a background of its own").toBe(
-      `rgb(${OFF_WHITE.join(", ")})`,
-    );
-    expect(at.bodyBox.top, "and its box starts at the document's top").toBe(0);
-    expect(
-      Math.abs(at.bodyBox.height - at.scrollHeight),
-      "and runs the whole document — no strip anywhere for the canvas to show through",
-    ).toBeLessThan(1);
-    expect(at.bodyBox.width, "and the full layout width").toBe(at.docWidth);
-
-    // Measured, not reasoned: how much of what is on screen is body's paint.
-    // Count the off-white pixels, then take body's background away and count
-    // how many of those turned sand. Anything body was painting must change;
-    // anything with a ground of its own must not.
-    const raster = async () => {
-      const { data, info } = await sharp(await page.screenshot())
-        .raw()
-        .toBuffer({ resolveWithObject: true });
-      return { data, step: info.channels, pixels: info.width * info.height };
-    };
-    const before = await raster();
-    await writeStyle(page, "body", "background-color", "transparent", "rgba(0, 0, 0, 0)");
-    const after = await raster();
-
-    let ground = 0;
-    let turned = 0;
-    let changed = 0;
-    const same = (b: Uint8Array | Buffer, i: number, c: number[]) =>
-      b[i] === c[0] && b[i + 1] === c[1] && b[i + 2] === c[2];
-    for (let i = 0; i < before.data.length; i += before.step) {
-      const wasGround = same(before.data, i, OFF_WHITE);
-      if (wasGround) ground++;
-      if (wasGround && same(after.data, i, SAND)) turned++;
-      if (!same(after.data, i, [before.data[i], before.data[i + 1], before.data[i + 2]])) changed++;
-    }
-    // Measured on this fixture at 1455×900 (1,309,500 px): 476,782 off-white,
-    // of which 416,145 turn sand, out of 416,395 pixels that change at all —
-    // the other ~250 are text antialiased against the ground. The thresholds
-    // are loose enough for the fixture to grow a slice and tight enough that a
-    // body with no background at all cannot pass.
-    expect(ground, "a large part of the page really is the off-white ground").toBeGreaterThan(
-      50_000,
-    );
-    expect(turned, "and body is what paints it").toBeGreaterThan(50_000);
-    expect(changed - turned, "body's background does nothing else here").toBeLessThan(
-      ground * 0.05,
-    );
+      "and with the shadow gone, the canvas shows through instead",
+    ).toEqual(DARK);
   });
 });

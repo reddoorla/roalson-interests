@@ -346,43 +346,38 @@ main > section.hero-band:first-child {
   min-height: 100vh;
 }
 
-/* THE GROUND ABOVE THE DOCUMENT — the other end of the `html` background set
-   in the base layer below, and the half a canvas cannot do.
+/* THE GROUND PAST THE FOOT OF THE DOCUMENT — sand, the same on every route,
+   because the footer is the last band everywhere and its foot is `bg-light`
+   on all of them.
 
-   The top of the page is a different colour on every route: the homepage's hero
-   is flat dark garnet (#3d0707), the Properties and Contact mastheads start at
-   garnet (#652323), and a route with no dark first band opens on the page
-   ground (#f2efe9). One canvas cannot hold three, so this end is an ELEMENT at
-   negative coordinates, rendered ONCE by the root layout — no route has to
-   remember it, and a route that says nothing gets the page ground it already
-   had.
+   THE TOP IS THE CANVAS NOW, AND THE FOOT IS THE ELEMENT. It used to be the
+   other way round, and that was the bug. `.canvas-top` was
+   `position: absolute; bottom: 100%` — a viewport of colour seated on the
+   document's y=0 — and the argument for it was that scrollable overflow only
+   ever grows DOWN and RIGHT, so it cost no scroll range. True, and it is the
+   same sentence that kills it: the scroll origin is clamped at 0, so anything
+   above it is clipped out of the scrollable area and a rubber-band never
+   reaches it. The operator pulled on a real Mac on 2026-09-22 and saw sand —
+   the canvas — where the hero's #3d0707 was supposed to be.
 
-   `bottom: 100%` against the initial containing block seats its bottom edge on
-   the document's y=0, so its 100vh lies entirely above the scroll origin.
-   Scrollable overflow only ever grows down and right, so this adds NOTHING to
-   the scroll range — tests/interaction/canvas-ground.spec.ts measures
-   scrollHeight with the element in the page and with it removed and gets the
-   same number — while remaining part of the scrolling CONTENTS, which is the
-   layer a rubber-band pull translates. That is why the pull reveals it.
+   So the TOP moved to the canvas (`html` below), which is the only thing a
+   browser paints past either end, and the FOOT moved here. This direction is
+   not clipped: painting below the document's end is exactly what overscroll
+   reveals.
 
-   Its colour is the route's own claim: `canvasTop` in the route's page data,
-   resolved by $lib/canvas-top and written onto this element as `--canvas-top`.
-   Every route that declares `navOver: "dark"` — i.e. every route whose first
-   band runs under the bar at y=0 — must declare it, and no other route may;
-   src/routes/nav-over.test.ts holds both directions, and checks the claimed
-   token against the band component's own ground class.
-
-   WHAT IS NOT VERIFIED: headless Chromium cannot rubber-band. The spec
-   translates the scrolling contents itself and proves this element paints where
-   a pull would show it; that a real pull on a Mac reveals the same pixels is
-   the operator's to confirm. */
-.canvas-top {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 100%;
-  height: 100vh;
-  background-color: var(--canvas-top, var(--color-background));
+   ZERO HEIGHT, AND THE COLOUR IS A SHADOW. A 100vh element here would paint
+   the right pixels and add 100vh of scroll to every page — overflow DOWN is
+   the half that is not clipped, which is the whole point. `box-shadow` is
+   specified not to contribute to scrollable overflow, so it paints without
+   being scrollable to. The geometry: a 0-height box inflated 50vh on every
+   side and then pushed 50vh down spans exactly [foot, foot + 100vh]. It runs
+   50vh wide of both edges too, which is invisible and, by the same rule,
+   costs no horizontal scroll — tests/interaction/canvas-ground.spec.ts
+   measures scrollWidth and scrollHeight with the element in the page and with
+   it removed, and gets the same two numbers. */
+.canvas-foot {
+  height: 0;
+  box-shadow: 0 50vh 0 50vh var(--color-light);
   pointer-events: none;
 }
 
@@ -516,24 +511,32 @@ main > section.hero-band:first-child {
     scroll-behavior: smooth;
     scrollbar-gutter: stable;
 
-    /* THE GROUND PAST THE FOOT OF THE DOCUMENT. What a rubber-band overscroll
-       reveals at either end is the CANVAS, and the canvas takes the ROOT
-       element's background — `body`'s is propagated to it only while `html` has
-       none of its own. `html` had none, so both ends showed body's #f2efe9:
-       against the footer's sand that is a lighter band under the last thing
-       drawn, and against the homepage hero's #3d0707 at the top it reads as a
-       white flash (the operator's report, 2026-09-21).
+    /* THE GROUND PAST THE TOP OF THE DOCUMENT — and, on Safari, the tint the
+       browser puts on its own toolbar.
 
-       Naming the canvas here takes body OUT of that propagation: body then
+       What a rubber-band overscroll reveals at either end is the CANVAS, and
+       the canvas takes the ROOT element's background (`body`'s is propagated
+       to it only while `html` has none of its own). A canvas has exactly ONE
+       colour and this page wants two, so the question is only which end gets
+       it — and the top is the end that CANNOT be painted any other way, since
+       the scroll origin is clamped at 0 and anything above it is clipped. The
+       foot is painted by `.canvas-foot` instead; see that rule for the full
+       account of which way round this used to be and why it was wrong.
+
+       Naming the canvas here also takes body OUT of that propagation: body
        paints #f2efe9 in its OWN box, which spans the whole document (the
        layout's wrapper is `min-h-screen`), so nothing on any route changes —
-       only the overscroll does. Sand, because the footer is the last band on
-       every route and its foot is `bg-light` on all of them.
+       only the overscroll does.
 
-       The TOP is a different colour on every route and a canvas has exactly
-       one, so the top is not painted by the canvas at all. See `.canvas-top`
-       above. */
-    background-color: var(--color-light);
+       The value is the route's own claim: `canvasTop` in its page data,
+       resolved by $lib/canvas-top and declared on `:root` by a rule the root
+       layout puts in the document head, so it is the SERVER's answer and holds
+       with scripting off. A route that claims nothing keeps the page ground.
+       Every route whose first band runs under the bar at y=0 (`navOver:
+       "dark"`) must claim, and no other route may; src/routes/nav-over.test.ts
+       holds both directions and checks the claimed token against the band
+       component's own ground class. */
+    background-color: var(--canvas-top, var(--color-background));
 
     /* Focus Not Obscured (WCAG 2.2 SC 2.4.11). The bar is pinned on every route
        (Nav.svelte: 70px, 80 from `lg`), and the browser does not know it: every
