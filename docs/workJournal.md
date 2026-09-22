@@ -5583,9 +5583,17 @@ this repository is public.
 **Numbers.** 22 packages, 136.5 MB downloaded. 101 candidate images ≥560×380 on
 pages 1–6, of which 20 shipped. Final files 38 KB to 701 KB, long edge capped at
 2000 px, JPEG q82 through mozjpeg; the two smallest are the two named above.
-`pnpm exec vitest run scripts/seed`: 4 files, 71 tests. Full suite after
-rebasing onto `5135ad6`: 101 files, 1054 tests; prettier and eslint clean;
-svelte-check 0 errors over 4,625 files.
+`pnpm exec vitest run scripts/seed`: **3 files, 66 tests** — there are three
+test files under `scripts/seed`, and there was never a fourth. The first draft
+of this paragraph, and PR #92's body with it, said "4 files, 71 tests"; I had
+not run that command to get those numbers, I estimated them from having added a
+test file and wrote the estimate as a measurement. Corrected here rather than
+quietly, because a journal whose numbers are sometimes invented is worth less
+than no numbers at all, and because the rule one paragraph of this file up —
+a claim about what the tests cover is a claim about code — is exactly the rule
+I broke. After merging `46f35ab` in: full unit suite **102 files, 1,073 tests**,
+27 s uncontended; prettier and eslint clean; svelte-check 0 errors over 4,625
+files.
 
 **The tests were mutated, and the reds were watched.** Dropping the
 repeats-across-pages filter turns 3 red; dropping the `smask` filter 1;
