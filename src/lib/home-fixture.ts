@@ -391,7 +391,10 @@ const featuredPicks = (): FeaturedPick[] => [
 ];
 
 /** The `featured_properties` slice as the comp draws it: three listings with
- *  photos. Pass `primary` to override — `{ properties: [] }` is the empty band. */
+ *  photos. Pass `primary` to override — `{ properties: [] }` is the empty band.
+ *
+ *  The portfolio button is stored as a typed path in a Web link, the only way
+ *  an editor can point at the filesystem route /properties ($lib/cms-href). */
 export function featuredPropertiesFixture(
   primary: Partial<FeaturedPrimary> = {},
 ): Content.FeaturedPropertiesSlice {
@@ -404,6 +407,8 @@ export function featuredPropertiesFixture(
     primary: {
       heading: "Featured Properties",
       properties: featuredPicks(),
+      portfolio_label: "Our portfolio",
+      portfolio_link: { link_type: "Web", url: "/properties" },
       ...primary,
     },
     items: [],

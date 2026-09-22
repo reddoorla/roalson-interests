@@ -74,7 +74,12 @@
                   "$property": "13810-lookout-road"
                 }
               }
-            ]
+            ],
+            "portfolio_label": "Our portfolio",
+            "portfolio_link": {
+              "link_type": "Web",
+              "url": "/properties"
+            }
           }
         },
         {
