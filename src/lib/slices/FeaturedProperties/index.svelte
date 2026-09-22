@@ -55,6 +55,7 @@
   import type { Content } from "@prismicio/client";
   import { cappedWidths } from "@reddoorla/maintenance/images";
 
+  import { animateIn } from "$lib/actions/animateIn";
   import BrandButton from "$lib/components/BrandButton.svelte";
   import CarouselArrows from "$lib/components/CarouselArrows.svelte";
   import CarouselProgress from "$lib/components/CarouselProgress.svelte";
@@ -72,6 +73,35 @@
    *  DISSOLVE to the next variant (6843:993 → 6843:995 → 6843:1089 …). */
   const DWELL = 4000;
   const DISSOLVE = 500;
+
+  /** How far the photo travels across its own dwell, drawn off `progress` (see
+   *  `zoom` below): 1.00 → 1.03. On the 928 × 542 box that is 27.8px of extra
+   *  width and 16.3px of height, 13.9 / 8.1 of it clipped off each edge. */
+  const KEN_BURNS = 0.03;
+
+  /** The card's scroll reveal: 24px and 600ms, not the action's 50% / 2400ms.
+   *  `delayMax: 0` because the default 400 is multiplied by the element's
+   *  `left / innerWidth` — at 1440 the card's left edge is 513, which would
+   *  buy an unasked-for 142ms before a reveal nobody staggered against. */
+  const REVEAL = { translateY: "24px", duration: 600, delayMax: 0 } as const;
+
+  /** The staggered text entrance, as FOUR LITERAL class strings, because
+   *  Tailwind's source scan reads text and cannot see `delay-[${n}ms]` built
+   *  at runtime — the class simply would not be generated.
+   *
+   *  THE CASCADE ENDS ON THE SETTLE, AND THAT IS WHAT FIXED THE NUMBERS. The
+   *  bar starts filling at 500ms (`settle: DISSOLVE`) and the whole point of
+   *  the settle is that it starts on a slide that has finished arriving. Four
+   *  lines 60ms apart occupy 180ms of sequencing, so with the text's old 250ms
+   *  exit the window left for each line's own fade was 500 − 250 − 180 = 70ms,
+   *  which reads as a flick rather than a rise. Taking 100ms off the EXIT
+   *  (250 → 150) buys each line 170ms instead. That is the trade this makes:
+   *  the exit is a fade of words that are leaving and nobody re-reads, the
+   *  entrance is the motion that was actually asked for. Nothing overruns the
+   *  settle — the last line lands at 330 + 170 = 500 exactly.
+   *
+   *  The durations are literals for the same reason, in `lines` below. */
+  const TEXT_STEPS = ["delay-[150ms]", "delay-[210ms]", "delay-[270ms]", "delay-[330ms]"];
 
   const primary = $derived(slice.primary);
   const listings = $derived(featuredListings(primary.properties));
@@ -114,6 +144,9 @@
   // through each other show the ground between them at the halfway mark. The
   // text fades THROUGH (out, then in): two listings' words overlaid are noise.
   // Under reduced motion app.css zeroes every duration and delay: a plain swap.
+  // On top of that the incoming text arrives in FOUR staggered lines and the
+  // photo drifts 1.00 → 1.03 across its dwell — see `lines` and `zoom` below,
+  // both of which are off this same `rotating`, or off the same clock.
   //
   // AN OFF-STAGE SLIDE LEAVES THE STACK when the dissolve is over — `invisible`
   // on the slide itself, delayed by exactly the 500 it takes. Two reasons, and
@@ -132,20 +165,62 @@
       ? {
           photoIn: "opacity-100 transition-opacity duration-500 ease-linear",
           photoOut: "opacity-0 transition-opacity delay-500 duration-0",
-          textIn: "opacity-100 transition-opacity delay-[250ms] duration-[250ms]",
-          textOut: "opacity-0 transition-opacity duration-[250ms]",
           slideIn: "visible transition-[visibility] duration-0",
           slideOut: "invisible transition-[visibility] delay-500 duration-0",
         }
       : {
           photoIn: "opacity-100",
           photoOut: "opacity-0",
-          textIn: "opacity-100",
-          textOut: "opacity-0",
           slideIn: "visible",
           slideOut: "invisible",
         },
   );
+
+  // THE TEXT IS FOUR LINES NOW, NOT ONE BLOCK. The block's own fade is gone:
+  // two opacities in a row multiply, so the children own the whole channel and
+  // their wrapper owns none of it. `transition` (the whole default set) rather
+  // than a named pair, because Tailwind 4 moves a `translate-y-*` utility onto
+  // the `translate` property and not `transform`, and a hand-written list that
+  // named the wrong one would transition nothing while looking right.
+  //
+  // The EXIT is not staggered and does not wait: the outgoing lines fade and
+  // sink together over 150ms, which both clears the stage before the first
+  // incoming line starts and parks every line at +8px ready to rise. That
+  // parking is why the exit carries `translate-y-2` at all.
+  const lines = $derived(
+    carousel.rotating
+      ? TEXT_STEPS.map((step) => `translate-y-0 opacity-100 transition duration-[170ms] ${step}`)
+      : TEXT_STEPS.map(() => "translate-y-0 opacity-100"),
+  );
+  const lineOut = $derived(
+    carousel.rotating
+      ? "translate-y-2 opacity-0 transition duration-[150ms]"
+      : "translate-y-2 opacity-0",
+  );
+
+  // KEN BURNS, DRAWN OFF THE CAROUSEL'S OWN CLOCK — no @keyframes and no CSS
+  // transition of its own. app.css zeroes animation-duration to 0.01ms with
+  // iteration-count 1, so a `forwards` fill would SNAP to the end scale and
+  // HOLD it: a statically zoomed photo under reduced motion, which is not
+  // "no animation". `progress` instead freezes on every pause with the bar,
+  // and is 0 wherever the carousel is not `eligible` — which folds reduced
+  // motion in, because `eligible` does.
+  //
+  // ON THE <img>, NEVER ON ITS WRAPPER. The wrapper's `transition-duration` is
+  // the assertion that the comp's 0.5s dissolve is wired at all
+  // (featured-properties.spec.ts) and a second transitioned property there
+  // makes the computed value a two-item list.
+  //
+  // An off-stage photo is held at the END scale rather than reset to 1. At a
+  // CLOCK turn the outgoing slide has just run its dwell out, so it is already
+  // there to within a frame and nothing moves; resetting it to 1 would shrink
+  // a fully opaque photo by 3% under the incoming one, which at 928 wide is
+  // 27.8px. The incoming photo's own jump back to 1 happens on the frame it
+  // becomes active, when its opacity is still 0.
+  const zoom = (i: number) =>
+    carousel.eligible
+      ? `transform: scale(${(1 + KEN_BURNS * (carousel.isActive(i) ? carousel.progress : 1)).toFixed(5)})`
+      : undefined;
 </script>
 
 {#if slides.length === 0}
@@ -177,9 +252,32 @@
          by the eyebrow; with one, `region` is empty and the <section> takes the
          name instead (never both — two landmarks, one name).
          `data-carousel-ready` is `hydrated` made visible: what a browser test
-         waits on before it presses anything. -->
+         waits on before it presses anything.
+
+         THE CARD REVEALS ON SCROLL, and carries NO `data-reveal` in the
+         server's markup — deliberately, and the two facts are one decision.
+         app.css hides `[data-reveal]` at `translateY(50%)`, hard-coded, and
+         `src/reveal-hidden-state.test.ts` holds that number against the
+         action's default; a call site travelling its own 24px may therefore
+         not ship the marker, or CSS would hide it at one distance and JS
+         reveal it from another. The cost is that the card paints in its final
+         position and is yanked to opacity 0 at hydration. MEASURED, because it
+         is the whole reason this is safe: on a production build at 1440 × 900
+         the card's top is 1391px down the page and at 390 × 844 it is 1072 —
+         2.5 and 2.3 viewports below the fold, so the yank happens where nobody
+         is looking. The band is never the first thing on the homepage; if it
+         ever becomes that, this reveal has to go back to the default travel
+         with a server-rendered marker and a `failSafe`.
+
+         `use:animateIn` and not a local IntersectionObserver: one-shot on
+         first intersection at threshold 0 is already what the action does, and
+         a second copy of it here is exactly the re-derivation CLAUDE.md names
+         (Slider, trapFocus, prefersReducedMotion). It is also a complete no-op
+         under reduced motion — it tears itself down before it hides anything —
+         which is this animation's reduced-motion answer. -->
     <div
       {...carousel.region}
+      use:animateIn={REVEAL}
       data-featured-card
       data-carousel-ready={carousel.hydrated ? "" : undefined}
       class="@container relative isolate bg-light text-primary lg:col-start-2 lg:row-start-1"
@@ -259,32 +357,56 @@
                 alt={slide.image.alt ?? ""}
                 loading="lazy"
                 decoding="async"
+                data-featured-photo
+                style={zoom(i)}
                 class="size-full object-cover"
               />
             </div>
 
+            <!-- The wrapper holds NO opacity of its own: the four lines below
+                 own the whole channel, and two nested fades would multiply
+                 (0.5 over 0.5 is 0.25 at the halfway mark, not 0.5). The
+                 indices are positional and fixed — a listing with no size line
+                 leaves index 0 unrendered and the title still waits its own
+                 210ms rather than sliding up a place. LEARN MORE is wrapped
+                 rather than given the classes directly: BrandButton ships
+                 `transition-colors`, and a second `transition-property` on the
+                 same element would silently drop one of the two lists (the
+                 defect animateIn's own release() exists for). -->
             <div
               class="col-start-1 row-start-4 mx-5 mt-5 mb-10 flex min-w-0 flex-col gap-5
-                lg:col-start-2 lg:row-span-2 lg:row-start-3
-                {active ? fade.textIn : fade.textOut}"
+                lg:col-start-2 lg:row-span-2 lg:row-start-3"
             >
               <div class="flex flex-col gap-[15px]">
                 {#if slide.sizeLabel}
-                  <p class="t-h4">{slide.sizeLabel}</p>
+                  <p data-featured-line="0" class="t-h4 {active ? lines[0] : lineOut}">
+                    {slide.sizeLabel}
+                  </p>
                 {/if}
-                <h3 class="t-h3">{slide.title}</h3>
+                <h3 data-featured-line="1" class="t-h3 {active ? lines[1] : lineOut}">
+                  {slide.title}
+                </h3>
               </div>
               {#if slide.highlights.length}
-                <ul class="t-body-2 list-disc ps-[21px]">
+                <ul
+                  data-featured-line="2"
+                  class="t-body-2 list-disc ps-[21px] {active ? lines[2] : lineOut}"
+                >
                   {#each slide.highlights as highlight, j (j)}
                     <li>{highlight}</li>
                   {/each}
                 </ul>
               {/if}
               {#if slide.href}
-                <BrandButton href={slide.href} arrow class="self-start">
-                  Learn more <span class="sr-only">about {slide.title}</span>
-                </BrandButton>
+                <!-- `flex`, not a bare block: an inline-flex BrandButton in a
+                     block wrapper sits in a LINE box, whose strut would put a
+                     few px of descender under the button and move its bottom
+                     off the card's 40px foot (the spec measures exactly that). -->
+                <div data-featured-line="3" class="flex self-start {active ? lines[3] : lineOut}">
+                  <BrandButton href={slide.href} arrow>
+                    Learn more <span class="sr-only">about {slide.title}</span>
+                  </BrandButton>
+                </div>
               {/if}
             </div>
           </div>

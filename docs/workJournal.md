@@ -3777,6 +3777,14 @@ tests, axe 0 violations across 4 routes, at load average 8.
 > defect it was removed for. Its "After review" section's removal of the button
 > stands as the reasoning of the day; the button itself is drawn again.
 
+> Superseded in part by 2026-09-22 — Four animations on the featured band, and
+> two tests that passed a mutation. "Two decisions #32 asked of the first
+> consumer" below decided to KEEP the bar's snap to 0 at a turn; the operator
+> called for the comp's dissolve and the bar now fades across the handover. The
+> reasoning under "_The bar's snap to 0._" — one clock, no fading ghost of a
+> count — stands and is what shaped the replacement: only opacity dissolves, and
+> `scaleX` still snaps.
+
 The homepage's "Properties" band (`6802:1460` at 1440, `6994:820` at 390): a
 reserved map column on `#3d0707` beside a sand card that turns through the
 editor's featured listings. This entry covers two agents' work. The first was
@@ -5829,6 +5837,207 @@ files / 1075 tests, axe 0 violations across 5 routes, and the 31 Chromium
 cases in `nav.spec.ts` + `carousel.spec.ts` — the four computed-colour
 assertions there moved from `rgb(178, 172, 159)` to `rgb(232, 225, 209)` and
 are the browser-level proof the swap actually reaches a pixel.
+
+## 2026-09-22 — Four animations on the featured band, and two tests that passed a mutation (`feat/carousel-motion`)
+
+Four things the operator asked for on the homepage's Properties carousel: the
+slide's text arrives as four staggered lines instead of one block, the photo
+drifts 1.00 → 1.03 across its dwell, the 2px bar dissolves at a turn instead of
+snapping, and the card fades and rises 24px into place the first time it is
+scrolled to. Three of them are new motion; the third is a **reversal of a
+decision this journal recorded on 2026-09-21**, and there is now a forward
+pointer under that entry saying so.
+
+**The reversal, and the half of it that survived.** "_The bar's snap to 0._"
+argued that a full bar lingering while it fades says "still counting" after the
+turn has happened, and that a fading ghost would be a CSS animation beside the
+JS clock — the second clock `CarouselProgress`'s header exists to forbid. The
+first half was an aesthetic call the operator has now made the other way. The
+second half was right, and is what shaped the replacement: **only opacity
+dissolves.** `scaleX` still snaps to 0 on the frame the index changes, so the
+number the bar draws still comes from one clock and freezes on every pause; what
+fades is decoration over a value that has already changed. The old assertion in
+`featured-properties.spec.ts` (`barScale < 0.15` at a turn) is kept, not
+deleted, with its comment rewritten to say which half was reversed.
+
+**The new signal, and why `progress` could not be it.** `progress` is
+`clamp01(elapsed / dwell)` and `elapsed` runs NEGATIVE through `settle`, so it
+reads 0 for a handover, for the first frame of an ordinary dwell, and for a
+slide parked after a manual turn — three states a bar must draw differently, all
+spelled the same. So `createCarousel` gained `settling` (`eligible && elapsed <
+0`) and `settle` (the number, so the component's fade lasts exactly the
+consumer's dissolve rather than a 500 copied into it). Both are additive
+getters; the claim that additive getters break none of the existing cases was
+verified by running them, not assumed — 49 before, 52 after, and the only shape
+assertions in that file are `toEqual({})` on the empty attribute bags.
+
+**`rotating`, not `settling` alone, and this is not a detail.** A manual turn
+parks `elapsed` at `-settle`, and with the clock stopped there is no frame loop
+to bring it back up: `settling` stays true for as long as the carousel stays
+paused. A bar gated on it alone fades out and never returns. Pinned at ten laps
+in `CarouselProgress.test.ts`, and the mutation that drops `carousel.rotating &&`
+turns that case red with `expected 'handover' to be 'timed'`.
+
+**A belief corrected by jsdom.** The first version of that case asserted "a
+manual turn does not dissolve" and went red against correct code: jsdom's
+`fireEvent.click` dispatches no focus, so pressing Next there leaves the clock
+RUNNING — and a turn with the clock running SHOULD dissolve, because a swipe,
+which focuses nothing, is exactly that case in a real browser. The property worth
+pinning was never "manual" but "the clock is stopped", so the test presses Pause
+first. My test's premise was wrong, not the component.
+
+**The stagger's numbers were fixed by the settle, not chosen.** The bar starts
+filling at 500ms and the whole point of `settle: DISSOLVE` is that it starts on
+a slide that has finished arriving. Four lines 60ms apart occupy 180ms of
+sequencing; with the text's old 250ms exit the window left for each line's own
+fade was 500 − 250 − 180 = **70ms**, which reads as a flick rather than a rise.
+Letting it overrun instead would have put the last line at 250 + 180 + 250 =
+**680ms**, 180ms into a dwell the bar was already drawing. Neither was worth
+having, so the EXIT lost 100ms (250 → 150) and each line gained 170ms. The last
+line lands at 330 + 170 = 500 exactly. Measured on a production build of `/`:
+the four lines reach full opacity at **324, 382, 440 and 507ms** after the turn
+at 1440, and 325 / 383 / 441 / 507 at 390 — 58ms apart, the last within one
+sampled frame of the settle.
+
+The wrapper's own fade had to go: two nested opacities multiply, and 0.5 over
+0.5 is 0.25 at the halfway mark, not 0.5. The lines own the whole channel now
+and their wrapper owns none of it. LEARN MORE is wrapped in a `flex self-start`
+div rather than given the classes directly — `BrandButton` ships
+`transition-colors`, and a second `transition-property` on one element silently
+drops one of the two lists (the defect `animateIn`'s own `release()` exists
+for). `flex` and not a bare block: an inline-flex button inside a block wrapper
+sits in a line box whose strut would push its bottom off the card's 40px foot,
+which is a number the spec measures.
+
+**Ken Burns is drawn off `progress` every frame, on the `<img>`.** No
+`@keyframes`: app.css zeroes `animation-duration` to 0.01ms with
+`iteration-count: 1`, so a `forwards` fill SNAPS to `scale(1.03)` and HOLDS it —
+a permanently zoomed photo wearing the costume of "no animation". Off `progress`
+it freezes on every pause for free and disappears entirely under reduced motion,
+because `eligible` folds `reduced` in and the style attribute is then not written
+at all. Not on the wrapper: two assertions read the wrapper's
+`transition-duration` as the comp's 0.5s dissolve, and a second transitioned
+property there makes the computed value a two-item list.
+
+An off-stage photo is held at the END scale (1.03) rather than reset to 1. At a
+clock turn the outgoing slide has just run its dwell out, so it is already there
+to within a frame and nothing moves; resetting it would shrink a fully opaque
+photo by 3% under an incoming one that is still at opacity 0 — **27.8px of width
+on the 928 box**. The incoming photo's own jump back to 1.00 happens on the frame
+it becomes active, while its opacity is still 0, so it is unobservable.
+
+`rotating` stays true through the whole 500ms settle with `progress` pinned at 0,
+so the photo sits still for the dissolve and then travels over 4000ms. Measured
+and kept: the zoom starts when the slide is fully shown, at the same instant the
+bar starts filling. One clock, visibly.
+
+**The reveal, and the hazard it was allowed to take.** `use:animateIn` with
+`translateY: "24px", duration: 600, delayMax: 0`. `delayMax` matters: the default
+400 is multiplied by `left / innerWidth`, and at 1440 the card's left edge is 513
+of a 1455 viewport — **141.031ms** of nothing happening, measured by mutating the
+option away. A card travelling its own 24px may not ship `data-reveal` from the
+server, because app.css hides `[data-reveal]` at a hard-coded `translateY(50%)`
+and `src/reveal-hidden-state.test.ts` holds that number against the action's
+default. So the card paints in final position and is put back to opacity 0 at
+hydration.
+
+**That is only acceptable because it happens off screen, and it is measured
+rather than asserted:** on a production build of `/`, the card's top is
+**1021.72px in a 900px viewport at 1440, and 1150.04px in an 844px viewport at
+390** — 1.14 and 1.36 viewports below the fold. If the band ever becomes the
+first thing on the page, this reveal has to go back to the default travel with a
+server-rendered marker and a `failSafe`, or go away.
+
+**A belief corrected on contact, and the more interesting half of that.**
+`animateIn`'s own comment says un-marked content "vanishes at hydration".
+Measured, it does not vanish: `applyHidden` writes the hidden opacity and the
+transition in one block, so the browser starts a transition INTO the hidden state
+and the element FADES OUT over 600ms. Four readings of computed opacity taken
+right after hydration, with the inline attribute already saying `opacity: 0`:
+0.92, 0.97, 0.267, 0.0296. That cost an hour of chasing a reveal that had not
+fired — the test was reading mid-fade-out and calling it "already revealed" —
+and it makes the hazard worse than the comment claims, not better: above the fold
+a reader would watch the card fade away and then fade back. `animateIn.ts` was
+outside this batch's files, so the correction is issue #101 and not a commit.
+
+**Two mutations that did NOT go red, which is the part of this worth reading.**
+Seven were run; five failed as designed. Two passed, and both were test gaps:
+
+1. Building the delay classes at runtime — `[150, 210, 270, 330].map((n) =>
+"delay-[" + n + "ms]")` — left the unit test GREEN, because the rendered
+   class attribute is byte-identical and jsdom resolves no stylesheet.
+   Tailwind's source scan never sees the string, ships no CSS, and the browser
+   measures `0s` on all four. The browser case caught it exactly there. The unit
+   case is kept for what it does say, with a comment naming what it cannot.
+2. Deleting `delayMax: 0` left the unit test green too: the delay is
+   `delayMax × (getBoundingClientRect().left / innerWidth)` and jsdom has no
+   layout, so `left` is 0 and the product is 0 whatever `delayMax` says. The
+   browser case now asserts `transition-delay: 0s` and reports `0.141031s`
+   without it.
+
+A third mutation set the bar's fade duration to 0ms and the dissolve test
+**passed**, which was a gap in the assertion rather than in the layer: `min
+opacity < 0.8` is as true of an instant drop to 0 as of a fade. Three assertions
+replaced it — the fade must be gradual (more than five samples strictly between
+0.02 and 0.98), half spent at the halfway mark (0.25–0.75), and monotone
+non-increasing — plus the computed `transition-duration` read off the inline
+style the component writes from `carousel.settle`. The same mutation then fails
+with `Expected: > 5, Received: 0`.
+
+The five that went red on the first try: the runtime-built delays (browser,
+`"0.15s"` → `"0s"` on all four); `KEN_BURNS = 0` (`1 → 1 over 1400.9ms`); a
+`transition-transform duration-[3000ms]` on the photo, which is the two-clocks
+defect and left the scale sliding through a pause (`Expected: 1.00066, Received:
+1.00512`); dropping the `eligible` guard on the zoom, which put
+`transform: scale(1.00000)` on the photo under reduced motion; and the reveal's
+travel back to the default 50% (`matrix(1, 0, 0, 1, 0, 413.203)` for 24).
+
+**The axe case had to learn to scroll.** `featured-properties.spec.ts`'s "the
+band passes axe" case requires ZERO `color-contrast` incompletes and at least 6
+measured nodes — it exists because an off-stage slide left at opacity 0 once made
+axe answer `bgOverlap` for six of the card's seven text nodes. A card sitting
+below the fold at opacity 0 is the same defect by another route, so the case now
+scrolls the band into view and waits for positive evidence the reveal has
+finished (`animateIn` removes every inline style it wrote, so opacity 1 AND
+`transform: none`) before it audits. That covers this band. It does not cover the
+next slice that reveals: the a11y GATE never scrolls and carries no
+`reducedMotion`, so a below-fold reveal is audited at opacity 0 and axe returns
+an incomplete, which the gate does not fail on. Issue #100.
+
+**Declined, having read them.** `Slider.svelte` again, for its own header's
+reasons. A local `IntersectionObserver` in the slice, for `animateIn` (23 tests,
+one-shot at threshold 0, `observer.disconnect()` on first intersection) — that
+re-derivation is the class CLAUDE.md names. And an `inView` term on
+`createCarousel`: the band starts turning at hydration while still below the
+fold, so a reader who takes 10s to arrive lands on slide 3, possibly
+mid-dissolve, with the reveal now fading in a card that is already moving. It is
+a change to a shared primitive for one consumer's problem, needs its own tests,
+and needs a decision about where a never-seen carousel should sit. Issue #99.
+
+**Verified on a production build**, because `/dev/*` 404s there and this is a
+CSS-and-motion result: `pnpm build && pnpm preview`, measured on the real `/` at
+1440×900 and 390×844. The four delays resolve out of the production Tailwind CSS
+(0.15 / 0.21 / 0.27 / 0.33s at 0.17s); the photo holds exactly 1.0000 through the
+settle then travels 1.00080 → 1.00826; the bar's handover runs 60 frames at a
+computed 0.5s from opacity 1.00 to 0.02 with its value at 0 throughout; the card
+hides at `matrix(1, 0, 0, 1, 0, 24)` with `0.6s, 0.6s` and a `0s` delay and comes
+back to `opacity: 1, transform: none` with its style attribute emptied. Under
+reduced motion, on the same build: no style on the card, no style on any of the
+three photos, the bar in position mode, and all four line delays `0s`. No console
+or page errors at either width, in either motion state.
+
+**Green.** `pnpm verify` end to end: prettier + eslint clean, svelte-check 4627
+files 0 errors, axe 0 violations, 1087 unit tests across 102 files, 153 Chromium
+cases. Worth recording because it contradicts the brief this batch was given: the
+known macOS red at `featured-properties.spec.ts`'s 1440 text-column assertion
+(#80, #83 — 436.89 against a gate of 435) did NOT fire in any run here, including
+a targeted one. It is environment- or load-dependent rather than reliably red on
+macOS, and nothing in this batch touches that column.
+
+Filed and not fixed: #99 (no intersection term on rotation), #100 (the a11y gate
+never scrolls), #101 (animateIn's "vanishes" is a fade). Closed: the last bullet
+of #32; the rest of #32 stays open, and its comment now says which parts this
+batch answered and which it did not.
 
 ## 2026-09-22 — The ground past the top of the page was never once visible, and the test that "proved" it assumed the thing in question (#86)
 

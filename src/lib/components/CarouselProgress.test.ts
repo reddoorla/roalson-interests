@@ -86,8 +86,16 @@ describe("CarouselProgress", () => {
 
     await advance(DWELL / 2);
     expect(scale(container)).toBeCloseTo(0.5, 10);
-    // No easing on top of the clock: a transition would keep moving after a pause.
-    expect(fill(container).className).not.toContain("transition");
+    // No easing on top of the clock — the VALUE the clock draws is `scaleX`,
+    // and a transition on it would keep moving after a pause. The bar does
+    // fade at a handover (see below), so the assertion is no longer "no
+    // transition at all": it is that nothing eases the transform, and that
+    // mid-dwell the fade is parked at 0ms with the fill fully opaque.
+    expect(fill(container).className).not.toContain("transition-transform");
+    expect(fill(container).className.split(/\s+/)).toContain("transition-opacity");
+    expect(fill(container).className.split(/\s+/)).toContain("opacity-100");
+    expect(fill(container).getAttribute("style")).toContain("transition-duration: 0ms");
+    expect(fill(container).dataset.carouselFill).toBe("timed");
 
     await fireEvent.click(getByLabelText("Pause slides"));
     // 5.25 dwells, not 5: a bar that ignored the pause is back at 0.5 after a
@@ -98,6 +106,94 @@ describe("CarouselProgress", () => {
     await fireEvent.click(getByLabelText("Play slides"));
     await advance(DWELL / 2);
     expect(scale(container)).toBe(0); // the slide turned; the next dwell starts empty
+  });
+
+  // ── the handover dissolve ───────────────────────────────────────────────
+  //
+  // REVERSED DECISION. The bar used to snap to 0 at a turn and wait out the
+  // consumer's dissolve there; the comp cross-dissolves a full bar into an
+  // empty one, and the operator asked for the comp. What changed is OPACITY
+  // only — `scaleX` still snaps, so the clock is still the only thing that
+  // draws the value, and the case above proves the transform is not eased.
+
+  it("dissolves the fill across the consumer's settle when the CLOCK turns", async () => {
+    vi.useFakeTimers();
+    const SETTLE = 32 * FRAME; // 512ms, a whole number of frames near the comp's 500
+    const { container } = render(CarouselFixture, {
+      props: { count: 3, autoplay: DWELL, settle: SETTLE },
+    });
+
+    // Mid-dwell: opaque, and the fade parked at 0ms so nothing is pending.
+    await advance(DWELL / 2);
+    expect(fill(container).dataset.carouselFill).toBe("timed");
+    expect(fill(container).getAttribute("style")).toContain("transition-duration: 0ms");
+
+    // The frame the clock turns the slide.
+    await advance(DWELL / 2);
+    expect(fill(container).dataset.carouselFill).toBe("handover");
+    expect(fill(container).className.split(/\s+/)).toContain("opacity-0");
+    // The fade lasts exactly the carousel's own settle — not a number written
+    // into this component, which would drift from whatever the consumer uses.
+    expect(fill(container).getAttribute("style")).toContain(`transition-duration: ${SETTLE}ms`);
+    // …and the value itself still SNAPPED. This is the half that did not change.
+    expect(scale(container)).toBe(0);
+
+    // The handover ends with the settle, and the fill comes back instantly —
+    // at scaleX(0) there is nothing to watch arrive.
+    await advance(SETTLE);
+    expect(fill(container).dataset.carouselFill).toBe("timed");
+    expect(fill(container).className.split(/\s+/)).toContain("opacity-100");
+    expect(fill(container).getAttribute("style")).toContain("transition-duration: 0ms");
+  });
+
+  it("does NOT dissolve when the turn happens with the clock stopped", async () => {
+    // THE REASON `handover` IS GATED ON `rotating` AND NOT ON `settling`
+    // ALONE. A turn parks `elapsed` at -settle, and with the clock stopped
+    // there is no frame loop to run it back up: `settling` stays true for as
+    // long as the carousel stays paused. A bar gated on it alone would fade
+    // out and never come back — measured below at ten laps.
+    //
+    // Written with an explicit Pause because jsdom's `click` dispatches no
+    // focus: in a browser, pressing an arrow focuses it and focus entering is
+    // itself the pause (APG), which is the state this reproduces. A turn with
+    // the clock still RUNNING — a swipe, which focuses nothing — does dissolve,
+    // and ends on its own settle; that is the case above.
+    vi.useFakeTimers();
+    const SETTLE = 32 * FRAME;
+    const { container, getByLabelText } = render(CarouselFixture, {
+      props: { count: 3, autoplay: DWELL, settle: SETTLE },
+    });
+    await advance(DWELL / 2);
+
+    await fireEvent.click(getByLabelText("Pause slides"));
+    await fireEvent.click(getByLabelText("Next slide"));
+    expect(fill(container).dataset.carouselFill).toBe("timed");
+    expect(fill(container).className.split(/\s+/)).toContain("opacity-100");
+    // Ten laps later, with nothing running that could end a handover.
+    await advance(10 * (DWELL + SETTLE));
+    expect(fill(container).dataset.carouselFill).toBe("timed");
+    expect(fill(container).className.split(/\s+/)).toContain("opacity-100");
+    expect(scale(container)).toBe(0);
+  });
+
+  it("never dissolves in position mode, where there is no handover to draw", async () => {
+    window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+      matches: query.includes("prefers-reduced-motion"),
+      media: query,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+    }));
+    vi.useFakeTimers();
+    const { container, getByLabelText } = render(CarouselFixture, {
+      props: { count: 3, autoplay: DWELL, settle: 32 * FRAME },
+    });
+    expect(fill(container).dataset.carouselFill).toBe("position");
+    await fireEvent.click(getByLabelText("Next slide"));
+    await advance(3 * DWELL);
+    expect(fill(container).dataset.carouselFill).toBe("position");
+    // Position mode eases the TRANSFORM instead, and has no opacity of its own.
+    expect(fill(container).className).toContain("transition-transform");
+    expect(fill(container).className).not.toContain("opacity-");
   });
 
   it("draws position where nothing is timing out", async () => {
