@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import {
+  imageRefs,
   localSliceModels,
   propertyRefs,
   resolveRefs,
@@ -93,6 +94,36 @@ describe("the pages data file", () => {
     expect(undeclared).toEqual([]);
   });
 
+  it("puts an $image only where the slice's variation declares an Image field", () => {
+    const isImageRef = (v: unknown) =>
+      !!v && typeof v === "object" && typeof (v as { $image?: unknown }).$image === "string";
+    const misplaced: string[] = [];
+    for (const page of pages) {
+      for (const slice of page.data.slices ?? []) {
+        const variation = models[slice.slice_type]?.variations.find(
+          (v) => v.id === slice.variation,
+        );
+        for (const [key, value] of Object.entries(slice.primary)) {
+          const field = variation?.primary?.[key];
+          if (isImageRef(value) && field?.type !== "Image")
+            misplaced.push(`${slice.slice_type}.${key}`);
+          if (field?.type === "Group" && Array.isArray(value)) {
+            for (const row of value as Record<string, unknown>[]) {
+              for (const [sub, v] of Object.entries(row)) {
+                if (isImageRef(v) && field.config?.fields?.[sub]?.type !== "Image")
+                  misplaced.push(`${slice.slice_type}.${key}.${sub}`);
+              }
+            }
+          }
+        }
+      }
+    }
+    expect(misplaced).toEqual([]);
+    // …and the walk above has something to measure. Without this the test
+    // passes just as happily on a file with no photograph in it at all.
+    expect(pages.flatMap((p) => imageRefs(p.data)).length).toBeGreaterThan(0);
+  });
+
   it("names only listings the listings seed stages", () => {
     const strangers = pages
       .flatMap((p) => propertyRefs(p.data))
@@ -120,6 +151,12 @@ describe("the home document's bands", () => {
   const home = pages.find((p) => p.uid === "home") as Entry;
   const ids = Object.fromEntries(listings.map((uid) => [uid, `ID-${uid}`]));
   const order = (home.data.slices ?? []).map((s) => s.slice_type);
+  // The media library as `existingAssets()` returns it, for whatever the file
+  // names — so the assertions below cannot pass by naming a photograph the
+  // data does not actually reference.
+  const library = Object.fromEntries(
+    (imageRefs(home.data) as string[]).map((f) => [f, { id: `ASSET-${f}`, url: `https://x/${f}` }]),
+  );
 
   it("features the comp's three listings, in its order, and asks the model for nothing else", () => {
     const band = (home.data.slices ?? []).find((s) => s.slice_type === "featured_properties");
@@ -140,18 +177,60 @@ describe("the home document's bands", () => {
     expect(order.filter((s) => s === "photo_band")).toHaveLength(1);
   });
 
-  it("keeps an empty band's primary: no image yet is a slice with nothing in it, not no slice", () => {
-    const payload = toPayload(home, ids);
+  it("names the four photographs the media library holds, in document order", () => {
+    expect(imageRefs(home.data)).toEqual([
+      "home-hero-poster-suburban-to-country.jpg",
+      "partner-matt-howard.jpg",
+      "partner-bart-wilson.jpg",
+      "home-photo-band-san-antonio-skyline.jpg",
+    ]);
+  });
+
+  it("fills the photo band: a band with no image was the launch state, and is not any more", () => {
+    const payload = toPayload(home, ids, library);
     const band = payload.data.slices.find((s: Slice) => s.slice_type === "photo_band");
+    expect(band.primary).toEqual({
+      image: { id: "ASSET-home-photo-band-san-antonio-skyline.jpg" },
+    });
+    expect(band.items).toEqual([]);
+  });
+
+  it("keeps an EMPTY band's primary as {} all the same — a slice with nothing in it, not no slice", () => {
+    // The home page no longer exercises this, so it is exercised here: it is
+    // `stripEmpty(...) ?? {}` in toPayload, and the API has nothing to
+    // validate a slice against if the key goes missing altogether.
+    const bare = {
+      uid: "bare",
+      title: "Bare",
+      data: { slices: [{ slice_type: "photo_band", variation: "default", primary: {} }] },
+    };
+    const band = toPayload(bare).data.slices[0];
     expect(band.primary).toEqual({});
     expect(band.items).toEqual([]);
   });
 
-  it("invents nothing about the partners: a name and a role each, and no bio, photo or address", () => {
+  it("gives each partner a name, a role and the client's own headshot — and still no bio or address", () => {
     const partners = (home.data.slices ?? []).find((s) => s.slice_type === "partners");
-    const rows = partners?.primary.partners as Record<string, unknown>[];
+    const rows = partners?.primary.partners as Record<string, { $image?: string }>[];
     expect(rows.map((r) => r.name)).toEqual(["Matt Howard", "Bart Wilson"]);
-    for (const row of rows) expect(Object.keys(row).sort()).toEqual(["name", "role"]);
+    for (const row of rows) expect(Object.keys(row).sort()).toEqual(["name", "photo", "role"]);
+    // Bart Wilson's file is 140×177 in a 153px box and renders soft — #73, not
+    // a defect of this seed, and the only file that exists of him.
+    expect(rows.map((r) => r.photo?.$image)).toEqual([
+      "partner-matt-howard.jpg",
+      "partner-bart-wilson.jpg",
+    ]);
+  });
+
+  it("gives the hero the poster its own Vimeo film opens on", () => {
+    const hero = (home.data.slices ?? []).find((s) => s.slice_type === "home_hero");
+    expect(hero?.primary.vimeo_id).toBe("1229048743");
+    const payload = toPayload(home, ids, library);
+    const staged = payload.data.slices.find((s: Slice) => s.slice_type === "home_hero");
+    expect(staged.primary.poster).toEqual({
+      id: "ASSET-home-hero-poster-suburban-to-country.jpg",
+    });
+    expect(staged.primary.vimeo_id).toBe("1229048743");
   });
 });
 
@@ -179,18 +258,79 @@ describe("resolving listings into content relationships", () => {
   });
 });
 
+describe("resolving photographs into Image fields", () => {
+  const data = {
+    slices: [
+      {
+        primary: {
+          image: { $image: "band.jpg" },
+          rows: [{ photo: { $image: "headshot.jpg" } }],
+        },
+      },
+    ],
+  };
+  // What `existingAssets()` returns: keyed by FILENAME, because a filename is
+  // reviewable in a diff and a sixteen-character asset id is not.
+  const library = {
+    "band.jpg": { id: "ASSET-BAND", url: "https://images.prismic.io/r/ASSET-BAND_band.jpg" },
+    "headshot.jpg": { id: "ASSET-HEAD", url: "https://images.prismic.io/r/ASSET-HEAD_head.jpg" },
+  };
+
+  it("finds every reference, in document order", () => {
+    expect(imageRefs(data)).toEqual(["band.jpg", "headshot.jpg"]);
+  });
+
+  it("swaps each for { id } — the asset id alone, which is the whole of what an Image field takes", () => {
+    const out = resolveRefs(data, {}, library);
+    expect(out.slices[0].primary.image).toEqual({ id: "ASSET-BAND" });
+    expect(out.slices[0].primary.rows).toEqual([{ photo: { id: "ASSET-HEAD" } }]);
+  });
+
+  it("sends no url, alt or dimensions: Prismic writes those into the document off the asset", () => {
+    const out = resolveRefs({ image: { $image: "band.jpg" } }, {}, library);
+    expect(Object.keys(out.image)).toEqual(["id"]);
+  });
+
+  it("STOPS on a filename the media library does not hold — the API takes a bad Image with a 200", () => {
+    expect(() => resolveRefs(data, {}, { "band.jpg": library["band.jpg"] })).toThrow(
+      /no asset in the media library named "headshot\.jpg"/,
+    );
+    expect(() => resolveRefs(data, {}, {})).toThrow(
+      /no asset in the media library named "band\.jpg"/,
+    );
+    // An entry with no id is not an asset either — a half-written state file
+    // must not resolve to `{ id: undefined }`, which stages as an empty image.
+    expect(() => resolveRefs(data, {}, { ...library, "band.jpg": { url: "u" } })).toThrow(
+      /no asset in the media library named "band\.jpg"/,
+    );
+  });
+
+  it("leaves a document with no photographs exactly as it was", () => {
+    const plain = { slices: [{ primary: { heading: "H" } }] };
+    expect(imageRefs(plain)).toEqual([]);
+    expect(resolveRefs(plain, {}, {})).toEqual(plain);
+  });
+});
+
 describe("toPayload", () => {
   it("sends the whole document: every slice with its items, no empty values, the editor's title", () => {
     const home = pages.find((p) => p.uid === "home") as Entry;
-    const payload = toPayload(home, Object.fromEntries(listings.map((u) => [u, `ID-${u}`])));
+    const payload = toPayload(
+      home,
+      Object.fromEntries(listings.map((u) => [u, `ID-${u}`])),
+      Object.fromEntries((imageRefs(home.data) as string[]).map((f) => [f, { id: `ASSET-${f}` }])),
+    );
     expect(payload.type).toBe("page");
     expect(payload.uid).toBe("home");
     expect(payload.title).toBe("Home");
     expect(payload.data.slices.length).toBe(home.data.slices?.length);
     for (const slice of payload.data.slices) expect(slice.items).toEqual([]);
     expect(JSON.stringify(payload)).not.toContain("$property");
+    expect(JSON.stringify(payload)).not.toContain("$image");
     // No empty value anywhere — EXCEPT a slice's own `primary`, which is what
-    // an unfilled band is (the photo band, until a licensed photo exists).
+    // an unfilled band is. Every band on the home page is filled today, so the
+    // replacement below has nothing to do; the contract is held by its own
+    // test in "the home document's bands".
     const withoutPrimaries = JSON.stringify(payload).replaceAll(
       '"primary":{}',
       '"primary":{"x":1}',
@@ -267,9 +407,51 @@ describe("the content signature — what makes a publish's pass positive evidenc
     };
     expect(contentSignature(withBands)).not.toBe(contentSignature(home));
     expect(JSON.parse(contentSignature(withBands)).slices).toEqual([
-      "home_hero/default",
-      "partners/default",
+      "home_hero/default()",
+      "partners/default()",
     ]);
+  });
+
+  it("changes when a slice's primary gains a field — which is what a photograph arriving looks like", () => {
+    // The 2026-09-21 defect, one step along: `photo_band` went from an empty
+    // primary to one holding an image, and a signature that read a slice as
+    // type + variation alone did not move. The publisher's pass IS this
+    // string, so it would have reported the page live and left the photograph
+    // unpublished in the migration release.
+    const filled = {
+      ...home,
+      slices: [{ slice_type: "home_hero", variation: "default", primary: { poster: { id: "A" } } }],
+    };
+    expect(contentSignature(filled)).not.toBe(contentSignature(home));
+    expect(JSON.parse(contentSignature(filled)).slices).toEqual(["home_hero/default(poster)"]);
+    expect(JSON.parse(contentSignature(home)).slices).toEqual(["home_hero/default()"]);
+  });
+
+  it("reads a slice's unfilled group the same whether the API returns [] or the payload omits it", () => {
+    // Measured on the live `home` document: the delivered `partners` band
+    // carries `buttons: []` for a group the comp draws none of, and the
+    // payload that staged it has no `buttons` key at all. Without the
+    // empty-array filter inside the slice, those two never agree and the
+    // publisher can never pass.
+    const sent = {
+      slices: [{ slice_type: "partners", variation: "default", primary: { a: "A" } }],
+    };
+    const delivered = {
+      slices: [
+        {
+          slice_type: "partners",
+          variation: "default",
+          primary: { a: "A", buttons: [], heading: [], eyebrow: null },
+        },
+      ],
+    };
+    expect(contentSignature(delivered)).toBe(contentSignature(sent));
+  });
+
+  it("leaves a document with no slices where it was, byte for byte — the 22 live listings", () => {
+    expect(contentSignature({ title: "T", size_label: "S", tracts: [] })).toBe(
+      '{"slices":[],"keys":["size_label","title"],"scalars":["size_label=S","title=T"]}',
+    );
   });
 
   it("changes when the slices are reordered, or a scalar is edited", () => {

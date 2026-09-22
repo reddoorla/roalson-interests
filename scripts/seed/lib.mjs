@@ -216,15 +216,26 @@ export async function remoteSliceChoices(type, zone, headers, fetchImpl = fetch)
  *  already live", and the single-band version stayed on the site.
  *
  *  WHAT IT PROVES, exactly: the document's filled top-level fields, the value
- *  of every top-level SCALAR one (Text, Number, Select, Boolean), and the
- *  ordered list of its slices by type and variation. WHAT IT DOES NOT: the
+ *  of every top-level SCALAR one (Text, Number, Select, Boolean), the ordered
+ *  list of its slices by type and variation, and PER SLICE the names of the
+ *  fields its `primary` fills. WHAT IT DOES NOT: any value inside a slice, the
  *  contents of rich text, groups, links or images — those count as present or
- *  absent only. A change confined to a paragraph's words will not show here. */
+ *  absent only. A change confined to a paragraph's words will not show here.
+ *
+ *  The per-slice key list was added on 2026-09-21 for the same reason the
+ *  signature exists at all, one step along. Photographs went into the `home`
+ *  page's `photo_band.image`, `home_hero.poster` and the partner rows; the
+ *  signature saw a slice by type and variation ONLY, so it did not move, and
+ *  the publisher — whose pass is this string — would have read "everything
+ *  staged is live" and left four photographs unpublished in the migration
+ *  release. A document with no `slices` key is unaffected, byte for byte: the
+ *  22 live listings fingerprint identically before and after (measured).
+ *
+ *  A partner's headshot is still invisible to it: that photo goes in a row of
+ *  the `partners` GROUP, so the primary's key list does not move. It rides on
+ *  the same document as the two that do. */
 export function contentSignature(data) {
   const filled = stripEmpty(data ?? {}) ?? {};
-  const slices = Array.isArray(filled.slices)
-    ? filled.slices.map((s) => `${s.slice_type}/${s.variation ?? "default"}`)
-    : [];
   // An empty array is UNFILLED here, though `stripEmpty` keeps one (where it is
   // used, on a payload, `[]` is a valid unfilled rich text and the distinction
   // matters). The two sides disagree about it otherwise: the public API returns
@@ -232,9 +243,21 @@ export function contentSignature(data) {
   // omits them. Measured before this line existed: 2 of 22 live listings
   // fingerprinted the same as what staged them; the other 20 differed by the
   // one key `tracts`, which only Scenic Loop and one other actually fill.
-  const keys = Object.keys(filled)
-    .filter((k) => k !== "slices" && !(Array.isArray(filled[k]) && filled[k].length === 0))
-    .sort();
+  //
+  // The same disagreement is inside a slice, and measured there too: the live
+  // `partners` band's primary carries `buttons: []` for the group its model
+  // declares and the comp draws none of, and the payload omits the key.
+  const filledKeys = (o) =>
+    Object.keys(o)
+      .filter((k) => !(Array.isArray(o[k]) && o[k].length === 0))
+      .sort();
+  const slices = Array.isArray(filled.slices)
+    ? filled.slices.map((s) => {
+        const primary = stripEmpty(s.primary ?? {}) ?? {};
+        return `${s.slice_type}/${s.variation ?? "default"}(${filledKeys(primary).join(",")})`;
+      })
+    : [];
+  const keys = filledKeys(filled).filter((k) => k !== "slices");
   const scalar = (v) => ["string", "number", "boolean"].includes(typeof v);
   return JSON.stringify({
     slices,
