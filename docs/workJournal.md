@@ -5393,3 +5393,41 @@ test stayed green — correctly, because the root `<section>` at line 108 is wha
 the canvas colour has to match. A mutation that does not go red is either a gap
 in the test or a mistake in the mutation, and assuming the first is how a real
 gap gets papered over; here it was the second.
+
+**Two sessions were writing into the same worktree, and it nearly got committed.**
+The paragraphs above were appended by a second session working in
+`.claude/worktrees/agent-a9351e3ef4ad28f67` while the masthead session was still
+in it — the same checkout, not a sibling of it. It also merged main into the
+branch twice and pushed, so the branch's head moved three times without the
+session that opened it running a single git command. Nothing was lost, but the
+near-miss was real: a `git add -A` during the window when `nav-over.test.ts` was
+half-rewritten would have committed a file whose imports were already there and
+whose uses were not, and the only evidence at that moment was two transient
+`'PageMasthead' is defined but never used` errors from eslint that vanished on
+the next run. What saved it was staging **four named paths** instead of `-A`,
+and verifying the resulting commit in a throwaway worktree (`git worktree add
+/tmp/… <sha>`) rather than in the dirty checkout — which is the only way to
+learn what the commit actually contains when someone else's edits are sitting
+next to it. CLAUDE.md already says never to commit from a checkout another
+session may be using; it is worth adding that you cannot tell you are in one
+except by watching `git status` grow files you did not touch.
+
+**The gate was red for one character.** `*correct*` where `.prettierrc` wants
+`_correct_`, in the journal paragraph above. `prettier --check .` is the first
+thing `pnpm verify` and CI run, so a branch whose 1055 unit tests, axe run and
+production build were all green reported a red gate over an emphasis marker. A
+journal entry is the one artifact written last, by hand, after the gate has
+already been run — which is exactly when it escapes it.
+
+**Found and not fixed: #91.** `canvasTop` paints what a rubber-band overscroll
+pulls into view above y=0, and `/properties` claims `"primary"` because
+`PageMasthead`'s gradient starts on `from-primary`. With a photo that stops
+being the pixel anyone sees: the photo covers the gradient and `.masthead-shade`
+puts ~0.82 black over its first row, so the band opens near-black while the
+overscroll above it still pulls garnet `#652323`. It cannot be fixed by changing
+the value, because `canvasTop` is a literal in the route's source that
+`nav-over.test.ts` checks against the component's ground CLASS — it is
+structurally incapable of varying with whether a CMS image field is filled. The
+merge that brought the two together also left a comment asserting "the pixel
+above the page is garnet either way", which is false the moment the field is
+filled; that comment is corrected in place, because it is code and not history.
