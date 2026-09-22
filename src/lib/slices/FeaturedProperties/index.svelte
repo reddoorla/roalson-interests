@@ -25,7 +25,7 @@
   // filling rows 1 and 4 and leaving 2 and 3 to the chrome. Each slide is still
   // one element — one APG group, one `inert` — and nothing is positioned over
   // anything: the chrome's real size makes the rows, so an eyebrow that wraps
-  // (it does below 376px, where Pause makes the controls 140 wide) moves the
+  // (it does below 377px, where Pause makes the controls 140 wide) moves the
   // text down instead of printing over it. From `lg` the same four rows hold
   // two columns, 414fr | 514fr = the comp's 20 + 394 | 20 + 474 + 20.
   //
@@ -43,6 +43,15 @@
   // 928 × 542) and drift from there: 6.83px at 1280, where the ratio gives
   // 455.11 and the site's line is 461.94. The column below is the site's
   // arithmetic, so the H1 above and this card share one edge at every width.
+  //
+  // mocks.json CANNOT SHOW THIS BAND IN THE SLICE SIMULATOR, and that is not a
+  // bug to chase. Slice Machine writes a content relationship as a bare
+  // DocumentLink — an id and nothing else — while the band needs the listing's
+  // fields embedded on it (see $lib/featured-properties). Every mock pick is
+  // therefore counted `unembedded` and dropped, and the simulator draws the
+  // empty state: one hidden marker, no card. The fixtures that DO draw it are
+  // $lib/home-fixture's `featuredPropertiesFixture` / `featuredLaunchFixture`,
+  // on /dev/home and /dev/a11y-fixtures, which is where every gate reads it.
   import type { Content } from "@prismicio/client";
   import { cappedWidths } from "@reddoorla/maintenance/images";
 
@@ -93,6 +102,19 @@
   // through each other show the ground between them at the halfway mark. The
   // text fades THROUGH (out, then in): two listings' words overlaid are noise.
   // Under reduced motion app.css zeroes every duration and delay: a plain swap.
+  //
+  // AN OFF-STAGE SLIDE LEAVES THE STACK when the dissolve is over — `invisible`
+  // on the slide itself, delayed by exactly the 500 it takes. Two reasons, and
+  // only one of them is tidiness. `opacity: 0` still paints a box: a slide left
+  // at opacity 0 sits over the one on stage, and axe answers `color-contrast`
+  // for every text node under it with "needs review" (`bgOverlap`) instead of a
+  // ratio — measured at 1440, six of the card's seven text nodes unmeasurable,
+  // which is not a pass (CLAUDE.md: a pass needs positive evidence). It is also
+  // what a screen magnifier and a text-selection drag hit. `visibility` and not
+  // `display`: the stack is what makes the card as tall as its tallest slide,
+  // and hidden boxes still take their space. The delay only exists while the
+  // CLOCK is turning; the user's turns are instant, so the outgoing slide (whose
+  // opacity is already 0) leaves at once.
   const fade = $derived(
     carousel.rotating
       ? {
@@ -100,12 +122,16 @@
           photoOut: "opacity-0 transition-opacity delay-500 duration-0",
           textIn: "opacity-100 transition-opacity delay-[250ms] duration-[250ms]",
           textOut: "opacity-0 transition-opacity duration-[250ms]",
+          slideIn: "visible transition-[visibility] duration-0",
+          slideOut: "invisible transition-[visibility] delay-500 duration-0",
         }
       : {
           photoIn: "opacity-100",
           photoOut: "opacity-0",
           textIn: "opacity-100",
           textOut: "opacity-0",
+          slideIn: "visible",
+          slideOut: "invisible",
         },
   );
 </script>
@@ -159,6 +185,17 @@
              `items-start`: at 390 the eyebrow's cap top is flush with the
              arrows' top edge, not centred on them.
 
+             THE 200 IS A FLOOR (`lg:min-h`), NOT A HEIGHT. As `lg:h-[200px]`
+             it was a fixed box top-aligned in its own grid area, so the moment
+             any slide's text ran taller than 203 the area grew underneath it
+             and the arrows stayed where they were: measured 60.03 above the
+             card's foot instead of 43 at 1024/1100/1280 with the fixture's own
+             copy, and at a true 1440 with the launch listing's five bullets —
+             arrows, LEARN MORE and the foot on three different lines. A grid
+             item stretches by default, so `h-auto` + the floor keeps 20 + 200
+             + 43 = the comp's 285 for short content AND the arrows 43 above
+             the foot at every width and every length.
+
              `lg:row-start-3` LOOKS redundant beside `row-start-3` and is not.
              `lg:row-span-2` is the `grid-row` SHORTHAND, and inside the `lg`
              media block it lands later in the stylesheet than the unprefixed
@@ -172,7 +209,7 @@
           data-featured-chrome
           class="relative z-[2] col-start-1 row-start-3 mx-5 mt-[10px] flex items-start
             justify-between gap-5 lg:row-span-2 lg:row-start-3 lg:mt-5 lg:mr-0 lg:mb-[43px]
-            lg:h-[200px] lg:flex-col"
+            lg:h-auto lg:min-h-[200px] lg:flex-col"
         >
           <h2 id="{uid}-heading" class="t-h4 min-w-0">{heading}</h2>
           <CarouselArrows {carousel} />
@@ -192,7 +229,7 @@
             {...carousel.slide(i)}
             data-featured-slide
             class="col-span-full row-span-4 row-start-1 grid grid-cols-subgrid grid-rows-subgrid
-              {active ? '' : 'pointer-events-none'}"
+              {active ? fade.slideIn : `pointer-events-none ${fade.slideOut}`}"
           >
             <!-- 928 × 542 at 1440 and 390 × 227.8 at 390: one ratio. Every slide
                  is in the DOM and the band starts below the fold at both widths,

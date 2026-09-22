@@ -113,18 +113,27 @@ describe("FeaturedProperties slice", () => {
       );
     });
 
-    it("only slide 1 is on stage in the server's markup; the rest are out of the tab order", () => {
+    it("puts only slide 1 on stage; the rest are out of the tab order and out of the stack", () => {
+      // NOT "in the server's markup" — this renders in jsdom, where effects
+      // run and `hydrated` is already true. What the SERVER sends is asserted
+      // in the browser, with scripting off, in
+      // tests/interaction/featured-properties.spec.ts.
       const { container } = render(FeaturedProperties, {
         props: { slice: featuredPropertiesFixture() },
       });
       const [first, ...rest] = slidesOf(container);
       expect(first.hasAttribute("aria-hidden")).toBe(false);
       expect(first.hasAttribute("inert")).toBe(false);
+      expect(first.className).toContain("visible");
       for (const s of rest) {
         expect(s.getAttribute("aria-hidden")).toBe("true");
         // jsdom has no `inert` PROPERTY, so the spread writes the attribute.
         expect(s.hasAttribute("inert") || (s as unknown as { inert: boolean }).inert).toBe(true);
         expect(s.className).toContain("pointer-events-none");
+        // …and out of the paint: an off-stage slide left at opacity 0 still
+        // covers the card, which is what made axe answer `bgOverlap` instead
+        // of a contrast ratio for six of the card's seven text nodes.
+        expect(s.className).toContain("invisible");
       }
     });
 
