@@ -2,113 +2,113 @@
   "documents": {
     "101-w-commerce-street": {
       "id": "arFhaRIAACcALcQN",
-      "at": "2026-09-21T23:47:24.506Z",
-      "signature": "{\"slices\":[],\"keys\":[\"category\",\"highlights\",\"is_new\",\"location\",\"order\",\"package_pdf\",\"price_per_unit\",\"size_label\",\"size_total_sf\",\"status\",\"title\",\"total_price\",\"zoning\"],\"scalars\":[\"category=Improved\",\"is_new=false\",\"order=30\",\"price_per_unit=$375.17 / SF\",\"size_label=7,863 SF\",\"size_total_sf=7863\",\"status=Available\",\"title=101 W. Commerce Street\",\"total_price=$2,950,000\",\"zoning=Downtown District, San Antonio\"]}"
+      "at": "2026-09-22T07:57:25.089Z",
+      "signature": "{\"slices\":[],\"keys\":[\"category\",\"feature_image\",\"highlights\",\"is_new\",\"location\",\"order\",\"package_pdf\",\"price_per_unit\",\"size_label\",\"size_total_sf\",\"status\",\"title\",\"total_price\",\"zoning\"],\"scalars\":[\"category=Improved\",\"is_new=false\",\"order=30\",\"price_per_unit=$375.17 / SF\",\"size_label=7,863 SF\",\"size_total_sf=7863\",\"status=Available\",\"title=101 W. Commerce Street\",\"total_price=$2,950,000\",\"zoning=Downtown District, San Antonio\"]}"
     },
     "116-old-san-antonio-road": {
       "id": "arFhVxIAAC0ALcOm",
-      "at": "2026-09-21T23:47:05.438Z",
-      "signature": "{\"slices\":[],\"keys\":[\"acres\",\"category\",\"highlights\",\"is_new\",\"location\",\"order\",\"package_pdf\",\"size_label\",\"status\",\"title\",\"total_price\",\"zoning\"],\"scalars\":[\"acres=17.2\",\"category=Land — SA Metro & Surrounding\",\"is_new=false\",\"order=100\",\"size_label=17.2 acres\",\"status=Available\",\"title=116 Old San Antonio Road\",\"total_price=Contact Broker\",\"zoning=R-E (Residential Estate), City of Boerne\"]}"
+      "at": "2026-09-22T07:57:06.416Z",
+      "signature": "{\"slices\":[],\"keys\":[\"acres\",\"category\",\"feature_image\",\"highlights\",\"is_new\",\"location\",\"order\",\"package_pdf\",\"size_label\",\"status\",\"title\",\"total_price\",\"zoning\"],\"scalars\":[\"acres=17.2\",\"category=Land — SA Metro & Surrounding\",\"is_new=false\",\"order=100\",\"size_label=17.2 acres\",\"status=Available\",\"title=116 Old San Antonio Road\",\"total_price=Contact Broker\",\"zoning=R-E (Residential Estate), City of Boerne\"]}"
     },
     "11714-perrin-beitel-road": {
       "id": "arFhZRIAAC4ALcP2",
-      "at": "2026-09-21T23:47:20.300Z",
-      "signature": "{\"slices\":[],\"keys\":[\"acres\",\"category\",\"highlights\",\"is_new\",\"location\",\"order\",\"package_pdf\",\"price_per_unit\",\"size_label\",\"status\",\"title\",\"total_price\",\"zoning\"],\"scalars\":[\"acres=2.172\",\"category=Land — SA Metro & Surrounding\",\"is_new=false\",\"order=110\",\"price_per_unit=$17.00 / SF\",\"size_label=2.172 acres\",\"status=Available\",\"title=11714 Perrin Beitel Road\",\"total_price=$1,608,409\",\"zoning=C-2\"]}"
+      "at": "2026-09-22T07:57:20.920Z",
+      "signature": "{\"slices\":[],\"keys\":[\"acres\",\"category\",\"feature_image\",\"highlights\",\"is_new\",\"location\",\"order\",\"package_pdf\",\"price_per_unit\",\"size_label\",\"status\",\"title\",\"total_price\",\"zoning\"],\"scalars\":[\"acres=2.172\",\"category=Land — SA Metro & Surrounding\",\"is_new=false\",\"order=110\",\"price_per_unit=$17.00 / SF\",\"size_label=2.172 acres\",\"status=Available\",\"title=11714 Perrin Beitel Road\",\"total_price=$1,608,409\",\"zoning=C-2\"]}"
     },
     "13810-lookout-road": {
       "id": "arFhUhIAACkALcOD",
-      "at": "2026-09-21T23:46:59.341Z",
-      "signature": "{\"slices\":[],\"keys\":[\"category\",\"highlights\",\"is_new\",\"location\",\"order\",\"package_pdf\",\"size_label\",\"size_office_sf\",\"size_total_sf\",\"size_warehouse_sf\",\"status\",\"title\",\"total_price\"],\"scalars\":[\"category=Improved\",\"is_new=false\",\"order=40\",\"size_label=4,230 SF\",\"size_office_sf=1340\",\"size_total_sf=4230\",\"size_warehouse_sf=2890\",\"status=Available\",\"title=13810 Lookout Road\",\"total_price=Contact Broker\"]}"
+      "at": "2026-09-22T07:56:59.870Z",
+      "signature": "{\"slices\":[],\"keys\":[\"category\",\"feature_image\",\"highlights\",\"is_new\",\"location\",\"order\",\"package_pdf\",\"size_label\",\"size_office_sf\",\"size_total_sf\",\"size_warehouse_sf\",\"status\",\"title\",\"total_price\"],\"scalars\":[\"category=Improved\",\"is_new=false\",\"order=40\",\"size_label=4,230 SF\",\"size_office_sf=1340\",\"size_total_sf=4230\",\"size_warehouse_sf=2890\",\"status=Available\",\"title=13810 Lookout Road\",\"total_price=Contact Broker\"]}"
     },
     "25331-ih-10-west": {
       "id": "arFgoxIAAC4ALcBx",
-      "at": "2026-09-21T23:46:55.022Z",
+      "at": "2026-09-22T07:56:55.711Z",
       "signature": "{\"slices\":[],\"keys\":[\"category\",\"feature_image\",\"highlights\",\"is_new\",\"location\",\"order\",\"package_pdf\",\"size_label\",\"status\",\"title\",\"total_price\",\"transaction_type\"],\"scalars\":[\"category=Improved\",\"is_new=false\",\"order=10\",\"size_label=Up to 16,700 SF\",\"status=Available\",\"title=25331 IH 10 West\",\"total_price=Contact Broker\",\"transaction_type=Lease\"]}"
     },
     "402-w-nueva-street": {
       "id": "arFhVBIAACsALcOQ",
-      "at": "2026-09-21T23:47:01.412Z",
-      "signature": "{\"slices\":[],\"keys\":[\"acres\",\"category\",\"highlights\",\"is_new\",\"location\",\"order\",\"package_pdf\",\"size_label\",\"status\",\"title\",\"total_price\",\"zoning\"],\"scalars\":[\"acres=2.696\",\"category=Land — SA Metro & Surrounding\",\"is_new=true\",\"order=90\",\"size_label=2.696 acres\",\"status=Available\",\"title=402 W. Nueva Street\",\"total_price=Contact Broker\",\"zoning=D (Downtown), City of San Antono\"]}"
+      "at": "2026-09-22T07:57:02.025Z",
+      "signature": "{\"slices\":[],\"keys\":[\"acres\",\"category\",\"feature_image\",\"highlights\",\"is_new\",\"location\",\"order\",\"package_pdf\",\"size_label\",\"status\",\"title\",\"total_price\",\"zoning\"],\"scalars\":[\"acres=2.696\",\"category=Land — SA Metro & Surrounding\",\"is_new=true\",\"order=90\",\"size_label=2.696 acres\",\"status=Available\",\"title=402 W. Nueva Street\",\"total_price=Contact Broker\",\"zoning=D (Downtown), City of San Antonio\"]}"
     },
     "5001-walzem-road": {
       "id": "arFhShIAACoALcNX",
-      "at": "2026-09-21T23:46:50.698Z",
-      "signature": "{\"slices\":[],\"keys\":[\"category\",\"highlights\",\"is_new\",\"location\",\"order\",\"package_pdf\",\"size_label\",\"size_total_sf\",\"status\",\"title\",\"total_price\",\"zoning\"],\"scalars\":[\"category=Improved\",\"is_new=false\",\"order=50\",\"size_label=2,898 SF\",\"size_total_sf=2898\",\"status=Available\",\"title=5001 Walzem Road\",\"total_price=$1,550,000\",\"zoning=B1, City of Windcrest\"]}"
+      "at": "2026-09-22T07:56:51.589Z",
+      "signature": "{\"slices\":[],\"keys\":[\"category\",\"feature_image\",\"highlights\",\"is_new\",\"location\",\"order\",\"package_pdf\",\"size_label\",\"size_total_sf\",\"status\",\"title\",\"total_price\",\"zoning\"],\"scalars\":[\"category=Improved\",\"is_new=false\",\"order=50\",\"size_label=2,898 SF\",\"size_total_sf=2898\",\"status=Available\",\"title=5001 Walzem Road\",\"total_price=$1,550,000\",\"zoning=B1, City of Windcrest\"]}"
     },
     "5930-bandera-road": {
       "id": "arFhYxIAACwALcPu",
-      "at": "2026-09-21T23:47:18.250Z",
-      "signature": "{\"slices\":[],\"keys\":[\"category\",\"highlights\",\"is_new\",\"location\",\"order\",\"package_pdf\",\"size_label\",\"size_total_sf\",\"status\",\"title\",\"total_price\",\"zoning\"],\"scalars\":[\"category=Improved\",\"is_new=false\",\"order=20\",\"size_label=5,220 SF\",\"size_total_sf=5220\",\"status=Available\",\"title=5930 Bandera Road\",\"total_price=Contact Broker\",\"zoning=B-3, Commercial, City of Leon Valley\"]}"
+      "at": "2026-09-22T07:57:18.637Z",
+      "signature": "{\"slices\":[],\"keys\":[\"category\",\"feature_image\",\"highlights\",\"is_new\",\"location\",\"order\",\"package_pdf\",\"size_label\",\"size_total_sf\",\"status\",\"title\",\"total_price\",\"zoning\"],\"scalars\":[\"category=Improved\",\"is_new=false\",\"order=20\",\"size_label=5,220 SF\",\"size_total_sf=5220\",\"status=Available\",\"title=5930 Bandera Road\",\"total_price=Contact Broker\",\"zoning=B-3, Commercial, City of Leon Valley\"]}"
     },
     "cascade-caverns-at-old-san-antonio-road": {
       "id": "arFhWxIAACoALcO-",
-      "at": "2026-09-21T23:47:09.814Z",
-      "signature": "{\"slices\":[],\"keys\":[\"acres\",\"category\",\"highlights\",\"is_new\",\"location\",\"order\",\"package_pdf\",\"size_label\",\"status\",\"title\",\"total_price\",\"zoning\"],\"scalars\":[\"acres=5.0106\",\"category=Land — SA Metro & Surrounding\",\"is_new=false\",\"order=70\",\"size_label=5.0106 acres\",\"status=Available\",\"title=Cascade Caverns at Old San Antonio Road\",\"total_price=Contact Broker\",\"zoning=C-3, City of Boerne\"]}"
+      "at": "2026-09-22T07:57:10.471Z",
+      "signature": "{\"slices\":[],\"keys\":[\"acres\",\"category\",\"feature_image\",\"highlights\",\"is_new\",\"location\",\"order\",\"package_pdf\",\"size_label\",\"status\",\"title\",\"total_price\",\"zoning\"],\"scalars\":[\"acres=5.0106\",\"category=Land — SA Metro & Surrounding\",\"is_new=false\",\"order=70\",\"size_label=5.0106 acres\",\"status=Available\",\"title=Cascade Caverns at Old San Antonio Road\",\"total_price=Contact Broker\",\"zoning=C-3, City of Boerne\"]}"
     },
     "highway-77-at-general-cavazos-kingsville": {
       "id": "arFhcRIAACgALcQ7",
-      "at": "2026-09-21T23:47:33.263Z",
-      "signature": "{\"slices\":[],\"keys\":[\"acres\",\"category\",\"highlights\",\"is_new\",\"location\",\"order\",\"package_pdf\",\"size_label\",\"status\",\"title\",\"total_price\",\"zoning\"],\"scalars\":[\"acres=1.148\",\"category=Land — Out of San Antonio\",\"is_new=false\",\"order=1040\",\"size_label=1.148 acres\",\"status=Available\",\"title=Highway 77 at General Cavazos Blvd., Kingsville\",\"total_price=Contact Broker\",\"zoning=AG - Agricultural\"]}"
+      "at": "2026-09-22T07:57:33.537Z",
+      "signature": "{\"slices\":[],\"keys\":[\"acres\",\"category\",\"feature_image\",\"highlights\",\"is_new\",\"location\",\"order\",\"package_pdf\",\"size_label\",\"status\",\"title\",\"total_price\",\"zoning\"],\"scalars\":[\"acres=1.148\",\"category=Land — Out of San Antonio\",\"is_new=false\",\"order=1040\",\"size_label=1.148 acres\",\"status=Available\",\"title=Highway 77 at General Cavazos Blvd., Kingsville\",\"total_price=Contact Broker\",\"zoning=AG - Agricultural\"]}"
     },
     "ih-10-at-fm-725-seguin": {
       "id": "arFhaxIAAC0ALcQY",
-      "at": "2026-09-21T23:47:26.607Z",
-      "signature": "{\"slices\":[],\"keys\":[\"acres\",\"category\",\"highlights\",\"is_new\",\"location\",\"order\",\"package_pdf\",\"size_label\",\"status\",\"title\",\"total_price\",\"zoning\"],\"scalars\":[\"acres=3\",\"category=Land — Out of San Antonio\",\"is_new=false\",\"order=1010\",\"size_label=3 acres\",\"status=Available\",\"title=IH 10 at FM 725, Seguin\",\"total_price=Contact Broker\",\"zoning=C, Commercial, City of Seguin\"]}"
+      "at": "2026-09-22T07:57:27.402Z",
+      "signature": "{\"slices\":[],\"keys\":[\"acres\",\"category\",\"feature_image\",\"highlights\",\"is_new\",\"location\",\"order\",\"package_pdf\",\"size_label\",\"status\",\"title\",\"total_price\",\"zoning\"],\"scalars\":[\"acres=3\",\"category=Land — Out of San Antonio\",\"is_new=false\",\"order=1010\",\"size_label=3 acres\",\"status=Available\",\"title=IH 10 at FM 725, Seguin\",\"total_price=Contact Broker\",\"zoning=C, Commercial, City of Seguin\"]}"
     },
     "ih-10-at-highway-46": {
       "id": "arFhXxIAACoALcPW",
-      "at": "2026-09-21T23:47:14.021Z",
-      "signature": "{\"slices\":[],\"keys\":[\"acres\",\"category\",\"highlights\",\"is_new\",\"location\",\"order\",\"package_pdf\",\"size_label\",\"status\",\"title\",\"total_price\",\"transaction_type\",\"zoning\"],\"scalars\":[\"acres=6.552\",\"category=Land — SA Metro & Surrounding\",\"is_new=false\",\"order=30\",\"size_label=6.552 acres\",\"status=Available\",\"title=IH 10 at Highway 46\",\"total_price=Contact Broker\",\"transaction_type=Lease\",\"zoning=C-4 Commercial, City of Boerne\"]}"
+      "at": "2026-09-22T07:57:14.523Z",
+      "signature": "{\"slices\":[],\"keys\":[\"acres\",\"category\",\"feature_image\",\"highlights\",\"is_new\",\"location\",\"order\",\"package_pdf\",\"size_label\",\"status\",\"title\",\"total_price\",\"transaction_type\",\"zoning\"],\"scalars\":[\"acres=6.552\",\"category=Land — SA Metro & Surrounding\",\"is_new=false\",\"order=30\",\"size_label=6.552 acres\",\"status=Available\",\"title=IH 10 at Highway 46\",\"total_price=Contact Broker\",\"transaction_type=Lease\",\"zoning=C-4 Commercial, City of Boerne\"]}"
     },
     "ih-10-at-highway-87-comfort": {
       "id": "arFhbxIAACcALcQw",
-      "at": "2026-09-21T23:47:31.089Z",
-      "signature": "{\"slices\":[],\"keys\":[\"acres\",\"category\",\"highlights\",\"is_new\",\"location\",\"order\",\"package_pdf\",\"size_label\",\"status\",\"title\",\"total_price\",\"zoning\"],\"scalars\":[\"acres=44.83\",\"category=Land — Out of San Antonio\",\"is_new=false\",\"order=1030\",\"size_label=44.83 acres\",\"status=Available\",\"title=IH 10 at Highway 87, Comfort\",\"total_price=Contact Broker\",\"zoning=Outside City of Comfort\"]}"
+      "at": "2026-09-22T07:57:31.421Z",
+      "signature": "{\"slices\":[],\"keys\":[\"acres\",\"category\",\"feature_image\",\"highlights\",\"is_new\",\"location\",\"order\",\"package_pdf\",\"size_label\",\"status\",\"title\",\"total_price\",\"zoning\"],\"scalars\":[\"acres=44.83\",\"category=Land — Out of San Antonio\",\"is_new=false\",\"order=1030\",\"size_label=44.83 acres\",\"status=Available\",\"title=IH 10 at Highway 87, Comfort\",\"total_price=Contact Broker\",\"zoning=Outside City of Comfort\"]}"
     },
     "ih-10-at-menger-springs": {
       "id": "arFhWRIAACoALcOz",
-      "at": "2026-09-21T23:47:07.466Z",
-      "signature": "{\"slices\":[],\"keys\":[\"acres\",\"category\",\"highlights\",\"is_new\",\"location\",\"order\",\"package_pdf\",\"size_label\",\"status\",\"title\",\"total_price\",\"tracts\",\"zoning\"],\"scalars\":[\"acres=10.24\",\"category=Land — SA Metro & Surrounding\",\"is_new=false\",\"order=10\",\"size_label=10.24 acres\",\"status=Available\",\"title=IH 10 at Menger Springs\",\"total_price=Contact Broker\",\"zoning=Tract 1: C-3 Tract 2: C-4 Kendall County\"]}"
+      "at": "2026-09-22T07:57:08.451Z",
+      "signature": "{\"slices\":[],\"keys\":[\"acres\",\"category\",\"feature_image\",\"highlights\",\"is_new\",\"location\",\"order\",\"package_pdf\",\"size_label\",\"status\",\"title\",\"total_price\",\"tracts\",\"zoning\"],\"scalars\":[\"acres=10.24\",\"category=Land — SA Metro & Surrounding\",\"is_new=false\",\"order=10\",\"size_label=10.24 acres\",\"status=Available\",\"title=IH 10 at Menger Springs\",\"total_price=Contact Broker\",\"zoning=Tract 1: C-3 Tract 2: C-4 Kendall County\"]}"
     },
     "ih-10-at-scenic-loop": {
       "id": "arFhXRIAACsALcPK",
-      "at": "2026-09-21T23:47:11.923Z",
-      "signature": "{\"slices\":[],\"keys\":[\"acres\",\"category\",\"highlights\",\"is_new\",\"location\",\"order\",\"package_pdf\",\"size_label\",\"status\",\"title\",\"total_price\",\"tracts\",\"zoning\"],\"scalars\":[\"acres=2.09\",\"category=Land — SA Metro & Surrounding\",\"is_new=false\",\"order=20\",\"size_label=2.09 acres\",\"status=Available\",\"title=IH 10 at Scenic Loop\",\"total_price=Contact Broker\",\"zoning=C-3 Commercial, City of Boerne\"]}"
+      "at": "2026-09-22T07:57:12.507Z",
+      "signature": "{\"slices\":[],\"keys\":[\"acres\",\"category\",\"feature_image\",\"highlights\",\"is_new\",\"location\",\"order\",\"package_pdf\",\"size_label\",\"status\",\"title\",\"total_price\",\"tracts\",\"zoning\"],\"scalars\":[\"acres=2.09\",\"category=Land — SA Metro & Surrounding\",\"is_new=false\",\"order=20\",\"size_label=2.09 acres\",\"status=Available\",\"title=IH 10 at Scenic Loop\",\"total_price=Contact Broker\",\"zoning=C-3 Commercial, City of Boerne\"]}"
     },
     "ih-10-east-at-loop-1604": {
       "id": "arFhVhIAAC0ALcOb",
-      "at": "2026-09-21T23:47:03.388Z",
-      "signature": "{\"slices\":[],\"keys\":[\"acres\",\"category\",\"highlights\",\"is_new\",\"location\",\"order\",\"package_pdf\",\"size_label\",\"status\",\"title\",\"total_price\",\"zoning\"],\"scalars\":[\"acres=1.32\",\"category=Land — SA Metro & Surrounding\",\"is_new=true\",\"order=40\",\"size_label=1.32 acres\",\"status=Available\",\"title=IH 10 East at Loop 1604\",\"total_price=Contact Broker\",\"zoning=C-3 Commercial, City of San Antonio\"]}"
+      "at": "2026-09-22T07:57:04.148Z",
+      "signature": "{\"slices\":[],\"keys\":[\"acres\",\"category\",\"feature_image\",\"highlights\",\"is_new\",\"location\",\"order\",\"package_pdf\",\"size_label\",\"status\",\"title\",\"total_price\",\"zoning\"],\"scalars\":[\"acres=1.32\",\"category=Land — SA Metro & Surrounding\",\"is_new=true\",\"order=40\",\"size_label=1.32 acres\",\"status=Available\",\"title=IH 10 East at Loop 1604\",\"total_price=Contact Broker\",\"zoning=C-3 Commercial, City of San Antonio\"]}"
     },
     "ih-35-at-wonderworld-san-marcos": {
       "id": "arFhbRIAACcALcQl",
-      "at": "2026-09-21T23:47:28.962Z",
-      "signature": "{\"slices\":[],\"keys\":[\"acres\",\"category\",\"highlights\",\"is_new\",\"location\",\"order\",\"package_pdf\",\"size_label\",\"status\",\"title\",\"total_price\",\"zoning\"],\"scalars\":[\"acres=1.47\",\"category=Land — Out of San Antonio\",\"is_new=false\",\"order=1020\",\"size_label=1.47 acres\",\"status=Available\",\"title=IH 35 at Wonderworld Drive, San Marcos\",\"total_price=Contact Broker\",\"zoning=General Commercial, City of San Marcos\"]}"
+      "at": "2026-09-22T07:57:29.402Z",
+      "signature": "{\"slices\":[],\"keys\":[\"acres\",\"category\",\"feature_image\",\"highlights\",\"is_new\",\"location\",\"order\",\"package_pdf\",\"size_label\",\"status\",\"title\",\"total_price\",\"zoning\"],\"scalars\":[\"acres=1.47\",\"category=Land — Out of San Antonio\",\"is_new=false\",\"order=1020\",\"size_label=1.47 acres\",\"status=Available\",\"title=IH 35 at Wonderworld Drive, San Marcos\",\"total_price=Contact Broker\",\"zoning=General Commercial, City of San Marcos\"]}"
     },
     "loop-1604-at-dove-canyon": {
       "id": "arFhchIAAC4ALcRI",
-      "at": "2026-09-21T23:47:35.333Z",
-      "signature": "{\"slices\":[],\"keys\":[\"acres\",\"category\",\"highlights\",\"is_new\",\"location\",\"order\",\"package_pdf\",\"price_per_unit\",\"size_label\",\"status\",\"title\",\"total_price\",\"zoning\"],\"scalars\":[\"acres=13.33\",\"category=Land — SA Metro & Surrounding\",\"is_new=false\",\"order=60\",\"price_per_unit=$8.50 / SF\",\"size_label=13.33 acres\",\"status=Available\",\"title=Loop 1604 at Dove Canyon\",\"total_price=$4,935,566\",\"zoning=Bexar County\"]}"
+      "at": "2026-09-22T07:57:35.585Z",
+      "signature": "{\"slices\":[],\"keys\":[\"acres\",\"category\",\"feature_image\",\"highlights\",\"is_new\",\"location\",\"order\",\"package_pdf\",\"price_per_unit\",\"size_label\",\"status\",\"title\",\"total_price\",\"zoning\"],\"scalars\":[\"acres=13.33\",\"category=Land — SA Metro & Surrounding\",\"is_new=false\",\"order=60\",\"price_per_unit=$8.50 / SF\",\"size_label=13.33 acres\",\"status=Available\",\"title=Loop 1604 at Dove Canyon\",\"total_price=$4,935,566\",\"zoning=Bexar County\"]}"
     },
     "loop-1604-at-highway-181": {
       "id": "arFhZxIAACwALcQB",
-      "at": "2026-09-21T23:47:22.318Z",
+      "at": "2026-09-22T07:57:22.951Z",
       "signature": "{\"slices\":[],\"keys\":[\"acres\",\"category\",\"highlights\",\"is_new\",\"location\",\"order\",\"package_pdf\",\"size_label\",\"status\",\"title\",\"total_price\",\"zoning\"],\"scalars\":[\"acres=3.08\",\"category=Land — SA Metro & Surrounding\",\"is_new=false\",\"order=50\",\"size_label=3.08 acres\",\"status=Available\",\"title=Loop 1604 at Highway 181, Elmendorf\",\"total_price=Contact Broker\",\"zoning=Bexar County San Antonio ETJ\"]}"
     },
     "menger-springs-road": {
       "id": "arFhYRIAACgALcPh",
-      "at": "2026-09-21T23:47:16.149Z",
-      "signature": "{\"slices\":[],\"keys\":[\"acres\",\"category\",\"highlights\",\"is_new\",\"location\",\"order\",\"package_pdf\",\"price_per_unit\",\"size_label\",\"status\",\"title\",\"total_price\",\"zoning\"],\"scalars\":[\"acres=13.36\",\"category=Land — SA Metro & Surrounding\",\"is_new=false\",\"order=80\",\"price_per_unit=$4.50 / SF\",\"size_label=13.36 acres\",\"status=Available\",\"title=Menger Springs Road\",\"total_price=$2,618,827\",\"zoning=C-1, City of Boerne\"]}"
+      "at": "2026-09-22T07:57:16.584Z",
+      "signature": "{\"slices\":[],\"keys\":[\"acres\",\"category\",\"feature_image\",\"highlights\",\"is_new\",\"location\",\"order\",\"package_pdf\",\"price_per_unit\",\"size_label\",\"status\",\"title\",\"total_price\",\"zoning\"],\"scalars\":[\"acres=13.36\",\"category=Land — SA Metro & Surrounding\",\"is_new=false\",\"order=80\",\"price_per_unit=$4.50 / SF\",\"size_label=13.36 acres\",\"status=Available\",\"title=Menger Springs Road\",\"total_price=$2,618,827\",\"zoning=C-1, City of Boerne\"]}"
     },
     "st-marys-at-martin-river-walk": {
       "id": "arFhTBIAACgALcNi",
-      "at": "2026-09-21T23:46:52.985Z",
-      "signature": "{\"slices\":[],\"keys\":[\"acres\",\"category\",\"highlights\",\"is_new\",\"location\",\"order\",\"package_pdf\",\"size_label\",\"status\",\"title\",\"total_price\",\"zoning\"],\"scalars\":[\"acres=0.681\",\"category=Land — SA Metro & Surrounding\",\"is_new=false\",\"order=120\",\"size_label=0.681 acres\",\"status=Available\",\"title=St. Mary's St. at E. Martin St. — River Walk\",\"total_price=Contact Broker\",\"zoning=Downtown District, City of San Antonio\"]}"
+      "at": "2026-09-22T07:56:53.669Z",
+      "signature": "{\"slices\":[],\"keys\":[\"acres\",\"category\",\"feature_image\",\"highlights\",\"is_new\",\"location\",\"order\",\"package_pdf\",\"size_label\",\"status\",\"title\",\"total_price\",\"zoning\"],\"scalars\":[\"acres=0.681\",\"category=Land — SA Metro & Surrounding\",\"is_new=false\",\"order=120\",\"size_label=0.681 acres\",\"status=Available\",\"title=St. Mary's St. at E. Martin St. — River Walk\",\"total_price=Contact Broker\",\"zoning=Downtown District, City of San Antonio\"]}"
     },
     "urban-loop-road": {
       "id": "arFhUBIAAC4ALcN5",
-      "at": "2026-09-21T23:46:57.321Z",
-      "signature": "{\"slices\":[],\"keys\":[\"acres\",\"category\",\"highlights\",\"is_new\",\"location\",\"order\",\"package_pdf\",\"size_label\",\"status\",\"title\",\"total_price\",\"transaction_type\",\"zoning\"],\"scalars\":[\"acres=1.87\",\"category=Land — SA Metro & Surrounding\",\"is_new=false\",\"order=130\",\"size_label=1.87 acres\",\"status=Available\",\"title=503 & 523 Urban Loop Road\",\"total_price=Contact Broker\",\"transaction_type=Sale or Lease\",\"zoning=Downtown District, City of San Antonio\"]}"
+      "at": "2026-09-22T07:56:57.769Z",
+      "signature": "{\"slices\":[],\"keys\":[\"acres\",\"category\",\"feature_image\",\"highlights\",\"is_new\",\"location\",\"order\",\"package_pdf\",\"size_label\",\"status\",\"title\",\"total_price\",\"transaction_type\",\"zoning\"],\"scalars\":[\"acres=1.87\",\"category=Land — SA Metro & Surrounding\",\"is_new=false\",\"order=130\",\"size_label=1.87 acres\",\"status=Available\",\"title=503 & 523 Urban Loop Road\",\"total_price=Contact Broker\",\"transaction_type=Sale or Lease\",\"zoning=Downtown District, City of San Antonio\"]}"
     }
   },
   "assets": {

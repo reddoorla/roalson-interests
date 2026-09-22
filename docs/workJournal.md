@@ -5632,3 +5632,123 @@ were building concurrently on this machine; the same command alone finished in
 32–46 s with everything green. Contention, not a defect — but a composite
 `pnpm verify` result taken under that load means nothing, and this one was very
 nearly believed.
+
+## 2026-09-22 — The operator's evening: photography into Prismic, and a publisher that lied four times (`docs/session-seed-state`)
+
+Orchestration entry. The eight batches below each carry their own entry; this
+one records what happened BETWEEN them — the content that was published, the
+decisions taken in the operator's name, and the defects that only a session
+holding all eight could see.
+
+**Merged tonight:** listing typos (#75), the brand favicon (#77, closing #4),
+the hero video layer (#84, closing #29), the homepage photography (#85), the
+canvas ground past both ends (#86), the portfolio button restored (#90), the
+Properties masthead photo (#89, closing #15), and twenty listing photographs
+(#92).
+
+**The operator answered the review list.** Four questions, asked up front while
+he was present: the carousel's progress bar keeps the accessible colours rather
+than the comp's (the dust track is 1.73:1 on sand and in position mode that bar
+is the only "2 of 3"); the footer's rights line stays; the three carried-over
+typos are corrected; and the "Our portfolio" button goes back, inside the card's
+column rather than as the band-wide overlay that had blinded axe.
+
+**Dropbox turned out to be reachable, and that retired issue #4's premise.**
+#4 recorded that the bounded logo masters were 238 unhydrated placeholders,
+that reading one does not hydrate it, and that "there is no Dropbox credential
+on this machine at all" — so the unblock was the operator right-clicking a
+folder in Finder. There is an MCP connector, it fetches from the server rather
+than the filesystem, and placeholder status is irrelevant to it. Four masters
+came down in one call. The belief had survived three sessions because nobody
+tested it; the operator said "you should have a different way of accessing
+dropbox than just the file system" and was right.
+
+**What went into Prismic, and what did not.** Five images were uploaded by hand
+(photo band, Properties masthead, hero poster, two partner headshots) and twenty
+by `scripts/seed/feature-images.mjs`. **None of them entered this repository** —
+it is public, and two are unlicensed placeholders the client replaces. Prismic
+is where a client swaps an image, and swapping there leaves nothing behind in
+git history. The comp's two watermarked iStock hero stills were deliberately NOT
+shipped: the operator supplied a Vimeo id, so the hero's moving layer is
+Reddoor's own footage and its poster is that video's own frame, which needs no
+stock still at all.
+
+**The publisher reported success it could not have observed, four times, each
+one level deeper than the last.**
+
+1. Earlier sessions: a uid-presence check called a stale homepage live.
+2. Tonight, on the typos: `contentSignature` records top-level SCALARS, so the
+   `zoning` fix was seen and both `highlights` fixes were not. It printed
+   "settling 1 document(s)" when three had changed. Nothing was lost only
+   because publishing a release settles everything in it — and because the
+   corrections were read back from the public API rather than believed. Filed
+   as #79.
+3. On the homepage photography: a slice fingerprinted as `type/variation` and
+   nothing else, so four photographs would have staged into the release, and
+   `publish-release.mjs` returns on that comparison BEFORE it looks at `--yes`.
+   It would have published nothing and exited 0. Fixed in #85 — a slice now
+   fingerprints with its filled primary key names.
+4. On the masthead: the publisher's worklist comes from the seed STATE FILES, so
+   a `page_media` document — a type with no state file — was invisible. With a
+   draft sitting in the release it printed "23 of 23 live… everything staged is
+   live". Filed as #94, and the workaround was to publish the release directly
+   and then read the document back.
+
+The through-line is CLAUDE.md's first rule, and the honest accounting is that
+this batch fixed instances three and four the same way the first two were
+fixed: by adding the level that had just bitten. #94 proposes the actual fix —
+take the worklist from the RELEASE, which knows what is in it — and #79 stays
+open because a key list still is not content: a partner headshot lives in a
+Group row, moves no primary key, and is still invisible. Both headshots reached
+the site tonight only by riding the same document as the poster and the band.
+
+**A gate that is green in CI and red on macOS is worse than a red gate.**
+`tests/interaction/featured-properties.spec.ts:170` wants `g.text.left < 435`
+and measures 436.890625 on this machine, on `main`, in code nobody touched —
+while the identical commit passes on the Linux runner (`124 passed`). 1.9px in
+a 3px window. CLAUDE.md opens by telling every contributor to run `pnpm verify`
+before pushing "because that is exactly what CI runs"; that sentence is
+currently false on a Mac, and the lesson a person takes from a red they did not
+cause is to stop reading reds. #80 holds the analysis; #83 was a duplicate and
+is closed. It is NOT fixed by widening the window — that hides the split.
+
+**Two things about running eight agents at once, both of which cost real time.**
+
+A mid-turn message from the operator — a bare Vimeo id — reached five running
+Workflow agents, and FOUR abandoned their own batch to build the hero video.
+Caught by reading the worktrees' branch names, not by anything the agents
+reported: a derailed agent reports confidently about the wrong task. Every
+prompt now opens with a scope lock naming what the siblings are doing.
+
+And a subagent that has handed back has NOT exited. Its worktree stays live and
+it holds the branch checked out. I edited a sibling's worktree after its
+completion notice, it resumed, and found its head moved and a test file
+half-rewritten underneath it — the only signal being two transient eslint
+"defined but never used" errors. Nothing was lost; a `git add -A` at the wrong
+moment would have committed a file whose imports existed and whose uses did
+not. The correct move is `SendMessage`, which is what the last batch got.
+
+**A cross-batch red that no PR could have caught alone.** #86's new guard read
+each band's ground colour out of the component's SOURCE TEXT; #89 turned that
+component's class list into a computed binding. Both branches green; the merge
+red. The guard now renders the band and reads the class that actually ships,
+mutation-proven both ways. Worth noting what the mutation pass caught about
+itself: the first HomeHero mutant edited the inner pinned div — also `bg-dark` —
+and the test stayed green, correctly, because the root `<section>` is what the
+canvas has to match. A mutation that does not go red is either a gap in the test
+or a mistake in the mutation, and assuming the first is how a real gap gets
+papered over.
+
+**What this entry is for.** `scripts/seed/*.state.json` as committed here is the
+state AFTER tonight's publishes: 21 of 22 listings carry a feature image, the
+`home` document carries four photographs and `vimeo_id 1229048743`, and a
+`page_media` singleton carries the Properties masthead. All of it verified by
+reading it back from the public Content API — 21 of 21 image URLs serving real
+JPEG bytes, every one with alt text — rather than from any tool's own count.
+
+**Still the operator's, and unchanged by tonight:** a real rubber-band
+overscroll has never been observed (headless Chromium cannot produce one, #86);
+the three aerials carrying a baked-in "Map data ©2016 Google" strip are a
+licensing question, and the uncropped exhibits are deliberate because the crop
+that frames best is the crop that removes the attribution; and two partner
+headshots need replacing (#73).

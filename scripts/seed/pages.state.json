@@ -2,8 +2,8 @@
   "documents": {
     "home": {
       "id": "arF6GxIAACsALhaI",
-      "at": "2026-09-22T00:45:27.251Z",
-      "signature": "{\"slices\":[\"home_hero/default\",\"featured_properties/default\",\"partners/default\",\"photo_band/default\"],\"keys\":[\"meta_description\",\"meta_title\",\"title\"],\"scalars\":[\"meta_description=Roalson Interests is a San Antonio commercial real estate firm: consulting and brokerage, acquisition and disposition of properties, and buyer and tenant representation since 1983.\",\"meta_title=Roalson Interests — San Antonio Commercial Real Estate Since 1983\"]}"
+      "at": "2026-09-22T07:58:10.783Z",
+      "signature": "{\"slices\":[\"home_hero/default(buttons,heading,poster,specialties,specialty_label,vimeo_id)\",\"featured_properties/default(portfolio_label,portfolio_link,properties)\",\"partners/default(body,eyebrow,heading,partners)\",\"photo_band/default(image)\"],\"keys\":[\"meta_description\",\"meta_title\",\"title\"],\"scalars\":[\"meta_description=Roalson Interests is a San Antonio commercial real estate firm: consulting and brokerage, acquisition and disposition of properties, and buyer and tenant representation since 1983.\",\"meta_title=Roalson Interests — San Antonio Commercial Real Estate Since 1983\"]}"
     }
   },
   "assets": {}
