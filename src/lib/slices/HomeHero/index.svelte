@@ -38,9 +38,17 @@
   // The comp's hero photo is a watermarked iStock preview still (#3) and is not
   // in this repo. `poster` is the field a licensed one goes in; empty, the hero
   // is the dark ground with the cutout over it — which is the launch state.
-  // `vimeo_id` is MODELLED so the editor's document does not change shape when
-  // the player lands, and deliberately not rendered: the video layer is its own
-  // batch (lift VimeoBanner's interaction gate and heartbeat, not its markup).
+  //
+  // `vimeo_id` was MODELLED in the hero batch and deliberately not rendered, so
+  // the editor's document would not change shape when the player landed. It
+  // renders now (#29): HeroBackgroundVideo is a LAYER over whatever ground this
+  // band already has. It draws nothing at all without an id, and reveals
+  // nothing until playback progress is actually arriving — so a blocked player,
+  // a wrong id and `prefers-reduced-motion: reduce` all leave this hero exactly
+  // as it is without one. It is a second rendering of
+  // $lib/utils/vimeoBackground.svelte, which is VimeoBanner's own gate and
+  // heartbeat lifted out; neither VimeoBanner's box nor ScreenWidthMedia's fits
+  // a 528px sticky pin.
   //
   // With no `slice` at all this still renders the dark 528px ground. The home
   // route depends on that: it claims `navOver: "dark"` as a literal, before it
@@ -48,6 +56,7 @@
   import { asText, isFilled, type Content } from "@prismicio/client";
   import BrandButton from "$lib/components/BrandButton.svelte";
   import HeroBackgroundImage from "$lib/components/HeroBackgroundImage.svelte";
+  import HeroBackgroundVideo from "$lib/components/HeroBackgroundVideo.svelte";
   import { cmsHref } from "$lib/cms-href";
   import { linkResolver } from "$lib/prismicio";
 
@@ -122,6 +131,12 @@
         class="absolute inset-0 h-full w-full object-cover object-[50%_68.2%]"
       />
     {/if}
+    <!-- Over the poster (or the bare ground), inside the pin's own
+         `overflow-hidden` so the 939px cover floor crops at the sides on a
+         phone rather than widening the page. `bandHeight` is this div's
+         `h-[528px]`, passed rather than measured — one number, in one place,
+         and no layout read on the page's LCP band. -->
+    <HeroBackgroundVideo vimeoId={primary?.vimeo_id} label="hero film" bandHeight={528} />
   </div>
 
   {#if slice}

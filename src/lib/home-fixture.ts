@@ -40,6 +40,15 @@ export const HOME_POSTER_FIXTURE = {
   edit: { x: 0, y: 0, zoom: 1, background: "transparent" },
 };
 
+/** The hero clip's Vimeo id — "Suburban to Country", Reddoor Creative's own
+ *  8-second aerial, 1280×720, uploaded 2026-09-22 (#29). It is the REAL id, not
+ *  a synthetic one: an embed only proves anything against a video that exists,
+ *  and the id is public the moment the page ships. Nothing here reaches
+ *  player.vimeo.com on its own — the layer mounts on genuine engagement only —
+ *  so the fixtures that use it stay hermetic until something actually
+ *  interacts. */
+export const HOME_VIMEO_FIXTURE = "1229048743";
+
 /** The `home_hero` slice, filled with the comp's own words (6802:1428,
  *  6806:51, 6802:1437, 6802:1441, 6802:1459). Pass `primary` to override.
  *

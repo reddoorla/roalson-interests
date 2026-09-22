@@ -12,6 +12,11 @@
   //   ?poster   with a poster in the hero — a generated drawing, not a photo
   //             (the comp's still is watermarked stock, #3). No poster is the
   //             default because it is the launch state.
+  //   ?video    with the hero's Vimeo id filled (#29). Combine with ?poster for
+  //             the shipped pair. The layer still mounts nothing until the
+  //             visitor engages and motion is allowed, so this parameter alone
+  //             reaches no third-party host — which is what lets the a11y and
+  //             interaction gates use it.
   //   ?bare     a `home` document with NO hero slice: the route still opens on
   //             the dark 528px ground its `navOver` claim promises.
   //   ?bio      the first partner has a bio, so ONE card carries PROFILE and the
@@ -28,6 +33,7 @@
   import {
     HOME_PHOTO_FIXTURE,
     HOME_POSTER_FIXTURE,
+    HOME_VIMEO_FIXTURE,
     homeFixture,
     partnersFixtureState,
     stageFeatured,
@@ -40,7 +46,10 @@
   const slices = $derived(
     stageFeatured(
       homeFixture(
-        params.has("poster") ? { poster: HOME_POSTER_FIXTURE as never } : {},
+        {
+          ...(params.has("poster") ? { poster: HOME_POSTER_FIXTURE as never } : {}),
+          ...(params.has("video") ? { vimeo_id: HOME_VIMEO_FIXTURE } : {}),
+        },
         params.has("photo") ? { image: HOME_PHOTO_FIXTURE as never } : {},
       ),
       params.get("featured"),
