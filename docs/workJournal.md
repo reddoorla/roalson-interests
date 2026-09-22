@@ -3765,3 +3765,368 @@ The line is restored with a comment saying which it is.
 every spec that reads it, which is what makes widening it worth doing once rather
 than nine times. `pnpm verify` after: 939 unit tests in 93 files, 109 Playwright
 tests, axe 0 violations across 4 routes, at load average 8.
+
+## 2026-09-21 — The featured band: the carousel's first consumer, and a card that was 259px too tall with every test green (`feat/home-featured-properties-2`)
+
+The homepage's "Properties" band (`6802:1460` at 1440, `6994:820` at 390): a
+reserved map column on `#3d0707` beside a sand card that turns through the
+editor's featured listings. This entry covers two agents' work. The first was
+killed mid-run by the machine-wide usage limit and left one WIP commit — the
+model, a 308-line `index.svelte`, `featured-properties.ts`, fixtures, regenerated
+types — and nothing else: no tests, no browser spec, no measurement. I continued
+on `feat/home-featured-properties-2`, treated all of it as an unreviewed draft,
+and folded the WIP into topical commits (`93f7bc1` helpers, `347e0f2` model,
+`285ecee` the band, `83b1e91` a comment correction — SHAs as of my branch, before
+the orchestrator's rebase).
+
+**Honest accounting first, because it is the useful part.** The draft's DESIGN
+was right and I kept nearly all of it. The reasoning in its comments held up when
+checked against the carousel's contract and the comp. What it had not done was
+LOOK at the result, and the one defect in it was invisible from everywhere except
+a ruler.
+
+**The defect.** At 1440 the card measured **1086.44** tall for the comp's 827,
+with the eyebrow at y=**843** (comp 584) and the arrows at y=**1003** (comp 744).
+The text column was exactly right (y=583.41), which is what made it look like a
+chrome-only problem. Computed style on the chrome said `grid-row: span 2 / span 2`
+where the markup said `row-start-3 lg:row-span-2`. `row-span-2` is the `grid-row`
+SHORTHAND (`span 2 / span 2`); inside the `lg` media block it lands later in the
+stylesheet than the unprefixed `grid-row-start: 3` and resets the start to `auto`.
+With every slide filling rows 1–4 of both columns, auto-placement put the chrome
+in implicit rows 5–6 — the computed template read
+`541.4px 22px 0px 260px 131.5px 131.5px`, two rows nobody wrote. The text block
+three elements further down was fine for one reason only: it happened to restate
+`lg:row-start-3`. The fix is the same restatement on the chrome. After it: card
+**826.41**, panel **285.00** exactly. svelte-check, eslint and what would have been
+every unit test were green throughout, because jsdom has no layout. **The rule
+worth keeping: a Tailwind `*-span-*` under a breakpoint prefix silently discards
+an unprefixed `*-start-*` on the same element. Restate the start inside the
+prefix, always.**
+
+**A second thing that cost twenty minutes and will cost the next agent the same.**
+My first fix appeared not to work: re-measured, identical numbers. `vite.config.ts`
+has `watch.ignored: ["**/.claude/**"]`, and agent worktrees live under
+`.claude/worktrees/`. So the dev server watches NONE of a worktree agent's edits —
+no HMR, no SSR invalidation, a stale module graph served with a straight face. The
+tell was a `data-` attribute I had just added being absent from the served DOM.
+In a worktree, restart `vite dev` after every edit. (Playwright specs are immune:
+the shared config sets `reuseExistingServer: false` and starts its own.)
+
+**Why the controls are where they are.** The comp draws the arrows INSIDE the
+card's panel, interleaved with per-slide content — photo, bar, [eyebrow | arrows],
+text at 390; the eyebrow-over-arrows column BESIDE the text at 1440. The
+carousel's contract is that controls stay OUTSIDE the slide elements in the DOM: a
+slide that turns away goes `inert`, an inert element cannot hold focus, and an
+arrow inside it turns its own slide from under itself (#34). Both are satisfied by
+making the card ONE grid of four rows (photo / bar / chrome / text) whose bar and
+chrome are direct children, with each slide spanning all four rows as a SUBGRID
+that fills rows 1 and 4 and leaves 2 and 3 empty. Each slide is still one element
+— one APG group, one `inert` — and nothing is positioned over anything, so the
+chrome's real size makes the rows. The spec scout's suggestion (a second
+`pointer-events-none` layer on a duplicated skeleton) was not used: two skeletons
+agree only as long as someone keeps them agreeing.
+
+**Comp vs rendered**, card-relative, three slides, measured in Chromium
+(`handoff/featured-measure.mjs`; cap-trimmed boxes, since the comp measures the
+cap box and CSS the line box):
+
+|                       | comp 1440        | rendered                | comp 390         | rendered                   |
+| --------------------- | ---------------- | ----------------------- | ---------------- | -------------------------- |
+| band ground           | `#3d0707`        | `rgb(61,7,7)`           | same             | same                       |
+| map column            | 512, no fill     | **513**, transparent    | 390×200 box      | not rendered               |
+| card x / w            | 512 / 928        | **513 / 927**           | 0 / 390          | 0 / 390                    |
+| photo                 | 928×542 (1.7122) | 927×541.41 (1.7122)     | 390×227.8        | 390×227.77                 |
+| panel height          | 285              | **285.00**              | 312              | 352.03 †                   |
+| bar x, y, w×h         | 20, 562, 888×2   | 20, 561.41, 887×2       | 20, 247.8, 350×2 | 20, 247.77, 350×2          |
+| eyebrow x, y          | 20, 584          | 20, 583.41              | 20, 259.8        | 20, 259.77                 |
+| controls x, y, w      | 20, 744, 90      | 20, 743.41, **140** ‡   | 280, 259.8, 90   | **230**, 259.77, **140** ‡ |
+| controls to card foot | 43               | 43.00                   | —                | —                          |
+| text x, w             | 434, 474         | 433.55, 473.45          | 20, 350          | 20, 350                    |
+| title y               | 608              | 607.43                  | —                | 343.79                     |
+| bullets y             | 644              | 643.44                  | —                | 379.80                     |
+| LEARN MORE y, w×h     | 704, 144×40      | 703.44, **147.14**×40 § | 459.8, 144×40    | 459.80, 147.14×40 §        |
+
+The ~0.6 offsets at 1440 are all one number: the card is 927 wide, not 928, so the
+ratio-driven photo is 541.41 tall, not 542. That is deliberate — the card's left
+edge is the SITE's column line (x=513, critic ruling C3), computed with the same
+arithmetic as every guttered band, not the comp's bare 512 : 928. The two are 1px
+apart at 1440 (513 against 512, the pixel C3 accepts) and 6.83px apart at 1280
+(461.94 against 455.11). **A belief corrected on contact:** the draft's comment
+said the ratio "agrees at 1440 to the pixel", and I carried that sentence into
+this entry before computing it. It does not, and my own table two lines up already
+said so (513 / 927). The comment is corrected in the slice. The spec holds the
+card's edge against the hero's `h1` at 1440 / 1280 / 1100 / 1920. † 390's panel is 40 taller because every slide
+is stacked in one cell and slide 2's bullets run to five lines at 350 wide; the
+comp drew only slide 1, whose own numbers match to 0.03. The band never changes
+height between slides, which is the point. ‡ Pause: not in the comp, required by
+WCAG 2.2.2. § `BrandButton`, already #26.
+
+**Two decisions #32 asked of the first consumer.** _The eyebrow below 377px._
+"FEATURED PROPERTIES" is 176.56 wide and Pause makes the controls 140, so at 376
+and under they no longer share a line with the 20 gap. The eyebrow wraps to two
+lines (34.21 tall, trimmed) INSIDE the 40px controls row, so the text below does
+not move: measured at 360 (eyebrow 160 wide, controls at x=200) and at 320 (120,
+x=160), text 20 under the row at both, no horizontal overflow. The alternative —
+controls dropping to their own row — costs every phone 60px to avoid a line break.
+_The bar's snap to 0._ The comp cross-dissolves a full bar into an empty one over
+0.5s. That is an artefact: the bar lives inside the variant frame and Figma
+dissolves the whole 928×827 frame. Kept the snap. A full bar that lingers while
+fading says "still counting" after the turn has happened; snapping on the frame
+the index changes is what makes bar and slide ONE event, and `settle: 500` holds it
+at 0 through the dissolve so the next fill starts on a fully shown slide. A fading
+ghost would also be a CSS animation beside the JS clock — the second clock
+`CarouselProgress`'s header exists to forbid. The user's own turns are instant, as
+the comp wires its arrows, so a fade would give one bar two behaviours.
+
+**States.** ONE showable listing is a plain card: `enabled: false` hands back empty
+attribute bags — no region, no "1 of 1", no arrows, no bar, no live region — and
+the landmark's name moves to the `<section>`. That is not an edge case, it is
+launch day: the live repository holds 22 listings and ONE feature image. The live
+listing's five bullets grow the panel to 302 (the comp's 285 is held as a MINIMUM
+by the chrome column, not as a height). NONE is no band at all — a dark 827px box
+round an empty card is a broken page — leaving a `hidden` marker with
+`data-featured-picked / -shown / -unembedded`.
+
+**That last attribute is the honest part of the data design.** The slice's model
+picks the listing's fields in the relationship's `customtypes` entry, so the page
+query carries them and nothing fetches. That the Content API embeds model-picked
+fields is DOCUMENTED, NOT OBSERVED (critic G12): no published document holds this
+slice, so nothing here has seen the API answer with `data` on the relationship. If
+it does not, every pick arrives filled but bare and the band would vanish without a
+word. So a bare pick is COUNTED separately from an editorial drop: `unembedded > 0`
+on a published page means "add `fetchLinks` to `$lib/page-load`" (same response
+shape, slice unchanged), not "the editor picked badly".
+
+**Tests, and what each was proven against.** 8 in `featured-properties.test.ts`,
+18 in `FeaturedProperties.test.ts`, 12 in
+`tests/interaction/featured-properties.spec.ts`, which opens its own
+`reducedMotion: "no-preference"` context for everything about rotation. Fourteen
+mutations, each restored from a saved copy and byte-compared; all fourteen went red
+on the test written for them. The one that matters: with the arrows genuinely MOVED
+into the slide, the #34 test fails with `Expected: "Next slide"  Received: "BODY"`
+— the actual symptom, not a selector accident. The shipped defect, replayed
+(`lg:row-start-3` removed), turns the 1440 geometry test red. One lap measured
+dwell + dissolve on one clock (4500, asserted 4000–6000 on a loaded machine).
+NOT mutation-proven from here: that Pause freezes the clock. That behaviour is the
+primitive's and `carousel.spec.ts` proved it there; this spec's Pause test guards
+the wiring (frozen bar read twice across 5.2s, same slide, then Play resumes).
+
+**Two of my own test errors, recorded because the second is a fact about the
+system.** `adopted()` timed out at 5s, only ever as the first test: the config's
+server warms `/dev/a11y-fixtures`, not `/dev/home`, so the first test pays vite's
+cold compile. Now 20s. And I asserted 2 buttons with scripting off; there are 3.
+The server cannot know the visitor's motion preference, so Pause ships in the
+markup and `[data-js-only]` hides it with the arrows.
+
+**What axe does not measure here.** The gate's own configuration, run over
+`/dev/a11y-fixtures` (now carrying the band twice) and `/dev/home` in all three
+states: 0 violations. But `color-contrast` came back INCOMPLETE for the eyebrow,
+reason `bgOverlap` — the slide subgrids span the chrome's cells, so axe cannot
+determine its background and declines. An incomplete is not a pass. The evidence
+for garnet on sand is `theme-contrast.test.ts` computing 8.87:1 from the tokens;
+the fixtures page now says so, so the gate's green is not read as covering it. The
+launch fixture takes a `heading` override because two landmarks may not share a
+name on one page.
+
+**NOT verified on a production build, and #32 stays open for it.** `/dev/*`
+answers 404 under `pnpm build && pnpm preview` by design, and `/` has no document
+holding this slice, so there is no production URL that renders the band. Unverified
+there: the 0.5s dissolve, hydration adopting the server's markup, the no-JS state,
+and the CSP against the listing images' real host. Everything above was measured on
+`vite dev`, which this repo's own rules say actively hides some of exactly these.
+
+Declined, having read them: `Slider.svelte` (for the reasons `carousel.svelte.ts`
+gives) and `PropertyCard.svelte` — its photo is 423.5/267.5 and sits beside the
+panel from `md`, it has no slot for a bar between photo and text, and it takes a
+whole `PropertyDocument`. Its PIECES are reused: the 20/20/40 padding, the 15 gap,
+the ramp utilities, `BrandButton` with the `sr-only` "about {title}" suffix.
+`isSold` / `statusLabel` / `propertyHighlights` were widened to the structural
+minimum rather than re-derived; the 15 existing tests pass untouched. The portfolio
+link is not in the comp (its "View More" is in a hidden, superseded `Intro`
+layer); it sits outside the card, on the reserved column's floor from `lg`, which
+is also what makes an empty column read as left empty on purpose.
+
+**After review.** Two adversarial reviews (rules, fidelity) and the orchestrator's
+rulings on them. Branch `fix/featured-review-2`, four commits on top of `83b1e91`;
+the previous continuation agent was killed by a usage limit mid-edit and left one
+`wip` commit, which was folded in rather than kept.
+
+**The "Our portfolio" button is gone, with `portfolio_label` and
+`portfolio_link`.** The spec said not to build it and the critic's ruling said the
+same; it was built anyway, and both reviewers found it. The reasoning that was
+available at the time and did not get applied: the link is already on the page
+three times (the hero's second button one band up, the menu, the footer), and the
+button parked a control in the column this band RESERVES for the map (#13), which
+is exactly what stops an empty column reading as deliberately empty. It was also
+never quite level with its neighbours — 3px off LEARN MORE at 1440 on launch day,
+12px at 1280. Neither field was ever in a published document, so nothing is lost.
+**This corrects the last paragraph above**, which recorded the button's placement
+as a considered win; it was considered, and it was still the wrong control to draw.
+
+**And it was the reason axe could not measure the launch-day card.** The button was
+a `lg:absolute lg:inset-0` overlay across the whole band so it could sit on the
+site's gutter rather than the card's. Measured with the overlay in: 1 contrast node
+passed and 9 incomplete at 1440 on the one-listing state. With it out: 9 and 0. The
+rules reviewer predicted exactly that, and it held.
+
+**The paragraph above about axe and the eyebrow is wrong twice over, and the fix is
+not documentation.** It says the gate cannot measure "the eyebrow's contrast" and
+blames the subgrids. Measured on the branch before the fix: 1 node passed and SIX
+incomplete on the three-listing band at 1440 — the h2, the size line, the h3, both
+bullets and LEARN MORE, i.e. nearly every word in the card, not one eyebrow. The
+cause was not the subgrid placement as such: it was that an off-stage slide sat
+over the card at opacity 0 carrying an OPAQUE photo box (`bg-background`), and axe
+answers `color-contrast` with `bgOverlap` for anything it believes is painted over.
+The proof that this is the distinguishing fact and not a guess: the CarouselFixture
+stacks on the same gate page have the same opacity-0 overlay and have never had the
+defect (3 nodes measured, 0 incomplete, each tone) — their slides carry no
+background at all.
+
+So the slice now takes an off-stage slide out of the paint: `invisible` on a
+`transition-[visibility]` delayed by exactly the 500ms dissolve, so it leaves on
+the frame the cross-fade ends and not one before. `visibility`, never `display` —
+the stack is what makes the card as tall as its tallest slide. Measured after:
+three listings at 1440, 6 nodes measured / 0 incomplete; at 390, 6 / 0; launch day
+at 1440, 9 / 0; on the axe gate's own route, 15 across the two bands, 0 incomplete,
+0 violations. The fixtures page's comment is replaced with those numbers.
+
+**#47, decided and implemented in the primitive.** The open question was carousel
+controls that are visible and dead when script is ON but the bundle never arrives —
+a CDN 404, a blocked host, a parse error. `data-js-only` never covered it: it
+covers the browser that says it will never run script, which app.html's `<noscript>`
+rule serves, and a browser that WOULD run script and never gets it runs no rule at
+all. The ruling: the controls STAY in the server's markup so the row does not jump,
+and are `visibility: hidden` + `inert` until `carousel.hydrated` — the flag an
+effect sets, false on the server and false forever without a bundle. Fixed in
+`CarouselArrows` and `CarouselProgress`, not in this slice, so #14's cards inherit
+it. Nothing was added to `carousel.svelte.ts`: `hydrated` was already there and
+already what `rotating` is gated on, for the same reason.
+
+The row's space really is reserved. Measured at 1440 on `/dev/home` with every
+`script` request aborted, against the same page hydrated: card 916.8 x 820.45 both
+times; controls at 20 / 737.45, 140 x 40 both times; bar, eyebrow and text
+identical to the hundredth of a pixel. Only `visibility` differs. `invisible` ->
+`hidden` in the component moves the controls 528px and turns that test red.
+
+**Also decided on #47 and worth stating plainly: without the bundle the band shows
+its FIRST listing only.** Slides 2..N are `inert` in the server's markup by the
+primitive's reviewed design, and CSS cannot undo `inert`. That is acceptable
+because every listing is reachable from /properties, which the hero, the menu and
+the footer all link — and it is now written into the scripting-off test rather than
+left implied.
+
+**The arrows were 43 above the card's foot only where the test looked.** The chrome
+column was `lg:h-[200px]` — a fixed box top-aligned in its grid area — so the
+moment any slide's text ran past 203px the area grew underneath it and the arrows
+stayed put. Measured with the three-listing fixture, whose slide 2 runs to five
+bullet lines: 60.03 above the foot at 1024, 1100 and 1280 against the comp's 43,
+with arrows, LEARN MORE and the foot on three different lines where the comp draws
+the arrows' bottom and the button's on one (y=784). The launch listing's five
+bullets do it at a true 1440. `lg:h-auto lg:min-h-[200px]` makes the 200 a FLOOR
+and lets the grid item stretch, which is its default; 20 + 200 + 43 still holds the
+panel at 285 for short content. The old spec asserted the 43 only at 1440 with the
+two-bullet slide on stage, which is why it was green.
+
+**The lap assertion measured Playwright, not the carousel.** Two `Date.now()`
+readings around two `expect(status).toHaveText()` calls read the poll checkpoint:
+the reviewer replicated 4340-4342ms four times while the true in-page lap was
+4499-4503. A carousel wired `settle: 0` — a true 4000ms lap — lands in the same
+poll window and reads the same ~4340, so `toBeGreaterThan(4000)` was green for a
+band that had lost its dissolve entirely, and that mutation was absent from the 14
+this journal claims above. It is measured in the page now, by a MutationObserver on
+the live region stamping `performance.now()`, with the first turn checked against
+the bar's own first reading ((1 - progress) x dwell, `carousel.spec.ts`'s lesson
+about a loaded machine) and every whole lap against 4400-4700. `settle: DISSOLVE`
+-> `0` now reads 4008.3ms and goes red.
+
+**Numbers corrected.** The eyebrow wrap threshold is "below 377px" — it wraps AT
+376 (20 + 176.56 of ink + 20 gap + 140 controls + 20 = 376.56); the slice said 376
+and the PR and spec said 377. The progress bar is the band's one colour deviation
+from the comp (#652323 / #b2ac9f drawn as #3d0707 / #3d0707 at 53%, for WCAG
+1.4.11, reasoned in `CarouselProgress.svelte` from #35) and was missing from the
+comp table, which listed geometry only.
+
+**mocks.json cannot show this band in the slice simulator, and that is not a bug.**
+Slice Machine writes a content relationship as a bare DocumentLink — an id and
+nothing else — so every mock pick is counted `unembedded` and dropped and the
+simulator draws the empty state. Now said in the slice's own header, next to where
+someone would go looking.
+
+**The embedding is still unobserved, and now provably so.** Read-only against the
+public Content API on 2026-09-21: the live `home` document holds
+`home_hero, partners, photo_band` and not `featured_properties`, and walking every
+published page's slice data for a `link_type: "Document"` field returns ZERO —
+there is no content relationship of any kind in the live content, so the API's
+answer for one cannot be observed today at all. That is drafted as an issue with
+the steps to settle it, rather than left in a code comment.
+
+**Found and not fixed.** Four assertions in
+`tests/interaction/featured-properties.spec.ts` fail on this machine and fail
+identically on the untouched base commit `83b1e91`: `g.overflowX` reads -15 at
+1440, 390 and 360, and `g.text.left` reads 429 for the expected >432. Negative
+overflow means the page laid out 15px narrower than `documentElement.clientWidth`
+reports — one environment fact, not four defects: the card measures 916.8 at a 1440
+viewport instead of 927, and every card-relative ratio in the same tests still
+passes. Drafted as an issue rather than loosened, because `overflowX === 0` is the
+guard that catches a band overflowing the viewport. Worth re-checking straight
+after the rebase: `main` has since gained the photo band, which pins as the last
+thing in `<main>` and changes the document's height.
+
+Checks run: `pnpm lint`, `pnpm check` (0 errors), the four carousel/featured unit
+suites plus `capability-index` (105 tests), and both interaction specs
+(`carousel.spec.ts` 14/14, `featured-properties.spec.ts` 24 passed and the 4
+pre-existing failures above). `pnpm verify` and the full Playwright suite were NOT
+run, per the batch rules. Five mutations, each restored and byte-compared:
+`quiet -> false` in both controls (two unit suites red); `lg:h-auto
+lg:min-h-[200px] -> lg:h-[200px]` (60.03 at 1280, red); `invisible` dropped from
+the off-stage slide (7 unmeasurable nodes, and the off-stage h3 visible — two tests
+red); `settle: DISSOLVE -> 0` (lap 4008.3ms, red); `invisible -> hidden` in
+CarouselArrows (controls moved 528px, red).
+
+**Integration (orchestrator).** Rebased onto `a7e96c3`, which had moved a long
+way: the photo band, the partners band, the contact page, the hero's
+reduced-motion ruling and the shared hydration wait all landed while this batch
+was being built and then rebuilt. Seven files conflicted. `src/lib/home-fixture.ts`
+could not be resolved hunk by hunk — both sides had added a block INSIDE another
+function's body, so the halves interleaved into something that would not parse —
+and was reconstructed from the two full versions instead: main's file with the
+featured block inserted whole, and `homeFixture()` rewritten to return hero,
+featured, partners, photo band, in the comp's order, with the photo band last
+because it only pins as the last thing in `<main>`. `/dev/home` now takes
+`?poster`, `?photo`, `?bio`, `?photos` and `?featured=one|none` together. The
+`page` type offers `featured_properties` between `home_hero` and `partners`.
+
+**The four red assertions the agent flagged were the repo's oldest trap, in its
+third repeat.** They fail identically on the untouched base, which is why the
+agent left them: `g.overflowX` reading -15 at every width and `g.text.left`
+reading 429 where the comp says 432.6. The cause is one fact, and it is already
+in this journal twice: headless Chromium keeps `scrollbar-gutter: stable`'s 15px
+and hides the scrollbar that would fill it, so the page lays out 15px narrower
+than the viewport AND than `clientWidth`. The spec typed the comp's widths
+straight into `setViewportSize`, so "1440" laid out 1425 and the card measured
+916.8 where the comp says 927. One helper now turns a layout width into the
+viewport that produces it (`viewportFor`), and every width in the file goes
+through it. The overflow guard changed direction too: `scrollWidth -
+clientWidth` reads -15 when nothing overflows at all, so `=== 0` was asserting
+the environment rather than the absence of overflow; it asserts `<= 0`, which is
+what "nothing overflows" means. 14 of 14 green afterwards. That is three sites
+that have paid for this now — nav, the listing page, and here — and the lesson
+that keeps failing to stick is not the fact but the shape: a comp width typed
+into a viewport is always wrong by the gutter.
+
+**One test of another band came due on the same rebase.** `photo-band.spec.ts`'s
+short-window case asserted the band's foot `toBeCloseTo(innerHeight, 1)` — a
+tolerance of 0.05px — and adding a band above it on the same fixture moved
+everything by 0.48. The footer is 512.56 tall and the scroll position is
+rounded, so half a pixel was never promisable; "seated" is now under a pixel.
+Mutation, because a widened tolerance is exactly where a test stops meaning
+anything: `top: 0` put back and the case fails by 150px, not by a fraction.
+
+`pnpm verify`: svelte-check 0 errors, axe 0 violations across 4 routes, **965
+unit tests in 95 files, 123 Playwright tests**. Filed: #64 (verify on the live
+API that a featured pick arrives with `data`, and add `fetchLinks` to the home
+route if not — currently unobservable, because no published document carries a
+`featured_properties` slice yet), #65 (nothing audits the pre-hydration state of
+any `data-js-only` control; `Nav.svelte`'s menu trigger is the other instance).
+#47's decision is implemented and recorded there. The four-assertion issue the
+agent drafted was not filed: it is fixed above.
