@@ -27,6 +27,11 @@ test-results
 /docs/superpowers/
 /scratchpad/
 
+# Where scripts/seed/feature-images.mjs stages the client's marketing PDFs and
+# the photographs it lifts out of them. This repository is public and those are
+# the client's files: they go to Prismic, never into git.
+/.feature-images/
+
 # canonical entries from @reddoorla/maintenance sync-configs
 dist/
 .vitest-cache/

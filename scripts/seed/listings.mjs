@@ -130,6 +130,17 @@ async function main(argv) {
           state.assets[filename] = known;
           continue;
         }
+        // An asset with no `url` is not fetchable from here: the feature
+        // photographs come out of the package PDFs, which is
+        // `scripts/seed/feature-images.mjs`'s job, and it records what it
+        // uploaded in the state file above. Say so rather than calling
+        // `fetch(undefined)` and dying two frames down.
+        if (!asset.url) {
+          console.log(
+            `  ! ${filename}: no source url — run scripts/seed/feature-images.mjs --upload first. Left empty.`,
+          );
+          continue;
+        }
         const res = await fetch(asset.url);
         if (!res.ok) {
           console.log(`  ! ${filename}: source answered ${res.status} — left empty`);

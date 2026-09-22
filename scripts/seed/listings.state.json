@@ -112,17 +112,33 @@
     }
   },
   "assets": {
+    "101-w-commerce-street-feature.jpg": {
+      "id": "1bV9fa7DQIjRTZvp",
+      "url": "https://images.prismic.io/roalson-interests/1bV9fa7DQIjRTZvp_101-w-commerce-street-feature.jpg?auto=format,compress"
+    },
     "101-w-commerce-street-package.pdf": {
       "id": "scsjv45jJCYJ0N0H",
       "url": "https://roalson-interests.cdn.prismic.io/roalson-interests/scsjv45jJCYJ0N0H_101-w-commerce-street-package.pdf"
+    },
+    "116-old-san-antonio-road-feature.jpg": {
+      "id": "g7KKFZvaA2AwQ-PV",
+      "url": "https://images.prismic.io/roalson-interests/g7KKFZvaA2AwQ-PV_116-old-san-antonio-road-feature.jpg?auto=format,compress"
     },
     "116-old-san-antonio-road-package.pdf": {
       "id": "inY-SsqHaoQSlyh0",
       "url": "https://roalson-interests.cdn.prismic.io/roalson-interests/inY-SsqHaoQSlyh0_116-old-san-antonio-road-package.pdf"
     },
+    "11714-perrin-beitel-road-feature.jpg": {
+      "id": "7QE4IKKYIXzDU_K3",
+      "url": "https://images.prismic.io/roalson-interests/7QE4IKKYIXzDU_K3_11714-perrin-beitel-road-feature.jpg?auto=format,compress"
+    },
     "11714-perrin-beitel-road-package.pdf": {
       "id": "6C5b-DFUaGMbTEhK",
       "url": "https://roalson-interests.cdn.prismic.io/roalson-interests/6C5b-DFUaGMbTEhK_11714-perrin-beitel-road-package.pdf"
+    },
+    "13810-lookout-road-feature.jpg": {
+      "id": "oZXOYiO34OpbnYIt",
+      "url": "https://images.prismic.io/roalson-interests/oZXOYiO34OpbnYIt_13810-lookout-road-feature.jpg?auto=format,compress"
     },
     "13810-lookout-road-package.pdf": {
       "id": "IC3N04RcTNl9U5hF",
@@ -136,53 +152,105 @@
       "id": "u2QeymHWG2R4jRTM",
       "url": "https://images.prismic.io/roalson-interests/u2QeymHWG2R4jRTM_25331-ih-10-west.jpg?auto=format,compress"
     },
+    "402-w-nueva-street-feature.jpg": {
+      "id": "oSIn6g8cuLoc5Zue",
+      "url": "https://images.prismic.io/roalson-interests/oSIn6g8cuLoc5Zue_402-w-nueva-street-feature.jpg?auto=format,compress"
+    },
     "402-w-nueva-street-package.pdf": {
       "id": "i7TXmhPMSryJiJuM",
       "url": "https://roalson-interests.cdn.prismic.io/roalson-interests/i7TXmhPMSryJiJuM_402-w-nueva-street-package.pdf"
+    },
+    "5001-walzem-road-feature.jpg": {
+      "id": "HiVfASSG_XvSk-g0",
+      "url": "https://images.prismic.io/roalson-interests/HiVfASSG_XvSk-g0_5001-walzem-road-feature.jpg?auto=format,compress"
     },
     "5001-walzem-road-package.pdf": {
       "id": "pMut6k9YUFHlwKO9",
       "url": "https://roalson-interests.cdn.prismic.io/roalson-interests/pMut6k9YUFHlwKO9_5001-walzem-road-package.pdf"
     },
+    "5930-bandera-road-feature.jpg": {
+      "id": "jcC-BNp-_BMNmBdH",
+      "url": "https://images.prismic.io/roalson-interests/jcC-BNp-_BMNmBdH_5930-bandera-road-feature.jpg?auto=format,compress"
+    },
     "5930-bandera-road-package.pdf": {
       "id": "sA1S07l68FZ6KIZB",
       "url": "https://roalson-interests.cdn.prismic.io/roalson-interests/sA1S07l68FZ6KIZB_5930-bandera-road-package.pdf"
+    },
+    "cascade-caverns-at-old-san-antonio-road-feature.jpg": {
+      "id": "PadmINaAjXLnucTg",
+      "url": "https://images.prismic.io/roalson-interests/PadmINaAjXLnucTg_cascade-caverns-at-old-san-antonio-road-feature.jpg?auto=format,compress"
     },
     "cascade-caverns-at-old-san-antonio-road-package.pdf": {
       "id": "3Ln5flcCTgSO889g",
       "url": "https://roalson-interests.cdn.prismic.io/roalson-interests/3Ln5flcCTgSO889g_cascade-caverns-at-old-san-antonio-road-package.pdf"
     },
+    "highway-77-at-general-cavazos-kingsville-feature.jpg": {
+      "id": "vfFBq89_pggE0r00",
+      "url": "https://images.prismic.io/roalson-interests/vfFBq89_pggE0r00_highway-77-at-general-cavazos-kingsville-feature.jpg?auto=format,compress"
+    },
     "highway-77-at-general-cavazos-kingsville-package.pdf": {
       "id": "LwT3epltbis1hF6E",
       "url": "https://roalson-interests.cdn.prismic.io/roalson-interests/LwT3epltbis1hF6E_highway-77-at-general-cavazos-kingsville-package.pdf"
+    },
+    "ih-10-at-fm-725-seguin-feature.jpg": {
+      "id": "wLRZvAAvbggupchD",
+      "url": "https://images.prismic.io/roalson-interests/wLRZvAAvbggupchD_ih-10-at-fm-725-seguin-feature.jpg?auto=format,compress"
     },
     "ih-10-at-fm-725-seguin-package.pdf": {
       "id": "ITHpy3MirUPNXmsI",
       "url": "https://roalson-interests.cdn.prismic.io/roalson-interests/ITHpy3MirUPNXmsI_ih-10-at-fm-725-seguin-package.pdf"
     },
+    "ih-10-at-highway-46-feature.jpg": {
+      "id": "Snc_jVXMDHbNiHKy",
+      "url": "https://images.prismic.io/roalson-interests/Snc_jVXMDHbNiHKy_ih-10-at-highway-46-feature.jpg?auto=format,compress"
+    },
     "ih-10-at-highway-46-package.pdf": {
       "id": "xcra9iNmvChHpqHL",
       "url": "https://roalson-interests.cdn.prismic.io/roalson-interests/xcra9iNmvChHpqHL_ih-10-at-highway-46-package.pdf"
+    },
+    "ih-10-at-highway-87-comfort-feature.jpg": {
+      "id": "Ja4_3VhRyMC1zBYa",
+      "url": "https://images.prismic.io/roalson-interests/Ja4_3VhRyMC1zBYa_ih-10-at-highway-87-comfort-feature.jpg?auto=format,compress"
     },
     "ih-10-at-highway-87-comfort-package.pdf": {
       "id": "BjiJYi94nMIsAT5R",
       "url": "https://roalson-interests.cdn.prismic.io/roalson-interests/BjiJYi94nMIsAT5R_ih-10-at-highway-87-comfort-package.pdf"
     },
+    "ih-10-at-menger-springs-feature.jpg": {
+      "id": "025CBdSgltB2Vywg",
+      "url": "https://images.prismic.io/roalson-interests/025CBdSgltB2Vywg_ih-10-at-menger-springs-feature.jpg?auto=format,compress"
+    },
     "ih-10-at-menger-springs-package.pdf": {
       "id": "3pF2knPk2chblS_U",
       "url": "https://roalson-interests.cdn.prismic.io/roalson-interests/3pF2knPk2chblS_U_ih-10-at-menger-springs-package.pdf"
+    },
+    "ih-10-at-scenic-loop-feature.jpg": {
+      "id": "9QEreFfIl_3kUJyZ",
+      "url": "https://images.prismic.io/roalson-interests/9QEreFfIl_3kUJyZ_ih-10-at-scenic-loop-feature.jpg?auto=format,compress"
     },
     "ih-10-at-scenic-loop-package.pdf": {
       "id": "YTF0CXbDbw79i6Ok",
       "url": "https://roalson-interests.cdn.prismic.io/roalson-interests/YTF0CXbDbw79i6Ok_ih-10-at-scenic-loop-package.pdf"
     },
+    "ih-10-east-at-loop-1604-feature.jpg": {
+      "id": "aO2LpkJc5aAjqaec",
+      "url": "https://images.prismic.io/roalson-interests/aO2LpkJc5aAjqaec_ih-10-east-at-loop-1604-feature.jpg?auto=format,compress"
+    },
     "ih-10-east-at-loop-1604-package.pdf": {
       "id": "TELMrcgm0MY-YExE",
       "url": "https://roalson-interests.cdn.prismic.io/roalson-interests/TELMrcgm0MY-YExE_ih-10-east-at-loop-1604-package.pdf"
     },
+    "ih-35-at-wonderworld-san-marcos-feature.jpg": {
+      "id": "aFILZuW4J7HFhX6H",
+      "url": "https://images.prismic.io/roalson-interests/aFILZuW4J7HFhX6H_ih-35-at-wonderworld-san-marcos-feature.jpg?auto=format,compress"
+    },
     "ih-35-at-wonderworld-san-marcos-package.pdf": {
       "id": "Wz4WSFewCGVQ_k2z",
       "url": "https://roalson-interests.cdn.prismic.io/roalson-interests/Wz4WSFewCGVQ_k2z_ih-35-at-wonderworld-san-marcos-package.pdf"
+    },
+    "loop-1604-at-dove-canyon-feature.jpg": {
+      "id": "rHiNrdFSgXot69I_",
+      "url": "https://images.prismic.io/roalson-interests/rHiNrdFSgXot69I__loop-1604-at-dove-canyon-feature.jpg?auto=format,compress"
     },
     "loop-1604-at-dove-canyon-package.pdf": {
       "id": "gaxylSIiWHN8H9zB",
@@ -192,13 +260,25 @@
       "id": "ROwkAOYHanZADggn",
       "url": "https://roalson-interests.cdn.prismic.io/roalson-interests/ROwkAOYHanZADggn_loop-1604-at-highway-181-package.pdf"
     },
+    "menger-springs-road-feature.jpg": {
+      "id": "ehLku-GRGUvU0DzN",
+      "url": "https://images.prismic.io/roalson-interests/ehLku-GRGUvU0DzN_menger-springs-road-feature.jpg?auto=format,compress"
+    },
     "menger-springs-road-package.pdf": {
       "id": "NxDyHCoQDuthYh76",
       "url": "https://roalson-interests.cdn.prismic.io/roalson-interests/NxDyHCoQDuthYh76_menger-springs-road-package.pdf"
     },
+    "st-marys-at-martin-river-walk-feature.jpg": {
+      "id": "M_7AI49CFxLpgQjn",
+      "url": "https://images.prismic.io/roalson-interests/M_7AI49CFxLpgQjn_st-marys-at-martin-river-walk-feature.jpg?auto=format,compress"
+    },
     "st-marys-at-martin-river-walk-package.pdf": {
       "id": "OcUmfzDNIMTQDiNt",
       "url": "https://roalson-interests.cdn.prismic.io/roalson-interests/OcUmfzDNIMTQDiNt_st-marys-at-martin-river-walk-package.pdf"
+    },
+    "urban-loop-road-feature.jpg": {
+      "id": "26nVNeH67lKeP-rB",
+      "url": "https://images.prismic.io/roalson-interests/26nVNeH67lKeP-rB_urban-loop-road-feature.jpg?auto=format,compress"
     },
     "urban-loop-road-package.pdf": {
       "id": "M7NBRhIa_g6Kp8Dd",
