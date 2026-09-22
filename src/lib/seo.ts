@@ -16,8 +16,21 @@ export const DEFAULT_DESCRIPTION = "";
  *  card (Twitter downgrades to a small summary). Set this to a shipped asset
  *  (e.g. "/og-default.png") per site so shares are never imageless — a
  *  Reddoor-branded default is deliberately NOT shipped, since every cloned
- *  site would then leak the Reddoor card until the owner replaced it. */
-export const DEFAULT_OG_IMAGE = "";
+ *  site would then leak the Reddoor card until the owner replaced it.
+ *
+ *  `/og-card.png` is composed from `static/logo-reverse.svg`, this site's own
+ *  reverse wordmark, on `--color-primary`. It is EXACTLY 1200x630 because a
+ *  static card is the one image this stack never resizes: `imgix()` returns a
+ *  non-Prismic URL unchanged, so the committed bytes are what every crawler
+ *  downloads. Re-compose it, do not scale it. */
+export const DEFAULT_OG_IMAGE = "/og-card.png";
+
+/** Alt text for that card, and only for it. `Seo.svelte` otherwise falls back
+ *  to the page title, which describes the PAGE and not this image — every
+ *  share would read "Roalson Interests — San Antonio Commercial Real Estate
+ *  Since 1983" for a picture of a wordmark. A page with its own `meta_image`
+ *  still supplies its own `meta_image_alt`. */
+export const DEFAULT_OG_IMAGE_ALT = "The Roalson Interests wordmark";
 
 /** Social-card canvas. Prismic og images are cropped to this exact box so a
  *  card never ships a multi-MB original, and width/height can be advertised. */

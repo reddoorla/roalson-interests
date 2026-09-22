@@ -4349,3 +4349,56 @@ Normal 700 — approved call 2 at Stage A, because Area Normal is a commercial f
 that was in no style guide; the harness reports it on every such run and it is
 not going to change. And the size line reads "Up to 16,700 SF" where the comp
 writes "Up to 16,700SF": the space is ours, from the client's own table.
+
+## 2026-09-21 — Every share of this site was imageless (`feat/og-card`, #5)
+
+Closes #5. `DEFAULT_OG_IMAGE` was `""`, so every share on Slack, iMessage,
+LinkedIn or X downgraded to a small `summary` card with no picture. The issue
+that found it also said why nothing would catch it, and that part is worth
+repeating: the imageless state was an ASSERTED GREEN. `Seo.test.ts` asserts
+`twitter:card === "summary"` and `og:image === null` when no image is passed —
+correct about the function, and silent about whether this site should have a
+card.
+
+**Composed, not extracted, from the repo's own vectors.** There is no 1200×630
+artboard anywhere in the Figma file, so the card had to be made: the brand's
+reverse wordmark (`static/logo-reverse.svg`, ROALSON in white and INTERESTS in
+sand, the export already shipping in the site's own footer and nav) placed on
+`--color-primary` at 620px wide — 52% of the canvas, large enough to read as a
+feed thumbnail — centred on a 1200×630 field. Chromium rendered it at
+`deviceScaleFactor: 1`, which is the only step that matters for exactness, and
+the file is 24,051 bytes. No new dependency, no redrawing of a letterform.
+
+**Why the size is a hard number and not a target.** A static card is the one
+image this stack never resizes: `imgix()` returns any non-Prismic URL unchanged
+and `resolveOgImage`'s crop branch only fires for Prismic, so the committed
+bytes are exactly what a crawler downloads. A card wrong by a pixel is cropped
+or letterboxed in every feed, forever. The test reads the PNG's own IHDR rather
+than trusting the filename, and the mutation for it is a re-encoded 1199×630
+card, which goes red.
+
+**The alt is the card's, not the page's.** `Seo.svelte` falls back to the page
+title, so every share would have announced "Roalson Interests — San Antonio
+Commercial Real Estate Since 1983" as the description of a picture of two words.
+`DEFAULT_OG_IMAGE_ALT` is "The Roalson Interests wordmark", and the layout only
+uses it where the page brought no image of its own — a page with `meta_image`
+still supplies `meta_image_alt`.
+
+Read off a production build with an origin supplied, as Netlify supplies one:
+`og:image` and `twitter:image` absolute, `og:image:alt` and `twitter:image:alt`
+the card's own, and `twitter:card` now `summary_large_image` on `/` and
+`/properties`. `og:image:width`/`height` stay omitted, which is `Seo.svelte`
+gating them on the Prismic branch and is what the issue predicted.
+
+Mutations: the constant back to `""` → three of four cases red, which is the
+shipped-today state; the card re-encoded one pixel narrower → the canvas case
+red. Both restored and `cmp`-confirmed. `pnpm verify`: 973 unit tests in 96
+files, 124 Playwright, axe 0 violations across 5 routes.
+
+Still open and not this: the favicon (#4) is the SvelteKit skeleton, and the
+brand's bounded vector masters are unhydrated Dropbox placeholders. That one is
+a Finder action on the operator's machine — right-click `Clients/Roalson
+Interests/01_Logos/FINAL` → Make available offline — and no amount of work here
+substitutes for it. The Figma mark bleeds off its artboard by design and reads
+as a sliced-off bar at 32px, and padding someone's logo to fit is a design
+change, not a build fix.
