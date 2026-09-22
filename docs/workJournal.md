@@ -4172,3 +4172,54 @@ The publisher's content check did its job again without being asked: 22 of 23
 live, `! page/home: live content differs from what was staged`, then 23 of 23.
 Mutation on the new test: the comp's first two listings swapped → "features the
 comp's three listings, in its order" red.
+
+## 2026-09-21 — The flip: the build stops being placeholder-green (`feat/connect-prismic`)
+
+The last structural PR of the build. `slicemachine.config.json` names
+`roalson-interests`, `prismic.config.json` is deleted in the same diff as its
+own PR required, and the sentinel's protection goes with them.
+
+**What the sentinel was doing, and what replaces it.** While
+`repositoryName` was `your-prismic-repo-name`, `svelte.config.js`'s
+`handleHttpError` swallowed every 404 at prerender, the home route answered 404
+on purpose, and `tests/smoke/routes.ts` expected exactly that. All three read
+the same name, so all three flipped together with one edit: the build now fails
+on any 404, `/` prerenders from the published document, and the smoke case is
+"home" rather than "home — placeholder repo, expecting 404".
+
+That is a claim about a mechanism, so it was broken on purpose rather than
+asserted. Pointed at `roalson-interests-does-not-exist`, `pnpm build` exits 1
+with "Prismic repository not found. Check that
+https://roalson-interests-does-not-exist.cdn.prismic.io/api/v2 is pointing to
+the correct repository." Before the flip the same edit would have produced a
+green build with no home page. Restored and `cmp`-confirmed.
+
+**The axe gate has three real routes now.** `reddoor.a11yRoutes` was
+`["/properties", "/contact"]` and is `["/", "/properties", "/contact"]`. The
+template doc says exactly when this is allowed — "once
+`slicemachine.config.json` names the real Prismic repository and a `home`
+document is published" — and warns why an empty list is not a gate being off but
+a gate claiming to have scanned nothing. The audit reports 5 routes now: 2
+fixtures and 3 of the site's own, 0 violations. Its own status guard is the
+positive evidence: it fails a route that does not serve 200 rather than auditing
+whatever the error page renders.
+
+**One route class had no smoke coverage at all.** `/properties/<uid>` is the
+site's only route with a dynamic segment and therefore the only place a broken
+`[uid]` load can hide. It is in the smoke list now, guarded on the repository
+being real, and it names a uid: `25331-ih-10-west`. That coupling is deliberate
+and written down where it will be found — if the client unpublishes that
+listing the case goes red, which is true information, and the fix is to point it
+at another published uid rather than delete the case.
+
+**What this does not change.** Nothing about what a visitor sees: the site has
+been serving this content from Prismic on every local production build since the
+home document was published. What changes is that the repository can no longer
+build without it. `VITE_PRISMIC_ENVIRONMENT=roalson-interests` is no longer
+needed for a real-content run — `pnpm dev` and `pnpm build` read the real name
+now — and the variable keeps only its local-only hatch meaning, which both
+`svelte.config.js` and the smoke manifest still refuse under CI.
+
+`pnpm verify`: svelte-check 0 errors over 4614 files, axe 0 violations across 5
+routes, 966 unit tests in 95 files, 124 Playwright tests. The build prerenders
+`/` at 32,017 bytes with all four bands, `/properties`, and 22 detail pages.

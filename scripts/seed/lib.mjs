@@ -30,7 +30,12 @@ export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
  *  `prismic.config.json`, skipping the placeholder sentinel — the same order
  *  and the same skip as `reddoor-maint`'s `readPrismicConfig`, so the seed and
  *  the model delivery can never aim at different repositories. Refuses when
- *  only the sentinel is found: "no repository" must not become a default. */
+ *  only the sentinel is found: "no repository" must not become a default.
+ *
+ *  `prismic.config.json` is no longer in this repo — it was the side door that
+ *  let models reach Prismic while the build stayed on the sentinel, and the
+ *  connect PR deleted it. The second read stays because the reader it mirrors
+ *  has it, and because a fresh clone in that state should still work. */
 export function repositoryName(root = ROOT) {
   const seen = [];
   for (const file of ["slicemachine.config.json", "prismic.config.json"]) {
