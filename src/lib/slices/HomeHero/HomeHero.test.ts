@@ -237,11 +237,53 @@ describe("HomeHero slice", () => {
     expect(document.head.querySelector('link[rel="preload"][as="image"]')).not.toBeNull();
   });
 
-  it("never renders the Vimeo layer in this build — the field is modelled, the player is not", () => {
-    const slice = homeHeroFixture({ vimeo_id: "123456789" } as never);
+  // #29. The field was modelled in the hero batch and rendered nothing; it
+  // renders a layer now. What this file can hold is the WIRING — that the
+  // layer is inside the pin, that it is a layer and not a replacement, and
+  // that a junk id is the same as no id. The mount, the reveal and the pause
+  // control are HeroBackgroundVideo.test.ts's; the pin and the tab order are
+  // tests/interaction/home-hero-video.spec.ts's.
+  it("renders the video layer inside the pin when the field carries an id", () => {
+    const slice = homeHeroFixture({ vimeo_id: "1229048743" } as never);
     const { container } = render(HomeHero, { props: { slice } });
+    const layer = section(container).querySelector("[data-home-hero-pin] [data-hero-video]");
+    expect(layer).not.toBeNull();
+    // A LAYER, never a replacement: nothing has played, so no iframe exists and
+    // the pin is the same dark ground it is without the field.
     expect(container.querySelector("iframe")).toBeNull();
-    expect(container.innerHTML).not.toContain("vimeo");
+    expect(section(container).querySelector("[data-home-hero-pin]")!.className).toContain(
+      "bg-dark",
+    );
+  });
+
+  it("renders no layer at all for an empty or unusable id", () => {
+    for (const vimeo_id of [null, "", "   ", "ask marketing for it"]) {
+      const { container, unmount } = render(HomeHero, {
+        props: { slice: homeHeroFixture({ vimeo_id } as never) },
+      });
+      expect(container.querySelector("[data-hero-video]"), String(vimeo_id)).toBeNull();
+      expect(container.innerHTML).not.toContain("vimeo");
+      unmount();
+    }
+  });
+
+  it("layers the video OVER the poster, not instead of it", () => {
+    const slice = homeHeroFixture({
+      poster: {
+        url: "https://images.prismic.io/roalson-interests/hero.jpg?auto=format,compress",
+        alt: "",
+        dimensions: { width: 3200, height: 1800 },
+      },
+      vimeo_id: "1229048743",
+    } as never);
+    const { container } = render(HomeHero, { props: { slice } });
+    const pin = section(container).querySelector("[data-home-hero-pin]")!;
+    expect(pin.querySelector("img")).not.toBeNull();
+    // DOM order is the paint order here — the poster first, the layer over it.
+    const kids = [...pin.children];
+    expect(kids.findIndex((el) => el.tagName === "IMG")).toBeLessThan(
+      kids.findIndex((el) => el.hasAttribute("data-hero-video")),
+    );
   });
 
   it("with NO slice, still paints the dark 528 ground the route's navOver claim depends on", () => {
