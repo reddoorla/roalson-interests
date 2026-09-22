@@ -55,6 +55,29 @@
           }
         },
         {
+          "slice_type": "featured_properties",
+          "variation": "default",
+          "primary": {
+            "properties": [
+              {
+                "property": {
+                  "$property": "25331-ih-10-west"
+                }
+              },
+              {
+                "property": {
+                  "$property": "101-w-commerce-street"
+                }
+              },
+              {
+                "property": {
+                  "$property": "13810-lookout-road"
+                }
+              }
+            ]
+          }
+        },
+        {
           "slice_type": "partners",
           "variation": "default",
           "primary": {
@@ -103,7 +126,8 @@
       "meta_description": "INFERRED — composed from the comp's headline and its three specialties; for the operator's review",
       "home_hero": "MEASURED — the comp's hero copy, as transcribed into src/lib/home-fixture.ts; poster and vimeo_id left empty (operator call 11, issue #29)",
       "partners": "MEASURED — the comp's words for the band (6820:119, 6802:1477, 6822:489) and its two visible partner rows, as transcribed into src/lib/home-fixture.ts; no headshot, bio or contact link: neither partner has supplied one (operator call 12, issue #3)",
-      "photo_band": "INFERRED — the band with no image, which is the launch state: the comp's photo is unlicensed stock (#3, #37); the slice must stay LAST to pin"
+      "photo_band": "INFERRED — the band with no image, which is the launch state: the comp's photo is unlicensed stock (#3, #37); the slice must stay LAST to pin",
+      "featured_properties": "MEASURED — the three listings the comp features (6843:993 / 6843:1089 / 6846:1185), in the comp's order; the heading is left empty so the slice's own default reads. Only 25331 has a photo today, so the band renders as ONE card until more are uploaded (#37 covers the photography)"
     }
   }
 ]

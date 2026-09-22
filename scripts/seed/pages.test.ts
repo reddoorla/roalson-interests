@@ -118,7 +118,21 @@ describe("the pages data file", () => {
 
 describe("the home document's bands", () => {
   const home = pages.find((p) => p.uid === "home") as Entry;
+  const ids = Object.fromEntries(listings.map((uid) => [uid, `ID-${uid}`]));
   const order = (home.data.slices ?? []).map((s) => s.slice_type);
+
+  it("features the comp's three listings, in its order, and asks the model for nothing else", () => {
+    const band = (home.data.slices ?? []).find((s) => s.slice_type === "featured_properties");
+    const picks = band?.primary.properties as { property: { $property: string } }[];
+    expect(picks.map((p) => p.property.$property)).toEqual([
+      "25331-ih-10-west",
+      "101-w-commerce-street",
+      "13810-lookout-road",
+    ]);
+    // The heading is not set: the slice's own default reads "Featured
+    // Properties", and a second copy in the seed is a second thing to edit.
+    expect(Object.keys(band!.primary)).toEqual(["properties"]);
+  });
 
   it("opens on the hero and ends on the photo band — which pins only as the LAST slice", () => {
     expect(order[0]).toBe("home_hero");
@@ -127,7 +141,7 @@ describe("the home document's bands", () => {
   });
 
   it("keeps an empty band's primary: no image yet is a slice with nothing in it, not no slice", () => {
-    const payload = toPayload(home, {});
+    const payload = toPayload(home, ids);
     const band = payload.data.slices.find((s: Slice) => s.slice_type === "photo_band");
     expect(band.primary).toEqual({});
     expect(band.items).toEqual([]);

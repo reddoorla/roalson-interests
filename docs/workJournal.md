@@ -4130,3 +4130,45 @@ route if not — currently unobservable, because no published document carries a
 any `data-js-only` control; `Nav.svelte`'s menu trigger is the other instance).
 #47's decision is implemented and recorded there. The four-assertion issue the
 agent drafted was not filed: it is fixed above.
+
+## 2026-09-21 — The featured band on the live home page, and the question only a published document could answer (`feat/seed-featured`)
+
+The `home` document now carries all four bands. The featured one picks the
+comp's three listings by uid — 25331 IH 10 West, 101 W. Commerce Street, 13810
+Lookout Road — in the comp's order, and sets nothing else: the slice's own
+default heading reads "Featured Properties", and a second copy of that string in
+the seed is a second thing to edit.
+
+**#64 is answered, and it could not have been answered before this.** The
+featured slice's model declares its content relationship with `customtypes:
+[{ id: "property", fields: [...] }]`, which is meant to make the Content API
+embed those fields in the pick. Nobody could say whether it worked: no published
+document carried the slice, so the reviewer's own check walked every published
+page for a `link_type: "Document"` field and found zero. With the document
+published, the public API returns each pick with `isBroken: false` and a `data`
+object holding exactly the six fields the model asks for — `title`, `status`,
+`size_label`, `feature_image`, `highlights`, `location` — for all three.
+`fetchLinks` is not needed and `$lib/page-load` is unchanged. `feature_image` is
+absent from the last two because those documents have no photograph, not because
+the embed dropped it.
+
+**Which is why the production homepage shows ONE card.** The band drops a
+listing with no feature image, so with 22 listings and one photograph between
+them the band renders its one-slide state: a plain card, no region, no arrows,
+no bar, nothing rotating. That is the state the slice was built for and the one
+the site launches in; it becomes a carousel on the day a second photograph is
+uploaded, with no code change. #37 carries the photography.
+
+**Looked at, on a production build of `/`, at 1440 and 390, with no console
+error.** The page is hero, featured, legacy, photo band, footer: the RI cutout
+over the garnet ground with the headline in three lines; a real photograph of
+25331 IH 10 West beside its size line, title, five bullets and LEARN MORE, with
+the map column reserved and empty to its left; two partner cards with CONTACT
+and no PROFILE, because neither partner has a bio; the photo band as a garnet
+gradient, which is its launch state; and the footer with the office and the two
+TREC links (#25, still a launch blocker — they point at the old domain).
+
+The publisher's content check did its job again without being asked: 22 of 23
+live, `! page/home: live content differs from what was staged`, then 23 of 23.
+Mutation on the new test: the comp's first two listings swapped → "features the
+comp's three listings, in its order" red.
