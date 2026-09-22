@@ -1,3 +1,44 @@
+<script lang="ts" module>
+  /**
+   * The comp's per-section property map (#13), with its ground tones EXPORTED
+   * from this module script as `MAP_TONES`.
+   *
+   * (That first sentence is this file's whole row in docs/COMPONENTS.md:
+   * scripts/capability-index.mjs keeps the FIRST sentence of the FIRST comment
+   * and cannot see a `<script module>` export, so the name is in it or
+   * nowhere — the same workaround BrandButton uses. The component's own
+   * description is the comment on the instance script below.)
+   *
+   * THE BOX'S OWN GROUND, AND WHY IT IS A PROP.
+   *
+   * Before the tiles arrive — and forever, with scripting off — this component
+   * is not a map. It is a list of links, and a list of links needs a ground it
+   * is legible on. The first version hard-coded `bg-light text-primary`, which
+   * is right on the Properties page (sand panel on an off-white page, 8.87:1)
+   * and wrong on the homepage band, where it painted a full-bleed SAND
+   * rectangle over the band's #3d0707 until MapLibre finished booting —
+   * measured at 513 × 826.4 at 1455 × 900 and 375 × 200 at 390 × 844, i.e. the
+   * whole reserved column. Three comments in that PR asserted the opposite
+   * ("the band's #3d0707 is what shows through"), and the guard that claimed
+   * to measure it read `[data-map-slot]`, which is transparent and is NOT the
+   * element that paints. The child was.
+   *
+   * So the caller says which ground it is placing the map on, the way
+   * CarouselArrows and CarouselProgress already do. Measured, both ways round:
+   *
+   *   garnet  sand ground, garnet text      8.87:1   — the Properties page
+   *   cream   #3d0707 ground, off-white     14.85:1  — the homepage band
+   *
+   * `cream` paints the band's own colour rather than going transparent: it is
+   * the same pixel either way, and an explicit ground is what src/focus-floor
+   * .test.ts needs in order to give the list's focus ring a colour.
+   */
+  export const MAP_TONES = {
+    garnet: "bg-light text-primary",
+    cream: "bg-dark text-background",
+  } as const;
+</script>
+
 <script lang="ts">
   // The comp's per-section property map (#13): 397 x 595 in the Properties
   // page's left column at 1440, 350 x 200 above the cards at 390, 512 x 827
@@ -82,10 +123,19 @@
     /** "off" never loads MapLibre — the state /dev/a11y-fixtures audits, so
      *  the axe gate stays hermetic (no tile host on the critical path). */
     engine?: "auto" | "off";
+    /** The ground this map is placed ON, because until the tiles arrive the box
+     *  IS that ground plus a list of links. See MAP_TONES. */
+    tone?: keyof typeof MAP_TONES;
     class?: string;
   }
 
-  let { points, label, engine = "auto", class: passedClasses = "" }: Props = $props();
+  let {
+    points,
+    label,
+    engine = "auto",
+    tone = "garnet",
+    class: passedClasses = "",
+  }: Props = $props();
 
   type MapInstance = InstanceType<MapEngine["Map"]>;
 
@@ -345,7 +395,7 @@
     data-property-map
     data-map-ready={ready ? "" : undefined}
     data-expanded={expanded ? "true" : undefined}
-    class="relative isolate overflow-hidden bg-light text-primary {passedClasses}"
+    class="relative isolate overflow-hidden {MAP_TONES[tone]} {passedClasses}"
   >
     <!-- THE CONTENT. First in the DOM and first in the tab order, before the
          canvas and before every control, because it is what the map is a
@@ -438,7 +488,7 @@
            than asserts. -->
       <div
         data-map-sheet
-        class="absolute inset-x-0 bottom-0 z-[3] flex items-start justify-between gap-4 bg-light/95
+        class="absolute inset-x-0 bottom-0 z-[2] flex items-start justify-between gap-4 bg-light/95
           p-4 text-primary"
       >
         <div class="min-w-0">
@@ -489,7 +539,7 @@
         aria-expanded={expanded}
         aria-label={expanded ? `Collapse the ${label} map` : `Enlarge the ${label} map`}
         onclick={() => (expanded = !expanded)}
-        class="absolute right-0 bottom-0 z-[2] grid h-11 w-11 cursor-pointer place-items-end
+        class="absolute right-0 bottom-0 z-[3] grid h-11 w-11 cursor-pointer place-items-end
           bg-transparent pr-[10px] pb-[10px]"
       >
         <span
@@ -549,8 +599,17 @@
   /* MapLibre's attribution, toned to the brand. It is a licence condition, so
      it is legible rather than hidden: sand ground, garnet text, and the
      4.5:1 the palette already measures for that pair (8.87:1). */
+  /* OPAQUE, not 88%. Two reasons and they are the same reason. A translucent
+     chip over map tiles has no fixed contrast — the ratio depends on whatever
+     imagery happens to be under it — and axe says so: it answers
+     `color-contrast` for this element and its three links with `incomplete`,
+     "Element's background color could not be determined because element
+     contains an image node". That incomplete is what forced the whole map
+     subtree out of the band's axe run, which in turn silenced axe over the
+     OpenStreetMap credit this component argues is a LICENCE CONDITION. At
+     100% it is garnet on sand, 8.87:1, measurable and fixed. */
   :global([data-property-map] .maplibregl-ctrl-attrib) {
-    background-color: color-mix(in srgb, var(--color-light) 88%, transparent);
+    background-color: var(--color-light);
     color: var(--color-primary);
     font-size: 10px;
     line-height: 1.4;
@@ -560,7 +619,15 @@
     color: var(--color-primary);
     text-decoration: underline;
   }
+  /* ABOVE THE PIN SHEET, NOT UNDER IT. The sheet is `inset-x-0 bottom-0`, and
+     on the 200px phone map it covers the bottom third — measured with a pin
+     open at 390x844: sheet 471..536, attribution 522..536, and
+     `elementFromPoint` at the credit's centre returned the SHEET. That hid the
+     OpenStreetMap credit, which this component treats as an ODbL condition
+     rather than a style choice, and it hid the expand control with it. Both
+     now sit above the sheet; the credit's chip is opaque so it stays legible
+     over it. property-map.spec.ts hit-tests both with a sheet open. */
   :global([data-property-map] .maplibregl-ctrl-bottom-left) {
-    z-index: 2;
+    z-index: 3;
   }
 </style>

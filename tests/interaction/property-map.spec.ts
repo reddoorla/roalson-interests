@@ -305,23 +305,53 @@ test.describe("the engine, and what it costs", () => {
       await page.goto(HOME);
       await hydrated(page);
 
-      const before = await page.evaluate(() => ({
-        top: document.querySelector("[data-map-slot]")!.getBoundingClientRect().top,
-        engine: performance.getEntriesByType("resource").some((r) => /maplibre/.test(r.name)),
-      }));
+      // TWO CHANNELS, BECAUSE ONE OF THEM ONLY WORKS HERE. The name test is
+      // the readable one and it is DEV-ONLY: this suite runs against
+      // `vite dev` (package.json sets no `reddoor.gateServer`), where the
+      // engine is served as /node_modules/.vite/deps/maplibre-gl.js. On a
+      // production build the chunk is content-hashed — measured,
+      // `_app/immutable/chunks/DxiPY6e9.js` — and NOTHING a visitor fetches is
+      // named maplibre except the worker, which is requested when a Map is
+      // constructed rather than when the module is imported. So on a built
+      // site the name test would report "not loaded" even if the engine were
+      // statically imported into the route entry: a guard that cannot fail.
+      //
+      // The WEIGHT test is the one that transfers. It counts bytes actually
+      // fetched, which is the property being claimed, and it would fail the
+      // same way in either environment.
+      const weigh = () =>
+        page.evaluate(() => {
+          const js = performance
+            .getEntriesByType("resource")
+            .filter((r) => (r as PerformanceResourceTiming).initiatorType === "script");
+          return {
+            bytes: js.reduce((n, r) => n + ((r as PerformanceResourceTiming).transferSize || 0), 0),
+            named: js.some((r) => /maplibre/.test(r.name)),
+          };
+        });
+
+      const before = {
+        ...(await weigh()),
+        top: await page.evaluate(
+          () => document.querySelector("[data-map-slot]")!.getBoundingClientRect().top,
+        ),
+      };
       // Non-vacuity: if the map were on screen, "not loaded yet" would be
       // meaningless.
       expect(before.top, "the band is below the fold").toBeGreaterThan(640 + 300);
-      expect(before.engine, "no maplibre chunk before it is needed").toBe(false);
+      expect(before.named, "no maplibre chunk before it is needed (dev-only read)").toBe(false);
 
       await page.locator("[data-map-slot]").scrollIntoViewIfNeeded();
       await drawn(page);
+      const after = await weigh();
+      expect(after.named, "…and it is there once the box is (dev-only read)").toBe(true);
+      // The engine is 426 KB gzipped across two chunks. 200 KB is a floor no
+      // amount of ordinary page script reaches, and one an engine that failed
+      // to arrive could not clear.
       expect(
-        await page.evaluate(() =>
-          performance.getEntriesByType("resource").some((r) => /maplibre/.test(r.name)),
-        ),
-        "…and it is there once the box is",
-      ).toBe(true);
+        after.bytes - before.bytes,
+        `scrolling the box in pulled ${after.bytes - before.bytes} bytes of script`,
+      ).toBeGreaterThan(200_000);
     } finally {
       await context.close();
     }
@@ -360,7 +390,7 @@ test.describe("the engine, and what it costs", () => {
             };
           });
 
-        // The fixture's land section is four listings, two of them 0.7 km
+        // The fixture's land section is four listings, two of them 0.589 km
         // apart — so there is always something to measure and always at least
         // one grouping.
         expect(markers.pins.length + markers.clusters.length, `${width}: markers`).toBeGreaterThan(
@@ -402,6 +432,81 @@ test.describe("the engine, and what it costs", () => {
       });
       expect(tone.color, "toned to the brand's garnet").toBe(GARNET);
       expect(tone.clipped, "not half off the frame").toBe(false);
+
+      // AND IT SURVIVES A PIN SHEET OPENING OVER IT. The sheet is
+      // `inset-x-0 bottom-0`; at 390 on a 200px map it covers the bottom
+      // third, and it used to sit ABOVE both the credit and the expand
+      // control — measured, sheet 471..536 against attribution 522..536, with
+      // `elementFromPoint` at the credit's centre returning the sheet. A
+      // licence condition that a UI state can hide is not being met, so the
+      // hit test is the assertion, not the presence of the element.
+      await page.setViewportSize({ width: 390, height: 844 });
+      await page.locator(MAP).first().scrollIntoViewIfNeeded();
+      await drawn(page);
+      await page.locator(`${MAP} [data-map-pin]`).first().click();
+      await expect(page.locator(`${MAP} [data-map-sheet]`)).toBeVisible();
+
+      const onTop = await page.evaluate(() => {
+        const hit = (el: Element) => {
+          const r = el.getBoundingClientRect();
+          const found = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+          return !!found && (found === el || el.contains(found) || found.contains(el));
+        };
+        const attrib = document.querySelector(".maplibregl-ctrl-attrib");
+        const expand = document.querySelector("[data-map-expand]");
+        return { attrib: attrib ? hit(attrib) : null, expand: expand ? hit(expand) : null };
+      });
+      expect(onTop.attrib, "the OpenStreetMap credit is still hit-testable").toBe(true);
+      expect(onTop.expand, "and so is the expand control").toBe(true);
+    } finally {
+      await context.close();
+    }
+  });
+
+  // THE INTERACTIVE SURFACE, WHICH HAD NO TEST OF ANY KIND. The review of
+  // #107 found `press()`, the pin sheet, the cluster `easeTo` and the window
+  // Escape handler entirely unguarded — and the unit harness building an
+  // `eases` recorder it never read was the tell. These are the two behaviours
+  // a visitor actually performs.
+  test("pressing a cluster splits it; pressing a pin opens its sheet, and Escape closes it", async ({
+    browser,
+  }) => {
+    const { context, page } = await at(browser, 1440);
+    try {
+      await page.goto(PROPERTIES);
+      await hydrated(page);
+      await page.locator(MAP).first().scrollIntoViewIfNeeded();
+      await drawn(page);
+
+      const markers = () => page.locator(`${MAP} [data-map-pin], ${MAP} [data-map-cluster]`);
+      const clusters = page.locator(`${MAP} [data-map-cluster]`).first();
+      // Non-vacuity: a section that never clusters would make the split
+      // assertion below meaningless. Land clusters at the panel's fit zoom.
+      await expect(clusters, "the land section clusters at rest").toBeVisible();
+      const before = await markers().count();
+      const grouped = Number(await clusters.getAttribute("data-map-cluster"));
+      expect(grouped, "and the cluster stands for more than one listing").toBeGreaterThan(1);
+
+      // `press()` on a cluster eases to `expansionZoom` — the zoom at which
+      // THAT cluster comes apart, not the map's maxZoom. The observable is
+      // that it does come apart.
+      await clusters.click();
+      await expect
+        .poll(() => markers().count(), { message: "the cluster split", timeout: 10_000 })
+        .toBeGreaterThan(before);
+      // …and a cluster press never opens a sheet: it is not one listing.
+      await expect(page.locator(`${MAP} [data-map-sheet]`)).toHaveCount(0);
+
+      // A single pin does open one, and Escape closes it. The handler is on
+      // the window (the box is a <div> with no role, so a key handler on it is
+      // the non-interactive-element interaction the compiler refuses), which
+      // is exactly the kind of thing that stops working unnoticed.
+      await page.locator(`${MAP} [data-map-pin]`).first().click();
+      const sheet = page.locator(`${MAP} [data-map-sheet]`);
+      await expect(sheet).toBeVisible();
+      await expect(sheet, "the sheet names its listing").not.toBeEmpty();
+      await page.keyboard.press("Escape");
+      await expect(sheet, "Escape closes it").toHaveCount(0);
     } finally {
       await context.close();
     }
