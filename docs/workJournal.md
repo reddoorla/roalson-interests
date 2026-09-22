@@ -4973,6 +4973,8 @@ release was not published. That is the orchestrator's step after this merges.
 
 ## 2026-09-21 — The ground past both ends of the page, and a proxy that measured the page at rest (`fix/canvas-ground-past-both-ends`)
 
+> Superseded in part by 2026-09-22 — The ground past the top of the page was never once visible, and the test that "proved" it assumed the thing in question (#86). `.canvas-top` was never revealed by any pull; the top is the canvas now and the foot is the element.
+
 The operator's words were "extend the bg of the top and bottom past the screen
 so trying to scroll past doesn't show white". A rubber-band overscroll on a Mac
 pulls the scrolling contents away from the viewport, and what was behind them at
@@ -6036,3 +6038,111 @@ Filed and not fixed: #99 (no intersection term on rotation), #100 (the a11y gate
 never scrolls), #101 (animateIn's "vanishes" is a fade). Closed: the last bullet
 of #32; the rest of #32 stays open, and its comment now says which parts this
 batch answered and which it did not.
+
+## 2026-09-22 — The ground past the top of the page was never once visible, and the test that "proved" it assumed the thing in question (#86)
+
+The operator pulled past the top of the page on a real Mac — the confirmation
+#86 was left open for — and saw **sand**. Not the homepage hero's #3d0707, not
+the mastheads' garnet: the footer's colour, at the wrong end of the page.
+
+**What the first build did, and why it could never work.** `.canvas-top` was an
+element at `position: absolute; bottom: 100%` — a viewport of the route's own
+colour seated exactly on the document's y=0, rendered once by the root layout
+and coloured from the route's `canvasTop` claim. The argument for it, written
+into app.css at the time, was that _scrollable overflow only ever grows DOWN
+and RIGHT_, so the element cost nothing in scroll range while staying part of
+the scrolling contents a pull translates.
+
+The first half is true. It is also the sentence that kills the second half.
+**The scroll origin is clamped at 0, so anything above it is clipped out of the
+scrollable area entirely** — the same property that made it free is the property
+that makes it unreachable. It was never revealed, on any engine; Safari simply
+paints the canvas up there, which is what the operator saw.
+
+**The test was honest and still granted a false green, which is the part worth
+keeping.** `canvas-ground.spec.ts` said outright, in its own header, that
+headless Chromium cannot rubber-band and that _"a REAL two-finger pull on a Mac
+reveals the same pixels is the operator's to confirm"_. It then translated the
+scrolling contents from script and sampled where the element landed. That proxy
+assumes precisely what was in doubt — that a pull reveals above-origin content —
+so it could only ever return the answer it was built on. This is the fourth
+instance of the repo's recurring defect class (#79, #85, #94 are the others) and
+the most instructive, because nobody lied and nobody was careless: the caveat
+was written down, in the right file, and the green was believed anyway.
+
+**The fix is the same trick the other way round.** A canvas has one colour and
+the browser paints it past both ends, so the only question is which end gets it.
+The top is the end that _cannot_ be painted any other way, so:
+
+- the TOP is the canvas — `html { background-color: var(--canvas-top,
+var(--color-background)) }`, with `--canvas-top` declared on `:root` by a rule
+  the layout renders into the document **head** from the route's claim;
+- the FOOT is now the element — `.canvas-foot`, zero height, after the footer,
+  laying 100vh of sand below the last thing drawn with a **`box-shadow`**.
+  Painting below the document's end is the direction that is not clipped, and
+  `box-shadow` is specified not to contribute to scrollable overflow, so that
+  end still costs no scroll range. A `background-color` here would paint the
+  same pixels and add a viewport of scroll to every page — overflow DOWN being
+  the half that is _not_ clipped is exactly why the foot can be an element and
+  the top cannot.
+
+**And the top stopped being a proxy at all.** The colour an overscroll shows
+above the document _is_ the root element's background, so the spec now reads
+`getComputedStyle(document.documentElement).backgroundColor` directly. That is
+the largest gain here and it is not cosmetic: the half that was unverifiable is
+now the half that needs no screenshot. Only the foot still uses the pull proxy,
+and it says so.
+
+**Safari's toolbar comes free, which is what the operator actually asked for**
+("should change the menu bar on safari"). Making the canvas garnet tints it, and
+`<meta name="theme-color">` is now emitted on **every** route — including the
+ones that claim nothing, because a route that omitted the tag would keep
+whatever the previous route set across a client-side navigation. Measured on a
+production build: `/` → `#3d0707`, `/properties` and `/contact` → `#652323`, a
+listing detail → `#f2efe9`.
+
+**Two things measured on the production build that a diff would not have
+caught.** A literal `<style>` written inside `<svelte:head>` is taken by the
+compiler as the component's **own stylesheet and hoisted out of the markup** —
+`theme-color` shipped correctly on all four routes and the rule was simply
+absent, leaving every page's canvas at the fallback. So the layout renders it
+with `{@html}` from `canvasTopStyleTag`, and the safety is not left to review:
+`canvas-top.test.ts` feeds that function every token, every non-token,
+`<script>`, a bare brace and a CSS-injection attempt and asserts the set of
+distinct outputs is **exactly three values**. Second: `getPropertyValue`
+hands back the _resolved_ value (`#652323`), not the `var(--color-primary)` text
+the rule was written with, because custom properties substitute at
+computed-value time — which turned out to be the better assertion, since
+comparing it to `theme-color` proves the stylesheet and the meta tag, two
+necessary spellings of one colour, actually agree.
+
+**A mutation that failed to mutate.** The first version of the top test cleared
+`--canvas-top` with `style.removeProperty` on `html` and polled for the
+fallback. There is no inline property to clear — the declaration is a `:root`
+rule in a stylesheet — so it hung for 5s and failed on a value that was never
+going to change. The second version deleted every `<style>` containing the
+string and found **two**: app.css's own `background-color: var(--canvas-top, …)`
+carries it, and under `vite dev` that sheet is a `<style>` tag too. Deleting
+both would have gone to off-white for the wrong reason and proved nothing. It
+matches `:root{--canvas-top:` now, and asserts it removed exactly one.
+
+**Honest accounting, and it is not in this change's favour.** While verifying,
+`featured-properties.spec.ts:210` — the "known macOS red" of #80, recorded
+byte-identical at 436.890625 across five separate runs — came up **green**. It
+is not this branch: the same commit that was red last night (`7174652`) is
+2/2 green today in a clean detached worktree, current `main` is 2/2, and this
+branch is 4/4. Same machine, same Playwright 1.62.1, unchanged tree. So #80 is
+**intermittent, not the macOS/Linux split it and #83 assert**, and the advice
+given to the operator — "`pnpm verify` is red on main for anyone on a Mac" — was
+wrong. No cause established; the one lead is #52 (the dev server's CSP blocks
+`fonts.googleapis.com` on every run, so the brand face may load from cache on
+some runs and fall back on others, moving text metrics). Written up on #80.
+
+Green: prettier + eslint clean, svelte-check 4627 files 0 errors, 103 test files
+/ 1099 tests, axe 0 violations across 5 routes, Playwright **143 passed / 0
+failed**, and the head bytes confirmed on `vite preview` across four real
+routes. What is still the operator's to confirm is now only the FOOT — the top
+is measured.
+
+> The entry this corrects is 2026-09-21 — the canvas ground batch (#86). Its
+> account of `.canvas-top` was believed at the time and is wrong.

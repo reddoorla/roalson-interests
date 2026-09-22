@@ -198,11 +198,12 @@ describe("navWordmark — only the homepage gates the bar's wordmark", () => {
 /**
  * And a fourth claim, about the other end of the page's TOP: the ground ABOVE
  * the document's own y=0, which a rubber-band overscroll pulls into view
- * (`canvasTop`, resolved by $lib/canvas-top, painted by `.canvas-top` in
- * app.css). The foot of the page is a canvas colour — one value, the same on
- * every route, set on `html` — and this end cannot be, because the top of the
- * page is the homepage hero's flat dark garnet on one route and the mastheads'
- * garnet on another. So the route says which.
+ * (`canvasTop`, resolved by $lib/canvas-top). It IS the canvas — `html`'s
+ * background — because the canvas is the only thing a browser paints past the
+ * top of a document, and the route declares it through a rule the layout puts
+ * in the head. The FOOT is the end that can be painted by an element instead
+ * (`.canvas-foot`), since painting below the document's end is not clipped.
+ * It was the other way round until 2026-09-22 and the top never appeared.
  *
  * THE CLASS IS EXACTLY `navOver: "dark"`, and that is the whole reason this
  * block exists rather than a per-route memory. A route whose first band runs
@@ -318,15 +319,31 @@ describe("canvasTop — the ground above the top of the document", () => {
     }
   });
 
-  it("the layout renders the element once, outside the wrapper, with the route's claim", () => {
-    const layout = readFileSync(join(ROUTES, "+layout.svelte"), "utf8");
-    const tags = markup(layout).match(/<div class="canvas-top"[\s\S]*?><\/div>/g) ?? [];
-    expect(tags, "one .canvas-top, rendered by the layout").toHaveLength(1);
-    expect(tags[0]).toContain("canvasTopStyle(page.data.canvasTop)");
-    expect(tags[0], "decorative, and never in the reading order").toContain('aria-hidden="true"');
+  it("the layout puts the claim in the HEAD and the foot outside the wrapper", () => {
+    const source = readFileSync(join(ROUTES, "+layout.svelte"), "utf8");
+    // `markup()` strips <svelte:head> on purpose — it exists to find the first
+    // BODY tag — so the head half is read from the source and the ordering
+    // half from the stripped markup.
+    const body = markup(source);
+
+    // The TOP is the canvas (`html` in app.css), so the route's claim has to
+    // reach `:root` — which a component cannot do with an attribute on its own
+    // markup. It goes in the head, server-rendered, so the colour is right on
+    // the first paint and with scripting off.
+    expect(source, "the claim is rendered into the head").toMatch(
+      /<svelte:head>[\s\S]*canvasStyleTag[\s\S]*<\/svelte:head>/,
+    );
+    expect(source, "and theme-color ships on EVERY route, claim or no claim").toMatch(
+      /<meta name="theme-color" content=\{canvasTopThemeColor\(page\.data\.canvasTop\)\} \/>/,
+    );
+
+    const feet = body.match(/<div class="canvas-foot"[\s\S]*?><\/div>/g) ?? [];
+    expect(feet, "one .canvas-foot, rendered by the layout").toHaveLength(1);
+    expect(feet[0], "decorative, and never in the reading order").toContain('aria-hidden="true"');
+
     // It must not sit between <main> and <footer>: the pinned photo band's
-    // rules in app.css are written on that adjacency (`main + footer`).
-    const body = markup(layout);
-    expect(body.indexOf('class="canvas-top"')).toBeLessThan(body.indexOf("<main"));
+    // rules in app.css are written on that adjacency (`main + footer`). The
+    // foot belongs AFTER the whole wrapper, so it comes after <Footer.
+    expect(body.indexOf('class="canvas-foot"')).toBeGreaterThan(body.indexOf("<Footer"));
   });
 });
