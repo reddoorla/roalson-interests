@@ -175,11 +175,17 @@ test.describe("with motion allowed", () => {
 
     // The moment the band's foot reaches the window's, it holds — and that is
     // the same moment the footer arrives.
+    // `Math.round`, and the footer is 512.56 tall, so the scroll position this
+    // walks from is up to half a pixel off the exact moment of engagement.
+    // Under a pixel is "seated"; sub-0.05 was a promise about fractional
+    // layout that the page cannot keep, and it came due the day another band
+    // was added to this fixture and moved everything by 0.48px.
+    const SEATED = 1;
     const pinStart = Math.round(bandTop - seat);
     await scrollTo(page, pinStart);
     const engaged = await read(page);
-    expect(engaged.band.bottom).toBeCloseTo(engaged.innerHeight, 1);
-    expect(engaged.footer.top).toBeCloseTo(engaged.innerHeight, 1);
+    expect(Math.abs(engaged.band.bottom - engaged.innerHeight)).toBeLessThan(SEATED);
+    expect(Math.abs(engaged.footer.top - engaged.innerHeight)).toBeLessThan(SEATED);
 
     // Walk the whole pin. At every step the band has not moved and the footer
     // HAS, in view — never a stretch where the visitor scrolls and sees nothing.
