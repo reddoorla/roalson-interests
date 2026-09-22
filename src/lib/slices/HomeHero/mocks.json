@@ -69,6 +69,11 @@
           }
         ]
       },
+      "vimeo_id": {
+        "__TYPE__": "FieldContent",
+        "type": "Text",
+        "value": "1229048743"
+      },
       "specialty_label": {
         "__TYPE__": "FieldContent",
         "type": "Text",
