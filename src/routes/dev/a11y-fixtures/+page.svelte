@@ -448,8 +448,8 @@
   <HomeHero slice={homeHeroFixture()} />
 
   <!-- The homepage's featured band, twice: the comp's three listings (a
-       carousel — garnet arrows and bar on the sand card, the cream portfolio
-       button on the dark ground) and launch day's ONE (a plain card: no region,
+       carousel — garnet arrows and bar on the sand card) and launch day's ONE
+       (a plain card: no region,
        no arrows, no bar — under its own heading, because two landmarks may not
        share a name on one page). This gate runs under reduced motion, so the Pause
        control is never in what axe sees here; its name and its place in the

@@ -50,9 +50,7 @@
   import CarouselArrows from "$lib/components/CarouselArrows.svelte";
   import CarouselProgress from "$lib/components/CarouselProgress.svelte";
   import { createCarousel } from "$lib/carousel.svelte";
-  import { cmsHref } from "$lib/cms-href";
   import { featuredListings } from "$lib/featured-properties";
-  import { linkResolver } from "$lib/prismicio";
   import { DEFAULT_IMAGE_WIDTHS, imgix, srcset } from "$lib/utils/image";
 
   let { slice }: { slice: Content.FeaturedPropertiesSlice } = $props();
@@ -72,16 +70,6 @@
   // the h1 and the slide titles are h3s. It also names the carousel, so an
   // empty field falls back to the comp's words rather than to no name.
   const heading = $derived(primary.heading?.trim() || "Featured Properties");
-
-  // A label AND somewhere to go, as the hero's buttons — and through cmsHref,
-  // because /properties is a filesystem route an editor can only TYPE.
-  const portfolio = $derived.by(() => {
-    const text = primary.portfolio_label?.trim() ?? "";
-    const href = cmsHref(primary.portfolio_link, { linkResolver });
-    if (text === "" || href === null) return null;
-    const link = primary.portfolio_link;
-    return { text, href, blank: "target" in link && link.target === "_blank" };
-  });
 
   // ONE listing is not a carousel: `enabled: false` hands back empty attribute
   // bags, so it renders as a plain card — no roles, no "1 of 1", no swipe —
@@ -265,34 +253,6 @@
       aria-hidden="true"
       class="hidden lg:col-start-1 lg:row-start-1 lg:block"
     ></div>
-
-    {#if portfolio}
-      <!-- NOT IN THE COMP, which draws no way from this band to the rest of the
-           portfolio (its "View More" lives in a hidden, superseded `Intro`
-           layer — an outlined button on this same dark ground). It stays OUT
-           of the card, so the card is the comp's card: under it below `lg`, and
-           from `lg` on the reserved column's floor, on the site's gutter and
-           level with the arrows — which is also what makes an empty column read
-           as left empty on purpose. After the card in the DOM: "all of them"
-           follows "these three". -->
-      <div class="lg:pointer-events-none lg:absolute lg:inset-0">
-        <div
-          class="mx-auto flex h-full max-w-[1440px] items-end px-5 py-10 sm:px-8 lg:pt-0
-            lg:pb-[43px] xl:px-20"
-        >
-          <BrandButton
-            href={portfolio.href}
-            tone="cream"
-            arrow
-            target={portfolio.blank ? "_blank" : undefined}
-            rel={portfolio.blank ? "noopener noreferrer" : undefined}
-            class="lg:pointer-events-auto"
-          >
-            {portfolio.text}
-          </BrandButton>
-        </div>
-      </div>
-    {/if}
   </section>
 {/if}
 

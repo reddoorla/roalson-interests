@@ -51,21 +51,6 @@
               }
             }
           }
-        },
-        "portfolio_label": {
-          "type": "Text",
-          "config": {
-            "label": "Portfolio button — label. With no label or no link the button is not shown",
-            "placeholder": "Our portfolio"
-          }
-        },
-        "portfolio_link": {
-          "type": "Link",
-          "config": {
-            "label": "Portfolio button — link. A page on this site can be typed as a path, e.g. /properties",
-            "placeholder": "/properties",
-            "allowTargetBlank": true
-          }
         }
       },
       "items": {}

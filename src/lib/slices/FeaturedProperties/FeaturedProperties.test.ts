@@ -282,45 +282,20 @@ describe("FeaturedProperties slice", () => {
     expect(band(container).className).toContain("bg-dark");
   });
 
-  describe("the portfolio link", () => {
-    it("goes to /properties — a path an editor can only TYPE, resolved by cmsHref", () => {
-      const { getByRole } = render(FeaturedProperties, {
-        props: { slice: featuredPropertiesFixture() },
-      });
-      const link = getByRole("link", { name: "Our portfolio" });
-      expect(link.getAttribute("href")).toBe("/properties");
-      // Outside the card: the card stays the comp's card, and "all of them"
-      // follows "these three" in reading order.
-      expect(link.closest("[data-featured-card]")).toBeNull();
-      const lastSlide = slidesOf(document.body).at(-1)!;
-      expect(
-        lastSlide.compareDocumentPosition(link) & Node.DOCUMENT_POSITION_FOLLOWING,
-      ).toBeTruthy();
-    });
-
-    it("is not drawn without BOTH a label and somewhere to go", () => {
-      for (const primary of [
-        { portfolio_label: "" },
-        { portfolio_label: null },
-        { portfolio_link: { link_type: "Any" } },
-        { portfolio_link: { link_type: "Web", url: "" } },
-      ]) {
-        const { queryByRole, unmount } = render(FeaturedProperties, {
-          props: { slice: featuredPropertiesFixture(primary as never) },
-        });
-        expect(queryByRole("link", { name: /portfolio/i }), JSON.stringify(primary)).toBeNull();
-        unmount();
+  it("draws no link of its own out of the band — every link is a slide's LEARN MORE", () => {
+    // The comp's "View More" lives in a hidden, superseded layer, and the spec
+    // and the critic both rule it out: the hero one band up and the footer
+    // carry "Our portfolio" already, and the column beside the card is the
+    // map's (#13). A button here was built once and removed in review.
+    for (const slice of [featuredPropertiesFixture(), featuredLaunchFixture()]) {
+      const { container, unmount } = render(FeaturedProperties, { props: { slice } });
+      const links = [...band(container).querySelectorAll("a")];
+      expect(links.length).toBeGreaterThan(0);
+      for (const link of links) {
+        expect(link.closest("[data-featured-slide]"), link.textContent ?? "").not.toBeNull();
+        expect(link.getAttribute("href")).toMatch(/^\/properties\/.+/);
       }
-    });
-
-    it("stays with the band in the one-slide state, and goes with it in the empty one", () => {
-      const one = render(FeaturedProperties, { props: { slice: featuredLaunchFixture() } });
-      expect(one.getByRole("link", { name: "Our portfolio" })).toBeTruthy();
-      one.unmount();
-      const none = render(FeaturedProperties, {
-        props: { slice: featuredPropertiesFixture({ properties: [] }) },
-      });
-      expect(none.queryByRole("link", { name: "Our portfolio" })).toBeNull();
-    });
+      unmount();
+    }
   });
 });
