@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { cleanup, render, within } from "@testing-library/svelte";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -177,6 +179,126 @@ describe("FeaturedProperties slice", () => {
       expect(live.className).toContain("sr-only");
     });
 
+    // ── the four animations, at the level of what the markup says ──────────
+    //
+    // What they LOOK like is tests/interaction/featured-properties.spec.ts's:
+    // jsdom resolves no stylesheet, runs no transition and lays nothing out.
+    // What is worth pinning here is the part that is a string — and the part
+    // that is a string is exactly the part that silently stops working, because
+    // Tailwind's source scan cannot see a class built at runtime.
+
+    it("staggers the four text lines with LITERAL delays, 60ms apart, ending on the settle", () => {
+      const { container } = render(FeaturedProperties, {
+        props: { slice: featuredPropertiesFixture() },
+      });
+      const [onStage] = slidesOf(container);
+      const lines = [...onStage.querySelectorAll<HTMLElement>("[data-featured-line]")];
+      expect(lines.map((l) => l.dataset.featuredLine)).toEqual(["0", "1", "2", "3"]);
+      expect(lines.map((l) => l.tagName)).toEqual(["P", "H3", "UL", "DIV"]);
+
+      // The delays are read off the rendered classes, not off a constant in
+      // the component: a `delay-[${n}ms]` built at runtime would render
+      // exactly this and ship no CSS for it, which is the defect.
+      const delays = lines.map((l) => /(?:^|\s)delay-\[(\d+)ms\]/.exec(l.className)?.[1]);
+      expect(delays).toEqual(["150", "210", "270", "330"]);
+      for (const line of lines) {
+        expect(line.className).toContain("duration-[170ms]");
+        expect(line.className.split(/\s+/)).toContain("translate-y-0");
+        expect(line.className.split(/\s+/)).toContain("opacity-100");
+      }
+      // The last line lands on the 500ms settle, which is what lets the bar
+      // start filling on a slide that has finished arriving.
+      expect(Number(delays[3]) + 170).toBe(500);
+
+      // The wrapper owns NO opacity: two nested fades multiply.
+      const wrapper = lines[0].parentElement!.parentElement!;
+      expect(wrapper.className).not.toMatch(/(^|\s)opacity-/);
+      expect(wrapper.className).not.toContain("transition");
+    });
+
+    it("parks an off-stage slide's lines at +8px, ready to rise, with no stagger", () => {
+      const { container } = render(FeaturedProperties, {
+        props: { slice: featuredPropertiesFixture() },
+      });
+      const [, ...offStage] = slidesOf(container);
+      for (const slide of offStage) {
+        const lines = [...slide.querySelectorAll<HTMLElement>("[data-featured-line]")];
+        expect(lines).toHaveLength(4);
+        for (const line of lines) {
+          expect(line.className.split(/\s+/)).toContain("translate-y-2");
+          expect(line.className.split(/\s+/)).toContain("opacity-0");
+          expect(line.className).toContain("duration-[150ms]");
+          // The exit is one movement, not four: nothing waits on the way out.
+          expect(line.className).not.toMatch(/(^|\s)delay-\[/);
+        }
+      }
+    });
+
+    it("zooms only the photo, only from the clock, and holds an off-stage one at the end", () => {
+      const { container } = render(FeaturedProperties, {
+        props: { slice: featuredPropertiesFixture() },
+      });
+      const photos = [...container.querySelectorAll<HTMLElement>("[data-featured-photo]")];
+      expect(photos).toHaveLength(3);
+      // Slide 1 is on stage with progress 0 — the dwell has not started.
+      expect(photos[0].getAttribute("style")).toBe("transform: scale(1.00000);");
+      // …and the others are held at the END scale, so a clock turn does not
+      // shrink a fully opaque outgoing photo by 3% under the incoming one.
+      expect(photos[1].getAttribute("style")).toBe("transform: scale(1.03000);");
+      expect(photos[2].getAttribute("style")).toBe("transform: scale(1.03000);");
+      // Never on the wrapper: its transition-duration is the comp's 0.5s
+      // dissolve, and a second transitioned property there makes the computed
+      // value a two-item list (two assertions in the interaction spec).
+      for (const photo of photos) {
+        expect(photo.parentElement!.getAttribute("style")).toBeNull();
+        expect(photo.className).not.toContain("transition");
+      }
+    });
+
+    it("reveals the card at 24px over 600ms — and never ships `data-reveal`", () => {
+      // jsdom's IntersectionObserver is the no-op from vitest-setup.ts, so the
+      // card stays in animateIn's HIDDEN state here: that state is what this
+      // reads. The marker must not be in the markup — app.css hides
+      // `[data-reveal]` at a hard-coded translateY(50%), which is not the 24px
+      // this reveals from (src/reveal-hidden-state.test.ts holds those two
+      // against each other).
+      const { container } = render(FeaturedProperties, {
+        props: { slice: featuredPropertiesFixture() },
+      });
+      const region = card(container);
+      expect(region.style.opacity).toBe("0");
+      expect(region.style.transform).toBe("translateY(24px)");
+      expect(region.style.transition).toContain("600ms");
+      expect(region.style.transition).toContain("opacity");
+      expect(region.style.transition).toContain("transform");
+      // The action writes the marker itself while it holds an element hidden,
+      // and drops it the moment the element is on its way to visible — so it
+      // being here is positive evidence the action ran, not a defect.
+      expect(region.getAttribute("data-reveal")).toBe("");
+      // delayMax: 0. The default 400 × (left / innerWidth) would buy an
+      // unasked-for delay from the card's own horizontal position.
+      expect(region.style.transitionDelay).toBe("0ms");
+    });
+
+    it("ships no `data-reveal` from the SERVER, because its travel is not the CSS's", () => {
+      // The half of the decision jsdom cannot see. app.css hides
+      // `[data-reveal]` at a hard-coded translateY(50%) and
+      // src/reveal-hidden-state.test.ts holds that number against animateIn's
+      // default; this card reveals from 24px, so markup carrying the attribute
+      // would be hidden at one distance and revealed from another. The only
+      // way the attribute could reach the server's output is a literal in the
+      // template, which is what this reads — the same way
+      // reveal-hidden-state.test.ts reads app.css and app.html.
+      const source = readFileSync(
+        resolve(process.cwd(), "src/lib/slices/FeaturedProperties/index.svelte"),
+        "utf8",
+      );
+      const markup = source.slice(source.indexOf("</script>"));
+      expect(markup).not.toMatch(/\sdata-reveal[\s=>]/);
+      // …and the travel it does pass is not the one app.css hides at.
+      expect(source).toContain('translateY: "24px"');
+    });
+
     it("under reduced motion there is no Pause to press, and the bar shows position", () => {
       motion(true);
       const { container } = render(FeaturedProperties, {
@@ -188,6 +310,41 @@ describe("FeaturedProperties slice", () => {
       expect(
         container.querySelector<HTMLElement>("[data-carousel-progress]")!.dataset.carouselProgress,
       ).toBe("position");
+    });
+
+    it("under reduced motion NONE of the four animations exists — one case, all four", () => {
+      // Enumerated together on purpose: each of the four is switched off by a
+      // different mechanism (`rotating` for the stagger, `eligible` for the
+      // zoom and the bar's mode, the action's own teardown for the reveal),
+      // and four separate cases would let one of them be quietly rewired onto
+      // a mechanism that does not hold.
+      motion(true);
+      const { container } = render(FeaturedProperties, {
+        props: { slice: featuredPropertiesFixture() },
+      });
+
+      // A — no stagger and no transition on any line, on stage or off.
+      const lines = [...container.querySelectorAll<HTMLElement>("[data-featured-line]")];
+      expect(lines.length).toBe(12);
+      for (const line of lines) {
+        expect(line.className).not.toContain("transition");
+        expect(line.className).not.toMatch(/(^|\s)delay-\[/);
+        expect(line.className).not.toMatch(/(^|\s)duration-\[/);
+      }
+
+      // B — no transform at all, not `scale(1)`: nothing for app.css's zeroed
+      // animation-duration to snap to the end of, because there is no style.
+      for (const photo of container.querySelectorAll("[data-featured-photo]"))
+        expect(photo.getAttribute("style")).toBeNull();
+
+      // C — the bar is in position mode, which has no handover to dissolve.
+      const fill = container.querySelector<HTMLElement>("[data-carousel-progress] > div")!;
+      expect(fill.dataset.carouselFill).toBe("position");
+
+      // D — the action is a complete no-op: it never touched the card.
+      const region = card(container);
+      expect(region.getAttribute("style")).toBeNull();
+      expect(region.hasAttribute("data-reveal")).toBe(false);
     });
   });
 
