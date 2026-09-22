@@ -5253,3 +5253,196 @@ worth an issue rather than a paragraph.
 `pnpm verify` minus that one known red: prettier clean, eslint clean,
 svelte-check 0 errors over 4622 files, build green, axe 0 violations across 5
 routes, 1012 unit tests in 99 files, 133 of 134 Playwright.
+
+## 2026-09-22 — Twenty listing photographs, out of the listings' own marketing packages — and the page-1 premise that held for five of twenty-two (`feat/listing-feature-images`, PR #92)
+
+Twenty-one of the twenty-two listings had no photo, which was the largest
+remaining piece of #3. The comp's listing photography is unlicensed stock, so
+it cannot ship. But every listing already carries `assets.package_pdf.url` — a
+marketing package on the client's own site — and the images inside are the
+client's: licensed, and bound to the right property by the document they came
+out of rather than by a judgement call. That last property is the whole reason
+this was worth doing: attaching a photograph to the wrong building on a real
+estate site is not a cosmetic defect, it is someone driving to the wrong
+address.
+
+**The premise was wrong, and it was wrong seventeen times out of twenty-two.**
+The brief — verified end to end on `13810-lookout-road`, correctly — was "page
+1 of that PDF carries a photograph of that property". Measured with
+`pdfimages -list` across all 22 packages: page 1 carries a photograph in
+**five** of them (`101-w-commerce-street`, `13810-lookout-road`,
+`25331-ih-10-west`, `5001-walzem-road`, `urban-loop-road`). The other seventeen
+open on a typed spec sheet with nothing on it but the letterhead and two rule
+bars. One verified instance is not a class, and the class here was seventeen
+packages with a different shape entirely.
+
+The shape, once `pdftotext` was pointed at the page titles instead of guessing
+from image geometry: **p1** spec sheet, **p2** more text, **p3** "Location Map",
+**p4** "Area Map" — both Google street-map screenshots, both worthless as a
+photograph — **p5/p6** "Aerial Map", **p7** "Survey" or "Site Plan", **p8+**
+"DEMOGRAPHIC OVERVIEW", disclosure, TREC. Reading the page titles cost one
+`pdftotext` call per page and replaced an hour of opening images to find out
+what they were. It should have been the first move, not the fourth.
+
+**What the heuristic is, and what it is not.** `chooseFeatureImage` implements
+the rule the brief proposed and it works: on a page, discard every image whose
+PDF object id also appears on another page — that is the letterhead, the
+wordmark and the rules, which repeat — then take the largest of what is left.
+The discard is doing real work, not decoration: on `13810-lookout-road` the
+letterhead is 1275×1643 = 2,094,825px against the photo's 1717×866 = 1,486,922,
+so "largest on page 1" alone picks the letterhead. The test asserts that
+inequality explicitly so the reason survives.
+
+What it is not is a way to pick the _right_ image. It answers "is there a
+photograph on this page" and nothing else, and no positional rule separates
+"aerial of this site" from "Survey", "Floor Plan" or "Location Map" — the
+aerials sit on p5 in one package and p6 in the next, and `ih-10-at-highway-87-comfort`
+has its usable aerial on p5 with a survey on p6. So the page and object of every
+chosen image are **recorded per listing** in `listings.json`, by someone who
+looked at the extracted file, and `locate` re-finds it by page **and** object id
+**and** pixel size and throws otherwise. That last check is the only thing
+standing between a republished package and a silently swapped photograph on a
+property listing.
+
+**Rotation, which nothing in the metadata announces.** Four aerials
+(`cascade-caverns-at-old-san-antonio-road`, `ih-10-at-highway-46`,
+`ih-10-at-menger-springs`, `ih-35-at-wonderworld-san-marcos`) are stored on
+their side: the exhibit is landscape, the page is portrait, and the raster holds
+the exhibit rotated a quarter turn with the vector text drawn over it. Nothing
+in `pdfimages -list` says so — a 2569×3872 row looks like a tall image. It was
+found by looking, the direction was settled by rotating and looking again rather
+than by reasoning about which way the letters lean, and `rotate: 90` is recorded
+in the data. After the turn those four are the best-shaped images in the set, at
+2000×1327 to 2000×1452 against a card box of 423.5 × 267.5 (1.583).
+
+**What was rejected, by sight.** The Roalson letterhead; the "Location Map" and
+"Area Map" street-map screenshots on p3/p4 of every land package; three surveys;
+`loop-1604-at-highway-181`'s Pape-Dawson site-plan drawing; `13810-lookout-road`'s
+floor plan on p6; and the demographics pages. Every one of the 20 files that
+shipped was viewed at full size before it was attached, and all 20 sha256
+digests are distinct — no photograph landed on two listings. That check mattered
+more than it looked: `cascade-caverns-at-old-san-antonio-road` and
+`ih-10-at-scenic-loop` are **193 m apart**, the closest pair of the 22, and their
+aerials cover overlapping ground. They are different parcels on opposite sides
+of Cascade Caverns Road, each out of its own package, and the digests confirm
+two different files.
+
+What each listing got, and from where — `p<page>/obj<object id>` is the
+provenance recorded in `listings.json`, and `+90°` is a stored-on-its-side
+exhibit turned upright:
+
+| uid                                      | category        | from          | final px  | bytes  |
+| ---------------------------------------- | --------------- | ------------- | --------- | ------ |
+| 101-w-commerce-street                    | Improved        | p1/obj1068    | 1872×1290 | 425 KB |
+| 116-old-san-antonio-road                 | Land — SA Metro | p6/obj19      | 960×1191  | 303 KB |
+| 11714-perrin-beitel-road                 | Land — SA Metro | p6/obj20      | 1546×2000 | 374 KB |
+| 13810-lookout-road                       | Improved        | p1/obj396     | 1717×866  | 101 KB |
+| 25331-ih-10-west                         | Improved        | kept its own  | —         | —      |
+| 402-w-nueva-street                       | Land — SA Metro | p6/obj18      | 1546×2000 | 357 KB |
+| 5001-walzem-road                         | Improved        | p1/obj997     | 640×374   | 38 KB  |
+| 5930-bandera-road                        | Improved        | p6/obj23      | 1546×2000 | 358 KB |
+| cascade-caverns-at-old-san-antonio-road  | Land — SA Metro | p6/obj29 +90° | 2000×1412 | 515 KB |
+| highway-77-at-general-cavazos-kingsville | Land — Out of   | p6/obj25      | 960×1242  | 135 KB |
+| ih-10-at-fm-725-seguin                   | Land — Out of   | p6/obj22      | 1841×2000 | 343 KB |
+| ih-10-at-highway-46                      | Land — SA Metro | p6/obj19 +90° | 2000×1327 | 392 KB |
+| ih-10-at-highway-87-comfort              | Land — Out of   | p5/obj25      | 1466×2000 | 698 KB |
+| ih-10-at-menger-springs                  | Land — SA Metro | p6/obj26 +90° | 2000×1327 | 411 KB |
+| ih-10-at-scenic-loop                     | Land — SA Metro | p6/obj19      | 585×722   | 85 KB  |
+| ih-10-east-at-loop-1604                  | Land — SA Metro | p6/obj20      | 1546×2000 | 381 KB |
+| ih-35-at-wonderworld-san-marcos          | Land — Out of   | p6/obj18 +90° | 2000×1452 | 565 KB |
+| loop-1604-at-dove-canyon                 | Land — SA Metro | p6/obj20      | 1546×2000 | 606 KB |
+| loop-1604-at-highway-181                 | Land — SA Metro | skipped       | —         | —      |
+| menger-springs-road                      | Land — SA Metro | p6/obj21      | 1608×2000 | 451 KB |
+| st-marys-at-martin-river-walk            | Land — SA Metro | p6/obj19      | 1546×2000 | 701 KB |
+| urban-loop-road                          | Land — SA Metro | p1/obj1054    | 1467×1100 | 241 KB |
+
+**The one skip.** `loop-1604-at-highway-181` gets no photo. Its p5 is a
+metro-wide aerial of San Antonio in which the site is a yellow arrow over a few
+pixels, and its p6 is an engineering site-plan exhibit. No photograph of the
+property exists in the package. A listing with no photo is the status quo and is
+honest; a listing with the wrong photo is worse than both. The skip is asserted
+by name in `feature-images.test.ts`, so it reads as a decision rather than as
+something nobody got to.
+
+**Two that are correct and soft.** `5001-walzem-road` comes out at 640×374 —
+that is the entire raster the package embeds, at 152 ppi, so rendering the page
+at 300 dpi would upsample and add no detail. `ih-10-at-scenic-loop` is 585×722.
+Both will be visibly soft on a 928 px card at 2× and there is nothing in the
+client's files to do better with. Named here rather than quietly shipped.
+
+**Attribution was left in frame, deliberately.** The land aerials are MapRight /
+Land id. / esri exports, and `ih-10-at-fm-725-seguin`, `menger-springs-road` and
+`loop-1604-at-dove-canyon` carry a baked-in "Map data ©2016 Google / Imagery
+©…" strip along the bottom. Cropping each exhibit to the card's 1.583 aspect was
+designed, built in my head, and **abandoned**: the crop that makes the best card
+is exactly the crop that removes the attribution strip and the vendor logo. So
+nothing is aspect-cropped. The stored asset is the whole exhibit — caption,
+scale bar, legend, attribution — and `object-cover` does the framing at render
+time, which is a rendering choice and not a redistribution of someone's imagery
+with the credit removed. To revive the crop, the thing to solve first is
+attribution, not geometry.
+
+**`25331-ih-10-west` was left alone.** It already had a photo, off the client's
+own Google My Map, already uploaded and already live. Its package's p1 also
+holds a good photograph (1840×1385, a different view of the same buildings) and
+swapping would have been a change with no benefit and a live document behind it.
+`feature-images.mjs` skips any `feature_image` that has a `url`, and
+`listings.test.ts` now asserts that the url-bearing one is exactly that uid.
+
+**How it attaches, without faking a url.** `toPayload` already read
+``assetIds[`${uid}:feature_image`]``, and `assetFilename` already honoured an
+explicit `filename`. The missing piece was that these images have no source url
+to fetch. `scripts/seed/feature-images.mjs` uploads them itself and writes the
+result into `listings.state.json` under the filename — which is exactly where
+the seeder's no-`--with-assets` branch already looks — so the seeder needed one
+line of behaviour, not a new path: an asset with no `url` now says
+"run feature-images.mjs first" instead of calling `fetch(undefined)` and dying
+two frames down. Its header says in full that it is a one-off provisioning step
+that wants poppler and the network and is not part of `pnpm verify`. Extraction
+lands in a gitignored `/.feature-images/`; no client image is committed, because
+this repository is public.
+
+**Numbers.** 22 packages, 136.5 MB downloaded. 101 candidate images ≥560×380 on
+pages 1–6, of which 20 shipped. Final files 38 KB to 701 KB, long edge capped at
+2000 px, JPEG q82 through mozjpeg; the two smallest are the two named above.
+`pnpm exec vitest run scripts/seed`: 4 files, 71 tests. Full suite after
+rebasing onto `5135ad6`: 101 files, 1054 tests; prettier and eslint clean;
+svelte-check 0 errors over 4,625 files.
+
+**The tests were mutated, and the reds were watched.** Dropping the
+repeats-across-pages filter turns 3 red; dropping the `smask` filter 1;
+reversing the sort 1; making `locate` ignore pixel size 1; loosening the row
+regex so it matches the header 2. Each went red on the assertion it should have,
+and green again on restore. The fixture is `pdfimages -list` output copied
+verbatim from the Lookout Road package, so the test needs no PDF, no poppler and
+no network — a test that reaches the client's web server is a test that fails on
+an unrelated day.
+
+**Positive evidence for the uploads, not the absence of an error.** Each of the
+20 asset urls was fetched back: all answered 2xx `image/jpeg` at the exact pixel
+dimensions uploaded. Byte lengths differ from the local files by 5–12% because
+Prismic serves through imgix and re-encodes — worth knowing before someone
+writes a byte-equality check and watches it fail forever. And `toPayload`, fed
+the ids from the state file, now yields a `feature_image.id` for 21 of 22
+listings and a `package_pdf.id` for 22 of 22.
+
+**Not done here, on purpose.** The 20 assets are in the media library — an
+upload is immediate and additive and cannot break a live page. The documents are
+**not** staged and **not** published; nothing on the site shows these photographs
+until someone runs `scripts/seed/listings.mjs --apply` and then the publisher.
+That is the orchestrator's call, not this branch's.
+
+**A local red that is not this branch's.**
+`tests/interaction/featured-properties.spec.ts:170` fails on this machine:
+`g.text.left` measures 436.89 against a `< 435` bound. The same assertion is
+green in CI on `c97a818` and on `5135ad6`, the assertion text is byte-identical
+on both, and this diff contains nothing that spec reads — it touches
+`scripts/seed/` and `.gitignore` only, and `src/` imports nothing from
+`scripts/seed`. A font-metric difference between macOS and CI's Linux on a
+sub-pixel geometry gate, recorded because the next session to run `pnpm verify`
+locally will hit it and should not spend an hour on it. Separately, one full
+`vitest run` reported 97 worker errors and took 942 s while five agent sessions
+were building concurrently on this machine; the same command alone finished in
+32–46 s with everything green. Contention, not a defect — but a composite
+`pnpm verify` result taken under that load means nothing, and this one was very
+nearly believed.
