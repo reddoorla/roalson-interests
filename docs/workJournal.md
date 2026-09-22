@@ -3721,3 +3721,47 @@ cannot be reopened either. Two things follow, and both are cheap:
   touches and the one file that can never be merged by taking a side. Both
   entries are kept, in merge order; that is a mechanical resolution, and it is
   the third time today it has been needed.
+
+## 2026-09-21 — Nine copies of one wait, all of them five seconds (`test/shared-hydration-wait`, #50)
+
+Closes #50, and it is the defect this session kept reading as weather.
+
+`pnpm verify` went red locally three times today — `home-hero.spec.ts` once,
+`carousel.spec.ts` twice — each time on a wait for hydration, each time under
+machine load, and each time the spec passed alone a minute later. The first was
+written off in a journal entry as "a local condition that exists only while this
+machine is running agents", and that was half right and entirely the wrong
+lesson. The wait is Playwright's default 5s, and every run starts its OWN dev
+server (`reuseExistingServer: false`), so the first test that needs script pays
+for the whole client graph being transformed. The partners batch's agent
+measured it rather than shrugging: 5.0s, then a FAILURE at 5s (13 polls, all
+`absolute`), then 6.6s. CI hides this with `retries: 2`; a laptop's `retries: 0`
+does not. It is a cold compile, not the site's speed, so a generous timeout costs
+a green run nothing — `toHaveCSS` polls and returns the moment the bar pins.
+
+Enumerated rather than fixed where it bit. Nine call sites across seven specs:
+`nav.spec.ts` (3), `focus-ring.spec.ts` (3), `contact.spec.ts` (4),
+`home-hero.spec.ts`, `footer.spec.ts`, `partners.spec.ts` (already widened to
+15s by hand, which is how the class became visible) and `carousel.spec.ts`'s
+`data-carousel-ready`. `tests/interaction/hydrated.ts` now holds the wait, beside
+`expect-ring.ts` and for the same reason: Playwright will not let one spec import
+another, so a shared helper has to live in a module, and the alternative is the
+tenth private copy. It exports `hydrated(page)` (the bar's `position: fixed`,
+which only mount sets), `carouselHydrated(region)` and `HYDRATION_TIMEOUT`, and
+two specs that wait on `--footer-h` instead — their own effect writes it, which
+is closer to what they exercise — import only the constant.
+
+**One thing the bulk replacement got wrong, and it is worth the paragraph.**
+`footer.spec.ts` had `await expect(bar).toHaveCSS("position", "fixed")` inside a
+no-script case, and the mechanical edit turned it into a hydration wait. It was
+not one: that page's ground is light, so the server ships the bar already pinned
+and the assertion is true with script off — it is the claim the jump target's
+landing is measured against. Two lines that are character-for-character alike and
+mean opposite things. eslint caught it only because the edit left `bar` unused.
+The line is restored with a comment saying which it is.
+
+**Mutation.** `HYDRATION_TIMEOUT` set to 1ms: six of the seven cases in
+`footer.spec.ts` red, and `nav.spec.ts` with them — the wait is load-bearing in
+every spec that reads it, which is what makes widening it worth doing once rather
+than nine times. `pnpm verify` after: 939 unit tests in 93 files, 109 Playwright
+tests, axe 0 violations across 4 routes, at load average 8.

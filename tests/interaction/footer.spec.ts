@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
+import { HYDRATION_TIMEOUT } from "./hydrated";
 
 // The footer makes promises jsdom cannot check (see Footer.svelte): where its
 // blocks sit against the comp, that the order flips on a phone, what ground it
@@ -30,7 +31,11 @@ const footerH = (page: Page) =>
   page.evaluate(() => document.documentElement.style.getPropertyValue("--footer-h"));
 
 /** Positive evidence of hydration: only the footer's own effect writes this. */
-const hydrated = (page: Page) => expect.poll(() => footerH(page)).toMatch(/^\d+(\.\d+)?px$/);
+// The footer's own evidence: `--footer-h`, written by its ResizeObserver.
+// The timeout is the shared one — a cold dev server's first transform, not
+// this site's speed (see ./hydrated).
+const hydrated = (page: Page) =>
+  expect.poll(() => footerH(page), { timeout: HYDRATION_TIMEOUT }).toMatch(/^\d+(\.\d+)?px$/);
 
 /** Boxes relative to the footer's own top-left. */
 const geometry = (page: Page) =>
@@ -267,6 +272,10 @@ test("#footer-nav is a jump target that lands clear of the pinned bar — script
         waitUntil: javaScriptEnabled ? "load" : "domcontentloaded",
       });
       if (javaScriptEnabled) await hydrated(page);
+      // NOT a hydration wait, though it is spelled like one: this page's ground
+      // is light, so the server ships the bar already pinned and this is true
+      // with script off too. It is the claim the landing below is measured
+      // against.
       const bar = page.locator('nav[aria-label="Primary"]');
       await expect(bar).toHaveCSS("position", "fixed");
       const read = () =>

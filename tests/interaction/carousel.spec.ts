@@ -1,6 +1,7 @@
 import { expect, test, type Browser, type Locator, type Page } from "@playwright/test";
 import sharp from "sharp";
 import { expectRing, GARNET, OFF_WHITE } from "./expect-ring";
+import { carouselHydrated } from "./hydrated";
 
 // The headless carousel ($lib/carousel.svelte.ts) makes four promises jsdom
 // cannot check, and each of them was wrong at least once while it was built:
@@ -41,7 +42,7 @@ const SETTLE = 500;
 
 /** Script has adopted the carousel: `hydrated`, which only an effect sets. A
  *  click before this lands on server markup and does nothing. */
-const adopted = (region: Locator) => expect(region).toHaveAttribute("data-carousel-ready", "");
+const adopted = carouselHydrated;
 
 const barScale = (region: Locator) =>
   region

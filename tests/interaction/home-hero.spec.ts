@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { hydrated } from "./hydrated";
 
 // The top of the homepage makes three promises jsdom cannot check (see
 // src/lib/slices/HomeHero/index.svelte):
@@ -40,7 +41,7 @@ const cutout = `${section} [data-home-hero-cutout]`;
 
 /** The bar is `absolute` in the server's markup over a dark first band, and
  *  only mount pins it — so `fixed` is positive evidence that script has run. */
-const adopted = (page: Page) => expect(page.locator(bar)).toHaveCSS("position", "fixed");
+const adopted = hydrated;
 
 /** Viewport rects of the three layers, plus how far the page has moved. */
 const layers = (page: Page) =>

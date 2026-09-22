@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
+import { hydrated } from "./hydrated";
 
 // The bar makes promises jsdom cannot check (see Nav.svelte) — three here, and
 // a fourth about the homepage alone, at the foot of this file:
@@ -36,7 +37,7 @@ const menuTrigger = `${bar} :is(a, button):has(svg[viewBox="0 0 20 16"])`;
  *  and only mount pins it — so `fixed` is positive evidence that script has
  *  adopted the bar, and that the trigger's handler exists. A click before it
  *  lands on server markup and opens nothing. */
-const adopted = (page: Page) => expect(page.locator(bar)).toHaveCSS("position", "fixed");
+const adopted = hydrated;
 
 /** Where the bar's content ends, read from the bar — NOT from the window or
  *  from documentElement.clientWidth. On the Linux CI runner both say 1440 while
@@ -135,7 +136,7 @@ test("with scripting off, a solid bar is pinned and legible from the server's ma
   try {
     const page = await context.newPage();
     await page.goto(LIGHT, { waitUntil: "domcontentloaded" });
-    await expect(page.locator(bar)).toHaveCSS("position", "fixed");
+    await hydrated(page);
     await expect(page.locator(bar)).toHaveCSS("background-color", OFF_WHITE);
     await expect(page.locator(`${bar} noscript a`).first()).toHaveCSS("color", GARNET);
   } finally {
@@ -271,7 +272,7 @@ test("the bar floats over the masthead, and takes its ground when the page moves
   const cta = page.locator(`${bar} a`, { hasText: "Contact us" });
 
   // Adopted by script: pinned, and at scroll 0 that paints where `absolute` did.
-  await expect(page.locator(bar)).toHaveCSS("position", "fixed");
+  await hydrated(page);
   await expect(page.locator(bar)).toHaveAttribute("data-floating", "");
   await expect(page.locator(bar)).toHaveCSS("background-color", TRANSPARENT);
   await expect(trigger).toHaveCSS("color", DUST);

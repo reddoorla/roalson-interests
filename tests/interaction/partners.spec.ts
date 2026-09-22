@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { expectRing, GARNET, OFF_WHITE } from "./expect-ring";
+import { hydrated } from "./hydrated";
 
 // The "Our Legacy" band makes promises jsdom cannot check (see
 // src/lib/slices/Partners/index.svelte):
@@ -51,8 +52,7 @@ const TRIM = { h2: 11.5, h3: 9.4, h4: 8.1, h5: 3.2 };
  *  took 5.0s, then failed at 5s (13 polls, all `absolute`), then 6.6s — and CI's
  *  two retries hide that where a laptop's zero do not. A longer wait for positive
  *  evidence can only delay a red, never grant a green. */
-const adopted = (page: Page) =>
-  expect(page.locator(bar)).toHaveCSS("position", "fixed", { timeout: 15_000 });
+const adopted = hydrated;
 
 const bandWidth = (page: Page) =>
   page.locator(band).evaluate((el) => el.getBoundingClientRect().width);
