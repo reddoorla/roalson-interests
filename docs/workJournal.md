@@ -4642,7 +4642,7 @@ install prompt still has no 192/512 icon. Nothing on the site asks for one yet.
 Filed as #78 rather than left in this paragraph — a journal line is not a
 tracker, and a launch sweep reads the issue list.
 
-## 2026-09-21 — Four photographs into the seed, and the fingerprint that would have hidden them (#PRNUM, `2f2942e`)
+## 2026-09-21 — Four photographs into the seed, and the fingerprint that would have hidden them (#85, `f43d904`)
 
 The operator authorised placeholder photography and four files were already in
 the Prismic media library when this session started — a San Antonio skyline for
