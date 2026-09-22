@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 
+import { CANVAS_TOP_COLORS } from "$lib/canvas-top";
+
 /**
  * The bar floats — transparent, white wordmark, dust controls — only over a
  * dark first band, and it learns that from the ROUTE (`navOver: "dark"` in its
@@ -186,5 +188,122 @@ describe("navWordmark — only the homepage gates the bar's wordmark", () => {
       "utf8",
     );
     expect(markup(hero)).toMatch(/<div\s+data-nav-gate\b/);
+  });
+});
+
+/**
+ * And a fourth claim, about the other end of the page's TOP: the ground ABOVE
+ * the document's own y=0, which a rubber-band overscroll pulls into view
+ * (`canvasTop`, resolved by $lib/canvas-top, painted by `.canvas-top` in
+ * app.css). The foot of the page is a canvas colour — one value, the same on
+ * every route, set on `html` — and this end cannot be, because the top of the
+ * page is the homepage hero's flat dark garnet on one route and the mastheads'
+ * garnet on another. So the route says which.
+ *
+ * THE CLASS IS EXACTLY `navOver: "dark"`, and that is the whole reason this
+ * block exists rather than a per-route memory. A route whose first band runs
+ * under the bar starts at y=0, so the pixel above it is the band's own ground; a
+ * route with a solid bar gets the layout's 70/80px top padding, so the thing
+ * above ITS y=0 is the page ground — which is what an unclaimed route already
+ * shows, and why claiming nothing is the right answer for it rather than an
+ * omission.
+ *
+ * Both directions, because both fail silently and only during a pull: a dark
+ * route that claims nothing shows off-white above its garnet (the white flash
+ * the operator reported, 2026-09-21), and a light route that claims something
+ * paints a garnet band nobody asked for.
+ */
+describe("canvasTop — the ground above the top of the document", () => {
+  /** The band a route opens on → the token it must claim, and the ground class
+   *  the component itself wears, which is what makes the token the right one. */
+  const BAND_GROUNDS = {
+    // A FLAT ground, not the gradient the mastheads wear.
+    HomeHero: {
+      token: "dark",
+      ground: "bg-dark",
+      file: "src/lib/slices/HomeHero/index.svelte",
+    },
+    // A gradient, so the token is its FIRST stop — `to-dark` is the bottom.
+    PageMasthead: {
+      token: "primary",
+      ground: "from-primary",
+      file: "src/lib/components/PageMasthead.svelte",
+    },
+  } as const;
+
+  const claimed = (page: string): string | undefined =>
+    ["+page.server.ts", "+page.ts"]
+      .map((name) => join(dirname(page), name))
+      .filter((file) => existsSync(file))
+      .map((file) => /canvasTop:\s*"(\w+)"/.exec(readFileSync(file, "utf8"))?.[1])
+      .find(Boolean);
+
+  const routes = pages(ROUTES).map((file) => ({
+    route: relative(ROUTES, dirname(file)) || "/",
+    first: firstTag(readFileSync(file, "utf8")),
+    dark: claimsDark(file),
+    canvasTop: claimed(file),
+  }));
+
+  it("finds the pages, and both dark bands are open on at least one route each", () => {
+    expect(routes.length).toBeGreaterThan(3);
+    for (const band of Object.keys(BAND_GROUNDS)) {
+      expect(
+        routes.filter((p) => p.first === band).length,
+        `no route opens on <${band}>`,
+      ).toBeGreaterThan(0);
+    }
+  });
+
+  it("every route whose first band runs under the bar claims a ground for it", () => {
+    const silent = routes.filter((p) => p.dark && !p.canvasTop);
+    expect(silent.map((p) => p.route)).toEqual([]);
+  });
+
+  it("and no route that does not — an unclaimed route keeps the page ground", () => {
+    const extra = routes.filter((p) => !p.dark && p.canvasTop);
+    expect(extra.map((p) => `${p.route} claims "${p.canvasTop}" with a solid bar`)).toEqual([]);
+  });
+
+  it("every claim is a token $lib/canvas-top can resolve", () => {
+    const unknown = routes
+      .filter((p) => p.canvasTop && !(p.canvasTop in CANVAS_TOP_COLORS))
+      .map((p) => `${p.route} claims "${p.canvasTop}"`);
+    expect(unknown).toEqual([]);
+  });
+
+  // The part a rename would otherwise walk straight past: the token has to name
+  // the ground of the band the route actually opens on. Both sides are read —
+  // the route's claim from its page data, the band's ground from the component.
+  it("every claim names the ground of the band that route opens on", () => {
+    const wrong = routes
+      .filter((p) => p.canvasTop)
+      .filter((p) => p.canvasTop !== BAND_GROUNDS[p.first as keyof typeof BAND_GROUNDS]?.token)
+      .map((p) => `${p.route} opens on <${p.first}> and claims "${p.canvasTop}"`);
+    expect(wrong).toEqual([]);
+  });
+
+  it("and each band really does wear that ground on its own first element", () => {
+    for (const [band, { token, ground, file }] of Object.entries(BAND_GROUNDS)) {
+      const open = /<[A-Za-z][\s\S]*?>/.exec(
+        markup(readFileSync(resolve(process.cwd(), file), "utf8")),
+      )?.[0];
+      expect(open, `${band}: no opening tag in ${file}`).toBeTruthy();
+      expect(open, `${band}'s first element does not wear ${ground}`).toContain(ground);
+      // …and the class really is the token, so neither can be renamed alone.
+      expect(ground.endsWith(`-${token}`), `${ground} does not name "${token}"`).toBe(true);
+    }
+  });
+
+  it("the layout renders the element once, outside the wrapper, with the route's claim", () => {
+    const layout = readFileSync(join(ROUTES, "+layout.svelte"), "utf8");
+    const tags = markup(layout).match(/<div class="canvas-top"[\s\S]*?><\/div>/g) ?? [];
+    expect(tags, "one .canvas-top, rendered by the layout").toHaveLength(1);
+    expect(tags[0]).toContain("canvasTopStyle(page.data.canvasTop)");
+    expect(tags[0], "decorative, and never in the reading order").toContain('aria-hidden="true"');
+    // It must not sit between <main> and <footer>: the pinned photo band's
+    // rules in app.css are written on that adjacency (`main + footer`).
+    const body = markup(layout);
+    expect(body.indexOf('class="canvas-top"')).toBeLessThan(body.indexOf("<main"));
   });
 });

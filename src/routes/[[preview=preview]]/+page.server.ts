@@ -23,10 +23,14 @@ export async function load({ fetch, cookies }) {
   // (operator call 8; Nav.svelte measures it against HomeHero's band). All
   // three are literals because src/routes/nav-over.test.ts reads this file as
   // text.
+  // `canvasTop`: the colour above the top of the document, which the hero's
+  // ground is — HomeHero is FLAT `bg-dark`, not the brand gradient the mastheads
+  // wear (see the slice's header). A literal for the same reason as the rest.
   return {
     ...home,
     navOver: "dark" as const,
     navWordmark: "gated" as const,
+    canvasTop: "dark" as const,
     footerGround: "fade" as const,
   };
 }

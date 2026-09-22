@@ -17,7 +17,9 @@ export async function load({ fetch, cookies }) {
 
   // The page opens on PageMasthead, which runs under the bar as the comp draws
   // it — so the bar floats over it in its reverse tone (see Nav.svelte).
-  return { ...listing, navOver: "dark" as const };
+  // `canvasTop` is the top of that band: the masthead is a gradient and its
+  // FIRST stop is garnet (`from-primary`), not the `to-dark` it ends on.
+  return { ...listing, navOver: "dark" as const, canvasTop: "primary" as const };
 }
 
 export function entries() {
