@@ -4958,6 +4958,167 @@ named "…/ but got 'Cannot read properties of undefined (…'`.
 and the public API reads, all read-only; `--apply` was not run and the migration
 release was not published. That is the orchestrator's step after this merges.
 
+## 2026-09-21 — The ground past both ends of the page, and a proxy that measured the page at rest (`fix/canvas-ground-past-both-ends`)
+
+The operator's words were "extend the bg of the top and bottom past the screen
+so trying to scroll past doesn't show white". A rubber-band overscroll on a Mac
+pulls the scrolling contents away from the viewport, and what was behind them at
+both ends was `body`'s off-white **#f2efe9** — read as a white flash above the
+homepage hero's **#3d0707** and as a pale band under the footer's sand
+**#e8e1d1**.
+
+**Why it is two mechanisms and not one.** What a pull exposes is the CANVAS, and
+the canvas takes the ROOT element's background; `body`'s reaches it only while
+`html` has none of its own. So the foot is one line — `html { background-color:
+var(--color-light) }` — because the footer is the last band on every route and
+its foot is `bg-light` everywhere. The top cannot be: it is the hero's flat dark
+garnet on `/`, the mastheads' `from-primary` garnet on `/properties` and
+`/contact`, and the page ground on a listing detail. Three colours, one canvas.
+So the top is an ELEMENT at negative coordinates (`.canvas-top`, `bottom: 100%`
+against the initial containing block), rendered once by the root layout, and the
+route says which colour it is the way it already says `navOver` and
+`footerGround`. Naming the canvas on `html` also takes `body` out of that
+propagation, which is the risk the fix carries: body must still paint #f2efe9 in
+its own box or every page turns sand.
+
+**Measured on a PRODUCTION build** (`pnpm build` + `vite preview`, 1455×900,
+five real routes — /dev/\* 404s there, as designed):
+
+| route                                 | claim     | pixel a top pull exposes | scrollHeight with / without the element |
+| ------------------------------------- | --------- | ------------------------ | --------------------------------------- |
+| `/`                                   | `dark`    | 61,7,7                   | 3723 / 3723                             |
+| `/properties`                         | `primary` | 101,35,35                | 6961 / 6961                             |
+| `/contact`                            | `primary` | 101,35,35                | 1691 / 1691                             |
+| `/properties/ih-10-at-menger-springs` | —         | 242,239,233              | 1516 / 1516                             |
+| a 404 through `+error.svelte`         | —         | 242,239,233              | 1133 / 1133                             |
+
+On every one of those five the element's rect is `top: -900, bottom: 0, height:
+900, width: 1455`, the root's computed background is `rgb(232, 225, 209)`,
+body's is `rgb(242, 239, 233)`, body's box spans the whole document to under a
+pixel, and a pull at the FOOT exposes `232,225,209`. The scroll-range column is
+the claim app.css makes in a comment and nothing had checked: scrollable
+overflow only grows down and right, so a box entirely above y=0 costs nothing.
+Five routes, ten numbers, no difference.
+
+**The class, enumerated.** `canvasTop` belongs to exactly the routes claiming
+`navOver: "dark"` — a route whose first band runs under the bar starts at y=0,
+so the pixel above it is that band's own ground; a route with a solid bar gets
+the layout's 70/80px top padding, so the thing above ITS y=0 is the page ground
+already. Five page routes claim `navOver: "dark"` — `/`, `/properties`,
+`/contact`, `/dev/home`, `/dev/properties` — and all five now claim a
+`canvasTop`. Seven do not and must not: `[uid]` (opens on `SliceZone`),
+`/properties/[uid]` and `/dev/property` (on `PropertyDetail`),
+`/dev/a11y-fixtures`, `/dev/animate-in` and `/dev/footer` (each on a bare
+`div`), and `/slice-simulator`. Nor does `+error.svelte`, which is not a page
+route at all. For those the CSS
+default `var(--canvas-top, var(--color-background))` stands and they keep the
+ground they already showed — verified as a real `style` attribute of `null` on
+the listing detail and the 404 page above, not as an absence of complaint.
+`src/routes/nav-over.test.ts` now holds both directions and, beyond that, checks
+each claimed token against the ground class the band component itself wears
+(`HomeHero` → `bg-dark`, `PageMasthead` → `from-primary`), so neither can be
+renamed alone. The one boundary it cannot cover is `[uid]`: its first band is
+whatever slice the CMS put first, so if a dark full-bleed band is ever published
+there it will be missing `navOver` and `canvasTop` together. That is the
+existing `navOver` gap, not a new one.
+
+**The defect this batch actually produced, and it was the vacuous-green shape.**
+Headless Chromium cannot rubber-band — there is no overscroll API and
+`window.scrollTo(0, -120)` clamps to 0 — so the spec uses the defensible proxy:
+translate the scrolling contents by hand and sample the pixel a pull would
+expose. The first draft did `document.body.style.transform = "translateY(120px)"`
+and read straight back. Under the shared harness that returns
+`matrix(1, 0, 0, 1, 0, 0)` and an unmoved rect, because
+`contextOptions.reducedMotion: "reduce"` turns on app.css's
+`*, *::before, *::after { transition-duration: 0.01ms !important }` and the
+computed `transition-property` is `all`: every style written from script starts
+a transition, and a transition's value beats even an inline `!important` while
+it runs. So the page stayed exactly where it was and the sample measured the
+hero's OWN #3d0707 — the right answer, from the wrong pixel, on four of eight
+tests. A fixed two-frame wait fixed four and left two intermittent, which is
+worse. The proxy now goes through one helper that writes `transition: none
+!important` first and then POLLS until the page is wearing the declaration, and
+every pull asserts that body and the element moved by exactly the pull before
+any pixel is read.
+
+**Two beliefs corrected on contact.**
+
+`window.innerWidth`, `documentElement.clientWidth` and a laid-out element's rect
+are three different numbers, and which pair agrees depends on the runner. This
+machine at a 1455 window reports 1455 for all three — the scrollbar is an
+overlay and `scrollbar-gutter: stable` reserves nothing, so an assertion of
+`390` at a 405 window went red at 405. nav.spec.ts records the opposite on the
+Linux CI runner: both numbers say 1440 while the bar lays out at 1425, so
+`clientWidth` does not see the gutter either. Comparing the element's width to
+`clientWidth` would therefore have been green here and red in CI. Every width
+in the new spec is compared to `body`'s rect and the root's, boxes laid out
+against the same containing block, which is right under both behaviours.
+
+`getBoundingClientRect()` is viewport-relative, so at the foot of a 3706px page
+body's top is already **-2806** before anything is pulled. The bottom-pull
+assertion was written as an absolute -120 and went red at -2926 — the mechanism
+working exactly as intended. The proxy reports deltas now.
+
+**What was tried and thrown away.** A first probe reported `.canvas-top` missing
+from the DOM on `/dev/home` and was briefly investigated as a Svelte 5 hydration
+defect. It was self-inflicted: a mutation sweep was editing `+layout.svelte`
+while the browser run was live and vite hot-reloaded the removal into it. A
+`curl` of the same URL showed the element server-rendered with
+`style="--canvas-top: var(--color-dark)"` the whole time. Never run a mutation
+sweep beside a live dev-server run.
+
+**Every assertion was mutated and watched go red.** Seven mutations against the
+implementation, each reverted, the whole eight-test spec re-run each time:
+
+| mutation                                  | red | which                                                |
+| ----------------------------------------- | --- | ---------------------------------------------------- |
+| `bottom: 100%` → `top: 0`                 | 6/8 | geometry, all three colour tests, no-JS, body-ground |
+| `.canvas-top` loses `background-color`    | 4/8 | the three colour tests + no-JS                       |
+| `height: 100vh` → `100px`                 | 2/8 | geometry, no-JS                                      |
+| `position: absolute` → `static`           | 7/8 | including the scroll-range test                      |
+| `html` loses its `background-color`       | 5/8 | both foot tests, two colour tests, no-JS             |
+| the homepage claims `primary`, not `dark` | 2/8 | the homepage's pull, no-JS                           |
+| the layout stops rendering the element    | 8/8 | all of them                                          |
+
+And eight more against `nav-over.test.ts`'s new block — dropping the homepage's
+claim, adding one to a light route, an unknown token, the wrong band's token,
+renaming `bg-dark` on HomeHero, flipping PageMasthead's gradient, removing the
+element from the layout and moving it between `<main>` and `<footer>` — each
+took 1 or 2 of the 17 tests in that file red. The scroll-range test is the one
+that stays green under most of these, and that is correct: only a change that
+puts the box IN the flow can cost scroll range, which `position: static` does
+and `top: 0` does not.
+
+The body-ground test is a raster count rather than a spot check, because the
+claim is about the whole page: at 1455×900 on `/dev/properties`, 1,309,500
+pixels, **476,782** are #f2efe9, and with body's background taken away
+**416,145** of them turn sand out of **416,395** that change at all — the other
+~250 are text antialiased against the ground.
+
+**No regression in the two coupled mechanisms.** `--footer-h` and the pinned
+homepage bands: `tests/interaction/photo-band.spec.ts` 8/8 and
+`tests/interaction/footer.spec.ts` 8/8, run together with the new spec, 24
+passed.
+
+**THE LIMIT, plainly: a real rubber-band overscroll was never observed.**
+Headless Chromium cannot produce one. Everything above is the proxy — the
+contents translated from script, proven to have translated, and the exposed
+pixel sampled from a real screenshot. That a two-finger pull on a Mac reveals
+the same pixels is the operator's step, at both ends, on `/` and on a listing
+detail.
+
+**`pnpm verify` is NOT fully green on this machine, and it is not this batch.**
+Lint clean, `svelte-check` clean, build clean, axe 0 violations across 5 routes,
+unit 992/992 across 97 files, smoke 131 passed / **1 failed** — and the one is
+`featured-properties.spec.ts:170`, which wants the 1440 card's text column left
+of 435 and gets **436.890625**, the same value every run. Attributed rather than
+assumed: reverting this batch's only two layout-touching files (`src/app.css`
+and `src/routes/+layout.svelte`) to the base commit `9248828` and re-running that
+single test gives 436.890625 byte-identical, and `main`'s CI is green. So it is
+a gate that passes on the Linux runner and fails on macOS, deterministically,
+and it predates this work. Filed as #83 with the attribution evidence rather
+than left in a comment; the eight canvas-ground tests pass inside that same run.
+
 ## 2026-09-21 — The Properties masthead takes a photo, and a scrim sized for the photo we do NOT have yet (#15, `aa6e40b`)
 
 The band had been the brand's garnet-to-dark gradient since #11, for two

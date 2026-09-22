@@ -16,6 +16,7 @@
   import Nav from "$lib/components/Nav.svelte";
   import Footer from "$lib/components/Footer.svelte";
   import { loadSiteConfig, footerNav } from "$lib/site-config";
+  import { canvasTopStyle } from "$lib/canvas-top";
   import { disableSmoothScroll, restoreSmoothScroll } from "$lib/utils/instantNavScroll";
 
   let { data, children } = $props();
@@ -50,6 +51,15 @@
 >
   Skip to main content
 </a>
+<!-- The page's ground above its own top edge (`.canvas-top` in app.css): a
+     100vh block sitting entirely above y=0, which a rubber-band pull at the top
+     of the page translates into view. It is here, ONCE, rather than in each
+     route, and OUTSIDE the wrapper below so it cannot come between <main> and
+     <footer> — the pinned photo band's rules in app.css are written on that
+     adjacency. The colour is the route's own claim; a route that claims nothing
+     keeps the page ground. The foot of the page is the canvas (`html` in
+     app.css) and needs no element. -->
+<div class="canvas-top" aria-hidden="true" style={canvasTopStyle(page.data.canvasTop)}></div>
 <!-- Chrome renders from site-config; a route says what its first band is with
      `navOver`, and the homepage asks for the footer's graded ground with
      `footerGround`. -->
