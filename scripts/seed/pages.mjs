@@ -18,6 +18,11 @@
 //     document it names is LIVE. `{ "$property": "<uid>" }` in pages.json is
 //     resolved through listings.state.json and then held against the public
 //     API: the uid must be published, under that same id.
+//   - An Image field is an ASSET id. `{ "$image": "<filename>" }` in pages.json
+//     is resolved against the media library, which this script READS and never
+//     writes to: uploading is a deliberate, separate act, because an upload is
+//     live the moment it lands and a photograph may not be licensed. An unknown
+//     filename stops the run — in the dry run, before anything is staged.
 //   - PUT replaces, never merges, so the whole document is sent every time, and
 //     the id from a 201 goes into pages.state.json at once (see lib.mjs).
 import { readFileSync, readdirSync } from "node:fs";
@@ -26,6 +31,7 @@ import { join } from "node:path";
 import {
   ROOT,
   THROTTLE_MS,
+  existingAssets,
   headersFor,
   masterRef,
   publishedByUid,
@@ -48,28 +54,65 @@ export const DATA_PATH = join(ROOT, "scripts/seed/pages.json");
 export const STATE_PATH = join(ROOT, "scripts/seed/pages.state.json");
 export const LISTINGS_STATE_PATH = join(ROOT, "scripts/seed/listings.state.json");
 
-/** Every `{ "$property": uid }` in a value, in document order. */
-export function propertyRefs(value, found = []) {
-  if (Array.isArray(value)) for (const v of value) propertyRefs(v, found);
+/** Every `{ "<key>": "<string>" }` in a value, in document order. Descending
+ *  stops at the marker: a resolved ref holds nothing to resolve. */
+function refsOf(value, key, found) {
+  if (Array.isArray(value)) for (const v of value) refsOf(v, key, found);
   else if (value && typeof value === "object") {
-    if (typeof value.$property === "string") found.push(value.$property);
-    else for (const v of Object.values(value)) propertyRefs(v, found);
+    if (typeof value[key] === "string") found.push(value[key]);
+    else for (const v of Object.values(value)) refsOf(v, key, found);
   }
   return found;
 }
 
-/** Replace each `{ "$property": uid }` with the link the Migration API takes.
+/** Every `{ "$property": uid }` in a value, in document order. */
+export const propertyRefs = (value, found = []) => refsOf(value, "$property", found);
+
+/** Every `{ "$image": filename }` in a value, in document order.
+ *
+ *  BY FILENAME, never by asset id. An id is sixteen characters of base64 that
+ *  a reviewer cannot check and a diff cannot argue with; a filename is the
+ *  claim itself, and `existingAssets()` already keys the media library by it,
+ *  so the lookup costs nothing extra. */
+export const imageRefs = (value, found = []) => refsOf(value, "$image", found);
+
+/** Replace each `{ "$property": uid }` and `{ "$image": filename }` with the
+ *  value the Migration API takes.
+ *
  *  A uid with no id THROWS: an empty relationship would stage happily and the
- *  band would render one slide short with nothing to say why. */
-export function resolveRefs(value, ids) {
-  if (Array.isArray(value)) return value.map((v) => resolveRefs(v, ids));
+ *  band would render one slide short with nothing to say why. A filename that
+ *  is not in the media library THROWS for the same reason — the Migration API
+ *  takes an unknown key or an unusable value with a 200 and drops it, and the
+ *  band would render as the launch state that it is no longer in.
+ *
+ *  An Image field is `{ id }` — the ASSET's id, and nothing else. Not a url,
+ *  not alt text, not dimensions: Prismic reads those off the asset and writes
+ *  them into the document itself, which is why the alt lives in the media
+ *  library and not here. Measured on this repository's own live data, not
+ *  assumed: `listings.mjs` stages `feature_image = { id }` that way, and the
+ *  published `25331-ih-10-west` serves back `url`, `dimensions`, `copyright`,
+ *  `edit` and the asset's alt — none of which was ever in a payload. */
+export function resolveRefs(value, ids, assets = {}) {
+  if (Array.isArray(value)) return value.map((v) => resolveRefs(v, ids, assets));
   if (value && typeof value === "object") {
     if (typeof value.$property === "string") {
       const id = ids[value.$property];
       if (!id) throw new Error(`no staged id for property ${JSON.stringify(value.$property)}`);
       return { link_type: "Document", id };
     }
-    return Object.fromEntries(Object.entries(value).map(([k, v]) => [k, resolveRefs(v, ids)]));
+    if (typeof value.$image === "string") {
+      const asset = assets[value.$image];
+      if (!asset?.id) {
+        throw new Error(
+          `no asset in the media library named ${JSON.stringify(value.$image)} — ` +
+            "upload it there first; this script never uploads one",
+        );
+      }
+      return { id: asset.id };
+    }
+    return Object.fromEntries(
+      Object.entries(value).map(([k, v]) => [k, resolveRefs(v, ids, assets)]),
+    );
   }
   return value;
 }
@@ -104,9 +147,12 @@ const listDirs = (dir) =>
  *  even when both are empty — a band with no image yet IS an empty primary, and
  *  `stripEmpty` on the whole document would delete the key and leave a slice
  *  the API has nothing to validate against. */
-export function toPayload(entry, propertyIds = {}) {
-  const { slices, ...rest } = resolveRefs(entry.data, propertyIds);
-  const data = stripEmpty(rest);
+export function toPayload(entry, propertyIds = {}, assets = {}) {
+  const { slices, ...rest } = resolveRefs(entry.data, propertyIds, assets);
+  // `?? {}` for the same reason as below, one level up: a document whose only
+  // filled thing is its slices collapses to `undefined` here, and the next
+  // line then throws instead of writing `slices` into it.
+  const data = stripEmpty(rest) ?? {};
   if (Array.isArray(slices)) {
     data.slices = slices.map((s) => ({
       ...s,
@@ -136,18 +182,31 @@ async function main(argv) {
     Object.entries(readState(LISTINGS_STATE_PATH).documents).map(([uid, d]) => [uid, d.id]),
   );
 
+  // The media library is the only place an `$image` filename can be resolved,
+  // so the DRY RUN reads it too — `GET /assets`, no write of any kind — and
+  // stops on the same unknown filename an apply run would. That is the one
+  // thing a dry run needs a token for, and only when the data names an image.
+  const wantsAssets = entries.some((e) => imageRefs(e.data).length > 0);
+  const headers = apply || wantsAssets ? headersFor(repo, readToken(repo)) : null;
+  const assets = wantsAssets ? await existingAssets(headers) : {};
+
   if (!apply) {
     for (const e of entries) {
       const refs = propertyRefs(e.data);
+      const images = imageRefs(e.data);
       console.log(`  ${e.uid.padEnd(12)} slices: ${sliceIds(e).join(", ") || "(none)"}`);
       if (refs.length) console.log(`  ${"".padEnd(12)} listings: ${refs.join(", ")}`);
-      toPayload(e, listingIds); // throws here, in the dry run, on an unknown uid
+      for (const filename of images) {
+        console.log(
+          `  ${"".padEnd(12)} image: ${filename} -> ${assets[filename]?.id ?? "MISSING"}`,
+        );
+      }
+      toPayload(e, listingIds, assets); // throws here, in the dry run, on an unknown uid or filename
     }
     console.log("dry run complete. Re-run with --apply to stage these as drafts.");
     return;
   }
 
-  const headers = headersFor(repo, readToken(repo));
   const state = readState(STATE_PATH);
 
   // Preflights. Each REQUIRES a positive answer before any write.
@@ -199,7 +258,7 @@ async function main(argv) {
   let updated = 0;
   for (const e of entries) {
     const id = state.documents[e.uid]?.id ?? published[e.uid];
-    const payload = toPayload(e, listingIds);
+    const payload = toPayload(e, listingIds, assets);
     const result = await stageDocument({ id, headers, ...payload });
     // The signature of what was SENT — publish-release.mjs holds the live
     // document to it, because a uid being listed says nothing about which
