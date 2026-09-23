@@ -7950,8 +7950,12 @@ unaffected; a reader treating a 1% move as signal would be chasing contention.
 exactly 436.890625 — #80/#124, the macOS scrollbar setting, green on CI — and
 was left alone. The pre-boot state of the band's map (the server-rendered link
 list, which is also the `engine === "off"` state) is no longer audited by that
-case and is not audited anywhere else at that viewport; it is covered on
-/properties by `property-map.spec.ts`'s no-JS block, so this is a narrowing of
-where it is measured rather than a loss of it. And the local Playwright numbers
+case and is not audited anywhere else at that viewport — though it never had
+DETERMINISTIC coverage there either, since the case that reached it was winning
+a race rather than waiting for anything. Presence and visibility are covered on
+/properties by `property-map.spec.ts`'s no-JS block. Filed as **#125**, which
+also notes that #122 may change the shape of that state entirely. The same
+boot-before-you-measure fix is still owed to the two CLOCK cases in the same
+`rotation` block — that is **#117**, commented there with the geometry above. And the local Playwright numbers
 in this entry were taken at load averages between 3.32 and 10.15 on a machine
 running many sessions — CI is the authority, and CI is what the PR was judged on.

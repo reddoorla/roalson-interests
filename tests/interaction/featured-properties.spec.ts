@@ -657,6 +657,14 @@ test.describe("rotation", () => {
       // one determinate: wait for the positive artefact. `data-map-ready` is
       // set by MapLibre's own `load`, so past this line there is a canvas, an
       // attribution control and cluster markers, on every run.
+      //
+      // THE COST, SAID OUT LOUD: this audits the BOOTED state, so the band's
+      // pre-boot state — the server-rendered link list every visitor sees for
+      // as long as 426 KB takes, and for good without WebGL — is not audited
+      // here any more. It never was deterministically; the old line reached it
+      // by winning a race. #125 tracks giving it a case of its own, and #122
+      // may change what that state even is. The two CLOCK cases in this block
+      // still start timing without waiting for this boot: #117.
       await expect(
         page.locator("[data-property-map]").first(),
         "the band's map never finished booting, so this audit has no map in it",
