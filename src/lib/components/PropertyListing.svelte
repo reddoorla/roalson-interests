@@ -2,7 +2,8 @@
   // The Properties page body: the comp's stacked sections (6903:1030 at 1440,
   // 6992:2468 at 390), each a divider — a 2px garnet rule over an H3 label —
   // and its listing. Active sections put the listing in the comp's right
-  // column (847 of 1280) with the first card featured and the rest in the light
+  // column (847 of 1280) with ONE card featured — the comp's first, ours the
+  // one on the centre line, see below — and the rest in the light
   // token their ground does not use; the Sold section is a 3×2 grid of
   // unlinked off-white cards across the full width (6991:1145).
   //
@@ -80,6 +81,25 @@
   // WHICH LISTING IS ACTIVE HAS ONE ANSWER: the card crossing the middle of
   // the screen. Pressing a pin does NOT set it — the press scrolls that card
   // to the centre and the same rule then reports it. See centreWatch.ts.
+  //
+  // AND THE GARNET CARD IS THAT ANSWER DRAWN (operator, 2026-09-23: "please
+  // change the highlighted box as we scroll"). The comp features the FIRST
+  // listing of each active section. Once the map's camera followed the centre
+  // line, a highlight nailed to card 0 disagreed with the map. So the same
+  // `activeIds[section.id]` the map is handed picks the featured card. There
+  // is no second source of truth: not a press, not focus, not a hover.
+  //
+  // `featured` is colour only (PropertyCard's TONES), so the highlight moves
+  // without moving the column; active-card-highlight.spec.ts measures every
+  // card's box either side of a move. The fade is app.css's, keyed to
+  // `data-centre-id`, so it adds nothing to the server's markup.
+  //
+  // WHAT DOES NOT MOVE. With no script, and in every frame before hydration,
+  // `activeIds` is empty and the fallback is the first listing, the `j === 0`
+  // this replaced. Below `lg` `centreWatch` does not run (3 above), so a phone
+  // keeps card 0 featured too. There the map is a 200px box above the cards
+  // and does not stick, so a travelling highlight would match nothing on
+  // screen. Sold sections have no map and no watcher.
   //
   // AND NOTHING HERE HOLDS THAT RULE BACK WHILE A SCROLL TRAVELS. It used to —
   // see `revealCard` for the two separate defects that cost — and the job now
@@ -282,6 +302,10 @@
         </ul>
       {:else}
         {@const points = sectionPoints(section.properties)}
+        <!-- The garnet card: whichever listing the centre rule reports, and
+             the first until it reports one. The fallback is not defensive: it
+             is the whole no-JS, pre-hydration and below-`lg` state. -->
+        {@const featuredId = activeIds[section.id] ?? section.properties[0]?.id}
         <!-- Column 1 is the section's map, 397 × 595 in the comp; `lg:gap-9`
              is its measured 36.0 to the cards. The top pad is the comp's at
              both widths and they differ: 40 from the divider to the first card
@@ -326,7 +350,7 @@
             }}
             class="flex flex-col gap-5 lg:col-start-2"
           >
-            {#each section.properties as property, j (property.id)}
+            {#each section.properties as property (property.id)}
               <!-- `data-centre-id` — the `CENTRE_ID` the action exports,
                    written out because an attribute name is not an expression.
                    The id the centre rule reports, on the CARD's own wrapper:
@@ -358,7 +382,7 @@
               >
                 <PropertyCard
                   {property}
-                  variant={j === 0 ? "featured" : i === 0 ? "sand" : "cream"}
+                  variant={property.id === featuredId ? "featured" : i === 0 ? "sand" : "cream"}
                   layout="row"
                 />
               </li>

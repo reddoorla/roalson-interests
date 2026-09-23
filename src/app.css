@@ -465,6 +465,28 @@ main > section.hero-band:first-child {
   }
 }
 
+/* The Properties page's garnet card follows the listing on the centre line
+   (PropertyListing.svelte), so two cards change tone mid-scroll, while on
+   screen. This fades them on the same clock BrandButton's `transition-colors`
+   already runs: the card's ground, its photo box and its status badges. The
+   button is not listed because it carries its own. Nothing else in the card has
+   a colour of its own; the text inherits the ground's `color`.
+
+   It is here and not in PropertyCard's class lists because a class there
+   changes the server's markup for a card whose tone the server can never
+   change. With no script `[data-centre-id]` cards never re-tone. Keyed to that
+   attribute, the rule also leaves out the Sold grid, whose cards never move.
+   Under `prefers-reduced-motion: reduce` the `@layer base` block below cuts
+   the duration to 0.01ms with `!important`, which beats anything unlayered
+   here.
+   tests/interaction/active-card-highlight.spec.ts measures the fade and its
+   suppression. */
+[data-centre-id] > article,
+[data-centre-id] > article > div:has(> img),
+[data-centre-id] [aria-label="Listing status"] > li {
+  @apply transition-colors;
+}
+
 /* The two scrim layers $lib/components/PageMasthead.svelte draws over its
    photograph — the reason that band stays legible, and therefore measured
    values, which is why they live here beside the palette rather than in a

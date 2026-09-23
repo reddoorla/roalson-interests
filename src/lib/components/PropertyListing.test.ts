@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { tick } from "svelte";
 
 import PropertyListing from "./PropertyListing.svelte";
-import { CENTRE_ID } from "$lib/actions/centreWatch";
+import { CENTRE_BAND, CENTRE_ID } from "$lib/actions/centreWatch";
 import { propertyListingFixture } from "$lib/property-fixture";
 import { groupListings } from "$lib/property-listing";
 import { sectionPoints } from "$lib/property-map";
@@ -285,6 +285,165 @@ describe("PropertyListing", () => {
     }
     // Sold has no map, so nothing drives anything there.
     expect(sold!.querySelectorAll(`[${CENTRE_ID}]`)).toHaveLength(0);
+  });
+
+  // ── the garnet card travels with the centre rule ──────────────────────
+
+  /**
+   * The centre rule, driven by hand. jsdom has no layout, so what these cases
+   * assert is the DECISION this component makes when the rule speaks — whether
+   * the browser speaks about the card a reader is actually looking at is a
+   * geometry question, measured against an independent box test in
+   * tests/interaction/active-card-highlight.spec.ts.
+   *
+   * THE `rootMargin` FILTER IS LOAD-BEARING, not tidiness. PropertyMap builds
+   * an IntersectionObserver of its own to boot MapLibre lazily, so "the
+   * observer" is not "the only observer" — an unfiltered `made[0]` picks up
+   * whichever component mounted first.
+   */
+  function centreRule() {
+    interface Watcher {
+      cb: IntersectionObserverCallback;
+      margin?: string;
+      seen: Element[];
+    }
+    const made: Watcher[] = [];
+    vi.stubGlobal("matchMedia", (media: string) => ({
+      // True for the action's own `(min-width: 1024px)` and false for
+      // everything else — notably `prefers-reduced-motion`, which other
+      // modules read at import time.
+      matches: media.includes("min-width"),
+      media,
+      onchange: null,
+      addEventListener: () => {},
+      removeEventListener: () => {},
+      addListener: () => {},
+      removeListener: () => {},
+      dispatchEvent: () => false,
+    }));
+    vi.stubGlobal(
+      "IntersectionObserver",
+      class {
+        rec: Watcher;
+        constructor(cb: IntersectionObserverCallback, options?: IntersectionObserverInit) {
+          this.rec = { cb, margin: options?.rootMargin, seen: [] };
+          made.push(this.rec);
+        }
+        observe(el: Element) {
+          this.rec.seen.push(el);
+        }
+        unobserve() {}
+        disconnect() {}
+        takeRecords() {
+          return [];
+        }
+      },
+    );
+    return {
+      /** Report `id` as the card on the line, through the observer that is
+       *  really watching that card — which is also the assertion that the
+       *  component asked for one. */
+      async report(id: string) {
+        const target = document.querySelector(`[${CENTRE_ID}="${id}"]`);
+        expect(target, `${id} is a watched card`).not.toBeNull();
+        const watcher = made.find((o) => o.margin === CENTRE_BAND && o.seen.includes(target!));
+        expect(watcher, `a centre observer is watching ${id}`).toBeDefined();
+        watcher!.cb(
+          [{ target: target!, isIntersecting: true, time: 1 } as IntersectionObserverEntry],
+          null as never,
+        );
+        await tick();
+      },
+    };
+  }
+
+  /** The listings whose card is garnet, in document order. */
+  const garnetIds = (region: HTMLElement) =>
+    [...region.querySelectorAll<HTMLElement>(`[${CENTRE_ID}]`)]
+      .filter((li) => /\bbg-primary\b/.test(li.querySelector("article")!.className))
+      .map((li) => li.dataset.centreId);
+
+  it("moves the garnet card to the listing the centre rule reports, and only that one", async () => {
+    const rule = centreRule();
+    try {
+      const groups = sections();
+      const { getAllByRole } = render(PropertyListing, { props: { sections: groups } });
+      await tick();
+      const [land] = getAllByRole("region");
+
+      // Before anything is on the line this is the comp's state, which is also
+      // the server's and the phone's.
+      expect(garnetIds(land!), "card 0 until the rule speaks").toEqual([
+        groups[0]!.properties[0]!.id,
+      ]);
+
+      const third = groups[0]!.properties[2]!.id;
+      await rule.report(third);
+      expect(garnetIds(land!), "exactly one, and it is the reported listing").toEqual([third]);
+
+      // …and it can come back. A highlight that only ever moved forward would
+      // pass a test that walked one way.
+      const second = groups[0]!.properties[1]!.id;
+      await rule.report(second);
+      expect(garnetIds(land!)).toEqual([second]);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("keeps each section's highlight to itself — `activeIds` is keyed per section", async () => {
+    const rule = centreRule();
+    try {
+      const groups = sections();
+      const { getAllByRole } = render(PropertyListing, { props: { sections: groups } });
+      await tick();
+      const [land, improved, sold] = getAllByRole("region");
+
+      await rule.report(groups[0]!.properties[3]!.id);
+      // The improved section was not asked about and did not move: a single
+      // shared "active" would have dragged its highlight along, or dropped it.
+      expect(garnetIds(improved!)).toEqual([groups[1]!.properties[0]!.id]);
+
+      await rule.report(groups[1]!.properties[1]!.id);
+      expect(garnetIds(improved!)).toEqual([groups[1]!.properties[1]!.id]);
+      expect(garnetIds(land!), "land keeps its own answer").toEqual([groups[0]!.properties[3]!.id]);
+
+      // Sold has no map, so `centreWatch` is disabled there and nothing is
+      // featured at all — before or after any of this.
+      expect(sold!.querySelectorAll(`[${CENTRE_ID}]`)).toHaveLength(0);
+      expect(
+        [...sold!.querySelectorAll("article")].some((c) => /\bbg-primary\b/.test(c.className)),
+      ).toBe(false);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("re-tones the whole card and not just its ground — the button's tone follows", async () => {
+    const rule = centreRule();
+    try {
+      const groups = sections();
+      const { getAllByRole } = render(PropertyListing, { props: { sections: groups } });
+      await tick();
+      const [land] = getAllByRole("region");
+      const linkIn = (id: string) =>
+        land!.querySelector<HTMLElement>(`[${CENTRE_ID}="${id}"] article a`)!;
+
+      const [first, third] = [groups[0]!.properties[0]!.id, groups[0]!.properties[2]!.id];
+      expect(linkIn(first).className).toMatch(/\bborder-background\b/);
+
+      await rule.report(third);
+      // The `tone` prop is not a colour — it is the one part of the card that
+      // could silently stay behind while the ground moved.
+      expect(linkIn(third).className, "the new card's button went cream").toMatch(
+        /\bborder-background\b/,
+      );
+      expect(linkIn(first).className, "the old one went back to garnet").toMatch(
+        /\bborder-primary\b/,
+      );
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it("says so, rather than rendering nothing, when there are no listings", () => {

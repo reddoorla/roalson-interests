@@ -9067,3 +9067,141 @@ Not fixed here: **#144** (the glide premise's reduced floor) and
 `featured-properties.spec.ts:243` at 436.890625, which is #80/#124's macOS
 scrollbar gutter and green on CI's Linux. Load averages ran 4.5–9.4 through the
 session; CI is the authority.
+
+## 2026-09-23 — The garnet card follows the centre line, and its fade lives in app.css so the server's markup did not move (`feat/active-card-highlight`)
+
+The operator, on the merged map work: _"looks amazing, please change the
+highlighted box as we scroll."_ The garnet `featured` card was nailed to the
+first listing of each active section (`j === 0`). It now follows
+`activeIds[section.id]`, the same centre-line answer the sticky map's camera
+already follows. It is one expression, `activeIds[section.id] ??
+section.properties[0]?.id`, and no second source of truth. The fallback is not
+defensive: it is the whole no-JS, pre-hydration and below-`lg` state.
+
+**This branch was resumed, not started.** The first agent died when the
+operator's machine rebooted at about 09:43 with nothing committed. Its draft
+was reused as a hypothesis. Its M7 layout-shift reading and its discovery that
+axe files a 1:1 contrast under `incomplete`, not `violations`, both held when
+re-run. Its Tab probe for #114 was re-run on a production build. Its
+measurements had been taken at load averages of 34 to 96 on 8 cores.
+
+### Why PropertyCard ended up with comments and no classes
+
+The draft put `transition-colors` on four elements in PropertyCard, which was
+most of its 51 lines, and wrote that the server render was "byte-identical to
+what shipped before". Its own dev-server diff had counted **42 changed chunks**,
+every one a `transition-colors` class on a card whose tone the server can never
+change. The brief asked for the SSR markup to be unchanged, so the fade moved to
+one app.css rule keyed to `[data-centre-id]` (the ground, the photo box via
+`div:has(> img)`, the status badges). That follows the masthead scrim, which is
+in app.css for the same reason. Keying to the watched attribute also leaves the
+Sold grid out, since its cards never re-tone.
+
+Measured on two production builds (main `6cfeba8` built from a `git archive` in
+the scratchpad, and this branch): the prerendered `/properties` is identical
+once 25 hashed asset paths, 2 CSP script hashes and 2 `__sveltekit_*` names are
+normalised. The `<body>` up to the hydration script, 88,092 bytes, is
+byte-identical with no normalisation at all. It has two garnet articles, one
+per active section.
+
+### The fade, read as transitions that started, not as a configured property
+
+The guard reads `getAnimations({ subtree: true })` from a MutationObserver on
+the card's `class`, a microtask after Svelte writes it. That makes it
+independent of machine load, because no animation frame can pass before the
+read. With motion allowed, the card taking the highlight starts exactly these
+fades, all at 150ms: the ground's `background-color` and `color`, the photo
+box's `background-color` (and the `color` it inherits, which has no text to
+show), the badge's `background-color` and `color`, and the button's own
+`border-*-color` and `color`. The motion-allowed case asserts that exact set.
+
+Two beliefs were corrected on contact:
+
+- **A `CSSTransition` names longhands.** `border-color` arrives as four sides.
+- **app.css's reduced-motion block does not remove transitions. It creates
+  them.** It sets `transition-duration: 0.01ms !important` on `*`, and every
+  element's initial `transition-property` is `all`, so under `reduce` every
+  element in the card starts a 0.01ms fade on every property that changes. The
+  badge's `ul` and `span` show up beside the `li`. It is harmless, since 0.01ms
+  is instant. But under `reduce` the presence of a transition says nothing
+  about any rule, so that case asserts only that every duration is 0.01.
+
+### Guards, each mutated in its final form
+
+The final pass ran over the whole 13-case spec. The clean baseline was 13 of 13
+at load 16.23.
+
+| mutation                                                              | red                                                                                                                  |
+| --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| M1 highlight nailed to card 0                                         | 10 of 13, including the fixture walk, camera, re-tone, geometry, both fades, both axe cases, live walk and live fade |
+| M2 fallback is card 1                                                 | 9, including both server-render cases (`fm-1560-galm` expected, `potranco-road` received) and the phone case         |
+| M3 no fade on the ground                                              | 2: `card:background-color` and `card:color` missing, on the fixture and on the shipped CSS                           |
+| M4 no fade on the photo box                                           | 2, on the fixture and live                                                                                           |
+| M5 badge's `aria-label` renamed (the markup moves under the selector) | 3: the badge reads `null`, and its fades are missing                                                                 |
+| M6 selector widened to `article *`                                    | 1: 11 extra `color` fades (`h3`, `p`, `svg`, `path`, `img`, …)                                                       |
+| M7 `p-px` on `featured`                                               | 2: heights 222.03 to 220.03, tops 242.03 to 240.03 on the fixture; the live column moves too                         |
+| M8 featured ground sand                                               | 13 of 13                                                                                                             |
+| M10 garnet text on the garnet card                                    | 6, including both axe cases on "contrast axe could not settle"                                                       |
+| M9 `LG = 0`                                                           | 1: the phone case, `potranco-road` went garnet at 390                                                                |
+| M12 reduce block loses its duration                                   | 2: 150 received where 0.01 was expected                                                                              |
+| M13 map handed `active={null}`                                        | 1: the camera case, polled to `[-201, 164]` px off centre where `[0, 0]` was expected                                |
+| M15 button tone stays garnet                                          | 6, including both axe cases (garnet on garnet)                                                                       |
+| M16 featured photo box keeps the flat tone                            | 4                                                                                                                    |
+
+The unit tests in PropertyListing.test.ts go red on M1 (3 of 16) and M2 (4 of
+16). They stay green on M13, correctly: jsdom cannot see the camera, and the
+browser case is the one that goes red.
+
+The camera case first failed on `-0` against `0`: `Math.round(-0.3)` is `-0`,
+and `toEqual` uses `Object.is`. The map was centred.
+
+### The flake, and what it was
+
+The first `--repeat-each=16` of the spec failed **1 of 192**: the live walk's
+last step stayed sand past Playwright's 5s default, while load climbed from
+15.05 to 43.71. A probe then timed 120 instant scrolls on `/properties` at load
+22 to 25 (noisy). The median to garnet was 23 to 47ms and the worst 2,479ms,
+and no scroll whose card crossed the line failed to turn garnet. So it was
+starvation, not a missed report. I checked the compiled component, because
+that is where a real defect would be: `featuredId` and `points` are separate
+`$.derived`s, so a highlight change does not re-run the `centreWatch`
+argument, rebuild the observer, or hand the map a new `points` array. Every
+garnet wait now takes a named `MOVE_TIMEOUT` of 15s, and the rerun was **192 of
+192** at load 20.8 to 24.3 (noisy). On the production bundle
+(`REDDOOR_GATE_SERVER=preview`), the four `/properties` cases pass and the
+fixture cases skip. The skip keys on that setting, never on seeing a 404.
+
+### #114, now visible, and not fixed here
+
+Tab measured through the 17 live land cards at 1440x900, identically on dev and
+on a production build: the presses alternate. On an odd press the browser
+scrolls the next LEARN MORE into view, the card lands at top 165 to 340, the
+centre rule reports it, and the highlight and map follow the focus. On an even
+press (8 of the 16) that link is already visible, so nothing scrolls. The
+focused card sits at top 580 to 624 of 900, below the line, and the garnet card
+and the map stay on the card above the focus ring until the next press. Before
+this branch the same disagreement existed between the map and the focus, but
+the garnet card was card 0, usually scrolled away. The fix #114 describes (a
+`focusin` that calls `revealCard`) would make every Tab scroll the page by a
+card's height. That is an operator call and it is left for them.
+
+### Below `lg`, deliberately unchanged
+
+`centreWatch` does not run below 1024, so a phone keeps card 0 garnet. At
+390x844 the 17 live land cards are 315 to 646px tall (median 492), and the map
+is a 200px `position: relative` box above them. A travelling highlight there
+would change about every 500px of scroll with nothing on screen to match it.
+Extending it would mean running `centreWatch` at every width and gating only
+the map's `active` at `lg` (a `MediaQuery` in PropertyListing). That is about
+six lines, plus inverting this spec's phone case and renaming "watches nothing
+there" in property-map-camera.spec.ts, whose camera assertion would still
+hold. It also has to be reconciled with #14's in-card carousel at 390 when that
+lands.
+
+### Honest accounting
+
+This scratchpad directory is shared with the other agents the parent session
+runs. A sibling agent's `mutate.py` overwrote this branch's at the same path
+mid-session. Nothing was mutated in either worktree, because each script
+rejected the other's arguments before touching a file. Every file of this
+branch's now lives in a subdirectory named for it.
