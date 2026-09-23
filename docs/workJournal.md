@@ -7942,9 +7942,14 @@ these", naming both licence links.
 beside it.** The pixel case records its histogram as byte-identical across three
 runs — 70,350 px, 39,491 (56.14%) `#f2efe9`, 441 `#a8b4b8`. Inside a full `pnpm
 verify` on a machine at load average 10.15 the same case measured 38,651
-(54.94%), water 441 unchanged. The land count moves about a percent when tiles
-land late enough for the poll to sample a partly-drawn frame. The floors are
-unaffected; a reader treating a 1% move as signal would be chasing contention.
+(54.94%), water 441 unchanged. And CI, on the green run `3c87497`, printed
+`67335 px: #f2efe9 36228 (53.80%), #a8b4b8 454` — a different CANVAS SIZE
+again, because the map element's box follows the runner's scrollbar and device
+pixel ratio. All three figures are one machine's reading of a deterministic
+frame rather than a fixture to diff against. What travels is the floors (50,000
+px of canvas, half of it our land colour, 200 water), and CI's worst margin
+against them is 53.80% against 0.5. A reader treating the exact numbers as an
+expectation would be chasing hardware.
 
 **What was NOT done.** `featured-properties.spec.ts:243` fails locally at
 exactly 436.890625 — #80/#124, the macOS scrollbar setting, green on CI — and

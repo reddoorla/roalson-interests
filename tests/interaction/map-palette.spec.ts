@@ -174,9 +174,19 @@ test.describe("the tiles paint in the brand palette", () => {
     // full `pnpm verify` on a loaded machine (load average 10.15) gave 38,651
     // (54.94%) against the 39,491 (56.14%) recorded here, water 441 both
     // times: the land count moves by about a percent when tiles arrive late
-    // enough for the poll to sample a partly-drawn frame. The floors below are
-    // untouched by that — 54.94% is still comfortably over 0.5 — but a reader
-    // treating a 1% move as a signal would be chasing contention.
+    // enough for the poll to sample a partly-drawn frame.
+    //
+    // AND THE TOTAL IS NOT A CONSTANT EITHER, which matters more. CI printed
+    // `67335 px: #f2efe9 36228 (53.80%), #a8b4b8 454` for this same case on
+    // `3c87497` — a different CANVAS SIZE from this machine's 70,350, because
+    // the element's box depends on the runner's scrollbar and device pixel
+    // ratio, not on anything this repo controls. So all three numbers above
+    // are one machine's reading of a deterministic FRAME, not a fixture to
+    // diff against. The floors are what travel: > 50,000 px, > 0.5 land,
+    // > 200 water, all of which both machines clear by a wide margin
+    // (CI's worst is 53.80% against 0.5, and 454 against 200). A reader
+    // treating any of the exact figures as an expectation would be chasing
+    // hardware.
     //
     // These are neither branch's numbers and that is the point. `feat/map-camera`
     // measured 67,335 / 62.39% / 12,113 against the PUBLISHED portfolio at 390;
