@@ -78,7 +78,7 @@ source. It is the fastest way to recognise what a thing does.
 | [`property-listing-load.ts`](../src/lib/property-listing-load.ts) | `LISTING_TITLE`, `LISTING_DESCRIPTION`, `emptyListing`, `loadPropertyListing` | 3 |  |
 | [`property-listing.ts`](../src/lib/property-listing.ts) | `LISTING_SECTIONS`, `SOLD_SECTION`, `listingOrder`, `groupListings` | 8 |  |
 | [`property-load.ts`](../src/lib/property-load.ts) | `loadProperty` | 3 |  |
-| [`property-map.ts`](../src/lib/property-map.ts) | `DEFAULT_MAP_STYLE_URL`, `mapStyleUrl`, `MAP_TILE_HOST`, `sectionPoints`, `slidePoints`, `WORLD_TILE_SIZE`, `worldSize`, `projectX`, `projectY`, `unprojectLng`, `unprojectLat`, `pixelDistance`, `MAP_FRAMES`, `COMPACT_MAX_HEIGHT`, `frameFor`, `fitCamera`, `clusterPoints`, `expansionZoom`, `clusterSignature`, `PIN_VIEWBOX`, `PIN_PATH`, `PIN_HOLE`, `PIN_ASPECT`, `clusterDiameter` | 26 | Everything the per-section map knows that is NOT MapLibre (#13) |
+| [`property-map.ts`](../src/lib/property-map.ts) | `DEFAULT_MAP_STYLE_URL`, `mapStyleUrl`, `MAP_TILE_HOST`, `sectionPoints`, `slidePoints`, `WORLD_TILE_SIZE`, `worldSize`, `projectX`, `projectY`, `unprojectLng`, `unprojectLat`, `pixelDistance`, `MAP_FRAMES`, `COMPACT_MAX_HEIGHT`, `frameFor`, `fitCamera`, `clusterPoints`, `expansionZoom`, `clusterSignature`, `PIN_VIEWBOX`, `PIN_PATH`, `PIN_HOLE`, `PIN_ASPECT`, `clusterDiameter` | 27 | Everything the per-section map knows that is NOT MapLibre (#13) |
 | [`property-meta.ts`](../src/lib/property-meta.ts) | `propertyDescription`, `propertyJsonLd`, `propertyMeta` | 8 |  |
 | [`property.ts`](../src/lib/property.ts) | `PROPERTY_CATEGORIES`, `PROPERTY_STATUSES`, `isSold`, `statusLabel`, `propertyHighlights`, `propertyFacts`, `propertyTracts`, `propertyPackage`, `mapsUrl` | 15 |  |
 | [`seo.ts`](../src/lib/seo.ts) | `SITE_NAME`, `SITE_LOCALE`, `DEFAULT_DESCRIPTION`, `DEFAULT_OG_IMAGE`, `DEFAULT_OG_IMAGE_ALT`, `OG_IMAGE_WIDTH`, `OG_IMAGE_HEIGHT`, `NOINDEX_PREFIXES`, `isNoindexPath`, `isNoindexPage`, `NOINDEX_ENFORCED`, `composeTitle`, `jsonLdScript`, `canonicalUrl`, `resolveOgImage`, `organizationJsonLd` | 26 | Site-wide SEO configuration + helpers |
@@ -98,4 +98,4 @@ source. It is the fastest way to recognise what a thing does.
 | [`vimeo.ts`](../src/lib/utils/vimeo.ts) | `checkVimeoVideo`, `parseVimeoId` | 11 | True when the Vimeo video exists and is embeddable (oEmbed responds 200) |
 | [`vimeoBackground.svelte.ts`](../src/lib/utils/vimeoBackground.svelte.ts) | `VIMEO_PLAYER_ORIGIN`, `backgroundEmbedSrc`, `VimeoBackground` | 5 | The gate, the heartbeat and the pause flag behind every chrome-less Vimeo background embed in this repo — lifted OUT of VimeoBanner.svelte so the homepage hero could have all three without taking VimeoBanner's markup with them |
 
-80 modules, 667 tests behind them.
+80 modules, 668 tests behind them.
