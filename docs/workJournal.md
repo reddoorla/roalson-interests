@@ -9198,6 +9198,41 @@ there" in property-map-camera.spec.ts, whose camera assertion would still
 hold. It also has to be reconciled with #14's in-card carousel at 390 when that
 lands.
 
+### A spec that assumed card 1 is sand, found by the second full verify
+
+The first `pnpm verify` on this branch passed. The second, on the committed
+tree, failed `focus-ring.spec.ts:13`: card 1's LEARN MORE ring read off-white
+where garnet was expected, for the whole 20s poll. The site was right and the
+spec's premise had expired. `expectRing` presses Tab before it focuses, and
+Tab from card 0's link lands on card 1's. The browser then scrolls it into
+view, which on the fixture at 1440x900 puts card 1 across the centre line (top
+272, step 1 of the #114 table). Card 1 then is the garnet card, and a ring on
+garnet is correctly off-white. The first run passed only because its poll read
+before the observer fired.
+
+The card half of that spec now focuses in place (`preventScroll`, no Tab: the
+bar's check has already put the page in keyboard modality). It asserts the
+card's ground in the same read as the ring, so a pass names the ground it was
+measured on. It also gains the case this feature created: with card 1's link
+focused, card 1 is scrolled onto the line, and its ring must follow the ground
+to off-white. That passed 48 of 48 at `--repeat-each=16` (load 22 to 24,
+noisy). It goes red under M1 (card 1 stays sand, with a garnet ring) and when
+`.bg-primary` is dropped from app.css's dark-ground ring list (a garnet ring on
+card 0). I enumerated the class: no other spec reads a PropertyCard's tone. The
+carousel spec's garnet and sand cards are its own fixtures, and
+property-map.spec.ts reads only the first card's box.
+
+### Rotating below `lg` freezes the highlight, as it already froze the map
+
+`activeIds` is never cleared. On the fixture at 1180x820 with Castroville on
+the line, rotating to 820x1180 stops `centreWatch` (it re-checks its media
+query), and the garnet card stays on Castroville, even scrolled back to the
+top. Rotating back to 1180 restarts the rule, which reports again. The map's
+`active` has always been frozen the same way, so the two still agree. But the
+brief's "below `lg` the first card stays featured" holds only for a page loaded
+below `lg`. This is not fixed here and is filed as #147, with the two ways to
+settle it.
+
 ### Honest accounting
 
 This scratchpad directory is shared with the other agents the parent session
