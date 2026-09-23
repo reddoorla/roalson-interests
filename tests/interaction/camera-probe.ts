@@ -257,8 +257,9 @@ declare global {
         getZoom(): number;
         getCenter(): { lng: number; lat: number };
         getCanvas(): HTMLCanvasElement;
-        /** Only the EXPANDED map takes the wheel, and a test that asserts a
-         *  zoom changed has to be able to say that is why. */
+        /** Whether the wheel zooms this map — every in-page map since the
+         *  operator's reversal (2026-09-23), where it used to be only the
+         *  EXPANDED one. A test that asserts a zoom changed can say why. */
         scrollZoom: { isEnabled(): boolean };
         jumpTo(options: { zoom?: number; center?: [number, number] }): unknown;
       }[];

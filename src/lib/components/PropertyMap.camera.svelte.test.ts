@@ -46,12 +46,17 @@ interface Command {
   kind: "fly" | "jump" | "ease";
   t: number;
   center: [number, number];
+  zoom?: number;
 }
 
 const engine = vi.hoisted(() => {
   const created: {
     handlers: Record<string, (e?: unknown) => void>;
     commands: Command[];
+    canvasContainer: HTMLDivElement;
+    /** What `getZoom()` answers; a case about the visitor's zoom sets it
+     *  before firing `zoomend`, which is maplibre's own order. */
+    zoomNow: number;
     removed: boolean;
   }[] = [];
 
@@ -60,13 +65,26 @@ const engine = vi.hoisted(() => {
     canvas = document.createElement("canvas");
     canvasContainer = document.createElement("div");
     record: (typeof created)[number];
-    scrollZoom = { enable() {}, disable() {}, isEnabled: () => false };
+    // ON, as every map this component builds has been since the operator's
+    // reversal (2026-09-23): the wheel over the in-page map zooms it.
+    scrollZoom = { enable() {}, disable() {}, isEnabled: () => true };
     constructor() {
-      this.record = { handlers: this.handlers, commands: [], removed: false };
+      this.record = {
+        handlers: this.handlers,
+        commands: [],
+        canvasContainer: this.canvasContainer,
+        zoomNow: 7,
+        removed: false,
+      };
       created.push(this.record);
     }
-    log(kind: Command["kind"], camera: { center?: [number, number] }) {
-      this.record.commands.push({ kind, t: Date.now(), center: camera.center ?? [0, 0] });
+    log(kind: Command["kind"], camera: { center?: [number, number]; zoom?: number }) {
+      this.record.commands.push({
+        kind,
+        t: Date.now(),
+        center: camera.center ?? [0, 0],
+        zoom: camera.zoom,
+      });
     }
     getCanvasContainer() {
       return this.canvasContainer;
@@ -79,7 +97,7 @@ const engine = vi.hoisted(() => {
       return this.canvas;
     }
     getZoom() {
-      return 7;
+      return this.record.zoomNow;
     }
     getMaxZoom() {
       return 16;
@@ -87,13 +105,13 @@ const engine = vi.hoisted(() => {
     project() {
       return { x: 10, y: 20 };
     }
-    jumpTo(camera: { center?: [number, number] }) {
+    jumpTo(camera: { center?: [number, number]; zoom?: number }) {
       this.log("jump", camera);
     }
-    easeTo(camera: { center?: [number, number] }) {
+    easeTo(camera: { center?: [number, number]; zoom?: number }) {
       this.log("ease", camera);
     }
-    flyTo(camera: { center?: [number, number] }) {
+    flyTo(camera: { center?: [number, number]; zoom?: number }) {
       this.log("fly", camera);
     }
     resize() {}
@@ -435,5 +453,61 @@ describe("what the hold does NOT hold", () => {
     expect(record.removed).toBe(true);
     elapse(CAMERA_FLIGHT_MS * 3);
     expect(flights(record), "nothing was issued after the map was removed").toHaveLength(1);
+  });
+});
+
+describe("the visitor's zoom outlives the listing they chose it on", () => {
+  // The brief's requirement 2 for the operator's reversal, as a SEQUENCE,
+  // which is the only way it can be said: "the zoom survives the next card
+  // crossing" is a claim about the crossing after the one that ends the
+  // suspension, and about every one after that. Measured on a production
+  // build before `chosenZoom`: z12 -> z12.8979 by wheel, and the first
+  // crossing flew at z12.
+  it("lands every later listing at the zoom the wheel chose, and leaves MAP_HOME its own", async () => {
+    const { props, record } = await booted("a");
+
+    // The wheel, as maplibre reports it: our own listener sees the event on
+    // the canvas container (the suspension), then the zoom settles and
+    // `zoomend` fires with `getZoom()` already answering the new zoom.
+    record.canvasContainer.dispatchEvent(new Event("wheel"));
+    record.zoomNow = 13.25;
+    record.handlers.zoomend?.();
+    flushSync();
+    expect(record.commands, "the zoomed listing is left alone").toHaveLength(0);
+
+    for (const id of ["b", "c"]) {
+      props.active = id;
+      flushSync();
+      elapse(CAMERA_FLIGHT_MS + 1);
+    }
+    expect(
+      flights(record).map((f) => f.zoom),
+      "both crossings fly, and both at the visitor's zoom",
+    ).toEqual([13.25, 13.25]);
+
+    // Nothing active is a FRAME, not a distance from a listing: MAP_HOME keeps
+    // its own zoom, and the committed picture stays a true picture of it.
+    props.active = null;
+    flushSync();
+    const home = record.commands.at(-1)!;
+    expect(home.kind, "MAP_HOME is a jump").toBe("jump");
+    expect(home.zoom, "at MAP_HOME's zoom, not the visitor's").not.toBe(13.25);
+
+    // …and coming back into the list picks the visitor's zoom up again.
+    elapse(CAMERA_FLIGHT_MS + 1);
+    props.active = "d";
+    flushSync();
+    expect(flights(record).at(-1)?.zoom, "carried through MAP_HOME").toBe(13.25);
+    expect(flights(record), "three crossings, three flights").toHaveLength(3);
+  });
+
+  it("carries nothing when the visitor never zoomed — the control", async () => {
+    const { props, record } = await booted("a");
+    for (const id of ["b", "c"]) {
+      props.active = id;
+      flushSync();
+      elapse(CAMERA_FLIGHT_MS + 1);
+    }
+    expect(flights(record).map((f) => f.zoom)).toEqual([12, 12]);
   });
 });

@@ -641,6 +641,35 @@ export interface CameraState {
    * has to be true, not nearly true.
    */
   commanded?: Camera | null;
+  /**
+   * THE ZOOM THE VISITOR CHOSE, or absent/null if they never have. Where it is
+   * set, a flight to a listing lands at THIS zoom instead of the frame's own
+   * `maxZoom`; the page still decides where the camera goes, and this decides
+   * only how close.
+   *
+   * IT EXISTS BECAUSE THE WHEEL NOW ZOOMS THE IN-PAGE MAP (operator call,
+   * 2026-09-23), and a zoom that lasts one card is not a zoom anyone can use.
+   * Measured on a production build of /properties at 1440x900 before this
+   * field: five wheel-up ticks took the land map from z12 to z12.8979, the
+   * visitor scrolled on to the next listing, and the camera flew there at z12
+   * — the zoom was gone at the first card they crossed. That is not a defect in
+   * the suspension. A gesture suspends the camera until the visitor asks for a
+   * different listing (`drivenAt` in PropertyMap.svelte), and the crossing IS
+   * that ask, so the flight is right to go. It was going at the wrong zoom.
+   *
+   * WHY THE ZOOM AND NOT THE VIEW. The same suspension deliberately does not
+   * carry a PAN from one listing to the next: the next listing is tens of
+   * kilometres away and a preserved offset would put it off the box. A zoom
+   * has no such problem — the next listing is still at the centre, only as
+   * close as the visitor last asked for — so it is the half of a visitor's
+   * view that can survive a crossing, and now does.
+   *
+   * ONLY THE ONE-LISTING CAMERA. `null` active — MAP_HOME, or the fit where a
+   * section has no home — is a chosen FRAME, not a distance from a listing,
+   * and it is what the committed picture is a picture of (#122); it keeps its
+   * own zoom. Under the picture (`pictureUp`) nothing here applies either.
+   */
+  zoom?: number | null;
 }
 
 /** Two cameras are the same camera. Exact, not approximate: both sides come
@@ -720,9 +749,17 @@ export function cameraMove(state: CameraState): CameraMove {
   const underPicture = state.pictureUp === true ? (state.home ?? null) : null;
   // "Fit them all" is only the answer where there is no chosen frame; see
   // `home` on CameraState for the defect that read.
+  //
+  // The visitor's zoom goes in as the one-point fit's CAP, not beside it:
+  // a one-point bounds clamps to its cap by construction, so the zoom comes
+  // back exactly, and the centre is still worked out at that zoom with the
+  // pin-tip padding correction (see this function's comment).
+  const close = state.zoom ?? frame.maxZoom;
   const camera =
     underPicture ??
-    (target ? fitCamera([target], box, frame) : (state.home ?? fitCamera(points, box, frame)));
+    (target
+      ? fitCamera([target], box, { padding: frame.padding, maxZoom: close })
+      : (state.home ?? fitCamera(points, box, frame)));
   if (camera === null) return { move: "none", why: "no-points" };
   if (commanded && sameCamera(commanded, camera)) return { move: "none", why: "arrived" };
 

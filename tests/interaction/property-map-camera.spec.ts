@@ -548,105 +548,20 @@ test.describe("the homepage band, where the carousel drives the camera", () => {
 });
 
 // ---------------------------------------------------------------------------
-// The pinned box may not eat the page's scroll (#118 review, MAJOR 1)
+// THE PINNED BOX EATS THE PAGE'S SCROLL, ON PURPOSE (operator call, 2026-09-23)
 // ---------------------------------------------------------------------------
-
-test.describe("the pinned map is scrolled past, not scrolled in", () => {
-  /** Wheel `ticks` 120px notches over (x, y) from a known scroll position and
-   *  return how far the DOCUMENT moved. Real wheel events: `mouse.wheel`
-   *  dispatches the same event MapLibre's ScrollZoomHandler listens for, and
-   *  that handler's `preventDefault()` is exactly what this measures. */
-  async function wheelOver(page: Page, x: number, y: number, ticks: number) {
-    await page.evaluate(() => window.scrollTo(0, 500));
-    await page.waitForTimeout(400);
-    const before = await page.evaluate(() => window.scrollY);
-    await page.mouse.move(x, y);
-    await page.waitForTimeout(100);
-    for (let i = 0; i < ticks; i++) {
-      await page.mouse.wheel(0, 120);
-      await page.waitForTimeout(100);
-    }
-    await page.waitForTimeout(500);
-    return (await page.evaluate(() => window.scrollY)) - before;
-  }
-
-  test("a wheel over the map moves the page exactly as far as one over the cards", async ({
-    browser,
-  }) => {
-    test.setTimeout(90_000);
-    const { context, page } = await at(browser, 1440);
-    try {
-      await page.goto(PROPERTIES);
-      await hydrated(page);
-      await drawn(page);
-      const section = land(page);
-
-      await page.evaluate(() => window.scrollTo(0, 500));
-      await page.waitForTimeout(500);
-
-      // The obstacle is real and it is pinned: measured here rather than
-      // described, so a layout change that moves the map out of the scroll's
-      // way makes this test's premise visibly false instead of quietly true.
-      const geom = await section.evaluate((el) => {
-        const map = el.querySelector("[data-property-map]") as HTMLElement;
-        // `:not([data-map-list])` — the MAP is first in the grid and renders
-        // its own <ul> of Google Maps links, so a bare `querySelector("ul")`
-        // returns a list INSIDE the map box. The control probe then lands on
-        // the map and reads 0, which is the number the map is being accused
-        // of: measured while mutating `scrollZoom` back on, where this test
-        // failed on its own control instead of on its claim.
-        const list = el.querySelector("ul:not([data-map-list])") as HTMLElement;
-        const m = map.getBoundingClientRect();
-        const l = list.getBoundingClientRect();
-        return {
-          map: { left: m.left, right: m.right, top: m.top, bottom: m.bottom, width: m.width },
-          cardsCentreX: (l.left + l.right) / 2,
-          viewport: window.innerWidth,
-          pinned: getComputedStyle(map).position === "sticky",
-        };
-      });
-      expect(geom.pinned, "the map really is pinned here").toBe(true);
-      expect(
-        geom.map.width / geom.viewport,
-        "and it really is a large obstacle — 27% of the viewport's width",
-      ).toBeGreaterThan(0.2);
-
-      const overMap = {
-        x: (geom.map.left + geom.map.right) / 2,
-        y: (geom.map.top + geom.map.bottom) / 2,
-      };
-      // Positive evidence the probe point is ON the map and not beside it.
-      expect(
-        await page.evaluate(
-          (p) => !!document.elementFromPoint(p.x, p.y)?.closest("[data-property-map]"),
-          overMap,
-        ),
-        "the wheel probe really lands on the map",
-      ).toBe(true);
-
-      const oneOverMap = await wheelOver(page, overMap.x, overMap.y, 1);
-      const oneOverCards = await wheelOver(page, geom.cardsCentreX, 450, 1);
-      const fiveOverMap = await wheelOver(page, overMap.x, overMap.y, 5);
-      const fiveOverCards = await wheelOver(page, geom.cardsCentreX, 450, 5);
-
-      // The cards column is the control: it says what this page's scroll does
-      // when nothing is in the way. Asserting it moved at all is what stops a
-      // "both were zero" run reading as a pass.
-      expect(oneOverCards, "the control really scrolls").toBeGreaterThan(0);
-      expect(fiveOverCards, "and five ticks scroll five times as far").toBeCloseTo(
-        oneOverCards * 5,
-        0,
-      );
-
-      expect(oneOverMap, "one tick over the map moves the page as far as over the cards").toBe(
-        oneOverCards,
-      );
-      expect(fiveOverMap, "and so do five").toBe(fiveOverCards);
-    } finally {
-      await context.close();
-    }
-  });
-});
+//
+// A describe block lived here called "the pinned map is scrolled past, not
+// scrolled in", and it asserted that one wheel tick over the map moved the page
+// exactly as far as one over the cards. It was right about the mechanism and is
+// now measuring the wrong side of a decision that was reversed: the operator
+// asked for the wheel over the map to zoom it.
+//
+// It is DELETED rather than inverted in place, because the claim moved routes
+// as well as direction. It drove /dev/properties, which 404s on a production
+// build (#120), and the reversal's numbers are exactly the kind that has to be
+// taken from the shipped bundle. The replacement is
+// tests/interaction/property-map-scroll-zoom.spec.ts, on `/properties` and `/`.
 
 // ---------------------------------------------------------------------------
 // A press is ONE flight (#118 review, MAJOR 2)
@@ -804,41 +719,14 @@ const bareSpot = (section: Locator) =>
   });
 
 test.describe("a gesture suspends the camera, and the page's next listing lifts it", () => {
-  test("a wheel over the pinned map does not drive it at all", async ({ browser }) => {
-    test.setTimeout(90_000);
-    const { context, page } = await at(browser, 1440);
-    try {
-      await watchCamera(page);
-      await page.goto(PROPERTIES);
-      await hydrated(page);
-      await drawn(page);
-      expect(await cameraProbeInstalled(page)).toBe(true);
-      const section = land(page);
-
-      await centre(page, CASTROVILLE);
-      const before = await mapZoom(page);
-      expect(before).toBeCloseTo(12, 1);
-
-      const spot = await bareSpot(section);
-      expect(spot, "found a bare patch of map to wheel over").not.toBeNull();
-
-      const scrollBefore = await page.evaluate(() => window.scrollY);
-      await page.mouse.move(spot!.x, spot!.y);
-      await page.mouse.wheel(0, -240);
-      await page.waitForTimeout(900);
-
-      // The wheel went to the PAGE, not to the map. Both halves asserted: the
-      // zoom is untouched (so nothing was taken) and the document moved (so the
-      // event was not simply lost somewhere).
-      expect(await mapZoom(page), "the map's zoom is untouched by a wheel").toBeCloseTo(before, 3);
-      expect(
-        await page.evaluate(() => window.scrollY),
-        "and the page took the wheel instead",
-      ).not.toBe(scrollBefore);
-    } finally {
-      await context.close();
-    }
-  });
+  // "a wheel over the pinned map does not drive it at all" stood here, and it
+  // asserted that a wheel over the map left the zoom untouched and moved the
+  // page. It was right about the mechanism and is on the wrong side of the
+  // operator's reversal (2026-09-23): the wheel over the map zooms it now.
+  // Deleted rather than inverted in place, because the inversion needs the
+  // shipped bundle and /dev/* 404s on one (#120);
+  // tests/interaction/property-map-scroll-zoom.spec.ts measures it on
+  // `/properties`, along with the crossing this describe block is about.
 
   /** Drag the map 60x30 from a bare patch of it, and assert MapLibre really
    *  saw a gesture — a `movestart` carrying its `originalEvent`, which is the

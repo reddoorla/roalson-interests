@@ -36,9 +36,21 @@ const engine = vi.hoisted(() => {
     jumps: unknown[];
     eases: unknown[];
     flights: unknown[];
-    /** Every `scrollZoom.enable()` / `.disable()`, in order. The in-page map
-     *  is constructed with scroll-zoom OFF and only `expanded` turns it on. */
+    /** Every `scrollZoom.enable()` / `.disable()`, in order. Since the
+     *  operator's reversal there should be NONE: the in-page map is
+     *  constructed with scroll-zoom on and nothing takes it away again. This
+     *  stays a log rather than becoming a boolean precisely so the case below
+     *  can assert the list is EMPTY — "nobody touched it" is a different claim
+     *  from "it ended up on", and re-introducing the `expanded` effect would
+     *  satisfy the second. */
     scrollZoomCalls: ("enable" | "disable")[];
+    /** What `getZoom()` answers. 7 unless a case says otherwise — a case
+     *  about the visitor's zoom sets it before firing `zoomend`, which is
+     *  exactly the order maplibre reports a finished zoom in. */
+    zoomNow: number;
+    /** The fake's own `scrollZoom`, so a case can switch it off as maplibre
+     *  would be switched off. */
+    scrollZoom: { enable(): void; disable(): void; isEnabled(): boolean };
     removed: boolean;
   }[] = [];
 
@@ -71,6 +83,8 @@ const engine = vi.hoisted(() => {
         eases: [],
         flights: [],
         scrollZoomCalls: [],
+        zoomNow: 7,
+        scrollZoom: this.scrollZoom,
         removed: false,
       };
       created.push(this.record);
@@ -88,7 +102,7 @@ const engine = vi.hoisted(() => {
       return this.canvas;
     }
     getZoom() {
-      return 7;
+      return this.record.zoomNow;
     }
     getMaxZoom() {
       return 16;
@@ -823,32 +837,164 @@ describe("the camera the page drives", () => {
     expect(record.flights).toHaveLength(1);
   });
 
-  it("builds the in-page map with scroll-zoom OFF", async () => {
+  it("builds the in-page map with scroll-zoom ON", async () => {
     const { record } = await booted({ active: "b" });
-    // The pinned box may not take the page's wheel. This is the map's STARTING
-    // state; what holds it from then on is the effect the next case drives —
-    // mutating this option to `true` on its own left the browser test green.
-    expect(record.options.scrollZoom).toBe(false);
+    // THE REVERSAL, at the only place it is now expressed. The wheel over this
+    // box zooms the map; the page's scroll is what it costs, and that trade is
+    // the operator's (see the journal entry for this change). What this case
+    // can say is only that the option is what it claims — that the wheel
+    // really reaches maplibre is a browser claim and is measured in
+    // tests/interaction/property-map-scroll-zoom.spec.ts against a production
+    // build.
+    expect(record.options.scrollZoom).toBe(true);
   });
 
-  it("gives scroll-zoom back while expanded, and takes it away again", async () => {
+  it("never takes the wheel away again — expanding and collapsing do not touch it", async () => {
     // A COMPACT box (200 < COMPACT_MAX_HEIGHT's 300), because the expand
     // affordance is only rendered on one — `{#if measured && (compact ||
-    // expanded)}`. Booted at 397x595 there is no button, and a version of this
-    // case that guarded the clicks with `if (expand)` asserted NOTHING while
-    // passing. That is the shape this file exists to catch.
+    // expanded)}`. Booted at 397x595 there is no button, and a version of the
+    // case this replaces that guarded its clicks with `if (expand)` asserted
+    // NOTHING while passing. That is the shape this file exists to catch.
     const { view, record } = await booted({ active: "b" }, { width: 350, height: 200 });
     const expand = view.container.querySelector<HTMLButtonElement>("[data-map-expand]");
     expect(expand, "a compact box draws the expand affordance").not.toBeNull();
-    expect(record.scrollZoomCalls.at(-1), "off while the box is in the page").toBe("disable");
 
     expand!.click();
     await tick();
-    expect(record.scrollZoomCalls.at(-1), "on once expanded").toBe("enable");
-
     view.container.querySelector<HTMLButtonElement>("[data-map-expand]")!.click();
     await tick();
-    expect(record.scrollZoomCalls.at(-1), "and off again on collapse").toBe("disable");
+
+    // EMPTY, not "ends enabled". Restoring the `$effect` this PR deleted would
+    // leave the map enabled at rest and still pass an "is it on" assertion —
+    // it disabled on collapse, and a visitor who opened and closed the box
+    // would silently lose the wheel. The log is what can tell those apart.
+    expect(
+      record.scrollZoomCalls,
+      "nothing enables or disables scroll-zoom after the constructor",
+    ).toEqual([]);
+  });
+
+  // THE LISTENER THAT WAS INERT AND IS NOW LOAD-BEARING (the operator's
+  // reversal). MapLibre leaves a wheel zoom's `movestart` untagged — no
+  // `originalEvent` — so the `wheel` listener on the canvas container is the
+  // ONLY thing that can tell the camera a visitor just zoomed, and while the
+  // in-page map declined the wheel it could not fire anywhere a camera runs.
+  //
+  // WHY THE PAIR BELOW DRIVES `activeBy: "auto"` AND NOT THE PROPERTIES PAGE'S
+  // "visitor". A wheel suspends the camera until THE VISITOR asks for a
+  // different listing (see `drivenAt`), and on /properties the scroll that
+  // crosses to the next card IS the visitor asking — so there the suspension
+  // is over by the time the next flight is decided and the camera flies. What
+  // survives that crossing is the ZOOM, not the suspension, and the cases
+  // after this pair hold that. `"auto"` is the homepage band's clock, which is
+  // where the suspension itself has to HOLD. A first version of this pair used
+  // "visitor" and went red on the component being right.
+  it("counts a wheel over the canvas as the visitor driving the map", async () => {
+    const { view, record } = await booted({ active: "a", activeBy: "auto" });
+    record.canvasContainer.dispatchEvent(new Event("wheel"));
+    await tick();
+    const before = record.flights.length;
+    await view.rerender({ points, label: "Land", active: "b", activeBy: "auto" });
+    await tick();
+    expect(record.flights.length, "the clock does not move a map the visitor zoomed").toBe(before);
+  });
+
+  it("and without the wheel the same turn flies — the control for the case above", async () => {
+    // Positive evidence that the pair above measures the WHEEL and not a
+    // component that never flies for `activeBy: "auto"` at all.
+    const { view, record } = await booted({ active: "a", activeBy: "auto" });
+    const before = record.flights.length;
+    await view.rerender({ points, label: "Land", active: "b", activeBy: "auto" });
+    await tick();
+    expect(record.flights.length, "nothing is suspended, so the camera moves").toBe(before + 1);
+  });
+
+  // THE VISITOR'S ZOOM SURVIVES THE CROSSING (the brief's requirement 2, and
+  // the half of the reversal that is not about the wheel at all). Measured on
+  // a production build before `chosenZoom` existed: the wheel took the land
+  // map from z12 to z12.8979, the next card crossing flew at z12, and the zoom
+  // was gone. The flight going is right — the crossing is the visitor asking
+  // for somewhere else. It was going at the frame's zoom instead of theirs.
+  //
+  // `zoomNow` then `zoomend` is maplibre's own order: `getZoom()` already
+  // answers the finished zoom when `zoomend` fires.
+  it("flies to the next listing at the zoom the visitor chose with the wheel", async () => {
+    const { view, record } = await booted({ active: "a" });
+    record.canvasContainer.dispatchEvent(new Event("wheel"));
+    record.zoomNow = 13.25;
+    record.handlers.zoomend?.();
+    await tick();
+    expect(record.flights, "suspended on the listing they zoomed on").toHaveLength(0);
+
+    await view.rerender({ points, label: "Land", active: "b" });
+    await tick();
+    expect(record.flights, "the crossing ends the suspension, so it flies").toHaveLength(1);
+    const flight = record.flights[0] as { center: number[]; zoom: number };
+    expect(flight.center[0], "to the next listing").toBeCloseTo(points[1]!.lng, 6);
+    expect(flight.zoom, "at THEIR zoom, not the frame's 12").toBe(13.25);
+
+    // That it STAYS theirs at the crossing after this one needs a second
+    // `active` change, and `rerender` cannot give one here: it re-runs the boot
+    // effect, whose cleanup destroys the map, so a second crossing lands on a
+    // map that no longer exists (measured: `not-ready`, and a vacuous count).
+    // PropertyMap.camera.svelte.test.ts holds props in `$state` and says it.
+  });
+
+  it("does not take a zoom the camera ended as the visitor's", async () => {
+    // THE CONTROL FOR THE CASE ABOVE, and the half that keeps `chosenZoom`
+    // from being "whatever zoom the map last stopped at". A `zoomend` with no
+    // suspension outstanding is one this component caused — its own flight
+    // landing, or one a gesture cut short (maplibre stops the flight, and
+    // fires its `zoomend` at the waypoint, before our listeners have seen the
+    // gesture). Carrying THAT would mean a drag that interrupted an arc left
+    // every later listing at the arc's mid-air zoom.
+    const { view, record } = await booted({ active: "a" });
+    record.zoomNow = 9.4;
+    record.handlers.zoomend?.();
+    await tick();
+    await view.rerender({ points, label: "Land", active: "b" });
+    await tick();
+    expect(record.flights).toHaveLength(1);
+    expect((record.flights[0] as { zoom: number }).zoom, "the frame's own zoom").toBe(12);
+  });
+
+  // THE PRE-FRAME WHEEL (`forwardWheel`'s `ready` gate). Before maplibre's
+  // `load` the box shows the list, or #122's picture, and the canvas host is
+  // `pointer-events-none opacity-0` — yet the maplibre instance already
+  // exists. A wheel forwarded then would zoom a map nobody can see and take
+  // the page's scroll for nothing visible. After `load` a wheel that lands on
+  // an overlay must reach the canvas container, where maplibre listens.
+  it("leaves the wheel to the page until the map is drawn, then hands it to maplibre", async () => {
+    stubResizeTo(397, 595);
+    stubIntersecting({ mapHeight: 595, visible: 595 });
+    const view = render(PropertyMap, { props: { points, label: "Land", active: "a" } });
+    await vi.waitFor(() => expect(engine.created).toHaveLength(1));
+    const record = engine.created[0]!;
+    const root = view.container.querySelector<HTMLElement>("[data-property-map]")!;
+    let reached = 0;
+    record.canvasContainer.addEventListener("wheel", () => reached++);
+
+    const early = new WheelEvent("wheel", { deltaY: 120, bubbles: true, cancelable: true });
+    root.dispatchEvent(early);
+    expect(early.defaultPrevented, "before the first frame the page keeps its scroll").toBe(false);
+    expect(reached, "and nothing is sent to a map nobody can see").toBe(0);
+
+    record.handlers.load?.();
+    await tick();
+    await tick();
+    const late = new WheelEvent("wheel", { deltaY: 120, bubbles: true, cancelable: true });
+    root.dispatchEvent(late);
+    expect(late.defaultPrevented, "once drawn, a wheel over the map is the map's").toBe(true);
+    expect(reached, "and it reaches the container maplibre listens on").toBe(1);
+
+    // And only while maplibre would take it: with scroll-zoom off the tiles
+    // hand the wheel back to the page, so a marker must too.
+    record.scrollZoom.disable();
+    const off = new WheelEvent("wheel", { deltaY: 120, bubbles: true, cancelable: true });
+    root.dispatchEvent(off);
+    expect(off.defaultPrevented, "scroll-zoom off: the page keeps its scroll").toBe(false);
+    expect(reached, "and nothing is sent to a map that would ignore it").toBe(1);
+    view.unmount();
   });
 
   it("does not fly for an active id it has no pin for", async () => {

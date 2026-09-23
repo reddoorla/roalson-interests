@@ -241,8 +241,9 @@
    * and the homepage band changes `active` on a 4000ms timer with nobody
    * touching anything — so on that band the suspension ended, every time,
    * with no user action. Measured on a production build of `/` at 390x844,
-   * motion allowed: expand the band's map (the one state where scroll-zoom is
-   * deliberately the visitor's), four wheel-up ticks to z12.5387, then no
+   * motion allowed: expand the band's map (at the time, the one state where
+   * scroll-zoom was the visitor's; since the reversal it is every state, which
+   * only makes this easier to reach), four wheel-up ticks to z12.5387, then no
    * further input — ~9s later the camera had issued 2 `flyTo` back to z12 and
    * the zoom was gone while the map was still expanded. Nobody could hold a
    * view on that map for longer than one dwell. `activeBy` is how the caller
@@ -265,9 +266,45 @@
    * What this costs, said plainly: a pan is not carried from one listing to
    * the next. That is deliberate — the next listing is tens of kilometres
    * away (70 km for the two the tests drive with) and a preserved offset
-   * would put it off the box.
+   * would put it off the box. The ZOOM is carried, since 2026-09-23; see
+   * `chosenZoom` below for why that half can be and the pan cannot.
    */
   let drivenAt = $state<string | null | undefined>(undefined);
+
+  /**
+   * THE ZOOM THE VISITOR LAST CHOSE, or null if they never have — handed to
+   * `cameraMove` as `zoom`, so every flight to a listing after it lands this
+   * close instead of at the frame's own `maxZoom`. The reasoning, and the
+   * measurement that made it necessary, are on `CameraState.zoom`.
+   *
+   * RECORDED AT `zoomend`, AND ONLY WHILE A SUSPENSION IS OUTSTANDING, which
+   * is what makes it the visitor's number and never the camera's. While
+   * `drivenAt` is set `cameraMove` refuses every move, so no zoom this
+   * component commanded can begin inside that window.
+   *
+   * The one that can END inside it is a flight still in the air when the
+   * visitor grabs the map. maplibre-gl 6.10.0's `HandlerManager.handleEvent`
+   * calls `stop(true)` the moment a gesture handler goes active, and that
+   * ends the flight and fires ITS `zoomend`, synchronously, at whatever
+   * waypoint zoom the arc had reached (`_stop` -> the ease's finish ->
+   * `_afterEase`). Read in maplibre's source, and it splits by gesture:
+   *
+   *  - A DRAG goes active inside maplibre's own `mousemove` handling, before
+   *    its tagged `movestart` sets `drivenAt`, so the waypoint is not
+   *    recorded — which matters, because a drag changes no zoom and has no
+   *    `zoomend` of its own to overwrite it with.
+   *  - A WHEEL can be recorded at the waypoint: maplibre holds the first notch
+   *    after 400ms of quiet for 40ms to tell a wheel from a trackpad, and this
+   *    component's `wheel` listener has set `drivenAt` by then. The wheel's
+   *    own `zoomend` follows and overwrites it with the zoom the visitor ends
+   *    up looking at, which is the one that stays.
+   *
+   * Plain, like `commanded` and `flying`: it is read by the camera effect and
+   * written only inside a suspension, whose END is the reactive change that
+   * re-runs that effect. A `$state` here would wake it for a move it is about
+   * to refuse.
+   */
+  let chosenZoom: number | null = null;
 
   /** A suspension is outstanding. WHEN it ends is the effect below; this is
    *  only "is there one", which is all `cameraMove` needs to be told. */
@@ -538,32 +575,31 @@
       dragRotate: false,
       pitchWithRotate: false,
       touchPitch: false,
-      // THE PINNED BOX MAY NOT EAT THE PAGE'S SCROLL. maplibre-gl 6.10.0's
-      // `ScrollZoomHandler.wheel` ends in an unconditional `preventDefault()`,
-      // so every wheel event that lands on the canvas is taken from the
-      // document. Measured at 1440x900 on /dev/properties at scrollY 500, with
-      // the map pinned across x 80..472 (27.2% of the viewport's width) and
-      // y 100..695: ONE 120px wheel tick over the map moved the page 0px, and
-      // five ticks moved 120px against 600px for the same five ticks over the
-      // cards column. Before this PR that cost 595px of page once; now the box
-      // is PINNED, so the obstacle follows the visitor for the whole section.
+      // THE WHEEL BELONGS TO THE MAP. OPERATOR CALL, AND A REVERSAL of what
+      // shipped the day before (see the journal entry for this change, and the
+      // 2026-09-22 entry it supersedes in part): "if you scroll on the map it
+      // should zoom in and out rather than scrolling the whole page".
       //
-      // `cooperativeGestures` was the alternative and is worse here: it draws a
-      // "use ctrl + scroll to zoom" overlay over a 392px panel, and it still
-      // takes a trackpad pinch (which arrives as a ctrl-wheel and is exactly
-      // the gesture it tells you to make). Off is the honest setting for a box
-      // whose job is to be read past.
+      // NOTHING IN THE OLD REASONING BECAME FALSE — it was outranked.
+      // maplibre-gl 6.10.0's `ScrollZoomHandler.wheel` still ends in an
+      // unconditional `preventDefault()`, so every wheel event that reaches
+      // this map is taken from the document, and the box is still `lg:sticky`
+      // for its whole section, so the obstacle still follows the visitor. THE
+      // TRAP IS THE TRADE, and its measurements are in the journal entry: there
+      // is no version of this component in which they are a defect to fix.
       //
-      // Scroll-zoom is not gone, it MOVED: `expanded` turns it back on (see
-      // the effect below), which is the state a visitor opens on purpose and
-      // closes again.
+      // ONE THING IS WORTH KNOWING AT THE CALL SITE: the trap is UNBOUNDED.
+      // That `preventDefault()` does not ask whether the zoom it is about to
+      // apply will be clamped, so a map already at `maxZoom` 16 or `minZoom` 3
+      // keeps eating the wheel and never hands the leftover scroll back to the
+      // page. "Scroll until it stops zooming and the page moves" is not what a
+      // visitor gets.
       //
-      // This option is the map's STARTING state only; the effect is what holds
-      // it from then on. Measured, by mutating this line to `true` on its own:
-      // the browser test stayed green, because the effect disables it again on
-      // its first run. It is kept because it closes the window between the
-      // constructor and that first run, not because it is the guard.
-      scrollZoom: false,
+      // THIS OPTION IS NOW THE WHOLE OF THE SETTING. The `$effect` keyed off
+      // `expanded` that used to turn it on and off is gone: there is no state
+      // left in which the in-page map declines the wheel. What makes the wheel
+      // reach it everywhere a visitor can aim is `forwardWheel`, below.
+      scrollZoom: true,
       attributionControl: false,
       // Belt to `$lib/transitions`' braces below: told the preference, MapLibre
       // collapses every easeTo/flyTo of its own to a jumpTo.
@@ -595,18 +631,35 @@
     //
     // The wheel is the one real gesture MapLibre leaves untagged: its
     // ScrollZoomHandler drives the zoom from the render loop, so the move it
-    // starts looks programmatic. That is why a visitor's own zoom used to be
-    // thrown away at the very next card crossing — the exact thing the flag
-    // exists to prevent.
+    // starts looks programmatic. This note used to go on to say that was why a
+    // visitor's own zoom was thrown away at the very next card crossing. It
+    // was not, and the 2026-09-23 entry measures why: the crossing ends the
+    // suspension whether or not the wheel was counted, and the flight then
+    // went at the frame's zoom. See the wheel listener below and `chosenZoom`.
     //
     // So the predicate is in two halves, one for each of those rows.
     instance.on("movestart", (e: { originalEvent?: unknown }) => {
       if (e.originalEvent) drivenAt = active;
     });
-    // The untagged half. Only while scroll-zoom is ENABLED — which is only when
-    // the map is expanded — because with it disabled the wheel is scrolling the
-    // document past the map, not driving the map, and counting that as a
-    // gesture would suspend the camera on every scroll down the page.
+    // The untagged half, AND IT IS LOAD-BEARING NOW. It was written when the
+    // in-page map declined the wheel, and was noted as inert on the pages where
+    // a camera runs. With `scrollZoom: true` every wheel that reaches this
+    // container zooms the map — `forwardWheel` re-dispatches here the ones
+    // that land on a marker — so every one of them IS the visitor driving it,
+    // and this is the only thing that says so: maplibre's `movestart` for a
+    // wheel zoom carries no `originalEvent` (the table above).
+    //
+    // WHAT IT HOLDS, which is less than the old comments here implied. It
+    // suspends the camera until the visitor asks for a different listing, and
+    // on /properties the next card crossing IS that ask — so on its own this
+    // listener never kept a wheel zoom past a crossing. `chosenZoom` is what
+    // carries the zoom across; this is what makes `chosenZoom` record it, and
+    // what holds the view on the homepage band while its clock (not the
+    // visitor) turns.
+    //
+    // `isEnabled()` is kept although it is now always true on this
+    // component's maps: it is the honest predicate, and what keeps this
+    // correct if scroll-zoom is ever conditional again.
     instance.getCanvasContainer().addEventListener(
       "wheel",
       () => {
@@ -614,6 +667,9 @@
       },
       { passive: true },
     );
+    instance.on("zoomend", () => {
+      if (drivenAt !== undefined) chosenZoom = instance.getZoom();
+    });
     instance.on("move", reposition);
     instance.on("zoom", () => {
       zoom = instance.getZoom();
@@ -635,6 +691,7 @@
     sized = { width: 0, height: 0 };
     commanded = null;
     drivenAt = undefined;
+    chosenZoom = null;
     // The map that flight belonged to is gone. Without this the timer would
     // outlive the component and fire `landed += 1` on a destroyed one.
     endFlight();
@@ -655,6 +712,75 @@
       const anchor = cluster.points.length === 1 ? "-50%, -100%" : "-50%, -50%";
       el.style.transform = `translate(${p.x}px, ${p.y}px) translate(${anchor})`;
     }
+  }
+
+  /**
+   * THE MARKERS ARE HOLES IN THE MAP, AND THIS FILLS THEM — the reason the
+   * operator's reversal is not one line.
+   *
+   * maplibre's HandlerManager listens for `wheel` on `map.getCanvasContainer()`
+   * and nowhere else. Every overlay this component draws — the marker
+   * `<button>`s, the pin sheet, the expand affordance, the attribution chip,
+   * the focused list link — is outside that container, painted over it, so a
+   * wheel that lands on one never reaches maplibre and the browser scrolls the
+   * page with it instead. On a map whose camera pans the markers under a
+   * pointer that has not moved, which of the two a visitor gets on the next
+   * notch is decided by whatever happens to be under the cursor. The journal
+   * entry for this change has the per-notch measurement.
+   *
+   * ON THE ROOT, so it covers every overlay rather than the markers it was
+   * found on: that is the class, and the markers are one instance of it. A
+   * wheel that started inside the canvas container is left alone — maplibre
+   * already has it and prevents it itself. Anything else is taken from the
+   * page and re-dispatched on the container, where maplibre's listener and
+   * this component's own `wheel` listener both are, so a wheel on a pin
+   * suspends the camera exactly as a wheel on the tiles does.
+   *
+   * A SYNTHETIC WHEEL EVENT PERFORMS NO DEFAULT ACTION — untrusted events
+   * never do — so the re-dispatch cannot scroll the page a second time as it
+   * bubbles back up through here (where `contains` sends it on its way). The
+   * `preventDefault()` is what stops the real one, and it holds because this
+   * is a plain element listener: Svelte 5.56 neither delegates `wheel` nor
+   * makes it passive (`DELEGATED_EVENTS` / `PASSIVE_EVENTS` in svelte's
+   * utils.js), and the browser's passive-by-default rule covers `window`,
+   * `document` and `body`, not a `<div>`.
+   *
+   * NOT BEFORE THE FIRST FRAME. Until `ready` the canvas host is
+   * `pointer-events-none opacity-0` and the box is showing either the list or
+   * #122's committed picture, so there is nothing on screen for a wheel to
+   * zoom — but the maplibre instance already exists, and forwarding to it
+   * would zoom a map nobody can see, under a picture that says otherwise, and
+   * take the page's scroll in exchange for nothing visible at all. So until
+   * the map is drawn the wheel is left to the page, as it is with
+   * `engine: "off"`.
+   */
+  function forwardWheel(e: WheelEvent) {
+    const instance = map;
+    if (!instance || !ready) return;
+    // Only what maplibre would take. With scroll-zoom off its own `wheel`
+    // returns before `preventDefault()` and the page scrolls over the tiles;
+    // taking the page's scroll over a MARKER then would be the same hole the
+    // other way round.
+    if (!instance.scrollZoom.isEnabled()) return;
+    const container = instance.getCanvasContainer();
+    if (e.target instanceof Node && container.contains(e.target)) return;
+    e.preventDefault();
+    container.dispatchEvent(
+      new WheelEvent("wheel", {
+        deltaX: e.deltaX,
+        deltaY: e.deltaY,
+        deltaZ: e.deltaZ,
+        deltaMode: e.deltaMode,
+        clientX: e.clientX,
+        clientY: e.clientY,
+        ctrlKey: e.ctrlKey,
+        shiftKey: e.shiftKey,
+        altKey: e.altKey,
+        metaKey: e.metaKey,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
   }
 
   function press(cluster: MapCluster) {
@@ -753,6 +879,8 @@
       // have been a flight. The re-ask is the LINE BELOW, not this one:
       // `flying` is a plain variable and cannot wake anything.
       flying,
+      // How close a flight to a listing lands, once the visitor has said.
+      zoom: chosenZoom,
     };
     // READ FOR ITS DEPENDENCY, NOT FOR ITS VALUE — the whole coalescing
     // mechanism, and the reason it is read here rather than left out. The
@@ -806,24 +934,11 @@
     void tick().then(() => map?.resize());
   });
 
-  // SCROLL-ZOOM BELONGS TO THE EXPANDED MAP AND NOWHERE ELSE. The in-page box
-  // is constructed with it off (see `boot`); opening the expand affordance —
-  // which exists only below `lg`, where the panel grows to `min(70dvh, 520px)`
-  // — is a deliberate "I want to work this map now", and it is the one state
-  // where taking the wheel is what the visitor asked for. Collapsing gives it
-  // back. Driven off `expanded` rather than set once, because the same Map
-  // instance serves both states.
-  $effect(() => {
-    // `ready` is read for its DEPENDENCY, not its value: `map` is a plain
-    // variable, so without a reactive signal that changes when the engine
-    // arrives this effect would never re-run after boot, and a map expanded
-    // before its first frame would stay un-zoomable.
-    void ready;
-    const instance = map;
-    if (!instance) return;
-    if (expanded) instance.scrollZoom.enable();
-    else instance.scrollZoom.disable();
-  });
+  // (The `$effect` that used to hand scroll-zoom to the EXPANDED map and take
+  // it back on collapse lived here. It is gone, not moved: the in-page map now
+  // takes the wheel in every state, so the effect's two branches had become
+  // `enable()` and `enable()`. `boot`'s `scrollZoom: true` is the whole
+  // setting now, and the comment there says so.)
 
   $effect(() => {
     if (engine === "off" || points.length === 0) return;
@@ -900,6 +1015,7 @@
     data-map-ready={ready ? "" : undefined}
     data-map-home={home ? "" : undefined}
     data-expanded={expanded ? "true" : undefined}
+    onwheel={forwardWheel}
     class="relative isolate overflow-hidden {MAP_TONES[tone]} {passedClasses}"
   >
     <!-- THE CONTENT. First in the DOM and first in the tab order, before the

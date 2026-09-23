@@ -7291,6 +7291,7 @@ rather than that some pin is.
 ## 2026-09-22 — The pinned map was taking the page's scroll, and one pan killed the camera for good (review of #118, `feat/map-camera`)
 
 > Superseded in part by 2026-09-22 — The camera coalesces, and the band's clock is not a visitor.
+> Superseded in part by 2026-09-23 — The wheel over the map zooms it again, on the operator's call: the trap that buys, measured, and a zoom that outlives its card (`feat/map-scroll-zoom`). Scroll-zoom is back on for the in-page map, and the claim below that counting the wheel as a gesture kept a visitor's zoom past the next card crossing was never true.
 
 The adversarial review of #118 measured three majors in a real browser. All
 three reproduced exactly, on the first try, at 1440×900 on `/dev/properties` —
@@ -9067,3 +9068,257 @@ Not fixed here: **#144** (the glide premise's reduced floor) and
 `featured-properties.spec.ts:243` at 436.890625, which is #80/#124's macOS
 scrollbar gutter and green on CI's Linux. Load averages ran 4.5–9.4 through the
 session; CI is the authority.
+
+## 2026-09-23 — The wheel over the map zooms it again, on the operator's call: the trap that buys, measured, and a zoom that outlives its card (`feat/map-scroll-zoom`)
+
+**This reverses a decision that shipped yesterday**, and says so first. The
+2026-09-22 entry "The pinned map was taking the page's scroll…" turned
+`scrollZoom` off for the in-page map because the map is `lg:sticky` for its whole
+section and a wheel over it was taken from the page. The operator, looking at the
+merged map: _"if you scroll on the map it should zoom in and out rather than
+scrolling the whole page"._ Nothing in yesterday's reasoning became false — it
+was outranked — so the job here was to build the ask, make it true everywhere a
+visitor can aim, keep their zoom theirs, and put the trap's real numbers in front
+of the operator, who had not seen them since the map became sticky. That entry
+now carries a forward pointer to this one.
+
+**Resumed work.** The first agent on this branch died uncommitted when the
+machine rebooted at ~09:43. Its draft was taken as a hypothesis, re-derived, and
+every number below re-measured; what it got right and wrong is at the end.
+
+### What changed, in three parts
+
+1. **`scrollZoom: true`**, and the `$effect` that toggled it off `expanded` is
+   gone — its two branches had become `enable()` and `enable()`.
+2. **The markers were holes in the map.** maplibre listens for `wheel` on its
+   canvas container and nowhere else; every marker, the pin sheet, the expand
+   control and the attribution chip sit outside it. Measured on a production
+   build at 1440×900, scrollY 2400, pointer parked on a cluster, eight single
+   notches, with the forwarder removed (reproduced twice, load 18.9 and 47.4):
+   notches 1–3 landed on the cluster, **not prevented, page +120 each (360 in
+   all), zoom 0**; notches 4–8 landed on the canvas and zoomed. Which one a
+   visitor got was decided by whatever the camera had put under the cursor.
+   `forwardWheel`, on the component's root, re-dispatches any wheel that did not
+   start in the canvas container onto it. After: **8/8 prevented, page 0, −0.1796
+   a notch.** It forwards only after `ready` (before the first frame the canvas
+   host is `pointer-events-none opacity-0`, #122's picture is up, and a forwarded
+   wheel would zoom a map nobody can see while taking the page's scroll for
+   nothing visible — the draft forwarded whenever `map` existed) and only while
+   `scrollZoom.isEnabled()`.
+3. **The visitor's zoom now survives the next card.** See below — it is the part
+   that was believed to exist already.
+
+### The trap, measured
+
+Production build (`REDDOOR_GATE_SERVER=preview`), `/properties`, motion allowed,
+real `page.mouse.wheel` notches of 120px 130ms apart, pointer on bare canvas.
+**Load averages 12–42 on 8 cores throughout: noisy.** The page deltas are exact
+multiples of 120 and repeated identically at both sizes; the trackpad zoom
+amounts are the numbers load moves.
+
+|                              | 1440×900                            | 1280×800                      |
+| ---------------------------- | ----------------------------------- | ----------------------------- |
+| the map box                  | x 80–472.2 (27.2%), y 100–695       | x 80–421.1 (26.7%), y 100–695 |
+| 1 notch over the map         | **page 0**, zoom −0.1796            | **page 0**, zoom −0.1796      |
+| 5 notches over the map       | **page 0**, zoom −0.8979            | **page 0**, zoom −0.8979      |
+| 1 notch on a cluster         | page 0, zoom −0.1796                | page 0, zoom −0.1796          |
+| 1 / 5 notches over the cards | 120 / 600                           | 120 / 600                     |
+| land map pinned (scrollY)    | 420 → 4910, **4490px**              | 420 → 4940, **4520px**        |
+| max z16: 5 more notches in   | page 0, zoom 0 (24 notches from 12) | page 0, zoom 0 (24 notches)   |
+| min z3: 5 more notches out   | page 0, zoom 0 (74 notches from 16) | page 0, zoom 0 (74 notches)   |
+
+For comparison: yesterday, with scroll-zoom off, 1 and 5 notches over the map
+moved the page 120 and 600; before that, sticky with scroll-zoom on and no
+forwarder, 0 and 120 — and 120 is exactly what a notch that lands on a marker
+does (the per-notch measurement above), though yesterday's build was not
+re-measured to prove that was the cause. Now it is 0 and 0: nothing leaks.
+
+**How long it is in the way — all of it.** The pointer rested at the map
+column's centre and the wheel was turned from scrollY 0 until the page stopped:
+
+| resting at y             | 1440×900: stopped at | 1280×800: stopped at |
+| ------------------------ | -------------------- | -------------------- |
+| 40 (above the map's top) | the foot, 6968       | the foot, 7100       |
+| 150                      | **480**              | **480**              |
+| 405 / 360                | **120**              | **240**              |
+| 680                      | **0**                | **0**                |
+| 860 / 760                | **0**                | **0**                |
+| cards column (control)   | the foot, 6968       | the foot, 7100       |
+
+At 150 the page stops 60px into the pinned travel — 4430 of 4490px (98.7%)
+unreachable by wheel. Everywhere lower in the column it stops before the map has
+even pinned, so all of it is. At 1440×900 the land map's top is at y≈520 at
+scrollY 0 — 380 of its 595px on screen, over the ~297px its boot waits for, so
+it boots there — and **a visitor who lands on /properties with the pointer
+anywhere in x 80–472 below y≈520 cannot wheel the page at all once it has
+drawn.** The only escape without
+moving the pointer is the strip above the map's pinned top, under the nav. The
+improved section's map is the same component and will do the same; its span was
+not measured separately. The cadence does not matter: notches 70ms and 250ms
+apart stopped at the same scroll (480 and 120).
+
+**The trap is unbounded.** At maxZoom 16 and minZoom 3 alike, five more notches
+move the page 0 and the zoom 0 — maplibre's `preventDefault()` never asks whether
+the zoom will clamp. From the resting z12, minZoom is ~50 notches away
+(9 levels at 0.1796 a notch, computed).
+
+**Trackpad.** Two ways, neither of them a hand on hardware:
+
+- a dense stream — 30 events of 8px at 16ms plus a 25-event momentum tail
+  decaying from 30px, 438px in all: over the map **page 0**, zoom −1.314 (1440)
+  and −3.064 (1280); over the cards page 438. The zoom differs 2.3× between two
+  runs of identical events, because maplibre sorts wheel from trackpad by the
+  timing between events and the load moved it.
+- Chromium's own phased gesture (`Input.synthesizeScrollGesture`, mouse
+  source), 600px: over the map page 0, zoom −0.806 / −3.243; over the cards 600.
+
+And the one difference that matters: **Chromium latches a phased gesture to where
+it began.** One 3000px gesture started with the pointer where the map would
+arrive (y 150 and 405) scrolled the page all 3000px and zoomed the map 0 — the
+map slid under the pointer and did not take it. The NEXT gesture, begun with the
+map under the pointer, moved the page 0 and zoomed −2.85 / −4.04. So a mouse
+user is stopped on the next notch after the map arrives; a trackpad user on the
+next gesture.
+
+**The homepage band** (1440×900): the map is 508.2px wide (35.3%) and not
+sticky; 1 and 5 notches move the page 0 and zoom −0.1796 / −0.8979, markers
+included. It scrolls away with the page rather than following, but a pointer
+over it cannot scroll it away.
+
+**Touch** (390×844, `hasTouch` + `isMobile`, CDP touch events): unchanged by
+this PR — `scrollZoom` handles no touch, and `dragPan` and `touchZoomRotate` are
+maplibre defaults nothing here touches — but it answers #123. A 144px one-finger
+drag up over the /properties map (350×200, 89.7% of the width) moved the page
+**0** and every one of its 10 markers −144.7px: the map panned and took the
+whole gesture. The same drag started below the map scrolled 177. On `/` the band
+map is 390×200, **100% of the width**: page 0, markers −145.2; below it, 170.
+Pinch zooms the map (marker spread 1103→4071px) and moves the page 0. It is a
+worse trap in kind than the mouse one — there is no pointer to move off — and a
+smaller one in size: 200px tall and not pinned.
+
+**Keyboard** (1440×900): pointer on the map, PageDown 2400→3160 and End to the
+foot. With focus in the canvas after a click, PageDown, Space and End still
+scroll the page; ArrowDown moved the page 0 — maplibre's keyboard handler
+prevents the arrows and pans with them (read in its source), as it always has.
+
+### The visitor's zoom — the belief this corrected
+
+The brief asked me to confirm that the canvas `wheel` listener, inert until now,
+kept a visitor's zoom from being snatched back at the next card crossing. The
+component said so too ("that is why a visitor's own zoom used to be thrown away
+at the very next card crossing"), and so did yesterday's entry. **It was never
+true.** A gesture suspends the camera until the visitor asks for a different
+listing, and on /properties the crossing IS that ask — so the suspension ends
+there whether the wheel was counted or not, and the camera flies to the next
+listing at the frame's `maxZoom`. Measured with the new recording removed:
+five notches in took the land map to z12.8979, the crossing flew at **z12**, and
+the zoom was gone. The predecessor measured the same at load ~50 (four flights,
+all z12). The listener does fire, and it matters where the clock turns rather
+than the visitor: on the homepage band, removing it reds "a visitor's zoom
+survives the dwell" at "the clock commanded the camera 2 times".
+
+So the zoom is now carried: `chosenZoom` is recorded at maplibre's `zoomend` —
+only while a suspension is outstanding, so it is the visitor's number and never
+the camera's — and `cameraMove` takes it as `zoom`, the cap of the one-listing
+fit, which lands exactly on it with the pin-tip padding still applied. **The
+page still decides where; the visitor decides how close.** The pan is still not
+carried, for #126's reason (the next listing is tens of km away). MAP_HOME and
+the fit keep their own zoom, and nothing changes under the picture. After:
+12 → 12.8979 by wheel, then three crossings flying at **12.8979, 12.8979,
+12.8979**; zooming out to 11.1021 carried the same way.
+
+The one edge worth a measurement rather than an argument: a gesture that cuts a
+flight short. maplibre's `HandlerManager` stops the flight the moment a handler
+goes active and fires the flight's `zoomend` at its waypoint. For a drag that
+happens before the drag's tagged `movestart` sets the suspension, so the
+waypoint is not recorded — read in maplibre's source, then measured 16/16: the
+drag cut the arc at z10.02–11.75, left the map at z10.93–12.00, and the next
+crossing flew at exactly z12. (A wheel mid-flight can record the waypoint,
+because maplibre holds the first notch after 400ms of quiet for 40ms; the
+wheel's own `zoomend` follows and overwrites it.)
+
+The band's "an arrow press gives it back" case used "the zoom is back on the
+frame's" as its evidence that the camera followed again. That is no longer true
+by design, so its evidence is now the centre moving elsewhere, and its zoom
+assertion is the carry itself.
+
+### Guards, mutations, and what flaked
+
+Every guard was broken on purpose and watched go red:
+
+| mutation                                                                 | red                                                                                                                                           |
+| ------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| `scrollZoom: false`                                                      | the canvas case (zoom 0), the marker case (zoom 0), the crossing case (zoom-in 12 → 12)                                                       |
+| `onwheel={forwardWheel}` removed                                         | marker case: `prevented: false`; canvas case: page moved **360** — the map zoomed a marker under the resting pointer; the pre-frame unit case |
+| `zoomend` recording removed                                              | crossing: flew at 12 against 12.8979; band arrow press: 12 against 12.718; two unit cases                                                     |
+| wheel listener removed                                                   | band dwell: "the clock commanded the camera 2 times"; crossing; arrow press; three unit cases                                                 |
+| `svelte:window` keydown prevents everything                              | keyboard: "PageDown reached the document, and nothing on the way prevented it"                                                                |
+| `cameraMove` ignores `zoom`                                              | three unit cases                                                                                                                              |
+| `cameraMove` applies `zoom` to MAP_HOME too                              | two unit cases                                                                                                                                |
+| `zoomend` records outside a suspension                                   | "does not take a zoom the camera ended as the visitor's"                                                                                      |
+| `forwardWheel` without the `ready` gate / without the `isEnabled()` gate | the pre-frame unit case, at its respective line                                                                                               |
+
+Repeated `--repeat-each=16` at the end: **every shipped browser guard 16/16** —
+the four new ones and both band cases, 96/96 a run — on the dev server (CI's
+path, load 20→32) and twice on a production build (load 29→81, then 30→105 on
+the final code). The dev run predates the last line added, `forwardWheel`'s
+`isEnabled()` early return, which cannot be reached while scroll-zoom is on;
+`pnpm verify` then ran every spec once on the final code, 206/206.
+
+Three of them were not 16/16 first, and the causes are the useful part:
+
+- **The keyboard case, 11/16.** It pressed End the moment PageDown had moved
+  300px, mid-animation, and Chromium dropped the End. Waiting for each scroll to
+  settle left a rarer loss: at load ~50 a PageDown sometimes never moved the page.
+  Diagnosed with a `keydown` listener on `window` and a control off the map, 16
+  runs each: with motion allowed, pointer on the map 16/16, **on the cards
+  13/16**; under reduced motion 32/32; on the dev server, focus in the canvas
+  15/16 and **focus on a card link 15/16**, both losses in the same window. In
+  every loss the key arrived at the document with `defaultPrevented: false` and
+  the page did not move for 8–10s. Not the map — nothing on /properties scrolls
+  programmatically on a key. The case now runs under reduced motion (it makes no
+  motion claim), asserts strictly that each key reached the document unprevented
+  — the half the map could break — and allows the scroll half one re-press,
+  recorded as a `key-retried` annotation. It was needed 0 times in 32.
+- **The marker case, 1/16 on dev.** The marker drifted between being located and
+  being wheeled — the camera was still landing. It now waits for the camera to
+  be still first.
+- **The band cases' premise** — code this PR did not write, unchanged from
+  main. 1 in 16 on the dev server, and on a production build it hid two of the
+  mutation reds below behind a premise failure. A clock turn between reading the zoom and the first notch
+  put a flight under the wheel, maplibre stopped it at a waypoint (z10–11), and
+  "the wheel really zoomed" compared against a z12 read. Both cases now start at
+  the top of a fresh 4000ms dwell.
+
+### The predecessor's draft, audited
+
+Kept: the option flip, the forwarder (now gated), the deletion of the
+"scrolled past, not scrolled in" block. Found wrong or missing: a second
+anti-trap guard, "a wheel over the pinned map does not drive it at all", was
+left in `property-map-camera.spec.ts` and would have gone red; the forwarder
+fired before the first frame; the comment called the lower bound "zoom 0"
+(`minZoom` is 3); its 1440 band case failed its own premise because the band
+stops at its end (slide 2 → 2), and was dropped — the 390 band cases cover the
+clock; and it measured the zoom being lost at the crossing without addressing
+it. Its own measurements were taken at load 34–96 and none of them are quoted
+above except where re-measured.
+
+### Not done, and the mitigation I would add
+
+No mitigation is built; the operator has already had one design reversed under
+them. If one is wanted, I would **latch the wheel to where the scroll started**
+— what Chromium already does for a trackpad gesture: a run of notches that began
+scrolling the page keeps scrolling it when the map slides under the pointer, and
+a wheel that STARTS over the map (after ~400ms of quiet, maplibre's own
+threshold, or after the pointer moves onto it) zooms. It keeps the operator's
+ask and removes the part the table above shows is the whole trap on this page:
+being stopped dead mid-scroll. Cost: ~30 lines and a capture-phase
+`stopPropagation` in `forwardWheel`, a timing threshold someone will have to
+defend, and a visitor who wants to zoom straight after scrolling has to pause.
+The alternatives cost more: releasing the page at the zoom bounds does nothing
+reachable (minZoom is 50 notches away) unless the floor moves up; cooperative
+gestures turn the plain wheel back into a page scroll — the opposite of the ask
+— with an overlay across a 392px panel, though they would also fix #123;
+click-to-activate adds a click nothing on screen asks for.
+
+Touch is #123, with this entry's numbers posted there.

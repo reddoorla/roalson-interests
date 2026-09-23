@@ -4,6 +4,7 @@ import {
   cameraLog,
   cameraMovesFor,
   cameraProbeInstalled,
+  mapCentre,
   mapNamed,
   mapZoom,
   resetCamera,
@@ -76,6 +77,29 @@ const wheelSpot = (page: Page) =>
       const bottom = Math.min(b.bottom, window.innerHeight);
       return { x: b.left + b.width / 2, y: (top + bottom) / 2, height: bottom - top };
     });
+
+/**
+ * Wait for the band's clock to turn and its flight to land, so the case that
+ * follows starts at the TOP of a 4000ms dwell rather than anywhere in one.
+ *
+ * WHY. Both band cases read the map's zoom and then wheel it, and a turn that
+ * fell between the two put a 500ms flight in the air under the first notch:
+ * maplibre stops the flight at a waypoint (z10-11 for these listings), the
+ * wheel zooms in from there, and "the wheel really zoomed the map" compares
+ * that against a `before` read at z12 and fails — 1 in 16 on the dev server,
+ * and on a production build it twice hid a mutation's red behind this premise.
+ * The premise code predates the operator's reversal and is unchanged from
+ * main. Landing a turn first leaves ~3.4s of
+ * the dwell for ~1.5s of wheeling. A band that has reached its end never
+ * turns, and then there is no race to avoid: the wait simply lapses.
+ */
+async function aFreshDwell(page: Page) {
+  await resetCamera(page);
+  const until = Date.now() + 6000;
+  while (Date.now() < until && (await cameraLog(page)).fly.length === 0)
+    await page.waitForTimeout(100);
+  await page.waitForTimeout(700);
+}
 
 /** A point inside the first map's box that is NOT a marker or a control.
  *  Markers are <button>s and swallow the pointerdown, which is how a first
@@ -781,10 +805,15 @@ test.describe("the band's auto-advance keeps its hands off the visitor's view", 
     contextOptions: { reducedMotion: "no-preference", hasTouch: true },
   });
 
-  // THE ONE STATE WHERE THE WHEEL IS DELIBERATELY THE VISITOR'S. The in-page
-  // map is built with scroll-zoom off so the pinned box cannot eat the page's
-  // scroll; EXPANDING it turns scroll-zoom back on, and the expand affordance
-  // exists only where the map is compact — below `lg`. So this runs at 390x844.
+  // THE WHEEL IS THE VISITOR'S ON EVERY MAP NOW (operator call, 2026-09-23).
+  // When this case was written the in-page map declined the wheel and
+  // EXPANDING it was the one state that handed scroll-zoom back, which is why
+  // it expands the box at 390x844 before wheeling. The expand step no longer
+  // grants anything; it is kept because this case is about the BAND'S CLOCK
+  // and the expanded box is where that was measured, and the assertion on it
+  // now reads "expanding did not take the wheel away".
+  // tests/interaction/property-map-scroll-zoom.spec.ts measures the in-page
+  // map's wheel.
   //
   // Measured on a production build of `/` at 390x844 before the fix: four
   // wheel-up ticks took the map from z12 to z12.5387, and ~9s later — with no
@@ -810,9 +839,10 @@ test.describe("the band's auto-advance keeps its hands off the visitor's view", 
     await page.waitForTimeout(600);
     expect(
       await page.evaluate(() => window.__camera.maps[0]!.scrollZoom.isEnabled()),
-      "expanding is what hands the wheel to the map",
+      "the map has the wheel (and expanding did not take it away)",
     ).toBe(true);
 
+    await aFreshDwell(page);
     const before = await mapZoom(page);
     const spot = await wheelSpot(page);
     expect(spot.height, "the expanded map really is on screen to wheel over").toBeGreaterThan(100);
@@ -889,6 +919,7 @@ test.describe("the band's auto-advance keeps its hands off the visitor's view", 
     const expand = page.locator("[data-map-expand]").first();
     await expand.click();
     await page.waitForTimeout(600);
+    await aFreshDwell(page);
     const before = await mapZoom(page);
     const spot = await wheelSpot(page);
     await page.mouse.move(spot.x, spot.y);
@@ -906,6 +937,7 @@ test.describe("the band's auto-advance keeps its hands off the visitor's view", 
     // the older defect — one pan killing the feature for the life of the page —
     // wearing different clothes.
     await page.mouse.move(2, 2);
+    const held = await mapCentre(page);
     await resetCamera(page);
     await page.getByRole("button", { name: "Next slide" }).click();
     await page.waitForTimeout(1500);
@@ -915,7 +947,19 @@ test.describe("the band's auto-advance keeps its hands off the visitor's view", 
       log.fly.length + log.ease.length + log.jump.length,
       "the visitor asked for a different listing, so the camera follows again",
     ).toBeGreaterThan(0);
-    expect(await mapZoom(page), "and it is back on the frame's own zoom").not.toBeCloseTo(
+    // WHAT PROVES IT FOLLOWED, since 2026-09-23. This used to be "and it is
+    // back on the frame's own zoom" — a zoom that differed from the visitor's
+    // was the evidence the camera had moved. It is no longer the evidence
+    // because it is no longer true: the visitor's zoom is carried to the next
+    // listing now (`chosenZoom`, PropertyMap.svelte), so the camera arrives
+    // somewhere ELSE at the SAME zoom. Both halves are asserted, the second
+    // being the carry itself.
+    const moved = await mapCentre(page);
+    expect(
+      Math.hypot(moved.lng - held.lng, moved.lat - held.lat),
+      `and it went somewhere else (${JSON.stringify(held)} -> ${JSON.stringify(moved)})`,
+    ).toBeGreaterThan(0.01);
+    expect(await mapZoom(page), "at the zoom the visitor chose, not the frame's").toBeCloseTo(
       zoomed,
       3,
     );

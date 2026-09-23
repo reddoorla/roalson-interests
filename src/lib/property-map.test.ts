@@ -646,6 +646,73 @@ describe("the camera the page drives", () => {
     });
   });
 
+  // THE VISITOR'S ZOOM (`zoom`, 2026-09-23). The wheel zooms the in-page map
+  // now, and a zoom that was thrown away at the next card crossing was not one
+  // anyone could use; see `CameraState.zoom`. Each case varies the baseline by
+  // that one input, as the rest of this block does.
+  describe("once the visitor has chosen a zoom", () => {
+    it("flies to the next listing at THAT zoom, still centred on it", () => {
+      const move = cameraMove({ ...baseline, zoom: 13.25 });
+      if (move.move !== "fly") throw new Error("expected a flight");
+      expect(move.camera.zoom).toBe(13.25);
+      // Same pin-tip correction as at the frame's zoom: -4px, measured in the
+      // world units of the zoom it actually lands at.
+      const dx = projectX(move.camera.lng, 13.25) - projectX(land[3]!.lng, 13.25);
+      const dy = projectY(move.camera.lat, 13.25) - projectY(land[3]!.lat, 13.25);
+      expect(dx).toBeCloseTo(0, 6);
+      expect(dy).toBeCloseTo(-4, 6);
+      // …and FURTHER OUT is as much the visitor's as closer in.
+      const out = cameraMove({ ...baseline, zoom: 9.5 });
+      expect(out.move === "fly" && out.camera.zoom).toBe(9.5);
+    });
+
+    it("means nothing without a chosen zoom — the frame's own maxZoom, as before", () => {
+      for (const zoom of [undefined, null]) {
+        const move = cameraMove({ ...baseline, zoom });
+        expect(move.move === "fly" && move.camera.zoom).toBe(MAP_FRAMES.full.maxZoom);
+      }
+    });
+
+    it("leaves a chosen FRAME alone: MAP_HOME, and the fit where there is no home", () => {
+      const home = MAP_HOME.full.camera;
+      expect(cameraMove({ ...baseline, active: null, home, zoom: 13.25 })).toEqual({
+        move: "jump",
+        camera: home,
+      });
+      const fit = cameraMove({ ...baseline, active: null, zoom: 13.25 });
+      expect(fit.move === "jump" && fit.camera).toEqual(fitCamera(land, PANEL, MAP_FRAMES.full));
+    });
+
+    it("leaves the picture's camera alone while the picture is up (#132)", () => {
+      const home = MAP_HOME.full.camera;
+      expect(cameraMove({ ...baseline, home, pictureUp: true, zoom: 13.25 })).toEqual({
+        move: "jump",
+        camera: home,
+      });
+    });
+
+    it("grants nothing — every refusal still outranks it", () => {
+      for (const [state, why] of [
+        [{ ready: false }, "not-ready"],
+        [{ userMoved: true }, "user-moved"],
+        [{ box: { width: 0, height: 0 } }, "unmeasured"],
+        [{ active: "a-listing-with-no-geopoint" }, "unknown-active"],
+        [{ flying: true }, "in-flight"],
+      ] as const) {
+        expect(cameraMove({ ...baseline, ...state, zoom: 13.25 })).toEqual({ move: "none", why });
+      }
+    });
+
+    it("answers `arrived` for a map already at the listing at that zoom", () => {
+      const first = cameraMove({ ...baseline, zoom: 13.25 });
+      if (first.move !== "fly") throw new Error("expected a flight");
+      expect(cameraMove({ ...baseline, zoom: 13.25, commanded: first.camera })).toEqual({
+        move: "none",
+        why: "arrived",
+      });
+    });
+  });
+
   it("resolves an active id to the point, to null, or to nothing at all", () => {
     expect(activeTarget(null, land)).toBeNull();
     expect(activeTarget(land[2]!.id, land)).toBe(land[2]);
