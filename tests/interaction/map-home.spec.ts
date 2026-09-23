@@ -233,6 +233,42 @@ test.describe("the picture is there with no script at all", () => {
     for (const pin of pins) expect(hrefs).toContain(pin);
     await context.close();
   });
+
+  // THE FOURTH CELL, added while merging #130 with #137 because the class was
+  // only three-quarters enumerated. #133 is "one raster per page", and a page
+  // is a ROUTE AT A WIDTH: /properties picks both frames (595 panel at 1440,
+  // 200 box at 390) and so does the homepage band (843.44 tall at 1440, 200
+  // full-bleed at 390) — four cells, and only three of them were measured.
+  // The missing one is the band's COMPACT frame, which is also the only cell
+  // where the container query has to answer "compact" for a box that really is
+  // compact rather than for one whose size has not resolved yet. That is the
+  // exact confusion #133 was: the `0px <` lower bound distinguishes them, and
+  // nothing asked this cell whether it still does.
+  test("the band at 390 paints the compact raster, and fetches only that one", async ({
+    browser,
+  }) => {
+    const context = await browser.newContext({
+      viewport: { width: 390, height: 844 },
+      javaScriptEnabled: false,
+    });
+    const page = await context.newPage();
+    const rasters: string[] = [];
+    page.on("response", (r) => {
+      const path = new URL(r.url()).pathname;
+      if (/\/map-home-.*\.webp$/.test(path)) rasters.push(`${r.status()} ${path}`);
+    });
+    await page.goto(HOME);
+    const map = page.locator(MAP).first();
+    await expect(map.locator("[data-map-home-box]")).toHaveCount(1);
+    const layers = await painted(page);
+    expect(layers.find((l) => l.frame === "compact")!.display).toBe("block");
+    expect(layers.find((l) => l.frame === "full")!.image, "no image on the losing layer").toBe(
+      "none",
+    );
+    await expect.poll(() => rasters, { timeout: 15_000 }).toContain("200 /map-home-compact.webp");
+    expect(rasters.join(" ")).not.toContain("map-home-full.webp");
+    await context.close();
+  });
 });
 
 test("the live pins land exactly where the picture drew them", async ({ browser }) => {
