@@ -840,6 +840,28 @@ test.describe("a gesture suspends the camera, and the page's next listing lifts 
     ).toContain("mousemove");
   }
 
+  // WHAT THIS COVERS, SAID PLAINLY — because it is less than it reads like,
+  // and the re-fit it drives cannot happen on the real portfolio at all.
+  //
+  // The resize below moves an undriven camera on THIS FIXTURE, whose land
+  // section is four points, and the positive control proves that much. On
+  // production data it moves nothing, either way the flag is set:
+  //
+  //   * With one listing ACTIVE the fitted camera is independent of the box —
+  //     zero span, zoom clamped to the frame's maxZoom, centre the point plus a
+  //     constant-pixel padding correction. (The note further down says this.)
+  //   * With NOTHING active, which is the case this flag was written for, the
+  //     land fit is HEIGHT-bound at every desktop width on the real 17
+  //     listings: box 294.9x595 at 1024 through 397x595 at 1440, boot zoom
+  //     6.9481 at all of them. And the map's height is a fixed `lg:h-[595px]`,
+  //     so no desktop resize changes the number the fit is bound by.
+  //
+  // So this is a true measurement of a real rule against a box change only the
+  // fixture produces. The box change the real data DOES produce is the expand
+  // affordance below `lg` — 200px to min(70dvh, 520px), which moves both the
+  // bound and the frame — and it is driven, on /properties with the live
+  // listings, in property-map-camera-prod.spec.ts. Keep both: this one is
+  // hermetic and fast, that one can fail.
   test("a drag holds the view against a re-fit that would otherwise move it", async ({
     browser,
   }) => {

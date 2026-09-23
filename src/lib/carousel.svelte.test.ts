@@ -646,6 +646,62 @@ describe("createCarousel, headless", () => {
     expect(bounded.index).toBe(2);
   });
 
+  // WHO TURNED IT (#118 review, MAJOR 2). A consumer watching `index` sees the
+  // same number change whether a visitor pressed an arrow or the clock ran
+  // out, and the homepage band's map needs the difference: a gesture suspends
+  // its camera until the VISITOR asks for a different listing, and a 4000ms
+  // timer is not a visitor.
+  describe("who turned the slide", () => {
+    it("names the visitor for an arrow, a key, a swipe or a goTo", () => {
+      const carousel = mount({ count: 4 });
+      // Before anything has turned: slide 0 arrived without being asked for,
+      // so nobody may be credited with it.
+      expect(carousel.turnedBy).toBe("auto");
+      carousel.next();
+      expect(carousel.turnedBy).toBe("visitor");
+      const back = mount({ count: 4 });
+      back.prev();
+      expect(back.turnedBy).toBe("visitor");
+      const jumped = mount({ count: 4 });
+      jumped.goTo(2);
+      expect(jumped.turnedBy).toBe("visitor");
+    });
+
+    it("names the clock for a turn the clock made", async () => {
+      vi.useFakeTimers();
+      const carousel = mount({ count: 3, autoplay: DWELL });
+      await advance(DWELL + FRAME);
+      expect(carousel.index, "the clock really did turn it").toBe(1);
+      expect(carousel.turnedBy).toBe("auto");
+    });
+
+    it("goes back to the clock after a visitor's turn has been overtaken", async () => {
+      vi.useFakeTimers();
+      const carousel = mount({ count: 3, autoplay: DWELL, settle: 0 });
+      carousel.next();
+      expect(carousel.turnedBy).toBe("visitor");
+      // The clock runs on from the slide the visitor chose. It is the LAST
+      // turn that is described, never a sticky "a visitor was here once".
+      await advance(DWELL + FRAME);
+      expect(carousel.index).toBe(2);
+      expect(carousel.turnedBy).toBe("auto");
+    });
+
+    it("credits nobody with a turn that did not happen", () => {
+      // A dead arrow at a hard end changes no slide. Writing the attribution
+      // before the bail-outs would have had this report a visitor turn to
+      // anything watching, and on the band that would end a camera suspension
+      // for a press that moved nothing.
+      const bounded = mount({ count: 3, loop: false });
+      expect(bounded.turnedBy, "nothing has turned it yet").toBe("auto");
+      expect(bounded.prev(), "and `prev` at slide 0 of a non-looping carousel does nothing").toBe(
+        false,
+      );
+      expect(bounded.index).toBe(0);
+      expect(bounded.turnedBy, "so nobody turned it").toBe("auto");
+    });
+  });
+
   it("follows a count that shrinks under it", () => {
     let count = $state(4);
     const carousel = mount({ count: () => count });

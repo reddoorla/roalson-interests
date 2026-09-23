@@ -7286,6 +7286,8 @@ rather than that some pin is.
 
 ## 2026-09-22 — The pinned map was taking the page's scroll, and one pan killed the camera for good (review of #118, `feat/map-camera`)
 
+> Superseded in part by 2026-09-22 — The camera coalesces, and the band's clock is not a visitor.
+
 The adversarial review of #118 measured three majors in a real browser. All
 three reproduced exactly, on the first try, at 1440×900 on `/dev/properties` —
 which is worth saying because it is the first review in this run where nothing
@@ -7658,3 +7660,209 @@ none` on the canvas container, so the map claims touch gestures; but measured
   the page 277px against 329px below it. That is neither the clean trap the
   wheel was nor clearly fine, and synthesized touch is not a real finger. Filed
   rather than guessed at.
+
+## 2026-09-22 — The camera coalesces, and the band's clock is not a visitor (review of #118 on a production build, `fix/camera-suspension`)
+
+Three majors from an independent review of #118, all three of them alive on
+`main` after the PR that claimed to fix them. The reason they survived is the
+one line worth carrying out of this entry: **every measurement behind that PR
+was taken on `/dev/*` routes under `vite dev`**, and the review's were taken on
+`pnpm build && pnpm preview` against `/` and `/properties`. Nothing about the
+dev server hid the defects; what hid them was that the fixture's land section
+is four listings and the real one is seventeen, and that the only paths the
+fixture's tests drove were the paths the fix had already been written for.
+
+### The camera had a rule per cause, and there is no end to causes
+
+The shipped fix for "a pressed pin chains a flight per card crossed" suspended
+the centre rule from `PropertyListing` for the length of the press-scroll. That
+made the press quiet and did nothing whatever for anything else that scrolls a
+document. Measured on a production build of /properties at 1440x900 with motion
+allowed, counting the calls made to maplibre-gl:
+
+| what scrolled the page     | flights issued                                  |
+| -------------------------- | ----------------------------------------------- |
+| `End` from scrollY 0       | 5–9, in 71–81ms                                 |
+| `PageDown` x3              | 5 (8 when re-measured on this branch's harness) |
+| `Space` x4                 | 4                                               |
+| `scrollTo(0, 4999)` smooth | 15, in 784ms                                    |
+
+Eight Van Wijk arcs each abandoned after ~9ms is a smear. By the severity bar
+the press path was fixed under — four flights in 322ms, called a major — every
+row of that table is the same defect, and the press was simply the one somebody
+had watched.
+
+So the rule moved to where the camera is COMMANDED. `$lib/scroll-activity` is a
+120ms debounce on the window's own `scroll` events, ref-counted to one listener
+for the page; `cameraMove` grew a last refusal, `page-scrolling`, which denies a
+FLIGHT while that is true and nothing else; and `PropertyMap`'s camera effect
+reads it for its dependency as much as for its value, so the same signal going
+false at the settle re-runs the effect and the flight that goes out is to
+wherever `active` ended up. No queue, no timer of its own, no second opinion.
+
+On the same production build, after: `End` 1 flight per map (2 maps, plus 1
+jump), `PageDown` x3 → 1, `scrollTo(0, 4999)` → 1.
+
+A jump is deliberately NOT coalesced, and that is a decision rather than an
+oversight: an instant move cannot be interrupted and cannot smear, and under
+`prefers-reduced-motion` every move is a jump while `scroll-behavior` is `auto`,
+so there is no multi-frame scroll to coalesce in the first place. A map that
+boots mid-scroll issues exactly one, re-fitting to the first box it was really
+measured at.
+
+`CAMERA_FLIGHT_MS`'s own comment used to end "a scroll that crosses three cards
+must not leave three flights queued behind it, and a new `flyTo` replaces the
+one in flight", offered as reassurance. That sentence was the defect, described
+approvingly. It is corrected in place in the code, which is what code is for;
+this paragraph is where the belief itself is recorded.
+
+### The suspension that was keyed per section and cleared for everybody
+
+`pressScrolling` was a `Record<number, boolean>` — one entry per section — and
+the three things that maintained it (`settleTimer`, `capTimer`, `scrollWatch`)
+were single component-level variables shared by every section. So the opening
+`clearTimeout(settleTimer); clearTimeout(capTimer);` of a press in section j
+cancelled the `endSuspension(i)` armed for section i, and `pressScrolling[i]`
+never went back to false.
+
+Measured, production build, /properties at 1440x900, motion allowed: press a
+land pin, then an improved pin 300ms later, and the land map issued **0** camera
+commands across five subsequent card crossings, its centre byte-identical at
+−98.73018, 29.77384. A 1000ms gap behaved the same. At 3500ms — after the
+2000ms `SUSPEND_CAP` fired — it recovered with 23 commands. The control, the
+same five crossings with no cross-section press, was 9. After this branch: 5
+commands across 5 crossings.
+
+That is the same defect class as the one the suspension existed to fix, shipped
+inside the fix for it. It is not repaired here; it is **deleted**. With the
+camera coalescing, the press has nothing to special-case: it scrolls a card to
+the middle and the one rule reports it, exactly as the design always said. Gone
+with it: `SETTLE_MS`, `SUSPEND_CAP_MS`, `pressScrolling`, `endSuspension`,
+`suspendWhileScrolling`, `PropertyListing`'s teardown effect, and `centreWatch`'s
+`suspended` option, which had no other caller.
+
+Worth stating plainly because it is the cheapest lesson here: **no test in the
+suite pressed pins in two sections.** Every test pressed one.
+
+### `active` changed — but who asked?
+
+The rule "a gesture suspends the camera until the page asks for a DIFFERENT
+listing" cannot tell a page-driven change of `active` from a visitor-driven one,
+and the homepage band changes `active` every 4000ms with nobody touching
+anything. Measured on a production build of `/` at 390x844 with motion allowed
+and `hasTouch`: expand the band's map — the one state where scroll-zoom is
+deliberately the visitor's — take it from z12 to z12.5387 with four wheel-up
+ticks, then touch nothing. About 9s later the camera had issued 2 `flyTo` back
+to z12 and the zoom was gone, with the map still expanded. Nobody could hold a
+view on that map for longer than one dwell.
+
+The previous session had considered and rejected "clear on the next document
+scroll", on the fair ground that it would end a pan the moment the visitor
+scrolled past the band. That objection still stands. What is worth writing down
+is that the rule which shipped instead was **worse**: it ended with no user
+action at all.
+
+The fix is that only the caller can know, so the caller says. `PropertyMap` takes
+`activeBy: "visitor" | "auto"`, defaulting to `"visitor"` because on /properties
+it is simply true — `active` there is the card the visitor scrolled to the
+middle of their own screen. `createCarousel` grew `turnedBy`, written inside
+`step()` AFTER its bail-outs (a dead arrow at a hard end turns nothing, so
+nobody may be credited with it) and by the clock as `"auto"`. The band passes it
+through. After: 0 camera commands over the same ~9s, with the slide index
+provably still advancing.
+
+What this costs, said plainly: on the band, after a gesture, the map no longer
+follows the photos until the visitor presses an arrow, a dot or a key. That is
+the point — it is their view now — and the arrow is what gives it back.
+
+### The residual: a guard that could not fire on production data
+
+The review also caught that "a drag holds the view against a re-fit" — the
+browser test in `property-map-camera.spec.ts` — drives a re-fit the real
+portfolio cannot produce. Two reasons, both measured:
+
+- With ONE listing active the fitted camera is independent of the box (zero
+  span, zoom clamped to the frame's `maxZoom`, centre the point plus a
+  constant-pixel padding correction). The test's own comment already said this.
+- With NOTHING active — the case the flag was written for — the land fit is
+  HEIGHT-bound at every desktop width on the real 17 listings: box 294.9x595 at
+  1024 through 397x595 at 1440, boot zoom 6.9481 at all of them. And the map's
+  height is a fixed `lg:h-[595px]`, so no desktop resize moves the bound.
+
+Its positive control passes on the 4-point fixture, where the fit is
+width-bound. So the test is true and narrow, and it now says so in its own
+comment. The box change the real data DOES produce is the **expand affordance**
+below `lg` — 200px to `min(70dvh, 520px)`, which moves both the bound and the
+frame (compact → full, different padding) — and that is driven on /properties
+with the live listings, with its own positive control (an undriven map really
+does re-fit on a collapse) and the drag asserted to have reached MapLibre as a
+`movestart` carrying its `originalEvent`.
+
+### The instrument, and why it had never been pointed at the shipped bundle
+
+`camera-probe.ts` said, correctly, that under a production build "the module is
+a hashed chunk and this route never matches". Which is to say every camera
+measurement anyone had ever made was a dev-server measurement — including the
+ones that reported three majors fixed. It now finds the chunk by CONTENT (the
+`maplibre-gl-worker` URL string, which survives minification) and patches it
+through `import(import.meta.url)`, whose default export is the maplibre
+namespace on both servers because `$lib/map-engine` is what declares it.
+
+Two things about it were learned the hard way and are recorded so they are not
+re-derived:
+
+- The dev patch must stay SYNCHRONOUS. Reaching it with `import(import.meta.url)`
+  there too is a fresh network fetch rather than a registry hit, so it landed
+  after the map was built and every command came back attributed to no map.
+- maplibre-gl's `Map` constructor issues a `jumpTo` to set the initial camera.
+  A version of the probe that adopted a map by testing membership of its `maps`
+  array therefore attached no `movestart` listener to ANY map, because the
+  instance was already in the array by the time `addControl` ran. Adoption is a
+  flag of its own now, reached from both places — which also covers the
+  production build, where the patch measurably loses the race with the app's own
+  dynamic import and the boot `jumpTo` and `addControl` both happen first.
+
+The new file is `tests/interaction/property-map-camera-prod.spec.ts`: eight
+cases, every one of them on `/` or `/properties`, every describe block carrying
+`test.use({ contextOptions: { reducedMotion: "no-preference" } })` — without
+which `scroll-behavior` is `auto !important`, no card between here and there is
+ever crossed, and this whole class is structurally unobservable while the suite
+is green. That is exactly how it shipped.
+
+Run it against the shipped bundle with
+`REDDOOR_GATE_SERVER=preview pnpm exec playwright test tests/interaction/property-map-camera-prod.spec.ts`.
+
+### The strongest thing measured on this branch
+
+The new spec was run against **main's source on a production build** — the
+source reverted with `git checkout origin/main -- src/…`, the tests kept — and
+five of its eight cases went red, with these messages:
+
+```
+map 0 flew 8 times for ONE scroll (fly 8, ease 0, jump 0; per map 0:8)     [PageDown x3]
+map 0 flew 14 times for ONE scroll (fly 14, ease 0, jump 0; per map 0:14)  [scrollTo smooth]
+the land camera followed its own cards after a press in another section: 0 [cross-section press]
+the clock commanded the camera 2 times with nobody touching anything       [the band]
+```
+
+Two cases passed against main and are kept anyway, with comments saying they do
+not discriminate: the pressed-pin case (the one path that had been fixed — it
+now guards that deleting the machinery did not lose it) and the arrow-press case
+(it guards the over-correction, a suspension that tells the clock from a visitor
+and then never lifts for either).
+
+### What is NOT done
+
+- **#120 stays open.** The gate still runs `dev`, so this new spec only reaches
+  the production bundle when somebody runs it with `REDDOOR_GATE_SERVER=preview`
+  by hand. Flipping the whole gate is blocked on /dev/\* 404ing there, which is
+  what #120 is about.
+- **#114 and #115** are untouched. #114's proposed fix (route `focusin` through
+  `revealCard`) is cheaper now than when it was written, because `revealCard` no
+  longer carries a suspension for anything to interfere with.
+- **The `Space` key** is not in the new spec. It is in the measured table above
+  (4 flights before), and it is the same mechanism as `PageDown`; three keyboard
+  scrolls in a suite that already costs 1.3 minutes was the trade.
+- **Local Playwright numbers on this machine are suspect** and every run above
+  says so: load averages ran 3.6–10.2 through the session. The production-build
+  runs quoted here were at 4.25–5.60. CI is the authority.

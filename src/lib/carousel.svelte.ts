@@ -147,13 +147,30 @@ export function createCarousel(options: CarouselOptions) {
   // apart, and is the only thing that can.
   const settling = $derived(eligible && elapsed < 0);
 
+  /**
+   * WHO TURNED THE SLIDE THAT IS ON SCREEN — "visitor" for an arrow, a key, a
+   * swipe or a `goTo`, "auto" for the clock, and "auto" before anything has
+   * turned at all (slide 0 arrived without being asked for).
+   *
+   * It is here because this is the only place that knows. A consumer watching
+   * `index` sees the same number change either way, and at least one of them
+   * needs the difference: the homepage band's map suspends its camera when the
+   * visitor drives it and lifts the suspension when the visitor asks to be
+   * somewhere else — and a 4000ms clock is not a visitor. See PropertyMap's
+   * `activeBy`.
+   *
+   * It says who made the LAST turn, not whether one is happening now, so a
+   * consumer reads it alongside `index` in the same flush and never on its own.
+   */
+  let by = $state<"visitor" | "auto">("auto");
+
   /** Every change of slide — a click, a key, a swipe, the clock — starts the
    *  next dwell from the top (after `settle`). */
   const restart = () => {
     elapsed = settle > 0 ? -settle : 0;
   };
 
-  function step(delta: 1 | -1): boolean {
+  function step(delta: 1 | -1, turnedBy: "visitor" | "auto"): boolean {
     if (delta > 0) {
       if (index < last) raw = index + 1;
       else if (loop) raw = 0;
@@ -163,15 +180,21 @@ export function createCarousel(options: CarouselOptions) {
       else if (loop) raw = last;
       else return false;
     }
+    // AFTER the bail-outs, never before: a `next()` at a hard end changes no
+    // slide, so nothing was turned and nobody turned it. Writing this first
+    // would have had a dead arrow press at the last slide report a visitor
+    // turn to anyone watching.
+    by = turnedBy;
     restart();
     return true;
   }
 
-  const next = () => enabled && step(1);
-  const prev = () => enabled && step(-1);
+  const next = () => enabled && step(1, "visitor");
+  const prev = () => enabled && step(-1, "visitor");
 
   function goTo(target: number) {
     if (!enabled || !Number.isFinite(target)) return;
+    by = "visitor";
     raw = Math.min(Math.max(0, Math.floor(target)), last);
     restart();
   }
@@ -222,7 +245,7 @@ export function createCarousel(options: CarouselOptions) {
       // max(0): a frame can be stamped a hair before the effect's own sample.
       const total = elapsed + Math.max(0, now - before);
       before = now;
-      if (total >= dwell) step(1);
+      if (total >= dwell) step(1, "auto");
       else elapsed = total;
       frame = requestAnimationFrame(tick);
     };
@@ -334,6 +357,11 @@ export function createCarousel(options: CarouselOptions) {
     },
     get count() {
       return count;
+    },
+    /** Who turned the slide now showing: "visitor" (an arrow, a key, a swipe,
+     *  a `goTo`) or "auto" (the clock, and the very first slide). See `by`. */
+    get turnedBy() {
+      return by;
     },
     /** 0..1 through the current slide's dwell; frozen by every pause; 0 when
      *  this carousel cannot autoplay (then draw `position` instead). */

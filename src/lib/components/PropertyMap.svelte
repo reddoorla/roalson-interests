@@ -115,6 +115,7 @@
     type MapCluster,
     type MapPoint,
   } from "$lib/property-map";
+  import { pageScrolling, watchPageScroll } from "$lib/scroll-activity.svelte";
   import { reducedMotion } from "$lib/transitions";
 
   interface Props {
@@ -140,6 +141,28 @@
      *  it is whatever the caller puts here. Pressing a pin does not set it —
      *  see `onselect`. */
     active?: string | null;
+    /**
+     * WHO ASKED FOR THE CURRENT `active` — the only question this component
+     * cannot answer for itself, and the reason it has to be a prop (#118
+     * review, MAJOR 2).
+     *
+     * A gesture suspends the camera, and what ends the suspension is the
+     * visitor asking to be somewhere else. `active` alone cannot tell that
+     * apart from the PAGE moving on by itself: the homepage band advances
+     * every 4000ms with nobody touching anything, so the shipped rule —
+     * "`active` changed, therefore the visitor asked" — threw a visitor's own
+     * zoom away with no user action at all. Measured on a production build of
+     * `/` at 390x844 with motion allowed: expand the band's map, four wheel-up
+     * ticks take it from z12 to z12.5387, and ~9s later, with no further
+     * input, the camera has issued 2 `flyTo` back to z12.
+     *
+     * So the caller says. `"visitor"` is the default because on the Properties
+     * page it is simply true — `active` there is the card the visitor scrolled
+     * to the middle of their own screen, and a scroll is a visitor. The
+     * homepage band passes `"auto"` for the turns its clock made and
+     * `"visitor"` for the turns an arrow, a key or a swipe made.
+     */
+    activeBy?: "visitor" | "auto";
     /** Supplied: pressing a single-listing pin calls this with that listing's
      *  id INSTEAD of opening the details sheet. Absent: the sheet, exactly as
      *  before.
@@ -163,6 +186,7 @@
     engine = "auto",
     tone = "garnet",
     active = null,
+    activeBy = "visitor",
     onselect,
     class: passedClasses = "",
   }: Props = $props();
@@ -196,18 +220,28 @@
    * byte-identical. One pan permanently switched off the feature this whole
    * component exists for.
    *
-   * A gesture suspends the camera — but only for as long as the page is still
-   * asking for the SAME listing.
+   * A gesture suspends the camera — until THE VISITOR asks for a different
+   * listing.
    *
    * WHY THAT LINE AND NOT ANOTHER. The flag's job is to stop the map being
    * yanked out from under someone who is looking around it; it is not to end
    * the feature. So the question is what ends the looking, and the honest
-   * answer is the page asking for somewhere else. While `active` holds, the
-   * visitor is still reading the card they were reading when they grabbed the
-   * map, and every re-fit — a resize, a re-render, a `ready` flip — must leave
-   * their view alone. The moment `active` names a DIFFERENT listing, the page
-   * has been asked to show a different place, and showing it is the whole
-   * point of the camera.
+   * answer is the visitor asking to be somewhere else. Until then they are
+   * still reading the card they were reading when they grabbed the map, and
+   * every re-fit — a resize, a re-render, a `ready` flip — must leave their
+   * view alone.
+   *
+   * AND "THE VISITOR" IS THE HALF THAT WAS MISSING. This shipped as "until the
+   * PAGE asks for a different listing", i.e. any change of `active` at all,
+   * and the homepage band changes `active` on a 4000ms timer with nobody
+   * touching anything — so on that band the suspension ended, every time,
+   * with no user action. Measured on a production build of `/` at 390x844,
+   * motion allowed: expand the band's map (the one state where scroll-zoom is
+   * deliberately the visitor's), four wheel-up ticks to z12.5387, then no
+   * further input — ~9s later the camera had issued 2 `flyTo` back to z12 and
+   * the zoom was gone while the map was still expanded. Nobody could hold a
+   * view on that map for longer than one dwell. `activeBy` is how the caller
+   * says which kind of change this was; see the prop.
    *
    * Two rules were considered and rejected, recorded so they are not re-tried:
    *
@@ -217,7 +251,9 @@
    *    the suspension and the very next crossing yanks the view — which is
    *    the same complaint, one step along, that the wheel half of this defect
    *    was. It also ends a pan on the homepage band the instant the visitor
-   *    scrolls past the band at all.
+   *    scrolls past the band at all. (That objection still stands, and it is
+   *    worth saying plainly that the rule which shipped INSTEAD of it was the
+   *    worse one: this one at least needs the visitor to do something.)
    *  - A TIMEOUT. A number nobody can justify, and it fires while the visitor
    *    is still looking.
    *
@@ -233,7 +269,7 @@
   const userMoved = $derived(drivenAt !== undefined);
 
   /**
-   * AND HERE IS WHERE IT ENDS: the page asked for a different listing.
+   * AND HERE IS WHERE IT ENDS: the VISITOR asked for a different listing.
    *
    * ONE mechanism, and that is a correction. This was written as two — the
    * line above also read `&& drivenAt === active`, so the suspension would
@@ -255,11 +291,20 @@
    * in case", because a guard nothing can be shown to need is a guard the
    * next reader has to re-derive.
    *
-   * `untrack` so this effect is driven by the PAGE and not by its own write.
+   * `untrack` so this effect is driven by its inputs and not by its own write.
+   *
+   * `activeBy` is read here rather than in `cameraMove` because it is about
+   * this TRANSITION of `active`, not about where the camera belongs: by the
+   * time the band's clock has moved on twice, nothing in the state says which
+   * of those moves the visitor made. Both props are written in the same
+   * reactive flush by the caller, so the value read here is the one that
+   * describes the change that woke this effect.
    */
   $effect(() => {
     const a = active;
+    const by = activeBy;
     untrack(() => {
+      if (by !== "visitor") return;
       if (drivenAt !== undefined && drivenAt !== a) drivenAt = undefined;
     });
   });
@@ -499,12 +544,17 @@
     return () => ro.disconnect();
   });
 
-  // THE ONE PLACE THE CAMERA MOVES after boot — a box change and an `active`
-  // change come through the same door, because two effects each holding a
-  // camera opinion is two cameras. (It used to be a re-fit on a box change
-  // alone; adding a second effect for `active` would have had the fit and the
-  // flight overwrite each other on every resize, in an order decided by
-  // declaration.)
+  // The page's scroll listener, for as long as this map is on the page. One
+  // listener is shared by every map (see $lib/scroll-activity); this is only
+  // this component's claim on it.
+  $effect(() => watchPageScroll());
+
+  // THE ONE PLACE THE CAMERA MOVES after boot — a box change, an `active`
+  // change and the page falling still all come through the same door, because
+  // two effects each holding a camera opinion is two cameras. (It used to be a
+  // re-fit on a box change alone; adding a second effect for `active` would
+  // have had the fit and the flight overwrite each other on every resize, in
+  // an order decided by declaration.)
   //
   // `resize()` runs before the decision and outside it: telling MapLibre its
   // canvas changed size is not a camera move, and it is owed even when every
@@ -529,6 +579,13 @@
       userMoved,
       reducedMotion: $reducedMotion,
       commanded,
+      // READ FOR ITS DEPENDENCY AS MUCH AS FOR ITS VALUE. `cameraMove` answers
+      // `page-scrolling` while this is true and the move would have been a
+      // flight; this effect is then re-run by the same signal going false at
+      // the settle, and the flight it issues is to wherever `active` ended up.
+      // That is the whole coalescing mechanism: no queue, no timer of its own,
+      // and no second place holding a camera opinion.
+      pageScrolling: pageScrolling(),
     };
     const instance = map;
     if (!instance || size.width === 0) return;
