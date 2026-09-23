@@ -8175,6 +8175,8 @@ and then never lifts for either).
 
 ## 2026-09-23 — The map opens on a picture of itself: a fixed frame, a committed raster, and a camera that finally agrees with it (#122, `feat/map-home`)
 
+> Superseded in part by 2026-09-23 — Two maps on screen at once, and a raster fetched twice: #130's own verification, answered.
+
 The map's first state was a list of listing titles, held for as long as
 **426.4 KB** of maplibre-gl takes to download, parse and execute — and not one
 tile is requested until it has. Construct-to-`load` is only 85–140 ms with the
@@ -8406,3 +8408,197 @@ own comment.
   at 25 s). `featured-properties.spec.ts:243` fails here at exactly 436.890625 —
   that is #80/#124, a macOS scrollbar-gutter difference, green on CI's Linux, and
   not this branch's. CI is the authority.
+
+## 2026-09-23 — Two maps on screen at once, and a raster fetched twice: #130's own verification, answered (#132, #133, #134, `feat/map-home`)
+
+An independent verification of #130 said NOT SAFE TO MERGE and opened three
+issues; this entry is that work's other half — the fixes, the measurements
+either side of them, and the two things the verification itself got wrong. It
+also carries the verification's own journal entry, which could not land one
+because it opened no PR.
+
+### #132 — opening at MAP_HOME is half a claim
+
+#122's design is one sentence: MapLibre boots at exactly MAP_HOME, so the tiles
+land pixel-aligned under the committed picture and nothing jumps at the swap.
+The boot really is at MAP_HOME — `camera()` returns `home` and the guard that
+says so bites. What nobody asked was what happens on the FRAME AFTER. With a
+listing active at boot, `cameraMove` answered `fly`, so a 500 ms flight started
+inside the 300 ms cross-fade, and for the whole fade the visitor had the picture
+of San Antonio dissolving into a live map of somewhere else.
+
+Measured on a production build with `reducedMotion: "no-preference"` — sampling
+EVERY animation frame on which both sets of pins existed, as the largest
+picture-pin-to-live-pin distance in the map box's own coordinates:
+
+| where                                          | before           | after   |
+| ---------------------------------------------- | ---------------- | ------- |
+| `/properties` 1440, scrolled to centre         | **14 618.92 px** | 0.00 px |
+| `/` band 1440                                  | **1 772.50 px**  | 0.22 px |
+| `/` band 390                                   | **1 800.65 px**  | 0.00 px |
+| `/properties` 1440 at scroll 0 (`active` null) | 0.00 px          | 0.00 px |
+| `/properties` 390 (`active` null)              | 0.00 px          | 0.00 px |
+
+The delta is at its maximum by canvas opacity **0.0016** and holds for every
+remaining frame, so this was never a flight the eye could follow out of the
+picture. The two 0.00 rows are the only two #130's own guard could reach.
+
+**The guard is the important half of this.** `map-home.spec.ts:174` ran the
+pin-agreement case at 390 _on purpose and said so in its comment_: above `lg`,
+`centreWatch` makes a listing active and "this would be measuring a camera that
+had correctly flown". That is a true sentence and it is exactly this repo's
+signature defect — a guard whose selector structurally cannot observe the case
+that fails. The new cases run at 1440 with a listing active, and at both band
+widths, and they sample the whole fade rather than one instant.
+
+**The fix is not the one the issue suggested, and the first attempt failed the
+enumerate-the-class rule.** #132 proposed holding the camera until `handedOver`.
+Written as a refusal — one more line in `cameraMove`'s refusal block — it fixed
+every row in that table and opened the same defect one step along: a box change
+crossing `COMPACT_MAX_HEIGHT` repaints the PICTURE at the other frame
+immediately (the container query is on the box's own height) while a refused
+camera stays at the frame it booted with. That is what the expand affordance
+does below `lg`, 200 → min(70dvh, 520px), and `PropertyMap.test.ts`'s re-frame
+case went red on it within a minute of the change. So `pictureUp` resolves the
+CAMERA instead of refusing the move: while the picture is up, `home` is where
+the camera belongs whatever is active, and every move under an opaque picture is
+a jump (nothing under it can be watched travelling). Whichever frame the picture
+shows, the camera is at that frame's camera, by construction rather than by
+agreement.
+
+**What it costs, measured rather than asserted.** The flight is held, not
+cancelled: `handedOver` re-runs the effect and it issues then. On `/properties`
+at 1440, scrolled: the picture is retired at `load`+302 ms, the camera first
+moves at `load`+329 ms and settles at `load`+810 ms. Before, it moved within a
+frame of `load` and settled around +500 ms. So a visitor who deep-links to a
+scrolled position waits ~300 ms longer to start travelling — against which the
+alternative was the 14 618 px of two-maps-at-once above. Under
+`prefers-reduced-motion` nothing changes: `handedOver` flips on the same tick as
+`ready` and the move is a jump as before.
+
+### #133 — both rasters, and the guard that was right half the time
+
+#130 claimed one raster per page and its own guard went red on a clean tree. The
+cause was in the markup: `background-image` sat in both layers' inline `style`
+and only `display` came from the `@container` rule, so the request for the
+losing layer went out anyway. 16 runs per cell, four browser contexts at a time
+(as the spec really runs under 4 workers), scripting off, production build:
+
+| cell                | BOTH fetched, before | after      |
+| ------------------- | -------------------- | ---------- |
+| `/properties` @1440 | 4 / 16               | **0 / 16** |
+| `/properties` @390  | 8 / 16               | **0 / 16** |
+| `/` band @1440      | **16 / 16**          | **0 / 16** |
+| `/` band @390       | 14 / 16              | **0 / 16** |
+
+The band at 1440 is worse than the verification found (it measured `/` at 390
+only). 64 loads, 64 single fetches.
+
+**Two changes, and the second is the one that mattered.** The URL moved into the
+same `@container` rule that grants `display: block`, carried as two custom
+properties written from `MAP_HOME[key].file` so the filename still has one
+source — that alone took three cells to 0/16 and left the homepage band at
+**16/16**. The remaining half was the rule itself: `@container (height < 300px)`
+matches a container whose size is not yet resolved, because the first style pass
+runs before layout and the query sees zero. A box that ends up 843.44 tall
+therefore requested the COMPACT raster on every single load. `0px < height <
+300px` is the fix, and it also closes the 0.02 px gap the verification noted
+between the old `max-height: 299.98px` and `min-height: 300px`, where neither
+rule matched and no layer painted at all. The CSS is now `frameFor`'s `<`
+exactly rather than a transcription of it.
+
+**A belief this repo held and should stop holding**: "a background image on a
+`display: none` element is not requested". It is a claim about an optimisation,
+not about the cascade, and it was in a code comment, in the spec's header and in
+#130's PR body. What is true is narrower and enough: a URL that only exists in
+the branch that wins cannot be fetched by the branch that loses.
+
+### #134 — a bubbling `transitionend`, closed in one clause
+
+`ontransitionend` checked `e.propertyName` and never `e.target`, and
+`transitionend` bubbles; maplibre-gl.css ships `.maplibregl-marker { transition:
+opacity .2s }`, which is SHORTER than the 300 ms fade. Unreachable today — the
+pins are plain SVG, `cooperativeGestures` is off — and unreachable by the unit
+suite either way, because `endTheFade()` dispatches on the host itself, where a
+missing target check and a present one look identical. One clause, plus a case
+that dispatches a bubbling `opacity` `transitionend` from a `.maplibregl-marker`
+child and asserts the picture is still there.
+
+### The mutations, each with its red
+
+| mutation                                             | what went red                                                                                                                                                                                            |
+| ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `cameraMove` ignores `pictureUp`                     | 3 unit cases; `is constructed at exactly MAP_HOME` (_no flight while the picture is on screen_); browser, **1772.50 px** and **1800.65 px**, and `/properties` on _afterTravel Expected > 1, Received 0_ |
+| `pictureUp: home !== null` (a hold that never lifts) | 6 unit cases (_expected [] to have a length of 1_); all three browser cases on `afterTravel`                                                                                                             |
+| `background-image` back on both layers               | unit (_the layer names no image of its own_); browser **12 of 12** repeats, all three no-JS cases                                                                                                        |
+| `@container (height < 300px)`                        | browser, the homepage band, **4 of 4** repeats: `Received string: "200 /map-home-compact.webp 200 /map-home-full.webp"`                                                                                  |
+| `e.target === canvasHost` removed                    | unit: _a child's fade must not retire the picture_                                                                                                                                                       |
+| the spec's `reducedMotion: "no-preference"` removed  | all three browser cases: _the fade really runs — reduced motion is NOT emulated_, `Received: true`                                                                                                       |
+
+That last one answers a question this repo keeps paying for: **the fleet
+config's `contextOptions.reducedMotion: "reduce"` DOES reach
+`browser.newContext()`**, not only the `page` fixture. Every new case asserts it
+is off before it waits for anything, because the first version asserted it
+afterwards and the mutation spent 15 seconds failing on a camera that was
+behaving perfectly.
+
+### A test race that was not the component's, and cost an hour to see
+
+Running the file `--repeat-each=16` found #130's own `:201` failing 4 times in
+112 — at `Received: 246.5`, which is exactly the first picture pin's own x. The
+live pin it was compared against was at 0: `reposition()` writes each marker's
+transform a frame after Svelte renders the marker, so a marker read in between
+sits at the overlay's origin. Both `:201` and the new sampler now require the
+placement artifact — an empty `transform` is a pin the map has not placed, not a
+pin in the wrong place. The same run made me delete an assertion of my own: the
+new cases demanded a sample at a canvas opacity strictly between 0.05 and 0.95,
+and a starved rAF loop can tick twice in 300 ms and land neither tick in the
+band. It failed 6 times in 112, in whole waves of three. Removed rather than
+retried — the coexistence of picture pins and live pins already IS the fade, by
+construction. Two clean 16× runs after that: **224 / 224**.
+
+### #131, answered with numbers, and the answer is no — for a reason the issue did not have
+
+The verification's comment on #131 says the canvas is 2.16× crisper than the
+picture at dpr 1 and concludes that "most of the softness is the q82 encode".
+The second half is wrong, and the test is cheap. Re-encoding the SAME render at
+four qualities, and scoring mean |Laplacian| over the luma plane against the
+source PNG as the ceiling:
+
+| frame               | q82                   | q88               | q92               | q96                |
+| ------------------- | --------------------- | ----------------- | ----------------- | ------------------ |
+| `full` bytes        | 78.3 KB               | 100.2 KB (+27.9%) | 127.2 KB (+62.4%) | 174.6 KB (+122.9%) |
+| `full` laplacian    | 8.676 (103.4% of PNG) | 8.698             | 8.760             | 8.857 (105.5%)     |
+| `compact` bytes     | 27.4 KB               | 35.6 KB (+30.0%)  | 45.5 KB (+66.3%)  | 60.2 KB (+119.9%)  |
+| `compact` laplacian | 12.873 (102.7%)       | 12.913            | 13.035            | 13.146 (104.9%)    |
+
+The committed q82 file already carries **more** high-frequency energy than the
+PNG MapLibre drew — lossy encoding ADDS ringing, which a Laplacian counts as
+detail — and q96 moves that by two points for more than double the bytes. So
+raising the quality cannot buy back a 2.16× gap that does not exist at the
+raster's own pixel grid. Nothing applied; the encode is left at q82.
+
+**Where the softness more likely is, as arithmetic and not yet as a measurement.**
+The raster is drawn at its own pixel size and centred, so the offset is
+`(raster − box) / 2`: 1088 × 1184 in the 397 × 595 panel gives **345.5** and
+**294.5**, and in the band's 513 × 843.44 it gives **287.5** and 170.28. A
+half-pixel offset makes the browser resample the whole image. Filed as an issue
+with the cheap test rather than fixed here.
+
+**One thing worth having**: the generator is byte-for-byte reproducible. A fresh
+render on this machine, days later, reproduced both committed digests exactly
+(`023ee198…`, `74a5b9a9…`). The style-digest guard was designed on the
+assumption that a re-render is comparable; it is better than that.
+
+### Honest accounting
+
+- `PropertyMap.svelte` said "a desktop 62.1 KB" for a file that is 80 224 bytes
+  = 78.3 KB — stale from the 1088 × 896 raster that #122's own resize replaced.
+  Corrected. The verification caught it; nothing in the suite could.
+- The three fixes are one branch and one PR because they are one seam, but the
+  one that would have red-ed main is #133: a ~50% flaky case reds pull requests
+  that touch nothing near the map.
+- Local load ran **4.5 – 29.5** through this session and every browser number
+  above says which server it came from. `featured-properties.spec.ts:243` still
+  fails here at 436.890625 — #80/#124, macOS scrollbar gutter, green on Linux.
+  **CI is the authority.**
