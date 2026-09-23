@@ -92,10 +92,13 @@
   // file's to change.
   import Expand from "@lucide/svelte/icons/expand";
   import Shrink from "@lucide/svelte/icons/shrink";
-  import { tick } from "svelte";
+  import { tick, untrack } from "svelte";
 
   import type { MapEngine } from "$lib/map-engine";
   import {
+    activeTarget,
+    CAMERA_FLIGHT_MS,
+    cameraMove,
     clusterDiameter,
     clusterPoints,
     COMPACT_MAX_HEIGHT,
@@ -108,6 +111,7 @@
     PIN_HOLE,
     PIN_PATH,
     PIN_VIEWBOX,
+    type Camera,
     type MapCluster,
     type MapPoint,
   } from "$lib/property-map";
@@ -126,6 +130,30 @@
     /** The ground this map is placed ON, because until the tiles arrive the box
      *  IS that ground plus a list of links. See MAP_TONES. */
     tone?: keyof typeof MAP_TONES;
+    /** THE CAMERA THIS COMPONENT DOES NOT OWN. The id of the `points` entry
+     *  the PAGE says is active, or null for "fit them all" — which is what an
+     *  undriven map has always done. The rules are all in `cameraMove`; this
+     *  file only reports `ready` and `userMoved` into them. It is also what
+     *  ENDS a gesture's suspension of the camera — see `drivenAt` below.
+     *
+     *  There is exactly ONE source of truth for which listing is active, and
+     *  it is whatever the caller puts here. Pressing a pin does not set it —
+     *  see `onselect`. */
+    active?: string | null;
+    /** Supplied: pressing a single-listing pin calls this with that listing's
+     *  id INSTEAD of opening the details sheet. Absent: the sheet, exactly as
+     *  before.
+     *
+     *  WHY THE SHEET IS OPTIONAL RATHER THAN GONE. On the Properties page the
+     *  CARD is the detail — it carries the same title and the same two links,
+     *  in the column the pin sits beside — so a sheet is a second, smaller
+     *  copy of it drawn over the map, and worse, a second place a listing can
+     *  be "open". There the pin's job is to point AT the card, so the caller
+     *  passes `onselect` and scrolls it into view; the centre rule then makes
+     *  it active, and the camera follows from that one mechanism rather than
+     *  from a press. On the homepage band there is no card beside the map at
+     *  all, so the sheet is the only detail there is and it stays. */
+    onselect?: (id: string) => void;
     class?: string;
   }
 
@@ -134,6 +162,8 @@
     label,
     engine = "auto",
     tone = "garnet",
+    active = null,
+    onselect,
     class: passedClasses = "",
   }: Props = $props();
 
@@ -152,9 +182,93 @@
   let zoom = $state(0);
   let clusterEls = $state<Record<string, HTMLElement | undefined>>({});
   let selected: MapPoint | null = $state(null);
-  /** Set by a gesture, never by a resize: once a visitor has driven the map,
-   *  a re-fit would yank the view back from under them. */
-  let userMoved = false;
+  /**
+   * THE LISTING THAT WAS ACTIVE WHEN THE VISITOR LAST DROVE THE MAP, or
+   * `undefined` if they never have. `null` is a real value here — it is what
+   * `active` is when nothing is on the centre line — so "never" has to be a
+   * third thing rather than a falsy one.
+   *
+   * This replaces a plain `userMoved` boolean, and the reason is measured
+   * rather than stylistic. The boolean was set by a gesture and cleared by
+   * NOTHING but `destroy()`: at 1440x900 on /dev/properties, one 40px drag
+   * over the map left the camera dead for the rest of the page — 0 flights at
+   * every later card crossing, and the pins at scrollY 500 and 760
+   * byte-identical. One pan permanently switched off the feature this whole
+   * component exists for.
+   *
+   * A gesture suspends the camera — but only for as long as the page is still
+   * asking for the SAME listing.
+   *
+   * WHY THAT LINE AND NOT ANOTHER. The flag's job is to stop the map being
+   * yanked out from under someone who is looking around it; it is not to end
+   * the feature. So the question is what ends the looking, and the honest
+   * answer is the page asking for somewhere else. While `active` holds, the
+   * visitor is still reading the card they were reading when they grabbed the
+   * map, and every re-fit — a resize, a re-render, a `ready` flip — must leave
+   * their view alone. The moment `active` names a DIFFERENT listing, the page
+   * has been asked to show a different place, and showing it is the whole
+   * point of the camera.
+   *
+   * Two rules were considered and rejected, recorded so they are not re-tried:
+   *
+   *  - CLEAR ON THE NEXT DOCUMENT SCROLL ("scrolling the list means I am
+   *    reading the list again"). It reads well and measures badly: on
+   *    /properties the scroll IS how cards are crossed, so a 1px scroll ends
+   *    the suspension and the very next crossing yanks the view — which is
+   *    the same complaint, one step along, that the wheel half of this defect
+   *    was. It also ends a pan on the homepage band the instant the visitor
+   *    scrolls past the band at all.
+   *  - A TIMEOUT. A number nobody can justify, and it fires while the visitor
+   *    is still looking.
+   *
+   * What this costs, said plainly: a pan is not carried from one listing to
+   * the next. That is deliberate — the next listing is tens of kilometres
+   * away (70 km for the two the tests drive with) and a preserved offset
+   * would put it off the box.
+   */
+  let drivenAt = $state<string | null | undefined>(undefined);
+
+  /** A suspension is outstanding. WHEN it ends is the effect below; this is
+   *  only "is there one", which is all `cameraMove` needs to be told. */
+  const userMoved = $derived(drivenAt !== undefined);
+
+  /**
+   * AND HERE IS WHERE IT ENDS: the page asked for a different listing.
+   *
+   * ONE mechanism, and that is a correction. This was written as two — the
+   * line above also read `&& drivenAt === active`, so the suspension would
+   * evaporate the moment `active` moved on even if this effect had not run
+   * yet — and the second was justified in a comment as protecting against
+   * effect ordering. Both halves were then mutated on purpose to find out
+   * which was load-bearing:
+   *
+   *   - plain `drivenAt !== undefined`, this effect intact  → still green
+   *   - plain derived AND this effect moved BELOW the camera effect → still
+   *     green, which is the case the ordering argument predicted would fail
+   *   - this effect's body removed, compound derived intact → RED (the camera
+   *     never moves again once the visitor returns to the listing they
+   *     dragged on)
+   *
+   * So the clause was redundant and the rationale written for it was simply
+   * wrong: Svelte re-runs the camera effect when this one writes `drivenAt`,
+   * whichever order they are declared in. It is gone rather than kept "just
+   * in case", because a guard nothing can be shown to need is a guard the
+   * next reader has to re-derive.
+   *
+   * `untrack` so this effect is driven by the PAGE and not by its own write.
+   */
+  $effect(() => {
+    const a = active;
+    untrack(() => {
+      if (drivenAt !== undefined && drivenAt !== a) drivenAt = undefined;
+    });
+  });
+  /** The box MapLibre was last told about. See the camera effect. */
+  let sized = { width: 0, height: 0 };
+  /** The camera this map was last TOLD to be at — set by `boot` and by every
+   *  move. Deliberately NOT `$state`: it is a record of what was done, and an
+   *  effect that re-ran on its own write would be a loop. */
+  let commanded: Camera | null = null;
 
   const measured = $derived(box.height > 0);
   const compact = $derived(box.height < COMPACT_MAX_HEIGHT);
@@ -163,8 +277,20 @@
     ready ? clusterPoints(points, zoom, frame.clusterRadius) : ([] as MapCluster[]),
   );
 
+  /** Where the camera belongs right now, ignoring how it should get there —
+   *  the centre and zoom the map is CONSTRUCTED with. It resolves `active`
+   *  through the same `activeTarget` as `cameraMove`, so a map never boots
+   *  somewhere it would immediately fly away from: the homepage band opens
+   *  already framed on slide 0, which also means nothing moves on its own at
+   *  load (WCAG 2.2.2's cheapest case is the motion that never happens).
+   *  An id with no pin falls back to the fit HERE and only here — a boot has
+   *  no previous view to hold. */
   function camera() {
-    return fitCamera(points, box, { padding: frame.padding, maxZoom: frame.maxZoom });
+    const target = activeTarget(active, points) ?? null;
+    return fitCamera(target ? [target] : points, box, {
+      padding: frame.padding,
+      maxZoom: frame.maxZoom,
+    });
   }
 
   async function boot(host: HTMLDivElement) {
@@ -195,6 +321,7 @@
     if (!host.isConnected) return;
 
     const start = camera();
+    commanded = start;
     const instance = new maplibre.Map({
       container: host,
       style: styleUrl,
@@ -207,6 +334,32 @@
       dragRotate: false,
       pitchWithRotate: false,
       touchPitch: false,
+      // THE PINNED BOX MAY NOT EAT THE PAGE'S SCROLL. maplibre-gl 6.10.0's
+      // `ScrollZoomHandler.wheel` ends in an unconditional `preventDefault()`,
+      // so every wheel event that lands on the canvas is taken from the
+      // document. Measured at 1440x900 on /dev/properties at scrollY 500, with
+      // the map pinned across x 80..472 (27.2% of the viewport's width) and
+      // y 100..695: ONE 120px wheel tick over the map moved the page 0px, and
+      // five ticks moved 120px against 600px for the same five ticks over the
+      // cards column. Before this PR that cost 595px of page once; now the box
+      // is PINNED, so the obstacle follows the visitor for the whole section.
+      //
+      // `cooperativeGestures` was the alternative and is worse here: it draws a
+      // "use ctrl + scroll to zoom" overlay over a 392px panel, and it still
+      // takes a trackpad pinch (which arrives as a ctrl-wheel and is exactly
+      // the gesture it tells you to make). Off is the honest setting for a box
+      // whose job is to be read past.
+      //
+      // Scroll-zoom is not gone, it MOVED: `expanded` turns it back on (see
+      // the effect below), which is the state a visitor opens on purpose and
+      // closes again.
+      //
+      // This option is the map's STARTING state only; the effect is what holds
+      // it from then on. Measured, by mutating this line to `true` on its own:
+      // the browser test stayed green, because the effect disables it again on
+      // its first run. It is kept because it closes the window between the
+      // constructor and that first run, not because it is the guard.
+      scrollZoom: false,
       attributionControl: false,
       // Belt to `$lib/transitions`' braces below: told the preference, MapLibre
       // collapses every easeTo/flyTo of its own to a jumpTo.
@@ -225,9 +378,38 @@
     // on the Properties page would be two identically named landmarks.
     instance.getCanvas().setAttribute("aria-label", `${label} listings, interactive map`);
 
+    // WHICH GESTURES COUNT AS "THE VISITOR DROVE THIS MAP", measured against
+    // maplibre-gl 6.10.0 in Chromium rather than assumed — the old version of
+    // this listener was the only thing that decided it, and the only test on it
+    // hand-built a `movestart` against a stub Map, which cannot observe what
+    // real gestures carry. Measured, on /dev/properties:
+    //
+    //   drag pan          movestart.originalEvent = mousemove   tagged
+    //   double-click zoom movestart.originalEvent = dblclick    tagged
+    //   keyboard (+, →)   movestart.originalEvent = keydown     tagged
+    //   WHEEL ZOOM        movestart.originalEvent = undefined   NOT TAGGED
+    //
+    // The wheel is the one real gesture MapLibre leaves untagged: its
+    // ScrollZoomHandler drives the zoom from the render loop, so the move it
+    // starts looks programmatic. That is why a visitor's own zoom used to be
+    // thrown away at the very next card crossing — the exact thing the flag
+    // exists to prevent.
+    //
+    // So the predicate is in two halves, one for each of those rows.
     instance.on("movestart", (e: { originalEvent?: unknown }) => {
-      if (e.originalEvent) userMoved = true;
+      if (e.originalEvent) drivenAt = active;
     });
+    // The untagged half. Only while scroll-zoom is ENABLED — which is only when
+    // the map is expanded — because with it disabled the wheel is scrolling the
+    // document past the map, not driving the map, and counting that as a
+    // gesture would suspend the camera on every scroll down the page.
+    instance.getCanvasContainer().addEventListener(
+      "wheel",
+      () => {
+        if (instance.scrollZoom.isEnabled()) drivenAt = active;
+      },
+      { passive: true },
+    );
     instance.on("move", reposition);
     instance.on("zoom", () => {
       zoom = instance.getZoom();
@@ -244,6 +426,11 @@
     map?.remove();
     map = null;
     ready = false;
+    // A re-boot gets a map that has been told nothing yet, and one nobody has
+    // driven — both of these describe the instance, not the visitor.
+    sized = { width: 0, height: 0 };
+    commanded = null;
+    drivenAt = undefined;
   }
 
   /** The per-frame loop. Svelte owns the markers' MARKUP; this owns where they
@@ -267,7 +454,19 @@
     const instance = map;
     if (!instance) return;
     if (cluster.points.length === 1) {
-      selected = cluster.points[0]!;
+      const point = cluster.points[0]!;
+      // The caller that draws its own detail takes the press instead. It must
+      // NOT also set `active` from here: the one rule that decides which
+      // listing is active is the caller's, and a press that wrote it directly
+      // would be a second mechanism racing the first. So this only reports the
+      // press; on /properties the caller scrolls that card to the centre and
+      // the centre rule does the rest.
+      if (onselect) {
+        selected = null;
+        onselect(point.id);
+        return;
+      }
+      selected = point;
       return;
     }
     selected = null;
@@ -300,15 +499,64 @@
     return () => ro.disconnect();
   });
 
-  // Re-fit on a box change, never on a gesture.
+  // THE ONE PLACE THE CAMERA MOVES after boot — a box change and an `active`
+  // change come through the same door, because two effects each holding a
+  // camera opinion is two cameras. (It used to be a re-fit on a box change
+  // alone; adding a second effect for `active` would have had the fit and the
+  // flight overwrite each other on every resize, in an order decided by
+  // declaration.)
+  //
+  // `resize()` runs before the decision and outside it: telling MapLibre its
+  // canvas changed size is not a camera move, and it is owed even when every
+  // rule below declines one.
   $effect(() => {
+    // EVERY REACTIVE INPUT IS READ BEFORE THE FIRST `return`, and that is not
+    // style. Svelte re-tracks an effect's dependencies on each run, so a
+    // signal read *after* a bail is not a dependency of the run that bailed —
+    // and this effect's first run is at mount, before the engine exists, when
+    // the bail was the second line. The only thing it had read by then was
+    // `box`, so `active` never woke it: the camera was measured, on a real
+    // scroll down /dev/properties, not moving ONCE. Pin transforms identical
+    // at scrollY 450, 800 and 1050 while the centre rule was correctly
+    // reporting potranco-road, hwy-90-castroville, ih-35-new-braunfels.
     const size = box;
+    const state = {
+      active,
+      points,
+      box: size,
+      frame,
+      ready,
+      userMoved,
+      reducedMotion: $reducedMotion,
+      commanded,
+    };
     const instance = map;
     if (!instance || size.width === 0) return;
-    instance.resize();
-    if (userMoved) return;
-    const next = camera();
-    if (next) instance.jumpTo({ center: [next.lng, next.lat], zoom: next.zoom });
+    // Only when the box really changed. `active` now shares this effect, and
+    // on the Properties page it changes on every card the scroll crosses — a
+    // `resize()` per card would re-read the canvas's layout for a canvas that
+    // has not moved. Deliberately NOT `$state`: this is a record of what was
+    // last done, not an input to anything.
+    if (size.width !== sized.width || size.height !== sized.height) {
+      sized = size;
+      instance.resize();
+    }
+
+    const move = cameraMove(state);
+    if (move.move === "none") return;
+    commanded = move.camera;
+    const center: [number, number] = [move.camera.lng, move.camera.lat];
+    if (move.move === "jump") {
+      instance.jumpTo({ center, zoom: move.camera.zoom });
+      return;
+    }
+    // No `essential: true`. That flag exists to override the browser's
+    // reduced-motion preference, and this animation is decoration on a scroll
+    // the visitor is already driving — exactly the kind that must obey it.
+    // `cameraMove` has already answered `jump` in that case; not passing
+    // `essential` is the second brace, since the map is constructed with
+    // MapLibre's own `reduceMotion`.
+    instance.flyTo({ center, zoom: move.camera.zoom, duration: CAMERA_FLIGHT_MS });
   });
 
   $effect(() => {
@@ -319,6 +567,25 @@
   $effect(() => {
     void expanded;
     void tick().then(() => map?.resize());
+  });
+
+  // SCROLL-ZOOM BELONGS TO THE EXPANDED MAP AND NOWHERE ELSE. The in-page box
+  // is constructed with it off (see `boot`); opening the expand affordance —
+  // which exists only below `lg`, where the panel grows to `min(70dvh, 520px)`
+  // — is a deliberate "I want to work this map now", and it is the one state
+  // where taking the wheel is what the visitor asked for. Collapsing gives it
+  // back. Driven off `expanded` rather than set once, because the same Map
+  // instance serves both states.
+  $effect(() => {
+    // `ready` is read for its DEPENDENCY, not its value: `map` is a plain
+    // variable, so without a reactive signal that changes when the engine
+    // arrives this effect would never re-run after boot, and a map expanded
+    // before its first frame would stay un-zoomable.
+    void ready;
+    const instance = map;
+    if (!instance) return;
+    if (expanded) instance.scrollZoom.enable();
+    else instance.scrollZoom.disable();
   });
 
   $effect(() => {
@@ -433,12 +700,19 @@
       <div aria-hidden="true" class="pointer-events-none absolute inset-0 z-[1] overflow-hidden">
         {#each clusters as cluster (cluster.id)}
           {@const count = cluster.points.length}
+          <!-- `data-map-pin` carries the LISTING'S OWN ID, not an empty marker.
+               A pin is a drawing of one list item, and saying which one costs
+               nothing, keeps `[data-map-pin]` matching as a presence selector
+               everywhere it already did, and is what lets a browser test assert
+               that the ACTIVE listing's pin is the one at the map's centre
+               rather than that some pin is. A cluster stands for no single
+               listing, so it carries its count instead, as it already did. -->
           <button
             bind:this={clusterEls[cluster.id]}
             type="button"
             tabindex="-1"
             aria-hidden="true"
-            data-map-pin={count === 1 ? "" : undefined}
+            data-map-pin={count === 1 ? cluster.points[0]!.id : undefined}
             data-map-cluster={count > 1 ? count : undefined}
             onclick={() => press(cluster)}
             class="pointer-events-auto absolute top-0 left-0 cursor-pointer border-0 bg-transparent p-0"

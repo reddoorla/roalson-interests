@@ -9,6 +9,7 @@ import {
   featuredPropertiesFixture,
   stageFeatured,
 } from "$lib/home-fixture";
+import { CAMERA_FLIGHT_MS } from "$lib/property-map";
 import { components } from "$lib/slices";
 import FeaturedProperties from "./index.svelte";
 
@@ -210,9 +211,13 @@ describe("FeaturedProperties slice", () => {
         expect(line.className.split(/\s+/)).toContain("translate-y-0");
         expect(line.className.split(/\s+/)).toContain("opacity-100");
       }
-      // The last line lands on the 500ms settle, which is what lets the bar
-      // start filling on a slide that has finished arriving.
-      expect(Number(delays[3]) + 170).toBe(500);
+      // The last line lands on the settle, which is what lets the bar start
+      // filling on a slide that has finished arriving — and the settle is the
+      // CAMERA'S FLIGHT, read from `$lib/property-map` rather than typed, so
+      // this fails if the two are ever separated again. Both modules used to
+      // carry their own `500`, and the comments on each claimed the other was
+      // the reason for it while nothing in the code connected them.
+      expect(Number(delays[3]) + 170).toBe(CAMERA_FLIGHT_MS);
 
       // The wrapper owns NO opacity: two nested fades multiply.
       const wrapper = lines[0].parentElement!.parentElement!;

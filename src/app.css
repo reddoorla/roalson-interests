@@ -553,11 +553,46 @@ main > section.hero-band:first-child {
 
        `@variant lg`, not a width typed here, so this cannot drift from the
        bar's own `lg:h-20`. With script off the bar is `absolute` and scrolls
-       away; the padding is then plain air above a landing, and harmless. */
-    scroll-padding-top: 90px;
+       away; the padding is then plain air above a landing, and harmless.
+
+       IT IS A VARIABLE BECAUSE IT IS READ, not only declared. Two other places
+       need the same number — PropertyListing's pre-measurement sticky offset,
+       and the scroll-margin that lands a card clear of a PINNED section
+       divider — and both of them had typed their own copy of it. `100px`
+       appearing in three files is the shape this repo's "enumerate the defect
+       class" rule is about, so the number is stated once, here, and the other
+       two read `var(--usable-top)`. */
+    --usable-top: 90px;
     @variant lg {
-      scroll-padding-top: 100px;
+      --usable-top: 100px;
     }
+    scroll-padding-top: var(--usable-top);
+
+    /* WHERE THE USABLE TOP MOVES TO UNDER A PINNED LISTING DIVIDER.
+       /properties pins a divider from its second section on, and that divider
+       is opaque and 145.41 tall at `lg` — 45.41 more than the bar the
+       `--usable-top` above describes. Anything the BROWSER scrolls to inside
+       such a section (a fragment, a backward Tab) therefore lands 45.41px
+       behind it: measured on a production build at 1440x900, an improved
+       card scrolled to the top of the scrollport put its own top at 99.95
+       against a divider bottom of 145.41.
+
+       The 145.4 is DERIVED here rather than typed, from the divider's own
+       declared parts, so it is one edit and not four if any of them moves:
+
+         100px  the divider's `lg:h-[100px]` spacer (the comp's pad)
+           2px  its `border-t-2` rule
+          18px  its `pt-[18px]` (see PropertyListing for why 18 and not 20)
+        34.8px  one `t-h3` line box — the label
+        -9.4px  that utility's own negative `margin-block`, which trims the
+                leading and is what makes the label block 45.4 and not 54.8
+
+       PropertyListing's `measure()` still reads the real rendered height and
+       overrides this the moment script runs; this is what the SERVER sends and
+       what a no-JS visitor keeps. The two are asserted equal in
+       tests/interaction/property-map-camera.spec.ts, so a font swap or a
+       reworded label that moves one and not the other goes red. */
+    --listing-divider-top: calc(100px + 2px + 18px + 34.8px - 9.4px);
   }
 
   body {

@@ -6945,6 +6945,722 @@ warning is liberty's own `["<=", ["get","ref_length"], 6]` meeting a feature wit
 no `ref_length`, and the fallback is the behaviour the filter wanted anyway. It
 is not ours to fix without forking a layer we deliberately do not touch.
 
+## 2026-09-22 — The map pins beside its cards, and its camera follows the one in the middle of the screen (#112, `feat/map-camera`)
+
+The operator's ask, verbatim: _"the idea is the map is sticky and as different
+properties highlight we scroll around to them"_, and, asked what drives it,
+_"viewport center but clicking a property scrolls it into being the active
+one"_. That second half is the whole design and it is better than the
+alternative it replaced: there is ONE answer to "which listing is active" — the
+card crossing the middle of the window — and a pin press is an input to the
+SCROLL, never to the answer. A press scrolls its card to the centre; the centre
+rule then reports it; the camera follows from that. Two mechanisms would have
+disagreed the first time a scroll was still settling.
+
+### What the numbers are
+
+Measured on a **production build** of the real `/properties` (17 land listings,
+5 improved — the dev fixtures do not exist there, `/dev/*` 404s once `dev` is
+false, so this is the only place the real portfolio can be read) at 1440×900:
+
+|                     | land                  | improved       |
+| ------------------- | --------------------- | -------------- |
+| cards               | 17                    | 5              |
+| divider height      | 85.41, **not** pinned | 145.41, pinned |
+| map's sticky `top`  | 100px                 | **145.406px**  |
+| grid content height | 5094.86               | 1468.63        |
+| sticky travel       | 4499.86               | 873.63         |
+
+**The offset is read, never typed.** The comp's pinned divider is a 100px pad
+plus a 45.41px label block; a `top: 100px` — the number the pad makes obvious —
+would have been wrong by 45.41 from the first commit, and wrong again the day
+the brand's heading font changes. `PropertyListing` measures the divider with a
+`ResizeObserver` and publishes it as `--sticky-top` on the grid wrapper, which
+the map wears as `lg:top-[var(--sticky-top)]`. The first section has no pinned
+divider at all, so its map lands on `app.css`'s own `scroll-padding-top` (100px
+at `lg` — "the bar plus 20px of air", already the one place this stylesheet
+says where the usable top is). A measured height of 0 is treated as "could not
+measure", not as "pin it against the top of the window": jsdom returns 0 for
+every box, and so does a browser asked before first layout.
+
+**It releases by itself, and that was verified rather than assumed.** A sticky
+GRID ITEM's containing block is its grid area, so the map stops travelling when
+the card column ends and no script has to notice. On the fixture at 1440×900:
+grid top 476.02, GRID PADDING-TOP 40, border-box 1092.39 → a CONTENT box of
+1052.39, map 595 → 457.39px of travel, stuck from scrollY 416.02 to 873.41, and
+at scrollY 900 the map's top reads 73.41 — exactly 100 − 26.59 of overshoot.
+
+_(Corrected in place on 2026-09-22, in the same branch and before this entry
+ever reached main, so there is no published record to preserve — the rule
+against editing history protects what was PUBLISHED, and a forward pointer to
+an entry three paragraphs below would be noise. This paragraph read "height
+1092.39 … 497.39px of travel, stuck from scrollY 376.02": it subtracted the map
+from the BORDER box, which includes the `lg:pt-10` the grid area does not, so
+both the travel and the stick point were 40 out and the claim that the map is
+stuck anywhere in 376..416 was false — its top reads 140.02 at scrollY 376. The
+release point was right only because the two 40s cancel there. The real-portfolio
+figures in the table above were RE-MEASURED rather than assumed to share the
+error, and they do not: 4499.86 and 873.63 are already the content-box numbers,
+against border boxes of 4539.86 and 1013.63. See "The pinned map was taking the
+page's scroll" below.)_
+
+The browser test asserts pinned at mid-travel, pinned
+one pixel before the end, and released-and-moving-pixel-for-pixel 200 past it;
+the last of those three would pass on a map that never stuck at all, which is
+why the first two come first.
+
+**The camera's target zoom is not a new number.** The active camera is
+`fitCamera` of the ONE active point, which by construction clamps to the frame's
+own `maxZoom` — a one-point bounds has no span. `MAP_FRAMES.full.maxZoom` is
+already this repo's argued answer to "how close is right for a single listing"
+(12 puts 397px of frame across 6.6 km at this latitude: 16.596 m/px, 6588 m),
+and naming a second number here would have been a second answer that drifts the
+first time one of them is tuned. Routing through `fitCamera` also keeps the
+asymmetric-padding correction: the pin is anchored at its TIP, the frame pads 52
+top against 44 bottom, so the fitted centre sits (44 − 52) / 2 = −4px of the
+box's middle and the listing's coordinate draws 4px BELOW it. Predicted from
+first principles, then measured: `translate(196px, 301.5px)` in a 392.2 × 595
+box, against a computed 196.10 / 301.50. It holds for all 11 unclustered land
+listings on the production build.
+
+The flight is 500ms, which is the homepage band's own `DISSOLVE`: on that band
+the photo cross-fades while the map travels to the same listing, so the picture
+and the place arrive as one change, and the map is stationary for 87.5% of every
+4000ms dwell.
+
+### The rule, and why it is an observer and not a scroll listener
+
+`rootMargin: "-50% 0px -50% 0px"` collapses the observer's root to a line across
+the middle of the window, so "is this the card" becomes "does this card cross
+the line" — answered off the main thread, with no scroll handler and nothing to
+throttle. A card is 220–284px tall and the gap is 20px, so at most one card is
+on the line at a time. Checked against an independent box test
+(`top <= innerHeight/2 && bottom >= innerHeight/2`) at nine scroll positions
+down the production `/properties`: identical at all nine, and identical again
+for all 17 land cards in the later probe.
+
+Twice per card the centre falls in the 20px gap and nothing intersects — a
+single jump from scrollY 0 to 1250 lands there. The rule HOLDS its last answer
+instead of clearing it; clearing would let the map go twice per card, which is
+the flicker the whole thing exists to avoid.
+
+Below `lg` none of it runs. Not "runs and is ignored": no observer is
+constructed, because at 390 the map is a 200px box above the cards, pinning it
+would spend a quarter of an 844px viewport permanently, and the comp does not
+draw it. The media query is live, so a resize past 1024 starts it.
+
+### Three beliefs corrected on contact
+
+**1. The camera never moved once, and the reason was four lines above where I
+was looking.** Svelte re-tracks an effect's dependencies on every run. The
+camera effect's first run is at mount, before the engine exists, and it bailed
+on its second line — so the only signal it had read by then was `box`, and
+`active` was never a dependency. Measured on a real scroll down
+`/dev/properties`: identical pin transforms at scrollY 450, 800 and 1050 while
+the centre rule was correctly reporting potranco-road, hwy-90-castroville,
+ih-35-new-braunfels. The fix is that every reactive input is now read into one
+object BEFORE the first `return`. Mutating that back gives
+`expected [] to have a length of 1 but got +0`.
+
+**2. `flyTo` does not fall back to `easeTo` for short moves.** Written into a
+comment as fact, then checked against maplibre-gl 6.10.0's own dist, where the
+guard is `if (Math.abs(u1) < 2e-6 || !isFinite(S))` — two MILLIONTHS of a pixel
+of path, a no-op rather than a short move. The reason `flyTo` is still right is
+the Van Wijk–Nuij curve itself, whose zoom excursion grows with the distance:
+land spans 277.0 km, which is ~16 700px of pan at z12, and `easeTo` interpolates
+the centre LINEARLY — 33 000 px/s over 500ms, a smear. The comment now says the
+true thing.
+
+**3. `browser.newContext()` DOES inherit the shared config's
+`contextOptions`.** This spec was written on the opposite assumption, which
+would have made the `reducedMotion: "reduce"` trap irrelevant to every test that
+opens its own context. A throwaway spec printed `reduce = true` for both the
+default `page` fixture and a hand-opened context. Two consequences: the
+`test.use({ contextOptions: { reducedMotion: "no-preference" } })` on the flight
+block is genuinely load-bearing (removing it fails on the explicit
+`matchMedia("(prefers-reduced-motion: reduce)").matches === false` assertion
+that now guards it), and the homepage test had to open a `moving` context of its
+own — under `reduce` the band draws NO pause control at all (`eligible` is
+`enabled && dwell > 0 && last > 0 && !reduced`), so it spent 120 seconds looking
+for a button that was never rendered.
+
+And a fourth, smaller: **`lg:z-0` on the map was inert.** It shipped with a
+comment saying two positioned siblings with `z-index: auto` paint in DOM order,
+so the later one — the map — would slide over the pinned divider. Half true and
+the wrong half: the divider is not `auto`, it is `lg:z-10`, and a positive
+z-index paints above every `auto` positioned sibling whatever the tree order.
+Mutating `lg:z-0` away left the browser test green; mutating the divider's
+`lg:z-10` away turned it red at once, with the map winning the hit test. The
+class is gone and the comment now names what actually holds the order — the
+divider's own z-index, plus `PropertyMap`'s root `isolate`, which keeps the
+map's internal `z-[1]`..`z-[3]` out of the argument.
+
+### WCAG 2.2.2, and the gate that is not a second gate
+
+The homepage band autoplays, so a camera that moved on its own every four
+seconds would be auto-moving content presented in parallel with other content.
+It cannot: `active` is read off `carousel.index`, and the index only advances
+while the carousel is `rotating` — already `hydrated && eligible && !userPaused
+&& !hovered && !pageHidden && !atEnd`. Every pause, every hover, a hidden tab
+and `prefers-reduced-motion` all stop the index, so they all stop the map. That
+is ONE mechanism, deliberately, and a second `paused` prop the map also
+consulted could only ever have disagreed with it — the first thing it would have
+disagreed about is a MANUAL turn, since pressing an arrow focuses a control,
+which stops the clock, and a camera gated on `rotating` would then refuse to
+follow the slide the visitor just asked for. The evidence is a browser test:
+Pause, then nine and a half seconds — two and a bit full dwells — and the map's
+pin transforms are byte-identical; then Play, and they change. Cutting `active`
+loose from the carousel turns that second half red.
+
+The map is also CONSTRUCTED on the active point rather than easing to it, so
+nothing moves at load either — and because `ready` flipping true re-asks the
+camera question, `cameraMove` gained an `arrived` refusal comparing the answer
+against the camera the map was last TOLD to be at. Without it every map opened
+by issuing a 500ms flight to where it already was. Not `map.getCenter()`:
+mid-flight that reads a waypoint, and a waypoint never equals the target.
+
+### The mutations
+
+Every guard below was broken on purpose and watched go red before being kept.
+
+| mutation                                               | red                                                                                           |
+| ------------------------------------------------------ | --------------------------------------------------------------------------------------------- |
+| drop the `not-ready` refusal                           | `expected { move: 'fly', … } to deeply equal { move: 'none', why: 'not-ready' }`              |
+| drop the `user-moved` refusal                          | `expected { move: 'fly', … } to deeply equal { move: 'none', why: 'user-moved' }`             |
+| ignore `prefers-reduced-motion`                        | `expected 'fly' to be 'jump'`                                                                 |
+| fall back to the fit for an unknown active id          | `expected { move: 'fly', … } to deeply equal { move: 'none', why: 'unknown-active' }`         |
+| pick a zoom of our own (13) instead of the frame's cap | `expected 13 to be 12`                                                                        |
+| drift the flight off the band's dissolve               | `expected 600 to be 500`                                                                      |
+| read the reactive inputs AFTER the bail                | `expected [] to have a length of 1 but got +0`                                                |
+| let a pin press set the active listing itself          | `expected <div data-map-sheet …> to be null`                                                  |
+| forget the camera the map was built with               | four cases; `expected [ {…} ] to have a length of +0 but got 1`                               |
+| boot on the fit instead of the active listing          | `expected 7.075387031871884 to be 12`                                                         |
+| take the FIRST intersecting entry of a batch           | `expected [ 'a', 'b' ] to deeply equal [ 'b', 'b' ]`                                          |
+| take the LAST intersecting entry of a batch            | `expected [ 'b', 'a' ] to deeply equal [ 'b', 'b' ]`                                          |
+| widen the observer's root from a line to the viewport  | `expected '0px' to be '-50% 0px -50% 0px'`                                                    |
+| run the centre rule at every width                     | two cases; `expected [ {…} ] to have a length of +0 but got 1`                                |
+| type the sticky offset as 100                          | `expected 145.40625, received 100`                                                            |
+| unpin the map entirely                                 | `expected 0, received -228.984375`                                                            |
+| take the z-index off the pinned divider                | `the pinned divider owns its own pixels: expected true, received false`                       |
+| run the centre rule at phone widths                    | `expected [3 transforms] to equal [3 different transforms]`                                   |
+| drop `onselect` from the listing page                  | `expected "ih-35-new-braunfels", received null`                                               |
+| always jump, as reduced motion would                   | `95 frames sampled: expected > 3, received 0`                                                 |
+| let the flight test inherit the fleet's `reduce`       | `the fleet's reduced-motion emulation is lifted in this block: expected false, received true` |
+| cut the homepage camera loose from the carousel        | `expected true, received false`                                                               |
+| unpin the map (against the REWRITTEN release test)     | `pinned at the offset: expected 0, received -228.984375`                                      |
+| let a Properties pin open the sheet again              | `expected 0, received 1`                                                                      |
+
+**One of them came back GREEN and that is the most useful line here.** "Takes
+the newest intersecting entry of a batch" was written with a batch whose newest
+intersecting entry happened to also be the FIRST in the array, so replacing
+"newest by time" with "the first one I find" passed it. It now sends two
+batches, oldest-first and newest-first, whose answer is the same card either
+way; "first" is wrong on one and "last" is wrong on the other. Without running
+the mutation that test measured nothing, and it looked exactly like the ones
+that do.
+
+And one existing guard went red for a reason that was never its claim:
+`PropertyListing.test.ts` asserted `/\bh-50\b.*\blg:h-\[595px\]/` on the map's
+class string, and `.` does not cross a newline — the moment the string grew past
+prettier's width and got wrapped, the regex stopped matching two classes that
+were both still there. It is a token-list check now.
+
+### What `pnpm verify` caught that a targeted run did not
+
+The new spec was green on its own and the gate was not. Three failures, and
+only one of them was a flake-shaped thing:
+
+**Two were this change's intended behaviour colliding with the tests that
+described the old one.** `property-map.spec.ts` asserted a pin press opens the
+details sheet, in two places, both on `/dev/properties` — which is exactly the
+page that now passes `onselect` and therefore opens no sheet at all. Those
+assertions did not weaken, they MOVED: the homepage band still draws the sheet
+because it has no card beside its map, and its 390 map is the same 200px
+full-bleed box the credit hit-test was written against (measured: 375 × 200,
+three single pins, no clusters, expand drawn; 508.2 × 820.5 and three pins at
+1440). `/dev/properties` gained the opposite assertion in their place — a pin
+press there opens NO sheet — which is a claim about the new behaviour rather
+than a deletion of the old one. Mutating `onselect` off the caller turns it red
+with `expected 0, received 1`.
+
+**The third was my own test measuring a page that no longer existed.** "Lets go
+at the section's end" computed a travel and a stick point up front and scrolled
+to them afterwards; alone it passed, and inside `pnpm verify` it failed with the
+map's top at 0 against an expected 100. The fixture's card heights settle late —
+its photos are data: URIs that fail to load (#17 logs two console errors per
+load for exactly this) — so a plan measured before the settle described a
+different page from the one being scrolled. Every number now comes out of the
+same `evaluate` as the assertion it feeds, and the release claim is stated
+relationally: the map is parked on the BOTTOM of its own grid area, which is the
+only thing `position: sticky` does here and the thing nothing in the code asks
+for explicitly. It still goes red on `unpin the map entirely`, now with
+`pinned at the offset: expected 0, received -228.984375`.
+
+**And one self-inflicted loss, recorded because it is cheap to repeat.** A
+one-off mutation run was reverted with `git checkout -- <file>` instead of the
+`cp`/`mv` backup the mutation script uses, on a TRACKED file with uncommitted
+work in it. That is not a revert of the mutation, it is a revert to `HEAD`:
+every change to `PropertyListing.svelte` went with it. Rebuilt from the session
+transcript and re-verified (`pnpm check` clean, 21 unit cases green), then
+committed immediately rather than after the next gate. `git checkout --` is not
+an undo.
+
+### The one red in the gate that was not this change's, chased rather than assumed
+
+The second `pnpm verify` went red on `featured-properties.spec.ts` →
+`rotation` → "Pause holds the slide AND the bar", with the band showing
+101 W. Commerce Street where it wanted 25331 IH 10 West: the carousel had
+turned between the test's `barScale > 0.1` poll and its click on Pause. Run
+alone that test passed three times out of three (22.8s, 22.9s, 21.3s).
+
+The obvious suspicion was this change — the homepage band now issues a 500ms
+`flyTo` on every turn, which is real main-thread work in the same tab — so it
+was measured instead of argued. Full `npx playwright test tests/interaction
+--workers=4`, this machine, nothing else building:
+
+| tree                    | runs | result                                                                       |
+| ----------------------- | ---- | ---------------------------------------------------------------------------- |
+| `origin/main` (b690734) | 3    | **1 failed** — `rotation` → "turns on the comp's clock, dissolving"; 2 green |
+| `feat/map-camera`       | 3    | 3 green, 167 tests                                                           |
+
+Two different tests, same describe block, same shape, and the branch is the one
+that did not fail. So the flake is on main and this change did not introduce it.
+Filed as **#117**, with the mechanism worth looking at first: Playwright scrolls
+before it clicks, so `getByRole("button", { name: "Pause slides" }).click()` is
+itself what brings the band on screen — and therefore what boots 426 KB of
+MapLibre plus a WebGL context, on the main thread, inside the dwell the test is
+timing. That is #103 reached by a different route: #103 measured the boot
+landing in the first dwell of a page LOAD, this is it landing in whichever dwell
+the click falls in.
+
+Recorded because the honest version of "verify is green" here is "green on the
+third full run, with one red on the way that belongs to main" — and because the
+cheap wrong move was available and tempting: widen the slack in a test nobody
+had shown to be wrong.
+
+### Filed, not fixed
+
+- **#114 — tabbing a card into view can leave the map on the previous
+  listing.** Measured at 1440×900 across twelve Tab presses: the browser scrolls
+  the focused card into view MINIMALLY, so it lands at top 480 (crossing the
+  centre line at 450) or at top 720 (not crossing it). Focus and the active
+  listing agreed on steps 1, 3 and 6 and were one card apart on steps 2 and 7.
+  Nothing fights — the observer is not being argued with, it is reporting where
+  the window honestly is — and there is no thrash or loop. The consistent fix is
+  to treat focus the way a pin press is treated (an input to the SCROLL:
+  `focusin` in a card calls the same `revealCard`), but that makes every Tab
+  move the page a long way, which is an operator call rather than a detail.
+- **#115 — an active listing inside a cluster has no pin of its own.** On the
+  production build's 17 land listings at the camera's z12, 6 are still inside a
+  cluster (the Boerne / IH-10 corridor group; `property-map.ts` already records
+  the tightest pair at 0.193 km). The camera centres on the listing correctly,
+  but what is drawn at the centre is a count disc, so the visitor cannot tell
+  which of the five they are looking at. #112 predicted exactly this and asked
+  for the design answer before the code; z12 shrinks the problem from 32 of 136
+  land pairs to 6 of 17 listings rather than removing it.
+- **#117 — `featured-properties`' `rotation` block is flaky on main.** Measured
+  above; the mechanism is that Playwright scrolls before it clicks, so the Pause
+  click is what boots the map.
+- **#116 — the OpenFreeMap credit, answered.** The operator asked "do we need to
+  show the open free map bit at the bottom?". Measured rather than remembered:
+  the style JSON at `tiles.openfreemap.org/styles/liberty` declares no
+  attribution at all; the string comes from the TileJSON at
+  `tiles.openfreemap.org/planet`, which is `OpenFreeMap © OpenMapTiles Data from
+OpenStreetMap`. OpenFreeMap's own terms say attribution IS required and name
+  that exact string, then: _"You do not need to display the OpenFreeMap part,
+  but it is nice if you do."_ So the honest answer is: the credit stays, the word
+  "OpenFreeMap" is the only optional part of it. `feat/map-palette` is already
+  dropping that word; this PR deliberately did not touch the attribution.
+
+### Not done here, on purpose
+
+The operator's other two asks in the same message — the tiles in the brand
+palette, and the credit — belong to `feat/map-palette` (#110, #111), which
+rewrites the style through `scripts/map-style.mjs` and a checked-in
+`static/map-style.json`. Both branches touch `PropertyMap.svelte`; whichever
+merges second should expect a conflict in the boot path and nowhere else.
+
+`data-map-pin` now carries the listing's own id instead of an empty marker. A
+pin is a drawing of one list item, saying which one costs nothing, every
+existing `[data-map-pin]` presence selector still matches, and it is what lets a
+browser test assert that the ACTIVE listing's pin is the one at the centre
+rather than that some pin is.
+
+## 2026-09-22 — The pinned map was taking the page's scroll, and one pan killed the camera for good (review of #118, `feat/map-camera`)
+
+The adversarial review of #118 measured three majors in a real browser. All
+three reproduced exactly, on the first try, at 1440×900 on `/dev/properties` —
+which is worth saying because it is the first review in this run where nothing
+in the report had to be re-derived before it could be fixed.
+
+**Merged `origin/main` in first.** `feat/map-palette` (#113) had landed, so the
+branch was CONFLICTING. Conflicts were `docs/COMPONENTS.md` (the
+`property-map.ts` export row and the module/test counts — both regenerated with
+`node scripts/capability-index.mjs` afterwards rather than hand-merged) and
+`docs/workJournal.md`, where both entries are kept: the palette entry first
+because it reached main first, then this branch's camera entry, then this one.
+
+### The map ate the page's scroll, and pinning it made that permanent
+
+`scrollZoom` was left at MapLibre's default `true`. Measured at scrollY 500,
+with the map pinned across x 80..472.2 — 27.2% of the viewport's width — and
+y 100..695: **one 120px wheel tick over the map moved the page 0px**, and five
+ticks moved 120px against 600px for the same five ticks over the cards column.
+maplibre-gl 6.10.0's `ScrollZoomHandler.wheel` ends in an unconditional
+`preventDefault()`, so every wheel event landing on that canvas is taken from
+the document. On main this cost 595px of page once; pinned, the obstacle
+follows the visitor for the whole section.
+
+Scroll-zoom is now **off for the in-page map and on only when expanded** — the
+state a visitor opens deliberately and closes again. `cooperativeGestures` was
+rejected without needing a new measurement: it draws a modifier-key overlay
+over a 392px panel and still takes a trackpad pinch, which arrives as a
+ctrl-wheel and is the very gesture the overlay tells you to make. After the
+fix, one tick over the map moves the page 120px and five move 600 — identical
+to the cards column, which the test asserts as a control rather than as a
+constant.
+
+**The construction option is not the guard.** `scrollZoom: false` in the `new
+Map(...)` options was mutated to `true` on its own and the browser test stayed
+GREEN: the `$effect` that follows `expanded` disables it again on its first
+run. The option is kept because it closes the window between the constructor
+and that first run, and the comment now says that instead of implying it is
+what holds the line. The real red came from mutating the effect.
+
+### A pin press fired a flight at every card it scrolled past
+
+`revealCard` uses `scrollIntoView({block:"center"})` with no `behavior`, so it
+takes `html { scroll-behavior: smooth }` — and a smooth scroll crosses every
+card between here and there, with the centre rule firing at each one. Measured
+with motion ALLOWED, pressing the IH-35 pin from scrollY 0: the page travelled
+0 → 936 and the camera was issued **four `flyTo`s in 322ms** — fm-1560-galm,
+potranco-road, hwy-90-castroville, ih-35-new-braunfels — interrupted after 86,
+54 and 101ms. The real land section is 17 cards over ~4500px, so a press near
+its foot chained a dozen.
+
+The operator's rule stands — viewport centre is the only thing that sets
+`active`, a press only scrolls — so the fix could not be "let the press name
+the listing". Instead the centre rule is **suspended while a press-initiated
+scroll travels** and resumed when it settles; because the pressed card is by
+then the card on the centre line, the one rule answers, once. The resume needs
+no machinery: `centreWatch`'s `update` already calls `start()`, and a fresh
+`observe()` makes the browser deliver an entry for every child at its current
+position, so the post-suspension answer comes out of `report` like every other.
+
+Settle detection is a 120ms debounce on the document's own `scroll` events
+rather than a fixed duration — a smooth scroll emits roughly one per frame, so
+120ms of silence means it stopped whatever distance it covered, and a fixed
+number would have to cover 4500px and would then freeze a 200px hop for a
+second. The timer is armed at the press, not at the first scroll, because
+pressing the pin of the card already on the centre line moves nothing and
+produces no events to debounce; a 2000ms cap backstops a scroll interrupted
+mid-flight.
+
+After the fix the same press issues **exactly one flight**, at +616ms, to the
+pressed listing, with the page still travelling 0 → 936.
+
+### `userMoved` was wrong in both directions, and the stub could never have said so
+
+Measured against real gestures in Chromium, which is the whole point:
+
+| gesture             | `movestart.originalEvent` |
+| ------------------- | ------------------------- |
+| drag pan            | `mousemove`               |
+| double-click zoom   | `dblclick`                |
+| keyboard (`+`, `→`) | `keydown`                 |
+| **wheel zoom**      | **none**                  |
+
+The wheel is the one real gesture MapLibre leaves untagged — its
+ScrollZoomHandler drives the zoom from the render loop, so the move it starts
+looks programmatic. So a visitor's own zoom was thrown away at the very next
+card crossing: zoom 12.000 → 12.334 by hand, then back to 12.000 on the next
+flight. Precisely what the flag's comment claimed it prevented.
+
+The other direction was worse. A 40px drag DID set it and **nothing but
+`destroy()` ever cleared it**: 0 flights at every later card crossing, and the
+pins at scrollY 500 and 760 byte-identical. One pan switched off the feature
+the whole PR exists for.
+
+Fixing the wheel half is the scroll-zoom fix — with the wheel going to the
+document there is no untagged gesture left on the in-page map. (The expanded
+map still has scroll-zoom, so a passive `wheel` listener on the canvas
+container counts it as a gesture, but only while `map.scrollZoom.isEnabled()`:
+with it disabled the wheel is scrolling the page past the map, not driving it,
+and counting that would suspend the camera on every scroll down the page.)
+
+For the drag half, the review offered "a drag suspends follow until the visitor
+scrolls the document again" and invited a different call with reasoning. **That
+rule was rejected on measurement, not taste:** on /properties the scroll IS how
+cards are crossed, so a 1px scroll would end the suspension and the very next
+crossing would yank the view — the same complaint the wheel half was, one step
+along. It would also end a pan on the homepage band the instant the visitor
+scrolled past the band at all.
+
+The rule shipped instead: **a gesture suspends the camera until the page asks
+for a DIFFERENT listing.** While `active` holds, the visitor is still reading
+the card they were reading when they grabbed the map, and every re-fit must
+leave their view alone; the moment `active` names another listing the page has
+been asked to show somewhere else, and showing it is the point of the camera.
+A timeout was considered and dropped — a number nobody can justify, firing
+while the visitor is still looking.
+
+**The first version of that rule was wrong and the browser caught it.**
+Expressed as `drivenAt !== undefined && drivenAt === active`, the suspension
+came BACK every time the visitor returned to the listing they had dragged on:
+drag over castroville, scroll to New Braunfels (one flight, correct), scroll
+back to castroville and the camera did not move at all — still parked on New
+Braunfels, because `drivenAt === active` was true again. A gesture is an event,
+not a property of a listing.
+
+**And the fix for that made the original clause redundant, which only mutation
+showed.** With an effect that forgets a spent suspension, two mechanisms
+existed; the comment justifying the second claimed it protected against effect
+ordering. Mutating proved that claim false:
+
+- plain `drivenAt !== undefined`, clearing effect intact → still green
+- plain derived AND the clearing effect moved BELOW the camera effect → still
+  green, which is exactly the case the ordering argument predicted would fail
+- clearing effect's body removed, compound derived intact → RED
+
+Svelte re-runs the camera effect when the clearing effect writes `drivenAt`,
+whichever order they are declared in. The clause is gone rather than kept "just
+in case": a guard nothing can be shown to need is a guard the next reader has
+to re-derive. This is the second time in this run that a rationale written in
+the same session as the fix turned out to be a hypothesis.
+
+### The sticky-geometry numbers were 40px wrong, and the real-portfolio ones were not
+
+The comment at `PropertyListing.svelte` and the `feat/map-camera` journal entry
+both subtracted the map's height from the grid's BORDER box, which includes the
+`lg:pt-10` the grid area does not. Real, at 1440×900 on the fixture: grid top
+476.02, padding-top 40, border-box 1092.39, content box 1052.39, map 595 — so
+**457.39px of travel, stuck from scrollY 416.02**, not 497.39 from 376.02. The
+claim that the map is stuck anywhere in 376..416 was simply false: its top
+reads 140.02 at scrollY 376 and first reaches its 100px offset at 416,
+confirmed by sampling every scrollY from 360 to 500.
+
+The release point survived the error because the two 40s cancel at the far end
+(416.02 + 457.39 = 376.02 + 497.39 = 873.41), which is exactly why nobody
+caught it — the one number anyone checks was the one the mistake could not
+move.
+
+**The review's guess about the real-portfolio figures was wrong, and that is
+worth more than the correction itself.** It suggested 4499.86 was "likely 40
+high too". Re-measured on a production build of the real `/properties`: land's
+content-box travel is 4499.86 and improved's 873.63 — both already correct; the
+border boxes are 4539.86 and 1013.63. Whoever wrote those two computed them
+properly and only the fixture prose used the wrong box. Both journal entry and
+code comment now say so, and the entry says it was corrected in place and why:
+it has not reached main, so there is no published record to preserve.
+
+### The no-JS state was wrong by the same 45.41
+
+`--sticky-top` shipped from the server as a flat `100px` and was corrected only
+by an `$effect`. Both the map and the divider are `position: sticky` in plain
+CSS, so they pin on a page that never hydrates. Measured on a production build
+of `/properties` at 1440×900, scrollY 6000, **script off**: `--sticky-top`
+100px, map top 100, divider bottom 145.41 — **45.41px of the fallback list of
+listing links behind an opaque block**, and that list is the entire map for a
+no-JS visitor. With script on the same instant reads 145.406 and 0px behind.
+
+The fallback is now a CSS expression rather than a number, chosen per section:
+section 0's divider does not pin so its map lands on the declared usable top,
+and every later one lands on `--listing-divider-top`, derived in app.css from
+the divider's own declared parts — `calc(100px + 2px + 18px + 34.8px - 9.4px)`
+= 145.4, being the comp's pad, the `border-t-2` rule, the `pt-[18px]` gap, one
+`t-h3` line box and that utility's own negative `margin-block`, which is what
+makes the label block 45.4 and not 54.8. `measure()` still overrides it the
+moment script runs; where it cannot measure a pinned divider it now returns
+`undefined` and KEEPS the CSS fallback, rather than putting the naked 100 back.
+The browser test asserts the derived constant against the divider the browser
+actually rendered, so a font swap that moves one and not the other goes red.
+After: 145.39 against a divider bottom of 145.41.
+
+### …and so was `scroll-padding-top`, in the one place the stylesheet declares it
+
+`app.css:557` declared `100px`, the same constant this PR proved is 145.4
+inside a pinned section. Measured on a production build: a card scrolled to the
+top of the scrollport — a fragment, or a backward Tab onto an element above the
+viewport — landed its top at 99.95 against a divider bottom of 145.41.
+
+Fixed as a class rather than an instance, per CLAUDE.md. The usable top is now
+declared ONCE as `--usable-top` (90px, 100 at `lg`) and `scroll-padding-top`
+reads it; the cards carry
+`lg:scroll-mt-[calc(var(--sticky-top)-var(--usable-top))]`, which is 0 in
+section 0 where the two are equal and 45.41 in a pinned section, with no number
+typed anywhere. After: 144.95 against 145.41, and the section-0 cards compute
+`scroll-margin-top: 0px`.
+
+### The tests, and the one that found a defect in itself
+
+`tests/interaction/camera-probe.ts` is new: it counts the camera commands a
+real MapLibre map is issued, from outside the app, by rewriting the
+`$lib/map-engine` module response and patching `Map.prototype`. The alternative
+was a `data-map-flights` attribute shipped to every visitor and written by the
+code under test — which could agree with a broken camera perfectly. Two things
+it cost: swapping the exported `Map` class throws (an ESM namespace is
+read-only, and that version spent a 30s timeout on a map that never booted), so
+the instance is captured from `addControl`; and every caller asserts the probe
+INSTALLED, because an empty log otherwise reads as a pass.
+
+Every new guard was mutated. The one worth recording is the first: mutating
+`scrollZoom` back on made the wheel test fail **on its own control**, because
+`section.querySelector("ul")` matches the MAP's own `<ul>` of Google Maps links
+— it is first in the grid — so the "cards column" probe was landing on the map
+and reading 0. `PropertyListing.test.ts` already documents that exact trap. The
+probe now uses `ul:not([data-map-list])` and the red lands on the claim:
+expected 120, received 0.
+
+Two cases turned out to be unwritable at the stub altitude and say so in place
+rather than being faked. `view.rerender` re-runs the boot effect, whose cleanup
+calls `destroy()` — so after one rerender the camera effect sees `map = null,
+ready = false`, and a "0 flights" assertion written that way passes because
+there is no map. The b → a → b revival case is therefore measured only in the
+browser, and the re-fit suspension is measured through a ResizeObserver the
+test can fire again, which does not go near the boot effect.
+
+The `PropertyMap.test.ts` case the review called unfailable was unfailable in
+two ways at once, not one: it counted only `flights` (a regression reaching for
+`easeTo`, which `press` already does for clusters, would have been invisible)
+and it pressed the pin of the listing that was ALREADY active, so even a press
+that set the camera itself would have asked for the camera it was already at.
+It now presses a different listing's pin, counts every camera method, and
+asserts positively that the press was reported.
+
+`property-map-camera.spec.ts:155` is renamed to what it measures. It claimed to
+prove the map passes under the divider at a point with ZERO sticky travel: the
+improved section's grid row is exactly 595, the map's own height, measured at
+1024, 1100, 1200, 1280 and 1440 — travel 0 at all five, against land's 473.16 /
+433.16 / 433.16 / 433.16 / 457.39. Giving it real travel was tried and there is
+nowhere on this fixture to get it, so it is now a z-order assertion by name,
+with a note saying the offset is guarded by the first test in its block and by
+the no-JS case.
+
+`CAMERA_FLIGHT_MS` and the band's `DISSOLVE` are now one constant rather than
+two 500s whose comments each named the other. The slice imports it, and
+`FeaturedProperties.test.ts` asserts the text cascade ends on `CAMERA_FLIGHT_MS`
+— mutating the constant to 600 turns it red.
+
+### The merge broke a test on main, and only merging could have shown it
+
+`pnpm verify` went red on `map-palette.spec.ts` — a case that arrived with
+`feat/map-palette` (#113) and has never run on the same tree as the camera
+until this merge. It is not a flake: it failed identically in a 4-worker run
+and a 1-worker run, and the tile host answered 200 in 1.27s throughout.
+
+**What it was measuring.** It screenshots the first map, decodes it and counts
+exact colours, requiring >50% of the canvas in our `#f2efe9` and more than 500
+px of our `#a8b4b8` water. Its water premise is a property of the LAND
+SECTION'S FIT frame: Choke Canyon Reservoir, Lake Corpus Christi and the Nueces
+are inside the fit of all 17 land listings, and before #112 that frame was what
+the map showed at every scroll position.
+
+**What broke it.** From `lg` the map now follows the card on the centre line,
+so it sits at z12 on ONE listing. And the sampling decides which one:
+`locator.screenshot()` scrolls its target into view, the map is 595 tall in a
+720 viewport, and the scroll that makes it fully visible puts a card on the
+centre line. Measured at 1280x720 after that scroll: `#f2efe9` 83.37% — the
+palette is plainly fine, and near the 83.12% the case documents — but water
+**284** against the 500 it asserts. Centring six land listings by hand gave
+water 284 / 287 / 256 / 2,150 / 31,106 / 375. The count had become a fact about
+which listing you happened to stop on.
+
+**Two wrong fixes, rejected.** Lowering the threshold to 100 would have made a
+green out of a number that is now arbitrary. Parking the scroll where nothing
+is on the centre line does not work either: the map needs half its box on
+screen to boot at all (scrollY >= 93.5 at 1280x720, measured), the centre line
+clears the first card only below scrollY 156 — and `locator.screenshot()` then
+scrolls it into view anyway, which is how the first attempt at that fix still
+sampled a z12 frame.
+
+**The fix.** The case moves to 390, where `centreWatch` is not constructed at
+all (PropertyListing's "DESKTOP ONLY, AND NOT MERELY HIDDEN"), so `active`
+stays null and `cameraMove` fits every point, forever — the same fit frame the
+case was written against, now reachable deterministically rather than by
+accident. Measured at 390x844: 67,335 px, 42,010 (62.39%) `#f2efe9` and
+**12,113** `#a8b4b8`, both upstream colours 0. The `total` floor drops from
+100,000 to 50,000, which is the same statement about a 350x200 panel that
+100,000 was about a 595-tall one.
+
+**It still discriminates, and by more than before.** Re-running the case's own
+documented mutation — `DEFAULT_MAP_STYLE_URL` back to upstream liberty — at the
+new viewport: `#f2efe9` 355 (0.50%), our water 0, upstream water 12,444.
+Against the 1280 numbers it replaces (596 at 0.29%, upstream water 1,676) the
+separation on the water channel is 7x wider, because the fit frame holds far
+more water than one listing's z12 frame does.
+
+**The lesson worth keeping:** this PR's own gate was green on its own branch
+for a full round of review, and this failure existed the whole time as a
+property of two branches that had not met. Merging main in BEFORE fixing the
+review, rather than after, is what turned it up.
+
+### And one red that is neither the code's nor a flake: a system setting
+
+`pnpm verify` went red on `featured-properties.spec.ts` — first on one case,
+"1440: the chrome is INSIDE the panel beside the text", at `g.text.left`
+436.890625 against an expected < 435, and on the last run on three. It failed
+3/3 in isolation with the identical value, so it is not the `rotation` flake
+#117 describes.
+
+It cost a full bisect, and the order that finally worked is the useful part.
+Rejected in turn: a timing flake (no — deterministic, same value every run);
+Tailwind's source scan picking up main's new `static/map-style.json`, which is
+prettier-ignored but NOT excluded from `@source` (a real-looking hypothesis,
+and this repo has shipped that exact defect before — adding `@source not` for
+it changed nothing); and the branch's own changes (reverting ALL FIVE source
+files to their pre-fix state and re-running: still red, identical value).
+
+What it actually is: the file turns a layout width into a viewport width with
+`const GUTTER = 15`, on the documented reasoning that "headless Chromium keeps
+`scrollbar-gutter: stable`'s 15px". That is true only with CLASSIC scrollbars,
+and macOS's "Automatically based on mouse or trackpad" gives OVERLAY ones — for
+which `scrollbar-gutter: stable` reserves nothing. Measured on a page with no
+repo code in it at all (`page.setContent` of a bare
+`<html style="scrollbar-gutter:stable">` with a 5000px child, same Playwright,
+same browser): `{"innerWidth":1455,"clientWidth":1455,"gutter":0}`.
+
+With the gutter at 0 the page lays out at the full 1455 and everything scales
+by 1455/1440: map slot 513 -> 520.5, card 927 -> 934.5, text column 434 ->
+436.89. Exactly the number in the red.
+
+**It flipped mid-session, which is the whole reason it reads as a regression.**
+The same tree ran green on this case at 20:36 (184 passed, 2 failed, neither
+this one) and red at 20:56. Nothing in the repo changed between those two runs
+that touches the homepage band.
+
+ALL THREE failures are the same root cause, and the third one's own comment
+says so without knowing it: as an overlay the portfolio button "painted over
+the whole band, and axe answered `color-contrast` with `bgOverlap` for the
+card's words". A layout that shifts by 7.5px does the same thing by a different
+route — the last run's other two reds are `color-contrast: 10` violations on
+the band, and every one of the three opens with `moving(browser)`, which is
+`viewportFor(1440)`, which is `GUTTER`.
+
+Filed as **#124**, with the fix: measure the gutter once per run rather than
+typing it. Left alone here — it is main's test, main's CI is green on Linux
+where the gutter really is 15, and a session that "fixed" it by changing the
+constant would break it everywhere else.
+
+### What is NOT fixed
+
+- **#114** (tabbing a card into view can leave the map on the previous listing)
+  and **#115** (an active listing inside a cluster has no pin of its own) both
+  stay open. Nothing here touches either mechanism — `suspended` is set only by
+  `revealCard`, which a Tab never reaches, and clustering is untouched. Worth
+  noting on #114: its proposed fix is to route `focusin` through `revealCard`,
+  which is now strictly better than when the issue was written, because
+  `revealCard` no longer fires a flight per card crossed.
+- **#124 — `featured-properties`' `GUTTER = 15`** is a macOS system setting
+  rather than a constant, and the band's absolute-geometry cases go red on a
+  trackpad. Measured above; not this branch's test and not this branch's bug.
+- **A one-finger touch drag over the map at 390** is the remaining member of
+  MAJOR 1's defect class and is NOT resolved. MapLibre sets `touch-action:
+none` on the canvas container, so the map claims touch gestures; but measured
+  with synthesized touch at 390×844, a 200px swipe up over the map still moved
+  the page 277px against 329px below it. That is neither the clean trap the
+  wheel was nor clearly fine, and synthesized touch is not a real finger. Filed
+  rather than guessed at.
+
 ## 2026-09-22 — The roads were sand on sand, and three of #113's guards could not see what they claimed (`fix/map-palette-review`)
 
 The adversarial review of #113. One operator-facing change and five corrections

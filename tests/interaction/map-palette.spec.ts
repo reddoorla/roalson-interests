@@ -65,6 +65,9 @@ import { hydrated } from "./hydrated";
 // injects `*{transition:none}` — both act on CSS and on MapLibre's easing, and
 // neither can change which colour a tile is rasterised in. The camera is set by
 // `jumpTo` at boot either way (see $lib/property-map's header).
+//
+// WHAT THE CAMERA (#112) DOES CHANGE is WHICH GROUND is under the sample, and
+// that turned out to matter a great deal — see the note on the first case.
 const MAP = "[data-property-map]";
 
 /** OpenFreeMap's stock style, for the control in the Natural Earth case below.
@@ -101,19 +104,74 @@ async function pixels(page: Page) {
 }
 
 test.describe("the tiles paint in the brand palette", () => {
+  // MEASURED AT 390, AND THAT IS NOT A STYLE CHOICE — IT IS THE ONLY WIDTH
+  // WHERE THE FRAME IS DETERMINISTIC.
+  //
+  // This case was written before the map had a camera (#112). It sampled at the
+  // shared config's Desktop Chrome viewport and its numbers — 203,832 px, of
+  // which 169,425 (83.12%) #f2efe9 and 1,684 #a8b4b8 — are the LAND SECTION'S
+  // FIT frame, which is what the map showed at every scroll position back then.
+  // Its water premise is a property of that frame: Choke Canyon Reservoir, Lake
+  // Corpus Christi and the Nueces are inside the fit of all 17 land listings.
+  //
+  // From `lg` the map now follows the card on the centre line, so it sits at
+  // z12 on ONE listing and that premise is gone. Worse, the sampling itself
+  // decides which: `locator.screenshot()` scrolls its target into view, the map
+  // is 595 tall in a 720 viewport, and the scroll that makes it fully visible
+  // puts a card on the centre line. Measured at 1280x720 after that scroll:
+  // 83.37% #f2efe9 — the palette is plainly fine — but water **284**, against
+  // the 500 this asserts. Centring six different land listings by hand gave
+  // water 284 / 287 / 256 / 2,150 / 31,106 / 375: the count is now a fact about
+  // which listing you happened to stop on, which is no basis for a threshold.
+  //
+  // Below `lg` the camera does not run AT ALL — `centreWatch` is not
+  // constructed there (see PropertyListing.svelte), so `active` stays null and
+  // `cameraMove` fits every point, forever. That is the same fit frame this
+  // case was written against, now reachable deterministically. Measured at
+  // 390x844: 67,335 px, 42,010 (62.39%) #f2efe9 and **12,113** #a8b4b8, with
+  // both upstream colours at 0.
+  //
+  // Nothing about what this proves has changed: the colours are the style's,
+  // the deny half is untouched, and the water margin is 24x rather than 3x.
   test("the ground is ours and the water is ours, counted off the canvas", async ({ page }) => {
+    // BOTH halves of this line were changed on two branches for two reasons,
+    // and they compose. `fix/map-palette-review` moved it to the fixture so
+    // the frame stops depending on what is published in Prismic; the camera
+    // branch moved it to 390 because at `lg` the centre rule now drives the
+    // camera, so the frame there is whatever card is centred rather than the
+    // section's fit. The fixture AT 390 is deterministic in both senses.
+    await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/dev/properties");
     await hydrated(page);
     await page.locator(MAP).first().scrollIntoViewIfNeeded();
     await drawn(page);
 
+    // Positive evidence the frame really is the section's fit and not one
+    // listing: nothing is on the centre line, because nothing is watching it.
+    expect(
+      await page.evaluate(() => {
+        const mid = window.innerHeight / 2;
+        for (const li of document.querySelectorAll<HTMLElement>("[data-centre-id]")) {
+          const box = li.getBoundingClientRect();
+          if (box.top <= mid && box.bottom >= mid) return li.dataset.centreId ?? null;
+        }
+        return null;
+      }),
+      "no card drives the camera below `lg`, so this is the section's fit frame",
+    ).toBeNull();
+
     // `load` fires when the style and the FIRST tiles are in; the rest of the
     // frame settles over the next second or so, so the sample polls rather than
-    // reading once. Measured on the fixture on 2026-09-22, on the shared
-    // config's Desktop Chrome viewport, three runs, identical every time:
-    // 203,832 px, of which 150,381 (73.78%) are exactly #f2efe9 and 952 exactly
-    // #a8b4b8. (Against the published portfolio the same test read 169,425 /
-    // 83.12% / 1,684 — a different frame, which is the whole point.)
+    // reading once. Measured on the FIXTURE at 390x844 on 2026-09-22, three
+    // runs, byte-identical every time: 70,350 px, of which 39,491 (56.14%) are
+    // exactly #f2efe9 and 441 exactly #a8b4b8, with both upstream colours at 0.
+    //
+    // These are neither branch's numbers and that is the point. `feat/map-camera`
+    // measured 67,335 / 62.39% / 12,113 against the PUBLISHED portfolio at 390;
+    // `fix/map-palette-review` measured 203,832 / 73.78% / 952 against the
+    // fixture at Desktop Chrome. This case is the fixture AT 390, so it inherits
+    // neither, and taking either branch's figures on faith would have pinned a
+    // frame that is not the one being sampled.
     const measured = { total: 0, land: 0, water: 0, upstreamLand: 0, upstreamWater: 0 };
     await expect
       .poll(
@@ -128,10 +186,16 @@ test.describe("the tiles paint in the brand palette", () => {
           // succeeds throws, so anything printed afterwards is printed only on
           // the GREEN path — and the numbers are the whole point of the red
           // one. Mutating DEFAULT_MAP_STYLE_URL back to upstream printed
-          // "203832 px: #f2efe9 596 (0.29%), #a8b4b8 0, #f8f4f0 0, #9ebdff
-          // 1676" here, which names the failure — and incidentally shows why
+          // "70350 px: #f2efe9 355 (0.50%), #a8b4b8 0, #f8f4f0 0, #9ebdff
+          // 12444" here, which names the failure — and incidentally shows why
           // the #f8f4f0 deny below is nearly worthless. Without this line the
           // red was a bare "expected true".
+          //
+          // (That mutation was re-run at 390 when this case moved there, and
+          // the separation is WIDER than the 1280 numbers it replaces —
+          // "203832 px: #f2efe9 596 (0.29%), #a8b4b8 0, #f8f4f0 0, #9ebdff
+          // 1676" — because the fit frame holds far more water than one
+          // listing's z12 frame does.)
           console.log(
             `[map-palette] ${measured.total} px: ${OURS.land} ${measured.land} ` +
               `(${((measured.land / measured.total) * 100).toFixed(2)}%), ` +
@@ -143,21 +207,23 @@ test.describe("the tiles paint in the brand palette", () => {
           // an assertion afterwards: most of this frame is open Hill Country
           // and SA-metro rangeland, i.e. the `background` layer and nothing
           // else, so our off-white is the MAJORITY colour or the style did not
-          // take. Water is small but not optional, and it is FOUR NAMED LAKES,
-          // counted by flood-filling the blobs and unprojecting each centroid:
-          // Canyon Lake 410 px at 29.8878,-98.2535; Medina Lake 289 at
-          // 29.5802,-98.9583; Calaveras Lake 165 at 29.3058,-98.3208; Braunig
-          // Lake 63 at 29.2567,-98.3802 — 927 of the 952, across 24 blobs. A
-          // `water` layer that failed to parse takes all of it to zero.
+          // take. Water is small but not optional: a `water` layer that failed
+          // to parse takes it to zero.
           //
-          // THE FLOORS ARE NOT THE MEASUREMENTS. 0.5 against a measured 0.7378
-          // and 300 against a measured 952 leave room for a tile server that
-          // hands back a slightly different generalisation, while still being
-          // nowhere near what the old style gives (0.25% land, 0 water). They
-          // are floors on a DETERMINISTIC frame now, so if one of them ever
-          // trips it is the palette and not the portfolio.
+          // THE FLOORS ARE NOT THE MEASUREMENTS, and one of them is TIGHT.
+          // Water at 200 against a measured 441 is 2.2x of headroom. Land at
+          // 0.5 against a measured 0.5614 is SIX POINTS, which is deliberate
+          // but worth knowing: 0.5 is not a margin, it is the claim itself —
+          // our off-white is the majority colour of the canvas or the style
+          // did not take. A tile generalisation that adds a few percent of
+          // road or building fill would trip it, and that is the one way this
+          // gate can red without the palette being wrong. Three byte-identical
+          // runs say the frame itself is not the source of variance.
+          //
+          // They are floors on a DETERMINISTIC frame now — the fixture, not
+          // the portfolio — so if one trips it is the palette, not the content.
           return (
-            measured.total > 100_000 && measured.land / measured.total > 0.5 && measured.water > 300
+            measured.total > 50_000 && measured.land / measured.total > 0.5 && measured.water > 200
           );
         },
         {
