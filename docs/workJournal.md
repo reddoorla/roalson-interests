@@ -6965,6 +6965,39 @@ transcript and re-verified (`pnpm check` clean, 21 unit cases green), then
 committed immediately rather than after the next gate. `git checkout --` is not
 an undo.
 
+### The one red in the gate that was not this change's, chased rather than assumed
+
+The second `pnpm verify` went red on `featured-properties.spec.ts` →
+`rotation` → "Pause holds the slide AND the bar", with the band showing
+101 W. Commerce Street where it wanted 25331 IH 10 West: the carousel had
+turned between the test's `barScale > 0.1` poll and its click on Pause. Run
+alone that test passed three times out of three (22.8s, 22.9s, 21.3s).
+
+The obvious suspicion was this change — the homepage band now issues a 500ms
+`flyTo` on every turn, which is real main-thread work in the same tab — so it
+was measured instead of argued. Full `npx playwright test tests/interaction
+--workers=4`, this machine, nothing else building:
+
+| tree                    | runs | result                                                                       |
+| ----------------------- | ---- | ---------------------------------------------------------------------------- |
+| `origin/main` (b690734) | 3    | **1 failed** — `rotation` → "turns on the comp's clock, dissolving"; 2 green |
+| `feat/map-camera`       | 3    | 3 green, 167 tests                                                           |
+
+Two different tests, same describe block, same shape, and the branch is the one
+that did not fail. So the flake is on main and this change did not introduce it.
+Filed as **#117**, with the mechanism worth looking at first: Playwright scrolls
+before it clicks, so `getByRole("button", { name: "Pause slides" }).click()` is
+itself what brings the band on screen — and therefore what boots 426 KB of
+MapLibre plus a WebGL context, on the main thread, inside the dwell the test is
+timing. That is #103 reached by a different route: #103 measured the boot
+landing in the first dwell of a page LOAD, this is it landing in whichever dwell
+the click falls in.
+
+Recorded because the honest version of "verify is green" here is "green on the
+third full run, with one red on the way that belongs to main" — and because the
+cheap wrong move was available and tempting: widen the slack in a test nobody
+had shown to be wrong.
+
 ### Filed, not fixed
 
 - **#114 — tabbing a card into view can leave the map on the previous
@@ -6985,6 +7018,9 @@ an undo.
   which of the five they are looking at. #112 predicted exactly this and asked
   for the design answer before the code; z12 shrinks the problem from 32 of 136
   land pairs to 6 of 17 listings rather than removing it.
+- **#117 — `featured-properties`' `rotation` block is flaky on main.** Measured
+  above; the mechanism is that Playwright scrolls before it clicks, so the Pause
+  click is what boots the map.
 - **#116 — the OpenFreeMap credit, answered.** The operator asked "do we need to
   show the open free map bit at the bottom?". Measured rather than remembered:
   the style JSON at `tiles.openfreemap.org/styles/liberty` declares no
