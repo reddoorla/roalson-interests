@@ -9,6 +9,7 @@ import {
   resetCamera,
   watchCamera,
 } from "./camera-probe";
+import { FEATURED_LAP } from "./featured-dwell";
 import { hydrated } from "./hydrated";
 import { placedMarkers, placedPin } from "./placed-markers";
 
@@ -533,8 +534,12 @@ test.describe("the homepage band, where the carousel drives the camera", () => {
       await page.waitForTimeout(1200);
       const parked = await where();
       expect(parked.length).toBeGreaterThan(0);
-      // Two and a bit full dwells (4000ms each) with the carousel stopped.
-      await page.waitForTimeout(9500);
+      // More than a whole lap of the band's clock with the carousel stopped,
+      // so a clock still running would have moved the map inside it. Read off
+      // the slice (./featured-dwell.ts): the same 9500 as before, which was
+      // "two and a bit full dwells" of the old 4000 and is one lap (8500)
+      // and a second of margin since the operator doubled it (2026-09-23).
+      await page.waitForTimeout(FEATURED_LAP + 1000);
       expect(await where(), "a paused carousel is a still map").toBe(parked);
 
       // Now let it turn again, and the camera goes with it.

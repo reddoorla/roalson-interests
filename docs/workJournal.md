@@ -9427,3 +9427,223 @@ Not fixed here:
 The load average ran 5.9–46 through the session, with other agents' Playwright
 runs on the same 8 cores. Everything above 8 is labelled noisy, and CI plus the
 independent verifier are the authority.
+
+### Later the same day: hover is not a pause on this band, and each listing gets eight seconds (operator calls, ~12:25)
+
+The operator, verbatim: _"i figuered out the issue on the homepage slideshow,
+remove the pause on hover, they have a pause button for that. also double the
+length on time on each property, it feels like we're rushing."_ "The issue" is
+their earlier report, _"the pause play button seems to take a moment"_. Their
+diagnosis was the hover pause: the pointer travelling to the button has already
+stopped the clock. The same branch carries both calls, as an amendment to the
+entry above.
+
+#### The lag was hover, measured on main before anything changed
+
+**The harness.** I built main's band into the tree (main's slice and
+CarouselProgress; the primitive was still main's) and served it as a production
+build of `/` at 1440 × 900 with motion allowed. Each of six runs did the same
+thing: pointer onto the photo, 500ms, onto Pause, 150ms of aim, then a press
+held ~100ms (measured holds 104.6–142.3ms). The page stamped every frame of the
+bar, the label's `aria-label` changes, every pointer event, `longtask` entries
+and Event Timing. Load was 5.1 at the start and 11.8 at the end, so the later
+runs are noisy.
+
+- **Pause.** The label flipped **0.9–9.7ms** after the press, because Chromium
+  focuses on mousedown and focus entering is APG's pause. The bar, though, had
+  stopped **804–919ms before the press**, on the frame the pointer crossed the
+  card, and it moved **0.0000** between the pointer arriving and the press. So
+  the press changed a label and nothing that moves. That is the "moment".
+- **Play, with the pointer still on it.** The label flipped on release,
+  **103.6–109.1ms** after the press. The bar did not move until the pointer
+  **left the band**: 2108.0–2142.8ms after the press in the script, 0.8–24.5ms
+  after the leave. For a visitor who kept the pointer there it would never have
+  moved.
+- **Nothing was slow.** No long task fell within −100..+400ms of either press,
+  and no frame gap near them exceeded 12.9ms.
+
+The operator's diagnosis was exactly right.
+
+#### The hover change, and where it lives
+
+- **The primitive** gains `pauseOnHover`, **default true**. That keeps APG's
+  recommendation and Slider's behaviour, so CarouselFixture and
+  `carousel.spec.ts` (still at its own 4000) are untouched.
+- **The gate** is now `rotating = … && !(hoverPauses && hovered) && …`.
+  `hovered` is still tracked while the option is off, so switching it back on
+  under a resting pointer pauses at once.
+- **FeaturedProperties** passes `false`.
+- **Everything else still stops the clock.** Focus entering does, until Play:
+  APG's sticky pause, and what a keyboard user needs. A hidden tab does, and the
+  Pause button is still WCAG 2.2.2's mechanism.
+- **Dropping APG's hover recommendation for this band is the operator's call,**
+  stated as such in the slice and the PR.
+- **I did not flip the default.** The operator's reason applies to any carousel
+  with a visible Pause. But the only other consumer is the fixture, and making
+  the whole primitive deviate from APG is a decision for the operator, so the PR
+  argues it rather than doing it.
+- **`paused` and `eligible` mean what they meant.** Only `rotating` changed, and
+  only on this band. #150's map gate (`carousel.paused || !carousel.eligible`)
+  is unaffected.
+
+**After, the same script on this branch's production build** (six runs, load
+17.1–23.8, noisy):
+
+- **Pause:** the label flipped at **1.2–9.4ms**. The bar was moving under the
+  pointer all the way there, 0.098–0.105 of travel between the pointer arriving
+  and the press, which is ~800ms of an 8000 dwell. It stopped on the press: its
+  last recorded change was the first frame after it (2.4–9.9ms), which is the
+  recorder reading the pre-press tick one frame late.
+- **Play:** the label flipped on release, **103.8–105.9ms** after the press, and
+  the bar was moving again on the next frame, **104.3–112.3ms** after the press.
+
+**What is left is not the slideshow's code, and none of it was changed here:**
+
+- **Play acts on release, and so does every Pause after the first.** That makes
+  them ~104–130ms after the press, which is the hold itself. Only the first
+  Pause acts on the press, because its focus is "focus entering". A button that
+  acts on its click is every button. The click-vs-pointerdown settle at
+  `carousel.svelte.ts` ~:368 adds nothing: it only decides which way the click
+  resolves.
+- **A press during the map's boot can wait for it.** Four more runs pressed the
+  toggle every ~520ms from the end of the card's reveal. Each run had exactly
+  one frame gap of **1030–3112ms**, straddling `data-map-ready` (961–2501ms
+  after the scroll). A press that landed inside it had an Event Timing input
+  delay of **849.4ms**, and its label flipped at 983.7ms. The `longtask`
+  observer saw nothing longer than 93ms, so the freeze is not script it can see.
+  Software GL in headless Chromium is my guess and is not isolated. Recorded on
+  #103.
+- **WebKit.** It does not focus a clicked button, so after an arrow press
+  nothing now stops Safari's clock; the resting pointer used to. Recorded on
+  #32; unmeasured on a device.
+- **Observed, not filed.** The card's 600ms scroll reveal moves the controls
+  24px. My first press-during-boot harness aimed at Pause mid-reveal, and its
+  second press missed the button. A harness has to wait for the reveal; a
+  visitor would have to aim inside that 600ms.
+
+#### Eight seconds on each listing: everything derived from DWELL
+
+`DWELL` 4000 → **8000**, now `export const` in the slice's `<script module>`,
+with `KEN_BURNS` beside it. DISSOLVE (500, `=== CAMERA_FLIGHT_MS`) and the text
+cascade are unchanged: the hand-over is how long a turn takes to look finished,
+and the call was for longer on each listing, not slower turns. Everything that
+follows DWELL:
+
+- **The lap:** 4500 → 8500ms.
+- **The bar** fills over 8000.
+- **Ken Burns.** The amplitude is kept at 0.03, so **the drift is half as
+  fast**: 27.8px of width over 8s, 3.5px a second where it was 7. That matches
+  "it feels like we're rushing". It is a call the operator can reverse: 0.06 is
+  the old speed at twice the zoom (55.7 × 32.5px).
+- **A visitor's own run of the drift (`kick`)** follows DWELL too, so it lasts
+  DISSOLVE + DWELL = **8.5s** from the press, where it was 4.5. **The "under
+  WCAG 2.2.2's five seconds" half of its argument above is gone.** What is left
+  is that the visitor started it, which is not the "starts automatically" the
+  criterion governs. A run that must end inside 5s needs a span of its own, and
+  then it no longer draws the clock's curve. The PR flags it.
+- **Reduced motion is unchanged:** no transform, no run, a plain swap.
+
+#### Tests, and what they had been leaning on
+
+- **The hover holds had become no-ops.** Five cases held the clock by
+  **hovering the eyebrow**: four geometry cases and #47's no-JS comparison
+  ("holds the clock; focuses nothing"). Once hover stopped holding, they would
+  have gone on passing and silently lost the hold: the turn it let through
+  would only ever have shown up as a flaky layout read. They press Pause now
+  (`holdClock`). #47's case also asserts that slide 1 is still the one on stage.
+  That hold is precautionary: the geometry reads land well inside an 8s first
+  dwell, so I could not make its absence go red on demand.
+- **The dwell is read out of the slice, not copied.** `featured-properties.spec.ts`
+  hard-coded `DWELL = 4000`. The band's dwell and dissolve now come from
+  `tests/interaction/featured-dwell.ts`, which parses the slice's
+  `export const DWELL`. The two map specs use the same helper: the camera spec's
+  "a paused carousel is a still map" window, and the prod spec's "the band
+  really did turn on its own" wait, which was 9000 (500ms over the new lap) and
+  is `FEATURED_LAP + 1000` now. The operator's number is pinned once, in the
+  unit suite.
+- **The unit suite had the dwell baked in.** The visitor-run cases timed off
+  literal 2500/4500 and now time off DWELL and KEN_BURNS. The reduced-motion
+  case "watched for longer than the run" summed to **8350ms**, 150ms short of
+  the new 8500 run. It now watches past it and asserts that it did.
+- **"Pause holds" and "the drift FREEZES"** waited a whole lap from wherever the
+  bar stood, which at 8000 is 9.2s of nothing. They now press late in the dwell
+  (bar > 0.6) and wait for the rest of it plus 700.
+- **New browser case: a pointer resting on the card.** It checks four things.
+  The slide turns on time, within 700ms of the rest of the dwell the bar showed.
+  A whole lap passes under the pointer. The bar is still moving with the pointer
+  on Pause, right up to the press, and no frame after the press moves it. Play,
+  pressed without moving, restarts it.
+- **Broken in its first form, and fixed.** That case read its start from a
+  task. At load 22 it read 0.0727 (7418ms left) and the turn came 4850ms later,
+  "early" by the length of a frame the map's boot had held up. It reads inside
+  a frame now.
+
+**Mutations (every one restored and re-checked):**
+
+Unit:
+
+- The primitive ignores the option → 2 red in `carousel.svelte.test.ts`
+  ("rotating with the pointer on it: expected false to be true"; "expected +0 to
+  be close to 0.5") and 1 in the slice's ("turned under a resting pointer:
+  expected 1 to be 2").
+- The slice drops `pauseOnHover: false` → the same slice red.
+- DWELL 4000 → "expected 4000 to be 8000".
+- The kick hard-coded to 4000 → 2 red, "half a dwell in: expected 1.02997 to be
+  close to 1.015".
+- The old reduced-motion watch → "expected 8350 to be greater than 8500".
+- `zoom` ignores `eligible` → 2 red, "0ms after the turn: expected
+  'transform: scale(1.00000);' to be null".
+
+Browser:
+
+- The slice drops `pauseOnHover: false` → "the slide turned with the pointer
+  resting on the card: Expected > 0, Received 0" (14500ms).
+- The same, with part 1 cut out of the test so part 2 is reached → "the bar was
+  filling under the pointer on Pause, up to the press (49 frames): Expected > 1,
+  Received 1".
+- Parts 1 and 2 cut, so part 3 is reached → "the bar filling again with the
+  pointer still on the button: Expected > 0.152812, Received 0.152812".
+- Focus is not a pause, so Pause acts on release → "no frame after the press
+  moved the bar", with 12 distinct values after the press.
+- `autoplay: 0` → every clock-bound case in the file red, and only the
+  reduced-motion, reveal, portfolio, one-listing, none-listing and column-line
+  cases green.
+- Pause does not stop the clock, with the bar assertion cut → the shortened
+  "Pause holds" wait still caught the turn ("101 W. Commerce Street").
+- The spec's DWELL copied as 4000 → "first turn after 8004.9ms with 4000ms of
+  the dwell left".
+- The slice's DWELL at 6000 → the lap case passes, because the spec follows.
+- The slice stops declaring `export const DWELL = …` → both specs fail to load
+  with the reader's own message.
+
+**`--repeat-each=16`:**
+
+| batch | cases                              | result                                                                                                                                                                                         | load      |
+| ----- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| 1     | the five changed cases             | 77/80: the rotation case 14/16, both reds #117's handover read (recorded there); the new case 15/16, the stale start read, since fixed; Pause holds, drift freeze and visitor drift 16/16 each | 5.2–22.7  |
+| 2     | the new case, after the fix        | 16/16                                                                                                                                                                                          | 24.9–37.8 |
+| 3     | ten more clock-bound or held cases | 160/160                                                                                                                                                                                        | 22.7–33.5 |
+
+**Runtime.** `featured-properties.spec.ts` + `carousel.spec.ts` on 4 workers
+took 57.9s at the branch head. With this change it took 1.1m, and 1.3m on the
+final run at load 20.7–38.7. That includes the new ~20s case. The doubling costs
+its full price only where a real turn is the thing being measured.
+
+**Checks run:**
+
+- `pnpm lint`: pass.
+- `pnpm check`: 0 errors in 4661 files.
+- vitest over carousel, FeaturedProperties, CarouselProgress and the
+  capability index: 128/128.
+- `featured-properties.spec.ts` + `carousel.spec.ts`: 47/47.
+- `docs/COMPONENTS.md` regenerated: carousel 58 → 60 tests, 753 → 755 total.
+- The full `pnpm verify` was deliberately not run here; it runs on the combined
+  tree.
+
+**Filed, not fixed: #153.** #150's `aFreshDwell` waits 6000ms for a flight on a
+lap that is now 8500. That is arithmetic, not a measured red: it would lapse
+from ~29% of starts and let a turn into the wheel it protects. The same issue
+lists the band's old 4000ms and "every hover" prose around the map: the
+`<PropertyMap` call's comment in this slice, `PropertyMap.svelte`,
+`PropertyMap.test.ts` and `property-map.ts`. I left all of it alone because #150
+is editing that call and that component now.

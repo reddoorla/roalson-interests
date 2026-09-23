@@ -1,3 +1,37 @@
+<script lang="ts" module>
+  /** EIGHT SECONDS ON EACH LISTING — the OPERATOR'S number, not the comp's
+   *  (operator call, 2026-09-23: "double the length on time on each property,
+   *  it feels like we're rushing"). The comp's prototype runs a 4s
+   *  SMART_ANIMATE on the bar before its 0.5s DISSOLVE (6843:993 → 6843:995 →
+   *  6843:1089 …), and this band ran that 4000 from 2026-09-21 until the call.
+   *  A lap is now DWELL + DISSOLVE = 8500ms, where it was 4500.
+   *
+   *  EVERYTHING TIMED OFF THE DWELL FOLLOWS IT, with no second number to
+   *  keep in step: the bar fills over it (`progress` is elapsed / dwell); the
+   *  Ken Burns drift crosses KEN_BURNS over it; and a visitor's own run of
+   *  that drift (`kick`, below) lasts one dwell too. What does NOT follow it
+   *  is the hand-over — DISSOLVE, the text cascade, the camera's flight —
+   *  which is how long a turn takes to look finished, and the operator asked
+   *  for longer on each listing, not for slower turns.
+   *
+   *  Exported so the unit tests time the band off this value, and read out of
+   *  this file by tests/interaction/featured-properties.spec.ts for the same
+   *  reason (a Playwright spec cannot import a .svelte module). */
+  export const DWELL = 8000;
+
+  /** How far the photo travels across its own dwell, drawn by script off the
+   *  clock or off a visitor's own run of it (see `zoom` below): 1.00 → 1.03.
+   *  On the 928 × 542 box that is 27.8px of extra width and 16.3px of height,
+   *  13.9 / 8.1 of it clipped off each edge.
+   *
+   *  THE AMPLITUDE WAS KEPT WHEN THE DWELL DOUBLED, SO THE DRIFT IS HALF AS
+   *  FAST: 27.8px of width over 8000ms is 3.5px a second, where over 4000ms it
+   *  was 7. That matches "it feels like we're rushing", and it is a call the
+   *  operator can reverse — 0.06 here is the old speed over the new dwell, at
+   *  twice the zoom (55.7 × 32.5px). */
+  export const KEN_BURNS = 0.03;
+</script>
+
 <script lang="ts">
   // The homepage's "Properties" band (6802:1460 at 1440, 6994:820 at 390): on
   // the #3d0707 ground, a reserved map column beside a sand card that turns
@@ -75,8 +109,9 @@
 
   const uid = $props.id();
 
-  /** The comp's prototype: a 4s SMART_ANIMATE fills the bar, then a 0.5s
-   *  DISSOLVE to the next variant (6843:993 → 6843:995 → 6843:1089 …).
+  /** The comp's 0.5s DISSOLVE to the next variant (6843:993 → 6843:995 →
+   *  6843:1089 …), after the bar has filled over DWELL (declared above, in the
+   *  module script — the operator's 8000, not the comp's 4000).
    *
    *  IT IS THE CAMERA'S FLIGHT, IMPORTED, not a second 500 that happens to
    *  match. The band cross-fades the photo while the map flies to the same
@@ -86,14 +121,7 @@
    *  `500` and neither imported the other, so the coupling the comments on
    *  both sides claimed was real did not exist and tuning either one would
    *  have silently broken it. */
-  const DWELL = 4000;
   const DISSOLVE = CAMERA_FLIGHT_MS;
-
-  /** How far the photo travels across its own dwell, drawn by script off the
-   *  clock or off a visitor's own run of it (see `zoom` below): 1.00 → 1.03.
-   *  On the 928 × 542 box that is 27.8px of extra width and 16.3px of height,
-   *  13.9 / 8.1 of it clipped off each edge. */
-  const KEN_BURNS = 0.03;
 
   /** The card's scroll reveal: 24px and 600ms, not the action's 50% / 2400ms.
    *  `delayMax: 0` because the default 400 is multiplied by the element's
@@ -163,12 +191,33 @@
   // ONE listing is not a carousel: `enabled: false` hands back empty attribute
   // bags, so it renders as a plain card — no roles, no "1 of 1", no swipe —
   // and the arrows and the bar draw nothing on their own (count ≤ 1).
+  //
+  // HOVER IS NOT A PAUSE ON THIS BAND (operator call, 2026-09-23: "remove the
+  // pause on hover, they have a pause button for that"). It answers an earlier
+  // report, "the pause play button seems to take a moment", and the operator's
+  // diagnosis was right. The Pause button is INSIDE the card, so the pointer
+  // travelling to it stopped the clock before the press. MEASURED on a
+  // production build of main's `/` at 1440 × 900, six runs:
+  //  - Pause: the bar had stopped 804–919ms BEFORE the press, when the pointer
+  //    crossed the card. The press changed only the label, so it looked late.
+  //  - Play, with the pointer still on the button: the label flipped on
+  //    release, 104–109ms after the press, and the bar moved only when the
+  //    pointer left the band — 2108–2143ms after the press in that script, and
+  //    never, for a visitor who kept it there.
+  // So the rotation now stops for Pause, for focus entering (APG's sticky
+  // pause, which a keyboard user needs) and for a hidden tab, and not for a
+  // pointer. APG also RECOMMENDS the hover pause, and dropping it is the
+  // operator's call; WCAG 2.2.2 is still met by the Pause button. The
+  // primitive's default is unchanged (`pauseOnHover` is true for the
+  // fixture and for any future consumer). What this changes is `rotating`
+  // only: `paused` and `eligible` mean what they meant.
   const carousel = createCarousel({
     count: () => slides.length,
     labelledby: () => `${uid}-heading`,
     autoplay: DWELL,
     settle: DISSOLVE,
     enabled: () => slides.length > 1,
+    pauseOnHover: false,
   });
 
   // THE USER'S TURNS ANIMATE NOW, AND THAT REVERSES A COMP READ — operator
@@ -180,16 +229,18 @@
   // overruled, not an oversight found.
   //
   // WHY IT READ AS BROKEN RATHER THAN AS A CHOICE — the part worth keeping.
-  // `rotating` is `hydrated && eligible && !userPaused && !hovered &&
+  // `rotating` was `hydrated && eligible && !userPaused && !hovered &&
   // !pageHidden && !atEnd`. Pressing an arrow FOCUSES it (Chromium focuses a
   // button on mousedown; WebKit's behaviour is #32's to measure), and focus
   // entering a carousel sets `userPaused` and leaves it set until Play (APG).
   // So the old gate did not make ONE turn instant: it made every turn instant
   // for as long as the visitor kept paging, and the Ken Burns drift never
-  // restarted either. A pointer merely RESTING on the card does the same
-  // through `hovered`, and a swipe does it through the pointer it arrives on.
+  // restarted either. A pointer merely RESTING on the card did the same
+  // through `hovered`, and a swipe did it through the pointer it arrives on.
   // A visitor who drove the band was never once shown the dissolve the comp
-  // draws — which is exactly what "animations don't fire" described.
+  // draws — which is exactly what "animations don't fire" described. (Hover
+  // stopped being a pause on this band later the same day — `pauseOnHover:
+  // false` above — so of the two, the arrow's focus is the one left.)
   //
   // SO THE GATE IS `eligible`, the one `zoom` has used all along: "can this
   // carousel animate at all" — enabled, more than one slide, a dwell to run,
@@ -303,29 +354,40 @@
    *  pressed is resting on the card (`hovered`), and a swiping finger arrives
    *  as a pointer too. MEASURED on main at 1440, two real mouse presses 1.5s
    *  apart: the photo sat at exactly scale(1) for the 5000ms after the second.
+   *  (The hover half of that stopped being true later the same day, when the
+   *  operator took the hover pause off this band — `pauseOnHover: false`. A
+   *  mouse press still focuses the arrow, so this run is still what a
+   *  Chromium visitor paging by hand sees; a swipe, which focuses nothing,
+   *  now restarts a clock that is RUNNING, and the `max` below draws the same
+   *  curve from either.)
    *
    *  RESTARTING THE DWELL on a manual turn — "normal carousel behaviour" —
-   *  would not have fixed that, which is why it was not done. The pointer is
-   *  still on the card, so the clock would still be stopped for exactly the
-   *  person who pressed; and clearing the focus pause is a change to the
-   *  primitive's APG contract (carousel.svelte.ts, 58 tests) for every
-   *  consumer. The rotation stays stopped, as the primitive says.
+   *  would not have fixed that, which is why it was not done. The pointer
+   *  was still on the card, so the clock would still have been stopped for
+   *  exactly the person who pressed; and clearing the focus pause — the half
+   *  that still holds — is a change to the primitive's APG contract
+   *  (carousel.svelte.ts) for every consumer. The rotation stays stopped, as
+   *  the primitive says.
    *
    *  So a visitor's turn runs ONE DWELL'S WORTH OF DRIFT on the photo it
    *  brought on stage, and turns nothing. It is `restart()`'s own shape —
    *  elapsed from −settle, `clamp01(elapsed / DWELL)` — i.e. the curve the
    *  clock would have drawn had it been running: still through the 500ms
-   *  dissolve, then 1.00 → 1.03 over 4000ms, then held at 1.03. The photo
-   *  shows the `max` of the two, so where rotation DOES resume (Play; or the
-   *  pointer leaving when nothing took focus, as after a swipe) the clock
-   *  takes over from underneath without the photo ever moving backwards.
+   *  dissolve, then 1.00 → 1.03 over DWELL (8000ms since 2026-09-23; it was
+   *  4000), then held at 1.03. The photo shows the `max` of the two, so where
+   *  rotation DOES resume (Play) the clock takes over from underneath without
+   *  the photo ever moving backwards.
    *
    *  WHAT KEEPS IT HONEST:
    *   - reduced motion never starts it — the loop needs `eligible` — and
    *     `zoom` writes no transform without `eligible` anyway;
-   *   - it ENDS: 500 + 4000 = 4.5s from the visitor's own press, then still.
-   *     Under WCAG 2.2.2's five seconds, and started by the user, which is not
-   *     the "starts automatically" that criterion governs;
+   *   - it ENDS: DISSOLVE + DWELL = 8.5s from the visitor's own press, then
+   *     still. It was 4.5s, UNDER WCAG 2.2.2's five seconds, until the dwell
+   *     doubled (2026-09-23), and that half of the argument is gone. What is
+   *     left is the other half: it is started by the user, which is not the
+   *     "starts automatically" that criterion governs, and it is 27.8px of
+   *     width over 8s. If it must end inside five seconds, this run needs a
+   *     span of its own — and then it no longer draws the clock's curve;
    *   - a PAUSE AFTER THE TURN FREEZES IT where it stands, as it freezes the
    *     bar. "Pause stops the bar and not the photo" is exactly the defect the
    *     one-clock rule exists to prevent, so it is not reintroduced here.

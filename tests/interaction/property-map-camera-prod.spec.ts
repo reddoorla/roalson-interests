@@ -10,6 +10,7 @@ import {
   watchCamera,
   type CameraLog,
 } from "./camera-probe";
+import { FEATURED_LAP } from "./featured-dwell";
 import { hydrated } from "./hydrated";
 import { placedPin } from "./placed-markers";
 
@@ -833,13 +834,16 @@ test.describe("the band's auto-advance keeps its hands off the visitor's view", 
 
     // Hands off the map, and off the band, so nothing after this is input to
     // anything: the pointer leaves the map entirely and the only thing left
-    // running is the band's own 4000ms clock.
+    // running is the band's own clock — 8000ms a listing since 2026-09-23.
     await page.mouse.move(2, 2);
     const slideBefore = await band
       .locator("[data-carousel-slide]")
       .evaluateAll((els) => els.findIndex((el) => !el.hasAttribute("aria-hidden")));
     await resetCamera(page);
-    await page.waitForTimeout(9000);
+    // More than a whole lap, read off the slice (./featured-dwell.ts), so the
+    // band turns inside it wherever in its dwell it was. This was 9000 — two
+    // laps of the old 4500, and only 500ms more than one of the new 8500.
+    await page.waitForTimeout(FEATURED_LAP + 1000);
 
     // THE PREMISE, and without it "0 commands" would pass on a band that was
     // simply paused.

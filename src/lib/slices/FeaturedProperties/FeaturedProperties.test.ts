@@ -12,7 +12,7 @@ import {
 } from "$lib/home-fixture";
 import { CAMERA_FLIGHT_MS } from "$lib/property-map";
 import { components } from "$lib/slices";
-import FeaturedProperties from "./index.svelte";
+import FeaturedProperties, { DWELL, KEN_BURNS } from "./index.svelte";
 
 // jsdom resolves no stylesheet and has no `inert`, no layout and no animation
 // frames worth trusting: where the chrome SITS, that the slide turns, and that
@@ -317,6 +317,10 @@ describe("FeaturedProperties slice", () => {
       await vi.advanceTimersByTimeAsync(ms);
       await tick();
     };
+    /** The hand-over, which the dwell doubling did NOT change. */
+    const DISSOLVE = CAMERA_FLIGHT_MS;
+    /** Where the drift stands `fraction` of the way through a dwell. */
+    const at = (fraction: number) => 1 + KEN_BURNS * fraction;
 
     it("a VISITOR's turn drifts the photo it brought on — with the clock stopped", async () => {
       // THE HALF THE OLD GATE COULD NOT REACH. The drift was `progress` and
@@ -336,16 +340,27 @@ describe("FeaturedProperties slice", () => {
 
       // Still through the dissolve, exactly as a clock turn holds it through
       // the settle: the drift starts on a photo that has finished arriving.
-      await advance(480);
-      expect(scaleOf(photos()[1]), "480ms: still inside the dissolve").toBe(1);
-      // Then the dwell's own rate, 0.03 over 4000ms: halfway at 500 + 2000.
-      await advance(2020);
-      expect(scaleOf(photos()[1]), "2500ms: half a dwell in").toBeCloseTo(1.015, 3);
-      await advance(2000);
-      expect(scaleOf(photos()[1]), "4500ms: the end of the dwell").toBeCloseTo(1.03, 4);
+      await advance(DISSOLVE - 20);
+      expect(scaleOf(photos()[1]), `${DISSOLVE - 20}ms: still inside the dissolve`).toBe(1);
+      // Then the dwell's own rate, KEN_BURNS over DWELL (0.03 over 8000ms
+      // since 2026-09-23; it was 4000): halfway at DISSOLVE + DWELL / 2.
+      await advance(20 + DWELL / 2);
+      expect(scaleOf(photos()[1]), `${DISSOLVE + DWELL / 2}ms: half a dwell in`).toBeCloseTo(
+        at(0.5),
+        3,
+      );
+      // Not yet at the end a quarter of a dwell before it — the run is one
+      // DWELL long, whatever DWELL is, and not the 4000 it used to be.
+      await advance(DWELL / 4);
+      expect(scaleOf(photos()[1]), "three quarters in").toBeCloseTo(at(0.75), 3);
+      await advance(DWELL / 4);
+      expect(scaleOf(photos()[1]), `${DISSOLVE + DWELL}ms: the end of the dwell`).toBeCloseTo(
+        at(1),
+        4,
+      );
       // …and it ENDS: no loop, no second lap, nothing turned.
-      await advance(10_000);
-      expect(scaleOf(photos()[1]), "held at the end").toBe(1.03);
+      await advance(DWELL + 2000);
+      expect(scaleOf(photos()[1]), "held at the end").toBe(at(1));
       expect(getByLabelText("Play slides")).toBeTruthy();
       expect(slidesOf(container).map((sl) => sl.hasAttribute("inert"))).toEqual([
         true,
@@ -369,14 +384,14 @@ describe("FeaturedProperties slice", () => {
       });
       const photos = () => [...container.querySelectorAll<HTMLElement>("[data-featured-photo]")];
       await fireEvent.click(getByLabelText("Next slide"));
-      await advance(2000);
+      await advance(DISSOLVE + DWELL / 2);
       const moving = scaleOf(photos()[1]);
-      expect(moving, "drifting when Pause is pressed").toBeGreaterThan(1.005);
-      expect(moving).toBeLessThan(1.02);
+      expect(moving, "drifting when Pause is pressed").toBeCloseTo(at(0.5), 3);
 
       await fireEvent.click(getByLabelText("Pause slides"));
       const frozen = scaleOf(photos()[1]);
-      await advance(6000);
+      // Longer than the rest of the run: an unfrozen one would have ended.
+      await advance(DWELL);
       expect(scaleOf(photos()[1]), `frozen at ${frozen}`).toBe(frozen);
     });
 
@@ -390,9 +405,9 @@ describe("FeaturedProperties slice", () => {
         props: { slice: featuredPropertiesFixture() },
       });
       const photos = () => [...container.querySelectorAll<HTMLElement>("[data-featured-photo]")];
-      await advance(2000);
+      await advance(DWELL / 2);
       const first = scaleOf(photos()[0]);
-      expect(first, "slide 1 mid-dwell on the clock").toBeCloseTo(1.015, 2);
+      expect(first, "slide 1 mid-dwell on the clock").toBeCloseTo(at(0.5), 3);
 
       await fireEvent.click(getByLabelText("Next slide"));
       await advance(200);
@@ -413,11 +428,82 @@ describe("FeaturedProperties slice", () => {
         props: { slice: featuredPropertiesFixture() },
       });
       await fireEvent.click(getByLabelText("Next slide"));
-      for (const ms of [0, 250, 600, 2500, 5000]) {
+      // Past the END of a visitor's run (DISSOLVE + DWELL), whatever DWELL
+      // is: these steps summed to 8350ms when the run was 4500, and would have
+      // stopped watching 150ms short of it at 8000.
+      let watched = 0;
+      for (const ms of [0, 250, 600, DWELL / 2, DWELL / 2, 2000]) {
         await advance(ms);
+        watched += ms;
         for (const photo of container.querySelectorAll("[data-featured-photo]"))
-          expect(photo.getAttribute("style"), `${ms}ms after the turn`).toBeNull();
+          expect(photo.getAttribute("style"), `${watched}ms after the turn`).toBeNull();
       }
+      expect(watched, "watched for longer than the run").toBeGreaterThan(DISSOLVE + DWELL);
+    });
+
+    // ── the clock: the operator's 8000, and no hover pause (2026-09-23) ────
+    //
+    // Two calls on one afternoon: "remove the pause on hover, they have a
+    // pause button for that. also double the length on time on each property,
+    // it feels like we're rushing." What they look like in a browser is
+    // featured-properties.spec.ts's; what is pinned here is the wiring.
+
+    /** 1-based number of the slide the live region names. */
+    const announced = (container: HTMLElement) =>
+      Number(
+        /Slide (\d+) of/.exec(card(container).querySelector("[aria-live]")!.textContent!)?.[1],
+      );
+
+    it("dwells the operator's 8000ms on each listing — twice the comp's 4000 — and turns on it", async () => {
+      // The number, pinned once: every other case here and in the browser
+      // spec reads DWELL rather than repeating it, so this is the line that
+      // says the call was carried out.
+      expect(DWELL).toBe(8000);
+      // …and it is the number the carousel was BUILT with, not only the one
+      // exported: the first slide has no settle to wait for, so the clock
+      // turns on exactly DWELL, and the next after DISSOLVE + DWELL more —
+      // within a frame, since 8500 is not a whole number of 16ms frames.
+      vi.useFakeTimers();
+      const { container } = render(FeaturedProperties, {
+        props: { slice: featuredPropertiesFixture() },
+      });
+      await advance(DWELL - 16);
+      expect(announced(container)).toBe(1);
+      await advance(16);
+      expect(announced(container)).toBe(2);
+      await advance(DISSOLVE + DWELL - 16);
+      expect(announced(container)).toBe(2);
+      await advance(32);
+      expect(announced(container)).toBe(3);
+    });
+
+    it("a pointer resting on the card does not stop the clock; Pause and focus still do", async () => {
+      vi.useFakeTimers();
+      const { container, getByLabelText } = render(FeaturedProperties, {
+        props: { slice: featuredPropertiesFixture() },
+      });
+      const region = card(container);
+      await advance(DWELL / 4);
+      await fireEvent(region, new Event("pointerenter"));
+      // The pointer never leaves. The turn comes on the dot: a clock the
+      // hover had stopped for even one frame would be one frame late.
+      await advance((DWELL * 3) / 4 - 16);
+      expect(announced(container)).toBe(1);
+      await advance(16);
+      expect(announced(container), "turned under a resting pointer").toBe(2);
+      expect(region.querySelector("[aria-live]")!.getAttribute("aria-live")).toBe("off");
+      expect(getByLabelText("Pause slides"), "and nobody paused it").toBeTruthy();
+
+      // Pause still stops it, with the pointer still there…
+      await fireEvent.click(getByLabelText("Pause slides"));
+      await advance(3 * (DISSOLVE + DWELL));
+      expect(announced(container)).toBe(2);
+      // …and so does focus entering, which a keyboard user needs (APG).
+      await fireEvent.click(getByLabelText("Play slides"));
+      await fireEvent.focusIn(getByLabelText("Next slide"));
+      expect(getByLabelText("Play slides"), "focus entering is a pause").toBeTruthy();
+      await advance(3 * (DISSOLVE + DWELL));
+      expect(announced(container)).toBe(2);
     });
 
     it("reveals the card at 24px over 600ms — and never ships `data-reveal`", () => {
