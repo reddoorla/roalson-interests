@@ -9233,6 +9233,19 @@ brief's "below `lg` the first card stays featured" holds only for a page loaded
 below `lg`. This is not fixed here and is filed as #147, with the two ways to
 settle it.
 
+### The red that was not this branch's
+
+The third and fourth full verifies each failed one case,
+`property-map-camera.spec.ts:663`, on its premise that the rAF-sampled scroll
+"crossed several cards": only `fm-1560-galm` and the destination were seen.
+That is #144's class. #130 moved the production spec to the swept interval,
+and the dev spec still counts sampled positions. To check the fades had not
+made it likelier (they add paint work during that very scroll), I ran the case
+interleaved on main's tree and on this branch, 8 at a time. At load 19 to 24:
+main 1 of 16, branch 0 of 16. At load 59 to 81: main 6 of 24, branch 4 of 24.
+So main fails 7 of 40 and the branch 4 of 40. It is recorded on #144 and not
+fixed here.
+
 ### Honest accounting
 
 This scratchpad directory is shared with the other agents the parent session
