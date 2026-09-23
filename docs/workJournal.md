@@ -6616,6 +6616,8 @@ reduce; and the stagger's arithmetic and measured timings hold to within 7ms.
 
 ## 2026-09-22 — The map's review: a sand slab over the dark band, and an axe exclusion that silenced the licence (`fix/map-review`)
 
+> Superseded in part by 2026-09-22 — Two branches that were green apart: a control that had to stop asking the content what zoom it was at, and an opaque chip that was never opaque (#121).
+
 The adversarial review of #107 came back SHIP_WITH_FIXES with three majors.
 #107 was already merged, so this is the follow-up. Its numbers were checked
 before they were acted on — the two fixture distances were re-derived
@@ -7663,6 +7665,8 @@ none` on the canvas container, so the map claims touch gestures; but measured
 
 ## 2026-09-22 — The roads were sand on sand, and three of #113's guards could not see what they claimed (`fix/map-palette-review`)
 
+> Superseded in part by 2026-09-22 — Two branches that were green apart: a control that had to stop asking the content what zoom it was at, and an opaque chip that was never opaque (#121).
+
 The adversarial review of #113. One operator-facing change and five corrections
 to guards that were passing for reasons other than the ones written next to
 them. Every number below was measured on this branch; where it contradicts the
@@ -7833,3 +7837,121 @@ cover half of a rare, deliberate change and would have to be worded carefully
 enough not to be named after the thing it cannot observe, which is the
 `turnstile: true` shape. The gap is #120 with the reproduction in it. And the
 casings were not darkened to 3:1 — that is the operator's palette and #119.
+
+## 2026-09-22 — Two branches that were green apart: a control that had to stop asking the content what zoom it was at, and an opaque chip that was never opaque (#121)
+
+`feat/map-camera` (#118) and `fix/map-palette-review` (#121) both edited
+`tests/interaction/map-palette.spec.ts` and conflicted. The hand-resolved merge
+`e59970f` combined the two intents correctly in the pixel case — the fixture
+route from #121, the 390x844 viewport from #118 — and left the other cases in
+the file holding premises that only one of the two branches had been true for.
+CI red at `e59970f`; green again here.
+
+**The hard red: a control that was right to refuse.** The Natural Earth case
+proves our style has no `natural_earth` layer by showing the STOCK style still
+fetches one at the same frame. It carried its own non-vacuity guard, and that
+guard failed — "the stock style fetched no hillshade at this frame either" —
+which is the guard doing exactly its job. Read off the live liberty style rather
+than inferred: the source is `ne2_shaded` (raster, maxzoom 6, tiles at
+`/natural_earth/ne2sr/{z}/{x}/{y}.png`) and the one layer drawn from it,
+`natural_earth`, is **maxzoom 7**. So it paints below z7 and nowhere else. The
+three frames available:
+
+    /properties      z6.948    ours 0   stock 1   (works, coupled to Prismic)
+    /dev/properties  z7.8765   ours 0   stock 0   ← vacuous, and it red
+    /dev/properties at lg      z12               (the camera, after #118)
+
+**The belief that had to go was that a route picks the zoom.** The claim being
+proved is about a JSON file's contents and has nothing to do with what any
+section fits at; the coupling was incidental both times, and picking a different
+route whose fit merely happens to be low is the same mistake one step along —
+CLAUDE.md's opening worked example, where each correction reintroduced the shape
+one step further out. So neither frame decides any more. The test drives both
+maps to **z6** through `tests/interaction/camera-probe.ts`, which already
+reached the real MapLibre instance (`window.__camera.maps[n]`) without shipping
+a test hook to visitors; `jumpToZoom` is a five-line addition to it. Measured on
+the fixture at 390: ours z6.0000, 11 tile requests (+2 after the jump), 0
+hillshade; stock z6.0000, 13 tiles (+3), **1 hillshade** (+1 after the jump).
+
+What holds the driven frame is `cameraMove`'s `commanded` check — the fit has
+already been issued and recorded, and a programmatic `jumpTo` carries no
+`originalEvent`, so nothing re-issues and nothing tags a gesture. That is
+reasoning about someone else's code, so the test does not rely on it: it reads
+the zoom back off MapLibre and asserts it is still below 7. Mutating `NE_ZOOM`
+to 8 reds with "our map did not hold the driven frame", Expected < 7, Received 8.
+
+**The flaky red was the more expensive one, and the task brief had it in the
+wrong file.** It was not in `map-palette.spec.ts` at all: it was
+`featured-properties.spec.ts:590`, and CI classed it **flaky**, not failed — it
+passed on retry. A race, and the test asserted on the losing side of it.
+
+The comment there said the band's map "never boots": the slot's top is y=1007
+against a 900 viewport, so the lazy gate never opens. True at rest, and false
+three lines after the scroll the test itself performs. Measured at 1455x900
+immediately after `scrollIntoViewIfNeeded()`: scrollY 922, slot top 85, slot
+height 831, **815px of it on screen**, against a gate that wants half of
+`min(831, 900)` = 415.5. The gate opens every single time. Whether MapLibre
+finished before `analyze()` ran was a coin toss, and at `data-map-ready` the
+server-rendered listing links go `sr-only`, where axe correctly declines to
+measure contrast. `#118` did not break this; it changed the timing of a race
+that had always been there and that nothing synchronised.
+
+**And waiting for the boot found a defect that had shipped.** With the map
+allowed to finish, axe answered `color-contrast` with three `imgNode`
+incompletes — `.maplibregl-ctrl-attrib-inner` and both licence links, "background
+color could not be determined because element contains an image node" — which is
+precisely the symptom `PropertyMap.svelte`'s own comment says it cured by
+painting the attribution chip opaque. It had not. `[data-property-map]
+.maplibregl-ctrl-attrib` is specificity (0,2,0), one attribute and one class, and
+the rule it has to beat is maplibre's `.maplibregl-ctrl.maplibregl-ctrl-attrib`
+— **also (0,2,0)**. An exact tie goes to whichever is injected later, and
+maplibre-gl.css is. The chip had been `rgba(255, 255, 255, 0.5)` the whole time.
+
+That was verified on a production build rather than on `vite dev`, because a
+cascade order is exactly the kind of thing the dev server can flatter, and
+`/dev/*` 404s under `pnpm preview` (#120) so the check used `/` and
+`/properties`. Both routes, before: `rgba(255, 255, 255, 0.5)`. Both routes,
+after naming `.maplibregl-ctrl` to make it (0,3,0): `rgb(232, 225, 209)`. It was
+shipped, not a dev artefact. The credit's contrast had been undefined — a
+function of whatever tiles happened to be under it — on a line this component
+argues is an ODbL condition rather than a style choice. axe now reads it at
+**8.86:1**, against the 8.87 the component predicted.
+
+**Honest accounting on what the axe case now observes.** It no longer asserts
+that axe measured the map's server-rendered listing links, because once the map
+boots those are `sr-only` and a contrast ratio for them is meaningless. It
+asserts instead that axe measured the **OpenStreetMap credit**, by name, with a
+ratio above 4.5. That is the stronger claim of the two and the one the original
+comment said could not be made from here ("the attribution cannot be asserted
+from here — there isn't one"): there is one, on every run, now that the test
+waits for it. Nothing that was observable before is unobservable now.
+
+**Every guard mutated, and what each red said.** Our style given a
+`natural_earth` layer → "the Natural Earth hillshade is gone from the style",
+received `natural_earth/ne2sr/6/14/26.png`. The control served OUR style instead
+of stock → "the stock style fetched no hillshade at z6.0000 either". `NE_ZOOM`
+raised to 8 → "our map did not hold the driven frame", < 7 vs 8. The chip
+specificity fix reverted → "axe measured the map's OpenStreetMap credit, rather
+than skipping the map", 0. The old blanket `.exclude("[data-property-map]")`
+restored → the same red, which is the point of that assertion. The lazy gate
+forced never to open → "the band's map never finished booting, so this audit has
+no map in it". The credit recoloured sand-on-sand → "axe could not measure
+these", naming both licence links.
+
+**A claim in the file that is too strong, left standing with its counterexample
+beside it.** The pixel case records its histogram as byte-identical across three
+runs — 70,350 px, 39,491 (56.14%) `#f2efe9`, 441 `#a8b4b8`. Inside a full `pnpm
+verify` on a machine at load average 10.15 the same case measured 38,651
+(54.94%), water 441 unchanged. The land count moves about a percent when tiles
+land late enough for the poll to sample a partly-drawn frame. The floors are
+unaffected; a reader treating a 1% move as signal would be chasing contention.
+
+**What was NOT done.** `featured-properties.spec.ts:243` fails locally at
+exactly 436.890625 — #80/#124, the macOS scrollbar setting, green on CI — and
+was left alone. The pre-boot state of the band's map (the server-rendered link
+list, which is also the `engine === "off"` state) is no longer audited by that
+case and is not audited anywhere else at that viewport; it is covered on
+/properties by `property-map.spec.ts`'s no-JS block, so this is a narrowing of
+where it is measured rather than a loss of it. And the local Playwright numbers
+in this entry were taken at load averages between 3.32 and 10.15 on a machine
+running many sessions — CI is the authority, and CI is what the PR was judged on.

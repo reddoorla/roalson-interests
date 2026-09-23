@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import sharp from "sharp";
 
+import { cameraProbeInstalled, jumpToZoom, mapZoom, watchCamera } from "./camera-probe";
 import { hydrated } from "./hydrated";
 
 // WHAT COLOUR THE TILES ACTUALLY COME OUT (#13 follow-up).
@@ -45,12 +46,14 @@ import { hydrated } from "./hydrated";
 // `#f2efe9` and 952 `#a8b4b8`, byte-identical every run. A number here moving
 // is now a real signal.
 //
-// NOT EVERY TEST IN THIS FILE MOVED, and the one that did not is the
-// interesting one — see the comment on the Natural Earth case below. The
-// fixture frame is z7.8765 and `natural_earth` is maxzoom 7, so on the fixture
-// the stock style draws no hillshade either and "we request none" becomes free.
-// Only the PIXEL GATE and the attribution moved; the raster test stays where it
-// can still tell the two styles apart.
+// EVERY TEST IN THIS FILE IS ON THE FIXTURE NOW, and the last one to move was
+// the interesting one. The Natural Earth case was left on /properties because
+// the fixture fits at z7.8765, `natural_earth` is maxzoom 7, and on that frame
+// the stock style draws no hillshade either — so the control went vacuous and
+// the guard inside it went red rather than pass for nothing. The answer was not
+// a different route: it was to stop letting ANY section's fit pick the zoom.
+// That case now drives both maps to z6 through the camera probe. See its own
+// comment.
 //
 // WHAT THIS GIVES UP, SAID OUT LOUD. /dev/* 404s on a production build, so this
 // spec can never be the thing that proves `/map-style.json` resolves in the
@@ -166,6 +169,15 @@ test.describe("the tiles paint in the brand palette", () => {
     // runs, byte-identical every time: 70,350 px, of which 39,491 (56.14%) are
     // exactly #f2efe9 and 441 exactly #a8b4b8, with both upstream colours at 0.
     //
+    // "BYTE-IDENTICAL" IS TOO STRONG, and this is the counterexample rather
+    // than a rewrite of the claim above. The same three runs repeated inside a
+    // full `pnpm verify` on a loaded machine (load average 10.15) gave 38,651
+    // (54.94%) against the 39,491 (56.14%) recorded here, water 441 both
+    // times: the land count moves by about a percent when tiles arrive late
+    // enough for the poll to sample a partly-drawn frame. The floors below are
+    // untouched by that — 54.94% is still comfortably over 0.5 — but a reader
+    // treating a 1% move as a signal would be chasing contention.
+    //
     // These are neither branch's numbers and that is the point. `feat/map-camera`
     // measured 67,335 / 62.39% / 12,113 against the PUBLISHED portfolio at 390;
     // `fix/map-palette-review` measured 203,832 / 73.78% / 952 against the
@@ -253,77 +265,148 @@ test.describe("the tiles paint in the brand palette", () => {
     expect(measured.upstreamLand, "upstream's neat ground").toBe(0);
   });
 
-  // THIS ONE STAYS ON /properties, AND THE FIXTURE IS THE REASON (review of
-  // #113). Moving it with the pixel gate above looked free and is not: the
-  // `natural_earth` LAYER is maxzoom 7, the fixture land section fits at
-  // z7.8765, and a layer past its maxzoom draws nothing. Measured both ways on
-  // 2026-09-22, stock liberty route-intercepted in as the control:
+  // THE ZOOM IS NAMED HERE, AND THAT IS THE WHOLE FIX (review of #121 + #118).
   //
-  //   /dev/properties  z7.8765   ours 0 requests   STOCK LIBERTY 0 requests
-  //   /properties      z6.948    ours 0 requests   stock liberty 1 request
-  //                                                (natural_earth/ne2sr/6/14/26.png)
+  // The claim is "our style has no `natural_earth` layer". That is a fact about
+  // a JSON file and has nothing to do with what any section happens to fit at —
+  // yet this control was twice made a hostage to exactly that, and the second
+  // time it went red:
   //
-  // On the fixture frame the zero is free — the stock style this test exists to
-  // exclude produces the same zero — so the test would have passed while
-  // proving nothing, which is the shape CLAUDE.md opens with. On the published
-  // frame it discriminates, so that is where it runs.
+  //   /properties      z6.948    ours 0   stock 1  (natural_earth/ne2sr/6/14/26.png)
+  //   /dev/properties  z7.8765   ours 0   STOCK 0  ← the control proves nothing
   //
-  // THE PRICE, STATED. This test is therefore still coupled to published
-  // content: a portfolio that reframes past z7 takes the hillshade off the map
-  // and makes the zero free again. That is why the control below is IN the test
-  // rather than in this comment — it fails loudly, naming the frame, instead of
-  // going quietly vacuous. #120 covers the real fix.
-  test("makes no Natural Earth raster request, on a frame where the stock style does", async ({
+  // Read off the live style on 2026-09-22 rather than inferred: liberty's
+  // source is `ne2_shaded` (raster, maxzoom 6, tiles at
+  // `/natural_earth/ne2sr/{z}/{x}/{y}.png`) and the single layer drawn from it
+  // is `natural_earth`, **maxzoom 7**. So the layer paints below z7 and nowhere
+  // else. The fixture fits at z7.8765, which is past it — the stock style drew
+  // no hillshade either and the zero became free. The guard at the end of this
+  // test is what said so, and it was right to red.
+  //
+  // Picking a route whose fit merely HAPPENS to be low is the same mistake one
+  // step along (CLAUDE.md's opening worked example), and pointing back at
+  // /properties reintroduces the published-content coupling this branch exists
+  // to remove. So neither frame decides: the test DRIVES both maps to z6 — one
+  // whole zoom inside the layer's maxzoom, and at the source's own maxzoom 6 so
+  // the tile is served natively rather than overzoomed — through the camera
+  // probe, which reaches the real MapLibre instance without shipping a test
+  // hook. A reframe of the fixture, of the portfolio, or of the camera cannot
+  // now take this control away.
+  //
+  // WHAT IS STILL ASSERTED, in order, and none of it is an absence:
+  //   1. both maps went to the tile host at all, BEFORE and AFTER the jump —
+  //      a listener that never fired makes every "no requests to X" true;
+  //   2. both maps are really AT the driven frame when measured, read back off
+  //      MapLibre (`mapZoom`), not assumed from the fact we asked;
+  //   3. the STOCK style fetched a hillshade AT that frame — the discrimination
+  //      control, and the only thing that makes the zero mean anything;
+  //   4. and only then, that ours fetched none.
+  const NE_ZOOM = 6;
+  /** `natural_earth`'s own maxzoom, read off the live liberty style. The layer
+   *  draws below this and not at or above it. */
+  const NE_LAYER_MAXZOOM = 7;
+
+  /** Boot the fixture map, drive it to `NE_ZOOM`, and report what it fetched
+   *  before and after. `stock` serves OpenFreeMap's liberty in place of ours. */
+  async function hillshadeAtDrivenZoom(p: Page, stock: boolean) {
+    const ne: string[] = [];
+    const tiles: string[] = [];
+    p.on("request", (request) => {
+      const url = request.url();
+      if (url.includes("natural_earth") || url.includes("ne2sr")) ne.push(url);
+      if (url.includes("tiles.openfreemap.org")) tiles.push(url);
+    });
+    if (stock) {
+      await p.route("**/map-style.json", (route) =>
+        route.fulfill({ status: 302, headers: { location: STOCK_STYLE_URL } }),
+      );
+    }
+    await watchCamera(p);
+    // 390, for the same reason the pixel case above uses it: below `lg`
+    // `centreWatch` is never constructed, so the only camera command on the
+    // page is the section's own fit and nothing competes with the jump.
+    await p.setViewportSize({ width: 390, height: 844 });
+    await p.goto("/dev/properties");
+    await hydrated(p);
+    await p.locator(MAP).first().scrollIntoViewIfNeeded();
+    await drawn(p);
+    // Never infer the patch landed from a log that is merely empty.
+    expect(
+      await cameraProbeInstalled(p),
+      "the camera probe did not install, so nothing here drove the frame",
+    ).toBe(true);
+
+    const beforeTiles = tiles.length;
+    const beforeNe = ne.length;
+    await jumpToZoom(p, NE_ZOOM);
+    await p.waitForTimeout(3000);
+    return {
+      ne,
+      tiles,
+      zoom: await mapZoom(p),
+      tilesAfterJump: tiles.length - beforeTiles,
+      neAfterJump: ne.length - beforeNe,
+    };
+  }
+
+  test("makes no Natural Earth raster request at a frame the stock style draws one at", async ({
     page,
   }) => {
-    const watch = (p: typeof page, ne: string[], tiles: string[]) =>
-      p.on("request", (request) => {
-        const url = request.url();
-        if (url.includes("natural_earth") || url.includes("ne2sr")) ne.push(url);
-        if (url.includes("tiles.openfreemap.org")) tiles.push(url);
-      });
+    const ours = await hillshadeAtDrivenZoom(page, false);
 
-    const ours: string[] = [];
-    const tiles: string[] = [];
-    watch(page, ours, tiles);
-    await page.goto("/properties");
-    await hydrated(page);
-    await page.locator(MAP).first().scrollIntoViewIfNeeded();
-    await drawn(page);
-    await page.waitForTimeout(3000);
-
-    // NON-VACUITY, PART ONE. "No requests to X" is trivially true of a listener
-    // that never fired, so prove the map really did go to the network.
-    expect(tiles.length, "the map fetched nothing from the tile host at all").toBeGreaterThan(2);
-
-    // NON-VACUITY, PART TWO, AND IT IS THE ONE THAT MATTERS. Run the SAME page
-    // at the SAME frame with OpenFreeMap's stock style served in place of ours,
-    // and require that it really does fetch the hillshade. Without this the
-    // zero above is just as true of a frame where nobody would have drawn it.
     const control = await page.context().newPage();
-    const controlNe: string[] = [];
-    const controlTiles: string[] = [];
-    watch(control, controlNe, controlTiles);
-    await control.route("**/map-style.json", (route) =>
-      route.fulfill({
-        status: 302,
-        headers: { location: STOCK_STYLE_URL },
-      }),
-    );
-    await control.goto("/properties");
-    await hydrated(control);
-    await control.locator(MAP).first().scrollIntoViewIfNeeded();
-    await drawn(control);
-    await control.waitForTimeout(3000);
-    expect(
-      controlNe.length,
-      "the stock style fetched no hillshade at this frame either — the section now fits past " +
-        "natural_earth's maxzoom 7, so this test proves nothing here. See #120.",
-    ).toBeGreaterThan(0);
-    await control.close();
+    let stock: Awaited<ReturnType<typeof hillshadeAtDrivenZoom>>;
+    try {
+      stock = await hillshadeAtDrivenZoom(control, true);
+    } finally {
+      await control.close();
+    }
 
-    // AND ONLY NOW is the zero worth something.
-    expect(ours, "the Natural Earth hillshade is gone from the style").toEqual([]);
+    // Logged either way: the numbers are the point of the red, and a bare
+    // "expected > 0" is what sent the last reader to the trace viewer.
+    console.log(
+      `[map-ne] ours z${ours.zoom.toFixed(4)} tiles ${ours.tiles.length} ` +
+        `(+${ours.tilesAfterJump} after the jump) ne ${ours.ne.length} | ` +
+        `stock z${stock.zoom.toFixed(4)} tiles ${stock.tiles.length} ` +
+        `(+${stock.tilesAfterJump}) ne ${stock.ne.length} (+${stock.neAfterJump})`,
+    );
+
+    // 1. NON-VACUITY. Both maps really went to the network, and both really
+    //    re-rendered at the DRIVEN frame rather than only at their fit.
+    expect(ours.tiles.length, "our map fetched nothing from the tile host at all").toBeGreaterThan(
+      2,
+    );
+    expect(
+      stock.tiles.length,
+      "the control fetched nothing from the tile host at all",
+    ).toBeGreaterThan(2);
+    expect(
+      ours.tilesAfterJump,
+      "our map fetched no tiles after the jump, so the driven frame was never drawn",
+    ).toBeGreaterThan(0);
+    expect(
+      stock.tilesAfterJump,
+      "the control fetched no tiles after the jump, so the driven frame was never drawn",
+    ).toBeGreaterThan(0);
+
+    // 2. AND BOTH ARE AT THE FRAME WE ASKED FOR, read back off MapLibre. If
+    //    anything re-fitted over the jump this says so by name instead of
+    //    letting the comparison quietly happen somewhere else.
+    expect(ours.zoom, "our map did not hold the driven frame").toBeLessThan(NE_LAYER_MAXZOOM);
+    expect(stock.zoom, "the control did not hold the driven frame").toBeLessThan(NE_LAYER_MAXZOOM);
+
+    // 3. THE DISCRIMINATION CONTROL. Same page, same frame, stock style served
+    //    in place of ours: it MUST fetch the hillshade, or the zero below is
+    //    just as true of a style that has the layer.
+    expect(
+      stock.neAfterJump,
+      `the stock style fetched no hillshade at z${stock.zoom.toFixed(4)} either — if ` +
+        "natural_earth's maxzoom moved, NE_ZOOM has to move with it; this test proves " +
+        "nothing as it stands",
+    ).toBeGreaterThan(0);
+
+    // 4. AND ONLY NOW is the zero worth something.
+    expect(ours.ne, "the Natural Earth hillshade is gone from the style").toEqual([]);
   });
 });
 
