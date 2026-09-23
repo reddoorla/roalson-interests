@@ -9246,6 +9246,18 @@ main 1 of 16, branch 0 of 16. At load 59 to 81: main 6 of 24, branch 4 of 24.
 So main fails 7 of 40 and the branch 4 of 40. It is recorded on #144 and not
 fixed here.
 
+The fifth verify, at load 30 rising to 79, failed three other cases, none on
+the listing page. `data-centre-id` appears only in PropertyListing,
+centreWatch and this branch's one app.css rule. The three were the homepage
+carousel's Pause (#117, already filed as flaky on main), the homepage band's
+wheel premise (`property-map-camera-prod.spec.ts:876`, which failed 1 of 16 on
+main against the branch's 16 of 16, filed as #148), and `/dev/animate-in`'s
+reveal (`reveal-no-js.spec.ts:91`, seen once and then 4 of 4 green alone,
+filed as #149). In #148 the zoom went down after four wheel-in ticks, both on
+main and on the branch, so something re-framed the camera inside the wheel
+window. That is worth telling apart from load before anyone loosens that
+premise.
+
 ### Honest accounting
 
 This scratchpad directory is shared with the other agents the parent session
