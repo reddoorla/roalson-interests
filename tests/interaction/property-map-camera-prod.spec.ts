@@ -478,10 +478,16 @@ test.describe("a drag holds the view against a box change the real portfolio can
     await page.locator(MAP).first().scrollIntoViewIfNeeded();
     await drawn(page, 0);
     expect(await cameraProbeInstalled(page)).toBe(true);
+    // POSITIVE EVIDENCE that the camera on screen is the fit-them-all one, not
+    // an argument that it must be: `centreWatch` does not run below `lg`, so
+    // `active` is null and the zoom is whatever the whole section fits into.
+    // A camera driven by an active listing would be at the frame's maxZoom, 12,
+    // exactly — so any zoom below that is a fit and nothing else.
+    const fitted = await mapZoom(page);
     expect(
-      await onCentreLine(land(page)),
-      "below `lg` nothing drives `active`, so the camera is the fit-them-all one",
-    ).not.toBe(undefined);
+      fitted,
+      `the map is fitted to the section, not centred on one listing (z${fitted})`,
+    ).toBeLessThan(11.5);
 
     const expand = page.locator("[data-map-expand]").first();
     await expand.click();
