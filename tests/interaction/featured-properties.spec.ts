@@ -596,7 +596,7 @@ test.describe("rotation", () => {
     }
   });
 
-  test("the arrows turn the slide at once and never drop keyboard focus on <body> (#34)", async ({
+  test("the arrows turn the slide and never drop keyboard focus on <body> (#34)", async ({
     browser,
   }) => {
     const { context, page } = await moving(browser);
@@ -622,10 +622,19 @@ test.describe("rotation", () => {
       await expect(status(page)).toHaveText("Slide 3 of 3");
       expect(await focused()).toBe("Next slide");
 
-      // The USER's turns are instant, as the comp wires its arrows (CHANGE_TO,
-      // no transition): nothing on the incoming slide is transitioning.
+      // THE USER'S TURNS DISSOLVE NOW (operator call, 2026-09-23), and this
+      // assertion is the reversal: it read `transition-duration: 0s` and "the
+      // USER's turns are instant, as the comp wires its arrows (CHANGE_TO, no
+      // transition)". The comp read was faithful; the operator overruled it.
+      // Kept and inverted rather than deleted, so the record of which way it
+      // used to point survives in the file that measures it.
+      //
+      // 0.5s is DISSOLVE, which is CAMERA_FLIGHT_MS: the same half second the
+      // map's camera has always taken on THIS path, because `activeBy` reports
+      // an arrow press as "visitor". The card used to snap while the camera
+      // flew. The `motion` block below measures what the dissolve looks like.
       const photo = page.locator(`${CARD} [data-featured-slide]:not([inert]) img`).locator("..");
-      await expect(photo).toHaveCSS("transition-duration", "0s");
+      await expect(photo).toHaveCSS("transition-duration", "0.5s");
       await expect(photo).toHaveCSS("opacity", "1");
 
       // Tab goes on INTO the slide that is on stage — its LEARN MORE — and
@@ -972,80 +981,570 @@ test.describe("motion", () => {
     }
   });
 
-  test("a USER turn does not stagger: the lines are simply there", async ({ browser }) => {
-    // `rotating` is false whenever the user is driving — pressing an arrow
-    // focuses it, and focus entering stops the clock (APG) — so the whole
-    // `fade` object, this stagger included, drops its transitions. Measured as
-    // opacity in the same task as the press, which is the only way to tell
-    // "instant" from "fast".
+  // ── A VISITOR'S TURN (operator call, 2026-09-23) ─────────────────────────
+  //
+  // "For the home slideshow, animations don't fire if I manually page
+  // through, they should." MEASURED on main before the change, at 1440 with
+  // two real mouse presses 1.5s apart: on the first frame of each turn all
+  // four incoming lines were already at opacity 1, the photo at opacity 1 and
+  // the outgoing slide already hidden, and the new photo then sat at exactly
+  // scale(1) for the 5000ms that followed. Every way a visitor turns this band
+  // is itself a pause (the arrow's focus, the pointer on the card), and the
+  // old gate was `rotating`, so no manual turn ever animated — not the first
+  // press and not any press after it.
+
+  /** Presses `label` FROM INSIDE THE PAGE and samples every frame from that
+   *  instant — the manual-turn twin of `sampleAfterTurn`, which waits on the
+   *  live region for a turn it did not cause.
+   *
+   *  In the page rather than through Playwright: the claims are about the
+   *  first 500ms, and a `locator.click()` round trip is measured in the same
+   *  order of magnitude (carousel.spec.ts's lesson). `before` is read in the
+   *  press's own task. `slides` is indexed by DOM ORDER, so the outgoing slide
+   *  is followed by identity after it goes `inert`.
+   *
+   *  NOTHING IS READ IN THE PRESS'S OWN TASK AFTER THE PRESS, and that is a
+   *  correction. Svelte flushes a programmatic `click()` in a microtask, so in
+   *  that task `:not([inert])` still names the OUTGOING slide, whose words are
+   *  of course opaque. MEASURED with the lines staggering: that read returned
+   *  four opaque lines titled "25331 IH 10 West" while the next frame showed
+   *  "101 W. Commerce Street" at opacity 0. Two cases in this file read
+   *  exactly that and passed for it — "a USER turn does not stagger: the lines
+   *  are simply there" and "reduced motion: the incoming lines are opaque in
+   *  the same frame as the press" — so neither could ever have gone red. The
+   *  first frame is the earliest honest reading.
+   *
+   *  The press FOCUSES the control and clicks it in one task, which lands the
+   *  arrow's focus-pause and the turn in ONE flush. A real mouse puts them in
+   *  two. The slice orders its freeze check before its turn handling for
+   *  exactly this, and the drift case below is what holds it there.
+   *
+   *  TWO CLOCKS, AND CONFUSING THEM COST 6 REDS IN 64 UNDER LOAD. `t` is
+   *  `performance.now()` from the press, which is what the script-driven drift
+   *  is timed from. A CSS transition is not: it runs on the DOCUMENT TIMELINE
+   *  from its own `startTime`, which Chromium resolves on a frame AFTER the
+   *  style change — so neither the press nor the first sampled frame is its
+   *  origin, and on a loaded machine the gap is whole frames. Measured at load
+   *  21–87: timed from the press, a last line "landed at 1968.7ms" and a stack
+   *  "never left" inside a 900ms window; timed from the first frame, four lines
+   *  were still not whole "at 581.5ms". So each frame carries `tl`, the
+   *  timeline time it was evaluated at, and `origin` is the incoming last
+   *  line's own transition `startTime` — both relative to the press. Sampling
+   *  runs until the timeline is `ms` past that origin. */
+  async function sampleAfterPress(page: Page, ms: number, label = "Next slide") {
+    return page.evaluate(
+      async ({ card, ms, label }) => {
+        const region = document.querySelector(card)!;
+        const slides = [...region.querySelectorAll("[data-featured-slide]")];
+        const photoOf = (el: Element) => el.querySelector<HTMLElement>("[data-featured-photo]")!;
+        const scaleOf = (el: Element) => {
+          const t = getComputedStyle(photoOf(el)).transform;
+          return t === "none" ? null : Number(/matrix\(([^,]+),/.exec(t)![1]);
+        };
+        const linesOf = (el: Element) =>
+          [...el.querySelectorAll("[data-featured-line]")].map((line) => {
+            const cs = getComputedStyle(line);
+            const t = cs.translate;
+            return {
+              opacity: Number(cs.opacity),
+              ty: !t || t === "none" ? 0 : Number.parseFloat(t.split(/\s+/)[1] ?? "0") || 0,
+              delay: cs.transitionDelay,
+              duration: cs.transitionDuration,
+            };
+          });
+        const read = () =>
+          slides.map((el) => ({
+            onStage: !el.hasAttribute("inert"),
+            visibility: getComputedStyle(el).visibility,
+            scale: scaleOf(el),
+            style: photoOf(el).getAttribute("style"),
+            photoOpacity: Number(getComputedStyle(photoOf(el).parentElement!).opacity),
+            lines: linesOf(el),
+          }));
+
+        const was = slides.findIndex((el) => !el.hasAttribute("inert"));
+        const before = read();
+        const button = [...region.querySelectorAll("button")].find(
+          (b) => b.getAttribute("aria-label") === label,
+        )!;
+        button.focus();
+        button.click();
+        const t0 = performance.now();
+        /** The incoming last line's opacity transition's `startTime`, once the
+         *  timeline has resolved it — null under reduced motion, where the
+         *  0.01ms transition is over before anything can read it. */
+        let origin: number | null = null;
+        const findOrigin = () => {
+          const onStage = slides.find((el) => !el.hasAttribute("inert"));
+          const lines = onStage?.querySelectorAll("[data-featured-line]") ?? [];
+          for (const animation of lines[lines.length - 1]?.getAnimations() ?? [])
+            if (
+              (animation as CSSTransition).transitionProperty === "opacity" &&
+              animation.startTime !== null
+            )
+              return Number(animation.startTime) - t0;
+          return null;
+        };
+        const series: { t: number; tl: number; v: ReturnType<typeof read> }[] = [];
+        await new Promise<void>((resolve) => {
+          const tick = () => {
+            const t = performance.now() - t0;
+            const tl = Number(document.timeline.currentTime) - t0;
+            series.push({ t, tl, v: read() });
+            origin ??= findOrigin();
+            if (tl - (origin ?? series[0].tl) >= ms) resolve();
+            else requestAnimationFrame(tick);
+          };
+          requestAnimationFrame(tick);
+        });
+        return { was, before, series, origin: origin ?? series[0].tl };
+      },
+      { card: CARD, ms, label },
+    );
+  }
+
+  /** How many slides are in the stack — `visibility: visible` — in one frame. */
+  const inStack = (frame: { v: { visibility: string }[] }) =>
+    frame.v.filter((slide) => slide.visibility === "visible").length;
+
+  test("a VISITOR's turn staggers exactly as the clock's does, and lands on the same 500", async ({
+    browser,
+  }) => {
+    // THE REVERSAL, MEASURED. This case replaces "a USER turn does not
+    // stagger: the lines are simply there", which asserted the comp's wiring
+    // (ON_CLICK → CHANGE_TO, no transition) and which the operator overruled —
+    // and which, read in the press's own task, was vacuous besides (see
+    // `sampleAfterPress`).
+    //
+    // TWO PRESSES, because the old gate failed every one of them: `rotating`
+    // stays false for as long as focus stays in the carousel, so a fix that
+    // animated only the first turn would pass one press and fail here.
+    test.setTimeout(40_000);
     const { context, page } = await moving(browser);
     try {
       await page.goto(HOME);
       await adopted(page);
       await pointerAway(page);
 
-      const arrived = await page.evaluate(async (card) => {
-        const region = document.querySelector(card)!;
-        const next = [...region.querySelectorAll("button")].find(
-          (b) => b.getAttribute("aria-label") === "Next slide",
-        )!;
-        next.focus();
-        next.click();
-        return [
-          ...region.querySelectorAll("[data-featured-slide]:not([inert]) [data-featured-line]"),
-        ].map((el) => {
-          const cs = getComputedStyle(el);
-          const t = cs.translate;
-          return {
-            opacity: cs.opacity,
-            ty: !t || t === "none" ? 0 : Number.parseFloat(t.split(/\s+/)[1] ?? "0") || 0,
-          };
-        });
-      }, CARD);
-      // Opaque and at rest in the SAME task as the press — no frame has passed.
-      expect(arrived).toEqual([
-        { opacity: "1", ty: 0 },
-        { opacity: "1", ty: 0 },
-        { opacity: "1", ty: 0 },
-        { opacity: "1", ty: 0 },
-      ]);
+      for (const pass of ["first press", "second press, focus already inside"]) {
+        const { was, series, origin } = await sampleAfterPress(page, 900);
+        const now = (was + 1) % 3;
+        const first = series[0].v[now];
+        expect(first.onStage, `${pass}: on stage one frame after the press`).toBe(true);
+
+        // WIRED — what the browser resolved on the incoming lines, which does
+        // not depend on how fast the machine draws frames. The old gate
+        // resolves `0s` on all four here.
+        expect(
+          first.lines.map((l) => [l.delay, l.duration]),
+          `${pass}: the incoming lines' transitions`,
+        ).toEqual([
+          ["0.15s", "0.17s"],
+          ["0.21s", "0.17s"],
+          ["0.27s", "0.17s"],
+          ["0.33s", "0.17s"],
+        ]);
+        // NOT ARRIVED on the first frame. The LAST line is the one read: it
+        // cannot be opaque before 330 + 170 = 500ms, so this holds however late
+        // the first frame comes, and an instant swap reads 1 here.
+        expect(
+          first.lines[3].opacity,
+          `${pass}: the last line ${series[0].t.toFixed(1)}ms after the press`,
+        ).toBeLessThan(1);
+        expect(first.lines[3].ty, `${pass}: …and still parked below`).toBeGreaterThan(0);
+
+        // They arrive in order and the last lands ON DISSOLVE — the number the
+        // clock's cascade ends on, because it was never the settle's: it is
+        // how long the hand-over takes to look finished. Times from the
+        // transitions' origin (see `sampleAfterPress`). Non-decreasing, not
+        // strictly increasing: under load two lines can land in one frame, and
+        // the order is already pinned by the delays above.
+        const since = (f: { tl: number }) => f.tl - origin;
+        const done = [0, 1, 2, 3].map(
+          (i) => series.find((f) => (f.v[now].lines[i]?.opacity ?? 0) >= 0.999) ?? null,
+        );
+        expect(
+          done.every((f) => f !== null),
+          `${pass}: arrivals ${done.map((f) => f && since(f).toFixed(1)).join(", ")}`,
+        ).toBe(true);
+        const at = (done as { tl: number }[]).map(since);
+        for (let i = 1; i < at.length; i++)
+          expect(
+            at[i],
+            `${pass}: line ${i} at ${at[i]}ms, line ${i - 1} at ${at[i - 1]}ms`,
+          ).toBeGreaterThanOrEqual(at[i - 1]);
+        // Not before 500: no frame earlier than that has the last line whole…
+        expect(
+          series
+            .filter((f) => since(f) < DISSOLVE - 20 && f.v[now].lines[3].opacity >= 0.999)
+            .map((f) => since(f).toFixed(1)),
+          `${pass}: the last line whole before ${DISSOLVE}ms`,
+        ).toEqual([]);
+        // …and not after it: the first frame past 500 has all four whole,
+        // however late that frame comes.
+        const past = series.find((f) => since(f) >= DISSOLVE + 60)!;
+        expect(
+          past.v[now].lines.map((l) => l.opacity),
+          `${pass}: all four whole at ${since(past).toFixed(1)}ms`,
+        ).toEqual([1, 1, 1, 1]);
+        // Nothing is left part-way over the card — the `bgOverlap` shape.
+        expect(
+          series[series.length - 1].v[now].lines.map((l) => [l.opacity, l.ty]),
+          `${pass}: at rest`,
+        ).toEqual([
+          [1, 0],
+          [1, 0],
+          [1, 0],
+          [1, 0],
+        ]);
+      }
+
+      // The clock really is stopped throughout, so nothing above was a clock
+      // turn wearing a press's clothes.
+      await expect(page.getByRole("button", { name: "Play slides" })).toBeVisible();
+      await expect(status(page)).toHaveText("Slide 3 of 3");
     } finally {
       await context.close();
     }
   });
 
-  test("reduced motion: the incoming lines are opaque in the same frame as the press", async ({
+  test("a VISITOR's turn drifts the photo it brought on — with the clock stopped", async ({
+    browser,
+  }) => {
+    // THE HALF THE OLD GATE COULD NOT REACH, and the harder one: the drift was
+    // `progress`, the rotation's clock, and the press stops that clock. The
+    // slice gives a visitor's turn one dwell's worth of drift of its own —
+    // still through the 500ms dissolve, then 1.00 → 1.03 over 4000ms, then
+    // held — without restarting the rotation (see `kick` in the slice). The
+    // rate is pinned to the frame in FeaturedProperties.test.ts under fake
+    // timers; this is the browser's word that it happens at all, with the
+    // arrow's focus-pause landing in the same flush as the turn.
+    test.setTimeout(40_000);
+    const { context, page } = await moving(browser);
+    try {
+      await page.goto(HOME);
+      await adopted(page);
+      await pointerAway(page);
+
+      const { was, series } = await sampleAfterPress(page, 800);
+      const now = (was + 1) % 3;
+      await expect(page.getByRole("button", { name: "Play slides" })).toBeVisible();
+
+      // Still through the dissolve, as a clock turn is still through its
+      // settle: the drift starts on a photo that has finished arriving. Timed
+      // from the PRESS, which is what the drift is timed from — and a frame's
+      // read can only be staler than its timestamp, never ahead of it.
+      const drift = series.map((f) => ({ t: f.t, s: f.v[now].scale! }));
+      const still = drift.filter((f) => f.t < DISSOLVE - 60);
+      expect(still.length, "sampled the dissolve").toBeGreaterThan(0);
+      expect(new Set(still.map((f) => f.s))).toEqual(new Set([1]));
+      // Monotone: nothing beats against it.
+      for (let i = 1; i < drift.length; i++)
+        expect(drift[i].s, `${drift[i].t.toFixed(1)}ms`).toBeGreaterThanOrEqual(drift[i - 1].s);
+
+      // …and then it TRAVELS, with the rotation stopped — polled rather than
+      // read off one frame, because the frame a sampler lands on can be a
+      // whole second stale on a loaded machine (measured: 1.0015 read at
+      // t ≥ 2000ms, where the drift was due at 1.0113, after a 1.3s frame gap).
+      // The rate is the unit test's; this is the browser's word that it moves.
+      await expect.poll(() => photoScale(page), { timeout: 8_000 }).toBeGreaterThan(1.005);
+      // It ENDS, at the end scale, and HOLDS — 4.5s from the press, then still.
+      await expect.poll(() => photoScale(page), { timeout: 10_000 }).toBe(1.03);
+      await page.waitForTimeout(600);
+      expect(await photoScale(page), "held at the end, not a second lap").toBe(1.03);
+      // It turned nothing: same slide, rotation still stopped, bar at 0.
+      expect(await onStage(page)).toHaveLength(1);
+      await expect(status(page)).toHaveText(`Slide ${now + 1} of 3`);
+      await expect(page.getByRole("button", { name: "Play slides" })).toBeVisible();
+      expect(await barScale(page), "the bar has not moved: nothing is counting").toBe(0);
+    } finally {
+      await context.close();
+    }
+  });
+
+  test("an arrow press: the outgoing slide holds still for the fade, then leaves the stack", async ({
+    browser,
+  }) => {
+    // TWO CLAIMS, AND THE SECOND ONE IS AN ACCESSIBILITY GUARD.
+    //
+    // 1. The photo that just left is held at the drift it HAD. Off-stage
+    //    photos used to sit at the end scale unconditionally, which was sound
+    //    while a visitor's turn was instant — nobody ever saw that photo. It is
+    //    opaque for the whole 500ms now (its `opacity-0` waits out
+    //    `delay-500`), so an unconditional 1.03 would jump it under the
+    //    incoming one in a single frame: up to 27.8px of width on the 928 ×
+    //    542 box. Asserted as bit-equality with the frame before the press,
+    //    every frame, for as long as it is visible.
+    //
+    // 2. It then LEAVES THE STACK. A slide at opacity 0 still paints a box
+    //    over the card, and axe answers `color-contrast` with `bgOverlap`
+    //    instead of a ratio for everything under it. That delayed `invisible`
+    //    used to fire only on clock turns; this path had no second slide in
+    //    the stack at all, and now has one for 500ms. The window is closed by
+    //    CSS and not by the clock, which is what has to be true here, because
+    //    after this press the clock is stopped.
+    test.setTimeout(40_000);
+    const { context, page } = await moving(browser);
+    try {
+      await page.goto(HOME);
+      await adopted(page);
+      await pointerAway(page);
+      // Press MID-DWELL, so the held value is distinguishable both from 1.00
+      // (the incoming photo's) and from 1.03 (what the old rule held).
+      await expect.poll(() => barScale(page), { timeout: TURN_CEILING }).toBeGreaterThan(0.2);
+
+      const { was, before, series, origin } = await sampleAfterPress(page, 900);
+      const parked = before[was].scale!;
+      expect(parked, `the outgoing photo was mid-drift at ${parked}`).toBeGreaterThan(1.0001);
+      expect(parked).toBeLessThan(1.03);
+
+      // 1 — every frame, while it is in the stack, at exactly where it was.
+      const shown = series.filter((f) => f.v[was].visibility === "visible");
+      expect(shown.length, "sampled the outgoing slide while it was visible").toBeGreaterThan(0);
+      expect(
+        shown
+          .filter((f) => f.v[was].scale !== parked)
+          .map((f) => `${f.t.toFixed(1)}ms: ${f.v[was].scale}`),
+        `the outgoing photo moved from ${parked}`,
+      ).toEqual([]);
+
+      // 2 — the WINDOW: two slides in the stack for as long as the fade runs…
+      // (times from the transitions' origin; see `sampleAfterPress`)
+      const during = series.filter((f) => f.tl - origin < DISSOLVE - 20);
+      expect(during.length, "sampled the fade").toBeGreaterThan(0);
+      expect(
+        during
+          .filter((f) => inStack(f) !== 2)
+          .map((f) => `${(f.tl - origin).toFixed(1)}ms: ${inStack(f)}`),
+        "two slides in the stack through the fade",
+      ).toEqual([]);
+      // …then one, closed by CSS with the clock stopped.
+      const hiddenAt = series.find((f) => f.v[was].visibility === "hidden")?.tl;
+      const firstHidden = hiddenAt === undefined ? null : hiddenAt - origin;
+      expect(firstHidden, "the outgoing slide never left the stack").not.toBeNull();
+      expect(firstHidden!, `left the stack at ${firstHidden}ms`).toBeGreaterThanOrEqual(
+        DISSOLVE - 20,
+      );
+      // ON 500, on the timeline — every frame from there on has one slide in
+      // the stack, however late the first of them arrived.
+      const after = series.filter((f) => f.tl - origin >= DISSOLVE + 20);
+      expect(after.length, "sampled past the fade").toBeGreaterThan(0);
+      expect(
+        after.filter((f) => inStack(f) !== 1).map((f) => `${(f.tl - origin).toFixed(1)}ms`),
+        "one slide in the stack once the fade is over",
+      ).toEqual([]);
+      await expect(page.getByRole("button", { name: "Play slides" })).toBeVisible();
+    } finally {
+      await context.close();
+    }
+  });
+
+  /** Presses `label` and HOLDS the hand-over window open: every transition the
+   *  press started is FINISHED except the outgoing slide's own delayed
+   *  `visibility`, which is PAUSED. What is on screen then differs from the
+   *  settled state in exactly one property — a second slide still in the
+   *  stack — which is the state this window adds and nothing else.
+   *
+   *  Held rather than raced because axe cannot run inside 500ms: an audit
+   *  timed to land in the window measures whichever frame it happens to reach,
+   *  part-faded lines included (at ~250ms one line is mid-fade and axe
+   *  computes it at 3.24:1 — true of every fade, and not this window's
+   *  question). `getAnimations()` flushes style, so the press's transitions
+   *  exist by the time it returns, without waiting a frame for them. */
+  const holdWindow = (page: Page, label: string) =>
+    page.evaluate(
+      async ({ card, label }) => {
+        const region = document.querySelector(card)!;
+        const slides = [...region.querySelectorAll("[data-featured-slide]")];
+        const was = slides.findIndex((el) => !el.hasAttribute("inert"));
+        [...region.querySelectorAll("button")]
+          .find((b) => b.getAttribute("aria-label") === label)!
+          .click();
+        await Promise.resolve();
+        let held = 0;
+        for (const animation of document.getAnimations()) {
+          const target = (animation.effect as KeyframeEffect | null)?.target;
+          if (
+            target === slides[was] &&
+            (animation as CSSTransition).transitionProperty === "visibility"
+          ) {
+            animation.pause();
+            held++;
+          } else animation.finish();
+        }
+        const now = slides.findIndex((el) => !el.hasAttribute("inert"));
+        /** Which slide PAINTS the point at the middle of `el`'s left edge.
+         *
+         *  Hit-testing follows paint order, but it skips what cannot be
+         *  targeted, and the leaving slide is both `pointer-events: none` and
+         *  `inert`. A bare `elementFromPoint` therefore answered "the slide on
+         *  stage" whichever slide was painted on top: two versions of this
+         *  probe passed with the leaving slide over the words on stage, and
+         *  only the audit went red. So for the one reading the leaving slide is
+         *  made targetable again — `inert` as a property, which is how the
+         *  primitive sets it — and put straight back. Opacity 0 does not stop
+         *  a hit and the slide is `visible`, so it is hit exactly where it
+         *  paints. */
+        const topAt = (el: Element) => {
+          const b = el.getBoundingClientRect();
+          const leaving = slides[was] as HTMLElement;
+          leaving.inert = false;
+          leaving.style.pointerEvents = "auto";
+          const hit = document.elementFromPoint(b.left + 4, b.top + b.height / 2);
+          leaving.style.pointerEvents = "";
+          leaving.inert = true;
+          return slides.findIndex((slide) => slide.contains(hit));
+        };
+        return {
+          was,
+          now,
+          title: slides[now].querySelector("h3")!.textContent!.trim(),
+          held,
+          inStack: slides.filter((s) => getComputedStyle(s).visibility === "visible").length,
+          titleOnTop: topAt(slides[now].querySelector("h3")!),
+          photoOnTop: topAt(slides[now].querySelector("[data-featured-photo]")!),
+        };
+      },
+      { card: CARD, label },
+    );
+
+  test("inside the hand-over and after it, axe measures every word on the card — both ways", async ({
+    browser,
+  }) => {
+    // THE WINDOW'S COST, IN THE ONLY CURRENCY THAT MATTERS. For 500ms after
+    // a turn the outgoing slide is still in the stack, and a slide in the
+    // stack over the one on stage is what makes axe answer `bgOverlap`
+    // instead of a ratio: measured on this band before the delayed
+    // `invisible` existed, 1 node passed and 6 were incomplete at 1440.
+    //
+    // BOTH DIRECTIONS, because they are not the same window. Next from slide 1
+    // puts the incoming slide LATER in the DOM, so it paints over the leaving
+    // one and axe measured 7 of 7. Previous puts it EARLIER, so the leaving
+    // slide — words at opacity 0, still `visible` — painted over the words on
+    // stage, and axe measured 2 and answered `bgOverlap` for the size line,
+    // the title, both bullets and LEARN MORE. The clock meets the same order
+    // once a lap, at the wrap from the last slide to the first. The slice now
+    // raises the slide on stage (`z-[1]` on the slide, not the photo), and
+    // this case holds it there.
+    //
+    // A COUNT OF MEASURED NODES AND AN EMPTY INCOMPLETE LIST, not "no
+    // violations": zero violations is also what a card with nothing
+    // measurable reports.
+    test.setTimeout(60_000);
+    const { context, page } = await moving(browser);
+    try {
+      await page.goto(HOME);
+      await adopted(page);
+      await page.locator(BAND).scrollIntoViewIfNeeded();
+      await revealed(page.locator(CARD));
+      // The clock stopped first, so no turn of its own lands in an audit.
+      await page.getByRole("button", { name: "Pause slides" }).click();
+      await expect(page.getByRole("button", { name: "Play slides" })).toBeVisible();
+      await pointerAway(page);
+
+      const audit = async (title: string, when: string) => {
+        const results = await new AxeBuilder({ page }).include(CARD).analyze();
+        expect(
+          results.violations.map((v) => `${v.id}: ${v.nodes.length}`),
+          `${when}: violations`,
+        ).toEqual([]);
+        const { measured, unmeasured } = contrastOf(results);
+        expect(
+          unmeasured.map((n) => n.html.slice(0, 60)),
+          `${when}: axe could not measure these`,
+        ).toEqual([]);
+        // The seven: the eyebrow, the size line, the title, two bullets,
+        // LEARN MORE and the portfolio button.
+        expect(measured.length, `${when}: text nodes measured with a ratio`).toBe(7);
+        expect(
+          measured.some((n) => n.html.includes(title)),
+          `${when}: the slide on stage's own title was among them`,
+        ).toBe(true);
+      };
+
+      // Which slide the press brings on is read from the DOM, not assumed: on
+      // a loaded machine the clock can turn once before Pause lands, and a
+      // hard-coded "101 W. Commerce Street" then names the wrong slide.
+      for (const label of ["Next slide", "Previous slide"]) {
+        const held = await holdWindow(page, label);
+        const title = held.title;
+        expect(held.held, `${label}: the window was caught open`).toBe(1);
+        expect(held.inStack, `${label}: two slides in the stack`).toBe(2);
+        expect(held.titleOnTop, `${label}: the words on top are the slide on stage's`).toBe(
+          held.now,
+        );
+        expect(held.photoOnTop, `${label}: …and so is the photo`).toBe(held.now);
+        await audit(title, `${label}, window held open`);
+
+        // RELEASE the held transition and let CSS close the window itself.
+        // Finishing it instead would close any window at all — measured: with
+        // the delay mutated to 60000ms, a version that called `finish()` here
+        // stayed green.
+        await page.evaluate(() => {
+          for (const animation of document.getAnimations())
+            if (animation.playState === "paused") animation.play();
+        });
+        await expect(page.locator(`${CARD} [data-featured-slide]`).nth(held.was)).toHaveCSS(
+          "visibility",
+          "hidden",
+        );
+        await audit(title, `${label}, window closed`);
+      }
+    } finally {
+      await context.close();
+    }
+  });
+
+  test("reduced motion: a visitor's turn is a plain swap — nothing part-way, nothing left over", async ({
     page,
   }) => {
-    // The shared config's context. There is no rotation at all under reduce,
-    // so the only turn available is the user's — and the evidence that nothing
-    // animates is that the new slide's words are fully opaque before a frame
-    // has passed, not that a class is missing.
+    // The shared config's context: reducedMotion "reduce". This replaces
+    // "reduced motion: the incoming lines are opaque in the same frame as the
+    // press", which read the OUTGOING slide (see `sampleAfterPress`).
+    //
+    // WHAT A PLAIN SWAP LOOKS LIKE, MEASURED, because it is not "opaque in the
+    // first frame". app.css turns every transition into a 0.01ms one on
+    // `all`, and a transition sits at its START for the frame it begins in:
+    // the first frame after the press showed the incoming lines at 0 / +8px
+    // with the old slide still visible, and the next showed the new slide
+    // whole and the old one gone, with no animation left running. That is the
+    // old slide for one more frame, then the new one — never anything in
+    // between. So the claim is: no frame part-way, every frame from 100ms on
+    // whole, and no photo ever given a transform. The last is the one app.css
+    // CANNOT enforce: the drift is written by script every frame.
     await page.goto(HOME);
     await adopted(page);
-    const arrived = await page.evaluate(async (card) => {
-      const region = document.querySelector(card)!;
-      const next = [...region.querySelectorAll("button")].find(
-        (b) => b.getAttribute("aria-label") === "Next slide",
-      )!;
-      next.click();
-      return [
-        ...region.querySelectorAll("[data-featured-slide]:not([inert]) [data-featured-line]"),
-      ].map((el) => {
-        const cs = getComputedStyle(el);
-        const t = cs.translate;
-        return {
-          opacity: cs.opacity,
-          ty: !t || t === "none" ? 0 : Number.parseFloat(t.split(/\s+/)[1] ?? "0") || 0,
-        };
-      });
-    }, CARD);
-    expect(arrived).toEqual([
-      { opacity: "1", ty: 0 },
-      { opacity: "1", ty: 0 },
-      { opacity: "1", ty: 0 },
-      { opacity: "1", ty: 0 },
-    ]);
+    const { was, series } = await sampleAfterPress(page, 700);
+    const now = (was + 1) % 3;
+
+    for (const f of series) {
+      const when = `${f.t.toFixed(1)}ms`;
+      expect(
+        f.v.map((slide) => slide.style),
+        `${when}: no photo carries a transform`,
+      ).toEqual([null, null, null]);
+      for (const line of f.v[now].lines) {
+        expect([0, 1], `${when}: a line part-way at ${line.opacity}`).toContain(line.opacity);
+        expect([0, 8], `${when}: a line part-way at +${line.ty}px`).toContain(line.ty);
+      }
+      expect([0, 1], `${when}: the photo part-way`).toContain(f.v[now].photoOpacity);
+    }
+    const settled = series.filter((f) => f.t >= 100);
+    expect(settled.length, "sampled past 100ms").toBeGreaterThan(0);
+    for (const f of settled) {
+      const when = `${f.t.toFixed(1)}ms`;
+      expect(
+        f.v[now].lines.map((l) => [l.opacity, l.ty]),
+        `${when}: the incoming words, whole`,
+      ).toEqual([
+        [1, 0],
+        [1, 0],
+        [1, 0],
+        [1, 0],
+      ]);
+      expect(f.v[now].photoOpacity, `${when}: the incoming photo, whole`).toBe(1);
+      expect(inStack(f), `${when}: nothing left in the stack`).toBe(1);
+    }
   });
 
   // ── B: the Ken Burns drift ───────────────────────────────────────────────
@@ -1214,6 +1713,104 @@ test.describe("motion", () => {
       for (const s of after) expect(s.v.bar.opacity).toBe(1);
       expect(after[after.length - 1].v.bar.value).toBeGreaterThan(after[0].v.bar.value);
       expect(after[after.length - 1].v.bar.mode).toBe("timed");
+    } finally {
+      await context.close();
+    }
+  });
+
+  test("Play after a VISITOR's turn: the bar restarts from empty — it is never drawn full", async ({
+    browser,
+  }) => {
+    // A visitor's turn parks `elapsed` at −settle with the clock stopped, and
+    // the moment the clock runs again over it, `rotating && settling` is true
+    // — which was the whole of the handover's gate. So Play after an arrow
+    // press (or a swipe, whose pointer leaves with the finger) drew the bar
+    // FULL and faded it out over 500ms, for a dwell abandoned part-way and
+    // never counted out. MEASURED before the fix: 41 frames in `handover` at
+    // 887px after a manual turn and Play. CarouselProgress now hands over
+    // only after a CLOCK turn (`turnedBy === "auto"`).
+    //
+    // Real mouse presses, on purpose: the arrow's focus is the pause, and
+    // Play is what lifts it — the path a visitor takes.
+    test.setTimeout(40_000);
+    const { context, page } = await moving(browser);
+    try {
+      await page.goto(HOME);
+      await adopted(page);
+      await pointerAway(page);
+      await expect.poll(() => barScale(page), { timeout: TURN_CEILING }).toBeGreaterThan(0.2);
+
+      await page.getByRole("button", { name: "Next slide" }).click();
+      await expect(page.getByRole("button", { name: "Play slides" })).toBeVisible();
+
+      // Every frame of the bar from here on, stamped in the page.
+      await page.evaluate((card) => {
+        const w = window as unknown as {
+          __bar: { t: number; mode: string; width: number; label: string | null }[];
+        };
+        w.__bar = [];
+        const region = document.querySelector(card)!;
+        const fill = region.querySelector<HTMLElement>("[data-carousel-progress] > div")!;
+        const tick = () => {
+          w.__bar.push({
+            t: performance.now(),
+            mode: fill.dataset.carouselFill ?? "",
+            width: fill.getBoundingClientRect().width,
+            label: region.querySelector("button")!.getAttribute("aria-label"),
+          });
+          requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+      }, CARD);
+      await page.getByRole("button", { name: "Play slides" }).click();
+      await pointerAway(page);
+      // Positive evidence the clock really runs again: the bar FILLING, in
+      // `timed` mode. Not the bare scale — a handover draws scaleX(1), and the
+      // first version of this wait was satisfied by exactly the defect it is
+      // here to catch, stopping the recorder one frame in.
+      await expect
+        .poll(
+          () =>
+            page
+              .locator(`${CARD} [data-carousel-progress] > div`)
+              .evaluate((el) =>
+                (el as HTMLElement).dataset.carouselFill === "timed"
+                  ? Number(/scaleX\(([^)]+)\)/.exec(el.getAttribute("style") ?? "")?.[1])
+                  : 0,
+              ),
+          { timeout: TURN_CEILING },
+        )
+        .toBeGreaterThan(0.05);
+
+      const frames = await page.evaluate(
+        () =>
+          (
+            window as unknown as {
+              __bar: { t: number; mode: string; width: number; label: string | null }[];
+            }
+          ).__bar,
+      );
+      const playing = frames.filter((f) => f.label === "Pause slides");
+      expect(playing.length, "sampled the bar after Play").toBeGreaterThan(5);
+      expect(
+        playing.filter((f) => f.mode === "handover").length,
+        "frames drawn as a handover after a visitor's turn",
+      ).toBe(0);
+      // …and the fill NEVER SHRINKS from Play on: it starts empty and grows.
+      // A full bar fading out has to shrink to nothing when its handover
+      // ends, so this reads the defect as geometry, not as a flag. (Not a
+      // ceiling on the width: when the poll above returns is a matter of load,
+      // and measured at load 27–87 it let the bar reach 318px first.)
+      const shrank = playing.filter((f, i) => i > 0 && f.width < playing[i - 1].width - 0.5);
+      expect(
+        shrank.map((f) => `${f.width.toFixed(1)}px`),
+        "the fill shrank after Play — something full was drawn first",
+      ).toEqual([]);
+      const track = (await page.locator(`${CARD} [data-carousel-progress]`).boundingBox())!.width;
+      const widest = Math.max(...playing.map((f) => f.width));
+      expect(widest, `the fill reached ${widest}px of a ${track}px track`).toBeLessThan(
+        track * 0.9,
+      );
     } finally {
       await context.close();
     }

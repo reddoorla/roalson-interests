@@ -3785,6 +3785,10 @@ tests, axe 0 violations across 4 routes, at load average 8.
 > count — stands and is what shaped the replacement: only opacity dissolves, and
 > `scaleX` still snaps.
 
+> Superseded in part by 2026-09-23 — A visitor's turn animates now: the comp's instant arrows overruled, a drift no clock could draw, and a hand-over that painted the wrong words. "The user's own turns are instant, as the comp
+> wires its arrows" was the comp's reading and the operator overruled it: a
+> visitor's turn now dissolves, staggers and drifts as the clock's does.
+
 The homepage's "Properties" band (`6802:1460` at 1440, `6994:820` at 390): a
 reserved map column on `#3d0707` beside a sand card that turns through the
 editor's featured listings. This entry covers two agents' work. The first was
@@ -5839,6 +5843,12 @@ assertions there moved from `rgb(178, 172, 159)` to `rgb(232, 225, 209)` and
 are the browser-level proof the swap actually reaches a pixel.
 
 ## 2026-09-22 — Four animations on the featured band, and two tests that passed a mutation (`feat/carousel-motion`)
+
+> Superseded in part by 2026-09-23 — A visitor's turn animates now: the comp's instant arrows overruled, a drift no clock could draw, and a hand-over that painted the wrong words. Two beliefs below were corrected there: "a turn
+> with the clock running SHOULD dissolve, because a swipe … is exactly that
+> case" — a visitor's turn drew a FULL bar for a dwell nobody had counted, and a
+> handover now follows only a clock turn; and "An off-stage photo is held at the
+> END scale" — each photo is now parked at the drift it last drew.
 
 Four things the operator asked for on the homepage's Properties carousel: the
 slide's text arrives as four staggered lines instead of one block, the photo
@@ -9067,3 +9077,353 @@ Not fixed here: **#144** (the glide premise's reduced floor) and
 `featured-properties.spec.ts:243` at 436.890625, which is #80/#124's macOS
 scrollbar gutter and green on CI's Linux. Load averages ran 4.5–9.4 through the
 session; CI is the authority.
+
+## 2026-09-23 — A visitor's turn animates now: the comp's instant arrows overruled, a drift no clock could draw, and a hand-over that painted the wrong words (`feat/manual-turns-animate`)
+
+The operator: _"for the home slideshow, animations don't fire if I manually
+page through, they should."_ **This reverses a decision, not a bug.** The comp
+wires the band's arrows `ON_CLICK → CHANGE_TO` with no transition, the build read
+that faithfully on 2026-09-21 ("The user's own turns are instant, as the comp
+wires its arrows"), and the code said so in as many words. The operator has now
+overruled it. Forward pointers are under the 2026-09-21 featured-band entry and
+the 2026-09-22 four-animations entry.
+
+### What the operator was seeing, measured on main
+
+I put main's slice back in the tree and recorded every frame in the page around
+two real Playwright mouse presses on `/dev/home` at 1440, 1.5s apart (load
+10.4–10.9, so noisy, but the result is qualitative). On the first frame of each
+turn all four incoming lines were already at opacity 1, the photo was at opacity
+1 and the outgoing slide was already hidden. The new photo then sat at **exactly
+scale(1) for the 5000ms** after the second press, the control read "Play
+slides", and the bar read 0.
+
+The reason is that every way a visitor turns this band is itself a pause.
+Chromium focuses a button on mousedown, and focus entering the carousel sets
+`userPaused` until Play (APG). The pointer that pressed is resting on the card,
+which sets `hovered`. A swipe arrives as a pointer. The fade, the stagger and the
+exit were all gated on `rotating`, so the old gate did not make one turn instant.
+It made every manual turn instant for as long as the visitor kept paging. Ken
+Burns was drawn off `progress`, which freezes with the clock, so a manual turn
+got no drift at all, not merely an abrupt one.
+
+### The transitions: the gate is `eligible`
+
+`fade`, `lines` and `lineOut` now read `eligible`, the gate `zoom` always used:
+"can this carousel animate at all". It folds reduced motion in. Measured after,
+same harness (load 10.7–12.9): the lines land at **322.5 / 380.8 / 439.1 /
+504.8ms** from the first frame of the turn, and the photo is opaque and the
+outgoing slide hidden at **513.2ms**. On a production build of `/` (load 34–37)
+it was 329.4 / 389 / 447.8 / 505.8ms, photo and stack at 514.1ms, and on the
+second press 316.4 / 374.8 / 433.2 / 499.7ms, with the stack closing at 506.5ms.
+
+**The cascade ends on 500 on this path too, and that is argued, not inherited.**
+After a manual turn the primitive parks `elapsed` at −settle with no clock
+running it down, so the settle is not something a manual cascade can be timed
+to. But the number was never really the settle's. It is DISSOLVE, how long the
+hand-over takes to look finished, and everything else a manual turn does is on
+it:
+
+- the photo cross-fades for DISSOLVE;
+- the map's camera flies for `CAMERA_FLIGHT_MS`, which is the same constant;
+- the visitor's run of the drift (below) holds still for exactly that long and
+  starts on it.
+
+**The camera was already doing this, and the card was not.** `cameraMove`
+answers `fly` for a new active listing whoever turned to it. `activeBy` only
+decides whether a turn lifts a suspension the visitor's own map gesture set.
+Measured at 1440 with the map booted and a `movestart`/`moveend` listener on the
+instance (load 8.65–8.85, noisy):
+
+- **Arrow press:** `movestart` 5.2ms before the first frame of the turn,
+  `moveend` 501.7ms after it, photo opaque at 514.8ms.
+- **Clock turn:** `movestart` at 0, `moveend` at 500.8ms.
+
+So before this change the card snapped while the camera spent half a second
+flying to the same listing.
+
+### Ken Burns: a drift no clock could draw
+
+This was the harder half, and **the first draft of this branch got it the other
+way**. That draft came from an agent killed mid-task when the machine rebooted at
+~09:43. Its uncommitted work was resumed here. It kept the drift on the clock and
+wrote the omission up as a choice: a photo drifting on a carousel whose control
+says "Play slides" would be moving content on a paused carousel, and the only
+honest fix would be to restart the dwell by clearing `userPaused`, which is the
+primitive's APG contract.
+
+Measuring the manual path killed that argument. **Restarting the dwell would not
+have shown the operator a drift either.** The pointer that pressed is still on
+the card, so the clock would still be stopped by `hovered` for exactly the person
+who pressed. No policy about the rotation clock delivers a drift to a mouse user
+paging by hand. So the primitive is unchanged: `carousel.svelte.ts` and its 58
+tests are untouched, and focus still stops the rotation until Play. The drift got
+a run of its own in the slice:
+
+- **A visitor's turn runs one dwell's worth of drift and turns nothing.** It has
+  `restart()`'s shape: `kickElapsed` from −settle, `clamp01(elapsed / DWELL)`. In
+  other words, it is the curve the clock would have drawn had it been running:
+  still through the 500ms dissolve, then 1.00 → 1.03 over 4000ms, then held.
+- **The photo draws the `max` of the two runs.** Where rotation does resume
+  (Play, or a swipe's pointer leaving), the clock takes over from underneath and
+  the photo never moves backwards. Measured through a Play: 1.00676 → 1.01037,
+  continuous.
+- **Reduced motion never starts it.** The loop needs `eligible`, and `zoom` still
+  writes no transform without `eligible`. That second gate matters because
+  app.css zeroes CSS durations but cannot touch a value script writes every
+  frame.
+- **It ends:** 500 + 4000 = 4.5s from the visitor's own press. That is under WCAG
+  2.2.2's five seconds, and a user-started motion is not what that criterion
+  governs.
+- **A pause after the turn freezes it.** The trigger is `paused` turning true:
+  the Pause button, or focus entering. "Pause stops the bar and not the photo" is
+  exactly what the one-clock rule exists to prevent. A pause that was already on
+  when the turn happened (the arrow's own focus) does not freeze it.
+- **The freeze check runs before the turn is handled.** A script that focuses
+  the arrow and clicks it in one task lands the arrow's focus-pause and the turn
+  in one flush, which would otherwise read as a Pause pressed after the turn. A
+  real mouse puts the two in separate flushes.
+- **A hidden tab re-bases the loop**, as the primitive's clock stops for one.
+
+Measured on the second press, dev server (load 10.7–12.9): scale 1 until 400ms,
+then 1.00075 at 600, 1.00337 at 1000, **1.01121 at 2000, 1.01875 at 3000,
+1.02625 at 4000**, and 1.03 from 4500 on. The formula gives 1.01125, 1.01875 and
+1.02625. On the production build the 2000 and 3000 samples both read 1.00486,
+then 1.02589 at 4000 and 1.03 at 5000. I did not record frame times in that run,
+so the gap is reported as observed and its cause is not isolated. The rate is
+pinned to the frame under fake timers in `FeaturedProperties.test.ts`.
+
+### The outgoing photo is parked per slide
+
+Off-stage photos used to sit at the end scale unconditionally, which was sound
+while only the clock handed over: "the outgoing slide has just run its dwell
+out". A visitor hands over mid-dwell, and the outgoing photo is fully opaque for
+the whole 500ms. An unconditional 1.03 is up to **27.8 × 16.3px appearing in one
+frame**. So each photo is parked at the drift it last drew.
+
+It is per slide, not "the one that just left", because two presses inside one
+dissolve leave two photos showing. The draft held only the latest, which would
+have snapped the older photo under the newer. The parked value is the one last
+drawn, recorded in `$effect.pre`, because `restart()` has zeroed `progress`
+before anything else can read it. Measured: the outgoing photo held one value
+for every frame it was visible (1.01451; 1.0086 and 1.0078 on production).
+
+### The window, and the words it painted over
+
+The brief's constraint was that a visitor's turn now puts a second slide in the
+stack for 500ms, on a path that never had one, so the audit had to say what it
+measured. axe cannot run inside 500ms, and one timed to land there measures
+whichever frame it reaches. So the window was **held open**: every transition the
+press started was finished except the outgoing slide's delayed `visibility`,
+which was paused. The screen then differs from the settled state in that one
+property. At 1440 on `/dev/home`, of the card's 7 text nodes:
+
+| state                               | measured | unmeasured             |
+| ----------------------------------- | -------- | ---------------------- |
+| settled, before any turn            | 7        | 0                      |
+| Next (0→1), window held             | 7        | 0                      |
+| **Previous (1→0), window held**     | **2**    | **5, all `bgOverlap`** |
+| after the window closed, either way | 7        | 0                      |
+| Previous, window held, slide raised | 7        | 0                      |
+
+**The direction was the whole difference.** On a Next the incoming slide comes
+later in the DOM and paints over the leaving one. On a Previous the leaving
+slide's words, at opacity 0 but still `visible`, painted over the words on stage:
+the size line, the title, both bullets and LEARN MORE. `z-[1]` sat on the
+incoming PHOTO alone, so the photo cross-fade was right and the text was not.
+**The clock meets the same DOM order once a lap**, at the wrap from the last
+slide to the first. I did not audit that turn separately, but it is the same
+markup and CSS, so this window predates today; nobody had measured it. `z-[1]` is
+now on the slide on stage. On a production build of `/` the card has 10 nodes on
+slide 1: 10/10 on a held Previous and 7/7 on a held Next.
+
+Not a pass, and not this window's question: an audit frozen at ~250ms (natural,
+nothing finished) found **one violation**, the size line mid-fade computing to
+`#9b716b` on `#e8e1d1` at **3.24:1**, plus the title at `equalRatio`. That is true
+of any fade, and the same frames exist on every clock turn since 2026-09-22. The
+a11y gate audits under reduced motion, where there is no window at all.
+
+### The bar drew a full count nobody had counted
+
+Measuring Play after a manual turn found `CarouselProgress` drawing the bar
+**full, 887px, and fading it out over 500ms: 41 frames in `handover`**. Its gate
+was `rotating && settling`, and after a visitor's turn the clock runs down the
+parked settle the moment it resumes. The same held for a swipe, whose pointer
+leaves with the finger.
+
+That corrects a belief in the 2026-09-22 entry: "a turn with the clock running
+SHOULD dissolve, because a swipe, which focuses nothing, is exactly that case".
+The dissolve draws 1 because "a handover only ever follows a COMPLETED dwell",
+and after a visitor's turn that is false. The handover now also requires
+`turnedBy === "auto"`, which makes the sentence true. A visitor's turn restarts
+the dwell and the bar sits at 0 through the settle. The component renders in two
+places: this band, and `/dev/a11y-fixtures`' `CarouselFixture`. The fixture's
+manual instance draws position, so only its autoplaying one and this band see
+the change.
+
+**What the bar does at the visitor's turn itself is unchanged, and it is the
+operator's call: #146.** It drops to 0 on the frame of the turn. A full bar would
+be a lie. A partial one fading out needs the pre-turn value remembered and
+something to end a fade the stopped clock never runs down: a timer, which is the
+second clock the component refuses. In a Chromium paging session only the first
+press finds a partly filled bar anyway.
+
+### Two tests that could never go red, and what reduced motion really looks like
+
+The two tests that asserted the old decision are replaced, not deleted:
+
+- "the arrows turn the slide at once" read `transition-duration: 0s` and now reads
+  `0.5s`.
+- "a USER turn does not stagger: the lines are simply there" became "a VISITOR's
+  turn staggers exactly as the clock's does".
+
+The second, and the reduced-motion case beside it ("the incoming lines are opaque
+in the same frame as the press"), **were vacuous**. Both read
+`:not([inert]) [data-featured-line]` in the press's own task. Svelte flushes a
+programmatic `click()` in a microtask, so in that task the selector still names
+the OUTGOING slide. Measured with the lines staggering: that read returned four
+opaque lines titled "25331 IH 10 West", while the next frame showed "101 W.
+Commerce Street" at opacity 0. It reads the same under reduced motion.
+
+**What a plain swap under reduced motion actually is** had never been measured,
+and it is not "opaque in the first frame". app.css turns every transition into a
+`1e-05s` one on `all`, and a transition sits at its start for the frame it
+begins in. So the first frame after the press showed the incoming lines at 0 /
++8px with the old slide still visible (t=48.4 and 49.8ms). The next frame (56.3ms)
+showed the new slide whole, the old one hidden, and zero animations running. That
+is the old slide for one more frame, then the new one, and never anything in
+between. It is the same on main and it is not motion, so it is recorded here
+rather than filed. The new case asserts exactly that: no part-way value on any
+frame, whole from 100ms on, and no photo ever carrying a transform.
+
+### Guards, and the ones of my own that could not see
+
+Every guard was mutated and watched go red. The browser reds below are from the
+final guards, on the dev server at load 22–44 (noisy, but a red is a red):
+
+- **The gate back on `rotating`:** 4 red. The stagger read `0s` on all four
+  lines, #34's photo read `transition-duration: "0s"`, the hold "sampled the
+  outgoing slide while it was visible: 0", and the audit "the window was caught
+  open: 0".
+- **No visitor run:** the drift poll timed out at 1 ("expected > 1.005"); the unit
+  case read "expected 1 to be close to 1.015".
+- **Freeze judged after the turn:** the browser drift poll timed out at 1. The
+  unit cases stayed **green**, because none lands a pause and a turn in one
+  flush. That is the unit suite's blind spot, and the browser case covers it.
+- **No freeze:** unit "frozen at 1.01125: expected 1.03".
+- **Only the latest outgoing photo parked:** unit "the OLDER outgoing photo,
+  still held: expected 1.03 to be 1.015".
+- **No parking at all:** unit "expected scale(1.03000) to be scale(1.00000)";
+  browser "the outgoing photo moved from 1.00784".
+- **The stack never closes (`delay-[60000ms]`):** the hold "never left the stack:
+  null"; the audit "expected visibility hidden, received visible".
+- **The stack closes at once:** the hold saw 0 visible frames; the audit "the
+  window was caught open: 0".
+- **`zoom` ignores `eligible`:** under reduce, "2.2ms: no photo carries a
+  transform"; in the unit suite, 2 red.
+- **Handover on any turn:** unit "0ms into the settle: expected 'handover' to be
+  'timed'"; browser "frames drawn as a handover after a visitor's turn: expected
+  0, received 62".
+- **`z-[1]` removed, or back on the photo:** "Previous slide: the words on top are
+  the slide on stage's: expected 0, received 1".
+- **The leaving photo raised:** "Next slide: …and so is the photo: expected 1,
+  received 0".
+- **Reduced motion's "never part-way" half** is held by two braces: the slice's
+  `eligible` gate and app.css's zeroing. It stays green with either one broken
+  alone, which is the design. With both broken it goes red: "10.6ms: the photo
+  part-way", at 0.01646.
+
+Six guards were broken in their first form, and only a mutation or a repeat
+said so:
+
+- **The paint-order probe was vacuous twice.** `elementFromPoint` follows paint
+  order but skips what cannot be targeted, and the leaving slide is
+  `pointer-events: none` and then also `inert`. It answered "the slide on stage"
+  with the leaving slide painted on top. Only the audit went red. The probe now
+  makes the leaving slide targetable for the one reading.
+- **The audit's "after the window" half called `finish()`.** That closes any
+  window, so the `delay-[60000ms]` mutation passed it. It now releases the held
+  transition and waits for CSS to close the window.
+- **The Play case's "the clock runs again" wait was satisfied by the defect.** A
+  handover draws `scaleX(1)`, so a bare `scale > 0.05` returned at once, and the
+  mutation went red on "sampled the bar after Play: 1" rather than on the
+  handover. It now waits for a `timed` fill. The width check it had, "under 20%
+  of the track", failed 6 of 16 on load, because the poll returns late and the
+  fill reached 199–318px of 887 first. It is now "the fill never shrinks", which
+  reds the mutation on its own with the handover assertion neutralised ("the
+  fill shrank after Play").
+- **The audit hard-coded which slide Next brings on.** At load 87 the clock
+  turned once before Pause landed, and "101 W. Commerce Street" named the wrong
+  slide. The title is now read from the DOM.
+- **Transition times were measured on the wrong clock, twice.** From the press,
+  a loaded machine shifted the whole cascade late: "last line landed at
+  1968.7ms", "the outgoing slide never left the stack" inside a 900ms window.
+  From the first sampled frame, which was the first fix, two runs in 112 still
+  failed: four lines "not whole at 581.5ms", and once no line whole inside the
+  window at all. A CSS transition runs on the document timeline from its own
+  `startTime`, which Chromium resolves a frame after the style change. So the
+  sampler now records `document.timeline.currentTime` per frame and reads the
+  incoming last line's `CSSTransition.startTime` as the origin. The stack's
+  closure is asserted on that timeline: every frame from 520ms has one slide in
+  it, with no ceiling on when a frame arrives. The drift, which script times
+  from the press, keeps the press as its origin.
+- **The drift case read the travel off one frame.** My sampler's rAF runs before
+  the drift's own tick, so each read is one frame stale. After a 1.3s frame gap
+  it read 1.0015 where the drift was due at 1.0113. The travel is now polled, and
+  the case also polls the drift to 1.03 and checks it holds there with nothing
+  turned.
+
+`--repeat-each=16` on the seven cases, three passes:
+
+- **First pass: 93 of 112**, at load 27 rising to 87. Drift 8/16, Play 10/16,
+  stagger 14/16, hold 14/16, audit 15/16, reduced swap 16/16, #34 16/16.
+- **Second pass: 110 of 112**, after all but the timeline fix, at load 21–32.
+  Both failures were the stagger case.
+- **Third pass: 112 of 112**, all seven 16/16, at load 24.0–42.7.
+
+Every failure traces to one of the causes above: the stale frame, the width
+ceiling, the wrong clock, or the hard-coded title. None was the code.
+After the fixes the mutations were re-run and every one reds its guard at the
+assertion named above.
+
+**The draft left a mutation live when the machine went down.** Its
+`delay-[60000ms]` stack-never-closes mutation was still in `index.svelte`, and
+its backup copy had been in `/private/tmp`, which the reboot emptied. It was
+found by grepping for the mutation on resume and restored by hand to `delay-500`,
+which matches `photoOut`. Mutation backups belong somewhere a crash does not
+clear, or the restore belongs in the same command as the mutation.
+
+**`pnpm verify` ran four times and was never fully green, and it was never red
+on this change.** Every step before Playwright passed all four times: prettier,
+eslint, svelte-check (0 errors in 4660 files), the build, the a11y gate, and
+1413/1413 unit tests. The a11y gate reported 0 violations across 5 routes plus
+the hydration smoke. Its `results.json` records violations only, so it cannot
+say what was measured; the node counts above come from the held-window audit.
+
+Each Playwright run was 207/208, with a different case red each time, at load
+32–66:
+
+| run | red                                                                                                   | load  | alone, right after |
+| --- | ----------------------------------------------------------------------------------------------------- | ----- | ------------------ |
+| 1   | `property-map-camera-prod` "a real mouse wheel, 300px a notch": the page travelled 300, premise > 500 | 59–60 | 3/3                |
+| 2   | `featured-properties` "turns on the comp's clock": the handover read 0.00215, after it had ended      | 24–62 | 4/4                |
+| 3   | `property-map-camera` "travels, rather than arriving": 0 in-between frames of 4                       | ~40   | **2/3**            |
+| 4   | `reveal-no-js` "hidden on the first frame": the reveal did not complete in 10s                        | 33–66 | 3/3                |
+
+Three of the four drive routes that render nothing this branch changes:
+`/properties`, `/dev/properties` and `/dev/animate-in`. That was checked against
+their imports. The fourth is #117's clock case, reading a 500ms window through a
+round trip; the in-page handover case passed in the same run. The band's 32 cases
+passed in every run except that one read, including every manual-turn case. The
+runs are recorded on #117, #138 and #144.
+
+Not fixed here:
+
+- **#146**, the bar at a visitor's turn;
+- WebKit, which does not focus a clicked button (unmeasured, #32);
+- `featured-properties.spec.ts:243` at 436.890625, which is #80/#124's macOS
+  gutter and green on CI.
+
+The load average ran 5.9–46 through the session, with other agents' Playwright
+runs on the same 8 cores. Everything above 8 is labelled noisy, and CI plus the
+independent verifier are the authority.
