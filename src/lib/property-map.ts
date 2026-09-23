@@ -35,6 +35,7 @@
 import { asLink, isFilled } from "@prismicio/client";
 
 import type { FeaturedSlide } from "$lib/featured-properties";
+import { MAP_HOME as HOME, type HomeFrame } from "$lib/map-home";
 import { linkResolver } from "$lib/prismicio";
 import { mapsUrl } from "$lib/property";
 import type { PropertyDocument } from "../prismicio-types";
@@ -261,6 +262,122 @@ export function frameFor(box: Box): MapFrame {
   return box.height < COMPACT_MAX_HEIGHT ? "compact" : "full";
 }
 
+// ---------------------------------------------------------------------------
+// MAP_HOME — the frame the map OPENS on, and the frame the raster is of (#122)
+// ---------------------------------------------------------------------------
+
+/** The chosen opening frame per `MAP_FRAMES` key. Declared in `./map-home`
+ *  with the argument for every number in it, and re-exported here so that
+ *  `$lib/property-map` stays the one import for everything the map knows.
+ *  `satisfies` rather than an annotation: it keeps the literal types AND
+ *  fails the build if a frame key is added to `MAP_FRAMES` without one. */
+export const MAP_HOME = HOME satisfies Record<MapFrame, HomeFrame>;
+export { MAP_HOME_FADE_MS, MAP_HOME_GROUND } from "./map-home";
+export type { HomeCamera, HomeFrame } from "./map-home";
+
+/** One marker of the placeholder, positioned as an OFFSET FROM THE BOX'S
+ *  CENTRE rather than from its top-left.
+ *
+ *  That is the whole reason the server can draw these at all. A pin's position
+ *  on screen is `map.project(lngLat)`, which needs the container's size — and
+ *  the server has no container. With the camera FIXED, the centre pixel of any
+ *  container is MAP_HOME's coordinate whatever that container's size, so the
+ *  offset is a constant and `left:50%; top:50%; translate(dx, dy)` lands the
+ *  marker exactly where `reposition()` will put the live one. A marker outside
+ *  the container is clipped by the box's own `overflow-hidden`. */
+export interface HomeMarker {
+  /** `MapCluster.id` — the member ids, sorted. */
+  id: string;
+  /** How many listings this marker stands for. */
+  count: number;
+  /** The listing, when this marker is one listing's own pin. */
+  point: MapPoint | null;
+  /** CSS pixels right of / below the box's centre. */
+  dx: number;
+  dy: number;
+}
+
+/**
+ * The markers a frame's placeholder draws, from the SAME `clusterPoints` the
+ * live map runs — at MAP_HOME's zoom and the frame's own cluster radius, so
+ * the grouping the server draws is the grouping MapLibre will draw on its
+ * first frame and there is nothing to re-flow.
+ */
+export function homeMarkers(points: readonly MapPoint[], frame: MapFrame): HomeMarker[] {
+  const { camera } = MAP_HOME[frame];
+  const { clusterRadius } = MAP_FRAMES[frame];
+  const cx = projectX(camera.lng, camera.zoom);
+  const cy = projectY(camera.lat, camera.zoom);
+  return clusterPoints(points, camera.zoom, clusterRadius).map((cluster) => ({
+    id: cluster.id,
+    count: cluster.points.length,
+    point: cluster.points.length === 1 ? cluster.points[0]! : null,
+    dx: projectX(cluster.lng, camera.zoom) - cx,
+    dy: projectY(cluster.lat, camera.zoom) - cy,
+  }));
+}
+
+/**
+ * THE ONE EXPRESSION THAT DECIDES BOTH HALVES, and it is deliberately one.
+ *
+ * It answers "does this section open on MAP_HOME" — and the component uses the
+ * same answer to decide whether to RENDER the placeholder and what to CONSTRUCT
+ * MapLibre with. A placeholder drawn from one rule and a camera built from
+ * another could part company, and #122 is explicit that nothing else in the
+ * system would notice if they did. They cannot part company if there is only
+ * one rule, which is why this returns a camera-or-null rather than a boolean
+ * the two sides interpret separately.
+ *
+ * `null` is THE EDGE #122 left to be decided: a section whose markers all fall
+ * outside MAP_HOME. The answer is that such a section gets NO placeholder and
+ * boots on `fitCamera` exactly as it does today, and the reasoning is that the
+ * alternatives are both worse. Showing MAP_HOME anyway means a picture of San
+ * Antonio standing in for listings that are not in San Antonio — a placeholder
+ * that is wrong about the only thing it is for. RENDERING the raster at that
+ * section's own fit would put published content back inside the image, which
+ * is the exact dependence this design exists to remove.
+ *
+ * What it costs, stated plainly: this predicate IS content-dependent, so a
+ * publish can flip it. But it can only ever turn the placeholder OFF (back to
+ * the list-of-links that shipped in #13), never change what the picture SHOWS
+ * — so the raster's only drift axis is still the style digest, and that is
+ * still a hash check. Coverage is measured at the frame's `reference` box, the
+ * smallest box that frame is drawn at, so the answer cannot be true on the
+ * homepage band's 1073px slot and false on the phone.
+ */
+export function homeCamera(points: readonly MapPoint[], frame: MapFrame): Camera | null {
+  const { camera, reference } = MAP_HOME[frame];
+  const covered = homeMarkers(points, frame).some(
+    (m) => Math.abs(m.dx) <= reference.width / 2 && Math.abs(m.dy) <= reference.height / 2,
+  );
+  return covered ? { ...camera } : null;
+}
+
+/**
+ * The component's ONE question: does this section open on MAP_HOME, and if so
+ * at which camera per frame. All frames or none.
+ *
+ * ALL-OR-NONE IS NOT TIDINESS, it closes a hole. Which frame is on screen is a
+ * CSS container query — the box's own height, which the server cannot evaluate
+ * — so the server renders BOTH frames' placeholders and the browser shows one.
+ * The list of links goes visually hidden when a placeholder is shown, the way
+ * it does when the canvas arrives. If one frame were covered and the other not,
+ * a box landing on the uncovered frame would hide the list and draw nothing:
+ * the blank box #13's definition of done forbids. So coverage is a property of
+ * the SECTION, and a section covered at 397 x 595 but not at 350 x 200 keeps
+ * the list at both — the conservative answer, and the only one whose failure
+ * mode is "today's behaviour".
+ */
+export function homeFrames(points: readonly MapPoint[]): Record<MapFrame, Camera> | null {
+  const frames = {} as Record<MapFrame, Camera>;
+  for (const frame of Object.keys(MAP_FRAMES) as MapFrame[]) {
+    const camera = homeCamera(points, frame);
+    if (camera === null) return null;
+    frames[frame] = camera;
+  }
+  return frames;
+}
+
 /**
  * The camera that shows every point inside `box` minus `padding`, never closer
  * than `maxZoom`. Zero points gives null — the caller draws no map at all.
@@ -401,6 +518,28 @@ export interface CameraState {
   userMoved: boolean;
   reducedMotion: boolean;
   /**
+   * WHERE "NOTHING IS ACTIVE" MEANS, since #122 — this section's MAP_HOME
+   * camera, or null for a section that has none.
+   *
+   * IT IS HERE BECAUSE OF A DEFECT THIS FIELD'S ABSENCE CAUSED, found by
+   * tests/interaction/map-home.spec.ts on a production build and not by
+   * anything in jsdom. With `active` null — which is every Properties-page map
+   * below `lg`, where `centreWatch` is gated `minWidth: 1024` and never runs —
+   * this function answered `fitCamera(points)`, so a map CONSTRUCTED at
+   * MAP_HOME was told to jump to the auto-fit on the very first frame after
+   * `load`. Measured on /properties at 390 x 844: the committed picture drew
+   * 8 own pins and clusters of 6 and 3, and the live map one frame later drew
+   * 2 own pins and a cluster of 15 — the z6.948 fit, not the z8.0 frame. The
+   * placeholder was a true picture of a camera that survived one frame.
+   *
+   * So the fixed frame is not merely where the map OPENS, it is what "no
+   * listing is active" resolves to for the whole life of the map. That is the
+   * operator's own words — "a specific frame to always show as the default
+   * start" — and it is what makes the picture honest for as long as it is up.
+   * A section with no MAP_HOME (null) keeps the auto-fit exactly as before.
+   */
+  home?: Camera | null;
+  /**
    * A FLIGHT THIS MAP ISSUED IS STILL IN THE AIR — the caller's own record of
    * what it commanded, held for `CAMERA_FLIGHT_MS` from the `flyTo` it passed
    * that same number to.
@@ -432,6 +571,62 @@ export interface CameraState {
    * a jump, so there is nothing in the air to protect.
    */
   flying?: boolean;
+  /**
+   * THE COMMITTED PICTURE OF MAP_HOME IS STILL ON SCREEN over this map — the
+   * cross-fade has not finished and the placeholder has not been retired.
+   *
+   * IT IS HERE BECAUSE OF #132, WHICH IS THE SAME DEFECT AS `home` ONE STEP
+   * ALONG. `home` made the fixed frame what "nothing is active" resolves to,
+   * so a map with no active listing stays where its picture is. It said
+   * nothing about a map that HAS one: `active` is non-null at boot on the
+   * homepage band (slide 0 from the start) and on `/properties` above `lg`
+   * whenever the visitor arrives already scrolled, and there the first frame
+   * after `load` answered `fly` — a 500ms flight that begins INSIDE the 300ms
+   * cross-fade. Measured on a production build with `reducedMotion:
+   * "no-preference"`, sampling every animation frame on which both sets of
+   * pins existed, as the largest picture-pin-to-live-pin distance in the box's
+   * own coordinates:
+   *
+   *   /properties 1440, scrolled to centre   14618.92 px
+   *   / band 1440                             1772.50 px
+   *   / band 390                              1800.65 px
+   *   /properties 1440 at scroll 0                0.00 px   (`active` null)
+   *   /properties 390                             0.00 px   (`active` null)
+   *
+   * The delta is at its maximum by canvas opacity 0.002 and holds for every
+   * remaining frame, so it is not a flight the eye follows out of the picture:
+   * it is two maps at two cameras, one dissolving into the other, for the
+   * whole fade. The two 0.00 rows are the only ones #130's own guard covered.
+   *
+   * SO WHILE THIS IS TRUE, `home` IS WHERE THE CAMERA BELONGS — whatever is
+   * active. It is the same sentence `home` already carries for a map with no
+   * active listing, widened to the only other thing that can be true while a
+   * picture of a fixed frame is on screen. The flight to the active listing is
+   * not cancelled, only not yet: `handedOver` flipping re-runs the caller's
+   * effect and the flight issues then, from a map the visitor is already
+   * looking at. It costs the flight its 300ms head start and nothing else.
+   *
+   * IT IS NOT A REFUSAL, AND THAT WAS THE FIRST ATTEMPT — one more line in the
+   * refusal block, `pictureUp` answering `none`. It fixed the measured case
+   * and opened the same defect one step along, which this repo's own rule
+   * about enumerating a class says to look for: a box change that crosses
+   * `COMPACT_MAX_HEIGHT` while the picture is up repaints the PICTURE at the
+   * other frame (the container query is on the box's height and answers
+   * immediately) while a refused camera stays at the frame it booted with. The
+   * expand affordance below `lg` does exactly that, 200 -> min(70dvh, 520px),
+   * and `PropertyMap.test.ts`'s re-frame case went red on it. Resolving to
+   * `home` rather than refusing keeps the two halves together by construction:
+   * whichever frame the picture is showing, the camera is at that frame's
+   * camera.
+   *
+   * Under the picture every move is a JUMP. The picture is opaque over the
+   * canvas, so nothing under it can be seen travelling — an animation nobody
+   * can watch, which the hand-over would then interrupt.
+   *
+   * Absent (undefined) means "no picture" — every map without a placeholder,
+   * and every call in a unit test that is not about this.
+   */
+  pictureUp?: boolean;
   /**
    * The camera this map was last TOLD to be at — the one it was constructed
    * with, or the target of the last move. Not `map.getCenter()`: mid-flight
@@ -518,11 +713,50 @@ export function cameraMove(state: CameraState): CameraMove {
   // that cannot be served.
   if (target === undefined) return { move: "none", why: "unknown-active" };
 
-  const camera = fitCamera(target ? [target] : points, box, frame);
+  // WHILE THE PICTURE OF MAP_HOME IS ON SCREEN, MAP_HOME IS THE ANSWER — the
+  // active listing included, because a map that leaves the frame its own
+  // placeholder is a picture of shows two cameras at once (#132). See
+  // `pictureUp`.
+  const underPicture = state.pictureUp === true ? (state.home ?? null) : null;
+  // "Fit them all" is only the answer where there is no chosen frame; see
+  // `home` on CameraState for the defect that read.
+  const camera =
+    underPicture ??
+    (target ? fitCamera([target], box, frame) : (state.home ?? fitCamera(points, box, frame)));
   if (camera === null) return { move: "none", why: "no-points" };
   if (commanded && sameCamera(commanded, camera)) return { move: "none", why: "arrived" };
 
-  if (target === null || reducedMotion) return { move: "jump", camera };
+  // THE ORDER OF THE LAST TWO LINES IS THE WHOLE OF THE #130/#137 MERGE, so it
+  // is written down rather than left to whichever branch's diff applied last.
+  // Both rules arrived from different PRs, both compile in either order, and
+  // only one of them is right:
+  //
+  //   #130  every move under an opaque picture is a JUMP        (jump line)
+  //   #137  a flight in the air denies a FLIGHT and never a jump (in-flight)
+  //
+  // `in-flight` is a refusal ABOUT FLIGHTS. It therefore has to sit below
+  // every line that can still decide the move is a jump, and `underPicture` is
+  // one of those lines — the same place `target === null` and `reducedMotion`
+  // have always sat, for the same reason. Put `in-flight` above it instead and
+  // it refuses a move it was never meant to touch: the one move still due
+  // under the picture, the frame change the expand affordance makes
+  // (200 -> min(70dvh, 520px), across `COMPACT_MAX_HEIGHT`). The container
+  // query repaints the PICTURE at the other frame immediately; a camera held
+  // back by a flight that is still in the air stays at the frame it booted
+  // with; and that is #132 again — the live map off the frame its own picture
+  // is of, measured at 14618.92 px of pin displacement before the fix.
+  //
+  // WHAT IS NOT CLAIMED HERE. In PropertyMap.svelte as wired today the two
+  // flags cannot both be true: every move under the picture is a jump, a jump
+  // calls `endFlight()`, and `handedOver` is monotone, so no flight can be in
+  // the air while a picture is still up. That invariant is a CONSEQUENCE of
+  // this ordering and that wiring, not an independent fact, and it is not what
+  // makes the ordering correct — `cameraMove` is a pure function whose answer
+  // has to be right for the state it is handed, by this caller or the next
+  // one. The case is held by a unit test in property-map.test.ts
+  // ("does not let a flight in the air refuse a jump the picture requires"),
+  // which is where it can be seen at all; no browser guard can reach it.
+  if (underPicture !== null || target === null || reducedMotion) return { move: "jump", camera };
   // THE LAST REFUSAL, and the only one that is not first. It has to sit below
   // `arrived`, because "the camera is already there" is the truer answer than
   // "a flight is in the air" and a caller that heard `in-flight` for a move it

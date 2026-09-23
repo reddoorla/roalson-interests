@@ -18,6 +18,7 @@
     "test:smoke": "playwright install chromium && playwright test",
     "test:a11y": "reddoor-maint audit --only a11y --fail-on-violations",
     "map:style": "node scripts/map-style.mjs",
+    "map:home": "node scripts/map-home.mjs",
     "slicemachine": "start-slicemachine"
   },
   "reddoor": {

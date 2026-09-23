@@ -186,14 +186,42 @@ async function booted(active: string) {
     label: "Land",
     active,
   });
-  render(PropertyMap, { props });
+  const view = render(PropertyMap, { props });
   await vi.waitFor(() => expect(engine.created).toHaveLength(1));
   const record = engine.created[0]!;
   record.handlers.load?.();
   await tick();
   await tick();
   expect(record.commands, "a map opens already framed on its active listing").toHaveLength(0);
+
+  // THE PICTURE COMES DOWN BEFORE THE CLOCK STARTS, and this is #130 meeting
+  // #137 (both landed 2026-09-23, neither having seen the other). The map now
+  // opens on MAP_HOME under a committed placeholder, and while that picture is
+  // up `cameraMove` answers MAP_HOME whatever is active — so a drive written
+  // against the old boot counted ZERO flights, for 0ms of hold and for the
+  // wrong reason entirely. Every case in this file is about what the camera
+  // does once it is the thing on screen.
+  //
+  // Asserted, not assumed, in both halves: there really was a picture, and
+  // retiring it really does issue the one hand-over flight. Without the first
+  // this helper would go quietly vacuous the day `homeFrames` stopped
+  // answering for these points; without the second the `elapse` below would be
+  // waiting on nothing.
+  expect(
+    view.container.querySelector("[data-map-home-box]"),
+    "the map these cases drive is one that opens under a picture",
+  ).not.toBeNull();
   vi.useFakeTimers();
+  view.container
+    .querySelector("[data-map-canvas]")!
+    .dispatchEvent(Object.assign(new Event("transitionend"), { propertyName: "opacity" }));
+  flushSync();
+  expect(flights(record), "the hand-over from the picture is itself a flight").toHaveLength(1);
+  // …and it is a flight like any other, so it holds the next one for its own
+  // duration. Landing it here is what lets a case below say "one flight" and
+  // mean the one it asked for.
+  elapse(CAMERA_FLIGHT_MS + 1);
+  record.commands.length = 0;
   return { props, record };
 }
 

@@ -11,6 +11,7 @@ import {
   type CameraLog,
 } from "./camera-probe";
 import { hydrated } from "./hydrated";
+import { placedPin } from "./placed-markers";
 
 /** `CAMERA_FLIGHT_MS` from $lib/property-map, repeated rather than imported: a
  *  Playwright spec is transformed by Playwright and does not resolve `$lib`.
@@ -115,16 +116,19 @@ const onCentreLine = (section: Locator) =>
     return null;
   });
 
-/** Where a listing's pin sits inside its map's box, or null if that listing is
- *  inside a cluster and has no pin of its own (issue #115). */
-const pinAt = (section: Locator, id: string) =>
-  section.evaluate((el, listing) => {
-    const box = (el.querySelector("[data-property-map]") as HTMLElement).getBoundingClientRect();
-    const pin = el.querySelector<HTMLElement>(`[data-map-pin="${listing}"]`);
-    if (!pin) return null;
-    const p = pin.getBoundingClientRect();
-    return { x: p.left + p.width / 2 - box.left, y: p.bottom - box.top };
-  }, id);
+/** Where a listing's pin sits inside its map's box — its TIP, which is the point
+ *  the camera centres — or null if that listing is inside a cluster and has no
+ *  pin of its own (issue #115).
+ *
+ *  THE TIP IS THE PROJECTED POINT, so it is read out of the transform rather
+ *  than off `getBoundingClientRect()` — `reposition()` writes
+ *  `translate(point) translate(-50%, -100%)`, so the first translate is where
+ *  the tip lands. That is not a shortcut, it is the #143 correction: a rect can
+ *  still be at the overlay's corner for one frame AFTER the transform is
+ *  correct, and it answers 0,0 there, which is a number and not an error.
+ *  `placedPin` refuses to read at all until every marker carries a transform. */
+const pinAt = async (section: Locator, id: string) =>
+  (await placedPin(section.locator(MAP), id, `${id}'s pin`))?.point ?? null;
 
 /** Every listing this section draws a single pin for, in DOM order. */
 const pinIds = (section: Locator) =>
@@ -165,7 +169,32 @@ async function premises(page: Page) {
 /** Sample `window.scrollY` every frame from INSIDE the page while `drive` runs
  *  and for `ms` afterwards — a round trip per sample would miss the middle of a
  *  scroll that is over in under a second. Returns the positions and the cards
- *  the centre line crossed, both measured off the page's own boxes. */
+ *  the centre line crossed, both measured off the page's own boxes.
+ *
+ *  WHAT `crossed` COUNTS, AND WHY IT IS NOT THE SAMPLES ANY MORE. It used to be
+ *  the cards a SAMPLED centre line sat on, and that made a premise out of the
+ *  rAF lottery. Measured on this machine, 32 runs of the `End` case: the
+ *  journey is the same every single time — 0 to 7000 on a 7900px document, over
+ *  a span of 139-256ms — but the main thread sees it as 3 to 9 position
+ *  changes, because the scroll is composited and one frame's step can be
+ *  3841px (447 -> 4288 -> 7000 was a real run). Of 22 cards the centre line
+ *  passes over, between 1 and 7 happened to be under a sampled position. The
+ *  floor of `> 2` therefore failed 1 in 16 runs here and on CI (#130), on a
+ *  scroll that had covered every card on the page.
+ *
+ *  So the span the centre line SWEPT is what is counted: every card whose box
+ *  meets the interval between the lowest and the highest position sampled. That
+ *  is the question the premise is asking, it cannot be under-reported by a
+ *  missed frame, and it is 22 of 22 on every run of the case above. It is also
+ *  strictly MORE than the old count — a card the sweep passed over between two
+ *  samples was crossed, and the old line said it was not.
+ *
+ *  A SWEEP IS ONLY A SWEEP IF THE PAGE GLIDED, and that is why the glide
+ *  premise is asserted BEFORE this count rather than beside it: a page that
+ *  teleports 7000px in one frame passes OVER no card, and this interval would
+ *  happily report all 22 of them. Mutated to exactly that — `End` replaced by
+ *  `scrollTo({ behavior: "instant" })` over the same distance — the glide
+ *  premise reds 3 times in 3, at "2 distinct" positions and 0 in the middle. */
 async function travelOf(page: Page, drive: () => Promise<void>, ms = 2500) {
   // Each sample carries the time the CAMERA PROBE would stamp on a flight
   // issued in the same frame (`__camera.t0` is the shared origin), which is
@@ -193,9 +222,16 @@ async function travelOf(page: Page, drive: () => Promise<void>, ms = 2500) {
   // driving call returned (`End` returns the instant the key is pressed and
   // the page glides on for another 300ms after it).
   let movingUntil = samples[0]?.t ?? 0;
+  // …and the first instant it changed, so "how long was it moving" is a span
+  // and not a count of frames. A single-frame jump — which is what the fleet's
+  // reduced-motion emulation turns every drive here into — spans 0.
+  let movingFrom: number | null = null;
   for (let i = 1; i < samples.length; i++)
-    if (samples[i]!.y !== samples[i - 1]!.y) movingUntil = samples[i]!.t;
-  const crossed = await page.evaluate((ys) => {
+    if (samples[i]!.y !== samples[i - 1]!.y) {
+      movingUntil = samples[i]!.t;
+      movingFrom ??= samples[i - 1]!.t;
+    }
+  const { crossed, sampled } = await page.evaluate((ys) => {
     const cards = [...document.querySelectorAll<HTMLElement>("[data-centre-id]")].map((li) => {
       const b = li.getBoundingClientRect();
       return {
@@ -209,13 +245,29 @@ async function travelOf(page: Page, drive: () => Promise<void>, ms = 2500) {
       const mid = y + window.innerHeight / 2;
       for (const c of cards) if (c.top <= mid && c.bottom >= mid) seen.add(c.id);
     }
-    return [...seen];
+    const half = window.innerHeight / 2;
+    const lo = Math.min(...ys) + half;
+    const hi = Math.max(...ys) + half;
+    return {
+      crossed: cards.filter((c) => c.top <= hi && c.bottom >= lo).map((c) => c.id),
+      sampled: seen.size,
+    };
   }, positions);
+  const first = positions[0]!;
+  const last = positions[positions.length - 1]!;
   return {
     positions,
     crossed,
+    /** How many of `crossed` a sampled position happened to land on. Evidence
+     *  for a failure message, never a premise — see the note above. */
+    sampled,
     movingUntil,
-    distance: positions[positions.length - 1]! - positions[0]!,
+    /** How long the page's position kept changing, in ms. */
+    movingFor: movingFrom === null ? 0 : movingUntil - movingFrom,
+    /** Positions strictly between where it started and where it ended: a page
+     *  that jumped in one frame has none, however far it went. */
+    between: new Set(positions.filter((y) => y !== first && y !== last)).size,
+    distance: last - first,
   };
 }
 
@@ -386,18 +438,41 @@ test.describe("no arc is abandoned: a flight lands before the next one leaves", 
         travel.distance,
         `the page really travelled (${travel.positions.length} frames)`,
       ).toBeGreaterThan(500);
-      // It GLIDED — several distinct positions rather than one frame's jump.
-      // Deliberately not a big number: Chromium's own `End` animation is short,
-      // and measured on a production build it delivered as few as 10 distinct
-      // positions for a 10 000px journey. A premise that is itself flaky turns
-      // a real red into a coin toss, so this asks only for what it needs.
+      // IT GLIDED RATHER THAN JUMPING, said as time and as shape rather than as
+      // a sample count. What stood here wanted more than 4 DISTINCT POSITIONS,
+      // on a measurement taken from a production build ("as few as 10 for a
+      // 10 000px journey"). That number does not survive: measured 32 times on
+      // this dev-server route, `End` produced between 4 and 10 distinct
+      // positions, four of them exactly 4 — so the floor sat one above the
+      // platform's own minimum and fired 6 times in 16 on an unchanged page
+      // that had scrolled the full 7000px every run. The cause is not load: the
+      // scroll is composited, and the main thread sees one 3841px step where
+      // the reader sees a glide.
+      //
+      // So the two things "glided" actually means are asserted directly. It
+      // OCCUPIED THE MIDDLE — a page that jumps in one frame has no position
+      // between its first and its last, however far it went — and it TOOK TIME
+      // doing it. 32ms is two frames; the measured span was 139-256ms, and the
+      // fleet's reduced-motion emulation (lifted in this file, and asserted
+      // lifted in `premises`) makes it 0.
+      //
+      // SAID OUT LOUD: on the "how many distinct positions" axis this asks for
+      // less than the old line did (3 where it wanted 5). It asks for it on an
+      // axis the old line could not see at all, and the number it replaces was
+      // never met with room to spare. #144.
       expect(
-        new Set(travel.positions).size,
-        "and it glided rather than jumping — several distinct positions",
-      ).toBeGreaterThan(4);
+        travel.between,
+        `and it glided rather than jumping — it occupied the middle ` +
+          `(${travel.positions.length} frames, ${new Set(travel.positions).size} distinct)`,
+      ).toBeGreaterThan(0);
+      expect(
+        travel.movingFor,
+        "and the travel took time rather than landing in one frame",
+      ).toBeGreaterThan(32);
       expect(
         travel.crossed.length,
-        `and it crossed several cards on the way (${travel.crossed.length})`,
+        `and it crossed several cards on the way (${travel.crossed.length} swept, ` +
+          `${travel.sampled} of them under a sampled position)`,
       ).toBeGreaterThan(2);
 
       await page.waitForTimeout(1200);

@@ -1,9 +1,17 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, cleanup } from "@testing-library/svelte";
-import { tick } from "svelte";
+import { flushSync, tick } from "svelte";
 
 import PropertyMap from "./PropertyMap.svelte";
-import { DEFAULT_MAP_STYLE_URL, type MapPoint } from "$lib/property-map";
+import {
+  CAMERA_FLIGHT_MS,
+  DEFAULT_MAP_STYLE_URL,
+  frameFor,
+  homeMarkers,
+  MAP_HOME_FADE_MS,
+  MAP_HOME,
+  type MapPoint,
+} from "$lib/property-map";
 
 afterEach(() => {
   cleanup();
@@ -456,9 +464,34 @@ describe("the expand affordance", () => {
 // The camera this component does NOT own
 // ---------------------------------------------------------------------------
 
+/** The artifact a finished cross-fade produces, dispatched on the canvas host
+ *  itself — which is the one element whose fade may retire the picture (#134).
+ *  jsdom runs no transitions and has no TransitionEvent constructor, so
+ *  `propertyName` is an own property on a plain Event. */
+function endTheFade(container: HTMLElement, propertyName = "opacity") {
+  const host = container.querySelector("[data-map-canvas]")!;
+  host.dispatchEvent(Object.assign(new Event("transitionend"), { propertyName }));
+}
+
 /** Boot a map, measured at `box`, and fire MapLibre's own `load` — which is
  *  the only thing that sets `ready`, and therefore the only thing that lets any
- *  camera rule past its first refusal. */
+ *  camera rule past its first refusal.
+ *
+ *  THE MOVE LOG IS ZEROED AT THE END, and that is #122's doing. The map is now
+ *  constructed at MAP_HOME — the fixed frame the committed placeholder is a
+ *  picture of — so a map whose caller already has an `active` listing HANDS
+ *  OVER to it with one flight. That hand-over is a claim in its own right and
+ *  is asserted in exactly one case below; every other case here is about what
+ *  the camera does NEXT, and counting from zero is what keeps those assertions
+ *  as strong as they were ("one flight", not "one more than whatever happened
+ *  at boot"). `boot` is returned so a case can still look at it.
+ *
+ *  THE HAND-OVER IS NO LONGER AT `load`, and that is #132. The flight waits
+ *  for the PICTURE to be retired: a map that flew while its own placeholder
+ *  was still on screen put the committed picture and a different live map up
+ *  together for the whole 300ms fade. So this helper ends the cross-fade
+ *  before it reads the log, and returns `held` — what the camera did while the
+ *  picture was up, which every case can assert is nothing. */
 async function booted(props: Record<string, unknown>, box = { width: 397, height: 595 }) {
   stubResizeTo(box.width, box.height);
   stubIntersecting({ mapHeight: box.height, visible: box.height });
@@ -468,17 +501,100 @@ async function booted(props: Record<string, unknown>, box = { width: 397, height
   record.handlers.load?.();
   await tick();
   await tick();
-  return { view, record };
+  const held = {
+    flights: [...record.flights],
+    jumps: [...record.jumps],
+    eases: [...record.eases],
+    /** Whether there was a picture to hold the camera in the first place —
+     *  without it `held` is empty for the uninteresting reason. */
+    picture: view.container.querySelector("[data-map-home-box]") !== null,
+  };
+  // THE FAKE CLOCK IS ONLY FOR THE HAND-OVER, and it is here because #130 and
+  // #137 landed the same day without seeing each other. The hand-over is a
+  // FLIGHT, and since #127 a flight holds the next one for `CAMERA_FLIGHT_MS`
+  // — so a case that changed `active` straight after this helper returned was
+  // correctly answered `in-flight` and counted zero. Five cases below went red
+  // on exactly that, and every one of them is about the move AFTER the boot.
+  // Landing the hand-over here is what makes "one flight" mean the one the
+  // case asked for. (Real timers everywhere else in this file: `booted` is
+  // never called from the `vi.useFakeTimers()` block below, and the clock is
+  // handed back before it returns.)
+  vi.useFakeTimers();
+  endTheFade(view.container);
+  await tick();
+  await tick();
+  const boot = {
+    flights: [...record.flights],
+    jumps: [...record.jumps],
+    eases: [...record.eases],
+  };
+  vi.advanceTimersByTime(CAMERA_FLIGHT_MS + 1);
+  flushSync();
+  vi.useRealTimers();
+  record.flights.length = 0;
+  record.jumps.length = 0;
+  record.eases.length = 0;
+  return { view, record, boot, held };
 }
 
 describe("the camera the page drives", () => {
-  it("is constructed already framed on the active listing, so nothing moves at load", async () => {
-    const { record } = await booted({ active: "b" });
-    // `fitCamera` of one point clamps to the frame's maxZoom, and the centre is
-    // that point corrected for the pin's tip.
+  // THE #122 GUARD, and it is one of the two that issue names: "assert
+  // MAP_HOME is what MapLibre is actually constructed with. If the constant
+  // and the camera ever part company the placeholder is a lie and nothing else
+  // would notice." The other half — that the committed raster was RENDERED at
+  // this same camera — is scripts/map-home.test.ts's.
+  //
+  // THIS CASE REPLACES ONE TITLED "is constructed already framed on the active
+  // listing, so nothing moves at load", and that claim is no longer true. It
+  // was true, and it was #112's: the homepage band opened on slide 0 and
+  // nothing travelled. It now opens on the fixed frame and flies to slide 0,
+  // because a map that opened anywhere else would land its tiles somewhere the
+  // picture underneath them is not, and that jump is the whole thing the
+  // placeholder exists to remove. 500ms, under WCAG 2.2.2's five seconds, and
+  // a jump rather than a flight under `prefers-reduced-motion`.
+  it("is constructed at exactly MAP_HOME when a placeholder is drawn", async () => {
+    const { record, boot, held } = await booted({ active: "b" });
+    // The placeholder really was in the DOM — otherwise this case would be
+    // asserting the boot camera of a map that has nothing to agree with.
+    // (`booted` ends the cross-fade before it returns, so this is read there.)
+    expect(held.picture).toBe(true);
+    const want = MAP_HOME[frameFor({ width: 397, height: 595 })].camera;
+    expect(record.options.center).toEqual([want.lng, want.lat]);
+    expect(record.options.zoom).toBe(want.zoom);
+    // AND IT STAYS THERE WHILE THE PICTURE IS UP (#132). `load` has fired and
+    // there is an active listing to go to, so the only thing holding the
+    // camera is the placeholder over it. This is the half that was missing:
+    // opening at MAP_HOME means nothing if the map leaves on the next frame,
+    // which is what it did — 14618.92 px of picture-to-live pin delta on
+    // /properties at 1440, measured on a production build.
+    expect(held.flights, "no flight while the picture is on screen").toHaveLength(0);
+    expect(held.jumps, "and no jump either").toHaveLength(0);
+    // And THEN it hands over to the listing the caller asked for: one flight,
+    // to `fitCamera` of that point, which clamps to the frame's maxZoom.
+    expect(boot.flights).toHaveLength(1);
+    const handover = boot.flights[0] as { center: number[]; zoom: number };
+    expect(handover.center[0]).toBeCloseTo(points[1]!.lng, 6);
+    expect(handover.zoom).toBe(12);
+  });
+
+  it("is constructed at the fit, as before, when no placeholder is drawn", async () => {
+    // A section with nothing inside MAP_HOME gets no picture — so there is
+    // nothing for the camera to agree with, and the old rule stands: open on
+    // the active listing and do not move. `points[1]` alone is Kingsville,
+    // 197 km south of the frame.
+    stubResizeTo(397, 595);
+    stubIntersecting({ mapHeight: 595, visible: 595 });
+    const view = render(PropertyMap, {
+      props: { points: [points[1]!], label: "Out of San Antonio", active: "b" },
+    });
+    await vi.waitFor(() => expect(engine.created).toHaveLength(1));
+    const record = engine.created[0]!;
+    record.handlers.load?.();
+    await tick();
+    await tick();
+    expect(view.container.querySelector("[data-map-home-box]")).toBeNull();
     expect(record.options.zoom).toBe(12);
     expect((record.options.center as number[])[0]).toBeCloseTo(points[1]!.lng, 6);
-    // Nothing flew: the map opened where it belonged.
     expect(record.flights).toHaveLength(0);
   });
 
@@ -518,7 +634,51 @@ describe("the camera the page drives", () => {
   // the camera is fitted to every point INSIDE the box, so its shape decides
   // it. That is also the case the flag was originally written for, back when a
   // box change was the only thing that moved this camera at all.
-  it("re-fits on a box change when nobody has driven the map", async () => {
+  //
+  // AND AT #122 IT STOPPED BEING THE FIT. `active: null` now resolves to this
+  // section's MAP_HOME, a CHOSEN frame, which is by construction independent
+  // of the box — so 397x595 -> 397x700 moves nothing at all and the control
+  // below measured zero. A whole class of camera moves is simply gone: no
+  // desktop resize disturbs a map at rest any more.
+  //
+  // What still moves it is a box change that crosses `COMPACT_MAX_HEIGHT`,
+  // because MAP_HOME's two frames are two cameras (z8.0 compact, z8.6 full).
+  // That is also the box change the real site produces — the expand affordance
+  // below `lg`, 200 -> min(70dvh, 520px) — so these two cases now drive the
+  // only resize that has ever mattered on production data.
+  it("re-frames on a box change that crosses the frame threshold", async () => {
+    const resize = stubResizableTo(350, 200);
+    stubIntersecting({ mapHeight: 200, visible: 200 });
+    const view = render(PropertyMap, { props: { points, label: "Land", active: null } });
+    await vi.waitFor(() => expect(engine.created).toHaveLength(1));
+    const record = engine.created[0]!;
+    record.handlers.load?.();
+    await tick();
+    await tick();
+    // The premise, asserted rather than assumed: it opened on the COMPACT
+    // frame's home.
+    expect(record.options.zoom).toBe(MAP_HOME.compact.camera.zoom);
+    const before = record.flights.length + record.jumps.length + record.eases.length;
+
+    resize({ width: 350, height: 520 });
+    await tick();
+    await tick();
+    expect(record.flights.length + record.jumps.length + record.eases.length).toBeGreaterThan(
+      before,
+    );
+    // And it went to the OTHER home, not to a fit of the points.
+    expect(record.jumps.at(-1)).toEqual({
+      center: [MAP_HOME.full.camera.lng, MAP_HOME.full.camera.lat],
+      zoom: MAP_HOME.full.camera.zoom,
+    });
+    view.unmount();
+  });
+
+  it("does NOT move for a box change that stays inside one frame", async () => {
+    // The other half of the same rule, and the thing #122 actually changed.
+    // This case did not exist before because there was nothing to say: every
+    // box change re-fitted. Now most of them do nothing, and that is worth a
+    // test rather than a comment.
     const resize = stubResizableTo(397, 595);
     stubIntersecting({ mapHeight: 595, visible: 595 });
     const view = render(PropertyMap, { props: { points, label: "Land", active: null } });
@@ -532,15 +692,13 @@ describe("the camera the page drives", () => {
     resize({ width: 397, height: 700 });
     await tick();
     await tick();
-    expect(record.flights.length + record.jumps.length + record.eases.length).toBeGreaterThan(
-      before,
-    );
+    expect(record.flights.length + record.jumps.length + record.eases.length).toBe(before);
     view.unmount();
   });
 
-  it("declines that same re-fit once a gesture has driven the map", async () => {
-    const resize = stubResizableTo(397, 595);
-    stubIntersecting({ mapHeight: 595, visible: 595 });
+  it("declines that same re-frame once a gesture has driven the map", async () => {
+    const resize = stubResizableTo(350, 200);
+    stubIntersecting({ mapHeight: 200, visible: 200 });
     const view = render(PropertyMap, { props: { points, label: "Land", active: null } });
     await vi.waitFor(() => expect(engine.created).toHaveLength(1));
     const record = engine.created[0]!;
@@ -552,8 +710,8 @@ describe("the camera the page drives", () => {
     await tick();
     const before = record.flights.length + record.jumps.length + record.eases.length;
 
-    // Same listing, new box — exactly the case the control above moves for.
-    resize({ width: 397, height: 700 });
+    // Same listing, same box change the control above moves for.
+    resize({ width: 350, height: 520 });
     await tick();
     await tick();
     expect(record.flights.length + record.jumps.length + record.eases.length).toBe(before);
@@ -769,5 +927,246 @@ describe("pressing a pin", () => {
     expect(record.flights).toHaveLength(before.flights);
     expect(record.eases).toHaveLength(before.eases);
     expect(record.jumps).toHaveLength(before.jumps);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The fixed-frame placeholder (#122)
+// ---------------------------------------------------------------------------
+
+/** A `matchMedia` that answers `matches` for `prefers-reduced-motion: reduce`
+ *  and nothing else — the same shape CarouselProgress.test.ts drives. */
+function stubReducedMotion(matches: boolean) {
+  window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+    matches: matches && query.includes("prefers-reduced-motion"),
+    media: query,
+    onchange: null,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    addListener: () => {},
+    removeListener: () => {},
+    dispatchEvent: () => false,
+  })) as unknown as typeof window.matchMedia;
+}
+
+describe("the picture the server draws where the map will be", () => {
+  // Every case here renders with `engine: "off"`, so nothing below can be
+  // confused with what MapLibre did: this is the SERVER's markup, which is
+  // also what a scripting-off browser gets and what a crawler reads.
+  const render0 = () => render(PropertyMap, { props: { points, label: "Land", engine: "off" } });
+
+  it("draws one layer per frame, each with its own committed raster", async () => {
+    const { container } = render0();
+    await tick();
+    const layers = [...container.querySelectorAll<HTMLElement>("[data-map-home-frame]")];
+    expect(layers.map((l) => l.dataset.mapHomeFrame)).toEqual(Object.keys(MAP_HOME));
+    for (const layer of layers) {
+      const frame = MAP_HOME[layer.dataset.mapHomeFrame as keyof typeof MAP_HOME];
+      // The size comes from the same constant the generator rendered at, so a
+      // raster regenerated at another size cannot be served at the old one —
+      // which would scale it, and a scaled placeholder cannot line up with the
+      // tiles.
+      expect(layer.style.backgroundSize).toBe(`${frame.raster.width}px ${frame.raster.height}px`);
+      // AND THE URL IS NOT HERE, which is the whole of #133. A
+      // `background-image` on the layer is fetched whichever layer the
+      // container query ends up painting — measured as both rasters on up to
+      // 16 of 16 production loads — so the file name is handed to CSS as a
+      // custom property and only the rule that wins turns it into a request.
+      expect(layer.style.backgroundImage, "the layer names no image of its own").toBe("");
+    }
+    // One property per frame, on the wrapper, written from the same constant:
+    // the file name still has exactly one source.
+    const box = container.querySelector<HTMLElement>("[data-map-home-box]")!;
+    for (const [key, frame] of Object.entries(MAP_HOME)) {
+      expect(box.style.getPropertyValue(`--map-home-${key}`)).toBe(`url(/${frame.file})`);
+    }
+  });
+
+  it("puts every marker at its MAP_HOME offset from the box's centre", async () => {
+    const { container } = render0();
+    await tick();
+    for (const key of Object.keys(MAP_HOME) as (keyof typeof MAP_HOME)[]) {
+      const layer = container.querySelector<HTMLElement>(`[data-map-home-frame="${key}"]`)!;
+      const drawn = [...layer.querySelectorAll<HTMLElement>("[data-map-home-pin]")];
+      const markers = homeMarkers(points, key).filter((m) => m.count === 1);
+      expect(drawn).toHaveLength(markers.length);
+      for (const [i, marker] of markers.entries()) {
+        const el = drawn[i]!;
+        expect(el.dataset.mapHomePin).toBe(marker.point!.id);
+        // `left/top` at the centre and the offset in the transform is what
+        // makes this renderable with no box: with the camera fixed, the box's
+        // centre pixel is MAP_HOME's coordinate at every container size.
+        expect(el.style.left).toBe("50%");
+        expect(el.style.top).toBe("50%");
+        expect(el.style.transform).toBe(
+          `translate(${marker.dx}px,${marker.dy}px) translate(-50%,-100%)`,
+        );
+      }
+    }
+  });
+
+  it("makes every single-listing marker a link to the same place its row is", async () => {
+    // The trade this PR makes: the list goes visually hidden under the
+    // picture, so the picture has to carry the pointer path. `tabindex="-1"`
+    // + `aria-hidden` is the LIVE marker's contract, unchanged — the list is
+    // still what the keyboard and the screen reader get.
+    const { container } = render0();
+    await tick();
+    const layer = container.querySelector<HTMLElement>('[data-map-home-frame="full"]')!;
+    const links = [...layer.querySelectorAll<HTMLAnchorElement>("[data-map-home-pin]")];
+    expect(links.length).toBeGreaterThan(0);
+    for (const link of links) {
+      const point = points.find((p) => p.id === link.dataset.mapHomePin)!;
+      expect(link.tagName).toBe("A");
+      expect(link.getAttribute("href")).toBe(point.mapsUrl);
+      expect(link.getAttribute("target")).toBe("_blank");
+      expect(link.getAttribute("rel")).toBe("noopener noreferrer");
+      expect(link.getAttribute("tabindex")).toBe("-1");
+      expect(link.getAttribute("aria-hidden")).toBe("true");
+    }
+  });
+
+  it("keeps the listings list, as the map's accessible equivalent", async () => {
+    // #13's definition of done is still met and this says how: the list is in
+    // the DOM, named, complete, and every row still links to Google Maps. What
+    // changed is that it is `sr-only` from the server rather than from the
+    // moment the canvas arrives.
+    const { container, getByRole } = render0();
+    await tick();
+    const list = getByRole("list", { name: "Land listings" });
+    expect(list.querySelectorAll("li")).toHaveLength(points.length);
+    for (const a of container.querySelectorAll("[data-map-link]")) {
+      expect(a.className).toContain("sr-only");
+    }
+  });
+
+  it("leaves the list visible when there is no picture to replace it with", async () => {
+    // The other side of the same rule, and the reason `homeFrames` is
+    // all-or-nothing: a box that draws no placeholder must not have had its
+    // list hidden.
+    const { container } = render(PropertyMap, {
+      props: { points: [points[1]!], label: "Out of San Antonio", engine: "off" },
+    });
+    await tick();
+    expect(container.querySelector("[data-map-home-box]")).toBeNull();
+    expect(container.querySelector("[data-map-link]")!.className).not.toContain("sr-only");
+  });
+});
+
+describe("the hand-over from the picture to the canvas", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("keeps the picture until the canvas says its fade is over", async () => {
+    vi.useFakeTimers();
+    stubReducedMotion(false);
+    stubResizeTo(397, 595);
+    stubIntersecting({ mapHeight: 595, visible: 595 });
+    const view = render(PropertyMap, { props: { points, label: "Land" } });
+    await vi.waitFor(() => expect(engine.created).toHaveLength(1));
+    engine.created[0]!.handlers.load?.();
+    await tick();
+    // FULLY OPAQUE, not fading: the canvas travels and the picture does not.
+    // Both at 50% would show the tone ground through them — a flash of exactly
+    // the state the placeholder replaces.
+    expect(view.container.querySelector("[data-map-home-box]")).not.toBeNull();
+
+    // A CLOCK IS NOT THE EVIDENCE, and this case used to accept one: it
+    // advanced MAP_HOME_FADE_MS and expected the picture gone. On a loaded
+    // machine the transition had run half of its 300ms at that point
+    // (measured: opacity 0.535164), so the version that passed here shipped a
+    // visible dip to the tone ground. Time alone proves nothing.
+    vi.advanceTimersByTime(MAP_HOME_FADE_MS * 3);
+    await tick();
+    expect(
+      view.container.querySelector("[data-map-home-box]"),
+      "a clock must not be able to retire the picture",
+    ).not.toBeNull();
+
+    // Nor does a transition of something ELSE on the same element.
+    endTheFade(view.container, "transform");
+    await tick();
+    expect(view.container.querySelector("[data-map-home-box]")).not.toBeNull();
+
+    endTheFade(view.container);
+    await tick();
+    expect(view.container.querySelector("[data-map-home-box]")).toBeNull();
+  });
+
+  it("ignores an opacity transition that ended on something INSIDE the canvas", async () => {
+    // #134. `transitionend` BUBBLES, so a handler that checks only
+    // `propertyName` retires the picture for any descendant that fades —
+    // and maplibre-gl.css ships `.maplibregl-marker { transition: opacity
+    // .2s }`, a hundred milliseconds SHORTER than the fade it would cut
+    // short. Latent today (the pins are plain SVG), which is exactly why it
+    // needs a case: nothing else in the system would notice it arriving.
+    //
+    // `endTheFade` cannot see this. It dispatches on `[data-map-canvas]`
+    // itself, so the host IS the target and a missing target check looks
+    // identical to a present one — the reason the defect survived #130's
+    // thirteen mutations.
+    vi.useFakeTimers();
+    stubReducedMotion(false);
+    stubResizeTo(397, 595);
+    stubIntersecting({ mapHeight: 595, visible: 595 });
+    const view = render(PropertyMap, { props: { points, label: "Land" } });
+    await vi.waitFor(() => expect(engine.created).toHaveLength(1));
+    engine.created[0]!.handlers.load?.();
+    await tick();
+
+    const host = view.container.querySelector("[data-map-canvas]")!;
+    const child = document.createElement("div");
+    child.className = "maplibregl-marker";
+    host.appendChild(child);
+    child.dispatchEvent(
+      Object.assign(new Event("transitionend", { bubbles: true }), { propertyName: "opacity" }),
+    );
+    await tick();
+    expect(
+      view.container.querySelector("[data-map-home-box]"),
+      "a child's fade must not retire the picture",
+    ).not.toBeNull();
+
+    // And the host's own still does, so the clause above denies rather than
+    // disables.
+    endTheFade(view.container);
+    await tick();
+    expect(view.container.querySelector("[data-map-home-box]")).toBeNull();
+  });
+
+  it("gives up on a fade that never ends, rather than stranding the picture", async () => {
+    // The leak guard, at ten times the duration. It is not what ends the fade
+    // — the case above proves the event is — but a `transitionend` that never
+    // arrives would otherwise leave a full-size raster in the DOM under an
+    // opaque canvas for the life of the page.
+    vi.useFakeTimers();
+    stubReducedMotion(false);
+    stubResizeTo(397, 595);
+    stubIntersecting({ mapHeight: 595, visible: 595 });
+    const view = render(PropertyMap, { props: { points, label: "Land" } });
+    await vi.waitFor(() => expect(engine.created).toHaveLength(1));
+    engine.created[0]!.handlers.load?.();
+    await tick();
+    vi.advanceTimersByTime(MAP_HOME_FADE_MS * 10 + 1);
+    await tick();
+    expect(view.container.querySelector("[data-map-home-box]")).toBeNull();
+  });
+
+  it("cuts straight to the canvas under prefers-reduced-motion", async () => {
+    // #122's rule, and it is BOTH halves in one preference: the canvas's
+    // transition is `none` and the picture is removed on the same tick, so
+    // there is no cross-fade rather than a fast one.
+    vi.useFakeTimers();
+    stubReducedMotion(true);
+    stubResizeTo(397, 595);
+    stubIntersecting({ mapHeight: 595, visible: 595 });
+    const view = render(PropertyMap, { props: { points, label: "Land" } });
+    await vi.waitFor(() => expect(engine.created).toHaveLength(1));
+    engine.created[0]!.handlers.load?.();
+    await tick();
+    expect(view.container.querySelector("[data-map-home-box]")).toBeNull();
+    // Nothing was scheduled, so nothing can fire late.
+    expect(vi.getTimerCount()).toBe(0);
   });
 });

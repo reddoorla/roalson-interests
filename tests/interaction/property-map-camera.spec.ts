@@ -10,6 +10,7 @@ import {
   watchCamera,
 } from "./camera-probe";
 import { hydrated } from "./hydrated";
+import { placedMarkers, placedPin } from "./placed-markers";
 
 // THE STICKY MAP AND ITS CAMERA (#13 follow-up), in the only place either can
 // be checked. Four claims, none of which jsdom can see:
@@ -92,12 +93,12 @@ const onCentreLine = (section: Locator) =>
 
 /** Where a pin's own coordinate sits inside the map box, in px. The element is
  *  translated to the projected point and then by its own anchor, so the first
- *  translate IS the point. */
-const pinAt = (section: Locator, id: string) =>
-  section.locator(`[data-map-pin="${id}"]`).evaluate((el) => {
-    const m = /translate\(([-\d.]+)px,\s*([-\d.]+)px\)/.exec((el as HTMLElement).style.transform);
-    return m ? { x: Number(m[1]), y: Number(m[2]) } : null;
-  });
+ *  translate IS the point.
+ *
+ *  Through `placedPin` (#143), which is what makes a `null` here mean "that
+ *  listing is inside a cluster" and never "it was read a `tick()` too early". */
+const pinAt = async (section: Locator, id: string) =>
+  (await placedPin(section.locator(MAP).first(), id, `${id}'s pin`))?.point ?? null;
 
 const mapBox = (section: Locator) =>
   section.locator(MAP).evaluate((el) => {
@@ -326,12 +327,14 @@ test.describe("the map pins beside its cards", () => {
       // sit where the FIT put them, and scrolling past three cards moves
       // nothing. (Above `lg` the same scroll moves the camera — the tests below
       // measure that, which is what keeps this one from being vacuous.)
-      const pinsAt = () =>
-        map.evaluate((el) =>
-          [...el.querySelectorAll<HTMLElement>("[data-map-pin],[data-map-cluster]")].map(
-            (p) => p.style.transform,
-          ),
-        );
+      //
+      // Through `placedMarkers` (#143), and that is not decoration here: this
+      // compares two lists of transforms, so a read that caught the markers
+      // between the `{#each}` and `reposition()` would answer a list of empty
+      // strings — and TWO such reads would be EQUAL, which is a green for a
+      // camera that had in fact moved.
+      const pinsAt = async () =>
+        (await placedMarkers(map, "the band's markers")).markers.map((m) => m.transform);
       const first = await pinsAt();
       expect(first.length).toBeGreaterThan(0);
       await page.evaluate(() => window.scrollBy(0, 700));
@@ -511,12 +514,13 @@ test.describe("the homepage band, where the carousel drives the camera", () => {
       await drawn(page);
       const map = page.locator(MAP).first();
 
-      const where = () =>
-        map.evaluate((el) =>
-          [...el.querySelectorAll<HTMLElement>("[data-map-pin],[data-map-cluster]")]
-            .map((p) => p.style.transform)
-            .join("|"),
-        );
+      // Through `placedMarkers` (#143): "a paused carousel is a still map" is
+      // an equality between two reads, and two reads that both caught the
+      // markers unplaced are equal for a reason that has nothing to do with the
+      // carousel. `parked.length > 0` would not catch it either — a list of
+      // empty strings joins to a non-empty string of separators.
+      const where = async () =>
+        (await placedMarkers(map, "the band's markers")).markers.map((m) => m.transform).join("|");
 
       // PAUSED FIRST. WCAG 2.2.2's mechanism for this band is the carousel's
       // own pause control, and the claim measured here is that it stops the MAP
@@ -853,79 +857,72 @@ test.describe("a gesture suspends the camera, and the page's next listing lifts 
     ).toContain("mousemove");
   }
 
-  // WHAT THIS COVERS, SAID PLAINLY — because it is less than it reads like,
-  // and the re-fit it drives cannot happen on the real portfolio at all.
+  // WHAT MOVES AN UNDRIVEN CAMERA, AND WHAT STOPPED MOVING IT AT #122.
   //
-  // The resize below moves an undriven camera on THIS FIXTURE, whose land
-  // section is four points, and the positive control proves that much. On
-  // production data it moves nothing, either way the flag is set:
+  // This case used to drive a desktop RESIZE. With `active` null the camera was
+  // `fitCamera(points, box, frame)` — genuinely box-dependent on this fixture's
+  // four-point land section, so narrowing the window re-fitted and the positive
+  // control held. It no longer does, and the control is what said so: measured
+  // at 1440 -> 1200 after this branch, ZERO camera calls. `cameraMove` now
+  // answers this section's MAP_HOME for a null `active`, and a CHOSEN frame is
+  // by construction independent of the box. That is the design (#122), not a
+  // regression, and it means one whole class of camera moves is simply gone:
+  // nothing about a desktop resize disturbs a map at rest any more.
   //
-  //   * With one listing ACTIVE the fitted camera is independent of the box —
-  //     zero span, zoom clamped to the frame's maxZoom, centre the point plus a
-  //     constant-pixel padding correction. (The note further down says this.)
-  //   * With NOTHING active, which is the case this flag was written for, the
-  //     land fit is HEIGHT-bound at every desktop width on the real 17
-  //     listings: box 294.9x595 at 1024 through 397x595 at 1440, boot zoom
-  //     6.9481 at all of them. And the map's height is a fixed `lg:h-[595px]`,
-  //     so no desktop resize changes the number the fit is bound by.
+  // So the box change this drives is the one that still moves it — and it is
+  // also the one the real portfolio actually produces. The expand affordance
+  // below `lg` takes the box from 200 to min(70dvh, 520px), which CROSSES
+  // `COMPACT_MAX_HEIGHT`: the frame goes `compact` -> `full`, and MAP_HOME's
+  // two frames are different cameras (z8.0 and z8.6). A resize that changes the
+  // frame changes the camera; one that does not, does not.
   //
-  // So this is a true measurement of a real rule against a box change only the
-  // fixture produces. The box change the real data DOES produce is the expand
-  // affordance below `lg` — 200px to min(70dvh, 520px), which moves both the
-  // bound and the frame — and it is driven, on /properties with the live
-  // listings, in property-map-camera-prod.spec.ts. Keep both: this one is
-  // hermetic and fast, that one can fail.
-  test("a drag holds the view against a re-fit that would otherwise move it", async ({
+  // AT 390 `centreWatch` IS NEVER CONSTRUCTED (`minWidth: 1024`), so `active`
+  // is null for the life of the page and the camera is at rest at MAP_HOME —
+  // which is asserted below as a zoom rather than assumed, because "the map is
+  // where I think it is" is exactly the premise a first version of this case
+  // got wrong.
+  test("a drag holds the view against a re-frame that would otherwise move it", async ({
     browser,
   }) => {
     test.setTimeout(120_000);
-    const { context, page } = await at(browser, 1440);
+    const { context, page } = await at(browser, 390, 844);
     try {
       await watchCamera(page);
       await page.goto(PROPERTIES);
       await hydrated(page);
+      const section = land(page);
+      await section.locator(MAP).first().scrollIntoViewIfNeeded();
       await drawn(page);
       expect(await cameraProbeInstalled(page)).toBe(true);
-      const section = land(page);
 
-      // AT SCROLL 0, AND THAT DETAIL IS THE WHOLE REASON THIS WORKS. With one
-      // listing active the fitted camera does not depend on the box at all — a
-      // one-point bounds has zero span, the zoom clamps to the frame's maxZoom
-      // and the centre is that point — so a resize asks for the camera the map
-      // already has and NOTHING moves however the flag is set. A first version
-      // of this test resized with a listing active, expected the control to
-      // fly, and got no flight at all. At scroll 0 no card is on the centre
-      // line, `active` is null, and the camera is fitted to every point INSIDE
-      // the box, so the box's shape really does decide it. It is also the case
-      // this flag was originally written for, when a box change was the only
-      // thing that moved this camera.
-      await page.evaluate(() => window.scrollTo(0, 0));
-      await page.waitForTimeout(800);
-      expect(await onCentreLine(section), "nothing is on the centre line at scroll 0").toBeNull();
+      const expand = section.locator("[data-map-expand]").first();
+      await expect(expand).toBeVisible();
+      // POSITIVE EVIDENCE OF THE PREMISE: the map is resting on the compact
+      // frame's MAP_HOME, so `active` really is null and nothing has driven it.
+      expect(await mapZoom(page), "the map rests on MAP_HOME.compact").toBeCloseTo(8.0, 3);
 
-      // THE POSITIVE CONTROL, on a map nobody has touched.
+      // THE POSITIVE CONTROL, on a map nobody has touched: crossing the frame
+      // threshold re-frames it.
       await resetCamera(page);
-      await page.setViewportSize({ width: 1200, height: 900 });
+      await expand.click();
       await page.waitForTimeout(1200);
       expect(
         await cameraMoves(page),
-        "a resize really does re-fit an undriven map — the control for the assertion below",
+        "expanding really does re-frame an undriven map — the control for the assertion below",
       ).toBeGreaterThan(0);
+      expect(await mapZoom(page), "and it lands on MAP_HOME.full").toBeCloseTo(8.6, 3);
 
-      await page.setViewportSize({ width: 1440, height: 900 });
+      await section.locator("[data-map-expand]").first().click();
       await page.waitForTimeout(1000);
-      await page.evaluate(() => window.scrollTo(0, 0));
-      await page.waitForTimeout(600);
       await resetCamera(page);
       await dragTheMap(page, section);
       const afterDrag = await mapCentre(page);
 
-      // The same resize that just moved the camera. This time it must not.
+      // The same expand that just moved the camera. This time it must not.
       await resetCamera(page);
-      await page.setViewportSize({ width: 1200, height: 900 });
+      await section.locator("[data-map-expand]").first().click();
       await page.waitForTimeout(1200);
-      expect(await onCentreLine(section), "still nothing on the centre line").toBeNull();
-      expect(await cameraMoves(page), "the visitor's pan survives a re-fit").toBe(0);
+      expect(await cameraMoves(page), "the visitor's pan survives a re-frame").toBe(0);
       const held = await mapCentre(page);
       expect(held.lng, "and the view is exactly where they left it").toBeCloseTo(afterDrag.lng, 4);
       expect(held.lat).toBeCloseTo(afterDrag.lat, 4);
