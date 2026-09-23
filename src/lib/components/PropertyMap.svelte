@@ -332,27 +332,43 @@
    * close instead of at the frame's own `maxZoom`. The reasoning, and the
    * measurement that made it necessary, are on `CameraState.zoom`.
    *
-   * RECORDED AT `zoomend`, AND ONLY WHILE A SUSPENSION IS OUTSTANDING, which
-   * is what makes it the visitor's number and never the camera's. While
-   * `drivenAt` is set `cameraMove` refuses every move, so no zoom this
-   * component commanded can begin inside that window.
+   * RECORDED AT `zoomend`, ONLY WHILE A SUSPENSION IS OUTSTANDING, AND ONLY
+   * ON A LISTING'S CAMERA (`onListing`). The first two are what make it the
+   * visitor's number and never the camera's; the third is what makes it a
+   * number that means anything at the NEXT listing. Three things the first
+   * version of this got wrong, all found by verifying #150 against the
+   * integrated tree and each with its own guard:
    *
-   * The one that can END inside it is a flight still in the air when the
-   * visitor grabs the map. maplibre-gl 6.10.0's `HandlerManager.handleEvent`
-   * calls `stop(true)` the moment a gesture handler goes active, and that
-   * ends the flight and fires ITS `zoomend`, synchronously, at whatever
-   * waypoint zoom the arc had reached (`_stop` -> the ease's finish ->
-   * `_afterEase`). Read in maplibre's source, and it splits by gesture:
+   *  1. A ZOOM CHOSEN ON A FRAME WAS CARRIED TO EVERY LISTING. The recorder
+   *     asked only "is a suspension outstanding", so on /properties at 1440,
+   *     where the land map is drawn at load on MAP_HOME (z8.6) with nothing
+   *     active, five notches out over the overview recorded z7.7021 — and the
+   *     first listing the visitor then scrolled to flew at z7.7021 instead of
+   *     z12, and so did every one after. `cameraMove` already refused to
+   *     apply this number to a FRAME ("MAP_HOME is a chosen frame, not a
+   *     distance from a listing"); the recorder never asked the same question
+   *     about where the number came from. `onListing` is that question.
+   *  2. A WHEEL THAT STOPPED A FLIGHT CARRIED THE ARC'S MID-AIR ZOOM. maplibre
+   *     ends a flight the moment a gesture handler goes active
+   *     (`HandlerManager.handleEvent` -> `stop(true)`), wherever the Van Wijk
+   *     arc had got to — z9.87 or z11.79 in the verifier's runs, from a camera
+   *     at rest at z12 — and the wheel then zooms FROM there. Three notches IN
+   *     recorded z11.3963: a visitor who zoomed in had every later listing
+   *     carried further OUT than where they started. The camera's own flight
+   *     is never the visitor's, so what is carried is where that flight was
+   *     GOING plus what the wheel did to it (`shortfall`).
+   *  3. A CROSSING DURING THE WHEEL'S OWN EASE DROPPED IT. The suspension ended
+   *     the instant the page moved on, before the wheel's `zoomend`, so the
+   *     zoom was never recorded and the flight went at the old one (12.3457 at
+   *     the crossing, 12 after it). A gesture still in progress now finishes
+   *     first (`releaseDue`).
    *
-   *  - A DRAG goes active inside maplibre's own `mousemove` handling, before
-   *    its tagged `movestart` sets `drivenAt`, so the waypoint is not
-   *    recorded — which matters, because a drag changes no zoom and has no
-   *    `zoomend` of its own to overwrite it with.
-   *  - A WHEEL can be recorded at the waypoint: maplibre holds the first notch
-   *    after 400ms of quiet for 40ms to tell a wheel from a trackpad, and this
-   *    component's `wheel` listener has set `drivenAt` by then. The wheel's
-   *    own `zoomend` follows and overwrites it with the zoom the visitor ends
-   *    up looking at, which is the one that stays.
+   * THE CAMERA'S OWN FLIGHT ENDING is told apart from everything else by the
+   * event data this component hands `flyTo` and `jumpTo` (`OWN_MOVE`), which
+   * maplibre copies onto every event that move fires, its stop included. That
+   * replaces a paragraph here that reasoned about WHICH gesture's `drivenAt`
+   * was set before the flight's `zoomend` fired; the flight's `zoomend` is now
+   * simply never recorded, whichever gesture stopped it.
    *
    * Plain, like `commanded` and `flying`: it is read by the camera effect and
    * written only inside a suspension, whose END is the reactive change that
@@ -360,6 +376,59 @@
    * to refuse.
    */
   let chosenZoom: number | null = null;
+
+  /**
+   * THE CAMERA `commanded` NAMES IS ONE LISTING'S — the only kind a visitor's
+   * zoom can be carried FROM. False for a FRAME: MAP_HOME with nothing active,
+   * the fit where a section has no home, and MAP_HOME under its own picture
+   * whatever is active (#132). Set wherever `commanded` is, from the same
+   * inputs that chose the camera; plain for the same reason `commanded` is.
+   */
+  let onListing = false;
+
+  /**
+   * HOW FAR SHORT OF ITS TARGET ZOOM THE CAMERA'S LAST FLIGHT WAS when a
+   * visitor's gesture stopped it, or 0 when none did — the part of the zoom
+   * on screen that is the ARC's, not the visitor's. Added to the zoom a wheel
+   * ends on before it is carried, so three notches in over an interrupted
+   * flight carry "the listing's zoom, three notches closer" rather than "the
+   * arc's waypoint, three notches closer". Zeroed by every camera command,
+   * because a new target is a new baseline.
+   *
+   * WHAT IT DOES NOT DO: move the camera. A gesture that stops a flight leaves
+   * the view where the arc was, between two listings, exactly as a drag that
+   * cuts one short always has — the suspension is what holds it, and the next
+   * listing the visitor asks for is where it goes. Only the number carried
+   * past that is corrected.
+   */
+  let shortfall = 0;
+
+  /**
+   * THE VISITOR ASKED FOR A DIFFERENT LISTING WHILE A GESTURE OF THEIRS WAS
+   * STILL IN PROGRESS, so the suspension ends when that gesture does — at its
+   * `moveend`, after its `zoomend` has recorded what it chose — and not
+   * before. Ending it at once put the camera's flight on top of the visitor's
+   * own zoom ease: `flyTo` stops every handler, so the wheel's ease was cut off
+   * where it stood and its `zoomend` fired with no suspension to record into.
+   * The wait is bounded by maplibre's own ease — 200ms after the last notch,
+   * plus the 200ms it holds `isActive()` before `zoomend` — and it is the
+   * visitor's gesture, not a timer of ours, that ends it.
+   *
+   * ONE GAP, READ IN maplibre's SOURCE AND NOT CLOSED: the first notch after
+   * 400ms of quiet is held for 40ms while maplibre decides wheel from trackpad
+   * (`ScrollZoomHandler._timeout`), and no public API says a zoom is coming. A
+   * crossing inside those 40ms still ends the suspension at once. Issue #157
+   * has what that costs and why it is not reachable by hand.
+   */
+  let releaseDue = false;
+
+  /** The event data every camera command of this component carries, which
+   *  maplibre copies onto the events that move fires — `movestart` to
+   *  `moveend`, and the `zoomend` / `moveend` of the stop when a gesture cuts
+   *  it short (`_afterEase(eventData)` in camera.ts). */
+  const OWN_MOVE = { propertyMapCamera: true } as const;
+  const ownMove = (e: unknown) =>
+    (e as { propertyMapCamera?: unknown } | undefined)?.propertyMapCamera === true;
 
   /** A suspension is outstanding. WHEN it ends is the effect below; this is
    *  only "is there one", which is all `cameraMove` needs to be told. */
@@ -396,13 +465,22 @@
    * of those moves the visitor made. Both props are written in the same
    * reactive flush by the caller, so the value read here is the one that
    * describes the change that woke this effect.
+   *
+   * ASKING IS NOT THE SAME AS LETTING GO, which is `releaseDue`: a gesture
+   * still in progress when the ask arrives finishes first, and its own
+   * `moveend` (in `boot`) is what ends the suspension. The ask is re-read on
+   * every change, so a visitor who comes back to the listing they were
+   * driving on before the gesture ends has asked for nothing, and nothing is
+   * released.
    */
   $effect(() => {
     const a = active;
     const by = activeBy;
     untrack(() => {
       if (by !== "visitor") return;
-      if (drivenAt !== undefined && drivenAt !== a) drivenAt = undefined;
+      const asked = drivenAt !== undefined && drivenAt !== a;
+      releaseDue = asked && gestureInProgress(map);
+      if (asked && !releaseDue) drivenAt = undefined;
     });
   });
   /** The box MapLibre was last told about. See the camera effect. */
@@ -485,6 +563,15 @@
     );
   };
 
+  /** A visitor's gesture is moving this map right now: one of its navigation
+   *  handlers is active. For the wheel that is from maplibre's first zoom frame
+   *  until 200ms after its ease settles, which is exactly the window whose end
+   *  fires `zoomend`. False with no map. A function declaration so the effect
+   *  above, which runs long after this script, can call it by name. */
+  function gestureInProgress(instance: MapInstance | null) {
+    return instance !== null && navigation.some((name) => handler(instance, name).isActive());
+  }
+
   /**
    * TURN THE WHOLE INTERACTION SET ON OR OFF (`interactive`), and nothing in it
    * one piece at a time.
@@ -523,10 +610,7 @@
     if (applied === on) return;
     const locking = applied === true;
     applied = on;
-    if (locking) {
-      const gesture = navigation.some((name) => handler(instance, name).isActive());
-      if (gesture || !flying) instance.stop();
-    }
+    if (locking && (gestureInProgress(instance) || !flying)) instance.stop();
     for (const name of navigation) {
       const h = handler(instance, name);
       if (h.isEnabled() === on) continue;
@@ -551,7 +635,9 @@
     if (!locking) return;
     selected = null;
     drivenAt = undefined;
+    releaseDue = false;
     chosenZoom = null;
+    shortfall = 0;
     if (!flying && commanded && !isAt(instance, commanded)) commanded = null;
     handedBack += 1;
   }
@@ -678,15 +764,21 @@
    * the same `activeTarget` as `cameraMove` so a map never boots somewhere it
    * would immediately fly away from, and an id with no pin falls back to the
    * fit HERE and only here — a boot has no previous view to hold.
+   *
+   * `listing` says which of those it is, for `onListing`: only the one-point
+   * fit is a listing's camera.
    */
-  function camera() {
+  function camera(): { start: Camera | null; listing: boolean } {
     const opening = home?.[frameFor(box)];
-    if (opening) return opening;
+    if (opening) return { start: opening, listing: false };
     const target = activeTarget(active, points) ?? null;
-    return fitCamera(target ? [target] : points, box, {
-      padding: frame.padding,
-      maxZoom: frame.maxZoom,
-    });
+    return {
+      start: fitCamera(target ? [target] : points, box, {
+        padding: frame.padding,
+        maxZoom: frame.maxZoom,
+      }),
+      listing: target !== null,
+    };
   }
 
   async function boot(host: HTMLDivElement) {
@@ -716,8 +808,9 @@
     }
     if (!host.isConnected) return;
 
-    const start = camera();
+    const { start, listing } = camera();
     commanded = start;
+    onListing = listing;
     const instance = new maplibre.Map({
       container: host,
       style: styleUrl,
@@ -837,8 +930,35 @@
       },
       { passive: true },
     );
-    instance.on("zoomend", () => {
-      if (drivenAt !== undefined) chosenZoom = instance.getZoom();
+    // THE VISITOR'S ZOOM, RECORDED — see `chosenZoom` for the three rules and
+    // the defect behind each. One listener per event, in maplibre's order: a
+    // move's `zoomend` fires before its `moveend`, in the same call, so the
+    // zoom is recorded before the suspension it was chosen in can end.
+    instance.on("zoomend", (e: unknown) => {
+      if (ownMove(e)) {
+        // The camera's own move ending, which is never the visitor's zoom.
+        // Landed, no handler is active and it is on target: nothing to note.
+        // Stopped by a gesture, the handler that stopped it IS active at this
+        // moment (maplibre stops the flight because it went active), and the
+        // gap is how far the arc was from where it was going.
+        if (commanded && gestureInProgress(instance))
+          shortfall = commanded.zoom - instance.getZoom();
+        // Mutated, removing this `return` stays green: what it would record is
+        // this flight's own zoom plus its own gap, i.e. `commanded.zoom`, which
+        // is already what gets carried. It is the rule, stated, not a guard.
+        return;
+      }
+      if (drivenAt !== undefined && onListing) chosenZoom = instance.getZoom() + shortfall;
+    });
+    // THE END OF A GESTURE THE VISITOR ASKED PAST (`releaseDue`). Not the
+    // camera's own `moveend`, without saying so: a flight of ours cannot be in
+    // the air while `releaseDue` is set, because the gesture it waits on is
+    // what stopped it. A `moveend` with a handler still active — a `resize()`
+    // mid-ease — is not the end of anything.
+    instance.on("moveend", () => {
+      if (!releaseDue || gestureInProgress(instance)) return;
+      releaseDue = false;
+      drivenAt = undefined;
     });
     instance.on("move", reposition);
     instance.on("zoom", () => {
@@ -860,8 +980,11 @@
     // driven — both of these describe the instance, not the visitor.
     sized = { width: 0, height: 0 };
     commanded = null;
+    onListing = false;
     drivenAt = undefined;
+    releaseDue = false;
     chosenZoom = null;
+    shortfall = 0;
     // A re-boot takes its own inventory and is its own first apply.
     navigation = [];
     applied = null;
@@ -1178,13 +1301,23 @@
     const move = cameraMove(state);
     if (move.move === "none") return;
     commanded = move.camera;
+    // WHAT THAT CAMERA IS OF (`onListing`). `cameraMove` answers a listing's
+    // own camera exactly when a listing is active and no picture is over the
+    // map: an id with no pin never gets this far (`unknown-active`), and under
+    // the picture every answer is MAP_HOME, which `pictureUp` implies exists.
+    onListing = state.active !== null && !state.pictureUp;
+    // A new target is a new baseline for the visitor's zoom. Zeroed BEFORE the
+    // command, whose `jumpTo` / `flyTo` stops whatever of ours is still in the
+    // air and fires that move's `zoomend` synchronously — with no gesture
+    // active, so it writes nothing back.
+    shortfall = 0;
     const center: [number, number] = [move.camera.lng, move.camera.lat];
     if (move.move === "jump") {
       // A jumpTo stops MapLibre's easing, so anything of ours in the air is
       // over — and a hold left standing after it would refuse the next flight
       // for up to 500ms for a flight that is not happening.
       endFlight();
-      instance.jumpTo({ center, zoom: move.camera.zoom });
+      instance.jumpTo({ center, zoom: move.camera.zoom }, OWN_MOVE);
       return;
     }
     // No `essential: true`. That flag exists to override the browser's
@@ -1193,7 +1326,10 @@
     // `cameraMove` has already answered `jump` in that case; not passing
     // `essential` is the second brace, since the map is constructed with
     // MapLibre's own `reduceMotion`.
-    instance.flyTo({ center, zoom: move.camera.zoom, duration: CAMERA_FLIGHT_MS });
+    //
+    // `OWN_MOVE` rides on every event this flight fires, its stop included, so
+    // its `zoomend` is never taken for the visitor's (`chosenZoom`).
+    instance.flyTo({ center, zoom: move.camera.zoom, duration: CAMERA_FLIGHT_MS }, OWN_MOVE);
     beginFlight();
   });
 

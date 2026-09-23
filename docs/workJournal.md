@@ -7291,7 +7291,7 @@ rather than that some pin is.
 ## 2026-09-22 — The pinned map was taking the page's scroll, and one pan killed the camera for good (review of #118, `feat/map-camera`)
 
 > Superseded in part by 2026-09-22 — The camera coalesces, and the band's clock is not a visitor.
-> Superseded in part by 2026-09-23 — The wheel over the map zooms it again, on the operator's call: the trap that buys, measured, and a zoom that outlives its card (`feat/map-scroll-zoom`). Scroll-zoom is back on for the in-page map, and the claim below that counting the wheel as a gesture kept a visitor's zoom past the next card crossing was never true.
+> Superseded in part by 2026-09-23 — The wheel over the map zooms it again, on the operator's call: the trap that buys, measured, and a zoom that outlives its card.
 
 The adversarial review of #118 measured three majors in a real browser. All
 three reproduced exactly, on the first try, at 1440×900 on `/dev/properties` —
@@ -9621,3 +9621,180 @@ ECONNRESET` from the preview server under load, the same reset that
 On the dev server (CI's path), the map specs ran 75/75 once. That covers the
 band-lock, scroll-zoom, camera (with the measured dwell), property-map and
 featured-properties specs.
+
+### Verified on the integrated tree: five findings, and what changed
+
+Independent verifiers ran this branch on `verify/combined-r1` @ `548b394`. That
+tree is main plus `feat/active-card-highlight`, this branch and
+`feat/manual-turns-animate`. They found two failed checks and four findings.
+Everything below was fixed on this branch. Only #157 was left open. It is a
+window read in maplibre's source, and it is described at the end.
+
+**A unit test that could not survive the merge (failed check, major).** "A
+pointer resting on the card stops the clock but leaves the map locked" asserted
+its premise as "the hover stopped the clock". `feat/manual-turns-animate`
+(`daef517`, an operator call) passes `pauseOnHover: false` to this band. On the
+integrated tree the premise failed before the map was ever looked at: 1 failed
+of the four map files, deterministically. That red alone would have kept
+`pnpm verify` from reaching Playwright.
+
+**Belief corrected: this entry's amendment said the hover case survives the
+combined tree.** Only the browser twin did. It had been written to pass either
+way from the start, and the unit case had not. The unit case's premise is now
+the state both trees share: nobody paused the slideshow, because the button
+still offers "Pause slides". Its claim is unchanged: `map.tools()` is `[]` and
+the canvas takes no focus. Mutating the band's rule gives:
+
+- On this branch alone, always-unlocked reds 4 cases. `!carousel.rotating` reds
+  the hover case and the hidden-tab case.
+- On the integrated tree, `!rotating` reds the hidden-tab case only. There, a
+  hover no longer stops the clock, so the hover case cannot tell the rules
+  apart. That is by the operator's call, and the hidden tab covers it.
+
+The four files now pass 206/206 on the integrated tree with this fix applied.
+
+**The forward pointer was not bare (failed check, minor).** The line under the
+2026-09-22 entry went on after the title with "Scroll-zoom is back on …, and
+the claim below … was never true". That asserted something new and retracted
+something, both in place. It is now the title alone. The retraction was already
+in this entry ("The visitor's zoom — the belief this corrected"), which is
+where it belongs.
+
+**A zoom chosen on the overview was carried to every listing (major).** The
+verifier's case on a production build of `/properties` at 1440x900:
+
+1. The land map is drawn at load on MAP_HOME, at z8.6, with nothing active.
+2. Five notches out over it recorded z7.7021.
+3. The first listing the visitor scrolled to flew at z7.7021 instead of z12,
+   and so did every one after.
+
+The recorder asked only "is a suspension outstanding". `cameraMove` already
+refused to apply the number to a frame, but nothing asked where the number had
+come from. Reproduced here to the digit: 7.702133996971468, both with the fix
+mutated out and with this branch's `043b20c` component.
+
+The fix is `onListing`. It is true when the camera `commanded` names is one
+listing's own, and it is set wherever `commanded` is:
+
+- In `boot` it comes from the same branches `camera()` chose from.
+- In the camera effect it is `active !== null && !pictureUp`. That is exactly
+  when `cameraMove` answers with the one-listing fit.
+
+A zoom chosen on MAP_HOME, on the fit, or under #122's picture is not recorded.
+One chosen earlier on a listing survives a visit to the overview, as before.
+
+**A wheel that stopped a flight carried the arc's zoom (minor).** maplibre ends
+the camera's flight wherever the arc has got to when a gesture handler goes
+active. The wheel then zooms from there. From z12 at rest, the verifier's three
+notches in were carried as 11.3963, further out than where the visitor started.
+
+This entry's own parenthetical above said "the wheel's own `zoomend` follows and
+overwrites it" as though that were the cure. **That overwrite was the defect**:
+it overwrote the waypoint with the waypoint plus the wheel.
+
+The carried zoom is now the flight's target plus what the wheel did to it
+(`shortfall`). The flight's own end is told apart by the event data
+`flyTo`/`jumpTo` are now given (`OWN_MOVE`). maplibre copies that data onto
+every event the move fires, its stop included. `Event`'s constructor does
+`extend(this, data)`, and a stopped flight ends through `_afterEase(eventData)`.
+
+On a production build, 16 of 16 runs stopped the flight to z12 somewhere in
+z11.32–11.96, and the next crossing flew at exactly 12 plus the wheel's delta
+(12.5136 or 12.5387). The same case against `043b20c`'s component carried the
+rest zoom, 12.3916 where 12.5136 was due.
+
+What is not changed: the view the gesture stopped stays where the arc was,
+between two listings. A drag has always left it there too. Only the number
+carried past it is corrected. The builder's drag measurement (the next crossing
+flew at exactly z12) now holds by rule, because the flight's own `zoomend` is
+never recorded, and a unit control holds it.
+
+**A crossing during the wheel's own ease dropped the zoom (minor).** The
+suspension ended the moment the page moved on. The flight's `flyTo` then
+stopped every handler, so the wheel's `zoomend` fired with nothing left to
+record into. The verifier's run had 12.3457 at the crossing and the flight at 12.
+
+A gesture still in progress when the ask arrives now finishes first
+(`releaseDue`), and its own `moveend` ends the suspension. A visitor who is back
+on their listing before it settles has asked for nothing. On a production
+build:
+
+- The crossing came at z12.2360, mid-ease.
+- The wheel settled at 12.5136.
+- The flight left 1.2ms after the wheel's `zoomend`, at 12.5136.
+- The crossing after that also flew at 12.5136.
+
+Against `043b20c`'s component the wheel's `zoomend` did not come before the
+flight at all.
+
+**Two things the harness taught.**
+
+- **A production build's maplibre `Map` has no `isEasing`** (`typeof` is
+  `"undefined"`). The first draft of the stopped-flight guard read it inside a
+  wheel listener, threw, and reported every attempt as a notch that never came.
+  Its premise is now timing: the first notch lands inside the flight's 500ms,
+  and the flight's own `zoomend`, the first one after `flyTo`, is off its
+  target.
+- **The camera probe never adopted a map nobody commanded** on a production
+  build. It found 0 maps after a 30s poll at `/properties` loaded at the top.
+  Its patch lands after construction, and at the top no command is ever issued.
+  PropertyMap calls `resize()` once its first frame is drawn, so `resize` now
+  adopts too.
+
+With that probe change:
+
+- **On the dev server:** `map-palette`, `camera`, `scroll-zoom` and
+  `band-lock` ran 40/40.
+- **On a production build:** `scroll-zoom`, `band-lock`, `camera-prod` and
+  `map-home` all passed. `map-palette`'s three timed out on `/dev/properties`,
+  which 404s there (#120).
+- **On the integrated tree's production build:** `scroll-zoom`, `band-lock`,
+  `camera-prod` and `map-home` ran 42/42.
+
+**Guards, and their reds.** The unit mutations are in
+`PropertyMap.camera.svelte.test.ts`, "the zoom that is carried is one the
+visitor chose, on a listing":
+
+| mutation                                           | red                                        |
+| -------------------------------------------------- | ------------------------------------------ |
+| recorder ignores `onListing`                       | 3: MAP_HOME, under the picture, frame swap |
+| `shortfall` not added                              | 2: both stop orders                        |
+| `shortfall` not zeroed by a command                | 2: "a new flight is a new baseline"        |
+| release never deferred                             | 2: mid-ease, and came-back                 |
+| `moveend` never releases                           | 1                                          |
+| `releaseDue` not re-read when the visitor returns  | 1                                          |
+| `moveend` releases with a handler still active     | 1: the resize-mid-ease line                |
+| boot counts MAP_HOME as a listing                  | 1                                          |
+| effect counts nothing-active as a listing          | 1                                          |
+| effect ignores the picture                         | 1: the frame change under the picture      |
+| `ownMove` never matches / no event data on `flyTo` | 2 each                                     |
+| the `return` after noting the gap removed          | 0                                          |
+
+The last row stays green, and that is honest rather than missed. What it would
+record is the flight's own zoom plus its own gap, which is `commanded.zoom`,
+already the carried zoom. The code says so beside it.
+
+The three browser guards are in `property-map-scroll-zoom.spec.ts`, "the zoom
+carried is one the visitor chose, on a listing". On a production build each
+mutation reds exactly its own guard:
+
+- the recorder ignoring `onListing` reds the overview case, carrying 7.7021;
+- `shortfall` not added reds the stopped-flight case (12.1467 against 12.5387);
+- release never deferred reds the mid-ease case (no `zoomend` before the flight).
+
+`043b20c`'s component reds all three. Under `--repeat-each=16` on a production
+build they ran 48/48, at load 27 → 21 (noisy). The two cases that race a real
+flight or ease try up to three times and annotate which attempt held the
+premise. The stopped-flight case needed a second attempt 2 times in 16, and the
+mid-ease case 1 time in 16.
+
+**Found, not fixed: #157.** maplibre holds the first notch after 400ms of quiet
+for 40ms while it tells a wheel from a trackpad. During that hold no public API
+says a zoom is coming, so a crossing inside it still ends the suspension at
+once. Closing it needs a pending flag and a fallback timer, for a window no
+hand can hit. The issue has the cost and a reproduction.
+
+The one measurement harness written this round was `zz-debug.spec.ts`, which
+found the missing `isEasing`. It was deleted from the worktree rather than moved;
+a copy with its output is in the session scratchpad (`fixr1/`), with every
+mutation log.

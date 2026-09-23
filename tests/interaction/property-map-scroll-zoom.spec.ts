@@ -36,6 +36,10 @@ test.use({ contextOptions: { reducedMotion: "no-preference" } });
 
 const MAP = "[data-property-map]";
 const PROPERTIES = "/properties";
+/** `CAMERA_FLIGHT_MS` from $lib/property-map, repeated for the reason
+ *  property-map-camera-prod.spec.ts gives: a Playwright spec does not resolve
+ *  `$lib`, and property-map.test.ts pins the source at 500. */
+const CAMERA_FLIGHT_MS = 500;
 
 /** The land map is drawn (maplibre's own `load`) and the probe has adopted
  *  it, so `mapZoom` reads maplibre rather than `undefined`. */
@@ -420,6 +424,313 @@ test.describe("a zoom the wheel chose is still the visitor's after the next card
         3,
       );
     expect(await mapZoom(page), "and that is where the map ended up").toBeCloseTo(chosen, 3);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// …AND THE ZOOM CARRIED IS ONE THE VISITOR CHOSE, ON A LISTING
+// ---------------------------------------------------------------------------
+//
+// Verification of #150 on the integrated tree found three ways the number
+// carried was not that. Each case below reproduces one on /properties at
+// 1440x900 and reads maplibre's own answers, and each asserts its PREMISE —
+// that the page really was in the state the finding names — before its claim,
+// so a run in which the premise did not happen fails rather than passing on a
+// state nobody asked about. The two that race a real flight or a real ease try
+// up to three times and record which attempt the premise held on.
+
+/** Put the next listing of `id`'s own section on the centre line, instantly —
+ *  a crossing with no wheel in it, so nothing here can be filed as a scroll
+ *  the map was in. Answers the listing it scrolled to. */
+const crossToNext = (page: Page, id: string | null) =>
+  page.evaluate((current) => {
+    const all = [...document.querySelectorAll<HTMLElement>("[data-centre-id]")];
+    const from = all.find((li) => li.dataset.centreId === current);
+    if (!from) return null;
+    const own = all.filter((li) => li.closest("section") === from.closest("section"));
+    const next = own[own.indexOf(from) + 1];
+    if (!next) return null;
+    const b = next.getBoundingClientRect();
+    window.scrollTo({
+      top: window.scrollY + b.top + b.height / 2 - window.innerHeight / 2,
+      behavior: "instant",
+    });
+    return next.dataset.centreId ?? null;
+  }, id);
+
+/** From here on, every `zoomend` the land map fires — its zoom, and the time
+ *  on the camera probe's own clock, so it can be put beside a command's `t`. */
+const recordZoomends = (page: Page) =>
+  page.evaluate(() => {
+    const w = window as unknown as { __zoomends: { t: number; zoom: number }[] };
+    w.__zoomends = [];
+    const m = window.__camera.maps[0]!;
+    m.on("zoomend", () =>
+      w.__zoomends.push({ t: performance.now() - window.__camera.t0, zoom: m.getZoom() }),
+    );
+  });
+const zoomends = (page: Page) =>
+  page.evaluate(
+    () => (window as unknown as { __zoomends: { t: number; zoom: number }[] }).__zoomends,
+  );
+const clearZoomends = (page: Page) =>
+  page.evaluate(() => {
+    (window as unknown as { __zoomends: unknown[] }).__zoomends.length = 0;
+  });
+
+test.describe("the zoom carried is one the visitor chose, on a listing", () => {
+  test("a zoom chosen on the overview is not carried to the first listing", async ({ page }) => {
+    // THE MAJOR. At 1440x900 the land map is drawn at load on MAP_HOME with
+    // no listing active; five notches out over it recorded z7.7021, and the
+    // first listing the visitor then scrolled to flew at z7.7021 instead of
+    // z12 — as did every one after. With 5 notches in it was 9.4979.
+    test.setTimeout(240_000);
+    // AT LOAD, NOT AFTER A SCROLL. The centre rule holds the last card it
+    // reported rather than clearing it ("nothing on the line means hold",
+    // centreWatch.ts), so the only time /properties has NO active listing is
+    // before the first card has crossed the line — and at 1440x900 the land
+    // map is already drawn then: 384px of its 595 are on screen at scrollY 0,
+    // past the half its boot waits for. `landMapUp` scrolls it into view, so
+    // it is not used here.
+    await watchCamera(page);
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(PROPERTIES);
+    await hydrated(page);
+    await expect(page.locator(MAP).first()).toHaveAttribute("data-map-ready", "", {
+      timeout: 60_000,
+    });
+    await expect
+      .poll(() => page.evaluate(() => window.__camera?.maps?.length ?? 0), { timeout: 30_000 })
+      .toBeGreaterThan(0);
+    expect(await cameraProbeInstalled(page), "the camera probe installed").toBe(true);
+    expect(await page.evaluate(() => window.scrollY), "premise: at the top").toBe(0);
+    expect(await onCentreLine(page), "premise: no listing is active at the top").toBeNull();
+    await cameraStill(page);
+    const overview = await mapZoom(page);
+    expect(overview, "premise: the map shows the overview, not a listing").toBeLessThan(11);
+
+    const spot = await bareSpot(page);
+    expect(spot, "bare canvas to wheel over").not.toBeNull();
+    const out = await wheelAt(page, spot!.x, spot!.y, 5);
+    expect(out.zoom, "premise: the wheel really zoomed the overview out").toBeLessThan(-0.3);
+    expect(out.page, "and the page stayed put").toBe(0);
+
+    // THE CROSSING, by the visitor's own wheel over the cards.
+    await resetCamera(page);
+    const g = await geometry(page);
+    await page.mouse.move(g.cards.x, g.cards.y);
+    for (let i = 0; i < 40 && (await onCentreLine(page)) === null; i++) {
+      await page.mouse.wheel(0, 120);
+      await page.waitForTimeout(160);
+    }
+    expect(await onCentreLine(page), "the page reached a listing").not.toBeNull();
+    await page.waitForTimeout(1500);
+
+    const log = await cameraLog(page);
+    expect(log.fly.length, "the camera flew to it").toBeGreaterThan(0);
+    for (const f of log.fly)
+      expect(f.zoom, `at the listing's own zoom, not the overview's ${overview + out.zoom}`).toBe(
+        12,
+      );
+    expect(await mapZoom(page), "and that is where the map is").toBeCloseTo(12, 3);
+  });
+
+  test("a wheel that stops the crossing's flight carries the listing's zoom plus its own, not the arc's", async ({
+    page,
+  }) => {
+    // From z12 at rest, a crossing's flight was stopped mid-arc by three
+    // notches IN and the carried zoom came out at 11.3963 (combined) and
+    // 11.6842 (branch alone) — further out than where the visitor started.
+    test.setTimeout(300_000);
+    await landMapUp(page);
+    await parkAt(page, 2400);
+    await cameraStill(page);
+    const spot = await bareSpot(page);
+    expect(spot, "bare canvas to wheel over").not.toBeNull();
+    await page.mouse.move(spot!.x, spot!.y);
+    await recordZoomends(page);
+    // When the first real notch reached the page, on the probe's clock. (Not
+    // `map.isEasing()`, which a production build does not expose — the first
+    // version of this case read `undefined` there and threw inside the
+    // listener, so every attempt looked like a notch that never came.)
+    await page.evaluate(() => {
+      const w = window as unknown as { __firstNotch: number | null };
+      w.__firstNotch = null;
+      window.addEventListener(
+        "wheel",
+        (e) => {
+          if (e.isTrusted && w.__firstNotch === null)
+            w.__firstNotch = performance.now() - window.__camera.t0;
+        },
+        { capture: true, passive: true },
+      );
+    });
+
+    let from = await onCentreLine(page);
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      await cameraStill(page);
+      await resetCamera(page);
+      await clearZoomends(page);
+      await page.evaluate(() => {
+        (window as unknown as { __firstNotch: unknown }).__firstNotch = null;
+      });
+      // Quiet first, so the notches below begin a scroll of their own over
+      // the map (`WHEEL_QUIET_MS`).
+      await page.waitForTimeout(700);
+      const next = await crossToNext(page, from);
+      expect(next, "a next listing to cross to").not.toBeNull();
+      await expect
+        .poll(async () => (await cameraLog(page)).fly.length, { timeout: 5000 })
+        .toBeGreaterThan(0);
+      await page.waitForTimeout(100);
+      for (let i = 0; i < 3; i++) {
+        await page.mouse.wheel(0, -120);
+        await page.waitForTimeout(40);
+      }
+      await page.waitForTimeout(1500);
+      from = next;
+
+      const flight = (await cameraLog(page)).fly[0]!;
+      const ends = await zoomends(page);
+      const firstNotch = await page.evaluate(
+        () => (window as unknown as { __firstNotch: number | null }).__firstNotch,
+      );
+      // THE PREMISE, in two halves. The first notch reached the page inside
+      // the flight's 500ms; and the flight ENDED OFF ITS TARGET — the first
+      // `zoomend` after a `flyTo` is that flight's own, and a flight that
+      // lands ends exactly on the zoom it was given.
+      const stopped = ends[0];
+      if (
+        firstNotch === null ||
+        firstNotch - flight.t >= CAMERA_FLIGHT_MS ||
+        !stopped ||
+        Math.abs(stopped.zoom - flight.zoom!) < 0.01
+      ) {
+        test.info().annotations.push({
+          type: "flight-not-stopped",
+          description: `attempt ${attempt}: flight z${flight.zoom} at t${flight.t.toFixed(0)}, first notch at t${firstNotch?.toFixed(0)}, zoomends ${JSON.stringify(ends)}`,
+        });
+        continue;
+      }
+      const rest = await mapZoom(page);
+      const wheeled = rest - stopped.zoom;
+      expect(wheeled, "premise: the three notches zoomed IN from the arc").toBeGreaterThan(0.2);
+      const carried = flight.zoom! + wheeled;
+      test.info().annotations.push({
+        type: "stopped-flight",
+        description: `attempt ${attempt}: flight to z${flight.zoom} stopped at z${stopped.zoom.toFixed(4)}, rest z${rest.toFixed(4)}, carried ${carried.toFixed(4)}`,
+      });
+
+      await resetCamera(page);
+      expect(await crossToNext(page, next), "a listing after that one").not.toBeNull();
+      await page.waitForTimeout(1500);
+      const after = await cameraLog(page);
+      expect(after.fly.length, "the next crossing flew").toBeGreaterThan(0);
+      for (const f of after.fly)
+        expect(
+          f.zoom,
+          `the listing's z${flight.zoom} plus the wheel's ${wheeled.toFixed(4)}, not the arc's rest z${rest.toFixed(4)}`,
+        ).toBeCloseTo(carried, 3);
+      expect(carried, "closer than the listing's own zoom — the visitor zoomed in").toBeGreaterThan(
+        flight.zoom!,
+      );
+      return;
+    }
+    throw new Error("no attempt reached the flight while it was in the air (see annotations)");
+  });
+
+  test("a crossing while the wheel's zoom is still easing waits for it, and flies at the zoom it settled on", async ({
+    page,
+  }) => {
+    // Three notches in, 30ms apart, then the page moved on at once: the zoom
+    // was 12.3457 at the crossing, never recorded, and the flight went at 12.
+    test.setTimeout(300_000);
+    await landMapUp(page);
+    await parkAt(page, 2400);
+    const spot = await bareSpot(page);
+    expect(spot, "bare canvas to wheel over").not.toBeNull();
+    await page.mouse.move(spot!.x, spot!.y);
+    await recordZoomends(page);
+
+    let from = await onCentreLine(page);
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      await cameraStill(page);
+      await resetCamera(page);
+      await clearZoomends(page);
+      await page.waitForTimeout(700);
+      const z0 = await mapZoom(page);
+      for (let i = 0; i < 3; i++) {
+        await page.mouse.wheel(0, -120);
+        await page.waitForTimeout(30);
+      }
+      // The crossing, in the same task as the read that proves the wheel's
+      // ease was still running when it happened.
+      const at = await page.evaluate(
+        ({ current }) => {
+          const m = window.__camera.maps[0]!;
+          const easing = m.scrollZoom.isActive();
+          const zoom = m.getZoom();
+          const all = [...document.querySelectorAll<HTMLElement>("[data-centre-id]")];
+          const f = all.find((li) => li.dataset.centreId === current)!;
+          const own = all.filter((li) => li.closest("section") === f.closest("section"));
+          const next = own[own.indexOf(f) + 1]!;
+          const b = next.getBoundingClientRect();
+          window.scrollTo({
+            top: window.scrollY + b.top + b.height / 2 - window.innerHeight / 2,
+            behavior: "instant",
+          });
+          return {
+            easing,
+            zoom,
+            t: performance.now() - window.__camera.t0,
+            next: next.dataset.centreId ?? null,
+          };
+        },
+        { current: from },
+      );
+      await page.waitForTimeout(1500);
+      from = at.next;
+      if (!at.easing) {
+        test.info().annotations.push({
+          type: "ease-over-before-crossing",
+          description: `attempt ${attempt}: z${z0} -> z${at.zoom} at the crossing`,
+        });
+        continue;
+      }
+      const flight = (await cameraLog(page)).fly[0];
+      const ends = await zoomends(page);
+      test.info().annotations.push({
+        type: "crossing",
+        description: `attempt ${attempt}: z${z0.toFixed(4)}, crossing at t${at.t.toFixed(0)} z${at.zoom.toFixed(4)}; zoomends ${JSON.stringify(ends)}; flight ${JSON.stringify(flight)}`,
+      });
+      expect(flight, "the crossing flew").toBeDefined();
+      const settledEnd = ends.filter((e) => e.t <= flight!.t).at(-1);
+      expect(settledEnd, "the wheel's own zoom ended before the flight left").toBeDefined();
+      // THE PREMISE, read after the fact: the zoom the wheel settled on is
+      // past the one on screen at the crossing, so the ease was still MOVING
+      // then — and its end, 200ms after it stops moving, was further off.
+      if (settledEnd!.zoom <= at.zoom + 0.005) {
+        test.info().annotations.push({
+          type: "ease-still-at-crossing",
+          description: `attempt ${attempt}: the zoom had stopped moving by the crossing`,
+        });
+        continue;
+      }
+      expect(flight!.zoom, "the flight went at the zoom the wheel settled on").toBeCloseTo(
+        settledEnd!.zoom,
+        3,
+      );
+
+      await resetCamera(page);
+      expect(await crossToNext(page, at.next), "a listing after that one").not.toBeNull();
+      await page.waitForTimeout(1500);
+      const after = await cameraLog(page);
+      expect(after.fly.length, "the next crossing flew").toBeGreaterThan(0);
+      for (const f of after.fly)
+        expect(f.zoom, "and so did the one after it").toBeCloseTo(settledEnd!.zoom, 3);
+      return;
+    }
+    throw new Error("no attempt crossed while the wheel's ease was running (see annotations)");
   });
 });
 

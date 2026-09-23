@@ -862,20 +862,40 @@ describe("FeaturedProperties slice", () => {
       expect(map.tools()).toEqual(PROPERTIES_SET);
     });
 
-    // THE TWO STATES `!carousel.rotating` GETS WRONG. The clock also stops for
-    // a pointer resting on the CARD (hover) and for a hidden tab — and in
-    // neither has anybody stopped the slideshow. (Measured on a production
-    // build of `/` at 1440x900: a pointer resting on the MAP does not pause it
-    // at all, because the map is outside the carousel's region.)
-    it("a pointer resting on the card stops the clock but leaves the map locked", async () => {
-      const { container, map } = await withMap();
+    // THE STATES IN WHICH NOBODY HAS STOPPED THE SLIDESHOW. A hidden tab
+    // stops the clock and is not a pause, which is the case `!carousel.rotating`
+    // gets wrong, and it is the case below this one that holds that.
+    //
+    // HOVER IS NOT A PAUSE, WHETHER OR NOT IT STOPS THE CLOCK — and that
+    // "whether or not" is a correction. This case was written requiring the
+    // hover to stop the clock ("premise: the hover stopped the clock"), which
+    // it did when it was written. feat/manual-turns-animate then made hover no
+    // pause at all (operator call: `pauseOnHover: false` on this band), and on
+    // the tree with both branches the premise failed before the map was ever
+    // looked at: 1 failed, deterministic, and on its own enough to keep `pnpm
+    // verify` from reaching Playwright. The browser twin
+    // (property-map-band-lock.spec.ts) had been written to pass either way
+    // from the start; this one had not.
+    //
+    // So the premise is the one both trees share and the claim is about:
+    // nobody paused the slideshow — the button still offers "Pause slides",
+    // the name read off the same `paused` the lock is. What the hover did to
+    // the clock is not asserted. Where it stops the clock this is a second
+    // guard against `!rotating`; where it does not, the hidden tab is the only
+    // one, and it is enough.
+    it("a pointer resting on the card leaves the map locked, whether or not it stops the clock", async () => {
+      const { container, getByRole, map } = await withMap();
       card(container).dispatchEvent(new Event("pointerenter"));
       await tick();
-      expect(running(container), "premise: the hover stopped the clock").toBe(false);
-      expect(map.tools(), "nobody paused the slideshow").toEqual([]);
+      expect(
+        getByRole("button", { name: "Pause slides" }),
+        "premise: nobody paused the slideshow",
+      ).toBeTruthy();
+      expect(map.tools(), "a hover is not a pause").toEqual([]);
+      expect(map.canvas.hasAttribute("tabindex"), "and takes no focus").toBe(false);
     });
 
-    it("so does a hidden tab", async () => {
+    it("a hidden tab stops the clock and is still no pause: the map stays locked", async () => {
       const { container, map } = await withMap();
       Object.defineProperty(document, "visibilityState", {
         configurable: true,
