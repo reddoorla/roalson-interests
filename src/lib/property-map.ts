@@ -305,6 +305,180 @@ export function fitCamera(
 }
 
 // ---------------------------------------------------------------------------
+// The camera the PAGE drives
+// ---------------------------------------------------------------------------
+
+/**
+ * How long a flight to the active listing lasts, in ms.
+ *
+ * It is the homepage band's own `DISSOLVE` (FeaturedProperties/index.svelte),
+ * and that is the reason for the number rather than a coincidence: on that
+ * band the photo cross-fades over 500ms while the map travels to the same
+ * listing, so the picture and the place arrive together and the pair reads as
+ * ONE change. 500 also sits well inside the band's 4000ms dwell, so the map is
+ * stationary for 87.5% of every slide.
+ *
+ * THE BAND IMPORTS THIS CONSTANT, which it did not always do — the two modules
+ * each typed a `500` and this paragraph asserted a coupling that nothing in
+ * the code held, so tuning either number would have broken the pairing
+ * silently and neither file would have looked wrong. The dependency runs that
+ * way round (slice → lib, never lib → slice) because the flight is a property
+ * of the camera and the band is one of its callers.
+ *
+ * The Properties page inherits it for a different reason — nothing there is
+ * timing out — but the same number is the right one anyway: a scroll that
+ * crosses three cards must not leave three flights queued behind it, and a
+ * new `flyTo` replaces the one in flight.
+ *
+ * Never used under `prefers-reduced-motion`: `cameraMove` answers `jump`
+ * there, and the map is additionally constructed with MapLibre's own
+ * `reduceMotion`.
+ */
+export const CAMERA_FLIGHT_MS = 500;
+
+/**
+ * The point `active` names.
+ *
+ * Three answers, and they are three different situations rather than two:
+ * `null` is "no listing is active, fit them all", the point itself is "centre
+ * on this", and `undefined` is "this map has no pin for that id" — which is a
+ * request to HOLD, not a request to fit. Exported because the boot camera and
+ * `cameraMove` must resolve it identically or a map could start somewhere it
+ * would immediately fly away from.
+ */
+export function activeTarget(
+  active: string | null,
+  points: readonly MapPoint[],
+): MapPoint | null | undefined {
+  if (active === null) return null;
+  return points.find((p) => p.id === active);
+}
+
+/**
+ * What the map should do about the listing the page says is active.
+ *
+ * A tagged union rather than a nullable camera, because the interesting half
+ * of this function is the refusals: a unit test asserts WHICH rule declined a
+ * move, and a rule that can only ever decline cannot invent one. There is
+ * exactly one of these functions and PropertyMap.svelte has no second opinion
+ * — `active` is the only input that says where the camera belongs.
+ */
+export type CameraMove =
+  | {
+      move: "none";
+      why: "not-ready" | "user-moved" | "unmeasured" | "no-points" | "unknown-active" | "arrived";
+    }
+  | { move: "jump"; camera: Camera }
+  | { move: "fly"; camera: Camera };
+
+export interface CameraState {
+  /** The id of the point to centre on, or null for "fit them all" — which is
+   *  what this component did before anything drove it. */
+  active: string | null;
+  points: readonly MapPoint[];
+  /** The container's MEASURED box. Zero means the ResizeObserver has not
+   *  reported yet, and a camera fitted to a zero box is nonsense. */
+  box: Box;
+  frame: { padding: Padding; maxZoom: number };
+  /** MapLibre's own `load` has fired. Never "the import resolved". */
+  ready: boolean;
+  /** A gesture has driven this map. */
+  userMoved: boolean;
+  reducedMotion: boolean;
+  /**
+   * The camera this map was last TOLD to be at — the one it was constructed
+   * with, or the target of the last move. Not `map.getCenter()`: mid-flight
+   * that reads a waypoint, and a waypoint never equals the target, so every
+   * frame would re-issue the flight it is in the middle of.
+   *
+   * It exists because `ready` flipping true re-asks this question, and the
+   * answer at that instant is the camera the map was BUILT with. Without it
+   * every map opened by issuing a 500ms flight to where it already was —
+   * measured, in PropertyMap.test.ts, as one `flyTo` on a map nobody had
+   * touched. Harmless to look at and wrong to claim: "nothing moves at load"
+   * has to be true, not nearly true.
+   */
+  commanded?: Camera | null;
+}
+
+/** Two cameras are the same camera. Exact, not approximate: both sides come
+ *  out of `fitCamera`, which is deterministic, so anything but equality here
+ *  would be a tolerance hiding a real difference. */
+function sameCamera(a: Camera, b: Camera): boolean {
+  return a.lng === b.lng && a.lat === b.lat && a.zoom === b.zoom;
+}
+
+/**
+ * THE TARGET ZOOM IS NOT A NEW NUMBER, and that is the decision in this
+ * function. The active camera is `fitCamera` of the ONE active point, which by
+ * construction lands on the frame's own `maxZoom`: a one-point bounds has zero
+ * span, the fit scale is infinite, and the clamp is what comes back.
+ *
+ * `MAP_FRAMES.*.maxZoom` is already this repo's answer to "how close is right
+ * for a single listing", argued where that constant is declared — 12 puts
+ * 397px of frame across 6.6 km at this latitude (16.596 m/px at 29.7°N,
+ * 6588 m across the comp's panel), a district with its road names and its town
+ * label. Naming a second number here would be a second answer to the same
+ * question, and the two would drift the first time one of them was tuned.
+ *
+ * It is deliberately no closer. OpenMapTiles' `building` layer starts at z13;
+ * z12 is the last zoom at which a rural tract reads as a PLACE rather than as
+ * roofs, and "which of these listings am I looking at" is a question about
+ * place.
+ *
+ * Routing through `fitCamera` rather than returning the raw coordinate also
+ * keeps the asymmetric-padding correction: a pin is anchored at its TIP and
+ * reaches 0.801019 S above its coordinate, so the frame's top pad is larger
+ * than its bottom, and a centre that ignored that would sit the pin low.
+ *
+ * JUMP vs FLY. A FIT is a layout answer — the box changed shape — so it is
+ * instant, which is exactly what this component did before there was an
+ * `active` at all. An ACTIVE target is a navigation answer, and the travel is
+ * the point of it ("as different properties highlight we scroll around to
+ * them"); a jump would only be a different picture.
+ *
+ * `fly`, not `ease`, and this was checked against maplibre-gl 6.10.0's own
+ * source rather than assumed. Land is 17 listings spanning 277.0 km; at z12
+ * that is ~16 700px of pan between the two extremes, and `easeTo` interpolates
+ * the centre LINEARLY — 33 000 px/s over 500ms, which is a smear. `flyTo`
+ * flies the Van Wijk–Nuij path, whose zoom excursion grows with the distance,
+ * so a long hop arcs out far enough to stay readable and a short one barely
+ * leaves its zoom. (What is NOT true, and was believed here for an hour: that
+ * `flyTo` short-circuits to `easeTo` for short moves. Its guard is
+ * `Math.abs(u1) < 2e-6`, two MILLIONTHS of a pixel of path — a no-op, not a
+ * short move. The graceful behaviour comes from the curve, not from a
+ * fallback.)
+ */
+export function cameraMove(state: CameraState): CameraMove {
+  const { active, points, box, frame, ready, userMoved, reducedMotion, commanded } = state;
+
+  // Refusals first. Every one of these can only ever DENY a move; none of them
+  // can grant one, and nothing below can override one.
+  if (!ready) return { move: "none", why: "not-ready" };
+  // A visitor who has driven the map does not want it snatched back. Same flag
+  // the re-fit has always respected, and it is set by a gesture, never by a
+  // resize or by this function's own flights.
+  if (userMoved) return { move: "none", why: "user-moved" };
+  if (box.width <= 0 || box.height <= 0) return { move: "none", why: "unmeasured" };
+  if (points.length === 0) return { move: "none", why: "no-points" };
+
+  const target = activeTarget(active, points);
+  // An id with no pin is NOT a reason to fall back to the fit: a listing whose
+  // `location` GeoPoint is empty keeps its card (see `sectionPoints`), so
+  // scrolling past one would otherwise yank the whole section back into view
+  // and then in again. Holding the camera is the honest answer to a request
+  // that cannot be served.
+  if (target === undefined) return { move: "none", why: "unknown-active" };
+
+  const camera = fitCamera(target ? [target] : points, box, frame);
+  if (camera === null) return { move: "none", why: "no-points" };
+  if (commanded && sameCamera(commanded, camera)) return { move: "none", why: "arrived" };
+
+  if (target === null || reducedMotion) return { move: "jump", camera };
+  return { move: "fly", camera };
+}
+
+// ---------------------------------------------------------------------------
 // Clustering
 // ---------------------------------------------------------------------------
 

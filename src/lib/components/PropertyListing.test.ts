@@ -1,9 +1,12 @@
 import { cleanup, render, within } from "@testing-library/svelte";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { tick } from "svelte";
 
 import PropertyListing from "./PropertyListing.svelte";
+import { CENTRE_ID } from "$lib/actions/centreWatch";
 import { propertyListingFixture } from "$lib/property-fixture";
 import { groupListings } from "$lib/property-listing";
+import { sectionPoints } from "$lib/property-map";
 
 afterEach(cleanup);
 
@@ -110,9 +113,13 @@ describe("PropertyListing", () => {
     ] as const) {
       const map = section.querySelector<HTMLElement>("[data-property-map]");
       expect(map, `${name} has a map`).not.toBeNull();
-      expect(map!.className, `${name}: the comp's 200 / 595, never stretched`).toMatch(
-        /\bh-50\b.*\blg:h-\[595px\]/,
-      );
+      // Token list, not a `/h-50.*lg:h-\[595px\]/` regex. That regex was here
+      // and went red the moment the class string grew past prettier's width
+      // and got wrapped: `.` does not cross a newline, and the order of two
+      // class names was never the claim anyway.
+      const classes = map!.className.split(/\s+/);
+      expect(classes, `${name}: the comp's 200 / 595, never stretched`).toContain("h-50");
+      expect(classes, `${name}: the comp's 200 / 595, never stretched`).toContain("lg:h-[595px]");
       expect(map!.className, `${name}: column 1, row 1`).toMatch(/lg:col-start-1/);
       expect(map!.querySelectorAll("[data-map-link]"), `${name}: one link per pin`).toHaveLength(
         pins,
@@ -125,6 +132,159 @@ describe("PropertyListing", () => {
       ).toBeTruthy();
     }
     expect(sold!.querySelector("[data-property-map]"), "Sold gets no map").toBeNull();
+  });
+
+  // ── the map pins, and its camera follows the cards ────────────────────────
+
+  it("makes the map sticky from lg only, under the divider rather than over it", () => {
+    const { getAllByRole } = render(PropertyListing, { props: { sections: sections() } });
+    const [land, improved] = getAllByRole("region");
+    for (const [name, section, dividerPins] of [
+      // The comp's first divider does not pin, so the first map's offset comes
+      // from `scroll-padding-top` and there is no divider z-index to be under.
+      ["land", land!, false],
+      ["improved", improved!, true],
+    ] as const) {
+      const map = section.querySelector<HTMLElement>("[data-property-map]")!;
+      const classes = map.className.split(/\s+/);
+      // Every one of these carries the `lg:` prefix. At 390 the map is a 200px
+      // box above the cards and pinning it would spend a quarter of the
+      // viewport permanently.
+      expect(classes, `${name}: pinned`).toContain("lg:sticky");
+      expect(classes, `${name}: offset by the measured variable`).toContain(
+        "lg:top-[var(--sticky-top)]",
+      );
+      // NO z-index of its own. The divider's `lg:z-10` is what keeps the map
+      // under it — a positive z-index paints above every `auto` positioned
+      // sibling regardless of tree order — and PropertyMap's root `isolate`
+      // keeps the map's internal `z-[1]`..`z-[3]` out of that argument. A
+      // `lg:z-0` here shipped first and a browser mutation proved it inert.
+      expect(
+        classes.some((c) => c.startsWith("lg:z-")),
+        `${name}: no z of its own`,
+      ).toBe(false);
+      // …and the divider that pins really does carry one.
+      const divider = section.firstElementChild as HTMLElement;
+      expect(divider.className.split(/\s+/).includes("lg:z-10"), `${name}: divider z`).toBe(
+        dividerPins,
+      );
+      // Nothing unprefixed: at 390 none of this applies.
+      expect(classes.filter((c) => c === "sticky" || c === "z-0")).toEqual([]);
+    }
+  });
+
+  // THE PRE-MEASUREMENT VALUE IS A CSS EXPRESSION, NOT A NUMBER, and which
+  // expression depends on whether that section's divider pins. jsdom has no
+  // ResizeObserver and no layout, so this is exactly what a server render and
+  // a no-JS browser get — the state that used to ship a flat `100px` and put
+  // a pinned section's map 45.41px behind its own opaque divider.
+  it("serves a sticky offset that is already correct with no script at all", () => {
+    const { getAllByRole } = render(PropertyListing, { props: { sections: sections() } });
+    const [land, improved] = getAllByRole("region");
+    const gridOf = (section: HTMLElement) =>
+      section.querySelector<HTMLElement>("[data-property-map]")!.parentElement!;
+
+    // Section 0 pins no divider: its map lands on the scrollport's own
+    // declared usable top.
+    expect(gridOf(land!).style.getPropertyValue("--sticky-top")).toBe("var(--usable-top)");
+    // Every later section does: its map lands on the DIVIDER, whose height
+    // app.css derives from the divider's own declared parts.
+    expect(gridOf(improved!).style.getPropertyValue("--sticky-top")).toBe(
+      "var(--listing-divider-top)",
+    );
+    // Never missing, whichever it is — a missing variable makes `top` resolve
+    // to `auto` and the map never pins at all.
+    for (const section of [land!, improved!])
+      expect(gridOf(section).style.getPropertyValue("--sticky-top")).not.toBe("");
+  });
+
+  // …AND `measure()` REALLY DOES OVERRIDE IT. The assertion above is about the
+  // fallback, and a fallback assertion survives deleting the measurement
+  // entirely — which is what the version of this test it replaces did: it read
+  // `"100px"`, the `?? UNMEASURED_TOP` branch, and stayed green with
+  // `measure()`, the ResizeObserver effect and `stickyTops` all removed.
+  //
+  // So this one gives jsdom the two things it lacks — a ResizeObserver that
+  // fires, and dividers with a real height — and asserts the variable becomes
+  // that height. Delete `measure()` and it reads `var(--listing-divider-top)`
+  // instead of `145.4px`.
+  it("replaces the fallback with the divider's real height once it can measure one", async () => {
+    const DIVIDER_HEIGHT = 145.4;
+    const observers: ResizeObserverCallback[] = [];
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        constructor(public cb: ResizeObserverCallback) {
+          observers.push(cb);
+        }
+        observe() {
+          this.cb([], this as never);
+        }
+        unobserve() {}
+        disconnect() {}
+      },
+    );
+    // Only the divider is given a box: `measure()` reads section i's FIRST
+    // child, and reporting a height for everything would not tell us it read
+    // the right element.
+    const realRect = Element.prototype.getBoundingClientRect;
+    vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (
+      this: Element,
+    ) {
+      const isDivider =
+        this.parentElement?.matches("section[aria-labelledby^='listing-']") === true &&
+        this.parentElement.firstElementChild === this;
+      if (isDivider) return { ...realRect.call(this), height: DIVIDER_HEIGHT } as DOMRect;
+      return realRect.call(this);
+    });
+
+    try {
+      const { getAllByRole } = render(PropertyListing, { props: { sections: sections() } });
+      await tick();
+      for (const cb of observers) cb([], null as never);
+      await tick();
+
+      const [land, improved] = getAllByRole("region");
+      const gridOf = (section: HTMLElement) =>
+        section.querySelector<HTMLElement>("[data-property-map]")!.parentElement!;
+
+      // The pinned section's offset is now the MEASURED height.
+      expect(gridOf(improved!).style.getPropertyValue("--sticky-top")).toBe(`${DIVIDER_HEIGHT}px`);
+      // And section 0's is not, because its divider deliberately does not pin —
+      // so this also proves `measure()` read the divider and not just any box.
+      expect(gridOf(land!).style.getPropertyValue("--sticky-top")).not.toBe(`${DIVIDER_HEIGHT}px`);
+    } finally {
+      vi.restoreAllMocks();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("marks every card with the id the centre rule reports", () => {
+    const groups = sections();
+    const { getAllByRole } = render(PropertyListing, { props: { sections: groups } });
+    const [land, improved, sold] = getAllByRole("region");
+    for (const [name, section, group] of [
+      ["land", land!, groups[0]!],
+      ["improved", improved!, groups[1]!],
+    ] as const) {
+      // Read through the ACTION's own constant, so the attribute the markup
+      // writes and the attribute the observer looks for cannot drift apart.
+      const marked = [...section.querySelectorAll<HTMLElement>(`[${CENTRE_ID}]`)];
+      expect(marked.every((li) => li.tagName === "LI")).toBe(true);
+      // The id is the LISTING's — the same key `sectionPoints` gives its pins,
+      // which is the whole reason the map can match an active id to a marker.
+      expect(
+        marked.map((li) => li.dataset.centreId),
+        `${name}: one per card, keyed as the pins are`,
+      ).toEqual(group.properties.map((p) => p.id));
+      expect(
+        sectionPoints(group.properties).every((pin) =>
+          marked.some((li) => li.dataset.centreId === pin.id),
+        ),
+      ).toBe(true);
+    }
+    // Sold has no map, so nothing drives anything there.
+    expect(sold!.querySelectorAll(`[${CENTRE_ID}]`)).toHaveLength(0);
   });
 
   it("says so, rather than rendering nothing, when there are no listings", () => {

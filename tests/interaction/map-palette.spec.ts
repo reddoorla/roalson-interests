@@ -29,6 +29,9 @@ import { hydrated } from "./hydrated";
 // injects `*{transition:none}` — both act on CSS and on MapLibre's easing, and
 // neither can change which colour a tile is rasterised in. The camera is set by
 // `jumpTo` at boot either way (see $lib/property-map's header).
+//
+// WHAT THE CAMERA (#112) DOES CHANGE is WHICH GROUND is under the sample, and
+// that turned out to matter a great deal — see the note on the first case.
 const MAP = "[data-property-map]";
 
 /** The colours at issue. Upstream's two are here to be DENIED, never to grant. */
@@ -56,18 +59,59 @@ async function pixels(page: Page) {
 }
 
 test.describe("the tiles paint in the brand palette", () => {
+  // MEASURED AT 390, AND THAT IS NOT A STYLE CHOICE — IT IS THE ONLY WIDTH
+  // WHERE THE FRAME IS DETERMINISTIC.
+  //
+  // This case was written before the map had a camera (#112). It sampled at the
+  // shared config's Desktop Chrome viewport and its numbers — 203,832 px, of
+  // which 169,425 (83.12%) #f2efe9 and 1,684 #a8b4b8 — are the LAND SECTION'S
+  // FIT frame, which is what the map showed at every scroll position back then.
+  // Its water premise is a property of that frame: Choke Canyon Reservoir, Lake
+  // Corpus Christi and the Nueces are inside the fit of all 17 land listings.
+  //
+  // From `lg` the map now follows the card on the centre line, so it sits at
+  // z12 on ONE listing and that premise is gone. Worse, the sampling itself
+  // decides which: `locator.screenshot()` scrolls its target into view, the map
+  // is 595 tall in a 720 viewport, and the scroll that makes it fully visible
+  // puts a card on the centre line. Measured at 1280x720 after that scroll:
+  // 83.37% #f2efe9 — the palette is plainly fine — but water **284**, against
+  // the 500 this asserts. Centring six different land listings by hand gave
+  // water 284 / 287 / 256 / 2,150 / 31,106 / 375: the count is now a fact about
+  // which listing you happened to stop on, which is no basis for a threshold.
+  //
+  // Below `lg` the camera does not run AT ALL — `centreWatch` is not
+  // constructed there (see PropertyListing.svelte), so `active` stays null and
+  // `cameraMove` fits every point, forever. That is the same fit frame this
+  // case was written against, now reachable deterministically. Measured at
+  // 390x844: 67,335 px, 42,010 (62.39%) #f2efe9 and **12,113** #a8b4b8, with
+  // both upstream colours at 0.
+  //
+  // Nothing about what this proves has changed: the colours are the style's,
+  // the deny half is untouched, and the water margin is 24x rather than 3x.
   test("the ground is ours and the water is ours, counted off the canvas", async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/properties");
     await hydrated(page);
     await page.locator(MAP).first().scrollIntoViewIfNeeded();
     await drawn(page);
 
+    // Positive evidence the frame really is the section's fit and not one
+    // listing: nothing is on the centre line, because nothing is watching it.
+    expect(
+      await page.evaluate(() => {
+        const mid = window.innerHeight / 2;
+        for (const li of document.querySelectorAll<HTMLElement>("[data-centre-id]")) {
+          const box = li.getBoundingClientRect();
+          if (box.top <= mid && box.bottom >= mid) return li.dataset.centreId ?? null;
+        }
+        return null;
+      }),
+      "no card drives the camera below `lg`, so this is the section's fit frame",
+    ).toBeNull();
+
     // `load` fires when the style and the FIRST tiles are in; the rest of the
     // frame settles over the next second or so, so the sample polls rather than
-    // reading once. Measured against the production build on 2026-09-22, on the
-    // shared config's Desktop Chrome viewport: 203,832 px, of which 169,425
-    // (83.12%) are exactly #f2efe9 and 1,684 exactly #a8b4b8. At 1440x900 the
-    // same page gives 234,228 px, 194,510 (83.04%) and 3,103.
+    // reading once.
     const measured = { total: 0, land: 0, water: 0, upstreamLand: 0, upstreamWater: 0 };
     await expect
       .poll(
@@ -82,10 +126,16 @@ test.describe("the tiles paint in the brand palette", () => {
           // succeeds throws, so anything printed afterwards is printed only on
           // the GREEN path — and the numbers are the whole point of the red
           // one. Mutating DEFAULT_MAP_STYLE_URL back to upstream printed
-          // "203832 px: #f2efe9 596 (0.29%), #a8b4b8 0, #f8f4f0 0, #9ebdff
-          // 1676" here, which names the failure — and incidentally shows why
+          // "70350 px: #f2efe9 355 (0.50%), #a8b4b8 0, #f8f4f0 0, #9ebdff
+          // 12444" here, which names the failure — and incidentally shows why
           // the #f8f4f0 deny below is nearly worthless. Without this line the
           // red was a bare "expected true".
+          //
+          // (That mutation was re-run at 390 when this case moved there, and
+          // the separation is WIDER than the 1280 numbers it replaces —
+          // "203832 px: #f2efe9 596 (0.29%), #a8b4b8 0, #f8f4f0 0, #9ebdff
+          // 1676" — because the fit frame holds far more water than one
+          // listing's z12 frame does.)
           console.log(
             `[map-palette] ${measured.total} px: ${OURS.land} ${measured.land} ` +
               `(${((measured.land / measured.total) * 100).toFixed(2)}%), ` +
@@ -100,8 +150,11 @@ test.describe("the tiles paint in the brand palette", () => {
           // is small but not optional — Choke Canyon Reservoir, Lake Corpus
           // Christi and the Nueces are all inside the land section's frame, so
           // a `water` layer that failed to parse takes it to zero.
+          // `total` only has to prove a real canvas was sampled rather than an
+          // empty box; the 390 panel is 350 x 200 CSS px at DPR 1, so 50,000 is
+          // the same statement 100,000 was for the 595-tall one.
           return (
-            measured.total > 100_000 && measured.land / measured.total > 0.5 && measured.water > 500
+            measured.total > 50_000 && measured.land / measured.total > 0.5 && measured.water > 500
           );
         },
         {
