@@ -8607,6 +8607,8 @@ assumption that a re-render is comparable; it is better than that.
 
 ## 2026-09-23 — The camera's hold belongs to the flight, not to the page (#127, #128, #129, `fix/camera-wheel-gap`)
 
+> Superseded in part by 2026-09-23 — #130 and #137 compose in exactly one order, and nothing in the tree could tell which: this entry's boot is a map that flies at `load`, and after the merge with #122's placeholder it flies at the END of the cross-fade — so the hand-over is itself a flight that holds the next one, and every case in `PropertyMap.camera.svelte.test.ts` counts from after it.
+
 `$lib/scroll-activity` is deleted. The camera's coalescing rule no longer asks
 "is the document moving"; it asks "is a flight I issued still in the air", which
 is the question it always had and the only one it can answer without a proxy.
@@ -8766,3 +8768,134 @@ re-fits an undriven map, and never a dragged one` fails on a **production
   6.76–7.50 through this session; the `End` premise ("crossed several cards")
   went red once at six Playwright workers and green serially, which is the
   machine and not the change.
+
+## 2026-09-23 — #130 and #137 compose in exactly one order, and nothing in the tree could tell which (#122, #127, #128, #132, #133, `feat/map-home`)
+
+Two PRs rewrote the same eight lines of `cameraMove` within thirty-five minutes
+of each other and neither saw the other. #137 (`9706cb3`, 04:17) deleted
+`$lib/scroll-activity.svelte.ts` and re-based the camera's hold on the FLIGHT
+rather than on the document's scroll. #130 (`85b8310`, 04:06) made the map open
+on a committed picture of MAP_HOME and held the camera at that frame for as long
+as the picture is on screen. Both belong in the result; `page-scrolling` does
+not, because it is the mechanism #137 deleted (a 120ms debounce a 150ms wheel
+notch lapses between every pair of notches, so the guard was not weak but
+absent).
+
+**The ordering is the whole job, and the textual merge got it right by
+accident.** git auto-merged the tail of `cameraMove` and landed
+
+```ts
+if (underPicture !== null || target === null || reducedMotion) return { move: "jump", camera };
+if (flying) return { move: "none", why: "in-flight" };
+```
+
+which is correct — and it would have been just as happy the other way round,
+because the two lines came from different hunks and nothing in the diff knows
+they are about the same moment. So the reasoning is now written above them
+rather than left implied. `in-flight` is a refusal ABOUT FLIGHTS, so it sits
+below every line that can still decide the move is a jump; `underPicture` is one
+of those lines, in the same place `target === null` and `reducedMotion` have
+always sat. Reversed, it swallows the one move still due under the picture — the
+frame change the expand affordance makes across `COMPACT_MAX_HEIGHT`, where the
+container query repaints the picture at the other frame immediately and a held
+camera does not — which is #132 arriving through a door neither PR had a reason
+to look at.
+
+**Nothing in the tree could see the difference, and that is the finding.** A
+targeted mutation — move only the `underPicture` term below `in-flight`, leaving
+`target === null || reducedMotion` where they are — was caught by **0 of 1406
+unit tests**, by **0 of 29** dev-server browser cases in `property-map.spec.ts`
+and `property-map-camera.spec.ts`, and by **0 of 8** production cases in
+`map-home.spec.ts`. Each PR's own block tests its own flag exhaustively and
+neither sets both. `property-map.test.ts` now has the one case that does ("does
+not let a flight in the air refuse a jump the picture requires"), and it is the
+only thing that reds that mutation.
+
+**It is a unit case on purpose, and the reason is worth keeping.** In
+`PropertyMap.svelte` as wired today the two flags cannot both be true: every
+move under the picture is a jump, a jump calls `endFlight()`, and `handedOver`
+only ever goes false → true, so no flight can be in the air while a picture is
+still up. That invariant is a CONSEQUENCE of the ordering above plus that
+wiring — it is not what makes the ordering right, and no browser guard can reach
+the state. A day spent looking for one in Playwright would have found nothing
+and concluded the wrong thing.
+
+**What the merge cost beyond the ordering: thirteen component cases, for a
+reason neither PR could have predicted.** #130 moved the boot hand-over from
+`load` to the end of the cross-fade. Under #137 that hand-over is a FLIGHT, and
+a flight holds the next one for 500ms. So every case that changed `active`
+immediately after booting a map was answered `in-flight` and counted zero —
+`PropertyMap.test.ts` × 5 and the whole of `PropertyMap.camera.svelte.test.ts` ×
+8, the file #137 wrote specifically to watch flights. The camera harness was
+worse than wrong: it never retired the picture at all, so its maps sat under
+MAP_HOME for the entire drive and reported 0 flights with 0ms of hold, a red for
+the opposite reason. Both harnesses now retire the picture and land the
+hand-over before they start counting, and both ASSERT that they did — `expect(…
+[data-map-home-box]).not.toBeNull()` and `expect(flights(record)).toHaveLength(1)`
+inside the helper, because a helper that goes quietly vacuous is a failure this
+repo has already paid for twice.
+
+### The numbers, all on a production build (`REDDOOR_GATE_SERVER=preview`)
+
+**#132 stays closed.** Largest picture-pin-to-live-pin distance sampled every
+animation frame of the fade, `reducedMotion: "no-preference"` asserted rather
+than merely passed:
+
+| cell                                 | before #132  | after #132 | merged                  |
+| ------------------------------------ | ------------ | ---------- | ----------------------- |
+| /properties 1440, scrolled to centre | 14 618.92 px | 0.00       | **0.00 px** (36 frames) |
+| / band 1440                          | 1 772.50 px  | 0.22       | **0.22 px** (36 frames) |
+| / band 390                           | 1 800.65 px  | 0.00       | **0.00 px** (37 frames) |
+
+And the flight is held, not cancelled: `afterTravel` — how far the pins move
+once the picture is gone — was 14 591.29 / 1 772.69 / 1 799.07 px on the same
+three runs. That is the same displacement, now happening where the visitor can
+watch it. Cutting `pictureUp` out of the component's state object reds all three
+cases, so the merge did not merely preserve the wiring's shape.
+
+**#127/#128 stay closed.** `--repeat-each=16` each, production build:
+
+- a real `page.mouse.wheel`, 300px a notch at 150ms: 3–4 flights a run, closest
+  two flights **500 ms** apart over all 16 runs (floor 450), and **every** flight
+  issued while the page was still moving (4/4, 3/3).
+- a scroll held for ten seconds: 13–18 flights a run, closest pair **500 ms**,
+  duringMove 13/13 … 18/18 on fourteen runs and 17/18 on two. 32/32 green.
+
+**#133 stays closed, and the class was one cell short.** A page is a ROUTE AT A
+WIDTH, and that is four cells, not three — /properties picks both frames and so
+does the band. The band's COMPACT frame was unmeasured, and it is the cell that
+matters most for the rule #133 actually changed: `@container (0px < height <
+300px)`, whose lower bound exists to tell an unresolved container size (which
+reads as zero) from a box that really is under 300. The band at 390 is the only
+cell where the answer is "compact" for the second reason. Added, scripting off
+like its siblings: **64/64 across four cells**, each measured as a 200 for the
+painted raster and NO request at all for the other. Moving the threshold from
+300px to 100px reds the new cell and the /properties 200-box one and leaves the
+two full-frame cells green.
+
+### Not fixed here
+
+- **`map-home.spec.ts`'s live-pin case is flaky at exactly 246.5** — filed as
+  **#143**. Serial, 16 repeats: 1/16 on production **and 1/16 on `85b8310`, the
+  pre-merge tip**, which is how it is known not to be ours. It runs at 390 where
+  `active` is null and the camera never moves, so nothing #137 changed can reach
+  it. 3/16 on the dev server. The spec's own note records 4/112 for the same
+  symptom, so this is the same open defect and not a new one.
+- **`featured-properties.spec.ts:243` at exactly 436.890625** is #80/#124, the
+  macOS scrollbar-gutter setting. Green on CI's Linux, red here every run.
+- Two parallel-only reds (`featured-properties.spec.ts:1299` and `:1344`) went
+  green serially and 27/28 of that file passes at one worker. Load averages ran
+  4.06–7.18 through this session. CI is the authority.
+
+### Belief corrected on contact
+
+"Both orderings will compile and one of them is silently wrong at exactly one
+moment in the fade" was the brief, and the second half needs a correction: in
+the shipped component that moment is not reachable. Under either ordering, a
+flight can only be issued once `underPicture` is null, and `handedOver` never
+goes back — so `flying && pictureUp` cannot happen through `PropertyMap.svelte`
+at all. The ordering is still the difference between a function that is right
+and one that is right by luck, and the guard is still worth its lines, but it
+guards the CONTRACT of an exported pure function rather than a live defect. Said
+plainly here because the alternative is someone spending a day building the
+browser case that cannot exist.
