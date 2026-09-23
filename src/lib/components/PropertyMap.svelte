@@ -426,8 +426,11 @@
    * `active` through `activeTarget`, so a map opened already framed on the
    * active listing and "nothing moves at load" was literally true — the
    * homepage band's own comment says so, and #112 meant it. It is no longer
-   * true there: the band opens on MAP_HOME and FLIES to slide 0 once MapLibre
-   * has drawn its first frame. That is the operator's own ask read plainly —
+   * true there: the band opens on MAP_HOME and FLIES to slide 0 once the
+   * picture has been handed over (`pictureUp` on `CameraState`, #132 — the
+   * flight used to start on the first frame after `load`, which is INSIDE the
+   * cross-fade, and put two cameras on screen at once). That is the
+   * operator's own ask read plainly —
    * "a specific frame to always show as the default start … and then load the
    * tile so that we have movement when necessary" — and the alternative was to
    * give the band no placeholder at all, which is where the wait is worst. It
@@ -695,6 +698,15 @@
       // listing is active" resolves to the frame the picture is OF, for the
       // whole life of the map and not just its first frame (#122).
       home: home?.[frameFor(size)] ?? null,
+      // THE PICTURE IS STILL UP, so `home` above is where the camera belongs
+      // whatever is active — the placeholder and the live map are then the
+      // same map for the whole cross-fade (#132). Computed from the SAME
+      // expression the markup's `{#if home && !handedOver}` uses, so the
+      // picture being on screen and the camera being held cannot part company.
+      // Read for its dependency as much as for its value: `handedOver`
+      // flipping is what re-runs this effect and releases the flight, exactly
+      // as `pageScrolling` going false does.
+      pictureUp: home !== null && !handedOver,
       commanded,
       // READ FOR ITS DEPENDENCY AS MUCH AS FOR ITS VALUE. `cameraMove` answers
       // `page-scrolling` while this is true and the move would have been a
@@ -882,9 +894,20 @@
          `absolute inset-0` so its size comes from the containing block and
          size containment cannot change anyone's layout, whereas the root
          contributes to the homepage band's grid row.
-         Only the matching layer is FETCHED: a background image on a
-         `display: none` element is not requested, so a phone pays 27.4 KB and
-         a desktop 62.1 KB, never both.
+         ONLY THE MATCHING LAYER IS FETCHED, and the mechanism is that the
+         other layer HAS NO IMAGE — not that its image is hidden. This read
+         "a background image on a `display: none` element is not requested",
+         which is a claim about an optimisation rather than about the cascade,
+         and it was false here: with `background-image` in both layers' inline
+         `style` a production build fetched BOTH rasters on 4/16 loads of
+         /properties at 1440, 8/16 at 390 and 16/16 of the homepage band at
+         1440 (#133). The first style pass runs before the container has a
+         size, so neither rule matches and nothing is `display: none` yet.
+         The URL now comes from the SAME rule that grants `display: block`, so
+         the losing layer never has an image to request at any point in the
+         cascade: a phone pays 27.4 KB and a desktop 78.3 KB, never both.
+         The two `--map-home-*` custom properties are written from
+         `MAP_HOME[key].file` below, so the filename still has one source.
          The camera is fixed, so the box's centre pixel is MAP_HOME's
          coordinate at every container size — `background-position: center` at
          the raster's own pixel size (never `cover`, which would scale it and
@@ -898,14 +921,14 @@
       <div
         data-map-home-box
         aria-hidden="true"
-        style="--map-home-ground:{MAP_HOME_GROUND}"
+        style="--map-home-ground:{MAP_HOME_GROUND};--map-home-full:url(/{MAP_HOME.full
+          .file});--map-home-compact:url(/{MAP_HOME.compact.file})"
         class="pointer-events-none absolute inset-0"
       >
         {#each homeLayers as layer (layer.key)}
           <div
             data-map-home-frame={layer.key}
-            style="background-image:url(/{layer.spec.file});background-size:{layer.spec.raster
-              .width}px {layer.spec.raster.height}px"
+            style="background-size:{layer.spec.raster.width}px {layer.spec.raster.height}px"
             class="absolute inset-0"
           >
             {#each layer.markers as marker (marker.id)}
@@ -982,9 +1005,17 @@
       bind:this={canvasHost}
       data-map-canvas
       ontransitionend={(e) => {
-        // The one property this element animates, named rather than assumed:
-        // a `transitionend` for anything else must not retire the picture.
-        if (e.propertyName === "opacity" && ready) handedOver = true;
+        // THIS ELEMENT'S OWN FADE, and nothing else's (#134). The property is
+        // named rather than assumed, and so is the target: `transitionend`
+        // BUBBLES, so any descendant that transitions `opacity` would
+        // otherwise retire the picture on its own schedule. maplibre-gl.css
+        // ships `.maplibregl-marker { transition: opacity .2s }`, which is
+        // SHORTER than MAP_HOME_FADE_MS — the day anyone reaches for a real
+        // `maplibregl.Marker` the picture would go ~100ms early and the band's
+        // #3d0707 would show through a canvas at two-thirds opacity, which is
+        // the 0.535164 defect above arriving by a different door. Latent
+        // today: the pins are plain SVG and `cooperativeGestures` is off.
+        if (e.target === canvasHost && e.propertyName === "opacity" && ready) handedOver = true;
       }}
       style="transition-duration:{MAP_HOME_FADE_MS}ms"
       class="absolute inset-0 transition-opacity motion-reduce:transition-none
@@ -1150,8 +1181,17 @@
   /* WHICH FRAME'S PICTURE IS ON SCREEN, decided by the box's own height and
      nothing else — `COMPACT_MAX_HEIGHT` (300) is `frameFor`'s threshold, and
      these two rules are that function in CSS because the server cannot run it.
-     The 299.98 is the same boundary from below; a `height < 300px` range query
-     would be tidier and buys nothing here.
+     RANGE SYNTAX, and it is not tidiness: `max-height: 299.98px` paired with
+     `min-height: 300px` leaves (299.98, 300) matching NEITHER rule, so a box
+     landing in it drew no layer at all — a blank ground with an `sr-only` list
+     under it. 0.02px wide, never reached, and a range query is `frameFor`'s
+     `<` exactly rather than a transcription of it.
+     EACH RULE ALSO CARRIES THE IMAGE (#133). `background-image` used to sit in
+     both layers' inline `style`, and the request for the layer that loses goes
+     out anyway — measured as both rasters fetched on up to 16/16 loads, which
+     also made this PR's own byte guard ~50% flaky. A URL that only exists in
+     the branch that wins cannot be fetched by the branch that loses, whatever
+     the browser does with `display: none`.
      The wrapper carries `container-type: size` rather than the root: it is
      `absolute inset-0`, so its size is the containing block's and size
      containment cannot change what the root contributes to the homepage band's
@@ -1167,14 +1207,16 @@
     background-repeat: no-repeat;
     background-position: center center;
   }
-  @container (max-height: 299.98px) {
+  @container (0px < height < 300px) {
     [data-map-home-frame="compact"] {
       display: block;
+      background-image: var(--map-home-compact);
     }
   }
-  @container (min-height: 300px) {
+  @container (height >= 300px) {
     [data-map-home-frame="full"] {
       display: block;
+      background-image: var(--map-home-full);
     }
   }
 

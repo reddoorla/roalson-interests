@@ -463,6 +463,15 @@ describe("the expand affordance", () => {
 // The camera this component does NOT own
 // ---------------------------------------------------------------------------
 
+/** The artifact a finished cross-fade produces, dispatched on the canvas host
+ *  itself — which is the one element whose fade may retire the picture (#134).
+ *  jsdom runs no transitions and has no TransitionEvent constructor, so
+ *  `propertyName` is an own property on a plain Event. */
+function endTheFade(container: HTMLElement, propertyName = "opacity") {
+  const host = container.querySelector("[data-map-canvas]")!;
+  host.dispatchEvent(Object.assign(new Event("transitionend"), { propertyName }));
+}
+
 /** Boot a map, measured at `box`, and fire MapLibre's own `load` — which is
  *  the only thing that sets `ready`, and therefore the only thing that lets any
  *  camera rule past its first refusal.
@@ -470,12 +479,18 @@ describe("the expand affordance", () => {
  *  THE MOVE LOG IS ZEROED AT THE END, and that is #122's doing. The map is now
  *  constructed at MAP_HOME — the fixed frame the committed placeholder is a
  *  picture of — so a map whose caller already has an `active` listing HANDS
- *  OVER to it with one flight the instant `load` fires. That hand-over is a
- *  claim in its own right and is asserted in exactly one case below; every
- *  other case here is about what the camera does NEXT, and counting from zero
- *  is what keeps those assertions as strong as they were ("one flight", not
- *  "one more than whatever happened at boot"). `boot` is returned so a case
- *  can still look at it. */
+ *  OVER to it with one flight. That hand-over is a claim in its own right and
+ *  is asserted in exactly one case below; every other case here is about what
+ *  the camera does NEXT, and counting from zero is what keeps those assertions
+ *  as strong as they were ("one flight", not "one more than whatever happened
+ *  at boot"). `boot` is returned so a case can still look at it.
+ *
+ *  THE HAND-OVER IS NO LONGER AT `load`, and that is #132. The flight waits
+ *  for the PICTURE to be retired: a map that flew while its own placeholder
+ *  was still on screen put the committed picture and a different live map up
+ *  together for the whole 300ms fade. So this helper ends the cross-fade
+ *  before it reads the log, and returns `held` — what the camera did while the
+ *  picture was up, which every case can assert is nothing. */
 async function booted(props: Record<string, unknown>, box = { width: 397, height: 595 }) {
   stubResizeTo(box.width, box.height);
   stubIntersecting({ mapHeight: box.height, visible: box.height });
@@ -483,6 +498,17 @@ async function booted(props: Record<string, unknown>, box = { width: 397, height
   await vi.waitFor(() => expect(engine.created).toHaveLength(1));
   const record = engine.created[0]!;
   record.handlers.load?.();
+  await tick();
+  await tick();
+  const held = {
+    flights: [...record.flights],
+    jumps: [...record.jumps],
+    eases: [...record.eases],
+    /** Whether there was a picture to hold the camera in the first place —
+     *  without it `held` is empty for the uninteresting reason. */
+    picture: view.container.querySelector("[data-map-home-box]") !== null,
+  };
+  endTheFade(view.container);
   await tick();
   await tick();
   const boot = {
@@ -493,7 +519,7 @@ async function booted(props: Record<string, unknown>, box = { width: 397, height
   record.flights.length = 0;
   record.jumps.length = 0;
   record.eases.length = 0;
-  return { view, record, boot };
+  return { view, record, boot, held };
 }
 
 describe("the camera the page drives", () => {
@@ -512,13 +538,22 @@ describe("the camera the page drives", () => {
   // placeholder exists to remove. 500ms, under WCAG 2.2.2's five seconds, and
   // a jump rather than a flight under `prefers-reduced-motion`.
   it("is constructed at exactly MAP_HOME when a placeholder is drawn", async () => {
-    const { view, record, boot } = await booted({ active: "b" });
-    // The placeholder really is in the DOM — otherwise this case would be
+    const { record, boot, held } = await booted({ active: "b" });
+    // The placeholder really was in the DOM — otherwise this case would be
     // asserting the boot camera of a map that has nothing to agree with.
-    expect(view.container.querySelector("[data-map-home-box]")).not.toBeNull();
+    // (`booted` ends the cross-fade before it returns, so this is read there.)
+    expect(held.picture).toBe(true);
     const want = MAP_HOME[frameFor({ width: 397, height: 595 })].camera;
     expect(record.options.center).toEqual([want.lng, want.lat]);
     expect(record.options.zoom).toBe(want.zoom);
+    // AND IT STAYS THERE WHILE THE PICTURE IS UP (#132). `load` has fired and
+    // there is an active listing to go to, so the only thing holding the
+    // camera is the placeholder over it. This is the half that was missing:
+    // opening at MAP_HOME means nothing if the map leaves on the next frame,
+    // which is what it did — 14618.92 px of picture-to-live pin delta on
+    // /properties at 1440, measured on a production build.
+    expect(held.flights, "no flight while the picture is on screen").toHaveLength(0);
+    expect(held.jumps, "and no jump either").toHaveLength(0);
     // And THEN it hands over to the listing the caller asked for: one flight,
     // to `fitCamera` of that point, which clamps to the frame's maxZoom.
     expect(boot.flights).toHaveLength(1);
@@ -919,13 +954,23 @@ describe("the picture the server draws where the map will be", () => {
     expect(layers.map((l) => l.dataset.mapHomeFrame)).toEqual(Object.keys(MAP_HOME));
     for (const layer of layers) {
       const frame = MAP_HOME[layer.dataset.mapHomeFrame as keyof typeof MAP_HOME];
-      // The URL and the size come from the same constant the generator
-      // rendered at, so a raster regenerated at another size cannot be served
-      // at the old one — which would scale it, and a scaled placeholder cannot
-      // line up with the tiles.
-      // jsdom normalises the url() to a quoted form; the file name is the claim.
-      expect(layer.style.backgroundImage).toBe(`url("/${frame.file}")`);
+      // The size comes from the same constant the generator rendered at, so a
+      // raster regenerated at another size cannot be served at the old one —
+      // which would scale it, and a scaled placeholder cannot line up with the
+      // tiles.
       expect(layer.style.backgroundSize).toBe(`${frame.raster.width}px ${frame.raster.height}px`);
+      // AND THE URL IS NOT HERE, which is the whole of #133. A
+      // `background-image` on the layer is fetched whichever layer the
+      // container query ends up painting — measured as both rasters on up to
+      // 16 of 16 production loads — so the file name is handed to CSS as a
+      // custom property and only the rule that wins turns it into a request.
+      expect(layer.style.backgroundImage, "the layer names no image of its own").toBe("");
+    }
+    // One property per frame, on the wrapper, written from the same constant:
+    // the file name still has exactly one source.
+    const box = container.querySelector<HTMLElement>("[data-map-home-box]")!;
+    for (const [key, frame] of Object.entries(MAP_HOME)) {
+      expect(box.style.getPropertyValue(`--map-home-${key}`)).toBe(`url(/${frame.file})`);
     }
   });
 
@@ -1005,14 +1050,6 @@ describe("the hand-over from the picture to the canvas", () => {
     vi.useRealTimers();
   });
 
-  /** The artifact a finished cross-fade produces. jsdom runs no transitions,
-   *  so the browser's own event is synthesised — `propertyName` is an own
-   *  property here because jsdom has no TransitionEvent constructor. */
-  function endTheFade(container: HTMLElement, propertyName = "opacity") {
-    const host = container.querySelector("[data-map-canvas]")!;
-    host.dispatchEvent(Object.assign(new Event("transitionend"), { propertyName }));
-  }
-
   it("keeps the picture until the canvas says its fade is over", async () => {
     vi.useFakeTimers();
     stubReducedMotion(false);
@@ -1044,6 +1081,47 @@ describe("the hand-over from the picture to the canvas", () => {
     await tick();
     expect(view.container.querySelector("[data-map-home-box]")).not.toBeNull();
 
+    endTheFade(view.container);
+    await tick();
+    expect(view.container.querySelector("[data-map-home-box]")).toBeNull();
+  });
+
+  it("ignores an opacity transition that ended on something INSIDE the canvas", async () => {
+    // #134. `transitionend` BUBBLES, so a handler that checks only
+    // `propertyName` retires the picture for any descendant that fades —
+    // and maplibre-gl.css ships `.maplibregl-marker { transition: opacity
+    // .2s }`, a hundred milliseconds SHORTER than the fade it would cut
+    // short. Latent today (the pins are plain SVG), which is exactly why it
+    // needs a case: nothing else in the system would notice it arriving.
+    //
+    // `endTheFade` cannot see this. It dispatches on `[data-map-canvas]`
+    // itself, so the host IS the target and a missing target check looks
+    // identical to a present one — the reason the defect survived #130's
+    // thirteen mutations.
+    vi.useFakeTimers();
+    stubReducedMotion(false);
+    stubResizeTo(397, 595);
+    stubIntersecting({ mapHeight: 595, visible: 595 });
+    const view = render(PropertyMap, { props: { points, label: "Land" } });
+    await vi.waitFor(() => expect(engine.created).toHaveLength(1));
+    engine.created[0]!.handlers.load?.();
+    await tick();
+
+    const host = view.container.querySelector("[data-map-canvas]")!;
+    const child = document.createElement("div");
+    child.className = "maplibregl-marker";
+    host.appendChild(child);
+    child.dispatchEvent(
+      Object.assign(new Event("transitionend", { bubbles: true }), { propertyName: "opacity" }),
+    );
+    await tick();
+    expect(
+      view.container.querySelector("[data-map-home-box]"),
+      "a child's fade must not retire the picture",
+    ).not.toBeNull();
+
+    // And the host's own still does, so the clause above denies rather than
+    // disables.
     endTheFade(view.container);
     await tick();
     expect(view.container.querySelector("[data-map-home-box]")).toBeNull();

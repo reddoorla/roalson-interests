@@ -501,6 +501,86 @@ describe("the camera the page drives", () => {
     });
   });
 
+  // THE HOLD, which is the other half of #122's claim and the whole of #132.
+  // Opening at MAP_HOME is not "no pin jump" on its own: with a listing active
+  // at boot — the homepage band's slide 0, or /properties above `lg` for
+  // anyone who arrives already scrolled — the first frame after `load`
+  // answered `fly`, and a 500ms flight inside a 300ms cross-fade shows the
+  // picture and a different live map at once. Measured on a production build
+  // as the largest picture-pin-to-live-pin distance over every frame of the
+  // fade: 14618.92 px on /properties at 1440 scrolled to the centre line,
+  // 1772.50 px on the band at 1440, 1800.65 px at 390.
+  describe("while the picture of MAP_HOME is still on screen", () => {
+    const home = MAP_HOME.full.camera;
+
+    it("answers MAP_HOME rather than the active listing, and does not travel", () => {
+      const under = cameraMove({ ...baseline, home, pictureUp: true });
+      expect(under.move, "no flight under an opaque picture").toBe("jump");
+      expect(under.move === "jump" && under.camera).toEqual(home);
+      // The control, ONE input away: the same state with the picture gone is
+      // the flight this map was always going to make.
+      const after = cameraMove({ ...baseline, home, pictureUp: false });
+      expect(after.move).toBe("fly");
+      expect(after.move === "fly" && after.camera.zoom).toBe(MAP_FRAMES.full.maxZoom);
+      // …and an omitted field is "no picture", because every map without a
+      // placeholder — and every call in a test that is not about this — has
+      // none to wait for.
+      expect(cameraMove({ ...baseline, home }).move).toBe("fly");
+    });
+
+    it("says `arrived` for the map that booted there, which is every one of them", () => {
+      // What the component really asks, at the instant `load` fires: `boot`
+      // constructed the map at MAP_HOME and recorded it as `commanded`, so the
+      // answer is that it is already where it belongs. This is the case that
+      // used to answer `fly` and start a 500ms flight inside a 300ms fade.
+      expect(cameraMove({ ...baseline, home, commanded: home, pictureUp: true })).toEqual({
+        move: "none",
+        why: "arrived",
+      });
+    });
+
+    it("follows the picture across a frame change instead of freezing", () => {
+      // THE DEFECT THE FIRST VERSION OF THIS FIX HAD. A blunt refusal — "no
+      // move while the picture is up" — passes the case above and leaves the
+      // camera at the compact frame while the container query has already
+      // repainted the picture at the full one, which is the same two-cameras
+      // defect one step along. The expand affordance below `lg` makes exactly
+      // this box change, 200 -> min(70dvh, 520px).
+      const expanded = cameraMove({
+        ...baseline,
+        box: PANEL as Box,
+        frame: MAP_FRAMES.full,
+        home: MAP_HOME.full.camera,
+        commanded: MAP_HOME.compact.camera,
+        pictureUp: true,
+      });
+      expect(expanded.move).toBe("jump");
+      expect(expanded.move === "jump" && expanded.camera).toEqual(MAP_HOME.full.camera);
+    });
+
+    it("cannot grant a move that a refusal above it denies", () => {
+      // It decides WHERE, never WHETHER, so every refusal still outranks it.
+      for (const [state, why] of [
+        [{ ready: false }, "not-ready"],
+        [{ userMoved: true }, "user-moved"],
+        [{ box: { width: 0, height: 0 } }, "unmeasured"],
+        [{ active: "a-listing-with-no-geopoint" }, "unknown-active"],
+      ] as const) {
+        expect(cameraMove({ ...baseline, ...state, home, pictureUp: true })).toEqual({
+          move: "none",
+          why,
+        });
+      }
+    });
+
+    it("means nothing for a section that has no picture to be under", () => {
+      // `pictureUp` can only ever be true where `home` is non-null — the
+      // component computes them from the same expression — and a section
+      // outside MAP_HOME gets neither.
+      expect(cameraMove({ ...baseline, home: null, pictureUp: true }).move).toBe("fly");
+    });
+  });
+
   it("resolves an active id to the point, to null, or to nothing at all", () => {
     expect(activeTarget(null, land)).toBeNull();
     expect(activeTarget(land[2]!.id, land)).toBe(land[2]);

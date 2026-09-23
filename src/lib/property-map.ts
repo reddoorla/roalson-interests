@@ -556,6 +556,62 @@ export interface CameraState {
    */
   pageScrolling?: boolean;
   /**
+   * THE COMMITTED PICTURE OF MAP_HOME IS STILL ON SCREEN over this map — the
+   * cross-fade has not finished and the placeholder has not been retired.
+   *
+   * IT IS HERE BECAUSE OF #132, WHICH IS THE SAME DEFECT AS `home` ONE STEP
+   * ALONG. `home` made the fixed frame what "nothing is active" resolves to,
+   * so a map with no active listing stays where its picture is. It said
+   * nothing about a map that HAS one: `active` is non-null at boot on the
+   * homepage band (slide 0 from the start) and on `/properties` above `lg`
+   * whenever the visitor arrives already scrolled, and there the first frame
+   * after `load` answered `fly` — a 500ms flight that begins INSIDE the 300ms
+   * cross-fade. Measured on a production build with `reducedMotion:
+   * "no-preference"`, sampling every animation frame on which both sets of
+   * pins existed, as the largest picture-pin-to-live-pin distance in the box's
+   * own coordinates:
+   *
+   *   /properties 1440, scrolled to centre   14618.92 px
+   *   / band 1440                             1772.50 px
+   *   / band 390                              1800.65 px
+   *   /properties 1440 at scroll 0                0.00 px   (`active` null)
+   *   /properties 390                             0.00 px   (`active` null)
+   *
+   * The delta is at its maximum by canvas opacity 0.002 and holds for every
+   * remaining frame, so it is not a flight the eye follows out of the picture:
+   * it is two maps at two cameras, one dissolving into the other, for the
+   * whole fade. The two 0.00 rows are the only ones #130's own guard covered.
+   *
+   * SO WHILE THIS IS TRUE, `home` IS WHERE THE CAMERA BELONGS — whatever is
+   * active. It is the same sentence `home` already carries for a map with no
+   * active listing, widened to the only other thing that can be true while a
+   * picture of a fixed frame is on screen. The flight to the active listing is
+   * not cancelled, only not yet: `handedOver` flipping re-runs the caller's
+   * effect and the flight issues then, from a map the visitor is already
+   * looking at. It costs the flight its 300ms head start and nothing else.
+   *
+   * IT IS NOT A REFUSAL, AND THAT WAS THE FIRST ATTEMPT — one more line in the
+   * refusal block, `pictureUp` answering `none`. It fixed the measured case
+   * and opened the same defect one step along, which this repo's own rule
+   * about enumerating a class says to look for: a box change that crosses
+   * `COMPACT_MAX_HEIGHT` while the picture is up repaints the PICTURE at the
+   * other frame (the container query is on the box's height and answers
+   * immediately) while a refused camera stays at the frame it booted with. The
+   * expand affordance below `lg` does exactly that, 200 -> min(70dvh, 520px),
+   * and `PropertyMap.test.ts`'s re-frame case went red on it. Resolving to
+   * `home` rather than refusing keeps the two halves together by construction:
+   * whichever frame the picture is showing, the camera is at that frame's
+   * camera.
+   *
+   * Under the picture every move is a JUMP. The picture is opaque over the
+   * canvas, so nothing under it can be seen travelling — an animation nobody
+   * can watch, which the hand-over would then interrupt.
+   *
+   * Absent (undefined) means "no picture" — every map without a placeholder,
+   * and every call in a unit test that is not about this.
+   */
+  pictureUp?: boolean;
+  /**
    * The camera this map was last TOLD to be at — the one it was constructed
    * with, or the target of the last move. Not `map.getCenter()`: mid-flight
    * that reads a waypoint, and a waypoint never equals the target, so every
@@ -641,15 +697,23 @@ export function cameraMove(state: CameraState): CameraMove {
   // that cannot be served.
   if (target === undefined) return { move: "none", why: "unknown-active" };
 
+  // WHILE THE PICTURE OF MAP_HOME IS ON SCREEN, MAP_HOME IS THE ANSWER — the
+  // active listing included, because a map that leaves the frame its own
+  // placeholder is a picture of shows two cameras at once (#132). See
+  // `pictureUp`.
+  const underPicture = state.pictureUp === true ? (state.home ?? null) : null;
   // "Fit them all" is only the answer where there is no chosen frame; see
   // `home` on CameraState for the defect that read.
-  const camera = target
-    ? fitCamera([target], box, frame)
-    : (state.home ?? fitCamera(points, box, frame));
+  const camera =
+    underPicture ??
+    (target ? fitCamera([target], box, frame) : (state.home ?? fitCamera(points, box, frame)));
   if (camera === null) return { move: "none", why: "no-points" };
   if (commanded && sameCamera(commanded, camera)) return { move: "none", why: "arrived" };
 
-  if (target === null || reducedMotion) return { move: "jump", camera };
+  // Nothing under an opaque picture may travel: the visitor cannot see it, and
+  // the hand-over would interrupt it. That covers the one move still due under
+  // the picture — the frame change the expand affordance makes.
+  if (underPicture !== null || target === null || reducedMotion) return { move: "jump", camera };
   // THE LAST REFUSAL, and the only one that is not first. It has to sit below
   // `arrived`, because "the camera is already there" is the truer answer than
   // "the page is moving" and a caller that heard `page-scrolling` for a move

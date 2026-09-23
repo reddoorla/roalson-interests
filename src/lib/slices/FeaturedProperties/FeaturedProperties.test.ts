@@ -539,12 +539,16 @@ describe("FeaturedProperties slice", () => {
     const slot = container.querySelector<HTMLElement>("[data-map-slot]")!;
     const picture = slot.querySelector<HTMLElement>("[data-map-home-box]");
     expect(picture, "the band's map opens on a picture, not a list of links").not.toBeNull();
-    // One layer per frame, each naming the committed raster it is a crop of.
+    // One layer per frame, and the committed rasters they are crops of — held
+    // as custom properties on the wrapper rather than as each layer's own
+    // `background-image`, so only the frame the container query paints is ever
+    // requested (#133).
     const layers = [...picture!.querySelectorAll<HTMLElement>("[data-map-home-frame]")];
     expect(layers.map((l) => l.dataset.mapHomeFrame)).toEqual(["full", "compact"]);
-    for (const layer of layers) {
-      expect(layer.style.backgroundImage).toMatch(/^url\("\/map-home-(full|compact)\.webp"\)$/);
-    }
+    expect(picture!.style.getPropertyValue("--map-home-full")).toBe("url(/map-home-full.webp)");
+    expect(picture!.style.getPropertyValue("--map-home-compact")).toBe(
+      "url(/map-home-compact.webp)",
+    );
     // And the pins are THESE listings, linking where their list rows link.
     const rows = [...slot.querySelectorAll("[data-map-link]")].map((a) => a.getAttribute("href"));
     const pins = [...layers[0]!.querySelectorAll<HTMLAnchorElement>("[data-map-home-pin]")].map(
