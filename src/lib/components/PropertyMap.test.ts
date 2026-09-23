@@ -26,6 +26,7 @@ const engine = vi.hoisted(() => {
     canvas: HTMLCanvasElement;
     jumps: unknown[];
     eases: unknown[];
+    flights: unknown[];
     removed: boolean;
   }[] = [];
 
@@ -41,6 +42,7 @@ const engine = vi.hoisted(() => {
         canvas: this.canvas,
         jumps: [],
         eases: [],
+        flights: [],
         removed: false,
       };
       created.push(this.record);
@@ -68,6 +70,9 @@ const engine = vi.hoisted(() => {
     }
     easeTo(camera: unknown) {
       this.record.eases.push(camera);
+    }
+    flyTo(camera: unknown) {
+      this.record.flights.push(camera);
     }
     resize() {}
     remove() {
@@ -387,5 +392,102 @@ describe("the expand affordance", () => {
     expect(painted).toContain("h-[20.88px]");
     expect(painted).toContain("w-[20.884px]");
     expect(painted).toContain("bg-primary");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The camera this component does NOT own
+// ---------------------------------------------------------------------------
+
+/** Boot a map, measured at `box`, and fire MapLibre's own `load` — which is
+ *  the only thing that sets `ready`, and therefore the only thing that lets any
+ *  camera rule past its first refusal. */
+async function booted(props: Record<string, unknown>, box = { width: 397, height: 595 }) {
+  stubResizeTo(box.width, box.height);
+  stubIntersecting({ mapHeight: box.height, visible: box.height });
+  const view = render(PropertyMap, { props: { points, label: "Land", ...props } });
+  await vi.waitFor(() => expect(engine.created).toHaveLength(1));
+  const record = engine.created[0]!;
+  record.handlers.load?.();
+  await tick();
+  await tick();
+  return { view, record };
+}
+
+describe("the camera the page drives", () => {
+  it("is constructed already framed on the active listing, so nothing moves at load", async () => {
+    const { record } = await booted({ active: "b" });
+    // `fitCamera` of one point clamps to the frame's maxZoom, and the centre is
+    // that point corrected for the pin's tip.
+    expect(record.options.zoom).toBe(12);
+    expect((record.options.center as number[])[0]).toBeCloseTo(points[1]!.lng, 6);
+    // Nothing flew: the map opened where it belonged.
+    expect(record.flights).toHaveLength(0);
+  });
+
+  it("flies when the page changes which listing is active", async () => {
+    const { view, record } = await booted({ active: "b" });
+    await view.rerender({ points, label: "Land", active: "a" });
+    await tick();
+    expect(record.flights).toHaveLength(1);
+    const flight = record.flights[0] as { center: number[]; zoom: number; duration: number };
+    expect(flight.center[0]).toBeCloseTo(points[0]!.lng, 6);
+    expect(flight.zoom).toBe(12);
+    expect(flight.duration).toBe(500);
+  });
+
+  it("stops following the moment a gesture drives the map", async () => {
+    const { view, record } = await booted({ active: "b" });
+    // A gesture is a `movestart` carrying an originalEvent — which is exactly
+    // what a programmatic flight does NOT carry.
+    record.handlers.movestart?.({ originalEvent: new Event("pointerdown") });
+    await tick();
+    await view.rerender({ points, label: "Land", active: "a" });
+    await tick();
+    expect(record.flights).toHaveLength(0);
+  });
+
+  it("does not fly for an active id it has no pin for", async () => {
+    const { view, record } = await booted({ active: "a" });
+    await view.rerender({ points, label: "Land", active: "a-listing-with-no-geopoint" });
+    await tick();
+    expect(record.flights).toHaveLength(0);
+    // And it did not fall back to the fit either: the view is simply held.
+    expect(record.jumps).toHaveLength(0);
+  });
+});
+
+describe("pressing a pin", () => {
+  /** The pins are `aria-hidden` and `tabindex=-1` drawings of the list, so they
+   *  are found by their data attribute rather than by role. */
+  const pin = (container: HTMLElement, nth = 0) =>
+    container.querySelectorAll<HTMLButtonElement>("[data-map-pin]")[nth]!;
+
+  it("opens the sheet when the caller draws no detail of its own", async () => {
+    const { view } = await booted({});
+    expect(view.container.querySelectorAll("[data-map-pin]").length).toBeGreaterThan(0);
+    pin(view.container).click();
+    await tick();
+    expect(view.container.querySelector("[data-map-sheet]")).not.toBeNull();
+  });
+
+  it("reports the listing instead, and opens no sheet, when the caller takes it", async () => {
+    const seen: string[] = [];
+    const { view } = await booted({ onselect: (id: string) => seen.push(id) });
+    pin(view.container).click();
+    await tick();
+    expect(seen).toHaveLength(1);
+    expect(points.map((p) => p.id)).toContain(seen[0]);
+    expect(view.container.querySelector("[data-map-sheet]")).toBeNull();
+  });
+
+  // The whole point of routing a press through the caller: a press must not be
+  // a second way for a listing to become active. It reports, and nothing else.
+  it("does not move the camera by itself", async () => {
+    const { view, record } = await booted({ active: "a", onselect: () => {} });
+    const before = record.flights.length;
+    pin(view.container).click();
+    await tick();
+    expect(record.flights).toHaveLength(before);
   });
 });

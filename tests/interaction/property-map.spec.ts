@@ -440,7 +440,17 @@ test.describe("the engine, and what it costs", () => {
       // `elementFromPoint` at the credit's centre returning the sheet. A
       // licence condition that a UI state can hide is not being met, so the
       // hit test is the assertion, not the presence of the element.
+      //
+      // ON THE HOMEPAGE BAND, not on Properties, and that moved with #112.
+      // Properties now passes `onselect` to PropertyMap: there the CARD is the
+      // detail, so a pin press scrolls its card to the centre instead of
+      // opening a second copy of it over the map. The band has no card beside
+      // the map, so the sheet is still the only detail there is — and its 390
+      // map is the same 200px full-bleed box this case was written against
+      // (measured 375 x 200, three single pins, no clusters, expand drawn).
       await page.setViewportSize({ width: 390, height: 844 });
+      await page.goto(HOME);
+      await hydrated(page);
       await page.locator(MAP).first().scrollIntoViewIfNeeded();
       await drawn(page);
       await page.locator(`${MAP} [data-map-pin]`).first().click();
@@ -468,7 +478,7 @@ test.describe("the engine, and what it costs", () => {
   // Escape handler entirely unguarded — and the unit harness building an
   // `eases` recorder it never read was the tell. These are the two behaviours
   // a visitor actually performs.
-  test("pressing a cluster splits it; pressing a pin opens its sheet, and Escape closes it", async ({
+  test("pressing a cluster splits it, and on Properties a pin press opens no sheet", async ({
     browser,
   }) => {
     const { context, page } = await at(browser, 1440);
@@ -497,10 +507,40 @@ test.describe("the engine, and what it costs", () => {
       // …and a cluster press never opens a sheet: it is not one listing.
       await expect(page.locator(`${MAP} [data-map-sheet]`)).toHaveCount(0);
 
-      // A single pin does open one, and Escape closes it. The handler is on
-      // the window (the box is a <div> with no role, so a key handler on it is
-      // the non-interactive-element interaction the compiler refuses), which
-      // is exactly the kind of thing that stops working unnoticed.
+      // AND A PIN PRESS OPENS NO SHEET HERE EITHER — which is a change, not
+      // an oversight. With #112 this page passes `onselect`: the card beside
+      // the map already carries the listing's title and its two links, so a
+      // sheet would be a second, smaller copy of it drawn on top, and a second
+      // place a listing can be "open". The press scrolls that card to the
+      // middle of the window instead, and the centre rule makes it active —
+      // measured in tests/interaction/property-map-camera.spec.ts.
+      await page.locator(`${MAP} [data-map-pin]`).first().click();
+      await expect(page.locator(`${MAP} [data-map-sheet]`)).toHaveCount(0);
+    } finally {
+      await context.close();
+    }
+  });
+
+  // THE SHEET, where it still is the behaviour: the homepage band, which draws
+  // no card beside its map. Same two claims this used to make on Properties —
+  // a pin press opens a sheet that names its listing, and the window's Escape
+  // handler closes it. That handler is on the window because the box is a
+  // <div> with no role, so a key handler on IT is the non-interactive-element
+  // interaction the compiler refuses; it is exactly the kind of thing that
+  // stops working unnoticed.
+  test("on the homepage band a pin press opens its sheet, and Escape closes it", async ({
+    browser,
+  }) => {
+    const { context, page } = await at(browser, 1440);
+    try {
+      await page.goto(HOME);
+      await hydrated(page);
+      await page.locator(MAP).first().scrollIntoViewIfNeeded();
+      await drawn(page);
+      // Non-vacuity: the band's three slides stand alone at its fit zoom, so
+      // there is a single pin to press. (Measured at 1440x900: 3 pins, 0
+      // clusters, in a 508.2 x 820.5 box.)
+      await expect(page.locator(`${MAP} [data-map-pin]`)).toHaveCount(3);
       await page.locator(`${MAP} [data-map-pin]`).first().click();
       const sheet = page.locator(`${MAP} [data-map-sheet]`);
       await expect(sheet).toBeVisible();

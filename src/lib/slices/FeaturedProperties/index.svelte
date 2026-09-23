@@ -112,6 +112,11 @@
   const primary = $derived(slice.primary);
   const listings = $derived(featuredListings(primary.properties));
   const slides = $derived(listings.slides);
+  /** Derived once rather than inline in the template: it is read twice (the
+   *  map's pins and the active id's membership) and it drops slides with no
+   *  GeoPoint, so recomputing it per read is a filter that could disagree with
+   *  itself. */
+  const mapPoints = $derived(slidePoints(slides));
 
   // The visible heading is the comp's H4 eyebrow, at h2 LEVEL: the hero owns
   // the h1 and the slide titles are h3s. It also names the carousel, so an
@@ -533,8 +538,34 @@
          throughout. The ground is the child's to draw, so the child is told
          which one: off-white on #3d0707, 14.85:1. -->
     <div data-map-slot class="max-lg:order-first lg:col-start-1 lg:row-start-1">
+      <!-- THE CAMERA FOLLOWS THE ACTIVE SLIDE, AND THAT IS THE WHOLE GATE.
+           WCAG 2.2.2 is live on this band: it autoplays, so a camera that
+           moved on its own every four seconds would be auto-moving content in
+           parallel with other content. It cannot. `active` is read off
+           `carousel.index`, and the index only advances while the carousel is
+           `rotating` — which is already `hydrated && eligible && !userPaused &&
+           !hovered && !pageHidden && !atEnd`, i.e. every pause, every hover,
+           a hidden tab and `prefers-reduced-motion` all stop it. Pressing the
+           band's Pause control stops the index, so it stops the map; under
+           reduced motion the index never moves at all, so the map never does.
+           That is ONE mechanism. A second gate here — a `paused` prop the map
+           also consulted — could only ever disagree with this one, and the
+           first thing it would disagree about is a MANUAL turn: pressing an
+           arrow focuses a control, which stops the clock, and a camera gated
+           on `rotating` would then refuse to follow the slide the visitor just
+           asked for.
+           The map is also CONSTRUCTED on the active point rather than easing
+           to it (see PropertyMap's `camera()`), so nothing moves at load
+           either.
+           `mapPoints` is indexed by the SLIDE's index, never by its own: a
+           slide whose `location` is empty is not in `slidePoints` at all, so
+           the two lists are different lengths and `mapPoints[index]` would
+           point at the wrong listing. Matching by id is the only safe read,
+           and an id this map has no pin for is a request the map holds on
+           rather than serves (`cameraMove`'s `unknown-active`). -->
       <PropertyMap
-        points={slidePoints(slides)}
+        points={mapPoints}
+        active={slides[carousel.index]?.id ?? null}
         label={heading}
         tone="cream"
         class="h-50 w-full lg:h-full"

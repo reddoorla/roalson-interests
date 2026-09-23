@@ -6720,3 +6720,250 @@ BrandButton's does for the same reason.
 frame.clusterRadius, instance.getMaxZoom())` — the Map's 16, not `frame.maxZoom`'s 12. It looks deliberate and nothing records why. The new case asserts the
 cluster comes apart, which is the behaviour; the zoom it lands on is still
 unwritten-down.
+
+## 2026-09-22 — The map pins beside its cards, and its camera follows the one in the middle of the screen (#112, `feat/map-camera`)
+
+The operator's ask, verbatim: _"the idea is the map is sticky and as different
+properties highlight we scroll around to them"_, and, asked what drives it,
+_"viewport center but clicking a property scrolls it into being the active
+one"_. That second half is the whole design and it is better than the
+alternative it replaced: there is ONE answer to "which listing is active" — the
+card crossing the middle of the window — and a pin press is an input to the
+SCROLL, never to the answer. A press scrolls its card to the centre; the centre
+rule then reports it; the camera follows from that. Two mechanisms would have
+disagreed the first time a scroll was still settling.
+
+### What the numbers are
+
+Measured on a **production build** of the real `/properties` (17 land listings,
+5 improved — the dev fixtures do not exist there, `/dev/*` 404s once `dev` is
+false, so this is the only place the real portfolio can be read) at 1440×900:
+
+|                     | land                  | improved       |
+| ------------------- | --------------------- | -------------- |
+| cards               | 17                    | 5              |
+| divider height      | 85.41, **not** pinned | 145.41, pinned |
+| map's sticky `top`  | 100px                 | **145.406px**  |
+| grid content height | 5094.86               | 1468.63        |
+| sticky travel       | 4499.86               | 873.63         |
+
+**The offset is read, never typed.** The comp's pinned divider is a 100px pad
+plus a 45.41px label block; a `top: 100px` — the number the pad makes obvious —
+would have been wrong by 45.41 from the first commit, and wrong again the day
+the brand's heading font changes. `PropertyListing` measures the divider with a
+`ResizeObserver` and publishes it as `--sticky-top` on the grid wrapper, which
+the map wears as `lg:top-[var(--sticky-top)]`. The first section has no pinned
+divider at all, so its map lands on `app.css`'s own `scroll-padding-top` (100px
+at `lg` — "the bar plus 20px of air", already the one place this stylesheet
+says where the usable top is). A measured height of 0 is treated as "could not
+measure", not as "pin it against the top of the window": jsdom returns 0 for
+every box, and so does a browser asked before first layout.
+
+**It releases by itself, and that was verified rather than assumed.** A sticky
+GRID ITEM's containing block is its grid area, so the map stops travelling when
+the card column ends and no script has to notice. On the fixture at 1440×900:
+grid top 476.02, height 1092.39, map 595 → 497.39px of travel, stuck from
+scrollY 376.02 to 873.41, and at scrollY 900 the map's top reads 73.4 — exactly
+100 − 26.6 of overshoot. The browser test asserts pinned at mid-travel, pinned
+one pixel before the end, and released-and-moving-pixel-for-pixel 200 past it;
+the last of those three would pass on a map that never stuck at all, which is
+why the first two come first.
+
+**The camera's target zoom is not a new number.** The active camera is
+`fitCamera` of the ONE active point, which by construction clamps to the frame's
+own `maxZoom` — a one-point bounds has no span. `MAP_FRAMES.full.maxZoom` is
+already this repo's argued answer to "how close is right for a single listing"
+(12 puts 397px of frame across 6.6 km at this latitude: 16.596 m/px, 6588 m),
+and naming a second number here would have been a second answer that drifts the
+first time one of them is tuned. Routing through `fitCamera` also keeps the
+asymmetric-padding correction: the pin is anchored at its TIP, the frame pads 52
+top against 44 bottom, so the fitted centre sits (44 − 52) / 2 = −4px of the
+box's middle and the listing's coordinate draws 4px BELOW it. Predicted from
+first principles, then measured: `translate(196px, 301.5px)` in a 392.2 × 595
+box, against a computed 196.10 / 301.50. It holds for all 11 unclustered land
+listings on the production build.
+
+The flight is 500ms, which is the homepage band's own `DISSOLVE`: on that band
+the photo cross-fades while the map travels to the same listing, so the picture
+and the place arrive as one change, and the map is stationary for 87.5% of every
+4000ms dwell.
+
+### The rule, and why it is an observer and not a scroll listener
+
+`rootMargin: "-50% 0px -50% 0px"` collapses the observer's root to a line across
+the middle of the window, so "is this the card" becomes "does this card cross
+the line" — answered off the main thread, with no scroll handler and nothing to
+throttle. A card is 220–284px tall and the gap is 20px, so at most one card is
+on the line at a time. Checked against an independent box test
+(`top <= innerHeight/2 && bottom >= innerHeight/2`) at nine scroll positions
+down the production `/properties`: identical at all nine, and identical again
+for all 17 land cards in the later probe.
+
+Twice per card the centre falls in the 20px gap and nothing intersects — a
+single jump from scrollY 0 to 1250 lands there. The rule HOLDS its last answer
+instead of clearing it; clearing would let the map go twice per card, which is
+the flicker the whole thing exists to avoid.
+
+Below `lg` none of it runs. Not "runs and is ignored": no observer is
+constructed, because at 390 the map is a 200px box above the cards, pinning it
+would spend a quarter of an 844px viewport permanently, and the comp does not
+draw it. The media query is live, so a resize past 1024 starts it.
+
+### Three beliefs corrected on contact
+
+**1. The camera never moved once, and the reason was four lines above where I
+was looking.** Svelte re-tracks an effect's dependencies on every run. The
+camera effect's first run is at mount, before the engine exists, and it bailed
+on its second line — so the only signal it had read by then was `box`, and
+`active` was never a dependency. Measured on a real scroll down
+`/dev/properties`: identical pin transforms at scrollY 450, 800 and 1050 while
+the centre rule was correctly reporting potranco-road, hwy-90-castroville,
+ih-35-new-braunfels. The fix is that every reactive input is now read into one
+object BEFORE the first `return`. Mutating that back gives
+`expected [] to have a length of 1 but got +0`.
+
+**2. `flyTo` does not fall back to `easeTo` for short moves.** Written into a
+comment as fact, then checked against maplibre-gl 6.10.0's own dist, where the
+guard is `if (Math.abs(u1) < 2e-6 || !isFinite(S))` — two MILLIONTHS of a pixel
+of path, a no-op rather than a short move. The reason `flyTo` is still right is
+the Van Wijk–Nuij curve itself, whose zoom excursion grows with the distance:
+land spans 277.0 km, which is ~16 700px of pan at z12, and `easeTo` interpolates
+the centre LINEARLY — 33 000 px/s over 500ms, a smear. The comment now says the
+true thing.
+
+**3. `browser.newContext()` DOES inherit the shared config's
+`contextOptions`.** This spec was written on the opposite assumption, which
+would have made the `reducedMotion: "reduce"` trap irrelevant to every test that
+opens its own context. A throwaway spec printed `reduce = true` for both the
+default `page` fixture and a hand-opened context. Two consequences: the
+`test.use({ contextOptions: { reducedMotion: "no-preference" } })` on the flight
+block is genuinely load-bearing (removing it fails on the explicit
+`matchMedia("(prefers-reduced-motion: reduce)").matches === false` assertion
+that now guards it), and the homepage test had to open a `moving` context of its
+own — under `reduce` the band draws NO pause control at all (`eligible` is
+`enabled && dwell > 0 && last > 0 && !reduced`), so it spent 120 seconds looking
+for a button that was never rendered.
+
+And a fourth, smaller: **`lg:z-0` on the map was inert.** It shipped with a
+comment saying two positioned siblings with `z-index: auto` paint in DOM order,
+so the later one — the map — would slide over the pinned divider. Half true and
+the wrong half: the divider is not `auto`, it is `lg:z-10`, and a positive
+z-index paints above every `auto` positioned sibling whatever the tree order.
+Mutating `lg:z-0` away left the browser test green; mutating the divider's
+`lg:z-10` away turned it red at once, with the map winning the hit test. The
+class is gone and the comment now names what actually holds the order — the
+divider's own z-index, plus `PropertyMap`'s root `isolate`, which keeps the
+map's internal `z-[1]`..`z-[3]` out of the argument.
+
+### WCAG 2.2.2, and the gate that is not a second gate
+
+The homepage band autoplays, so a camera that moved on its own every four
+seconds would be auto-moving content presented in parallel with other content.
+It cannot: `active` is read off `carousel.index`, and the index only advances
+while the carousel is `rotating` — already `hydrated && eligible && !userPaused
+&& !hovered && !pageHidden && !atEnd`. Every pause, every hover, a hidden tab
+and `prefers-reduced-motion` all stop the index, so they all stop the map. That
+is ONE mechanism, deliberately, and a second `paused` prop the map also
+consulted could only ever have disagreed with it — the first thing it would have
+disagreed about is a MANUAL turn, since pressing an arrow focuses a control,
+which stops the clock, and a camera gated on `rotating` would then refuse to
+follow the slide the visitor just asked for. The evidence is a browser test:
+Pause, then nine and a half seconds — two and a bit full dwells — and the map's
+pin transforms are byte-identical; then Play, and they change. Cutting `active`
+loose from the carousel turns that second half red.
+
+The map is also CONSTRUCTED on the active point rather than easing to it, so
+nothing moves at load either — and because `ready` flipping true re-asks the
+camera question, `cameraMove` gained an `arrived` refusal comparing the answer
+against the camera the map was last TOLD to be at. Without it every map opened
+by issuing a 500ms flight to where it already was. Not `map.getCenter()`:
+mid-flight that reads a waypoint, and a waypoint never equals the target.
+
+### The mutations
+
+Every guard below was broken on purpose and watched go red before being kept.
+
+| mutation                                               | red                                                                                           |
+| ------------------------------------------------------ | --------------------------------------------------------------------------------------------- |
+| drop the `not-ready` refusal                           | `expected { move: 'fly', … } to deeply equal { move: 'none', why: 'not-ready' }`              |
+| drop the `user-moved` refusal                          | `expected { move: 'fly', … } to deeply equal { move: 'none', why: 'user-moved' }`             |
+| ignore `prefers-reduced-motion`                        | `expected 'fly' to be 'jump'`                                                                 |
+| fall back to the fit for an unknown active id          | `expected { move: 'fly', … } to deeply equal { move: 'none', why: 'unknown-active' }`         |
+| pick a zoom of our own (13) instead of the frame's cap | `expected 13 to be 12`                                                                        |
+| drift the flight off the band's dissolve               | `expected 600 to be 500`                                                                      |
+| read the reactive inputs AFTER the bail                | `expected [] to have a length of 1 but got +0`                                                |
+| let a pin press set the active listing itself          | `expected <div data-map-sheet …> to be null`                                                  |
+| forget the camera the map was built with               | four cases; `expected [ {…} ] to have a length of +0 but got 1`                               |
+| boot on the fit instead of the active listing          | `expected 7.075387031871884 to be 12`                                                         |
+| take the FIRST intersecting entry of a batch           | `expected [ 'a', 'b' ] to deeply equal [ 'b', 'b' ]`                                          |
+| take the LAST intersecting entry of a batch            | `expected [ 'b', 'a' ] to deeply equal [ 'b', 'b' ]`                                          |
+| widen the observer's root from a line to the viewport  | `expected '0px' to be '-50% 0px -50% 0px'`                                                    |
+| run the centre rule at every width                     | two cases; `expected [ {…} ] to have a length of +0 but got 1`                                |
+| type the sticky offset as 100                          | `expected 145.40625, received 100`                                                            |
+| unpin the map entirely                                 | `expected 0, received -228.984375`                                                            |
+| take the z-index off the pinned divider                | `the pinned divider owns its own pixels: expected true, received false`                       |
+| run the centre rule at phone widths                    | `expected [3 transforms] to equal [3 different transforms]`                                   |
+| drop `onselect` from the listing page                  | `expected "ih-35-new-braunfels", received null`                                               |
+| always jump, as reduced motion would                   | `95 frames sampled: expected > 3, received 0`                                                 |
+| let the flight test inherit the fleet's `reduce`       | `the fleet's reduced-motion emulation is lifted in this block: expected false, received true` |
+| cut the homepage camera loose from the carousel        | `expected true, received false`                                                               |
+
+**One of them came back GREEN and that is the most useful line here.** "Takes
+the newest intersecting entry of a batch" was written with a batch whose newest
+intersecting entry happened to also be the FIRST in the array, so replacing
+"newest by time" with "the first one I find" passed it. It now sends two
+batches, oldest-first and newest-first, whose answer is the same card either
+way; "first" is wrong on one and "last" is wrong on the other. Without running
+the mutation that test measured nothing, and it looked exactly like the ones
+that do.
+
+And one existing guard went red for a reason that was never its claim:
+`PropertyListing.test.ts` asserted `/\bh-50\b.*\blg:h-\[595px\]/` on the map's
+class string, and `.` does not cross a newline — the moment the string grew past
+prettier's width and got wrapped, the regex stopped matching two classes that
+were both still there. It is a token-list check now.
+
+### Filed, not fixed
+
+- **#114 — tabbing a card into view can leave the map on the previous
+  listing.** Measured at 1440×900 across twelve Tab presses: the browser scrolls
+  the focused card into view MINIMALLY, so it lands at top 480 (crossing the
+  centre line at 450) or at top 720 (not crossing it). Focus and the active
+  listing agreed on steps 1, 3 and 6 and were one card apart on steps 2 and 7.
+  Nothing fights — the observer is not being argued with, it is reporting where
+  the window honestly is — and there is no thrash or loop. The consistent fix is
+  to treat focus the way a pin press is treated (an input to the SCROLL:
+  `focusin` in a card calls the same `revealCard`), but that makes every Tab
+  move the page a long way, which is an operator call rather than a detail.
+- **#115 — an active listing inside a cluster has no pin of its own.** On the
+  production build's 17 land listings at the camera's z12, 6 are still inside a
+  cluster (the Boerne / IH-10 corridor group; `property-map.ts` already records
+  the tightest pair at 0.193 km). The camera centres on the listing correctly,
+  but what is drawn at the centre is a count disc, so the visitor cannot tell
+  which of the five they are looking at. #112 predicted exactly this and asked
+  for the design answer before the code; z12 shrinks the problem from 32 of 136
+  land pairs to 6 of 17 listings rather than removing it.
+- **#116 — the OpenFreeMap credit, answered.** The operator asked "do we need to
+  show the open free map bit at the bottom?". Measured rather than remembered:
+  the style JSON at `tiles.openfreemap.org/styles/liberty` declares no
+  attribution at all; the string comes from the TileJSON at
+  `tiles.openfreemap.org/planet`, which is `OpenFreeMap © OpenMapTiles Data from
+OpenStreetMap`. OpenFreeMap's own terms say attribution IS required and name
+  that exact string, then: _"You do not need to display the OpenFreeMap part,
+  but it is nice if you do."_ So the honest answer is: the credit stays, the word
+  "OpenFreeMap" is the only optional part of it. `feat/map-palette` is already
+  dropping that word; this PR deliberately did not touch the attribution.
+
+### Not done here, on purpose
+
+The operator's other two asks in the same message — the tiles in the brand
+palette, and the credit — belong to `feat/map-palette` (#110, #111), which
+rewrites the style through `scripts/map-style.mjs` and a checked-in
+`static/map-style.json`. Both branches touch `PropertyMap.svelte`; whichever
+merges second should expect a conflict in the boot path and nowhere else.
+
+`data-map-pin` now carries the listing's own id instead of an empty marker. A
+pin is a drawing of one list item, saying which one costs nothing, every
+existing `[data-map-pin]` presence selector still matches, and it is what lets a
+browser test assert that the ACTIVE listing's pin is the one at the centre
+rather than that some pin is.

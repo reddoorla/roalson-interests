@@ -2,6 +2,9 @@ import { describe, it, expect } from "vitest";
 
 import { propertyFixture } from "$lib/property-fixture";
 import {
+  activeTarget,
+  CAMERA_FLIGHT_MS,
+  cameraMove,
   clusterDiameter,
   clusterPoints,
   clusterSignature,
@@ -243,6 +246,173 @@ describe("the camera each frame lands on", () => {
 
   it("has nothing to show for an empty section", () => {
     expect(fitCamera([], PANEL, MAP_FRAMES.full)).toBeNull();
+  });
+});
+
+describe("the camera the page drives", () => {
+  // Every case below varies ONE input of `cameraMove` against this baseline,
+  // which is a map that would move: ready, undriven, measured, no preference,
+  // and an active listing it has a pin for.
+  const baseline = {
+    active: land[3]!.id,
+    points: land,
+    box: PANEL as Box,
+    frame: MAP_FRAMES.full,
+    ready: true,
+    userMoved: false,
+    reducedMotion: false,
+  };
+
+  it("flies to the active listing, at the frame's own maxZoom", () => {
+    const move = cameraMove(baseline);
+    expect(move.move).toBe("fly");
+    // The zoom is NOT a number this function chose: a one-point bounds has no
+    // span, so `fitCamera` clamps to the frame's cap and that is the answer.
+    expect(move.move === "fly" && move.camera.zoom).toBe(MAP_FRAMES.full.maxZoom);
+  });
+
+  it("puts the listing's own coordinate at the centre, corrected for the pin's tip", () => {
+    // The pin is anchored at its TIP, so `MAP_FRAMES.full.padding` is 52 top
+    // against 44 bottom and the fitted centre sits (44 - 52) / 2 = -4px of it.
+    // In degrees at z12 that is a shift NORTH, so the pin draws 4px BELOW the
+    // box's middle — measured on a production build as `translate(196px,
+    // 301.5px)` in a 392.2 x 595 box (196.1 and 297.5 + 4).
+    const move = cameraMove(baseline);
+    if (move.move !== "fly") throw new Error("expected a flight");
+    const zoom = move.camera.zoom;
+    const dx = projectX(move.camera.lng, zoom) - projectX(land[3]!.lng, zoom);
+    const dy = projectY(move.camera.lat, zoom) - projectY(land[3]!.lat, zoom);
+    expect(dx).toBeCloseTo(0, 6);
+    expect(dy).toBeCloseTo(-4, 6);
+  });
+
+  it("jumps instead of flying under prefers-reduced-motion", () => {
+    const move = cameraMove({ ...baseline, reducedMotion: true });
+    expect(move.move).toBe("jump");
+    // Same destination — the preference is about the travel, not the answer.
+    const flying = cameraMove(baseline);
+    expect(move.move === "jump" && flying.move === "fly" && move.camera).toEqual(
+      flying.move === "fly" ? flying.camera : null,
+    );
+  });
+
+  it("fits every pin, and jumps, when nothing is active", () => {
+    const move = cameraMove({ ...baseline, active: null });
+    expect(move.move).toBe("jump");
+    expect(move.move === "jump" && move.camera).toEqual(fitCamera(land, PANEL, MAP_FRAMES.full));
+  });
+
+  // The four refusals. Each of these can only ever DENY a move — none of them
+  // can grant one — and each is asserted by flipping exactly one input of a
+  // baseline that does move.
+  it("does not move before MapLibre has drawn a frame", () => {
+    expect(cameraMove({ ...baseline, ready: false })).toEqual({
+      move: "none",
+      why: "not-ready",
+    });
+  });
+
+  it("stops following once a visitor has driven the map", () => {
+    expect(cameraMove({ ...baseline, userMoved: true })).toEqual({
+      move: "none",
+      why: "user-moved",
+    });
+  });
+
+  it("will not fit a box nobody has measured", () => {
+    expect(cameraMove({ ...baseline, box: { width: 0, height: 0 } })).toEqual({
+      move: "none",
+      why: "unmeasured",
+    });
+    expect(cameraMove({ ...baseline, box: { width: 397, height: 0 } })).toEqual({
+      move: "none",
+      why: "unmeasured",
+    });
+  });
+
+  it("has nowhere to go with no pins", () => {
+    expect(cameraMove({ ...baseline, points: [], active: null })).toEqual({
+      move: "none",
+      why: "no-points",
+    });
+  });
+
+  // The one that is easy to get wrong in the OTHER direction: a listing with
+  // an empty `location` keeps its card (see `sectionPoints`), so the page can
+  // legitimately name an id this map has no pin for. Falling back to the fit
+  // would pull the whole section into view and then push it out again on every
+  // such card.
+  it("holds the view for an active id it has no pin for", () => {
+    expect(cameraMove({ ...baseline, active: "a-listing-with-no-geopoint" })).toEqual({
+      move: "none",
+      why: "unknown-active",
+    });
+  });
+
+  it("refuses in that order: not-ready before user-moved before unmeasured", () => {
+    expect(
+      cameraMove({ ...baseline, ready: false, userMoved: true, box: { width: 0, height: 0 } }).move,
+    ).toBe("none");
+    expect(
+      (
+        cameraMove({
+          ...baseline,
+          ready: false,
+          userMoved: true,
+          box: { width: 0, height: 0 },
+        }) as { why: string }
+      ).why,
+    ).toBe("not-ready");
+    expect(
+      (
+        cameraMove({ ...baseline, userMoved: true, box: { width: 0, height: 0 } }) as {
+          why: string;
+        }
+      ).why,
+    ).toBe("user-moved");
+  });
+
+  // The refusal that only exists because `ready` re-asks the question: at the
+  // instant MapLibre finishes loading, the answer is the camera the map was
+  // BUILT with, and flying to where you already are is not nothing — it is a
+  // 500ms animation and a movestart/moveend pair on a map nobody touched.
+  it("does not move a map that is already at the answer", () => {
+    const first = cameraMove(baseline);
+    if (first.move !== "fly") throw new Error("expected a flight");
+    expect(cameraMove({ ...baseline, commanded: first.camera })).toEqual({
+      move: "none",
+      why: "arrived",
+    });
+    // …and it is the CAMERA that is compared, not the active id. Growing the
+    // box does NOT move a single-listing answer — the point is the point, and
+    // only the padding correction depends on the frame — so the same map on a
+    // taller panel is still "arrived":
+    expect(cameraMove({ ...baseline, box: BAND, commanded: first.camera })).toEqual({
+      move: "none",
+      why: "arrived",
+    });
+    // …whereas changing the FRAME does move it: `compact` pads 26 top against
+    // 44 bottom, so the correction is +9px where `full`'s is -4.
+    expect(
+      cameraMove({
+        ...baseline,
+        box: PHONE,
+        frame: MAP_FRAMES.compact,
+        commanded: first.camera,
+      }).move,
+    ).toBe("fly");
+  });
+
+  it("resolves an active id to the point, to null, or to nothing at all", () => {
+    expect(activeTarget(null, land)).toBeNull();
+    expect(activeTarget(land[2]!.id, land)).toBe(land[2]);
+    expect(activeTarget("not-a-listing", land)).toBeUndefined();
+  });
+
+  it("flies for as long as the homepage band's own dissolve", () => {
+    // Not a free number: FeaturedProperties' DISSOLVE is 500, and the photo
+    // and the map are meant to arrive together.
+    expect(CAMERA_FLIGHT_MS).toBe(500);
   });
 });
 
