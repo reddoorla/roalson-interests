@@ -95,11 +95,24 @@ function minSeparation(markers: { lat: number; lng: number }[], zoom: number): n
   return min;
 }
 
-describe("the tile provider", () => {
-  it("defaults to OpenFreeMap and is one env var away from anything else", () => {
+describe("the style URL", () => {
+  // THE TITLE USED TO SAY "defaults to OpenFreeMap and is one env var away from
+  // anything else". It stopped being true on 2026-09-22 — the default is
+  // `/map-style.json`, OUR file on OUR origin — and it was the exact belief the
+  // rewritten case below exists to kill, left standing two cases above it.
+  // (Review of #113.) The describe block was "the tile provider" for the same
+  // reason: these three cases are about the STYLE, and the tile provider is a
+  // separate claim with its own case at the bottom.
+  //
+  // What `mapStyleUrl` actually promises: a default, and an override. WHICH
+  // default is the next case's business, not this one's.
+  it("takes the default when unset, and any override when set", () => {
     expect(mapStyleUrl(undefined)).toBe(DEFAULT_MAP_STYLE_URL);
     expect(mapStyleUrl(null)).toBe(DEFAULT_MAP_STYLE_URL);
     expect(mapStyleUrl("https://example.test/style.json")).toBe("https://example.test/style.json");
+    // An override really is honoured against a DIFFERENT host, so "one env var
+    // away" is a measured claim rather than a remembered one.
+    expect(mapStyleUrl(`${MAP_TILE_HOST}/styles/liberty`)).toBe(`${MAP_TILE_HOST}/styles/liberty`);
   });
 
   // An env var set to nothing on a host's dashboard is the common way this

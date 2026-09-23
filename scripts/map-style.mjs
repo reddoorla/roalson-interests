@@ -32,11 +32,17 @@
 // upstream change is the only thing that ever shows up in the diff. Arrays are
 // NOT sorted — `layers` is draw order and an expression is a syntax tree.
 //
+// AND THE DIGEST OF THOSE BYTES IS COMMITTED, in scripts/map-style.sha256. The
+// determinism above is a property of the generator; the digest is the only
+// thing that makes it checkable offline, because a test that re-emits the file
+// it is checking can only ever prove the indent. See DIGEST_PATH.
+//
 // The committed artifact is guarded offline by scripts/map-style.test.ts, which
 // needs no network: it asserts the colours in the file against the table below,
 // and — the assertion that closes the class — that the SET of colour literals
 // in the whole file is exactly the brand set, so an upstream colour that
 // survived anywhere is a red test rather than a beige road nobody notices.
+import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -45,6 +51,34 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 export const UPSTREAM_STYLE_URL = "https://tiles.openfreemap.org/styles/liberty";
 export const OUTPUT_PATH = join(ROOT, "static", "map-style.json");
+
+/**
+ * The digest of the bytes this script last wrote, committed beside it.
+ *
+ * WHY A SIDECAR AND NOT A SELF-CHECK (review of #113). The canonical-form test
+ * used to read `expect(raw).toBe(serialise(JSON.parse(raw)))`, which derives its
+ * expectation FROM THE BYTES UNDER TEST and therefore cannot fail on anything
+ * `JSON.parse` + re-emit reproduces. Reversing the key order of every layer
+ * object and re-emitting passed; so did editing `highway-name-major.minzoom`
+ * from 12.2 to 9 by hand. It was an indent check wearing a determinism check's
+ * comment.
+ *
+ * Half of that is fixable in place — `sortKeys` is exported now, so the test can
+ * re-derive canonical form instead of assuming it. The other half is not: no
+ * offline test can tell a hand-edited VALUE from a generated one without a
+ * second copy of the truth. This file is that second copy. It is written by the
+ * generator, so regenerating stays one command, and a hand edit to the JSON
+ * alone is a red test naming both digests.
+ */
+export const DIGEST_PATH = join(ROOT, "scripts", "map-style.sha256");
+
+/**
+ * @param {string} bytes
+ * @returns {string}
+ */
+export function digest(bytes) {
+  return createHash("sha256").update(bytes, "utf-8").digest("hex");
+}
 
 /**
  * The attribution our source spec asserts, replacing whatever OpenFreeMap's
@@ -57,6 +91,20 @@ export const OUTPUT_PATH = join(ROOT, "static", "map-style.json");
  * word is a courtesy; the operator asked for the courtesy line to go and the
  * conditions to stay.
  *
+ * THE WORD "CONTRIBUTORS" IS NOT DECORATION (review of #113). Upstream's string
+ * reads "Data from OpenStreetMap", and the OSM Foundation's attribution
+ * guidelines ask for the credit "© OpenStreetMap contributors" — the database
+ * is the contributors' collective work and ODbL §4.3 is an attribution
+ * obligation to THEM, not to a project name. That wording was already absent
+ * upstream, so it was never a regression; it became OUR sentence the moment it
+ * moved into this file, and a sentence we own is one we are responsible for
+ * getting right. The link still goes to openstreetmap.org/copyright, which is
+ * where the licence itself is named.
+ *
+ * The test pins the OBLIGATION (`toContain("contributors")`), not today's
+ * phrasing, so the rest of the sentence can be reworded without silently
+ * dropping the one word the guidance actually asks for.
+ *
  * This wins over the fetched TileJSON's own `attribution` because MapLibre
  * resolves a source as `pick(extend(tileJSON, options), [...])` — our spec is
  * `options`, so it is written OVER the fetched document — while `url` still
@@ -66,7 +114,8 @@ export const OUTPUT_PATH = join(ROOT, "static", "map-style.json");
  */
 export const ATTRIBUTION =
   '© <a href="https://www.openmaptiles.org/" target="_blank" rel="noreferrer">OpenMapTiles</a> ' +
-  'Data from <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a>';
+  '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a> ' +
+  "contributors";
 
 /**
  * The brand tokens, spelled exactly as `src/app.css`'s `@theme` block spells
@@ -94,14 +143,25 @@ export const PALETTE = {
   sandLand: "#ece3c9",
   aeroway: "#e6e0d4",
   // Roads, sand-ward, lightest class last.
-  motorway: "#e3d9c0",
-  motorwayCasing: "#c8b98f",
-  arterial: "#e9e0cb",
-  arterialCasing: "#cfc2a0",
-  secondaryRoad: "#efe8d8",
-  secondaryRoadCasing: "#d8cdb4",
+  //
+  // RETUNED 2026-09-22 (review of #113). The first table was sand-on-sand: at
+  // the land section's fit (z6.948) the motorway casing measured 1.6956:1
+  // against the ground and I-10 through Boerne was not legible as a road. The
+  // fills are lighter and the casings darker, which moves two numbers at once —
+  // the casing away from the ground it is drawn on, and `highway-name-major`'s
+  // label away from the fill it is drawn over (4.4511 -> 4.7025:1, i.e. over
+  // AA). Every figure is in src/lib/theme-contrast.test.ts.
+  motorway: "#eadfbe",
+  motorwayCasing: "#a3906a",
+  // motorway_link, trunk_primary and link: one tone, three classes. They are
+  // one key because the operator's table gives all three the same pair, not by
+  // accident — split them only when a call actually distinguishes them.
+  arterial: "#efe7cd",
+  arterialCasing: "#b6a685",
+  secondaryRoad: "#f4eee0",
+  secondaryRoadCasing: "#c6b99d",
   minorRoad: "#ffffff",
-  minorRoadCasing: "#ded7c6",
+  minorRoadCasing: "#d5cbb5",
   serviceRoad: "#fdfcf9",
   serviceRoadCasing: "#e4ddcc",
   rail: "#c6bfae",
@@ -435,10 +495,15 @@ function retintValue(value, next, where, problems) {
 /**
  * Recursively sort object keys. Arrays keep their order — they are draw order
  * and expression syntax, never a set.
+ *
+ * EXPORTED so scripts/map-style.test.ts can re-derive canonical form rather
+ * than assume it. `serialise(JSON.parse(raw))` preserves whatever key order the
+ * FILE happens to carry, so on its own it proves only the indent.
+ *
  * @param {unknown} node
  * @returns {unknown}
  */
-function sortKeys(node) {
+export function sortKeys(node) {
   if (Array.isArray(node)) return node.map(sortKeys);
   if (node && typeof node === "object") {
     /** @type {Record<string, unknown>} */
@@ -571,15 +636,19 @@ async function main() {
   }
   if (printOnly) {
     for (const change of changes) console.log(`  ${change}`);
-    console.log(previous === next ? "\nstatic/map-style.json is up to date." : "\nWOULD REWRITE.");
+    console.log(`\nsha256 would be ${digest(next)}`);
+    console.log(previous === next ? "static/map-style.json is up to date." : "WOULD REWRITE.");
     return;
   }
+  const sha = digest(next);
   writeFileSync(OUTPUT_PATH, next);
+  writeFileSync(DIGEST_PATH, `${sha}\n`);
   console.log(
     previous === next
       ? "static/map-style.json unchanged (byte-identical re-run)."
-      : `static/map-style.json written (${next.length} bytes).`,
+      : `static/map-style.json written (${Buffer.byteLength(next, "utf-8")} bytes).`,
   );
+  console.log(`scripts/map-style.sha256: ${sha}`);
 }
 
 if (process.argv[1] && import.meta.url === `file://${process.argv[1]}`) {

@@ -881,15 +881,39 @@
      contains an image node". That incomplete is what forced the whole map
      subtree out of the band's axe run, which in turn silenced axe over the
      OpenStreetMap credit this component argues is a LICENCE CONDITION. At
-     100% it is garnet on sand, 8.87:1, measurable and fixed. */
-  :global([data-property-map] .maplibregl-ctrl-attrib) {
+     100% it is garnet on sand, 8.87:1, measurable and fixed.
+
+     AND IT TAKES THREE CLASSES TO SAY IT, which is the correction. The rule
+     below read `[data-property-map] .maplibregl-ctrl-attrib` — specificity
+     (0,2,0), one attribute and one class — and the rule it has to beat is
+     maplibre's own `.maplibregl-ctrl.maplibregl-ctrl-attrib`, which is ALSO
+     (0,2,0). An exact tie is settled by order, maplibre-gl.css is injected
+     after this component's styles, and so the opaque chip above was never once
+     painted: measured `rgba(255, 255, 255, 0.5)` on /dev/home AND
+     /dev/properties, i.e. maplibre's `hsla(0,0%,100%,.5)` untouched. Measured
+     again ON A PRODUCTION BUILD, because a cascade order is exactly the kind of
+     thing `vite dev` can flatter — `pnpm build && pnpm preview`, `/` and
+     `/properties`, both `rgba(255, 255, 255, 0.5)` before and both
+     `rgb(232, 225, 209)` after. It was shipped, not a dev artefact. Every
+     consequence the comment above describes was therefore still live — axe
+     answered `color-contrast` with `imgNode` incomplete for
+     `.maplibregl-ctrl-attrib-inner` and both licence links, on a chip this file
+     claimed was opaque. Naming `.maplibregl-ctrl` here makes it (0,3,0) and
+     wins on specificity rather than on injection order, which nothing in this
+     repo controls. (Found by the axe case in featured-properties.spec.ts once
+     that band's map was allowed to finish booting; review of #121.) */
+  :global([data-property-map] .maplibregl-ctrl.maplibregl-ctrl-attrib) {
     background-color: var(--color-light);
     color: var(--color-primary);
     font-size: 10px;
     line-height: 1.4;
     padding: 2px 6px;
   }
-  :global([data-property-map] .maplibregl-ctrl-attrib a) {
+  /* Same tie, same fix: maplibre's `.maplibregl-ctrl-attrib a` is (0,1,1) and
+     this was (0,2,1), so the COLOUR here always did win — but it is written
+     with the same three classes as its parent so the pair cannot drift apart
+     the next time one of them is edited. */
+  :global([data-property-map] .maplibregl-ctrl.maplibregl-ctrl-attrib a) {
     color: var(--color-primary);
     text-decoration: underline;
   }
