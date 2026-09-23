@@ -121,7 +121,6 @@
     type MapFrame,
     type MapPoint,
   } from "$lib/property-map";
-  import { pageScrolling, watchPageScroll } from "$lib/scroll-activity.svelte";
   import { reducedMotion } from "$lib/transitions";
 
   interface Props {
@@ -320,6 +319,50 @@
    *  move. Deliberately NOT `$state`: it is a record of what was done, and an
    *  effect that re-ran on its own write would be a loop. */
   let commanded: Camera | null = null;
+
+  /**
+   * IS A FLIGHT THIS MAP ISSUED STILL IN THE AIR (#127, #128).
+   *
+   * `flying` is the record and `landed` is the alarm clock, and they are two
+   * variables rather than one on purpose. `flying` is plain, like `commanded`
+   * beside it: the camera effect READS it, so a `$state` written at the bottom
+   * of that effect would wake the effect on its own write. `landed` is
+   * `$state` and only the TIMER ever writes it — that write is the re-ask, and
+   * the flight it sends out goes to wherever `active` has got to by then. No
+   * queue, no retained target, nothing to go stale.
+   *
+   * The timer is `CAMERA_FLIGHT_MS` because that is the `duration` the `flyTo`
+   * below is given. The hold is not a guess at how long maplibre will take; it
+   * is the number this component told maplibre to take. (`map.isEasing()` was
+   * the alternative and is the same answer read the other way round — it was
+   * declined because it is a poll, not a signal: nothing about it can wake a
+   * Svelte effect when the flight lands, so it would need this timer anyway to
+   * drive the re-ask and would then be a second opinion beside it.)
+   */
+  let flying = false;
+  let landed = $state(0);
+  let flightTimer: ReturnType<typeof setTimeout> | undefined;
+
+  /** A flight has just been issued: hold the next one until this one lands. */
+  function beginFlight() {
+    flying = true;
+    clearTimeout(flightTimer);
+    flightTimer = setTimeout(() => {
+      flying = false;
+      landed += 1;
+    }, CAMERA_FLIGHT_MS);
+  }
+
+  /** Nothing of ours is in the air any more — a `jumpTo` (which cancels
+   *  MapLibre's easing outright), or a map going away. No bump: a jump has
+   *  already set `commanded` to where it went, so there is nothing to re-ask
+   *  for, and a bump here would be a write to `landed` from inside the very
+   *  effect that reads it. */
+  function endFlight() {
+    flying = false;
+    clearTimeout(flightTimer);
+    flightTimer = undefined;
+  }
 
   const measured = $derived(box.height > 0);
   const compact = $derived(box.height < COMPACT_MAX_HEIGHT);
@@ -592,6 +635,9 @@
     sized = { width: 0, height: 0 };
     commanded = null;
     drivenAt = undefined;
+    // The map that flight belonged to is gone. Without this the timer would
+    // outlive the component and fire `landed += 1` on a destroyed one.
+    endFlight();
   }
 
   /** The per-frame loop. Svelte owns the markers' MARKUP; this owns where they
@@ -660,13 +706,8 @@
     return () => ro.disconnect();
   });
 
-  // The page's scroll listener, for as long as this map is on the page. One
-  // listener is shared by every map (see $lib/scroll-activity); this is only
-  // this component's claim on it.
-  $effect(() => watchPageScroll());
-
   // THE ONE PLACE THE CAMERA MOVES after boot — a box change, an `active`
-  // change and the page falling still all come through the same door, because
+  // change and a flight landing all come through the same door, because
   // two effects each holding a camera opinion is two cameras. (It used to be a
   // re-fit on a box change alone; adding a second effect for `active` would
   // have had the fit and the flight overwrite each other on every resize, in
@@ -705,17 +746,22 @@
       // picture being on screen and the camera being held cannot part company.
       // Read for its dependency as much as for its value: `handedOver`
       // flipping is what re-runs this effect and releases the flight, exactly
-      // as `pageScrolling` going false does.
+      // as the flight timer's own `landed` bump does below.
       pictureUp: home !== null && !handedOver,
       commanded,
-      // READ FOR ITS DEPENDENCY AS MUCH AS FOR ITS VALUE. `cameraMove` answers
-      // `page-scrolling` while this is true and the move would have been a
-      // flight; this effect is then re-run by the same signal going false at
-      // the settle, and the flight it issues is to wherever `active` ended up.
-      // That is the whole coalescing mechanism: no queue, no timer of its own,
-      // and no second place holding a camera opinion.
-      pageScrolling: pageScrolling(),
+      // `cameraMove` answers `in-flight` while this is true and the move would
+      // have been a flight. The re-ask is the LINE BELOW, not this one:
+      // `flying` is a plain variable and cannot wake anything.
+      flying,
     };
+    // READ FOR ITS DEPENDENCY, NOT FOR ITS VALUE — the whole coalescing
+    // mechanism, and the reason it is read here rather than left out. The
+    // flight timer bumps `landed`, this effect re-runs, and the flight that
+    // goes out is to wherever `active` got to while the last one was in the
+    // air. Before the first `return`, like every other reactive read above:
+    // Svelte re-tracks dependencies on each run, so a signal read after a bail
+    // is not a dependency of the run that bailed.
+    void landed;
     const instance = map;
     if (!instance || size.width === 0) return;
     // Only when the box really changed. `active` now shares this effect, and
@@ -733,6 +779,10 @@
     commanded = move.camera;
     const center: [number, number] = [move.camera.lng, move.camera.lat];
     if (move.move === "jump") {
+      // A jumpTo stops MapLibre's easing, so anything of ours in the air is
+      // over — and a hold left standing after it would refuse the next flight
+      // for up to 500ms for a flight that is not happening.
+      endFlight();
       instance.jumpTo({ center, zoom: move.camera.zoom });
       return;
     }
@@ -743,6 +793,7 @@
     // `essential` is the second brace, since the map is constructed with
     // MapLibre's own `reduceMotion`.
     instance.flyTo({ center, zoom: move.camera.zoom, duration: CAMERA_FLIGHT_MS });
+    beginFlight();
   });
 
   $effect(() => {

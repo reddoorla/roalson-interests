@@ -446,20 +446,28 @@ describe("the camera the page drives", () => {
   });
 
   // COALESCING, the rule that closes the flight-per-card class (#118 review,
-  // MAJOR 3). The refusal is the whole mechanism: the component re-asks when
-  // the page falls quiet, and the answer it gets then is a flight to wherever
-  // the scroll ended.
-  describe("while the document is still scrolling", () => {
+  // MAJOR 3; re-based on the flight itself by #127/#128). The refusal is the
+  // whole mechanism: the component re-asks when the flight it issued lands,
+  // and the answer it gets then is a flight to wherever `active` has got to.
+  //
+  // WHAT THESE CASES CANNOT SEE, stated here because it is exactly what let
+  // #127 ship. `flying` arrives as a PARAMETER, so nothing in this block can
+  // tell a truthful source from a blind one: the field this replaces passed
+  // every case below unchanged while being, in a browser, absent for any
+  // scroll slower than its own 120ms debounce. The guard that watches the
+  // SOURCE is in PropertyMap.test.ts ("the hold belongs to the flight, not to
+  // the page"), where the component keeps the clock and a fake one drives it.
+  describe("while a flight this map issued is still in the air", () => {
     it("refuses the flight — and names the reason, so nothing else can claim it", () => {
-      expect(cameraMove({ ...baseline, pageScrolling: true })).toEqual({
+      expect(cameraMove({ ...baseline, flying: true })).toEqual({
         move: "none",
-        why: "page-scrolling",
+        why: "in-flight",
       });
-      // The control, one input away: the same state with the page still.
-      expect(cameraMove({ ...baseline, pageScrolling: false }).move).toBe("fly");
-      // …and an omitted field is a still page, because every other caller of
-      // this function (the unit tests above, a server render) has no document
-      // to ask.
+      // The control, one input away: the same state with nothing in the air.
+      expect(cameraMove({ ...baseline, flying: false }).move).toBe("fly");
+      // …and an omitted field is a still camera, because every other caller of
+      // this function (the unit tests above, a server render) has issued no
+      // flight to be waiting on.
       expect(cameraMove(baseline).move).toBe("fly");
     });
 
@@ -467,20 +475,18 @@ describe("the camera the page drives", () => {
       // `active: null` is the fit-them-all answer, which is a jump; so is any
       // move at all under reduced motion. Neither is interruptible, and
       // holding them would leave a resize mid-scroll showing the wrong box.
-      expect(cameraMove({ ...baseline, active: null, pageScrolling: true }).move).toBe("jump");
-      expect(cameraMove({ ...baseline, reducedMotion: true, pageScrolling: true }).move).toBe(
-        "jump",
-      );
+      expect(cameraMove({ ...baseline, active: null, flying: true }).move).toBe("jump");
+      expect(cameraMove({ ...baseline, reducedMotion: true, flying: true }).move).toBe("jump");
     });
 
-    it("still answers `arrived` first, so a settle does not re-ask for nothing", () => {
+    it("still answers `arrived` first, so a landing does not re-ask for nothing", () => {
       const first = cameraMove(baseline);
       if (first.move !== "fly") throw new Error("expected a flight");
       // Ordering, stated as a test because it is the one thing about this
       // refusal's PLACE that matters: were it above `arrived`, a map already
-      // at its answer would report "page-scrolling" all through a scroll and
-      // then be re-asked at the settle for a move that was never due.
-      expect(cameraMove({ ...baseline, commanded: first.camera, pageScrolling: true })).toEqual({
+      // at its answer would report "in-flight" for the whole 500ms and then be
+      // re-asked at the landing for a move that was never due.
+      expect(cameraMove({ ...baseline, commanded: first.camera, flying: true })).toEqual({
         move: "none",
         why: "arrived",
       });
@@ -493,7 +499,7 @@ describe("the camera the page drives", () => {
         [{ box: { width: 0, height: 0 } }, "unmeasured"],
         [{ active: "a-listing-with-no-geopoint" }, "unknown-active"],
       ] as const) {
-        expect(cameraMove({ ...baseline, ...state, pageScrolling: true })).toEqual({
+        expect(cameraMove({ ...baseline, ...state, flying: true })).toEqual({
           move: "none",
           why,
         });
@@ -571,6 +577,65 @@ describe("the camera the page drives", () => {
           why,
         });
       }
+    });
+
+    // THE ORDERING GUARD, and it is the only thing in this repo that can see
+    // the #130/#137 merge go wrong. The two rules came from different PRs on
+    // the same day and compose in exactly one order:
+    //
+    //   `underPicture` decides the move is a JUMP   (#130, the line above)
+    //   `in-flight` refuses a FLIGHT and never a jump (#137, the line below)
+    //
+    // Reverse them and everything still compiles, every other case in this
+    // file and in PropertyMap.test.ts still passes, and one move is silently
+    // lost: the frame change the expand affordance makes while the picture is
+    // up, if a flight happens to be in the air. The picture repaints at the
+    // other frame immediately (its container query is on the box's height) and
+    // the camera does not — which is #132, the 14618.92 px defect, coming back
+    // through a door neither PR had a reason to look at.
+    //
+    // WHY IT IS A UNIT CASE AND NOT A BROWSER ONE, stated because the
+    // temptation to go looking for it in Playwright is real and would be a
+    // wasted day. In PropertyMap.svelte as wired today the two flags cannot
+    // both be true: every move under the picture is a jump, a jump calls
+    // `endFlight()`, and `handedOver` only ever goes false -> true, so no
+    // flight can be in the air while a picture is still up. That invariant is
+    // a CONSEQUENCE of the ordering below plus that wiring — it is not what
+    // makes the ordering right, and it is not something a caller of this
+    // exported function is obliged to maintain. `cameraMove` has to answer
+    // correctly for the state it is handed.
+    it("does not let a flight in the air refuse a jump the picture requires", () => {
+      // The plain case: the picture is up, so the answer is MAP_HOME and it is
+      // a jump — the flight in the air is about flights and has no opinion.
+      expect(cameraMove({ ...baseline, home, pictureUp: true, flying: true })).toEqual({
+        move: "jump",
+        camera: home,
+      });
+
+      // The case that actually costs something, and the one the ordering is
+      // for: the box has crossed COMPACT_MAX_HEIGHT while the picture is up,
+      // so the picture is already showing the FULL frame and the camera is
+      // still commanded to the compact one. That move is due, it is a jump,
+      // and a flight in the air must not swallow it.
+      const reframed = {
+        ...baseline,
+        box: PANEL as Box,
+        frame: MAP_FRAMES.full,
+        home: MAP_HOME.full.camera,
+        commanded: MAP_HOME.compact.camera,
+        pictureUp: true,
+        flying: true,
+      };
+      expect(cameraMove(reframed)).toEqual({
+        move: "jump",
+        camera: MAP_HOME.full.camera,
+      });
+      // The control, one input away: with no picture over it that same state
+      // is a flight, and THEN the hold applies.
+      expect(cameraMove({ ...reframed, pictureUp: false })).toEqual({
+        move: "none",
+        why: "in-flight",
+      });
     });
 
     it("means nothing for a section that has no picture to be under", () => {

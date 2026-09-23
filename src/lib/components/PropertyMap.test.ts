@@ -1,9 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { render, cleanup } from "@testing-library/svelte";
-import { tick } from "svelte";
+import { flushSync, tick } from "svelte";
 
 import PropertyMap from "./PropertyMap.svelte";
 import {
+  CAMERA_FLIGHT_MS,
   DEFAULT_MAP_STYLE_URL,
   frameFor,
   homeMarkers,
@@ -508,6 +509,17 @@ async function booted(props: Record<string, unknown>, box = { width: 397, height
      *  without it `held` is empty for the uninteresting reason. */
     picture: view.container.querySelector("[data-map-home-box]") !== null,
   };
+  // THE FAKE CLOCK IS ONLY FOR THE HAND-OVER, and it is here because #130 and
+  // #137 landed the same day without seeing each other. The hand-over is a
+  // FLIGHT, and since #127 a flight holds the next one for `CAMERA_FLIGHT_MS`
+  // — so a case that changed `active` straight after this helper returned was
+  // correctly answered `in-flight` and counted zero. Five cases below went red
+  // on exactly that, and every one of them is about the move AFTER the boot.
+  // Landing the hand-over here is what makes "one flight" mean the one the
+  // case asked for. (Real timers everywhere else in this file: `booted` is
+  // never called from the `vi.useFakeTimers()` block below, and the clock is
+  // handed back before it returns.)
+  vi.useFakeTimers();
   endTheFade(view.container);
   await tick();
   await tick();
@@ -516,6 +528,9 @@ async function booted(props: Record<string, unknown>, box = { width: 397, height
     jumps: [...record.jumps],
     eases: [...record.eases],
   };
+  vi.advanceTimersByTime(CAMERA_FLIGHT_MS + 1);
+  flushSync();
+  vi.useRealTimers();
   record.flights.length = 0;
   record.jumps.length = 0;
   record.eases.length = 0;
@@ -758,51 +773,44 @@ describe("the camera the page drives", () => {
     expect(record.flights).toHaveLength(1);
   });
 
-  // COALESCING (#118 review, MAJOR 3). The camera is commanded once per
-  // settled scroll, whatever caused the scroll. The RULE is `cameraMove`'s and
-  // is unit-tested there against every input; what this measures is that THIS
-  // COMPONENT is wired to it at all — that it reads the page's own scroll.
+  // COALESCING (#118 review MAJOR 3; re-based on the flight itself by #127 and
+  // #128). The camera will not launch a second flight over one still in the
+  // air. The RULE is `cameraMove`'s and is unit-tested there against every
+  // input; what this measures is that a `scroll` event is no longer any part
+  // of it, which is the half of the correction visible from here.
   //
-  // Both halves in ONE test, and deliberately: "no flight happened" is the
-  // vacuous-green shape this repo hunts, so the control that a flight WOULD
-  // have happened has to be in the same breath. The two runs differ by one
-  // thing, a `scroll` event on the window.
-  it("holds the flight while the document is scrolling — and issues it when it is not", async () => {
-    const scrolled = await booted({ active: "b" });
+  // Both halves in ONE test, deliberately: "a flight happened" proves nothing
+  // unless the same breath says a scroll was arriving while it did.
+  it("flies on a card change even while the document is scrolling", async () => {
+    const { view, record } = await booted({ active: "b" });
     window.dispatchEvent(new Event("scroll"));
-    await scrolled.view.rerender({ points, label: "Land", active: "a" });
+    await view.rerender({ points, label: "Land", active: "a" });
     await tick();
-    expect(
-      scrolled.record.flights,
-      "the page is still moving, so nothing is launched",
-    ).toHaveLength(0);
-    scrolled.view.unmount();
-
-    // The control, on a second map, with the page quiet. `SCROLL_SETTLE_MS` of
-    // silence first, so the scroll above is not still counting against it.
-    await new Promise((r) => setTimeout(r, 220));
-    engine.created.length = 0;
-    const still = await booted({ active: "b" });
-    await still.view.rerender({ points, label: "Land", active: "a" });
-    await tick();
-    expect(still.record.flights, "and the same change flies on a still page").toHaveLength(1);
-    still.view.unmount();
+    // Against the code this replaces, this is 0: the document's own scroll was
+    // the gate, so a wheel notch (one event, then silence) suppressed the
+    // flight it should have allowed and a held scroll suppressed every flight
+    // for as long as it lasted.
+    expect(record.flights, "the page's scroll is not the camera's business").toHaveLength(1);
   });
 
-  // NOT TESTED HERE, AND THIS NOTE IS THE POINT OF SAYING SO. The other half
-  // of coalescing — "many crossings inside one scroll, then ONE flight at the
-  // settle" — needs several consecutive `active` changes on a live map, and
-  // `rerender` cannot express that: it re-runs the boot effect, whose cleanup
-  // calls `destroy()` (see stubResizableTo's note, and `record.removed` is
-  // true after the first one). A version written here read "0 flights at the
-  // settle" for a map that no longer existed — a green for the opposite
-  // reason, which is exactly the shape that shipped the defect.
+  // THE OTHER HALF IS NOT HERE, AND THIS NOTE IS THE POINT OF SAYING SO.
+  // "Several crossings, and no arc abandoned" needs consecutive `active`
+  // changes on a live map, which `rerender` cannot express: it re-runs the
+  // boot effect, whose cleanup calls `destroy()` (see stubResizableTo's note,
+  // and `record.removed` is true after the first one). A version written here
+  // read "0 flights" for a map that no longer existed — a green for the
+  // opposite reason, which is exactly the shape that shipped the defect.
   //
-  // It is measured in tests/interaction/property-map-camera.spec.ts, on a real
-  // MapLibre map, against real smooth scrolls (`End`, `PageDown`, `Space`, a
-  // pressed pin), with the fleet's reduced-motion emulation lifted — without
-  // which `scroll-behavior` is `auto`, no card is ever crossed on the way, and
-  // the whole class is structurally unobservable.
+  // It is measured in PropertyMap.camera.svelte.test.ts, which holds the props
+  // in a `$state` object instead and so keeps ONE map alive across a whole
+  // drive on a clock it owns — the file that can see where the refusal's input
+  // comes from, which is where #127 lived. And end to end, on a real MapLibre
+  // map against real inputs (`End`, `PageDown`, a smooth `scrollTo`, and a
+  // real `page.mouse.wheel` at a notch gap wider than any debounce), in
+  // tests/interaction/property-map-camera-prod.spec.ts, with the fleet's
+  // reduced-motion emulation lifted — without which `scroll-behavior` is
+  // `auto`, no card is ever crossed on the way, and the whole class is
+  // structurally unobservable.
 
   it("is not driven by a programmatic move — only one carrying an originalEvent", async () => {
     const { view, record } = await booted({ active: "b" });

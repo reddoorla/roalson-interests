@@ -7969,6 +7969,8 @@ running many sessions — CI is the authority, and CI is what the PR was judged 
 
 ## 2026-09-22 — The camera coalesces, and the band's clock is not a visitor (review of #118 on a production build, `fix/camera-suspension`)
 
+> Superseded in part by 2026-09-23 — The camera's hold belongs to the flight, not to the page. The coalescing rule described below (`$lib/scroll-activity`, `cameraMove`'s `page-scrolling`) was blind to a mouse wheel and unbounded under a held scroll, and is replaced; MAJOR 1 and MAJOR 2 stand.
+
 Three majors from an independent review of #118, all three of them alive on
 `main` after the PR that claimed to fix them. The reason they survived is the
 one line worth carrying out of this entry: **every measurement behind that PR
@@ -8602,3 +8604,165 @@ assumption that a re-render is comparable; it is better than that.
   above says which server it came from. `featured-properties.spec.ts:243` still
   fails here at 436.890625 — #80/#124, macOS scrollbar gutter, green on Linux.
   **CI is the authority.**
+
+## 2026-09-23 — The camera's hold belongs to the flight, not to the page (#127, #128, #129, `fix/camera-wheel-gap`)
+
+`$lib/scroll-activity` is deleted. The camera's coalescing rule no longer asks
+"is the document moving"; it asks "is a flight I issued still in the air", which
+is the question it always had and the only one it can answer without a proxy.
+
+### What the proxy cost, measured on a production build of /properties at 1440x900
+
+Everything below is `vite preview` over the real Prismic portfolio, motion
+allowed, counting the calls made to maplibre-gl through
+`tests/interaction/camera-probe.ts`, pointer in the cards column and never over
+a map box. Land map only, because "the camera flew" is a claim about one map.
+
+The wheel, 100px a notch, the same 2560px of travel (scrollY 600 → 3160) every
+run, only the spacing between notches differing:
+
+| notch gap | flights on main | closest two, main | flights after | closest two, after |
+| --------- | --------------- | ----------------- | ------------- | ------------------ |
+| 40ms      | 1               | —                 | 5             | 503ms              |
+| 100ms     | 1               | —                 | 9             | 502ms              |
+| 130ms     | 9               | **436ms**         | 9             | 505ms              |
+| 160ms     | 9               | 523ms             | 9             | 525ms              |
+| 220ms     | 9               | 697ms             | 9             | 698ms              |
+
+The 9/9/9 confirms #127 exactly: at 130ms and beyond the debounce lapses between
+every pair of notches and main is indistinguishable from a build with the
+refusal deleted. `SCROLL_SETTLE_MS` was 120, and a hand turning a wheel gives
+130–220ms.
+
+**A belief corrected on contact, and it is the issue's own.** #127 says each
+flight is "a 500ms arc replaced after 130–220ms". It is not. With a 100px notch
+the cards on this page are ~284px of scroll apart, so a crossing happens every
+~2.8 notches — the flights land 436–697ms apart, and at 160ms and 220ms per
+notch **main's arcs actually complete**. The count was right and the severity
+was not. The interruption is real but needs a bigger notch: the same drive with
+a **300px** notch (a wheel with acceleration, or any wheel whose notch clears a
+card) at **150ms** put two flights **171ms** apart on main, and at 220ms, 234ms
+apart. That is the smear, and it is what the new spec's wheel case drives.
+
+The held scroll, #128, on the same page: a scroll delivering an event every
+frame for ten seconds travelled 6400px past 21 cards and the land camera issued
+**0 commands for the whole of it**, then one at t=10425ms. After: **14 flights
+during the same scroll**, closest two 500ms apart, longest silence 653ms.
+
+### The fix, and the one it was weighed against
+
+`cameraMove`'s last refusal is now `in-flight` and its input is `flying`.
+PropertyMap keeps two variables beside `commanded`: `flying`, plain (the effect
+reads it, so a `$state` written at the bottom of that effect would wake the
+effect on its own write), and `landed`, `$state`, which only the flight timer
+writes. That write is the re-ask, and the flight it sends goes to wherever
+`active` has got to. The timer is `CAMERA_FLIGHT_MS` because that is the
+`duration` the `flyTo` was given — the hold is not an estimate of how long a
+flight takes, it is the number this component told maplibre to take.
+
+`map.isEasing()` was the proposal in both issues and was declined for a reason
+worth keeping: it is the same answer read the other way round, but it is a
+**poll**. Nothing about it can wake a Svelte effect when the flight lands, so it
+would need this timer anyway to drive the re-ask — and would then be a second
+opinion sitting beside it, which is the shape #126 deleted.
+
+The other candidate was keeping the scroll debounce **as well**, capped, so that
+`End` would still cost exactly one flight. Rejected, and this is the honest
+accounting: it buys one fewer flight on a keypress and costs a second mechanism,
+a second constant, and a rule whose behaviour depends on two debounces
+interacting — and "what is one scroll" is not well defined, which is the root of
+#127 in the first place. A slow wheel settles between notches, so "the current
+scroll" would restart at every notch and a cap keyed to it would either never
+fire or never lift.
+
+### What it costs, stated plainly
+
+Each of these is one complete arc where it used to be one complete arc, so the
+extra ones are extra travel and not a smear:
+
+| drive                        | main | after             |
+| ---------------------------- | ---- | ----------------- |
+| `End` from scrollY 0         | 1    | 2 (gap 511ms)     |
+| `PageDown` ×3                | 1    | 2 (gap 504ms)     |
+| `scrollTo(0, 4999)` smooth   | 1    | 3 (gaps 518, 530) |
+| a pressed pin, furthest card | 1    | 3 (gaps 532, 648) |
+
+On a press the camera now visits the listings the page really passes on the way
+instead of arriving after the fact. Whether that reads as following or as noise
+is a judgement the operator has not been asked (asleep); it is filed as an issue
+rather than left in this paragraph.
+
+### The guard that can see where the value comes from
+
+`cameraMove` takes the refusal's input as a parameter, so every case in
+`property-map.test.ts` asks "given a true, does it refuse" and none of them can
+ask "is the true ever true". That is precisely the gap #127 lived in: those
+cases were complete and green while the source was absent in a browser.
+
+`src/lib/components/PropertyMap.camera.svelte.test.ts` is new and is the answer.
+It is a `.svelte.test.ts` so props can be held in a `$state` object rather than
+pushed with `rerender` — `rerender` re-runs the boot effect, whose cleanup calls
+`destroy()`, so any multi-step drive written that way measures a map that no
+longer exists. One live map, a clock the test owns, `active` changed at a
+spacing the test chooses, and `scroll` events the test dispatches. Against the
+restored `pageScrolling` source it reports, inside jsdom:
+
+```
+9 flights, gaps [150 ×8]     — a 500ms arc abandoned after 150ms   (#127)
+0 flights over 10000ms       — the camera froze for the scroll     (#128)
+```
+
+Both mutations were run and both went red on five of the eight cases: the source
+restored (M2, above) and the refusal deleted outright (M1: 63 flights over
+10000ms, closest two 160ms apart). The production spec's wheel case was written
+to a 300px notch at 150ms for the reason in the table above — a 100px notch
+hides the interruption behind the card geometry, which would have made the new
+guard pass against main.
+
+### What the production spec asserts now, and what it stopped asserting
+
+"At most one flight per map per scroll" is gone. It cannot express either issue:
+the defect is an **arc abandoned**, and what says so is the **gap** between two
+flights to the same map. Every case now asserts that gap ≥ 450ms (measured floor
+across eleven drives: 500ms exactly, and a `setTimeout` can only fire late),
+plus positive evidence that the camera flew at all and that it flew **while the
+page was still moving** — `travelOf` now samples on the camera probe's own clock
+(`window.__camera.t0`) so the two can be compared, and "moving" means the last
+instant the page's position changed rather than the moment the driving call
+returned (`End` returns while the page glides on for another 300ms).
+
+That is weaker in one direction and stronger in the one that matters: it holds
+for the wheel and for the held scroll, neither of which the old assertion could
+see at all.
+
+### #129, taken because it was two lines where the work already was
+
+`turnedBy` is now `clamped ? "auto" : by`, with `clamped = $derived(raw > last)`.
+The issue offered an effect comparing `index` to the last reported one; a derived
+is cheaper and truer — it holds on the server and on the very frame a list
+shrinks, and `raw > last` is exactly "the clamp, not a command, decided this".
+It goes back to reporting the command the instant one arrives, because every
+command writes `raw` inside the bounds. `goTo(99)` still credits the visitor,
+because `goTo` clamps `raw` itself; that has its own case.
+
+### What is NOT done
+
+- **A pre-existing red, not from this branch.** `expanding and collapsing
+re-fits an undriven map, and never a dragged one` fails on a **production
+  build** with `TypeError: Cannot read properties of undefined (reading
+'getZoom')` — the camera probe never adopts the phone-width map, because on a
+  production build the patch is asynchronous and loses the race with both
+  `addControl` and the boot `jumpTo`, and that map then issues nothing else for
+  it to be adopted by. Verified identical on `origin/main` with
+  `git checkout origin/main -- src tests docs`, so it is not this change's. It
+  is green on the dev server. Filed as #135.
+- **The press now costs three arcs.** Filed as #136, with the alternative and
+  the reason it was declined here.
+- **`docs/COMPONENTS.md` does not count the new test file.** The index pairs
+  `X.svelte` with `X.test.ts`, and `PropertyMap.camera.svelte.test.ts` matches
+  nothing, so PropertyMap's row still says 15. The index is regenerated and the
+  staleness guard is green; the count is a heuristic, not a claim.
+- **Local numbers are suspect and CI is the authority.** Load averages ran
+  6.76–7.50 through this session; the `End` premise ("crossed several cards")
+  went red once at six Playwright workers and green serially, which is the
+  machine and not the change.

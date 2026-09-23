@@ -656,9 +656,7 @@ test.describe("the pinned map is scrolled past, not scrolled in", () => {
 test.describe("a pressed pin, with the fleet's reduced-motion emulation lifted", () => {
   test.use({ contextOptions: { reducedMotion: "no-preference" } });
 
-  test("issues exactly ONE camera flight, however many cards the scroll crosses", async ({
-    page,
-  }) => {
+  test("lands every arc it starts, however many cards the scroll crosses", async ({ page }) => {
     test.setTimeout(120_000);
     await watchCamera(page);
     await page.setViewportSize({ width: 1440, height: 900 });
@@ -742,13 +740,28 @@ test.describe("a pressed pin, with the fleet's reduced-motion emulation lifted",
       `the scroll crossed several cards on its way (${crossed.join(", ")})`,
     ).toBeGreaterThan(2);
 
+    // THE CLAIM CHANGED WITH #127/#128, and this is the same correction the
+    // production spec carries: it used to be "exactly one command", which the
+    // document-scroll refusal bought by holding the camera for the whole
+    // travel — and that refusal was blind to a mouse wheel and unbounded under
+    // a held scroll. The rule now refuses only a flight over one still in the
+    // air, so what is asserted is that no arc was ABANDONED: consecutive
+    // flights are at least a flight's length apart. Measured on a production
+    // build, a press now costs three complete arcs (gaps 532ms and 648ms)
+    // where it used to cost one.
     const log = await cameraLog(page);
-    const moves = log.fly.length + log.ease.length + log.jump.length;
-    expect(
-      moves,
-      `the camera was issued exactly one command, not one per card crossed ` +
-        `(fly ${log.fly.length}, ease ${log.ease.length}, jump ${log.jump.length})`,
-    ).toBe(1);
+    const times = [...log.fly, ...log.ease].map((c) => c.t).sort((a, b) => a - b);
+    const gaps = times.slice(1).map((t, i) => Math.round(t - times[i]!));
+    const tally =
+      `fly ${log.fly.length}, ease ${log.ease.length}, jump ${log.jump.length}; ` +
+      `gaps [${gaps.join(", ")}]`;
+    expect(log.fly.length, `the camera followed the press at all (${tally})`).toBeGreaterThan(0);
+    for (const gap of gaps)
+      expect(
+        gap,
+        `a second flight ${gap}ms into a 500ms arc — the smear this rule exists ` +
+          `to prevent (${tally})`,
+      ).toBeGreaterThanOrEqual(450);
 
     // And it was the right one: the pressed card ends on the centre line and
     // its pin ends at the middle of the map.
