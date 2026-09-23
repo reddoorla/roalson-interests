@@ -203,6 +203,36 @@ export const resetCamera = (page: Page) =>
 export const mapZoom = (page: Page, nth = 0) =>
   page.evaluate((n) => window.__camera.maps[n].getZoom(), nth);
 
+/**
+ * Drive the nth booted map to an explicit zoom, keeping its centre.
+ *
+ * WHY A TEST DRIVES THE CAMERA AT ALL. A claim about what a STYLE contains —
+ * "our style has no `natural_earth` layer" — is proved by a control that shows
+ * the stock style fetching that layer's tiles where ours does not, and that
+ * control only exists at a zoom where the layer draws. Letting the section's
+ * own fit decide the zoom makes the control a hostage to content: it was
+ * `/properties` at z6.948 (worked, coupled to the published portfolio), then
+ * the fixture at z7.8765 (past the layer's maxzoom 7, so the control went
+ * vacuous and the guard correctly refused to pass). Neither frame is part of
+ * the claim. Naming the zoom here removes the coupling entirely.
+ *
+ * `jumpTo` and not `setZoom`, because `setZoom` is `easeTo` underneath and
+ * would leave an animation running into the measurement window.
+ *
+ * IT DOES NOT SET `userMoved`. PropertyMap tags a gesture off `movestart`'s
+ * `originalEvent`, which a programmatic jump does not carry, so the map stays
+ * in the same state it was in. What holds the driven frame is `cameraMove`'s
+ * `commanded` check: the fit has already been issued and recorded, none of the
+ * effect's reactive inputs change here, so nothing re-issues it. Callers
+ * assert the zoom they asked for is the zoom the map is still at (`mapZoom`)
+ * rather than trusting that reasoning.
+ */
+export const jumpToZoom = (page: Page, zoom: number, nth = 0) =>
+  page.evaluate(({ zoom: z, nth: n }) => window.__camera.maps[n].jumpTo({ zoom: z }), {
+    zoom,
+    nth,
+  });
+
 /** The live centre of the nth booted map. */
 export const mapCentre = (page: Page, nth = 0) =>
   page.evaluate((n) => {
@@ -224,6 +254,7 @@ declare global {
         /** Only the EXPANDED map takes the wheel, and a test that asserts a
          *  zoom changed has to be able to say that is why. */
         scrollZoom: { isEnabled(): boolean };
+        jumpTo(options: { zoom?: number; center?: [number, number] }): unknown;
       }[];
     };
   }

@@ -260,24 +260,115 @@ describe("the property map's tinted palette", () => {
   });
 
   /**
-   * The brief said "secondary on sand road 4.80:1". 4.80 is `--color-secondary`
-   * on the BRAND's sand `#e8e1d1` — the number already in app.css's table — and
-   * no road on this map is that colour. The sand roads measure 4.76 (trunk,
-   * primary and link), 5.12 (secondary/tertiary) and 4.45 (motorway).
+   * ROAD LABELS ON ROAD FILLS. Every one of these cleared AA on 2026-09-22 when
+   * the road table was retuned (review of #113) — the reason the fills moved was
+   * the CASINGS (see the block below), and the label numbers came along with
+   * them. The worst pair, `highway-name-major` over the motorway fill, went
+   * 4.4511 -> 4.7025:1.
    *
-   * That 4.45 is the whole reason `highway-name-major` and `-minor` gained a
-   * `text-halo-color` they did not have upstream: a 1px halo in the ground
-   * colour is the pixel a glyph's edge is actually read against, and it takes
-   * the worst case to 5.45:1. Without it the road label on a motorway fill is
-   * the one sub-AA pair in the palette.
+   * WHAT THAT MEANS FOR THE HALO, said plainly because the previous version of
+   * this test got it wrong the other way. `highway-name-major` and `-minor`
+   * gained a `text-halo-color` they had no upstream (only a blur and a width,
+   * over MapLibre's transparent default), and the 2026-09-22 entry called it
+   * "the only mitigation for the one sub-AA pair". There is now no sub-AA pair
+   * for it to mitigate: the halo is no longer load-bearing for AA. It stays
+   * anyway, and for a reason that was always the better one — a glyph's edge is
+   * read against the pixel immediately outside it, which on a 1px stroke is the
+   * halo and not the fill, and the halo's own number (5.4472:1 on the ground)
+   * is the highest of the lot. `scripts/map-style.test.ts` now asserts it is
+   * really in the committed file WITH a non-zero width, which nothing did when
+   * the claim was load-bearing.
+   *
+   * The brief that commissioned the first table said "secondary on sand road
+   * 4.80:1". 4.80 is `--color-secondary` on the BRAND's sand `#e8e1d1` — the
+   * number already in app.css's table — and no road on this map is or was that
+   * colour. Kept here because it is the kind of number that gets re-derived.
    */
-  it("keeps road labels legible on every road fill, via the halo it added", () => {
-    expect(ratio(PALETTE.secondary, PALETTE.arterial)).toBeCloseTo(4.7598, 3);
-    expect(ratio(PALETTE.secondary, PALETTE.secondaryRoad)).toBeCloseTo(5.1215, 3);
-    expect(ratio(PALETTE.secondary, PALETTE.motorway)).toBeCloseTo(4.4511, 3);
-    expect(ratio(PALETTE.secondary, PALETTE.motorway)).toBeLessThan(AA_NORMAL_TEXT);
+  it("keeps every road label above AA on its own fill, halo or no halo", () => {
+    expect(ratio(PALETTE.secondary, PALETTE.motorway)).toBeCloseTo(4.7025, 3);
+    expect(ratio(PALETTE.secondary, PALETTE.arterial)).toBeCloseTo(5.0553, 3);
+    expect(ratio(PALETTE.secondary, PALETTE.secondaryRoad)).toBeCloseTo(5.4038, 3);
+    expect(ratio(PALETTE.secondary, PALETTE.minorRoad)).toBeCloseTo(6.2514, 3);
+    expect(ratio(PALETTE.secondary, PALETTE.serviceRoad)).toBeCloseTo(6.0932, 3);
+    // The motorway fill is the floor, and it is the one that was below AA.
+    for (const fill of [
+      PALETTE.motorway,
+      PALETTE.arterial,
+      PALETTE.secondaryRoad,
+      PALETTE.minorRoad,
+      PALETTE.serviceRoad,
+    ]) {
+      expect(ratio(PALETTE.secondary, fill), `road label on ${fill}`).toBeGreaterThanOrEqual(
+        AA_NORMAL_TEXT,
+      );
+    }
+    // The halo, which is what the glyph's edge actually lands on.
     expect(ratio(PALETTE.secondary, PALETTE.ground)).toBeCloseTo(5.4472, 3);
     expect(ratio(PALETTE.secondary, PALETTE.ground)).toBeGreaterThanOrEqual(AA_NORMAL_TEXT);
+  });
+
+  /**
+   * THE ROAD CASINGS, AND THE CRITERION THEY STILL DO NOT MEET (#119).
+   *
+   * A road on this map is a fill with a casing either side, and at a section fit
+   * zoom the casing is most of what says "this is a road". How little of it
+   * there is, measured rather than assumed: screenshotting the land section at
+   * z6.948 and counting EXACT colour matches finds the casing literals 0-3
+   * times in a 203,832 px frame — every one of them is antialiased into
+   * whatever it crosses. That makes it meaningful non-text content drawn at
+   * sub-pixel width, and WCAG 2.1 SC 1.4.11 wants such content at 3:1 against
+   * what it is adjacent to.
+   *
+   * The first table failed that badly: motorway casing `#c8b98f` measured
+   * **1.6956:1** against the ground, i.e. sand on sand. The operator's report
+   * was that I-10 through Boerne did not read as a road at all; what is
+   * measured here is the ratio, and the render is in the PR. The retune roughly
+   * doubles the motorway's distance from the ground — but it is honest about
+   * where it lands:
+   *
+   *   motorway            #a3906a  2.7090  still under 3
+   *   motorway_link/…     #b6a685  2.0836  still under 3
+   *   secondary/tertiary  #c6b99d  1.6900
+   *   minor / street      #d5cbb5  1.4034
+   *   service / track     #e4ddcc  1.1795
+   *
+   * NOT ONE OF THEM MEETS 3:1. The operator's table was measured by eye against
+   * a render, and by eye it is a large improvement; by the criterion it is a
+   * large improvement that still fails. Darkening far enough to pass would put
+   * a near-brown grid over a sand map and is a design call, not a fix to make
+   * inside a review PR — so the numbers are asserted here (they cannot drift
+   * unnoticed) and the gap is #119.
+   *
+   * This test is a RECORD, not a pass: it pins the measured values and asserts
+   * the direction of travel from the shipped ones. It deliberately does not
+   * assert >= 3, because that would be red on purpose.
+   */
+  it("records every road casing against the ground, including the ones under 3:1", () => {
+    expect(ratio(PALETTE.motorwayCasing, PALETTE.ground)).toBeCloseTo(2.709, 3);
+    expect(ratio(PALETTE.arterialCasing, PALETTE.ground)).toBeCloseTo(2.0836, 3);
+    expect(ratio(PALETTE.secondaryRoadCasing, PALETTE.ground)).toBeCloseTo(1.69, 3);
+    expect(ratio(PALETTE.minorRoadCasing, PALETTE.ground)).toBeCloseTo(1.4034, 3);
+    expect(ratio(PALETTE.serviceRoadCasing, PALETTE.ground)).toBeCloseTo(1.1795, 3);
+    // Every one is still under the 3:1 SC 1.4.11 asks for. Asserted as a fact
+    // about today so that the day one of them passes, this line says so.
+    for (const casing of [
+      PALETTE.motorwayCasing,
+      PALETTE.arterialCasing,
+      PALETTE.secondaryRoadCasing,
+      PALETTE.minorRoadCasing,
+      PALETTE.serviceRoadCasing,
+    ]) {
+      expect(ratio(casing, PALETTE.ground), `casing ${casing} vs ground — see #119`).toBeLessThan(
+        3,
+      );
+    }
+    // And the retune really did move the motorway casing, which is the one the
+    // operator measured. The shipped value is here so the comparison is real
+    // rather than a remembered number.
+    expect(ratio("#c8b98f", PALETTE.ground)).toBeCloseTo(1.6956, 3);
+    expect(ratio(PALETTE.motorwayCasing, PALETTE.ground)).toBeGreaterThan(
+      ratio("#c8b98f", PALETTE.ground),
+    );
   });
 
   /**

@@ -592,6 +592,13 @@ test.describe("rotation", () => {
   }) => {
     // The a11y gate runs under reduced motion, where there is no Pause — so the
     // rotating state is audited here or nowhere.
+    //
+    // 60s, NOT THE DEFAULT 30. This case now waits for the band's map to finish
+    // booting (see below), which is a 426 KB engine parse, a WebGL context, a
+    // style fetch and a first tile. Measured on this machine at load average
+    // 6.05: 7.0s for the whole case warm. The headroom is for a cold CI runner;
+    // the wait itself is on positive evidence, so it is never a fixed sleep.
+    test.setTimeout(60_000);
     const { context, page } = await moving(browser);
     try {
       await page.goto(HOME);
@@ -620,36 +627,89 @@ test.describe("rotation", () => {
       // the page the exclusion was written for. What axe actually could not
       // measure was the ATTRIBUTION: `.maplibregl-ctrl-attrib-inner` and its
       // three links, "Element's background color could not be determined
-      // because element contains an image node", because the chip was 88%
-      // sand over the canvas.
+      // because element contains an image node", because the chip was
+      // translucent over the canvas. (Recorded here as "88% sand", which was
+      // wrong in a way nobody could see from this file: the chip was never
+      // sand at ANY alpha. Our rule had lost a specificity tie to maplibre's
+      // own, so the measured value was its `rgba(255, 255, 255, 0.5)`. See
+      // PropertyMap.svelte, and the note on the credit assertion below.)
       //
       // Excluding the map's whole subtree therefore silenced axe over the
       // OpenStreetMap credit — which this component argues is a LICENCE
       // CONDITION and not a style choice, so it is the last thing that should
-      // go unmeasured. The chip is opaque now (see PropertyMap's <style>) and
-      // nothing is excluded: axe measures the map's text along with the card's.
+      // go unmeasured. Nothing is excluded here.
+      //
+      // AND THE AUDIT WAITS FOR THE MAP, which is the whole of this case's
+      // 2026-09-22 correction. What stood here asserted that MapLibre "never
+      // boots" on this band because the map slot's top is y=1007 against a 900
+      // viewport — true at REST, and false three lines after the scroll this
+      // very test performs. Measured at 1455x900 right after
+      // `scrollIntoViewIfNeeded()`: scrollY 922, slot top 85, slot height 831,
+      // 815px of it on screen. PropertyMap's lazy gate wants half of
+      // `min(831, 900)` = 415.5px. It opens every time. Whether MapLibre then
+      // finished before `analyze()` ran was a RACE, and the audit asserted on
+      // the losing side of it: the listing links go `sr-only` at
+      // `data-map-ready`, and axe does not measure contrast on visually hidden
+      // text. CI called it flaky at e59970f — it passed on retry — which is
+      // what a race looks like from outside.
+      //
+      // So the state is made determinate the way this repo makes every other
+      // one determinate: wait for the positive artefact. `data-map-ready` is
+      // set by MapLibre's own `load`, so past this line there is a canvas, an
+      // attribution control and cluster markers, on every run.
+      //
+      // THE COST, SAID OUT LOUD: this audits the BOOTED state, so the band's
+      // pre-boot state — the server-rendered link list every visitor sees for
+      // as long as 426 KB takes, and for good without WebGL — is not audited
+      // here any more. It never was deterministically; the old line reached it
+      // by winning a race. #125 tracks giving it a case of its own, and #122
+      // may change what that state even is. The two CLOCK cases in this block
+      // still start timing without waiting for this boot: #117.
+      await expect(
+        page.locator("[data-property-map]").first(),
+        "the band's map never finished booting, so this audit has no map in it",
+      ).toHaveAttribute("data-map-ready", "", { timeout: 40_000 });
+
       const results = await new AxeBuilder({ page }).include(BAND).analyze();
       expect(results.violations.map((v) => `${v.id}: ${v.nodes.length}`)).toEqual([]);
       // Positive evidence that axe looked at the controls at all.
       expect(results.passes.map((p) => p.id)).toContain("button-name");
 
       // …and that it measured the MAP'S OWN TEXT, which is what the exclusion
-      // was really hiding. Measured at this exact viewport: the band's map slot
-      // top is y=1007 against a 900 viewport, so the lazy gate never opens and
-      // MapLibre never boots here — `data-map-ready` false, no canvas, no
-      // attribution control and no cluster markers at all. What IS on the page
-      // is the map's server-rendered list of three listing links, on the
-      // band's ground, and the old exclusion took those out of the run. They
-      // are off-white on #3d0707 (14.85:1) and they are now measured.
+      // was really hiding — and it is now the ATTRIBUTION, by name, which is a
+      // STRONGER claim than the one this line used to make and not a weaker
+      // one. The old assertion read the server-rendered listing links, which
+      // exist only in the seconds before the engine lands; the credit line is
+      // what a reader actually has in front of them, it is the licence
+      // condition, and it is the exact text the old blanket exclusion hid.
       //
-      // The attribution cannot be asserted from here for the same reason —
-      // there isn't one. property-map.spec.ts covers it where the map really
-      // renders.
+      // WAITING FOR THE MAP IS WHAT FOUND THE DEFECT UNDER IT. With the boot
+      // allowed to finish, axe answered `color-contrast` with THREE
+      // `imgNode` incompletes — `.maplibregl-ctrl-attrib-inner` and both
+      // licence links, "background color could not be determined because
+      // element contains an image node" — i.e. precisely the symptom
+      // PropertyMap's <style> claims to have cured by painting the chip
+      // opaque. It had not: `[data-property-map] .maplibregl-ctrl-attrib` is
+      // specificity (0,2,0) and ties maplibre's own
+      // `.maplibregl-ctrl.maplibregl-ctrl-attrib`, which is injected later and
+      // won. Measured `rgba(255, 255, 255, 0.5)` on /dev/home and
+      // /dev/properties alike. Fixed in PropertyMap.svelte by naming
+      // `.maplibregl-ctrl` too, (0,3,0); the chip now computes
+      // `rgb(232, 225, 209)` and axe reads the OpenStreetMap credit at
+      // **8.86:1**, against the 8.87 that component predicted.
       const contrast = results.passes.find((p) => p.id === "color-contrast");
+      const credit = contrast?.nodes.filter((n) => n.html.includes("openstreetmap.org")) ?? [];
       expect(
-        contrast?.nodes.some((n) => n.html.includes("data-map-link")),
-        "axe measured the map's listing links, rather than skipping them",
-      ).toBe(true);
+        credit.length,
+        "axe measured the map's OpenStreetMap credit, rather than skipping the map",
+      ).toBeGreaterThan(0);
+      // The ratio itself, not merely that a ratio exists: an opaque chip is the
+      // only thing that gives this number, and a regression to a translucent
+      // one takes it back to `incomplete` rather than to a lower figure.
+      expect(
+        (credit[0]?.any?.[0]?.data as { contrastRatio?: number } | undefined)?.contrastRatio,
+        "the credit's measured ratio",
+      ).toBeGreaterThan(4.5);
 
       // AND THAT IT COULD MEASURE THE CARD'S TEXT. A violation count of zero
       // is not a contrast result: axe answers `color-contrast` with
