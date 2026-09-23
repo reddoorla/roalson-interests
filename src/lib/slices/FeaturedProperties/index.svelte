@@ -572,9 +572,21 @@
            point at the wrong listing. Matching by id is the only safe read,
            and an id this map has no pin for is a request the map holds on
            rather than serves (`cameraMove`'s `unknown-active`). -->
+      <!-- `activeBy` IS WHAT KEEPS A VISITOR'S OWN ZOOM. The map suspends its
+           camera when the visitor drives it and lifts that suspension when the
+           visitor asks for a different listing — and on this band the index
+           moves on a 4000ms clock with nobody touching anything, which the map
+           cannot tell from an arrow press by watching `active` alone. It read
+           every auto-advance as the visitor asking, so a pinch or a wheel-zoom
+           on the expanded map was thrown away one dwell later: measured on a
+           production build of `/` at 390x844, four wheel-up ticks took it to
+           z12.5387 and ~9s later the camera had flown back to z12 twice with
+           no further input. `carousel.turnedBy` is the only thing that knows,
+           because the carousel is what turned it. -->
       <PropertyMap
         points={mapPoints}
         active={slides[carousel.index]?.id ?? null}
+        activeBy={carousel.turnedBy}
         label={heading}
         tone="cream"
         class="h-50 w-full lg:h-full"

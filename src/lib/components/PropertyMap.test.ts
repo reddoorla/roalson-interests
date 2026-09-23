@@ -589,6 +589,78 @@ describe("the camera the page drives", () => {
   // holds the view while the same listing is active, then lets go", step 3),
   // against a real MapLibre map and a real mouse drag.
 
+  // WHO ASKED (#118 review, MAJOR 2). The suspension ends when the VISITOR
+  // asks for a different listing, and on the homepage band the index moves on
+  // a 4000ms clock with nobody touching anything. `active` alone cannot tell
+  // those apart, so the caller says.
+  it("does not end a suspension for a change the page made on its own", async () => {
+    const { view, record } = await booted({ active: "b", activeBy: "auto" });
+    record.handlers.movestart?.({ originalEvent: new Event("pointerdown") });
+    await tick();
+    await view.rerender({ points, label: "Land", active: "a", activeBy: "auto" });
+    await tick();
+    // The band advanced. Nobody asked for it, so the visitor's view stands.
+    expect(record.flights).toHaveLength(0);
+  });
+
+  it("ends it for the same change when the visitor is the one who asked", async () => {
+    // The control for the case above, one prop apart — and the reason the two
+    // are written as a pair: an `activeBy` the component simply ignored would
+    // pass the first test and fail this one.
+    const { view, record } = await booted({ active: "b", activeBy: "auto" });
+    record.handlers.movestart?.({ originalEvent: new Event("pointerdown") });
+    await tick();
+    await view.rerender({ points, label: "Land", active: "a", activeBy: "visitor" });
+    await tick();
+    expect(record.flights).toHaveLength(1);
+  });
+
+  // COALESCING (#118 review, MAJOR 3). The camera is commanded once per
+  // settled scroll, whatever caused the scroll. The RULE is `cameraMove`'s and
+  // is unit-tested there against every input; what this measures is that THIS
+  // COMPONENT is wired to it at all — that it reads the page's own scroll.
+  //
+  // Both halves in ONE test, and deliberately: "no flight happened" is the
+  // vacuous-green shape this repo hunts, so the control that a flight WOULD
+  // have happened has to be in the same breath. The two runs differ by one
+  // thing, a `scroll` event on the window.
+  it("holds the flight while the document is scrolling — and issues it when it is not", async () => {
+    const scrolled = await booted({ active: "b" });
+    window.dispatchEvent(new Event("scroll"));
+    await scrolled.view.rerender({ points, label: "Land", active: "a" });
+    await tick();
+    expect(
+      scrolled.record.flights,
+      "the page is still moving, so nothing is launched",
+    ).toHaveLength(0);
+    scrolled.view.unmount();
+
+    // The control, on a second map, with the page quiet. `SCROLL_SETTLE_MS` of
+    // silence first, so the scroll above is not still counting against it.
+    await new Promise((r) => setTimeout(r, 220));
+    engine.created.length = 0;
+    const still = await booted({ active: "b" });
+    await still.view.rerender({ points, label: "Land", active: "a" });
+    await tick();
+    expect(still.record.flights, "and the same change flies on a still page").toHaveLength(1);
+    still.view.unmount();
+  });
+
+  // NOT TESTED HERE, AND THIS NOTE IS THE POINT OF SAYING SO. The other half
+  // of coalescing — "many crossings inside one scroll, then ONE flight at the
+  // settle" — needs several consecutive `active` changes on a live map, and
+  // `rerender` cannot express that: it re-runs the boot effect, whose cleanup
+  // calls `destroy()` (see stubResizableTo's note, and `record.removed` is
+  // true after the first one). A version written here read "0 flights at the
+  // settle" for a map that no longer existed — a green for the opposite
+  // reason, which is exactly the shape that shipped the defect.
+  //
+  // It is measured in tests/interaction/property-map-camera.spec.ts, on a real
+  // MapLibre map, against real smooth scrolls (`End`, `PageDown`, `Space`, a
+  // pressed pin), with the fleet's reduced-motion emulation lifted — without
+  // which `scroll-behavior` is `auto`, no card is ever crossed on the way, and
+  // the whole class is structurally unobservable.
+
   it("is not driven by a programmatic move — only one carrying an originalEvent", async () => {
     const { view, record } = await booted({ active: "b" });
     // The map's OWN flights fire `movestart` too, with no `originalEvent`.

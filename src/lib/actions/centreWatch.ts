@@ -34,24 +34,19 @@
  * the array, is right most of the time and wrong exactly when the scroll was
  * fast — which is when it matters.
  *
- * SUSPENDED, NOT SILENCED, WHILE A PRESS-INITIATED SCROLL IS IN FLIGHT. A
- * pressed pin scrolls its card to the middle, and a smooth scroll CROSSES
- * every card between here and there — so this rule fired once per card
- * crossed and the camera was handed a new destination each time. Measured
- * with motion allowed at 1440x900, pressing the IH-35 pin from scrollY 0: the
- * page travelled 0 -> 936 and the camera was issued FOUR `flyTo`s in 322ms —
- * fm-1560-galm, potranco-road, hwy-90-castroville, ih-35-new-braunfels — each
- * a Van Wijk arc of up to 70 km at z12, interrupted after 86, 54 and 101ms.
- * The land section on the real portfolio is 17 cards over ~4500px, so a press
- * near its foot chained a dozen.
- *
- * The fix may NOT be "let the press name the active listing": that is the
- * second author this file's first paragraph exists to forbid. So the rule is
- * suspended while the page's own scroll travels and resumed when it settles,
- * and because the pressed card is by then the card on the centre line, the
- * same single rule answers — once. `start()` is what resumes it: re-observing
- * makes the browser deliver a fresh entry for every child, so the answer
- * after a suspension comes out of `report` exactly as every other answer does.
+ * AND IT REPORTS THROUGH A SCROLL, which is a correction. This action briefly
+ * carried a `suspended` option: a pressed pin scrolls its card to the middle,
+ * a smooth scroll CROSSES every card between here and there, and the camera
+ * was handed a new destination at each one — measured with motion allowed at
+ * 1440x900, pressing the IH-35 pin from scrollY 0 sent the page 0 -> 936 and
+ * the camera FOUR `flyTo`s in 322ms. Holding this rule back for the length of
+ * the scroll made that press quiet and did nothing whatever for the `End` key,
+ * which issued 5-9 flights in 71-81ms on a production build of the real
+ * /properties. The rule was never the problem; launching a 500ms flight at
+ * every answer was. So the coalescing lives at the camera
+ * ($lib/scroll-activity, `cameraMove`'s `page-scrolling` refusal), the press
+ * is not a special case of anything, and this file is back to one job: say
+ * which card is on the line, whenever the browser can see it.
  *
  * DESKTOP ONLY, AND NOT MERELY HIDDEN. The map only pins from `lg` (see
  * PropertyListing.svelte for why a phone does not spend a quarter of its
@@ -74,12 +69,6 @@ export interface CentreWatchOptions {
   minWidth: number;
   /** False tears it down: a section with no map has nothing to drive. */
   enabled?: boolean;
-  /**
-   * True while a scroll THIS PAGE STARTED is still travelling — see
-   * "suspended, not silenced" above. Reports are dropped while it is set, and
-   * lifting it re-asks the same question of the same observer.
-   */
-  suspended?: boolean;
 }
 
 export function centreWatch(node: HTMLElement, options: CentreWatchOptions) {
@@ -87,10 +76,6 @@ export function centreWatch(node: HTMLElement, options: CentreWatchOptions) {
   let observer: IntersectionObserver | null = null;
 
   function report(entries: IntersectionObserverEntry[]) {
-    // Dropped, not queued. A report describes where the page was when the
-    // browser made it, and every one of these is about a card the scroll is
-    // only passing through.
-    if (current.suspended) return;
     let newest: IntersectionObserverEntry | null = null;
     for (const entry of entries) {
       if (!entry.isIntersecting) continue;
@@ -137,13 +122,6 @@ export function centreWatch(node: HTMLElement, options: CentreWatchOptions) {
       current = next;
       // Re-scan rather than diff: the children are a `{#each}` whose keys can
       // change, and re-observing a node already observed is a no-op.
-      //
-      // This one line is also the RESUME, which is why the suspension needs no
-      // machinery of its own. `start()` disconnects and re-observes, and a
-      // fresh `observe()` makes the browser deliver an entry for every child
-      // at its CURRENT position — so when `suspended` goes false the card now
-      // on the centre line comes back out of `report`, by the one rule, with
-      // no second opinion anywhere.
       start();
     },
     destroy() {

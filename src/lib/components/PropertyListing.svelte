@@ -81,6 +81,12 @@
   // the screen. Pressing a pin does NOT set it — the press scrolls that card
   // to the centre and the same rule then reports it. See centreWatch.ts.
   //
+  // AND NOTHING HERE HOLDS THAT RULE BACK WHILE A SCROLL TRAVELS. It used to —
+  // see `revealCard` for the two separate defects that cost — and the job now
+  // belongs to the camera, which coalesces while the document is moving
+  // ($lib/scroll-activity, `cameraMove`'s `page-scrolling`). This component is
+  // back to reporting which card is in the middle, whatever put it there.
+  //
   // Still not here: the 390 comp's in-card carousel (#14 — this stacks the
   // cards, which is also that carousel's no-JS state).
   import { centreWatch } from "$lib/actions/centreWatch";
@@ -182,74 +188,38 @@
     return () => ro.disconnect();
   });
 
-  /**
-   * How long the centre rule stays suspended after a press-initiated scroll
-   * falls quiet, and the ceiling on the whole suspension.
-   *
-   * SETTLE is a debounce on the document's own `scroll` events, not a guess at
-   * how long a smooth scroll takes: a smooth scroll delivers an event about
-   * every frame, so ~120ms of silence means it has stopped, whatever distance
-   * it covered. A fixed duration would have to be long enough for the 4500px
-   * land section and would then freeze the map for a second on a 200px hop.
-   *
-   * CAP exists because a scroll that never happens produces no events to
-   * debounce — press the pin of the card already on the centre line and
-   * nothing moves at all. The timer is therefore armed at the press rather
-   * than at the first scroll, and CAP is the backstop for a scroll that is
-   * interrupted mid-flight (the visitor grabs the scrollbar) and never
-   * reaches its destination. Nothing correctness-critical hangs on either
-   * number: the worst a wrong one does is resume the rule a beat early or
-   * late, and the rule's answer is still the rule's answer.
-   */
-  const SETTLE_MS = 120;
-  const SUSPEND_CAP_MS = 2000;
-
-  /** Section index → true while a scroll THIS component started is travelling.
-   *  See centreWatch.ts: the rule is suspended, never overruled. */
-  let pressScrolling = $state<Record<number, boolean>>({});
-  let settleTimer: ReturnType<typeof setTimeout> | undefined;
-  let capTimer: ReturnType<typeof setTimeout> | undefined;
-  let scrollWatch: (() => void) | undefined;
-
-  function endSuspension(sectionIndex: number) {
-    clearTimeout(settleTimer);
-    clearTimeout(capTimer);
-    if (scrollWatch) window.removeEventListener("scroll", scrollWatch);
-    scrollWatch = undefined;
-    // A new object, not a mutation: `pressScrolling[i] = false` on a `$state`
-    // record is reactive in Svelte 5, but the action reads this through its
-    // options and a fresh object makes the `update` unambiguous.
-    pressScrolling = { ...pressScrolling, [sectionIndex]: false };
-  }
-
-  function suspendWhileScrolling(sectionIndex: number) {
-    clearTimeout(settleTimer);
-    clearTimeout(capTimer);
-    if (scrollWatch) window.removeEventListener("scroll", scrollWatch);
-    pressScrolling = { ...pressScrolling, [sectionIndex]: true };
-    const arm = () => {
-      clearTimeout(settleTimer);
-      settleTimer = setTimeout(() => endSuspension(sectionIndex), SETTLE_MS);
-    };
-    scrollWatch = arm;
-    window.addEventListener("scroll", arm, { passive: true });
-    arm();
-    capTimer = setTimeout(() => endSuspension(sectionIndex), SUSPEND_CAP_MS);
-  }
-
   /** A pressed pin scrolls its card to the middle of the screen, where
    *  `centreWatch` then finds it and makes it active. Two steps on purpose —
    *  see centreWatch.ts for why a press may not name the active listing
    *  itself.
    *
-   *  AND THE CENTRE RULE IS HELD WHILE THAT SCROLL TRAVELS. A smooth scroll
-   *  crosses every card between here and there, and the rule fired at each
-   *  one: pressing the IH-35 pin from scrollY 0 at 1440x900 with motion
-   *  allowed sent the page 0 -> 936 and the camera FOUR flights in 322ms.
-   *  Suspending is the only fix available, because the press is not allowed to
-   *  name the active listing itself — that would be the second author of
-   *  `active` the operator's rule forbids. When the scroll settles the pressed
-   *  card IS the card on the centre line, so the one rule answers once.
+   *  AND THAT IS ALL IT DOES. This function used to also suspend the centre
+   *  rule for the length of the scroll, because a smooth scroll crosses every
+   *  card between here and there and the camera was handed a new destination
+   *  at each one — measured at 1440x900 with motion allowed, pressing the
+   *  IH-35 pin from scrollY 0 sent the page 0 -> 936 and the camera FOUR
+   *  flights in 322ms. Two things were wrong with fixing it here.
+   *
+   *  It was the wrong PLACE. Every other smooth scroll chained exactly as the
+   *  press did, because this was never about presses: measured on a
+   *  production build of /properties at 1440x900, `End` from scrollY 0 issued
+   *  5-9 `flyTo` inside 71-81ms, three `PageDown` issued 5, four `Space`
+   *  issued 4. Fixing the one path that had been noticed is the defect-class
+   *  mistake CLAUDE.md names, committed in the act of fixing a defect. The
+   *  rule now lives where the camera is COMMANDED — `cameraMove`'s
+   *  `page-scrolling`, over `$lib/scroll-activity` — and the press is not a
+   *  case in it, it is just another scroll.
+   *
+   *  And it was wrong CODE. `pressScrolling` was keyed per section while the
+   *  three timers backing it were single component-level variables shared by
+   *  every section, so a press in one section cancelled the pending resume of
+   *  another and left that section's rule suspended for good: measured on a
+   *  production build at 1440x900, a land press followed 300ms later by an
+   *  improved press left the land map issuing ZERO camera commands across
+   *  five subsequent card crossings, its centre byte-identical at -98.73018,
+   *  29.77384, against 9 for the same scroll with no cross-section press. The
+   *  same class as the defect it was fixing, which is the other reason none of
+   *  it is here any more: the machinery is gone rather than made per-section.
    *
    *  `scrollIntoView`, not `scrollTo`: CLAUDE.md's rule is about not fighting
    *  SvelteKit's own post-navigation scroll, and `$lib/utils/instantNavScroll`
@@ -264,20 +234,10 @@
     if (!list) return;
     for (const child of list.children) {
       if ((child as HTMLElement).dataset.centreId !== id) continue;
-      suspendWhileScrolling(sectionIndex);
       (child as HTMLElement).scrollIntoView?.({ block: "center" });
       return;
     }
   }
-
-  // A press can be the last thing that happens before a navigation, so the
-  // window listener and both timers have to go with the component.
-  $effect(() => () => {
-    clearTimeout(settleTimer);
-    clearTimeout(capTimer);
-    if (scrollWatch) window.removeEventListener("scroll", scrollWatch);
-    scrollWatch = undefined;
-  });
 </script>
 
 <div class={passedClasses}>
@@ -359,7 +319,6 @@
             use:centreWatch={{
               minWidth: LG,
               enabled: points.length > 0,
-              suspended: pressScrolling[i] === true,
               onactive: (id) => (activeIds[section.id] = id),
             }}
             class="flex flex-col gap-5 lg:col-start-2"

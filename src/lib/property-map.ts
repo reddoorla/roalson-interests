@@ -326,9 +326,13 @@ export function fitCamera(
  * of the camera and the band is one of its callers.
  *
  * The Properties page inherits it for a different reason — nothing there is
- * timing out — but the same number is the right one anyway: a scroll that
- * crosses three cards must not leave three flights queued behind it, and a
- * new `flyTo` replaces the one in flight.
+ * timing out — and this paragraph used to end "a scroll that crosses three
+ * cards must not leave three flights queued behind it, and a new `flyTo`
+ * replaces the one in flight", offered as reassurance. It was the DEFECT,
+ * described approvingly: a replaced flight is an arc abandoned after a few
+ * milliseconds, and eight of them in 71ms is a smear rather than a journey.
+ * Nothing about the duration fixes that. `pageScrolling` below is what does —
+ * one flight per settled scroll — and only then is 500ms a flight anyone sees.
  *
  * Never used under `prefers-reduced-motion`: `cameraMove` answers `jump`
  * there, and the map is additionally constructed with MapLibre's own
@@ -366,7 +370,14 @@ export function activeTarget(
 export type CameraMove =
   | {
       move: "none";
-      why: "not-ready" | "user-moved" | "unmeasured" | "no-points" | "unknown-active" | "arrived";
+      why:
+        | "not-ready"
+        | "user-moved"
+        | "unmeasured"
+        | "no-points"
+        | "unknown-active"
+        | "arrived"
+        | "page-scrolling";
     }
   | { move: "jump"; camera: Camera }
   | { move: "fly"; camera: Camera };
@@ -385,6 +396,26 @@ export interface CameraState {
   /** A gesture has driven this map. */
   userMoved: boolean;
   reducedMotion: boolean;
+  /**
+   * THE DOCUMENT IS STILL MOVING — `$lib/scroll-activity`, which is a debounce
+   * on the window's own `scroll` events and knows nothing about what started
+   * one.
+   *
+   * It exists because a FLIGHT takes 500ms and a scroll crosses a card every
+   * few milliseconds, so a camera that launched at each crossing launched
+   * eight arcs and finished none of them. While this is true the answer to
+   * "fly there" is "not yet": the caller holds, and asks again when the page
+   * falls quiet, by which time `active` names wherever the scroll ended. One
+   * flight per settled scroll, whatever caused the scroll — a pressed pin, the
+   * End key, a fragment, find-in-page, an assistive technology's own
+   * scroll-into-view.
+   *
+   * Deliberately NOT applied to a jump. A jump is instant, so it cannot be
+   * interrupted and cannot smear; under `prefers-reduced-motion` every move is
+   * a jump and `scroll-behavior` is `auto`, so there is no multi-frame scroll
+   * to coalesce in the first place.
+   */
+  pageScrolling?: boolean;
   /**
    * The camera this map was last TOLD to be at — the one it was constructed
    * with, or the target of the last move. Not `map.getCenter()`: mid-flight
@@ -451,6 +482,7 @@ function sameCamera(a: Camera, b: Camera): boolean {
  */
 export function cameraMove(state: CameraState): CameraMove {
   const { active, points, box, frame, ready, userMoved, reducedMotion, commanded } = state;
+  const pageScrolling = state.pageScrolling === true;
 
   // Refusals first. Every one of these can only ever DENY a move; none of them
   // can grant one, and nothing below can override one.
@@ -475,6 +507,14 @@ export function cameraMove(state: CameraState): CameraMove {
   if (commanded && sameCamera(commanded, camera)) return { move: "none", why: "arrived" };
 
   if (target === null || reducedMotion) return { move: "jump", camera };
+  // THE LAST REFUSAL, and the only one that is not first. It has to sit below
+  // `arrived`, because "the camera is already there" is the truer answer than
+  // "the page is moving" and a caller that heard `page-scrolling` for a move
+  // it did not need would re-ask for nothing at every settle. It is still a
+  // refusal and still cannot grant anything: everything above it decides
+  // WHETHER there is a flight and WHERE to, and this decides only that now is
+  // not the moment. The caller re-asks when the page falls quiet.
+  if (pageScrolling) return { move: "none", why: "page-scrolling" };
   return { move: "fly", camera };
 }
 
