@@ -6723,6 +6723,8 @@ unwritten-down.
 
 ## 2026-09-22 — The tiles are ours now: a generated, brand-tinted, self-hosted map style (`feat/map-palette`)
 
+> Superseded in part by 2026-09-22 — The roads were sand on sand, and three of #113's guards could not see what they claimed.
+
 The operator asked three things in one message: drop the "OpenFreeMap" line from
 the bottom of the map, make the map sticky so it follows the cards, and put the
 tiles in the palette. This is the first and the third. The second is **#112**,
@@ -6942,3 +6944,176 @@ layers this work keeps byte-identical to upstream (verified by comparison), the
 warning is liberty's own `["<=", ["get","ref_length"], 6]` meeting a feature with
 no `ref_length`, and the fallback is the behaviour the filter wanted anyway. It
 is not ours to fix without forking a layer we deliberately do not touch.
+
+## 2026-09-22 — The roads were sand on sand, and three of #113's guards could not see what they claimed (`fix/map-palette-review`)
+
+The adversarial review of #113. One operator-facing change and five corrections
+to guards that were passing for reasons other than the ones written next to
+them. Every number below was measured on this branch; where it contradicts the
+entry above, this entry is the later one.
+
+**THE ROADS.** The operator rendered the shipped style and found the roads
+nearly invisible at a section fit: sand on sand. The motorway casing `#c8b98f`
+measures **1.6956:1** against the ground `#f2efe9`. Their replacement table went
+in id by id, the way `RECOLOUR` is already written — lighter fills, darker
+casings, and `minor`, `service_track` and `path_pedestrian` unchanged because
+their pairs were already right. Regenerating moved 34 colour lines and the
+attribution, 70 lines of a 5,625-line file; 118 changes (117 paint values plus
+the attribution) and 32 colour literals, both unchanged. The file went
+**98,136 → 98,142 bytes** (two more `©`), md5
+`38ed81441145b6e7d4c70fe94865ab91` → `f5104cd08267e6f1b6a71ef7844167d5`, gzip
+-9 identical at 4,425 either way. A second run was byte-identical, which is what
+the determinism claim is worth.
+
+**The operator's headline number was right, and I checked it before believing
+it.** `--color-secondary` on the motorway fill goes **4.4511 → 4.7025:1** —
+over AA. Every road label now clears it: 4.7025 (motorway), 5.0553
+(motorway_link / trunk_primary / link), 5.4038 (secondary/tertiary), 6.2514
+(minor), 6.0932 (service).
+
+**So the halo stops being the reason anything passes, and the entry above says
+otherwise.** That entry called the added `text-halo-color` "the only mitigation
+for the one sub-AA pair". There is no sub-AA pair left for it to mitigate. The
+halo stays, for the reason that was always the better one — a glyph's edge is
+read against the pixel immediately outside it, which on a 1px stroke is the halo
+and not the fill, and the halo's own 5.4472:1 is the highest number in the set —
+but it is no longer load-bearing for AA and the test no longer says it is.
+
+**A BELIEF THE OPERATOR AND I BOTH HAD, CORRECTED BY ARITHMETIC.** The brief
+invoked WCAG 1.4.11's 3:1 for the casings. **Not one class reaches it, before or
+after:** 2.7090 (motorway), 2.0836 (link/trunk), 1.6900 (secondary), 1.4034
+(minor), 1.1795 (service). The change is a large improvement that still fails
+the criterion it was argued from. That is **#119**, with the numbers asserted in
+`theme-contrast.test.ts` as a record — each value pinned AND every one asserted
+to be under 3, so the day one passes, the test says so instead of going quietly
+green.
+
+**Honest accounting on what the retune actually bought.** Screenshotting the
+land section on a production build with each style in turn and taking the pixels
+that DIFFER — only road colours changed, so that set is exactly the road network
+as drawn — gives 12,038 road pixels, 5.91% of a 342×596 frame:
+
+```
+mean contrast vs the ground   before 1.4094       after 1.5190
+road px at >= 1.5:1           before 672 (5.6%)   after 2818 (23.4%)
+road px at >= 3:1             before 395 (3.3%)   after  445 (3.7%)
+```
+
+**4.19× at "visible at all", and essentially nothing at the criterion.** Both
+are true and only the first is what anyone will see. Exact-colour counts of the
+casings are worthless here and were tried first: at z6.948 a 1px casing is
+antialiased into the ground and the exact literal appears 0–3 times in the whole
+frame.
+
+**THE HALO WAS ASSERTED BY NOTHING THAT COULD OBSERVE IT.** `HALO_ADDED` was
+exported from the generator and imported by no test. The stray-colour set test
+closes the class for every RETINT — delete a row and the layer reverts to an
+upstream literal, which becomes a stray — but it is **structurally blind to the
+one ADDITION**: delete a halo row and the property is simply absent, no stray,
+no missing literal (`#f2efe9` is on ninety other layers). Proved by mutation:
+removing both halo rows from the table and from the committed JSON left all 137
+cases green. `HALO_ADDED` is now imported and each entry asserted present in the
+committed style **with a non-zero `text-halo-width`** — the width is MapLibre's
+default 0, is outside the colour table's expressiveness entirely, and a halo
+colour over a zero width paints nothing.
+
+**And the first version of that guard was itself vacuous.** `it.each([...HALO_ADDED])`
+over an emptied set generates **no cases and reports green** — so the exact
+mutation that proved the old blindness would have silently removed the new
+guard. The case count drops 141 → 137, which is the number the review quoted.
+A test pinning the set's contents went in before the mutation was run.
+
+**THE CANONICAL-FORM TEST WAS SELF-REFERENTIAL.** `expect(raw).toBe(serialise(JSON.parse(raw)))`
+derives its expectation from the bytes under test. `JSON.parse` preserves the
+file's key order, so the sorted half of canonical form was never checked at all,
+while the comment claimed "a hand edit, a prettier pass or a non-deterministic
+generator all fail here" and the entry above claimed "that determinism is
+asserted". Both mutations the review named pass it: reversing the key order of
+every layer object and re-emitting, and setting `highway-name-major.minzoom`
+from 12.2 to 9 by hand. It was an indent check wearing a determinism check's
+comment.
+
+Half is fixable in place: `sortKeys` is exported and the test re-derives the
+order instead of trusting it, with a non-vacuity step that scrambles the keys
+and proves `sortKeys` would have moved them. The other half is not — **no
+offline test can tell a hand-edited value from a generated one without a second
+copy of the truth.** So there is one: `scripts/map-style.sha256`, written by the
+generator (regenerating is still one command) and compared against the committed
+bytes. The minzoom mutation now reds there, naming both digests, while the
+canonical test still passes — which is correct and is exactly what the two
+separate tests are for.
+
+**THE ATTRIBUTION IS OUR SENTENCE NOW.** It read `© OpenMapTiles Data from
+OpenStreetMap` — no "contributors", ODbL never named. That was inherited from
+OpenFreeMap's terms verbatim, so it was never a regression, but it became ours
+the moment it moved into `scripts/map-style.mjs`, and the OSM Foundation's
+guidelines ask for `© OpenStreetMap contributors`. It now reads `© OpenMapTiles
+© OpenStreetMap contributors` with the copyright link unchanged and OpenFreeMap
+still out (their terms make their own name explicitly optional). The test pins
+the **word**, not the phrasing, and the RENDERED control was re-read in a
+browser on a production build: `"© OpenMapTiles © OpenStreetMap contributors"`.
+
+**THE PIXEL GATE WAS MEASURING THE PORTFOLIO.** It ran on `/properties` and took
+`.first()` map, so `land/total > 0.5` and `water > 500` were tuned to the 17
+published land listings — the 1,684 water pixels were Choke Canyon, Lake Corpus
+Christi and the Nueces. Publish one listing outside that bbox, `fitCamera`
+reframes, the reservoirs leave the frame and CI reds on a commit that touched no
+map code. It is on `/dev/properties` now, where the land section is four
+committed coordinates, `fitCamera` puts the camera at −98.5045, 29.5397,
+**z7.8765** (lng −99.0162..−97.9928, lat 28.7610..30.3124 — Fredericksburg to
+Pleasanton) and three consecutive runs gave **byte-identical** counts: 203,832
+px, 150,381 (73.78%) `#f2efe9`, 952 `#a8b4b8`. The water is four named lakes,
+found by flood-filling the blobs and unprojecting each centroid: Canyon 410 px,
+Medina 289, Calaveras 165, Braunig 63 — 927 of the 952 across 24 blobs.
+
+**MOVING THE WHOLE FILE WOULD HAVE SILENTLY GUTTED THE NATURAL EARTH TEST, AND I
+NEARLY DID.** `natural_earth` is **maxzoom 7** and the fixture frame is
+**z7.8765**, so the hillshade is not drawn there at all. Measured both ways with
+the stock liberty style route-intercepted in as a control:
+
+```
+/dev/properties  z7.8765   ours 0 requests   STOCK LIBERTY 0 requests
+/properties      z6.948    ours 0 requests   stock liberty 1 request
+```
+
+On the fixture the zero is **free** — the very style the test exists to exclude
+produces the same zero. So that test stayed on `/properties`, and it now carries
+the control in its body: it opens a second page at the same frame with the stock
+style served in, and requires that page to fetch the hillshade before the zero
+is believed. It is still content coupled, and it now fails loudly naming the
+frame instead of going vacuous. **#120.**
+
+**A SECOND BELIEF CORRECTED BY THE SAME FACT.** The entry above records the
+`#f8f4f0` deny as "nearly worthless — 0 px with the stock style too, because
+liberty multiplies a hillshade over its background". That was a fact about
+z6.948, not about the style. On the fixture frame the hillshade is past its
+maxzoom, the stock background survives neat, and it measures **147,888 px
+(72.55%)**. On this frame **both** denies discriminate.
+
+**THE SPEC SAID PRODUCTION AND CI RAN DEV.** The header claimed `/properties`
+was deliberate so the spec could run under `REDDOOR_GATE_SERVER=preview`.
+Nothing ever ran it that way: `readGateServer` returns `"dev"` unless
+`package.json#reddoor.gateServer` is `"preview"`, and this repo's `reddoor`
+block has only `a11yRoutes`. **The claim was deleted rather than made true**,
+and the reason is that `gateServer` is a whole-suite switch, not a per-spec one:
+under preview every `/dev/*` route 404s by design, and `/dev/properties` and
+`/dev/home` are where the rest of `tests/interaction` measures geometry.
+Playwright does take an array of `webServer`s, but that config lives in
+`@reddoorla/maintenance` — a fleet change, not a site change. What is
+consequently unasserted is that `/map-style.json` resolves in the shipped
+bundle; it does today, checked by hand on a real build (`HTTP=200`, 98,142
+bytes, while `/dev/properties` gives 404), and that one-command check is what no
+gate runs. **#120.**
+
+**And one stale title.** `property-map.test.ts`'s "defaults to OpenFreeMap and
+is one env var away from anything else" was the exact belief the case two lines
+below it exists to kill — the default has been `/map-style.json` on our own
+origin since #113. It is "takes the default when unset, and any override when
+set" now, under a `describe` renamed from "the tile provider" to "the style
+URL", because the tile provider is a separate claim with its own case.
+
+**What was NOT done.** No config-observing test for `kit.paths.base`: it would
+cover half of a rare, deliberate change and would have to be worded carefully
+enough not to be named after the thing it cannot observe, which is the
+`turnstile: true` shape. The gap is #120 with the reproduction in it. And the
+casings were not darkened to 3:1 — that is the operator's palette and #119.
