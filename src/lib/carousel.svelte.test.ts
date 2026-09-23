@@ -700,6 +700,38 @@ describe("createCarousel, headless", () => {
       expect(bounded.index).toBe(0);
       expect(bounded.turnedBy, "so nobody turned it").toBe("auto");
     });
+
+    // #129. `by` is written by the two things that TURN a slide; the derived
+    // clamp is a third way `index` moves and it is not a command. Before this,
+    // a visitor's `goTo(3)` followed by a list shrinking to 2 reported
+    // "visitor" for a slide the visitor never asked for — and on the band that
+    // is a camera suspension lifted with no user action, which is the defect
+    // #126's MAJOR 2 fixed on every other path.
+    it("credits nobody when the list shrinks under the index", () => {
+      let count = $state(4);
+      const carousel = mount({ count: () => count });
+      carousel.goTo(3);
+      expect([carousel.index, carousel.turnedBy], "the visitor asked for slide 3").toEqual([
+        3,
+        "visitor",
+      ]);
+      count = 2;
+      expect(carousel.index, "the clamp brought it down").toBe(1);
+      expect(carousel.turnedBy, "and the page did that, not the visitor").toBe("auto");
+      // …and it goes back to reporting the command the instant one arrives,
+      // because every command writes `raw` inside the new bounds.
+      carousel.next();
+      expect([carousel.index, carousel.turnedBy]).toEqual([0, "visitor"]);
+    });
+
+    it("is not confused by a goTo past the end, which clamps itself", () => {
+      // `goTo` writes `by` before its own clamp, so the two mechanisms meet
+      // here. It bounds `raw` by `last`, so the clamp is not what decided the
+      // slide and the visitor keeps the credit.
+      const carousel = mount({ count: 3 });
+      carousel.goTo(99);
+      expect([carousel.index, carousel.turnedBy]).toEqual([2, "visitor"]);
+    });
   });
 
   it("follows a count that shrinks under it", () => {

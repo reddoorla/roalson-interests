@@ -70,7 +70,7 @@ const BODY = `
   const p = NS.Map.prototype;
   p.__camera_probe = true;
   const t0 = performance.now();
-  window.__camera = { fly: [], ease: [], jump: [], movestart: [], maps: [] };
+  window.__camera = { fly: [], ease: [], jump: [], movestart: [], maps: [], t0: t0 };
   const see = (self) => {
     const maps = window.__camera.maps;
     // ONE PLACE A MAP IS ADOPTED, reached from addControl AND from the first
@@ -247,6 +247,12 @@ declare global {
       ease: CameraCall[];
       jump: CameraCall[];
       movestart: string[];
+      /** `performance.now()` when the probe installed — the origin every `t`
+       *  above is measured from, so a test sampling the page's own scroll can
+       *  put its samples on the SAME clock as the camera's commands. Without
+       *  it "did the camera move while the page was moving" cannot be asked:
+       *  the two are otherwise measured from different zeroes. */
+      t0: number;
       maps: {
         getZoom(): number;
         getCenter(): { lng: number; lat: number };

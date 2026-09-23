@@ -331,8 +331,12 @@ export function fitCamera(
  * replaces the one in flight", offered as reassurance. It was the DEFECT,
  * described approvingly: a replaced flight is an arc abandoned after a few
  * milliseconds, and eight of them in 71ms is a smear rather than a journey.
- * Nothing about the duration fixes that. `pageScrolling` below is what does —
- * one flight per settled scroll — and only then is 500ms a flight anyone sees.
+ * Nothing about the duration fixes that. `flying` below is what does — no
+ * second flight until the one in the air has landed — and only then is 500ms a
+ * flight anyone sees. IT IS THE SAME CONSTANT ON BOTH SIDES, deliberately: the
+ * component passes this number to `flyTo` as its `duration` and holds the next
+ * flight for this number of milliseconds, so the hold is not an estimate of
+ * how long a flight takes. It is the duration the caller COMMANDED.
  *
  * Never used under `prefers-reduced-motion`: `cameraMove` answers `jump`
  * there, and the map is additionally constructed with MapLibre's own
@@ -377,7 +381,7 @@ export type CameraMove =
         | "no-points"
         | "unknown-active"
         | "arrived"
-        | "page-scrolling";
+        | "in-flight";
     }
   | { move: "jump"; camera: Camera }
   | { move: "fly"; camera: Camera };
@@ -397,25 +401,37 @@ export interface CameraState {
   userMoved: boolean;
   reducedMotion: boolean;
   /**
-   * THE DOCUMENT IS STILL MOVING — `$lib/scroll-activity`, which is a debounce
-   * on the window's own `scroll` events and knows nothing about what started
-   * one.
+   * A FLIGHT THIS MAP ISSUED IS STILL IN THE AIR — the caller's own record of
+   * what it commanded, held for `CAMERA_FLIGHT_MS` from the `flyTo` it passed
+   * that same number to.
    *
-   * It exists because a FLIGHT takes 500ms and a scroll crosses a card every
-   * few milliseconds, so a camera that launched at each crossing launched
-   * eight arcs and finished none of them. While this is true the answer to
-   * "fly there" is "not yet": the caller holds, and asks again when the page
-   * falls quiet, by which time `active` names wherever the scroll ended. One
-   * flight per settled scroll, whatever caused the scroll — a pressed pin, the
-   * End key, a fragment, find-in-page, an assistive technology's own
-   * scroll-into-view.
+   * It exists because `flyTo` REPLACES the flight in progress: a camera that
+   * launched at every card a scroll crossed launched eight Van Wijk arcs and
+   * finished none of them, which is a smear rather than a journey. While this
+   * is true the answer to "fly there" is "not yet"; the caller asks again when
+   * the flight lands, and the flight that goes out then is to wherever `active`
+   * has got to. One completed arc at a time, whatever is moving the page.
+   *
+   * IT ASKS ABOUT THE CAMERA, NOT ABOUT THE PAGE, and that is the whole
+   * correction over what this field used to be (issues #127 and #128). It was
+   * `pageScrolling`: a 120ms debounce on the window's `scroll` events, which
+   * answers a proxy question. The proxy is wrong in both directions. Too
+   * SHORT and it never fires — a mouse wheel is one event per notch at
+   * 130-220ms apart, so the debounce lapsed between every pair and the guard
+   * was not weak but absent (measured: 9 flights for a 2560px wheel scroll,
+   * identical to a build with the refusal deleted). Too LONG and it never
+   * lifts — a scroll that keeps delivering events keeps it true, so a 10s
+   * scrollbar drag over 6400px and 21 cards issued 0 camera commands for its
+   * whole duration and one when it stopped. Both are gone by construction
+   * here: this cannot be defeated by a slow input because it never asks how
+   * fast the page is moving, and it cannot last longer than a flight because a
+   * flight always ends.
    *
    * Deliberately NOT applied to a jump. A jump is instant, so it cannot be
    * interrupted and cannot smear; under `prefers-reduced-motion` every move is
-   * a jump and `scroll-behavior` is `auto`, so there is no multi-frame scroll
-   * to coalesce in the first place.
+   * a jump, so there is nothing in the air to protect.
    */
-  pageScrolling?: boolean;
+  flying?: boolean;
   /**
    * The camera this map was last TOLD to be at — the one it was constructed
    * with, or the target of the last move. Not `map.getCenter()`: mid-flight
@@ -482,7 +498,7 @@ function sameCamera(a: Camera, b: Camera): boolean {
  */
 export function cameraMove(state: CameraState): CameraMove {
   const { active, points, box, frame, ready, userMoved, reducedMotion, commanded } = state;
-  const pageScrolling = state.pageScrolling === true;
+  const flying = state.flying === true;
 
   // Refusals first. Every one of these can only ever DENY a move; none of them
   // can grant one, and nothing below can override one.
@@ -509,12 +525,12 @@ export function cameraMove(state: CameraState): CameraMove {
   if (target === null || reducedMotion) return { move: "jump", camera };
   // THE LAST REFUSAL, and the only one that is not first. It has to sit below
   // `arrived`, because "the camera is already there" is the truer answer than
-  // "the page is moving" and a caller that heard `page-scrolling` for a move
-  // it did not need would re-ask for nothing at every settle. It is still a
-  // refusal and still cannot grant anything: everything above it decides
-  // WHETHER there is a flight and WHERE to, and this decides only that now is
-  // not the moment. The caller re-asks when the page falls quiet.
-  if (pageScrolling) return { move: "none", why: "page-scrolling" };
+  // "a flight is in the air" and a caller that heard `in-flight` for a move it
+  // did not need would re-ask for nothing every time a flight landed. It is
+  // still a refusal and still cannot grant anything: everything above it
+  // decides WHETHER there is a flight and WHERE to, and this decides only that
+  // now is not the moment. The caller re-asks when the flight lands.
+  if (flying) return { move: "none", why: "in-flight" };
   return { move: "fly", camera };
 }
 

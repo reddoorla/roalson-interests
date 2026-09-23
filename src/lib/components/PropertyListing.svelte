@@ -83,9 +83,9 @@
   //
   // AND NOTHING HERE HOLDS THAT RULE BACK WHILE A SCROLL TRAVELS. It used to —
   // see `revealCard` for the two separate defects that cost — and the job now
-  // belongs to the camera, which coalesces while the document is moving
-  // ($lib/scroll-activity, `cameraMove`'s `page-scrolling`). This component is
-  // back to reporting which card is in the middle, whatever put it there.
+  // belongs to the camera, which will not launch a flight over one already in
+  // the air (`cameraMove`'s `in-flight`). This component is back to reporting
+  // which card is in the middle, whatever put it there.
   //
   // Still not here: the 390 comp's in-card carousel (#14 — this stacks the
   // cards, which is also that carousel's no-JS state).
@@ -207,8 +207,11 @@
    *  issued 4. Fixing the one path that had been noticed is the defect-class
    *  mistake CLAUDE.md names, committed in the act of fixing a defect. The
    *  rule now lives where the camera is COMMANDED — `cameraMove`'s
-   *  `page-scrolling`, over `$lib/scroll-activity` — and the press is not a
-   *  case in it, it is just another scroll.
+   *  `in-flight` refusal, over PropertyMap's own record of the flight it last
+   *  issued — and the press is not a case in it, it is just another scroll.
+   *  (It was `page-scrolling`, a debounce on the document's own events, until
+   *  #127 and #128 showed that a proxy for "is the page moving" is blind to a
+   *  mouse wheel and unbounded under a scrollbar drag.)
    *
    *  And it was wrong CODE. `pressScrolling` was keyed per section while the
    *  three timers backing it were single component-level variables shared by
