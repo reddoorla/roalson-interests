@@ -627,8 +627,12 @@ test.describe("rotation", () => {
       // the page the exclusion was written for. What axe actually could not
       // measure was the ATTRIBUTION: `.maplibregl-ctrl-attrib-inner` and its
       // three links, "Element's background color could not be determined
-      // because element contains an image node", because the chip was 88%
-      // sand over the canvas.
+      // because element contains an image node", because the chip was
+      // translucent over the canvas. (Recorded here as "88% sand", which was
+      // wrong in a way nobody could see from this file: the chip was never
+      // sand at ANY alpha. Our rule had lost a specificity tie to maplibre's
+      // own, so the measured value was its `rgba(255, 255, 255, 0.5)`. See
+      // PropertyMap.svelte, and the note on the credit assertion below.)
       //
       // Excluding the map's whole subtree therefore silenced axe over the
       // OpenStreetMap credit — which this component argues is a LICENCE
