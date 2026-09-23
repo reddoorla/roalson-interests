@@ -8392,8 +8392,9 @@ own comment.
   listings are still inside a cluster at the chosen frame, against 17 at the fit.
 - **The raster is 1×.** On a 2× display the picture is softer than the tiles that
   replace it, so the swap reads as a sharpening as well as a settle. A 2× variant
-  is roughly 4× the bytes; the operator should look at it before that is spent.
-  Filed as its own issue rather than left in this paragraph.
+  is roughly 4× the bytes — near 250–300 KB for `full` against maplibre-gl's
+  426.4 KB, at which point a placeholder costs half the thing it stands in for.
+  The operator should look at it before that is spent: **#131**.
 - **A one-listing section** would now open at the regional frame rather than at
   z12 on that listing. No such section exists today (land 17, improved 5), and it
   is consistent with "a specific frame to always show as the default start", but
