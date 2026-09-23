@@ -8172,3 +8172,236 @@ and then never lifts for either).
 - **Local Playwright numbers on this machine are suspect** and every run above
   says so: load averages ran 3.6–10.2 through the session. The production-build
   runs quoted here were at 4.25–5.60. CI is the authority.
+
+## 2026-09-23 — The map opens on a picture of itself: a fixed frame, a committed raster, and a camera that finally agrees with it (#122, `feat/map-home`)
+
+The map's first state was a list of listing titles, held for as long as
+**426.4 KB** of maplibre-gl takes to download, parse and execute — and not one
+tile is requested until it has. Construct-to-`load` is only 85–140 ms with the
+style local, so the bundle was the whole wait. It is now a **picture of the
+map**, server-rendered, visible from first paint and with scripting off: a
+committed WebP raster of one chosen camera with the section's real pins drawn
+over it in SVG, and MapLibre fading in over the top when it arrives.
+
+**The operator chose the frame** (2026-09-22, from three options with
+measurements): centre **29.62, −98.52**. Their words for what they wanted are
+worth keeping because they turn out to decide three separate questions in this
+entry — _"can we choose a specific frame to always show as the default start so
+we have the rows and such fast, and then load the tile so that we have movement
+when necessary"_.
+
+### Why a chosen frame and not `fitCamera`, said once properly
+
+A placeholder rendered at the auto-fit is derived from **published Prismic
+content**, so a committed image can go silently wrong after a publish that never
+touches this repo, and nothing offline could tell. A **chosen** frame is a
+constant in the source, so the only thing the image can drift against is
+`static/map-style.json` beside it in the same commit. That is a hash comparison
+— a guard that works, rather than one that cannot — and it is the entire reason
+the frame is fixed.
+
+### The numbers, re-derived rather than transcribed
+
+`MAP_HOME` lives in `src/lib/map-home.ts` (a module with no imports at all, so
+`scripts/map-home.mjs` can load it under Node's type stripping) and is
+re-exported from `$lib/property-map`. Two frames, one centre:
+
+| frame     | zoom    | reference box | in frame | own pin | in a cluster |
+| --------- | ------- | ------------- | -------- | ------- | ------------ |
+| `full`    | **8.6** | 397 × 595     | 18 / 22  | 9       | 13           |
+| `compact` | **8.0** | 350 × 200     | 17 / 22  | 9       | 13           |
+
+Both re-derived here from `scripts/seed/listings.json` through this repo's own
+`clusterPoints`, and both match the numbers #122's comment predicted. **One
+number in #122 is wrong and this corrects it**: today's auto-fit over all 22 at
+397 × 595 is **z6.948088439550839**, not z6.971 — and the `land` section alone
+gives the identical figure, because Kingsville (27.4901, 197 km south of the
+next-nearest) and Comfort are both in it. At that zoom only **5** of the 22 have
+a pin of their own; the chosen frame takes that to 9. Frame choice does not fix
+#115 — 13 listings are still inside a cluster — and this should not be read as
+having answered it.
+
+### What is actually committed, and what guards it
+
+`static/map-home-full.webp` (1088 × 1184, **78.3 KB**) and
+`static/map-home-compact.webp` (1024 × 304, **27.4 KB**), rendered by
+`pnpm map:home` — Playwright's Chromium driving the _same_ maplibre-gl 6.10.0
+this site ships, on _our_ `static/map-style.json`, at devicePixelRatio 1. Only
+one is ever fetched: the other layer is `display: none` under a container query
+and a browser does not request a background image for one (measured as a 200 for
+the painted file and **no request at all** for the other).
+
+`scripts/map-home.manifest.json` records every input, and
+`scripts/map-home.test.ts` re-derives each from the committed bytes with nothing
+but the filesystem. Five mutations, five reds:
+
+| mutation                                                                      | what went red                                             |
+| ----------------------------------------------------------------------------- | --------------------------------------------------------- |
+| one paint value edited in `static/map-style.json`                             | _was rendered from the committed static/map-style.json_   |
+| `MAP_HOME.full.camera.zoom` 8.6 → 8.7                                         | _full was rendered at the camera the app constructs_      |
+| one byte flipped in `map-home-full.webp`                                      | _full matches its recorded digest_                        |
+| the compact raster replaced by a flat #f2efe9 fill **with a matching digest** | _compact has the ink of a drawn map, not a flat fill_     |
+| `MAP_HOME_GROUND` changed                                                     | _paints the style's own background colour in its margins_ |
+
+The fourth is the one that matters. A digest proves the bytes are the bytes the
+generator wrote; it cannot prove they are a **map**. A render whose every tile
+request failed still fires `idle`, still screenshots and still commits — as a
+flat rectangle with a perfectly valid digest. So the committed file is decoded
+and its ink counted: 15964 distinct colours and 20.5% of pixels away from the
+ground for `full`, 10001 and 26.0% for `compact`, against floors of 64 and 15%.
+
+**`INK_TOLERANCE` is the correction inside that guard.** The first version
+compared pixels to `#f2efe9` exactly and read **100.0% painted on both frames** —
+because webp at q82 perturbs even the flat ground, so no pixel is still exactly
+the background. A statistic a blank render would have scored just as well on.
+Six levels of Chebyshev distance is under the encoder's noise and far under any
+real ink. For the same reason the counts are measured on the ENCODED file and
+not the screenshot: the compact frame went 4622 → 10001 distinct colours across
+the encode, so measuring the PNG would have put a number in the manifest that
+the offline guard could never reproduce.
+
+### The camera, and the two corrections it took
+
+**MapLibre is constructed at exactly MAP_HOME** whenever a placeholder is drawn,
+which is #122's second guard, asserted in `PropertyMap.test.ts` against the
+stub's constructor options (mutating `camera()` back to `fitCamera` reds it). One
+expression — `homeFrames(points)` — decides both whether the picture is drawn
+and what the map is built with, so they cannot part company.
+
+**This changes #112's "nothing moves at load" on the homepage band**, and that is
+deliberate rather than overlooked. The band used to open already framed on slide
+0; it now opens on the fixed frame and flies to slide 0 once the first frame is
+drawn. The alternative was to give the band no placeholder at all, which is where
+the wait is worst. 500 ms, well under WCAG 2.2.2's five seconds, and a jump
+rather than a flight under `prefers-reduced-motion`.
+
+**And the placeholder was a true picture of a camera that lasted one frame.**
+`cameraMove` answered `fitCamera(points)` for a null `active` — which is every
+Properties-page map below `lg`, where `centreWatch` is gated `minWidth: 1024`
+and `active` is null forever. So a map CONSTRUCTED at MAP_HOME jumped to the
+auto-fit on the frame after `load`. Measured on a production build at 390 × 844:
+the picture drew 8 own pins with clusters of 6 and 3; the live map one frame
+later drew **2 own pins and a cluster of 15** — z6.948, not z8.0. Nothing in
+jsdom saw it; the browser case comparing the two pin sets is what did. `home` is
+now a field on `CameraState`, so the chosen frame is what "no listing is active"
+means for the whole life of the map and not just its first frame — which is the
+operator's "always show as the default start", read literally.
+
+That has a consequence worth stating on its own: **a desktop resize no longer
+moves an undriven camera at all**, because a chosen frame is independent of the
+box. Two unit cases and one browser case that used to prove the drag-suspension
+against a resize now prove it against the box change that still moves it — one
+that crosses `COMPACT_MAX_HEIGHT`, i.e. the expand affordance below `lg`, where
+the frame goes `compact` → `full` and z8.0 → z8.6.
+
+### The hand-over, and a dip that axe found before a human could
+
+The canvas comes up over a picture that stays fully opaque beneath it and is then
+removed. One-sided on purpose: fading both at once puts each at 50% halfway
+through, and 50% over 50% over the tone ground is a flash of exactly the state
+the placeholder replaces.
+
+It was first written as `setTimeout(MAP_HOME_FADE_MS)` started when `ready`
+flipped, reasoning that the CSS transition starts in the same flush. **Measured
+at the instant the picture was removed: the canvas host's computed opacity was
+0.535164.** A style recalculation under load does not begin when a `setTimeout`
+does, so the picture went while the canvas was still half transparent. axe named
+it: with the canvas subtree under a partially transparent ancestor it answered
+`color-contrast` with three `imgNode` incompletes for the OpenStreetMap credit
+instead of a ratio, and `featured-properties.spec.ts`'s audit went red on the
+credit it could no longer measure. `transitionend` on `opacity` is the artifact a
+finished fade produces, so that is what ends the hand-over now; the timer
+survives only as a leak guard at ten times the duration. The unit case was
+rewritten to match — it advances the clock by 3× the duration and asserts the
+picture is **still there**, then sends a `transitionend` for `transform` and
+asserts the same, and only the real event retires it.
+
+An earlier version used Svelte's `out:fade`. jsdom has no `element.animate`, so
+the component threw the instant `ready` flipped and **four unrelated cases** went
+red — the pins, the sheet and the scroll-zoom hand-over — because everything
+after the boot was running against a crashed component. The test that caught it
+was not testing the fade.
+
+### The edge #122 left to be decided
+
+A section whose markers all fall outside MAP_HOME gets **no placeholder**, and
+its camera opens on `fitCamera` exactly as before. The two alternatives are
+worse: showing MAP_HOME anyway is a picture of San Antonio standing in for
+listings that are not in San Antonio, and rendering that section's own fit puts
+published content back inside the image — the precise dependence this design
+exists to remove.
+
+What it costs, plainly: the predicate **is** content-dependent, so a publish can
+flip it. But it can only ever turn the placeholder OFF, back to the
+list-of-links that shipped in #13; it can never change what the picture SHOWS.
+The raster's only drift axis is still the style digest.
+
+It is **all frames or none**, which closes a hole rather than being tidy. Which
+frame is on screen is a container query the server cannot evaluate, so both are
+rendered and the browser picks one; the list goes `sr-only` when a picture is
+drawn. A section covered at 397 × 595 but not at 350 × 200 would hide the list on
+a phone that then drew nothing — the blank box #13's definition of done forbids.
+The disagreement is real and narrow: at 29.62 N the Mercator scale is 634.8
+px/degree at z8.6 and 418.8 at z8.0, so `full` reaches 0.4686° north (to 30.0886)
+and `compact` 0.2388° (to 29.8588).
+
+### What a scripting-off visitor loses, and it is not nothing
+
+The list of links is now `sr-only` from the server, exactly as it is once the
+canvas arrives, and every single-listing pin is an `<a>` to the same Google Maps
+URL its row carries — `tabindex="-1"` and `aria-hidden`, the live marker's own
+contract unchanged. So the pointer path survives. What does not: a sighted
+visitor with no script no longer reads listing **names** in this box, and a
+**clustered** listing has no pin of its own to press. They keep the cards below,
+which carry every listing with its own link. `property-map.spec.ts`'s no-JS case
+was rewritten to assert the new state rather than deleted, and says this in its
+own comment.
+
+### Things that moved underneath, recorded so they are not re-derived
+
+- **`map-palette.spec.ts`'s premise was ours to break.** It read "below `lg` the
+  camera does not run AT ALL … `cameraMove` fits every point, forever". Half
+  still true: `active` is null, but null now means MAP_HOME. The frame it samples
+  moved from the fixture's z7.8765 fit to z8.0 on the metro, which is more road
+  and landuse and less bare ground: **47.59%** `#f2efe9` against the 56.14% that
+  file recorded. Its land floor was `0.5`, written as "our off-white is the
+  MAJORITY colour or the style did not take" — a property of the fit frame, not
+  of the style. Restated as dominance and set to 0.40, with the control re-run at
+  the new frame: upstream's liberty gives `#f2efe9 350 (0.50%)`, and the water
+  count is 403 either way — only its colour changes, which is what a repaint
+  should look like.
+- **The raster was sized from the comp and the comp was wrong about the band.**
+  1088 × 896 came from "the band is 827 tall". Measured with scripting off, the
+  band's map box is 513 × **843.4** at 1440, 753 × **983.6** at 1920 and
+  1073 × **1170.5** at 2560 — it grows in both axes with the card's content. The
+  first committed raster therefore left 43.8 px of flat ground above and below
+  the map at 1920 and 137 px at 2560, which a screenshot taken to check exactly
+  that showed plainly. 1088 × 1184 covers every box to a 2560-wide viewport; past
+  that the margin paints `MAP_HOME_GROUND`, the style's own background colour, so
+  the degradation is a wider ground rather than a seam. The Properties panel is a
+  fixed 397 × 595 at every width — `max-w-[1440px]` caps it.
+- **No CSP change.** The rasters are same-origin and `img-src 'self'` already
+  covers them; the map's one external entry is still the tile host.
+- **A browser with no container-query support** matches neither rule and gets no
+  placeholder — the pre-#122 state. The degradation is "as before", never "the
+  wrong frame".
+
+### What is NOT done
+
+- **#115 is untouched** and this must not be read as closing it: 13 of the 22
+  listings are still inside a cluster at the chosen frame, against 17 at the fit.
+- **The raster is 1×.** On a 2× display the picture is softer than the tiles that
+  replace it, so the swap reads as a sharpening as well as a settle. A 2× variant
+  is roughly 4× the bytes; the operator should look at it before that is spent.
+  Filed as its own issue rather than left in this paragraph.
+- **A one-listing section** would now open at the regional frame rather than at
+  z12 on that listing. No such section exists today (land 17, improved 5), and it
+  is consistent with "a specific frame to always show as the default start", but
+  it is a behaviour change nobody has seen.
+- **Local Playwright numbers on this machine are worthless** and every figure
+  above says which server it came from. Load averages ran 6.7–**115.9** through
+  the session; two suite runs failed cases that passed alone at the same commit
+  (`property-map-camera.spec.ts`'s flight case, and the map's own boot timing out
+  at 25 s). `featured-properties.spec.ts:243` fails here at exactly 436.890625 —
+  that is #80/#124, a macOS scrollbar-gutter difference, green on CI's Linux, and
+  not this branch's. CI is the authority.

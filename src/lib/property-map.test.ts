@@ -13,7 +13,11 @@ import {
   expansionZoom,
   fitCamera,
   frameFor,
+  homeCamera,
+  homeFrames,
+  homeMarkers,
   MAP_FRAMES,
+  MAP_HOME,
   MAP_TILE_HOST,
   mapStyleUrl,
   PIN_ASPECT,
@@ -693,5 +697,249 @@ describe("the pin, as the comp draws it", () => {
     for (const pin of [22, 48]) {
       expect(clusterDiameter(17, pin)).toBeGreaterThanOrEqual(26);
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// MAP_HOME — the fixed opening frame, and the placeholder's geometry (#122)
+// ---------------------------------------------------------------------------
+
+/** Every published listing, which is what the frame was chosen against. */
+const all = [...land, ...improved];
+
+/** How many of `points` fall inside a frame's reference box at MAP_HOME —
+ *  counted from the coordinates, NOT from `homeMarkers`, so this is a second
+ *  path to the same number rather than a restatement of the first. */
+function insideHome(points: MapPoint[], frame: keyof typeof MAP_HOME): number {
+  const { camera, reference } = MAP_HOME[frame];
+  const cx = projectX(camera.lng, camera.zoom);
+  const cy = projectY(camera.lat, camera.zoom);
+  return points.filter(
+    (p) =>
+      Math.abs(projectX(p.lng, camera.zoom) - cx) <= reference.width / 2 &&
+      Math.abs(projectY(p.lat, camera.zoom) - cy) <= reference.height / 2,
+  ).length;
+}
+
+describe("MAP_HOME, the frame the operator chose", () => {
+  // Operator's call from three framed options, 2026-09-22: centre 29.62,
+  // -98.52. The ZOOMS were derived here, and these cases are that derivation
+  // re-run — not a transcription of it. If the portfolio moves they become a
+  // record of what was true when the frame was chosen, which is the point.
+  it("is frame A's centre at both zooms", () => {
+    expect(MAP_HOME.full.camera).toEqual({ lng: -98.52, lat: 29.62, zoom: 8.6 });
+    expect(MAP_HOME.compact.camera).toEqual({ lng: -98.52, lat: 29.62, zoom: 8.0 });
+    // One centre, two zooms: the compact box is 200 tall and a frame fitted to
+    // the same GEOGRAPHY in 200px would land at z6.59 — all of South Texas as
+    // a postage stamp. The frames differ in how much they show, never where.
+    expect(MAP_HOME.compact.camera.lng).toBe(MAP_HOME.full.camera.lng);
+    expect(MAP_HOME.compact.camera.lat).toBe(MAP_HOME.full.camera.lat);
+  });
+
+  it("covers 18 of the 22 listings at 397 x 595 and 17 at 350 x 200", () => {
+    expect(MAP_HOME.full.reference).toEqual(PANEL);
+    expect(MAP_HOME.compact.reference).toEqual(PHONE);
+    expect(all).toHaveLength(22);
+    expect(insideHome(all, "full")).toBe(18);
+    expect(insideHome(all, "compact")).toBe(17);
+  });
+
+  it("gives 9 listings a pin of their own, against 5 at today's auto-fit", () => {
+    // #115 quantified. The four outside the frame are not lost — they keep
+    // their card, their list row, and the camera flies to them when they
+    // become active. What changes is how many of the ones ON the map are
+    // distinguishable.
+    for (const frame of ["full", "compact"] as const) {
+      const markers = homeMarkers(all, frame);
+      expect(markers.filter((m) => m.count === 1)).toHaveLength(9);
+      expect(markers.filter((m) => m.count > 1).reduce((n, m) => n + m.count, 0)).toBe(13);
+    }
+    const today = fitCamera(all, PANEL, MAP_FRAMES.full)!;
+    // 6.948088, dragged there by ONE listing 197 km south of the next-nearest
+    // (Kingsville, 27.4901). #122's comment quotes 6.971 for this; measured
+    // here against the same 22 coordinates it is 6.948088439550839, and the
+    // `land` section alone gives the identical number because Kingsville and
+    // Comfort — the two extremes — are both in it.
+    expect(today.zoom).toBeCloseTo(6.948088, 6);
+    expect(
+      clusterPoints(all, today.zoom, MAP_FRAMES.full.clusterRadius).filter(
+        (c) => c.points.length === 1,
+      ),
+    ).toHaveLength(5);
+  });
+});
+
+describe("the placeholder's markers", () => {
+  // The claim the whole cross-fade rests on: these are not a second opinion
+  // about where the pins go, they are `clusterPoints` at MAP_HOME's zoom —
+  // the same call the live map makes on its first frame.
+  it("are clusterPoints at MAP_HOME's zoom, as centre-relative offsets", () => {
+    for (const frame of ["full", "compact"] as const) {
+      const { camera } = MAP_HOME[frame];
+      const live = clusterPoints(all, camera.zoom, MAP_FRAMES[frame].clusterRadius);
+      const drawn = homeMarkers(all, frame);
+      expect(drawn.map((m) => m.id)).toEqual(live.map((c) => c.id));
+      const cx = projectX(camera.lng, camera.zoom);
+      const cy = projectY(camera.lat, camera.zoom);
+      for (const [i, cluster] of live.entries()) {
+        // What `map.project()` will return, minus the box's centre — which is
+        // MAP_HOME's coordinate at EVERY container size, because the camera is
+        // fixed. That is why the server can place these without a box.
+        expect(drawn[i]!.dx).toBeCloseTo(projectX(cluster.lng, camera.zoom) - cx, 10);
+        expect(drawn[i]!.dy).toBeCloseTo(projectY(cluster.lat, camera.zoom) - cy, 10);
+      }
+    }
+  });
+
+  it("carries the listing on a single pin and the count on a cluster", () => {
+    for (const marker of homeMarkers(all, "full")) {
+      if (marker.count === 1) expect(marker.point).not.toBeNull();
+      else expect(marker.point).toBeNull();
+    }
+  });
+
+  it("puts the centre listing within a pixel of the box's centre", () => {
+    // A listing at MAP_HOME's exact coordinate must land at dx = dy = 0, which
+    // is the one offset that can be checked without re-deriving Mercator.
+    const centre = point(["centre", MAP_HOME.full.camera.lat, MAP_HOME.full.camera.lng]);
+    const [marker] = homeMarkers([centre], "full");
+    expect(marker!.dx).toBeCloseTo(0, 9);
+    expect(marker!.dy).toBeCloseTo(0, 9);
+  });
+});
+
+describe("whether a section opens on MAP_HOME", () => {
+  it("does for both of the real sections, at both frames", () => {
+    expect(homeFrames(land)).toEqual({
+      full: MAP_HOME.full.camera,
+      compact: MAP_HOME.compact.camera,
+    });
+    expect(homeFrames(improved)).toEqual({
+      full: MAP_HOME.full.camera,
+      compact: MAP_HOME.compact.camera,
+    });
+  });
+
+  // THE EDGE #122 LEFT TO BE DECIDED. A section with nothing inside MAP_HOME
+  // gets NO placeholder and boots on `fitCamera` exactly as it did before —
+  // because the alternatives are a picture of San Antonio standing in for
+  // listings that are not in San Antonio, or a raster derived from published
+  // content, which is the dependence this whole design exists to remove.
+  it("does not for a section whose listings are all outside it", () => {
+    const kingsville = land.filter((p) => p.id.includes("kingsville"));
+    expect(kingsville).toHaveLength(1);
+    expect(homeCamera(kingsville, "full")).toBeNull();
+    expect(homeCamera(kingsville, "compact")).toBeNull();
+    expect(homeFrames(kingsville)).toBeNull();
+    // Houston, 300 km east: nothing borderline about it.
+    expect(homeFrames([point(["houston", 29.7604, -95.3698])])).toBeNull();
+  });
+
+  it("is all frames or none, so the list is never hidden over a blank box", () => {
+    // The two frames really do disagree about a band of latitude, and this is
+    // it. At 29.62 N the Mercator scale is 634.8 px/degree at z8.6 and
+    // 418.8 px/degree at z8.0, so the 595-tall reference reaches 0.4686 deg
+    // north (to 30.0886) and the 200-tall one 0.2388 deg (to 29.8588). A
+    // listing at 30.00 is inside `full` and outside `compact` — and
+    // `homeFrames` answers null rather than hiding the list on a phone that
+    // would then draw nothing.
+    const north = [point(["north", 30.0, MAP_HOME.full.camera.lng])];
+    expect(homeCamera(north, "full")).not.toBeNull();
+    expect(homeCamera(north, "compact")).toBeNull();
+    expect(homeFrames(north)).toBeNull();
+  });
+
+  it("answers nothing for a section with no pins at all", () => {
+    expect(homeFrames([])).toBeNull();
+  });
+});
+
+describe("the committed raster's geometry", () => {
+  it("is big enough for every box each frame is drawn in", () => {
+    // `background-size` is the raster's own pixel size and the position is
+    // `center`, so a container BIGGER than the raster shows ground at its
+    // edges. These are the widest boxes each frame is ever drawn at, MEASURED
+    // with scripting off rather than read off the comp — which is the mistake
+    // that shipped once: the comp's band is 827 tall, the real one is 843.4 at
+    // 1440, 983.6 at 1920 and 1170.5 at 2560, so a 896-tall raster left 43.8px
+    // of bare ground above and below the map at 1920. The Properties panel is
+    // a fixed 397 x 595 at every width (`max-w-[1440px]` caps it), and below
+    // `lg` the compact box is a full-bleed 1023 x 200.
+    expect(MAP_HOME.full.raster.width).toBeGreaterThanOrEqual(1073);
+    expect(MAP_HOME.full.raster.height).toBeGreaterThanOrEqual(1171);
+    expect(MAP_HOME.compact.raster.width).toBeGreaterThanOrEqual(1023);
+    // The compact frame is chosen by `frameFor` at any height under 300.
+    expect(MAP_HOME.compact.raster.height).toBeGreaterThanOrEqual(COMPACT_MAX_HEIGHT);
+    for (const frame of ["full", "compact"] as const) {
+      expect(MAP_HOME[frame].raster.width).toBeGreaterThanOrEqual(MAP_HOME[frame].reference.width);
+      expect(MAP_HOME[frame].raster.height).toBeGreaterThanOrEqual(
+        MAP_HOME[frame].reference.height,
+      );
+    }
+  });
+
+  it("has one raster per frame the component draws", () => {
+    expect(Object.keys(MAP_HOME).sort()).toEqual(Object.keys(MAP_FRAMES).sort());
+    expect(new Set(Object.values(MAP_HOME).map((f) => f.file)).size).toBe(
+      Object.keys(MAP_HOME).length,
+    );
+  });
+});
+
+describe("where 'no listing is active' goes, once there is a chosen frame", () => {
+  // THE DEFECT THIS BLOCK EXISTS FOR, found on a production build by
+  // tests/interaction/map-home.spec.ts and by nothing in jsdom. The map is
+  // CONSTRUCTED at MAP_HOME, and `cameraMove` answered `fitCamera(points)` for
+  // a null `active` — so on every Properties-page map below `lg`, where
+  // `centreWatch` is gated `minWidth: 1024` and `active` is null forever, the
+  // camera jumped to the auto-fit on the first frame after `load`. Measured at
+  // 390 x 844 on /properties: the committed picture drew 8 own pins with
+  // clusters of 6 and 3; the live map one frame later drew 2 own pins and a
+  // cluster of 15 — z6.948, not z8.0. The placeholder was a true picture of a
+  // camera that lasted one frame.
+  const resting = {
+    active: null,
+    points: land,
+    box: PANEL as Box,
+    frame: MAP_FRAMES.full,
+    ready: true,
+    userMoved: false,
+    reducedMotion: false,
+  };
+
+  it("is MAP_HOME, not the auto-fit, when the section has one", () => {
+    const move = cameraMove({ ...resting, home: MAP_HOME.full.camera });
+    expect(move.move).toBe("jump");
+    expect(move.move === "jump" && move.camera).toEqual(MAP_HOME.full.camera);
+  });
+
+  it("is still the auto-fit for a section that has none", () => {
+    const move = cameraMove({ ...resting, home: null });
+    expect(move.move).toBe("jump");
+    expect(move.move === "jump" && move.camera).toEqual(fitCamera(land, PANEL, MAP_FRAMES.full));
+  });
+
+  it("does not touch where an ACTIVE listing goes", () => {
+    // The chosen frame is where the map RESTS. A listing the page has asked
+    // for is still `fitCamera` of that one point at the frame's maxZoom, home
+    // or no home — otherwise the camera could never follow a card at all.
+    const active = { ...resting, active: land[3]!.id };
+    const withHome = cameraMove({ ...active, home: MAP_HOME.full.camera });
+    const without = cameraMove({ ...active, home: null });
+    expect(withHome).toEqual(without);
+    expect(withHome.move).toBe("fly");
+    expect(withHome.move === "fly" && withHome.camera.zoom).toBe(MAP_FRAMES.full.maxZoom);
+  });
+
+  it("refuses to move once the map is already home", () => {
+    // `commanded` is what `boot` recorded, and boot builds the map AT
+    // MAP_HOME — so the first run of the camera effect must answer "arrived",
+    // not re-issue the camera the map already has.
+    const move = cameraMove({
+      ...resting,
+      home: MAP_HOME.full.camera,
+      commanded: MAP_HOME.full.camera,
+    });
+    expect(move).toEqual({ move: "none", why: "arrived" });
   });
 });

@@ -528,6 +528,32 @@ describe("FeaturedProperties slice", () => {
     }
   });
 
+  // #122. The band is the map whose boot cost the most visible wait, so it is
+  // the one worth asserting the placeholder really reaches — the component's
+  // own tests cover the picture's shape, and this covers that the BAND gets
+  // one, over the band's own ground, with this band's listings on it.
+  it("opens the band's map on the fixed frame, with the slides' own pins on it", () => {
+    const { container } = render(FeaturedProperties, {
+      props: { slice: featuredPropertiesFixture() },
+    });
+    const slot = container.querySelector<HTMLElement>("[data-map-slot]")!;
+    const picture = slot.querySelector<HTMLElement>("[data-map-home-box]");
+    expect(picture, "the band's map opens on a picture, not a list of links").not.toBeNull();
+    // One layer per frame, each naming the committed raster it is a crop of.
+    const layers = [...picture!.querySelectorAll<HTMLElement>("[data-map-home-frame]")];
+    expect(layers.map((l) => l.dataset.mapHomeFrame)).toEqual(["full", "compact"]);
+    for (const layer of layers) {
+      expect(layer.style.backgroundImage).toMatch(/^url\("\/map-home-(full|compact)\.webp"\)$/);
+    }
+    // And the pins are THESE listings, linking where their list rows link.
+    const rows = [...slot.querySelectorAll("[data-map-link]")].map((a) => a.getAttribute("href"));
+    const pins = [...layers[0]!.querySelectorAll<HTMLAnchorElement>("[data-map-home-pin]")].map(
+      (a) => a.getAttribute("href"),
+    );
+    expect(pins.length).toBeGreaterThan(0);
+    for (const pin of pins) expect(rows).toContain(pin);
+  });
+
   describe("the portfolio link", () => {
     // Removed in review on 2026-09-21 and restored by the operator's call the
     // same day, on ONE condition: it goes in the card's own column and never
@@ -629,11 +655,15 @@ describe("FeaturedProperties slice", () => {
       // link of its own and no more, and everything else points at the listing
       // it sits on.
       // …plus the map's, which are a different promise and get their own
-      // assertion below rather than an exemption buried in this loop.
+      // assertion below rather than an exemption buried in this loop. Since
+      // #122 there are TWO kinds of those: the list's rows, and the pins the
+      // fixed-frame placeholder draws over the raster, which are links for the
+      // same reason the rows are — Google Maps needs no script, and the list
+      // is `sr-only` while the picture is up.
       for (const slice of [featuredPropertiesFixture(), featuredLaunchFixture()]) {
         const { container, unmount } = render(FeaturedProperties, { props: { slice } });
         const links = [...band(container).querySelectorAll("a")].filter(
-          (l) => !l.hasAttribute("data-map-link"),
+          (l) => !l.hasAttribute("data-map-link") && !l.hasAttribute("data-map-home-pin"),
         );
         expect(links.filter((l) => l.getAttribute("href") === "/properties")).toHaveLength(1);
         for (const link of links.filter((l) => l.getAttribute("href") !== "/properties")) {

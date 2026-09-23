@@ -136,6 +136,26 @@ test.describe("the tiles paint in the brand palette", () => {
   //
   // Nothing about what this proves has changed: the colours are the style's,
   // the deny half is untouched, and the water margin is 24x rather than 3x.
+  //
+  // THE PARAGRAPH ABOVE STOPPED BEING TRUE AT #122, and the correction is the
+  // point rather than the numbers. `active` is still null below `lg` — that
+  // half stands — but a null `active` no longer means "fit every point". It
+  // means this section's MAP_HOME, the chosen frame the committed placeholder
+  // is a picture of: centre 29.62/-98.52 at z8.0 for a compact box, instead of
+  // the fixture's z7.8765 fit. A zoom and a bit tighter on the metro is a
+  // canvas with more road, landuse and building fill on it, so the LAND SHARE
+  // FELL and the floor below moved with it. Re-measured at 390x844 on the
+  // fixture: 70,350 px, 33,480 (47.59%) #f2efe9, 403 #a8b4b8, both upstream
+  // colours 0 — so our ground is the canvas's dominant colour by a wide margin
+  // but no longer its outright majority, and 0.5 would have been asserting
+  // something that is no longer true of any frame this map shows.
+  //
+  // The separation is unchanged in kind and wider in degree. Re-run at THIS
+  // frame with `DEFAULT_MAP_STYLE_URL` mutated back to upstream's liberty:
+  // "70350 px: #f2efe9 350 (0.50%), #a8b4b8 0, #f8f4f0 31941, #9ebdff 403" —
+  // 47.59% against 0.50%, and the two denies both fire. (Note the symmetry the
+  // mutation exposes: the water pixel count is 403 either way; only its colour
+  // changes, which is exactly what a repaint should look like.)
   test("the ground is ours and the water is ours, counted off the canvas", async ({ page }) => {
     // BOTH halves of this line were changed on two branches for two reasons,
     // and they compose. `fix/map-palette-review` moved it to the fixture so
@@ -232,20 +252,26 @@ test.describe("the tiles paint in the brand palette", () => {
           // take. Water is small but not optional: a `water` layer that failed
           // to parse takes it to zero.
           //
-          // THE FLOORS ARE NOT THE MEASUREMENTS, and one of them is TIGHT.
-          // Water at 200 against a measured 441 is 2.2x of headroom. Land at
-          // 0.5 against a measured 0.5614 is SIX POINTS, which is deliberate
-          // but worth knowing: 0.5 is not a margin, it is the claim itself —
-          // our off-white is the majority colour of the canvas or the style
-          // did not take. A tile generalisation that adds a few percent of
-          // road or building fill would trip it, and that is the one way this
-          // gate can red without the palette being wrong. Three byte-identical
-          // runs say the frame itself is not the source of variance.
+          // THE FLOORS ARE NOT THE MEASUREMENTS, and both are tighter than
+          // they look. Water at 200 against a measured 403 is 2.0x. Land at
+          // 0.40 against a measured 0.4759 is under eight points.
           //
-          // They are floors on a DETERMINISTIC frame now — the fixture, not
-          // the portfolio — so if one trips it is the palette, not the content.
+          // 0.5 UNTIL #122, and it was written as "0.5 is not a margin, it is
+          // the claim itself — our off-white is the MAJORITY colour of the
+          // canvas". That claim was a property of the FIT frame, not of the
+          // style: on MAP_HOME's tighter metro frame our ground is 47.59%, a
+          // clear plurality and nothing near a majority, and the mutation
+          // control gives 0.50%. So the claim is restated as what it can
+          // actually be — our ground dominates the canvas, by two orders of
+          // magnitude over a map drawn in someone else's palette — and the
+          // floor is set with a real margin under the measurement rather than
+          // on a round number that happened to sit six points below it.
+          //
+          // They are floors on a DETERMINISTIC frame — the fixture at a CHOSEN
+          // camera now, which is more deterministic than the fit it replaced:
+          // it cannot move when the fixture gains a listing.
           return (
-            measured.total > 50_000 && measured.land / measured.total > 0.5 && measured.water > 200
+            measured.total > 50_000 && measured.land / measured.total > 0.4 && measured.water > 200
           );
         },
         {
@@ -269,8 +295,8 @@ test.describe("the tiles paint in the brand palette", () => {
     // against 0 with ours. On this frame BOTH denies discriminate.
     //
     // They are still only denies — an error matcher may fail a green, never
-    // grant one — and the 50% floor above is still what positively rules the
-    // old style out (it gives 595 px of our ground, 0.29%).
+    // grant one — and the land floor above is still what positively rules the
+    // old style out (on this frame it gives 350 px of our ground, 0.50%).
     expect(measured.upstreamWater, "upstream's blue water").toBe(0);
     expect(measured.upstreamLand, "upstream's neat ground").toBe(0);
   });

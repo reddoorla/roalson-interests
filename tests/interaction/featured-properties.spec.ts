@@ -669,6 +669,20 @@ test.describe("rotation", () => {
         page.locator("[data-property-map]").first(),
         "the band's map never finished booting, so this audit has no map in it",
       ).toHaveAttribute("data-map-ready", "", { timeout: 40_000 });
+      // …AND FOR THE HAND-OVER (#122). `data-map-ready` is MapLibre's `load`,
+      // which is where the canvas STARTS coming up over the fixed-frame
+      // picture — MAP_HOME_FADE_MS of `transition-opacity` on the canvas host,
+      // with the picture opaque beneath it. Auditing inside that window put
+      // the whole canvas subtree under an ancestor at partial opacity, and axe
+      // answers `color-contrast` with an incomplete rather than a ratio for
+      // everything in it: this case found ZERO openstreetmap.org nodes among
+      // the passes, on a chip whose measured colour is fine. The picture being
+      // GONE is the positive evidence that the canvas is fully opaque, so it
+      // is what the audit waits for rather than a sleep.
+      await expect(
+        page.locator("[data-map-home-box]"),
+        "the picture never handed over, so the canvas is still mid-fade",
+      ).toHaveCount(0, { timeout: 10_000 });
 
       const results = await new AxeBuilder({ page }).include(BAND).analyze();
       expect(results.violations.map((v) => `${v.id}: ${v.nodes.length}`)).toEqual([]);
@@ -1502,19 +1516,28 @@ test.describe("the other states", () => {
       const portfolio = card.getByRole("link", { name: "Our portfolio" });
       await expect(portfolio).toBeVisible();
       await expect(portfolio).toHaveAttribute("href", "/properties");
-      // `:not([data-map-link])` — the map's own links go to Google Maps by
-      // design (#13), and they are the OTHER thing a visitor without the
-      // bundle still gets here: the band's map is a list of its listings'
-      // pins until MapLibre replaces it, and with scripting off it stays one.
-      // Asserted as its own claim rather than folded into the loop below.
-      const pins = page.locator(`${BAND} [data-map-link]`);
-      await expect(pins).toHaveCount(3);
-      for (const pin of await pins.all())
-        await expect(pin).toHaveAttribute(
+      // The map's own links go to Google Maps by design (#13), and they are
+      // the OTHER thing a visitor without the bundle still gets here. Since
+      // #122 there are TWO sets of them and they are the same three places:
+      // the LIST — the map's accessible equivalent, `sr-only` now that the box
+      // draws the committed picture of MAP_HOME — and the PINS the picture
+      // draws over that raster, which is what a pointer actually has. Both are
+      // asserted as their own claim rather than folded into the loop below.
+      const rows = page.locator(`${BAND} [data-map-link]`);
+      await expect(rows).toHaveCount(3);
+      for (const row of await rows.all())
+        await expect(row).toHaveAttribute(
           "href",
           /^https:\/\/www\.google\.com\/maps\/search\/\?api=1&query=/,
         );
-      for (const link of await page.locator(`${BAND} a:not([data-map-link])`).all())
+      const pins = page.locator(`${BAND} [data-map-home-frame="full"] [data-map-home-pin]`);
+      expect(await pins.count(), "the picture drew pins with no script at all").toBeGreaterThan(0);
+      const rowHrefs = await rows.evaluateAll((els) => els.map((e) => e.getAttribute("href")));
+      for (const pin of await pins.all())
+        expect(rowHrefs).toContain(await pin.getAttribute("href"));
+      for (const link of await page
+        .locator(`${BAND} a:not([data-map-link]):not([data-map-home-pin])`)
+        .all())
         await expect(link).toHaveAttribute("href", /^\/properties(\/.+)?$/);
     } finally {
       await context.close();

@@ -95,7 +95,24 @@ test.describe("the no-JS state is the content, not a blank box", () => {
     await expect(sold.locator(MAP)).toHaveCount(0);
   });
 
-  test("with scripting off the links are visible, and the expand button is not", async ({
+  // WHAT THIS CASE ASSERTED UNTIL #122, and why it no longer can. It read
+  // "with scripting off the links are visible": every listing's title drawn as
+  // a link, 40px wide or more, on the tone's ground. That WAS the no-JS state,
+  // and #13's definition of done — "not a blank box" — was met by it.
+  //
+  // It is not a blank box now either; it is a MAP. The committed raster of
+  // MAP_HOME is painted from the server with this section's real pins over it,
+  // so the list would be drawn ON TOP of a picture of the thing it describes,
+  // and it goes `sr-only` exactly as it does once the canvas arrives. The
+  // claim below is the same promise moved: nothing is unreachable, because
+  // every pin is a link to the same Google Maps URL its row carries.
+  //
+  // THE COST, SAID PLAINLY, because it is a real one: a sighted visitor with
+  // scripting off no longer gets a readable list of listing NAMES in this box,
+  // and a CLUSTERED listing has no pin of its own to press. They keep the
+  // cards below, which carry every listing with its own link. The journal
+  // entry for #122 records this as the trade it is.
+  test("with scripting off the box is a map with pressable pins, and the list is its equivalent", async ({
     browser,
   }) => {
     const context = await browser.newContext({
@@ -105,15 +122,33 @@ test.describe("the no-JS state is the content, not a blank box", () => {
     try {
       const page = await context.newPage();
       await page.goto(PROPERTIES, { waitUntil: "domcontentloaded" });
+
+      // The picture, and the frame a 200px box takes.
+      const picture = page.locator(`${MAP} [data-map-home-box]`).first();
+      await expect(picture).toHaveCount(1);
+      const compact = picture.locator('[data-map-home-frame="compact"]');
+      await expect(compact).toHaveCSS("display", "block");
+      await expect(picture.locator('[data-map-home-frame="full"]')).toHaveCSS("display", "none");
+
+      // The list is still complete and still named — visually hidden, not
+      // removed. Six listings in this section, as before.
       const links = page.locator(`${MAP} [data-map-link]`);
       await expect(links).toHaveCount(6);
-      // Non-vacuity first, then the claim: every one of them is really on
-      // screen, not clipped to a 1px sr-only box.
-      for (let i = 0; i < 6; i += 1) {
-        const box = await links.nth(i).boundingBox();
-        expect(box!.width, `link ${i} width with scripting off`).toBeGreaterThan(40);
-        expect(box!.height, `link ${i} height with scripting off`).toBeGreaterThan(10);
+      const rows = await links.evaluateAll((els) => els.map((e) => e.getAttribute("href")));
+
+      // And every pin the picture draws is a link to one of those same places,
+      // really on screen rather than clipped: this is what replaces the "40px
+      // wide" non-vacuity check above.
+      const pins = compact.locator("[data-map-home-pin]");
+      const count = await pins.count();
+      expect(count, "the picture drew pressable pins").toBeGreaterThan(0);
+      for (let i = 0; i < count; i += 1) {
+        const box = await pins.nth(i).boundingBox();
+        expect(box!.width, `pin ${i} width with scripting off`).toBeGreaterThan(10);
+        expect(box!.height, `pin ${i} height with scripting off`).toBeGreaterThan(10);
+        expect(rows).toContain(await pins.nth(i).getAttribute("href"));
       }
+
       // `data-js-only` in app.html's <noscript> block: a control whose whole
       // job needs script is not offered to a browser that has declared it
       // will never run any.

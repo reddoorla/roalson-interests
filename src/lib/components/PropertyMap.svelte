@@ -105,7 +105,12 @@
     expansionZoom,
     fitCamera,
     frameFor,
+    homeFrames,
+    homeMarkers,
     MAP_FRAMES,
+    MAP_HOME,
+    MAP_HOME_FADE_MS,
+    MAP_HOME_GROUND,
     mapStyleUrl,
     PIN_ASPECT,
     PIN_HOLE,
@@ -113,6 +118,7 @@
     PIN_VIEWBOX,
     type Camera,
     type MapCluster,
+    type MapFrame,
     type MapPoint,
   } from "$lib/property-map";
   import { pageScrolling, watchPageScroll } from "$lib/scroll-activity.svelte";
@@ -318,19 +324,126 @@
   const measured = $derived(box.height > 0);
   const compact = $derived(box.height < COMPACT_MAX_HEIGHT);
   const frame = $derived(MAP_FRAMES[frameFor(box)]);
+
+  /**
+   * THE FIXED OPENING FRAME (#122), and the single answer both halves read.
+   *
+   * Non-null means two things at once and they must never be decided apart:
+   * the server draws the committed raster at MAP_HOME with the section's real
+   * pins over it, AND `boot` constructs MapLibre at exactly that camera, so
+   * the tiles land pixel-aligned under the picture and nothing jumps at the
+   * swap. Null — a section with no marker inside MAP_HOME — means neither: no
+   * picture, and the camera opens on `fitCamera` exactly as it did before.
+   * See `homeFrames` for why that is the answer and what it costs.
+   *
+   * It is computed from `points` alone, never from `box`, which is what lets
+   * the SERVER draw it: the marker offsets are relative to the box's centre,
+   * and with the camera fixed that centre is MAP_HOME's coordinate at every
+   * container size. See `homeMarkers`.
+   */
+  const home = $derived(homeFrames(points));
+  /** There is a map in the box — the canvas, or the picture of one. What the
+   *  list's visual state has always keyed off, widened by exactly the case
+   *  #122 adds. */
+  const drawn = $derived(ready || home !== null);
+  /**
+   * The canvas has finished coming up, so the picture underneath it can go.
+   *
+   * THE CROSS-FADE IS ONE-SIDED ON PURPOSE. Fading the placeholder OUT while
+   * the canvas fades IN puts both at 50% halfway through, and 50% over 50%
+   * over the tone ground is a visible dip to the sand — a flash of the thing
+   * the placeholder exists to replace. So the picture stays fully opaque and
+   * only the canvas travels; when the canvas is opaque the picture is
+   * invisible anyway and is simply removed. The removal is the only reason
+   * this flag exists.
+   *
+   * THE BROWSER SAYS WHEN, NOT A TIMER, and that is a correction this file
+   * paid for. It was first written as `setTimeout(MAP_HOME_FADE_MS)` started
+   * when `ready` flipped, on the reasoning that the CSS transition starts in
+   * the same flush and therefore ends at the same moment. Measured on
+   * /dev/home at 1455x900 with motion allowed, at the instant the picture was
+   * removed: the canvas host's computed opacity was **0.535164**. The
+   * transition had run barely half of its 300ms — a style recalculation under
+   * load does not begin when a `setTimeout` does — so the picture went while
+   * the canvas was still half transparent, and for those frames the band's
+   * #3d0707 showed through the map. axe found it before a human did: with the
+   * whole canvas subtree under an ancestor at partial opacity it answered
+   * `color-contrast` with three `imgNode` INCOMPLETES for the OpenStreetMap
+   * credit rather than a ratio, and featured-properties.spec.ts's audit went
+   * red naming the credit it could no longer measure.
+   *
+   * `transitionend` is the artifact a finished fade produces, so it is what
+   * ends the hand-over. The timer survives only as a leak guard at ten times
+   * the duration: a transition that never fires its event would otherwise
+   * strand the picture under an opaque canvas forever. It is never what ends
+   * this in practice, and if it ever is, something is already wrong.
+   *
+   * NOT `out:fade`, which is what the FIRST version used. A Svelte transition
+   * drives `element.animate`, which jsdom does not implement: the component
+   * threw `element.animate is not a function` the instant `ready` flipped, and
+   * four unrelated cases in PropertyMap.test.ts went red — the pins, the sheet
+   * and the scroll-zoom hand-over — because everything after the boot was
+   * running against a crashed component. The test that caught it was not
+   * testing the fade at all.
+   */
+  let handedOver = $state(false);
+  $effect(() => {
+    if (!ready) return;
+    // No transition to wait for: `motion-reduce:transition-none` on the canvas
+    // host means `transitionend` will never fire, so the hand-over is the same
+    // tick. #122's "no cross-fade under prefers-reduced-motion", both halves.
+    if ($reducedMotion) {
+      handedOver = true;
+      return;
+    }
+    const guard = setTimeout(() => (handedOver = true), MAP_HOME_FADE_MS * 10);
+    return () => clearTimeout(guard);
+  });
+  const homeLayers = $derived(
+    home === null
+      ? []
+      : (Object.keys(MAP_HOME) as MapFrame[]).map((key) => ({
+          key,
+          spec: MAP_HOME[key],
+          pin: MAP_FRAMES[key].pin,
+          markers: homeMarkers(points, key),
+        })),
+  );
   const clusters = $derived(
     ready ? clusterPoints(points, zoom, frame.clusterRadius) : ([] as MapCluster[]),
   );
 
-  /** Where the camera belongs right now, ignoring how it should get there —
-   *  the centre and zoom the map is CONSTRUCTED with. It resolves `active`
-   *  through the same `activeTarget` as `cameraMove`, so a map never boots
-   *  somewhere it would immediately fly away from: the homepage band opens
-   *  already framed on slide 0, which also means nothing moves on its own at
-   *  load (WCAG 2.2.2's cheapest case is the motion that never happens).
-   *  An id with no pin falls back to the fit HERE and only here — a boot has
-   *  no previous view to hold. */
+  /**
+   * The centre and zoom the map is CONSTRUCTED with.
+   *
+   * MAP_HOME FIRST, AND THAT IS THE #122 DECISION THIS FILE CARRIES. When a
+   * placeholder is drawn the map MUST open at exactly the camera the picture
+   * was rendered at, or the tiles arrive somewhere else and the swap is the
+   * jump the whole design exists to remove. There is no second opinion to
+   * drift from: `home` is the same value the markup reads.
+   *
+   * WHAT IT COSTS, AND IT IS A REAL COST. The line this replaces resolved
+   * `active` through `activeTarget`, so a map opened already framed on the
+   * active listing and "nothing moves at load" was literally true — the
+   * homepage band's own comment says so, and #112 meant it. It is no longer
+   * true there: the band opens on MAP_HOME and FLIES to slide 0 once MapLibre
+   * has drawn its first frame. That is the operator's own ask read plainly —
+   * "a specific frame to always show as the default start … and then load the
+   * tile so that we have movement when necessary" — and the alternative was to
+   * give the band no placeholder at all, which is where the wait is worst. It
+   * is 500ms and WCAG 2.2.2 governs motion over five seconds, so no criterion
+   * changes; under `prefers-reduced-motion` `cameraMove` answers `jump` and
+   * there is no travel at all. Recorded because it was deliberate, not because
+   * it is free.
+   *
+   * WITHOUT a placeholder this is exactly what it always was: `active` through
+   * the same `activeTarget` as `cameraMove` so a map never boots somewhere it
+   * would immediately fly away from, and an id with no pin falls back to the
+   * fit HERE and only here — a boot has no previous view to hold.
+   */
   function camera() {
+    const opening = home?.[frameFor(box)];
+    if (opening) return opening;
     const target = activeTarget(active, points) ?? null;
     return fitCamera(target ? [target] : points, box, {
       padding: frame.padding,
@@ -578,6 +691,10 @@
       ready,
       userMoved,
       reducedMotion: $reducedMotion,
+      // The same value `camera()` boots with and the markup draws — so "no
+      // listing is active" resolves to the frame the picture is OF, for the
+      // whole life of the map and not just its first frame (#122).
+      home: home?.[frameFor(size)] ?? null,
       commanded,
       // READ FOR ITS DEPENDENCY AS MUCH AS FOR ITS VALUE. `cameraMove` answers
       // `page-scrolling` while this is true and the move would have been a
@@ -718,16 +835,25 @@
     bind:this={boxEl}
     data-property-map
     data-map-ready={ready ? "" : undefined}
+    data-map-home={home ? "" : undefined}
     data-expanded={expanded ? "true" : undefined}
     class="relative isolate overflow-hidden {MAP_TONES[tone]} {passedClasses}"
   >
     <!-- THE CONTENT. First in the DOM and first in the tab order, before the
          canvas and before every control, because it is what the map is a
-         picture of. -->
+         picture of.
+         `drawn` — ready OR a placeholder — rather than `ready`, because the
+         list's job is to be the map's accessible equivalent and there is now a
+         map to be the equivalent OF before MapLibre arrives. It is the same
+         treatment the canvas has always been given and not a new one; what is
+         new is that a scripting-off browser gets it too, which is stated
+         plainly in the journal because it is the one population this trades
+         against. Every marker below is a real link to the same place the list
+         item points at, so nothing is unreachable by pointer. -->
     <ul
       data-map-list
       aria-label="{label} listings"
-      class={ready ? "" : "flex h-full flex-col gap-3 overflow-y-auto p-5"}
+      class={drawn ? "" : "flex h-full flex-col gap-3 overflow-y-auto p-5"}
     >
       {#each points as point (point.id)}
         <li>
@@ -736,7 +862,7 @@
             href={point.mapsUrl}
             target="_blank"
             rel="noopener noreferrer"
-            class={ready ? "sr-only" : "t-body-2 underline underline-offset-2"}
+            class={drawn ? "sr-only" : "t-body-2 underline underline-offset-2"}
           >
             {point.title}<span class="sr-only"> — open in Google Maps</span>
           </a>
@@ -744,13 +870,125 @@
       {/each}
     </ul>
 
+    <!-- THE FIXED-FRAME PLACEHOLDER (#122): the committed raster of MAP_HOME
+         with this section's REAL pins over it, server-rendered, visible from
+         first paint and with scripting off.
+         WHY A CONTAINER QUERY AND NOT A MEDIA QUERY. Which frame a map is, is
+         its own measured height and never the viewport's width — that is the
+         rule `frameFor` already holds, and `/dev/a11y-fixtures` draws a 200
+         and a 595 map side by side at one viewport width, where a media query
+         would answer the same thing twice. `container-type: size` is on this
+         wrapper rather than on the root, deliberately: the wrapper is
+         `absolute inset-0` so its size comes from the containing block and
+         size containment cannot change anyone's layout, whereas the root
+         contributes to the homepage band's grid row.
+         Only the matching layer is FETCHED: a background image on a
+         `display: none` element is not requested, so a phone pays 27.4 KB and
+         a desktop 62.1 KB, never both.
+         The camera is fixed, so the box's centre pixel is MAP_HOME's
+         coordinate at every container size — `background-position: center` at
+         the raster's own pixel size (never `cover`, which would scale it and
+         break alignment with the tiles), and the markers below are offsets
+         from that same centre. -->
+    {#if home && !handedOver}
+      <!-- `--map-home-ground` is written from the constant rather than typed
+           into the stylesheet, so the colour the margin paints and the colour
+           `scripts/map-home.test.ts` checks against the style file are the
+           same string. A second literal in CSS is a second thing to drift. -->
+      <div
+        data-map-home-box
+        aria-hidden="true"
+        style="--map-home-ground:{MAP_HOME_GROUND}"
+        class="pointer-events-none absolute inset-0"
+      >
+        {#each homeLayers as layer (layer.key)}
+          <div
+            data-map-home-frame={layer.key}
+            style="background-image:url(/{layer.spec.file});background-size:{layer.spec.raster
+              .width}px {layer.spec.raster.height}px"
+            class="absolute inset-0"
+          >
+            {#each layer.markers as marker (marker.id)}
+              {@const at = `left:50%;top:50%;transform:translate(${marker.dx}px,${marker.dy}px)`}
+              {#if marker.point}
+                <!-- A LINK, where the live marker is a button, and that is the
+                     whole no-JS story: the sheet the live pin opens needs
+                     script, and Google Maps does not. Same href, same target
+                     and same rel as this listing's row in the list above.
+                     `tabindex="-1"` + `aria-hidden` is the live marker's own
+                     contract, unchanged: a marker is a drawing of a list item
+                     and the list is what the keyboard and the screen reader
+                     get. -->
+                <a
+                  data-map-home-pin={marker.point.id}
+                  href={marker.point.mapsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  tabindex="-1"
+                  aria-hidden="true"
+                  style="{at} translate(-50%,-100%)"
+                  class="pointer-events-auto absolute"
+                >
+                  <svg
+                    width={layer.pin}
+                    height={layer.pin * PIN_ASPECT}
+                    viewBox={PIN_VIEWBOX}
+                    aria-hidden="true"
+                    focusable="false"
+                    class="block"
+                  >
+                    <path d={PIN_PATH} fill="var(--color-primary)" />
+                    <circle
+                      cx={PIN_HOLE.cx}
+                      cy={PIN_HOLE.cy}
+                      r={PIN_HOLE.r}
+                      fill="var(--color-light)"
+                    />
+                  </svg>
+                </a>
+              {:else}
+                {@const d = clusterDiameter(marker.count, layer.pin)}
+                <!-- Inert, unlike the live cluster: pressing one zooms the
+                     camera in on its members, and there is no camera yet. -->
+                <span
+                  data-map-home-cluster={marker.count}
+                  style="{at} translate(-50%,-50%);width:{d}px;height:{d}px;font-size:{Math.round(
+                    d * 0.42,
+                  )}px"
+                  class="absolute grid place-items-center rounded-full bg-primary font-semibold
+                    text-light tabular-nums"
+                >
+                  {marker.count}
+                </span>
+              {/if}
+            {/each}
+          </div>
+        {/each}
+      </div>
+    {/if}
+
     <!-- MapLibre's own box. `aria-hidden` is not a shortcut: the canvas keeps
          MapLibre's keyboard handler and its own accessible name (set above), so
          it is only the marker OVERLAY that is hidden, and only because the list
-         above says the same thing better. -->
+         above says the same thing better.
+         The opacity transition is the WHOLE cross-fade: the canvas comes up
+         over a placeholder that stays fully opaque underneath it, so the two
+         are the same map at the same camera for MAP_HOME_FADE_MS and the swap
+         reads as a sharpening rather than a cut. `motion-reduce:transition-none`
+         is #122's reduced-motion rule, and it is paired with `handedOver`
+         flipping immediately under the same preference — one setting, both
+         halves, no cross-fade at all. -->
     <div
       bind:this={canvasHost}
-      class="absolute inset-0 {ready ? '' : 'pointer-events-none opacity-0'}"
+      data-map-canvas
+      ontransitionend={(e) => {
+        // The one property this element animates, named rather than assumed:
+        // a `transitionend` for anything else must not retire the picture.
+        if (e.propertyName === "opacity" && ready) handedOver = true;
+      }}
+      style="transition-duration:{MAP_HOME_FADE_MS}ms"
+      class="absolute inset-0 transition-opacity motion-reduce:transition-none
+        {ready ? '' : 'pointer-events-none opacity-0'}"
     ></div>
 
     {#if ready}
@@ -909,7 +1147,39 @@
      authored `absolute` are the same specificity, and which one wins is
      decided by the stylesheet's order rather than by the class attribute's —
      exactly the defect HeroBackgroundVideo.svelte records paying for. */
-  [data-map-ready] [data-map-link]:focus {
+  /* WHICH FRAME'S PICTURE IS ON SCREEN, decided by the box's own height and
+     nothing else — `COMPACT_MAX_HEIGHT` (300) is `frameFor`'s threshold, and
+     these two rules are that function in CSS because the server cannot run it.
+     The 299.98 is the same boundary from below; a `height < 300px` range query
+     would be tidier and buys nothing here.
+     The wrapper carries `container-type: size` rather than the root: it is
+     `absolute inset-0`, so its size is the containing block's and size
+     containment cannot change what the root contributes to the homepage band's
+     grid row. A browser with no container-query support matches NEITHER rule
+     and shows no placeholder at all, which is exactly the pre-#122 state —
+     the degradation is "as before", never "the wrong frame". */
+  [data-map-home-box] {
+    container-type: size;
+  }
+  [data-map-home-frame] {
+    display: none;
+    background-color: var(--map-home-ground);
+    background-repeat: no-repeat;
+    background-position: center center;
+  }
+  @container (max-height: 299.98px) {
+    [data-map-home-frame="compact"] {
+      display: block;
+    }
+  }
+  @container (min-height: 300px) {
+    [data-map-home-frame="full"] {
+      display: block;
+    }
+  }
+
+  [data-map-ready] [data-map-link]:focus,
+  [data-map-home] [data-map-link]:focus {
     position: absolute;
     top: 12px;
     left: 12px;
