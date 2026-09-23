@@ -8,8 +8,16 @@ import {
   mapZoom,
   resetCamera,
   watchCamera,
+  type CameraLog,
 } from "./camera-probe";
 import { hydrated } from "./hydrated";
+
+/** `CAMERA_FLIGHT_MS` from $lib/property-map, repeated rather than imported: a
+ *  Playwright spec is transformed by Playwright and does not resolve `$lib`.
+ *  property-map.test.ts pins the source at 500 ("flies for as long as the
+ *  homepage band's own dissolve"), so a change there fails a unit test before
+ *  it can quietly weaken the floor below. */
+const CAMERA_FLIGHT_MS = 500;
 
 // THE CAMERA, ON THE SITE'S OWN ROUTES (#118 review).
 //
@@ -159,12 +167,17 @@ async function premises(page: Page) {
  *  scroll that is over in under a second. Returns the positions and the cards
  *  the centre line crossed, both measured off the page's own boxes. */
 async function travelOf(page: Page, drive: () => Promise<void>, ms = 2500) {
+  // Each sample carries the time the CAMERA PROBE would stamp on a flight
+  // issued in the same frame (`__camera.t0` is the shared origin), which is
+  // what lets a case ask "did it fly while the page was moving" rather than
+  // only "how many times did it fly".
   const sampling = page.evaluate(async (until) => {
-    const out: number[] = [];
+    const out: { t: number; y: number }[] = [];
+    const t0 = window.__camera.t0;
     const end = performance.now() + until;
     await new Promise<void>((resolve) => {
       const step = () => {
-        out.push(Math.round(window.scrollY));
+        out.push({ t: performance.now() - t0, y: Math.round(window.scrollY) });
         if (performance.now() < end) requestAnimationFrame(step);
         else resolve();
       };
@@ -173,7 +186,15 @@ async function travelOf(page: Page, drive: () => Promise<void>, ms = 2500) {
     return out;
   }, ms);
   await drive();
-  const positions = await sampling;
+  const samples = await sampling;
+  const positions = samples.map((s) => s.y);
+  // The last instant the page's own position CHANGED — the end of the
+  // movement, whoever or whatever was driving it, and not the moment the
+  // driving call returned (`End` returns the instant the key is pressed and
+  // the page glides on for another 300ms after it).
+  let movingUntil = samples[0]?.t ?? 0;
+  for (let i = 1; i < samples.length; i++)
+    if (samples[i]!.y !== samples[i - 1]!.y) movingUntil = samples[i]!.t;
   const crossed = await page.evaluate((ys) => {
     const cards = [...document.querySelectorAll<HTMLElement>("[data-centre-id]")].map((li) => {
       const b = li.getBoundingClientRect();
@@ -190,14 +211,20 @@ async function travelOf(page: Page, drive: () => Promise<void>, ms = 2500) {
     }
     return [...seen];
   }, positions);
-  return { positions, crossed, distance: positions[positions.length - 1]! - positions[0]! };
+  return {
+    positions,
+    crossed,
+    movingUntil,
+    distance: positions[positions.length - 1]! - positions[0]!,
+  };
 }
 
 // ---------------------------------------------------------------------------
-// ONE FLIGHT PER SETTLED SCROLL, whatever caused the scroll (MAJOR 3)
+// NO ARC IS ABANDONED, whatever is moving the page (#118 review MAJOR 3,
+// re-based on the flight itself by #127 and #128)
 // ---------------------------------------------------------------------------
 
-test.describe("a smooth scroll commands the camera once, not once per card", () => {
+test.describe("no arc is abandoned: a flight lands before the next one leaves", () => {
   test.use({ contextOptions: { reducedMotion: "no-preference" } });
 
   /** Load /properties at 1440x900 with the probe in, both maps drawn, parked at
@@ -215,20 +242,74 @@ test.describe("a smooth scroll commands the camera once, not once per card", () 
     await resetCamera(page);
   }
 
-  // THE NUMBERS THIS REPLACES, measured on a production build of /properties at
-  // 1440x900 with motion allowed, counting the calls made to maplibre-gl:
+  // WHAT IS ASSERTED HERE, AND WHY IT IS NOT A COUNT ANY MORE (#127, #128).
   //
-  //   End from scrollY 0    5-9 flyTo + 1 jumpTo, spanning 71-81ms
-  //   PageDown x3           5 flyTo
-  //   Space x4              4 flyTo
-  //   scrollTo(0, 4999)     15 flyTo in 784ms
+  // This block used to require "at most ONE flight per map per scroll", which
+  // the rule of the day delivered by refusing every flight while the DOCUMENT
+  // was moving. Both halves of that turned out to be wrong:
   //
-  // Eight Van Wijk arcs each abandoned after ~9ms is a smear, and by the
-  // severity bar the press path was fixed under — four flights in 322ms —
-  // every one of these is the same defect. None of them goes anywhere near a
-  // pin, which is why fixing the press fixed none of them.
-  for (const [name, drive] of [
-    ["the End key", (page: Page) => page.keyboard.press("End")],
+  //   #127  the refusal was a 120ms debounce on `scroll`, and a mouse wheel is
+  //         ONE event per notch. At a 130ms notch gap a production build
+  //         issued 9 flights for a 2560px scroll — the same 9 as a build with
+  //         the refusal deleted outright — and with a 300px notch at 150ms the
+  //         closest two flights were 171ms apart.
+  //   #128  the same refusal had no ceiling, so a scroll that kept delivering
+  //         events issued ZERO camera commands for its whole duration:
+  //         measured here at 6400px over 10s and 21 cards crossed, with one
+  //         flight at t=10425 once it stopped.
+  //
+  // A count cannot express what either of those is about. The defect is an ARC
+  // ABANDONED — a 500ms Van Wijk path replaced after a few milliseconds — and
+  // what says so is the GAP between two flights to the same map. The rule now
+  // gates on a flight already in the air, so that gap is CAMERA_FLIGHT_MS by
+  // construction, for every input, and this block measures exactly that.
+  //
+  // It is weaker than the old assertion in one direction — a long drive now
+  // costs several flights, each of them complete: `End` went 1 -> 2, a smooth
+  // scrollTo 1 -> 3, a pressed pin 1 -> 3 — and stronger in the direction that
+  // matters, because it holds for the wheel and for the held scroll, neither
+  // of which the old assertion could see at all.
+  //
+  // THE FLOOR, with its slack stated. Measured across eleven drives on a
+  // production build, the smallest gap any of them produced was 500ms exactly,
+  // and the hold is a `setTimeout`, which can only fire late. 450 is that
+  // number with a frame of allowance; it is still 2.6x the worst gap #127
+  // found.
+  const FLIGHT_FLOOR_MS = 450;
+
+  /** Consecutive flights to the same map, ms apart, closest first. */
+  function gapsPerMap(log: CameraLog) {
+    const byMap = new Map<number, number[]>();
+    for (const call of [...log.fly, ...log.ease])
+      byMap.set(call.m, [...(byMap.get(call.m) ?? []), call.t]);
+    const gaps: { m: number; gap: number }[] = [];
+    for (const [m, times] of byMap) {
+      const sorted = [...times].sort((a, b) => a - b);
+      for (let i = 1; i < sorted.length; i++)
+        gaps.push({ m, gap: Math.round(sorted[i]! - sorted[i - 1]!) });
+    }
+    return gaps.sort((a, b) => a.gap - b.gap);
+  }
+
+  /** A point in the CARDS column, clear of every pinned map box — where a real
+   *  visitor's pointer is while they wheel down the portfolio. Wheeling over a
+   *  map box is a different test entirely: maplibre's ScrollZoomHandler ends in
+   *  an unconditional preventDefault (see PropertyMap's `boot`), so the page
+   *  would not move and the drive would measure nothing. */
+  const overTheCards = (page: Page) =>
+    page.evaluate(() => {
+      const maps = [...document.querySelectorAll("[data-property-map]")].map((el) =>
+        el.getBoundingClientRect(),
+      );
+      const card = document.querySelector("[data-centre-id]")!.getBoundingClientRect();
+      const y = Math.min(Math.max(card.top + card.height / 2, 120), window.innerHeight - 120);
+      const x = card.left + card.width / 2;
+      const clear = maps.every((m) => x < m.left || x > m.right || y < m.top || y > m.bottom);
+      return clear ? { x, y } : null;
+    });
+
+  for (const [name, drive, watchFor] of [
+    ["the End key", (page: Page) => page.keyboard.press("End"), 2500],
     [
       "three PageDowns",
       async (page: Page) => {
@@ -237,21 +318,70 @@ test.describe("a smooth scroll commands the camera once, not once per card", () 
           await page.waitForTimeout(60);
         }
       },
+      2500,
     ],
     [
       "a page's own smooth scrollTo",
       (page: Page) =>
         page.evaluate(() => window.scrollTo({ top: 4999, behavior: "smooth" })) as Promise<void>,
+      2500,
+    ],
+    // THE CASE THE OLD BLOCK COULD NOT SEE, and the whole of why #127 shipped:
+    // every drive above animates at frame rate, so each of them held the old
+    // debounce true from end to end. A wheel does not. One notch is one event,
+    // and the spacing is set by a hand — 130-220ms for someone turning it
+    // steadily. 150ms is inside that band and wider than the 120ms the old
+    // rule used, so a guard that measures the PAGE is absent here and a guard
+    // that measures the FLIGHT is not. 300px a notch because that is a notch
+    // that crosses a card every time: at 1440x900 the portfolio's cards are
+    // ~284px of scroll apart, so a 100px notch crosses one every third notch
+    // and hides the interruption behind the card geometry.
+    [
+      "a real mouse wheel, 300px a notch, 150ms apart",
+      async (page: Page) => {
+        const spot = await overTheCards(page);
+        expect(spot, "a point in the cards column, clear of every map box").not.toBeNull();
+        await page.mouse.move(spot!.x, spot!.y);
+        for (let i = 0; i < 10; i++) {
+          await page.mouse.wheel(0, 300);
+          await page.waitForTimeout(150);
+        }
+      },
+      6000,
+    ],
+    // #128: a scroll that keeps delivering events for ten seconds — a
+    // scrollbar drag, a held autoscroll, a long momentum fling. `instant` on
+    // purpose: `scroll-behavior: smooth` is on the documentElement here, and a
+    // per-frame `scrollBy` under it restarts an animation every frame and
+    // travels ~500px in ten seconds rather than ~6000.
+    [
+      "a scroll held for ten seconds",
+      (page: Page) =>
+        page.evaluate(
+          () =>
+            new Promise<void>((resolve) => {
+              let y = window.scrollY;
+              const end = performance.now() + 10_000;
+              const step = () => {
+                y += 8;
+                window.scrollTo({ top: y, behavior: "instant" as ScrollBehavior });
+                if (performance.now() < end) requestAnimationFrame(step);
+                else resolve();
+              };
+              requestAnimationFrame(step);
+            }),
+        ) as Promise<void>,
+      13_000,
     ],
   ] as const) {
-    test(`${name} costs each map at most one command`, async ({ page }) => {
+    test(`${name} lands every arc it starts`, async ({ page }) => {
       test.setTimeout(180_000);
       await atTheTop(page);
 
-      const travel = await travelOf(page, () => drive(page));
+      const travel = await travelOf(page, () => drive(page), watchFor);
 
-      // THE PREMISES. Without these a count of 1 could be true because nothing
-      // moved, or because it moved in a single frame.
+      // THE PREMISES. Without these a gap of Infinity could be true because
+      // nothing moved, or because it moved in a single frame.
       expect(
         travel.distance,
         `the page really travelled (${travel.positions.length} frames)`,
@@ -272,26 +402,42 @@ test.describe("a smooth scroll commands the camera once, not once per card", () 
 
       await page.waitForTimeout(1200);
       const log = await cameraLog(page);
-      // FLIGHTS are what coalesce, and the claim is per MAP: a page draws one
-      // map per section and an `End` crosses cards in all of them, so "the
-      // camera flew once" is a statement about each of them, not about the sum.
+      // FLIGHTS are what can be abandoned, and the claim is per MAP: a page
+      // draws one map per section, and two flights to DIFFERENT maps are two
+      // cameras doing their own job rather than one interrupting itself.
       //
       // A JUMP is deliberately not in the class and is not counted here —
-      // `cameraMove` refuses only a flight while the page moves, because an
-      // instant move cannot be interrupted and cannot smear. A map that boots
-      // mid-scroll issues one: its first measured box is not the box its boot
-      // camera was computed against, and re-fitting that is a layout answer.
+      // `cameraMove` refuses only a flight, because an instant move cannot be
+      // interrupted and cannot smear. A map that boots mid-scroll issues one:
+      // its first measured box is not the box its boot camera was computed
+      // against, and re-fitting that is a layout answer.
       const perMap = new Map<number, number>();
       for (const call of [...log.fly, ...log.ease])
         perMap.set(call.m, (perMap.get(call.m) ?? 0) + 1);
+      const gaps = gapsPerMap(log);
       const tally =
         `fly ${log.fly.length}, ease ${log.ease.length}, jump ${log.jump.length}; ` +
-        `per map ${[...perMap].map(([m, n]) => `${m}:${n}`).join(" ") || "none"}`;
-      for (const [m, n] of perMap)
-        expect(n, `map ${m} flew ${n} times for ONE scroll (${tally})`).toBeLessThanOrEqual(1);
+        `per map ${[...perMap].map(([m, n]) => `${m}:${n}`).join(" ") || "none"}; ` +
+        `gaps ${gaps.map((g) => `${g.m}:${g.gap}`).join(" ") || "none"}`;
+      // THE CLAIM. Every flight was allowed to land before the next one left.
+      if (gaps.length)
+        expect(
+          gaps[0]!.gap,
+          `map ${gaps[0]!.m} was sent a second flight ${gaps[0]!.gap}ms into a ` +
+            `${CAMERA_FLIGHT_MS}ms arc (${tally})`,
+        ).toBeGreaterThanOrEqual(FLIGHT_FLOOR_MS);
       // And positive evidence that it flew at all: a rule that answered "no
-      // move" to everything would satisfy the line above perfectly.
+      // move" to everything would satisfy the line above perfectly, having
+      // never produced a pair to measure.
       expect(log.fly.length, `the camera did follow the scroll (${tally})`).toBeGreaterThan(0);
+      // …and — the other half of #128 — it followed WHILE the page was moving
+      // rather than only once it stopped. The drive is the first `watchFor` ms
+      // of the run; a camera that issued everything after it is the freeze.
+      const during = log.fly.filter((c) => c.t <= travel.movingUntil + 100).length;
+      expect(
+        during,
+        `flights issued while the page was still moving (${during} of ${log.fly.length}; ${tally})`,
+      ).toBeGreaterThan(0);
 
       // And the camera is not merely quiet: it went where the scroll ENDED.
       const settled = await onCentreLine(land(page));
@@ -311,11 +457,15 @@ test.describe("a smooth scroll commands the camera once, not once per card", () 
     });
   }
 
-  // THIS ONE DOES NOT DISCRIMINATE, AND IS KEPT ANYWAY. Run against the code
-  // this PR replaces, on a production build, it PASSED — the press was the one
-  // path that had been noticed and the one path that had been fixed. It guards
-  // the other direction: the machinery that made it true was deleted here, and
-  // the general rule has to cover the case it used to special-case.
+  // THE PRESS IS STILL NOT A SPECIAL CASE OF ANYTHING, and the number it costs
+  // has changed. It used to be asserted at exactly ONE command, which the
+  // document-scroll refusal delivered by holding the camera for the whole
+  // travel; under the flight rule the press costs THREE complete arcs (1 ->
+  // 3, measured on a production build: flights at t=2526, 3058, 3706, gaps 532
+  // and 648). That is the visible price of the correction and it is recorded in
+  // the journal and in an issue rather than hidden here: the camera now visits
+  // the listings the page really passes through on the way, instead of
+  // arriving after the fact.
   test("and a pressed pin is no longer a special case of anything", async ({ page }) => {
     test.setTimeout(180_000);
     await atTheTop(page);
@@ -345,8 +495,16 @@ test.describe("a smooth scroll commands the camera once, not once per card", () 
     expect(landMap, "the land map is one of the booted maps").toBeGreaterThanOrEqual(0);
     expect(
       await cameraMovesFor(page, landMap),
-      "the pressed section's camera was commanded once",
-    ).toBe(1);
+      "the pressed section's camera was commanded at all",
+    ).toBeGreaterThan(0);
+    // The same claim as every case above, on the path that used to have its own
+    // machinery: no arc was abandoned.
+    const gaps = gapsPerMap(await cameraLog(page)).filter((g) => g.m === landMap);
+    if (gaps.length)
+      expect(
+        gaps[0]!.gap,
+        `the press sent a second flight ${gaps[0]!.gap}ms into a ${CAMERA_FLIGHT_MS}ms arc`,
+      ).toBeGreaterThanOrEqual(FLIGHT_FLOOR_MS);
     expect(await onCentreLine(section)).toBe(target);
   });
 });

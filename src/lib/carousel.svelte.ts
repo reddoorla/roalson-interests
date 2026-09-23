@@ -161,8 +161,35 @@ export function createCarousel(options: CarouselOptions) {
    *
    * It says who made the LAST turn, not whether one is happening now, so a
    * consumer reads it alongside `index` in the same flush and never on its own.
+   *
+   * IT IS NOT THE WHOLE ANSWER ON ITS OWN, see `clamped` (#129): `by` records
+   * COMMANDS, and the third way `index` moves is not a command.
    */
   let by = $state<"visitor" | "auto">("auto");
+
+  /**
+   * THE CLAMP IS HOLDING THE INDEX DOWN — `raw` names a slide past the end of
+   * a list that has since shrunk, so what is on screen was chosen by the page
+   * and not by anybody (#129).
+   *
+   * `by` is written by `step()` and by `goTo()`, which are the two ways a
+   * slide is TURNED. `index` has a third mover: the derived clamp above. Let
+   * `count` shrink and `index` follows `last` down with `by` untouched, so a
+   * consumer reads whoever made the last real turn — and if that was the
+   * visitor, the page's own re-clamp is reported as a visitor's move. That is
+   * the defect #126's MAJOR 2 fixed, on the one path its fix did not cover:
+   * `PropertyMap` lifts a camera suspension the visitor set, with no user
+   * action.
+   *
+   * A DERIVED RATHER THAN AN EFFECT, which is the cheaper of the two shapes
+   * the issue offered and also the truer one. An effect comparing `index` to
+   * the last reported one would have to run, so it would be wrong on the
+   * server and for one flush in the browser — and the question has an exact
+   * answer available with no state at all: `raw > last` is precisely "the
+   * clamp, not a command, decided this". It goes back to reporting the command
+   * the moment one arrives, because every command writes `raw` within `last`.
+   */
+  const clamped = $derived(raw > last);
 
   /** Every change of slide — a click, a key, a swipe, the clock — starts the
    *  next dwell from the top (after `settle`). */
@@ -359,9 +386,11 @@ export function createCarousel(options: CarouselOptions) {
       return count;
     },
     /** Who turned the slide now showing: "visitor" (an arrow, a key, a swipe,
-     *  a `goTo`) or "auto" (the clock, and the very first slide). See `by`. */
+     *  a `goTo`) or "auto" (the clock, the very first slide, and a list that
+     *  shrank under the index — nobody turned that one). See `by` and
+     *  `clamped`. */
     get turnedBy() {
-      return by;
+      return clamped ? "auto" : by;
     },
     /** 0..1 through the current slide's dwell; frozen by every pause; 0 when
      *  this carousel cannot autoplay (then draw `position` instead). */

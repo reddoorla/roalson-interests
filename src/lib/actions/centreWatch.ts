@@ -43,10 +43,10 @@
  * the scroll made that press quiet and did nothing whatever for the `End` key,
  * which issued 5-9 flights in 71-81ms on a production build of the real
  * /properties. The rule was never the problem; launching a 500ms flight at
- * every answer was. So the coalescing lives at the camera
- * ($lib/scroll-activity, `cameraMove`'s `page-scrolling` refusal), the press
- * is not a special case of anything, and this file is back to one job: say
- * which card is on the line, whenever the browser can see it.
+ * every answer was. So the coalescing lives at the camera (`cameraMove`'s
+ * `in-flight` refusal: no second flight while one is still in the air), the
+ * press is not a special case of anything, and this file is back to one job:
+ * say which card is on the line, whenever the browser can see it.
  *
  * DESKTOP ONLY, AND NOT MERELY HIDDEN. The map only pins from `lg` (see
  * PropertyListing.svelte for why a phone does not spend a quarter of its
