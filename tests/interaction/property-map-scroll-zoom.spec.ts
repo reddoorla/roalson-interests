@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type CDPSession, type Page } from "@playwright/test";
 
 import { cameraLog, cameraProbeInstalled, mapZoom, resetCamera, watchCamera } from "./camera-probe";
 import { hydrated } from "./hydrated";
@@ -420,5 +420,228 @@ test.describe("a zoom the wheel chose is still the visitor's after the next card
         3,
       );
     expect(await mapZoom(page), "and that is where the map ended up").toBeCloseTo(chosen, 3);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// THE WHEEL STAYS WITH WHAT THE SCROLL STARTED ON
+// ---------------------------------------------------------------------------
+//
+// Operator call, 2026-09-23, choosing the mitigation this PR's first half
+// recommended. Measured on a production build before it, 1440x900, the
+// pointer resting on the land map's column and a run of 120px notches from
+// scrollY 0: the page stopped at 480 with the pointer at y 150, at 120 at
+// y 405 — the notch after the pinned map slid under a pointer that had not
+// moved went to the map, which zoomed and kept every notch after. The rule
+// (`wheelRun`, $lib/property-map) files every wheel into a run, and a run is
+// the map's only if it BEGAN over the map; a new run needs `WHEEL_QUIET_MS`
+// (500) of silence or the pointer moving more than `WHEEL_SLOP_PX` (10).
+//
+// THE NOTCHES HERE CARRY THEIR OWN CLOCK. Each is a CDP `mouseWheel` with an
+// explicit `timestamp`, and Chromium stamps the DOM event's `timeStamp` from it
+// — measured: three notches sent 700ms and then ~0ms apart in wall time, with
+// timestamps 0.13s and 0.87s apart, arrived 130 and 870 apart. So "130ms
+// between notches" and "600ms of quiet" are what the page's rule sees whatever
+// the machine's load does to the real gaps, and none of these cases can pass
+// or fail on a slow runner's timing.
+
+/** One scroll of `n` notches at (x, y), `gapS` seconds apart on the EVENT
+ *  clock, starting at `from` (seconds since the epoch). The real wait between
+ *  notches is only there so the page's own scroll keeps up with the hand.
+ *  Returns the event time of the last notch. */
+async function notches(
+  page: Page,
+  cdp: CDPSession,
+  at: { x: number; y: number },
+  n: number,
+  from: number,
+  { gapS = 0.13, deltaY = 120 } = {},
+) {
+  let t = from;
+  for (let i = 0; i < n; i++) {
+    t = from + i * gapS;
+    await cdp.send("Input.dispatchMouseEvent", {
+      type: "mouseWheel",
+      x: at.x,
+      y: at.y,
+      deltaX: 0,
+      deltaY,
+      timestamp: t,
+    });
+    await page.waitForTimeout(90);
+  }
+  return t;
+}
+
+/** Record, for every real wheel from here on, whether it landed inside the
+ *  land map and whether anything took it from the page — read from a
+ *  `window` CAPTURE listener (the first to see it; a bubble one would miss
+ *  exactly the wheels the rule withholds) and settled a task later, once
+ *  dispatch is over. */
+const recordWheels = (page: Page) =>
+  page.evaluate(() => {
+    const w = window as unknown as { __wheels: { onMap: boolean; prevented: boolean }[] };
+    w.__wheels = [];
+    window.addEventListener(
+      "wheel",
+      (e) => {
+        if (!e.isTrusted) return;
+        const onMap = !!(e.target as Element | null)?.closest?.("[data-property-map]");
+        setTimeout(() => w.__wheels.push({ onMap, prevented: e.defaultPrevented }), 0);
+      },
+      { capture: true, passive: true },
+    );
+  });
+const wheelsSeen = (page: Page) =>
+  page.evaluate(
+    () => (window as unknown as { __wheels: { onMap: boolean; prevented: boolean }[] }).__wheels,
+  );
+
+test.describe("the wheel stays with the scroll it started in", () => {
+  test("a scroll begun above the map runs to the foot of the page, the map sliding under it", async ({
+    page,
+  }) => {
+    test.setTimeout(240_000);
+    await landMapUp(page);
+    const g = await geometry(page);
+    const x = (g.map.left + g.map.right) / 2;
+    await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
+    await page.waitForTimeout(800);
+    // THE PREMISE: at the top of the page the pointer is on the PAGE, above
+    // the map's column (the map is pinned 100px from the top once it arrives,
+    // so y 150 is where it will be).
+    const y = 150;
+    expect(
+      await page.evaluate(
+        (p) => !!document.elementFromPoint(p.x, p.y)?.closest("[data-property-map]"),
+        { x, y },
+      ),
+      "the scroll begins with the pointer off the map",
+    ).toBe(false);
+    await page.mouse.move(x, y);
+    await recordWheels(page);
+    const z0 = await mapZoom(page);
+    const foot = await page.evaluate(
+      () => document.documentElement.scrollHeight - window.innerHeight,
+    );
+
+    const cdp = await page.context().newCDPSession(page);
+    let t = Date.now() / 1000;
+    for (let i = 0; i < 90 && (await page.evaluate(() => window.scrollY)) < foot; i++)
+      t = (await notches(page, cdp, { x, y }, 1, t + 0.13)) as number;
+    await page.waitForTimeout(1000);
+
+    const wheels = await wheelsSeen(page);
+    const onMap = wheels.filter((w) => w.onMap);
+    // The map really did arrive under the still pointer — without this the
+    // case could pass on a layout where it never does.
+    expect(onMap.length, `notches that landed ON the map (${wheels.length} sent)`).toBeGreaterThan(
+      5,
+    );
+    expect(
+      onMap.filter((w) => w.prevented).length,
+      "and none of them was taken from the page",
+    ).toBe(0);
+    // THE PASS: the page reached its foot. Before the rule it stopped at 480.
+    expect(await page.evaluate(() => window.scrollY), "the scroll reached the foot").toBe(foot);
+    expect(await mapZoom(page), "and the map it passed over never zoomed").toBeCloseTo(z0, 4);
+  });
+
+  // THE RACE THE FIRST NOTCH RUNS. Over the page Chromium sends a wheel
+  // uncancellable and scrolls at once; the DOM target is hit-tested after that
+  // scroll has begun. With the pointer one notch above where the map will be,
+  // the FIRST notch arrived on the map in 6 of 8 production runs — sent at
+  // scrollY 0, dispatched at 120 — and was filed as a scroll begun there; the
+  // page then stopped at 120. An uncancellable wheel is now the page's.
+  test("a scroll begun one notch above the map is not handed to it by the first notch's race", async ({
+    page,
+  }) => {
+    test.setTimeout(240_000);
+    await landMapUp(page);
+    const g = await geometry(page);
+    const x = (g.map.left + g.map.right) / 2;
+    await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
+    await page.waitForTimeout(800);
+    const mapTop = await page.evaluate(
+      () => document.querySelector("[data-property-map]")!.getBoundingClientRect().top,
+    );
+    // 110px above the map's top: off it now, 10px inside it after one notch.
+    const y = Math.round(mapTop - 110);
+    expect(y, "premise: there is page above the map to start on").toBeGreaterThan(100);
+    await page.mouse.move(x, y);
+    await recordWheels(page);
+    const foot = await page.evaluate(
+      () => document.documentElement.scrollHeight - window.innerHeight,
+    );
+    const cdp = await page.context().newCDPSession(page);
+    let t = Date.now() / 1000;
+    for (let i = 0; i < 90 && (await page.evaluate(() => window.scrollY)) < foot; i++)
+      t = await notches(page, cdp, { x, y }, 1, t + 0.13);
+    await page.waitForTimeout(1000);
+    const wheels = await wheelsSeen(page);
+    expect(wheels.filter((w) => w.onMap).length, "notches that landed on the map").toBeGreaterThan(
+      5,
+    );
+    expect(wheels.filter((w) => w.prevented).length, "none of them was the map's").toBe(0);
+    expect(await page.evaluate(() => window.scrollY), "the scroll reached the foot").toBe(foot);
+  });
+
+  test("the same still pointer, after 600ms of quiet, zooms the map it is now over", async ({
+    page,
+  }) => {
+    test.setTimeout(240_000);
+    await landMapUp(page);
+    const g = await geometry(page);
+    const x = (g.map.left + g.map.right) / 2;
+    const y = 300;
+    await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
+    await page.waitForTimeout(800);
+    await page.mouse.move(x, y);
+    const cdp = await page.context().newCDPSession(page);
+
+    // Scroll the page until the map is under the pointer and has been for a
+    // while: the notches that landed on it went to the page.
+    let t = Date.now() / 1000;
+    t = await notches(page, cdp, { x, y }, 20, t);
+    await page.waitForTimeout(800);
+    const under = await page.evaluate(
+      (p) => !!document.elementFromPoint(p.x, p.y)?.closest("[data-property-map]"),
+      { x, y },
+    );
+    expect(under, "premise: the map is under the pointer now").toBe(true);
+    const y0 = await page.evaluate(() => window.scrollY);
+    expect(y0, "and the page got there by the wheel").toBeGreaterThan(1000);
+
+    // A new scroll: same place, 600ms after the last notch.
+    const z0 = await mapZoom(page);
+    await notches(page, cdp, { x, y }, 5, t + 0.6, { deltaY: -120 });
+    await page.waitForTimeout(1200);
+    expect((await mapZoom(page)) - z0, "the new scroll zoomed the map").toBeGreaterThan(0.3);
+    expect((await page.evaluate(() => window.scrollY)) - y0, "and kept the page").toBe(0);
+  });
+
+  test("moving onto the map starts a new scroll at once — no quiet needed", async ({ page }) => {
+    test.setTimeout(240_000);
+    await landMapUp(page);
+    await parkAt(page, 2400);
+    const g = await geometry(page);
+    const spot = await bareSpot(page);
+    expect(spot, "bare canvas to move onto").not.toBeNull();
+    const cdp = await page.context().newCDPSession(page);
+
+    await page.mouse.move(g.cards.x, g.cards.y);
+    const t = await notches(page, cdp, g.cards, 3, Date.now() / 1000);
+    await page.waitForTimeout(600);
+    const y0 = await page.evaluate(() => window.scrollY);
+    expect(y0, "premise: the cards' notches scrolled the page").toBeGreaterThan(2400);
+    const z0 = await mapZoom(page);
+
+    // 130ms after the last card notch on the event clock: well inside the
+    // quiet, so only the MOVE can make this a new scroll.
+    await page.mouse.move(spot!.x, spot!.y, { steps: 4 });
+    await notches(page, cdp, spot!, 5, t + 0.13, { deltaY: -120 });
+    await page.waitForTimeout(1200);
+    expect((await mapZoom(page)) - z0, "the wheel on the map zoomed it").toBeGreaterThan(0.3);
+    expect((await page.evaluate(() => window.scrollY)) - y0, "and kept the page").toBe(0);
   });
 });

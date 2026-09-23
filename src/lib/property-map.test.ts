@@ -31,8 +31,12 @@ import {
   slidePoints,
   unprojectLat,
   unprojectLng,
+  WHEEL_QUIET_MS,
+  WHEEL_SLOP_PX,
+  wheelRun,
   type Box,
   type MapPoint,
+  type WheelRun,
 } from "$lib/property-map";
 
 // THE REAL PORTFOLIO, read from roalson-interests' Content API on 2026-09-22.
@@ -1153,5 +1157,82 @@ describe("where 'no listing is active' goes, once there is a chosen frame", () =
       commanded: MAP_HOME.full.camera,
     });
     expect(move).toEqual({ move: "none", why: "arrived" });
+  });
+});
+
+// THE WHEEL STAYS WITH WHAT THE SCROLL STARTED ON (operator call, 2026-09-23).
+// `wheelRun` is the whole rule; PropertyMap.svelte only feeds it every wheel
+// event on the page and withholds from maplibre the ones whose run is not the
+// map's. Each case below is one of the ways a run can end or go on, and the
+// three that must NOT start a run are paired with the one that must.
+describe("which scroll a wheel event belongs to", () => {
+  const at = (timeStamp: number, clientX = 300, clientY = 400) => ({ timeStamp, clientX, clientY });
+  const page = () => false;
+  const map = () => true;
+
+  it("is Chromium's own latching window and slop, not a new pair of numbers", () => {
+    // content/browser/renderer_host/input/mouse_wheel_phase_handler.h:
+    // `kDefaultMouseWheelLatchingTransaction` 500ms, `kWheelLatchingSlopRegion`
+    // 10.0. A change here is a decision to disagree with the browser about
+    // which scroll a notch is part of, and should be made on purpose.
+    expect(WHEEL_QUIET_MS).toBe(500);
+    expect(WHEEL_SLOP_PX).toBe(10);
+  });
+
+  it("starts a run on the first event, and asks where only then", () => {
+    let asked = 0;
+    const run = wheelRun(null, at(1000), () => (asked++, true));
+    expect(run).toEqual({ mine: true, at: 1000, x: 300, y: 400 });
+    expect(asked).toBe(1);
+  });
+
+  it("keeps a page run the page's when the map arrives under a still pointer", () => {
+    // THE DEFECT, as the rule sees it: the pointer has not moved, the notches
+    // are one scroll, and the hit-test under the pointer now says "map".
+    let run: WheelRun = wheelRun(null, at(0), page);
+    let asked = 0;
+    for (let t = 130; t <= 130 * 40; t += 130) {
+      run = wheelRun(run, at(t), () => (asked++, true));
+    }
+    expect(run.mine, "forty notches later it is still the page's scroll").toBe(false);
+    expect(asked, "and the map under the pointer was never even asked about").toBe(0);
+  });
+
+  it("and keeps a map run the map's the same way", () => {
+    let run: WheelRun = wheelRun(null, at(0), map);
+    for (let t = 130; t <= 1300; t += 130) run = wheelRun(run, at(t), page);
+    expect(run.mine).toBe(true);
+  });
+
+  it("goes on at exactly the quiet, and starts again one millisecond past it", () => {
+    const run = wheelRun(null, at(0), page);
+    expect(wheelRun(run, at(WHEEL_QUIET_MS), map).mine, "500ms: the same scroll").toBe(false);
+    expect(wheelRun(run, at(WHEEL_QUIET_MS + 1), map).mine, "501ms: a new one").toBe(true);
+  });
+
+  it("measures the quiet from the LAST notch, not the first", () => {
+    // A long scroll is one run however long it lasts; only a silence ends it.
+    let run = wheelRun(null, at(0), page);
+    run = wheelRun(run, at(400), map);
+    run = wheelRun(run, at(800), map);
+    expect(run.mine, "800ms after it began, 400ms after its last notch").toBe(false);
+    expect(run.at).toBe(800);
+  });
+
+  it("starts again when the pointer really moves, and not for a drift inside the slop", () => {
+    const run = wheelRun(null, at(0, 300, 400), page);
+    // 6px + 8px = 10px exactly: still the same scroll.
+    expect(wheelRun(run, at(100, 306, 408), map).mine).toBe(false);
+    // 11px straight down: the visitor moved the pointer onto something.
+    expect(wheelRun(run, at(100, 300, 411), map).mine).toBe(true);
+  });
+
+  it("anchors the slop where the run BEGAN, so a slow drift cannot creep past it", () => {
+    let run = wheelRun(null, at(0, 300, 400), page);
+    for (let i = 1; i <= 10; i++) run = wheelRun(run, at(i * 100, 300, 400 + i * 2), map);
+    // Each step moved 2px, the run as a whole 20px: the fifth step past 10px
+    // started a new run over the map, which is Chromium's
+    // `first_wheel_location_` rule too.
+    expect(run.mine).toBe(true);
   });
 });

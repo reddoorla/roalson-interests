@@ -116,10 +116,12 @@
     PIN_HOLE,
     PIN_PATH,
     PIN_VIEWBOX,
+    wheelRun,
     type Camera,
     type MapCluster,
     type MapFrame,
     type MapPoint,
+    type WheelRun,
   } from "$lib/property-map";
   import { reducedMotion } from "$lib/transitions";
 
@@ -182,6 +184,34 @@
      *  from a press. On the homepage band there is no card beside the map at
      *  all, so the sheet is the only detail there is and it stays. */
     onselect?: (id: string) => void;
+    /**
+     * WHETHER A VISITOR MAY DRIVE THIS MAP AT ALL. True — the default, and
+     * what `/properties` always gets — or false, where the map is a picture
+     * the page is scrolled, swiped and tabbed straight past.
+     *
+     * The homepage band's rule, operator call 2026-09-23: "map should get all
+     * navigation tools when the slideshow is paused, and be uninteractable
+     * when the slideshow is running". The band passes `carousel.paused ||
+     * !carousel.eligible`: `paused` is the user's own stop (the Pause button,
+     * or focus entering the carousel) and is the same value the button's
+     * "Play slides" / "Pause slides" name is read off, so the lock and the
+     * button cannot disagree; `!eligible` is "nothing can run here at all",
+     * i.e. reduced motion. NOT `!carousel.rotating`, which the brief for this
+     * change ruled out because `rotating` is also false on hover. Measured on
+     * a production build of `/` at 1440x900: a pointer resting on the MAP
+     * does not pause the slideshow (the band turned 3791ms later — the map is
+     * outside the carousel's region); a pointer resting on the CARD does (no
+     * turn in 12s). So under `!rotating` the map would unlock whenever the
+     * pointer sat on the card beside it, and on a hidden tab — states in which
+     * the slideshow has not been stopped by anybody.
+     *
+     * ONE SWITCH FOR THE WHOLE SET, so the set cannot half-apply: every
+     * maplibre navigation handler this map was built with (`navigation`), the
+     * pins' press, whether the canvas can take focus and what it is called,
+     * and the grab cursor. Going false also hands the camera back to the page
+     * — see `applyInteractive`.
+     */
+    interactive?: boolean;
     class?: string;
   }
 
@@ -193,10 +223,35 @@
     active = null,
     activeBy = "visitor",
     onselect,
+    interactive = true,
     class: passedClasses = "",
   }: Props = $props();
 
   type MapInstance = InstanceType<MapEngine["Map"]>;
+
+  /** Every maplibre handler that moves the camera. The ones a map actually
+   *  HAS are read off the instance at boot (`navigation`), not listed here —
+   *  this is only where to look. `cooperativeGestures` is not in it: it is a
+   *  mode that changes what the wheel means, not a way to navigate. */
+  const NAVIGATION = [
+    "scrollZoom",
+    "boxZoom",
+    "dragRotate",
+    "dragPan",
+    "keyboard",
+    "doubleClickZoom",
+    "touchZoomRotate",
+    "touchPitch",
+  ] as const;
+  type Navigation = (typeof NAVIGATION)[number];
+  /** The part of every maplibre handler this file uses. */
+  interface Handler {
+    enable(): void;
+    disable(): void;
+    isEnabled(): boolean;
+    isActive(): boolean;
+  }
+  const handler = (instance: MapInstance, name: Navigation) => instance[name] as Handler;
 
   let boxEl: HTMLDivElement | undefined = $state();
   let canvasHost: HTMLDivElement | undefined = $state();
@@ -401,6 +456,106 @@
     flightTimer = undefined;
   }
 
+  /**
+   * THE NAVIGATION HANDLERS THIS MAP WAS BUILT WITH, read off the instance the
+   * moment it exists — so "all navigation tools" is, by construction, exactly
+   * the set `/properties` has, and a handler `boot` switches on or off joins or
+   * leaves it without anyone keeping a second list. Measured on a production
+   * build of /properties at 1440x900 (2026-09-23): scrollZoom, boxZoom,
+   * dragPan, keyboard, doubleClickZoom and touchZoomRotate on; dragRotate and
+   * touchPitch off. No NavigationControl (+/− buttons) is added on either
+   * page, and this does not add one.
+   */
+  let navigation: Navigation[] = [];
+  /** What the live map was last set to — null until the first `applyInteractive`,
+   *  so the boot is told apart from a real change. Plain: a record, not an input. */
+  let applied: boolean | null = null;
+  /** Bumped when the map is handed back to the page, so the camera effect looks
+   *  again even when nothing else it reads has changed. See `applyInteractive`. */
+  let handedBack = $state(0);
+
+  /** The live camera is where this component last put it. Within a millionth:
+   *  a flight that landed and a jump both end on the exact target. */
+  const isAt = (instance: MapInstance, camera: Camera) => {
+    const c = instance.getCenter();
+    return (
+      Math.abs(c.lng - camera.lng) < 1e-6 &&
+      Math.abs(c.lat - camera.lat) < 1e-6 &&
+      Math.abs(instance.getZoom() - camera.zoom) < 1e-6
+    );
+  };
+
+  /**
+   * TURN THE WHOLE INTERACTION SET ON OR OFF (`interactive`), and nothing in it
+   * one piece at a time.
+   *
+   * GOING OFF IS THE HOMEPAGE BAND'S PLAY BUTTON, and four things happen then
+   * beyond the switches, each because leaving it out was a way for the map to
+   * be left in a state nobody can get it out of:
+   *
+   *  1. WHAT IS IN PROGRESS ENDS FIRST. A drag or a wheel's zoom ease still
+   *     running when its handler is disabled is never told to stop — maplibre
+   *     skips a disabled handler — so `moveend` would never fire for it.
+   *     `map.stop()` ends every gesture and any ease, UNLESS a flight of this
+   *     component's is in the air and no gesture is active: that one is the
+   *     page's own camera, and it lands where `commanded` says.
+   *  2. THE SUSPENSION ENDS. A gesture while paused set `drivenAt`, and a
+   *     suspension survives the clock's turns (`activeBy: "auto"`, #118) — so
+   *     without this, Play would resume the photos under a map that no longer
+   *     follows them.
+   *  3. THE VISITOR'S ZOOM IS FORGOTTEN (`chosenZoom`). A locked map is the
+   *     slideshow's picture again, framed the slideshow's way; carrying a zoom
+   *     nobody can now change would be a setting with no control. The
+   *     operator's call to reverse, and one line.
+   *  4. THE CAMERA GOES BACK TO THE SLIDE ON SCREEN. `commanded` is what this
+   *     component last TOLD the map, so after a pan it still says "arrived" at
+   *     the listing the visitor panned away from; forgetting it when the live
+   *     camera is somewhere else is what makes the next look a flight. The
+   *     bump is what makes there BE a next look.
+   *
+   * The pin sheet closes too: it is a detail of a listing the slideshow is
+   * about to turn away from, drawn by a press that is no longer possible.
+   *
+   * GOING ON does only the switches. Nothing is in progress on a locked map,
+   * and the camera is already where the slideshow put it.
+   */
+  function applyInteractive(instance: MapInstance, on: boolean) {
+    if (applied === on) return;
+    const locking = applied === true;
+    applied = on;
+    if (locking) {
+      const gesture = navigation.some((name) => handler(instance, name).isActive());
+      if (gesture || !flying) instance.stop();
+    }
+    for (const name of navigation) {
+      const h = handler(instance, name);
+      if (h.isEnabled() === on) continue;
+      if (on) h.enable();
+      else h.disable();
+    }
+    // Focus and name. maplibre gives the canvas `tabindex="0"` and names it
+    // "Map" in its constructor; a locked canvas takes no focus at all (not
+    // -1, which a click would still land on) and must not announce itself as
+    // interactive while it is not.
+    const canvas = instance.getCanvas();
+    if (on) canvas.setAttribute("tabindex", "0");
+    else canvas.removeAttribute("tabindex");
+    canvas.setAttribute(
+      "aria-label",
+      on ? `${label} listings, interactive map` : `${label} listings, map`,
+    );
+    // The grab cursor is maplibre's `.maplibregl-interactive` on this element;
+    // the touch-action classes follow `dragPan` / `touchZoomRotate` by
+    // themselves, which is what gives a finger's swipe back to the page.
+    instance.getCanvasContainer().classList.toggle("maplibregl-interactive", on);
+    if (!locking) return;
+    selected = null;
+    drivenAt = undefined;
+    chosenZoom = null;
+    if (!flying && commanded && !isAt(instance, commanded)) commanded = null;
+    handedBack += 1;
+  }
+
   const measured = $derived(box.height > 0);
   const compact = $derived(box.height < COMPACT_MAX_HEIGHT);
   const frame = $derived(MAP_FRAMES[frameFor(box)]);
@@ -584,21 +739,25 @@
       // maplibre-gl 6.10.0's `ScrollZoomHandler.wheel` still ends in an
       // unconditional `preventDefault()`, so every wheel event that reaches
       // this map is taken from the document, and the box is still `lg:sticky`
-      // for its whole section, so the obstacle still follows the visitor. THE
-      // TRAP IS THE TRADE, and its measurements are in the journal entry: there
-      // is no version of this component in which they are a defect to fix.
+      // for its whole section, so the obstacle still follows the visitor. What
+      // it costs is bounded by the operator's second call, the same day: a
+      // wheel belongs to whatever its SCROLL began on (`wheelRun`, and the
+      // latch beside `forwardWheel` below), so a visitor scrolling the page
+      // scrolls past this map and only a scroll that begins on it zooms it.
       //
-      // ONE THING IS WORTH KNOWING AT THE CALL SITE: the trap is UNBOUNDED.
-      // That `preventDefault()` does not ask whether the zoom it is about to
-      // apply will be clamped, so a map already at `maxZoom` 16 or `minZoom` 3
-      // keeps eating the wheel and never hands the leftover scroll back to the
-      // page. "Scroll until it stops zooming and the page moves" is not what a
-      // visitor gets.
+      // ONE THING IS WORTH KNOWING AT THE CALL SITE: for a scroll that BEGINS
+      // on the map, the trap is still UNBOUNDED. That `preventDefault()` does
+      // not ask whether the zoom it is about to apply will be clamped, so a map
+      // already at `maxZoom` 16 or `minZoom` 3 keeps eating that scroll and
+      // never hands the leftover back to the page (measured: five more notches
+      // at either bound move the page 0). The way out is to stop and move the
+      // pointer, or the keyboard.
       //
-      // THIS OPTION IS NOW THE WHOLE OF THE SETTING. The `$effect` keyed off
-      // `expanded` that used to turn it on and off is gone: there is no state
-      // left in which the in-page map declines the wheel. What makes the wheel
-      // reach it everywhere a visitor can aim is `forwardWheel`, below.
+      // THIS OPTION IS THE SETTING'S STARTING STATE. The `$effect` keyed off
+      // `expanded` that used to turn it on and off is gone; what turns it off
+      // now is `interactive` (`applyInteractive`), the homepage band's lock.
+      // What makes the wheel reach it everywhere a visitor can aim is
+      // `forwardWheel`, below.
       scrollZoom: true,
       attributionControl: false,
       // Belt to `$lib/transitions`' braces below: told the preference, MapLibre
@@ -615,8 +774,19 @@
     );
 
     // MapLibre names the canvas "Map" and gives it role="region", so two maps
-    // on the Properties page would be two identically named landmarks.
-    instance.getCanvas().setAttribute("aria-label", `${label} listings, interactive map`);
+    // on the Properties page would be two identically named landmarks. The
+    // name is `applyInteractive`'s now, because it depends on whether the map
+    // is one; that call is also what takes the inventory it switches.
+    //
+    // HERE, at construction, and not first in the effect that follows
+    // `interactive`: that effect next runs when `ready` flips, and until then
+    // a locked band's canvas would sit in the tab order, focusable and named
+    // "interactive", under the placeholder picture.
+    navigation = NAVIGATION.filter((name) => handler(instance, name).isEnabled());
+    applyInteractive(
+      instance,
+      untrack(() => interactive),
+    );
 
     // WHICH GESTURES COUNT AS "THE VISITOR DROVE THIS MAP", measured against
     // maplibre-gl 6.10.0 in Chromium rather than assumed — the old version of
@@ -657,9 +827,9 @@
     // what holds the view on the homepage band while its clock (not the
     // visitor) turns.
     //
-    // `isEnabled()` is kept although it is now always true on this
-    // component's maps: it is the honest predicate, and what keeps this
-    // correct if scroll-zoom is ever conditional again.
+    // `isEnabled()` is load-bearing again: scroll-zoom is off on the homepage
+    // band's map while its slideshow runs (`interactive`), and a wheel over a
+    // locked map is the page's, not the visitor driving the map.
     instance.getCanvasContainer().addEventListener(
       "wheel",
       () => {
@@ -692,6 +862,9 @@
     commanded = null;
     drivenAt = undefined;
     chosenZoom = null;
+    // A re-boot takes its own inventory and is its own first apply.
+    navigation = [];
+    applied = null;
     // The map that flight belonged to is gone. Without this the timer would
     // outlive the component and fire `landed += 1` on a destroyed one.
     endFlight();
@@ -782,6 +955,104 @@
       }),
     );
   }
+
+  /**
+   * THE WHEEL STAYS WITH WHATEVER THE SCROLL STARTED ON (operator call,
+   * 2026-09-23, choosing the mitigation the scroll-zoom PR recommended).
+   *
+   * THE DEFECT, measured on a production build of /properties at 1440x900
+   * with the pointer resting on the land map's column and 120px notches from
+   * scrollY 0: the page stopped at 480 (pointer at y 150), 120 (y 405) — the
+   * notch after the map slid under a pointer that had not moved went to the
+   * map, which zoomed and `preventDefault()`ed it, and so did every notch
+   * after. 4430 of the map's 4490px of pinned travel was out of the wheel's
+   * reach. A visitor scrolling the page was stopped dead by a map they never
+   * aimed at.
+   *
+   * THE RULE: every wheel event on the page is filed into a run (`wheelRun`,
+   * $lib/property-map, where the two thresholds are argued), and a run that
+   * did not BEGIN over this map, while this map was taking the wheel, is not
+   * this map's — however much of it the map slides under. Such a wheel is
+   * stopped at the map's root on the way DOWN (capture), so maplibre's
+   * listener on the canvas container, this file's own suspension listener
+   * beside it and `forwardWheel` on the way back up never see it; nothing
+   * prevents it, so the page scrolls. A run that began over the map is left
+   * alone and zooms, exactly as before.
+   *
+   * A WHEEL THAT CANNOT BE CANCELLED IS THE PAGE'S, ALWAYS — and that was
+   * found measuring this, not designed in. Where the pointer is over nothing
+   * with a blocking wheel listener, Chromium sends the wheel to the page
+   * without waiting (`cancelable: false`) and the compositor starts scrolling
+   * at once; the main thread hit-tests for the DOM target LATER, against the
+   * page as it is by then. At 1440x900 with the pointer at y 405, 6 of 8 runs
+   * delivered the FIRST notch — sent at scrollY 0, over the page, where
+   * `elementFromPoint` had just answered the page — to the map's canvas, with
+   * scrollY already 120 at dispatch: the map had slid under the pointer
+   * before its own hit test ran. Filed as a run begun over the map, it made
+   * every later notch the map's (the page stopped at 120); and maplibre's
+   * `preventDefault()` on it was a no-op, so the map ZOOMED while the page
+   * scrolled. That second half is older than this rule: the same shape, y 405
+   * stopping at 120, is in the measurement that asked for it.
+   * So an uncancellable wheel neither begins a run of this map's nor reaches
+   * maplibre: the browser has already given it to the page, and the only thing
+   * delivering it could still do is move the map as well.
+   *
+   * WHY `stopPropagation`, AND WHAT IT COSTS. maplibre listens on an element
+   * INSIDE this one, so the root's capture phase is the last place anything of
+   * ours runs before it does — there is no way to keep a wheel from maplibre
+   * but to not deliver it. (Where the root is itself the target, the DOM's
+   * at-target dispatch runs capture listeners first and checks the stop flag
+   * before the bubble ones, so `forwardWheel` does not see it either — the
+   * latch's unit case wheels the root itself and reads `defaultPrevented`
+   * false.) The cost is that a listener on `window` or
+   * `document` in the BUBBLE phase does not see that one wheel either. The
+   * only one in this app is vimeoBackground's first-engagement listener,
+   * which by then has long since fired on the pointer moving. Both listeners
+   * here are passive: neither can hold up the compositor's scroll.
+   *
+   * The window listener is on EVERY wheel, not only the ones over this map,
+   * because a run's beginning is usually somewhere else — that is the case
+   * this exists for.
+   */
+  let run: WheelRun | null = null;
+
+  /** This map would take a wheel that reached it right now: drawn, and
+   *  scroll-zoom on (it is off whenever `interactive` is). */
+  const takesWheel = () => map !== null && ready && map.scrollZoom.isEnabled();
+
+  $effect(() => {
+    const root = boxEl;
+    if (!root) return;
+    const track = (e: WheelEvent) => {
+      run = wheelRun(
+        run,
+        e,
+        () => e.cancelable && takesWheel() && e.target instanceof Node && root.contains(e.target),
+      );
+    };
+    const withhold = (e: WheelEvent) => {
+      if ((!run?.mine || !e.cancelable) && takesWheel()) e.stopPropagation();
+    };
+    window.addEventListener("wheel", track, { capture: true, passive: true });
+    root.addEventListener("wheel", withhold, { capture: true, passive: true });
+    return () => {
+      window.removeEventListener("wheel", track, { capture: true });
+      root.removeEventListener("wheel", withhold, { capture: true });
+      run = null;
+    };
+  });
+
+  // THE SWITCH, once the engine exists. `boot` applies the value the map was
+  // built under; this follows it from then on — the band's Pause and Play.
+  // `ready` is read for its DEPENDENCY, not its value: `map` is plain, so
+  // without it this would never re-run after boot.
+  $effect(() => {
+    const on = interactive;
+    void ready;
+    const instance = map;
+    if (!instance) return;
+    untrack(() => applyInteractive(instance, on));
+  });
 
   function press(cluster: MapCluster) {
     const instance = map;
@@ -890,6 +1161,8 @@
     // Svelte re-tracks dependencies on each run, so a signal read after a bail
     // is not a dependency of the run that bailed.
     void landed;
+    // The same, for a map handed back to the page (`applyInteractive`).
+    void handedBack;
     const instance = map;
     if (!instance || size.width === 0) return;
     // Only when the box really changed. `active` now shares this effect, and
@@ -1015,6 +1288,7 @@
     data-map-ready={ready ? "" : undefined}
     data-map-home={home ? "" : undefined}
     data-expanded={expanded ? "true" : undefined}
+    data-map-locked={ready && !interactive ? "" : undefined}
     onwheel={forwardWheel}
     class="relative isolate overflow-hidden {MAP_TONES[tone]} {passedClasses}"
   >
@@ -1199,16 +1473,22 @@
                everywhere it already did, and is what lets a browser test assert
                that the ACTIVE listing's pin is the one at the map's centre
                rather than that some pin is. A cluster stands for no single
-               listing, so it carries its count instead, as it already did. -->
+               listing, so it carries its count instead, as it already did.
+               LOCKED (`interactive` false), a pin is `disabled` — no press,
+               and no focus even from a click, which `tabindex="-1"` alone
+               would still take — and lets the pointer through to the canvas
+               under it, whose cursor is then the page's, not a hand. -->
           <button
             bind:this={clusterEls[cluster.id]}
             type="button"
             tabindex="-1"
             aria-hidden="true"
+            disabled={!interactive}
             data-map-pin={count === 1 ? cluster.points[0]!.id : undefined}
             data-map-cluster={count > 1 ? count : undefined}
             onclick={() => press(cluster)}
-            class="pointer-events-auto absolute top-0 left-0 cursor-pointer border-0 bg-transparent p-0"
+            class="absolute top-0 left-0 border-0 bg-transparent p-0
+              {interactive ? 'pointer-events-auto cursor-pointer' : 'pointer-events-none'}"
           >
             {#if count === 1}
               <!-- `np_pin-map_4984332` — see $lib/property-map for the five

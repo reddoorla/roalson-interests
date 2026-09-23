@@ -11,6 +11,7 @@ import {
   watchCamera,
   type CameraLog,
 } from "./camera-probe";
+import { measureDwell, nextTurn, slideOnStage } from "./band-turn";
 import { hydrated } from "./hydrated";
 import { placedPin } from "./placed-markers";
 
@@ -78,28 +79,12 @@ const wheelSpot = (page: Page) =>
       return { x: b.left + b.width / 2, y: (top + bottom) / 2, height: bottom - top };
     });
 
-/**
- * Wait for the band's clock to turn and its flight to land, so the case that
- * follows starts at the TOP of a 4000ms dwell rather than anywhere in one.
- *
- * WHY. Both band cases read the map's zoom and then wheel it, and a turn that
- * fell between the two put a 500ms flight in the air under the first notch:
- * maplibre stops the flight at a waypoint (z10-11 for these listings), the
- * wheel zooms in from there, and "the wheel really zoomed the map" compares
- * that against a `before` read at z12 and fails — 1 in 16 on the dev server,
- * and on a production build it twice hid a mutation's red behind this premise.
- * The premise code predates the operator's reversal and is unchanged from
- * main. Landing a turn first leaves ~3.4s of
- * the dwell for ~1.5s of wheeling. A band that has reached its end never
- * turns, and then there is no race to avoid: the wait simply lapses.
- */
-async function aFreshDwell(page: Page) {
-  await resetCamera(page);
-  const until = Date.now() + 6000;
-  while (Date.now() < until && (await cameraLog(page)).fly.length === 0)
-    await page.waitForTimeout(100);
-  await page.waitForTimeout(700);
-}
+// (`aFreshDwell` lived here: wait for the band's clock to turn, so the band
+// cases could wheel at the top of a 4000ms dwell instead of racing a turn's
+// flight. Since the homepage lock (operator call, 2026-09-23) those cases pause
+// the band before they wheel — a paused band has no clock to race — and a
+// dwell-sized wait is exactly what the doubled 8000ms dwell would have turned
+// into a pass that tested nothing. See ./band-turn.)
 
 /** A point inside the first map's box that is NOT a marker or a control.
  *  Markers are <button>s and swallow the pointerdown, which is how a first
@@ -805,23 +790,32 @@ test.describe("the band's auto-advance keeps its hands off the visitor's view", 
     contextOptions: { reducedMotion: "no-preference", hasTouch: true },
   });
 
-  // THE WHEEL IS THE VISITOR'S ON EVERY MAP NOW (operator call, 2026-09-23).
-  // When this case was written the in-page map declined the wheel and
-  // EXPANDING it was the one state that handed scroll-zoom back, which is why
-  // it expands the box at 390x844 before wheeling. The expand step no longer
-  // grants anything; it is kept because this case is about the BAND'S CLOCK
-  // and the expanded box is where that was measured, and the assertion on it
-  // now reads "expanding did not take the wheel away".
-  // tests/interaction/property-map-scroll-zoom.spec.ts measures the in-page
-  // map's wheel.
+  // WHAT THIS BLOCK HOLDS NOW, and why it changed shape twice in one day.
   //
-  // Measured on a production build of `/` at 390x844 before the fix: four
-  // wheel-up ticks took the map from z12 to z12.5387, and ~9s later — with no
-  // further input at all — the camera had issued 2 flyTo back to z12 and the
-  // zoom was gone while the map was still expanded. The dwell is 4000ms, so
-  // nobody could hold a view for longer than four seconds.
-  test("a visitor's zoom survives the dwell that follows it", async ({ page }) => {
-    test.setTimeout(180_000);
+  // Measured on a production build of `/` at 390x844 before #126: four
+  // wheel-up ticks on the expanded band map took it from z12 to z12.5387, and
+  // ~9s later — with no further input — the camera had flown back to z12
+  // twice. The clock's turns were read as the visitor asking for somewhere
+  // else. `activeBy` fixed it, and these cases wheeled the RUNNING band and
+  // waited out a dwell to prove it.
+  //
+  // THE HOMEPAGE LOCK (operator call, 2026-09-23) moved the ground under them:
+  // the band's map is uninteractable while the slideshow runs, so a visitor
+  // can only have a view of their own while it is PAUSED — and a paused band
+  // has no clock. The class these cases exist for (a clock turn taking a
+  // visitor's view away) is now closed twice over: the lock keeps the visitor
+  // off a running map, and `activeBy` still holds a suspension through any
+  // turn that did happen. What they measure now is the new boundary: paused,
+  // the view is the visitor's for longer than the clock's own dwell; Play
+  // hands the map back to the clock on purpose.
+  //
+  // EVENT-DRIVEN, BOTH WAYS. "Longer than a dwell" is measured off two of the
+  // band's own turns rather than assumed (it is 4000ms here and 8000ms on the
+  // branch that doubles it), and every wait for a turn fails if none comes.
+  test("paused, the visitor's view outlasts the dwell; Play hands the map back to the clock", async ({
+    page,
+  }) => {
+    test.setTimeout(240_000);
     await watchCamera(page);
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(HOME);
@@ -831,26 +825,27 @@ test.describe("the band's auto-advance keeps its hands off the visitor's view", 
     await page.locator(MAP).first().scrollIntoViewIfNeeded();
     await drawn(page, 0);
     expect(await cameraProbeInstalled(page), "the camera probe installed").toBe(true);
+    const dwell = await measureDwell(page, band);
 
+    await page.getByRole("button", { name: "Pause slides" }).click();
+    await expect(page.getByRole("button", { name: "Play slides" })).toBeVisible();
     const expand = page.locator("[data-map-expand]").first();
-    await expect(expand).toHaveAttribute("data-map-expand", "expand");
     await expand.click();
     await expect(expand).toHaveAttribute("data-map-expand", "collapse");
     await page.waitForTimeout(600);
     expect(
       await page.evaluate(() => window.__camera.maps[0]!.scrollZoom.isEnabled()),
-      "the map has the wheel (and expanding did not take it away)",
+      "paused, the map has the wheel",
     ).toBe(true);
 
-    await aFreshDwell(page);
     const before = await mapZoom(page);
     const spot = await wheelSpot(page);
     expect(spot.height, "the expanded map really is on screen to wheel over").toBeGreaterThan(100);
-
-    // Four ticks over the middle of the expanded map. This is the gesture
-    // MapLibre leaves untagged — its `movestart` carries no `originalEvent` —
-    // which is why the component listens for the wheel itself.
+    // Four ticks over the middle of the expanded map — the gesture maplibre
+    // leaves untagged, which is why the component listens for the wheel
+    // itself. The 700ms rest first makes them a new scroll (`wheelRun`).
     await page.mouse.move(spot.x, spot.y);
+    await page.waitForTimeout(700);
     for (let i = 0; i < 4; i++) {
       await page.mouse.wheel(0, -120);
       await page.waitForTimeout(150);
@@ -861,48 +856,48 @@ test.describe("the band's auto-advance keeps its hands off the visitor's view", 
       before + 0.1,
     );
 
-    // Hands off the map, and off the band, so nothing after this is input to
-    // anything: the pointer leaves the map entirely and the only thing left
-    // running is the band's own 4000ms clock.
+    // Hands off the map and the band for TWICE the dwell the clock was
+    // measured running at.
     await page.mouse.move(2, 2);
-    const slideBefore = await band
-      .locator("[data-carousel-slide]")
-      .evaluateAll((els) => els.findIndex((el) => !el.hasAttribute("aria-hidden")));
+    const slide = await slideOnStage(band);
     await resetCamera(page);
-    await page.waitForTimeout(9000);
-
-    // THE PREMISE, and without it "0 commands" would pass on a band that was
-    // simply paused.
-    const slideAfter = await band
-      .locator("[data-carousel-slide]")
-      .evaluateAll((els) => els.findIndex((el) => !el.hasAttribute("aria-hidden")));
+    await page.waitForTimeout(2 * dwell);
+    expect(await slideOnStage(band), "paused: the band did not turn").toBe(slide);
+    const held = await cameraLog(page);
     expect(
-      slideAfter,
-      `the band really did turn on its own (slide ${slideBefore} -> ${slideAfter})`,
-    ).not.toBe(slideBefore);
-
-    const log = await cameraLog(page);
-    expect(
-      log.fly.length + log.ease.length + log.jump.length,
-      `the clock commanded the camera ${log.fly.length + log.ease.length + log.jump.length} ` +
-        `times with nobody touching anything`,
+      held.fly.length + held.ease.length + held.jump.length,
+      `the camera was commanded with nobody touching anything, over ${2 * dwell}ms`,
     ).toBe(0);
     expect(await mapZoom(page), "and the visitor's zoom is exactly where they left it").toBeCloseTo(
       zoomed,
       3,
     );
-    await expect(expand, "on a map that is still expanded").toHaveAttribute(
-      "data-map-expand",
-      "collapse",
-    );
+
+    // PLAY: the map is the slideshow's picture again, framed its way, and the
+    // clock's next turn is followed.
+    await page.getByRole("button", { name: "Play slides" }).click();
+    await page.mouse.move(2, 2);
+    await expect
+      .poll(async () => (await cameraLog(page)).fly.length, {
+        message: "Play flew the camera back to the slide on screen",
+      })
+      .toBeGreaterThan(0);
+    expect((await cameraLog(page)).fly[0]!.zoom, "at the frame's own zoom").toBe(12);
+    await page.waitForTimeout(CAMERA_FLIGHT_MS + 200);
+    await resetCamera(page);
+    await nextTurn(band, 3 * dwell);
+    await expect
+      .poll(async () => (await cameraLog(page)).fly.length, {
+        message: "the clock's next turn was followed",
+      })
+      .toBeGreaterThan(0);
   });
 
-  // ALSO NOT DISCRIMINATING, AND ALSO KEPT. Against the code this PR replaces
-  // it passed, because there ANY change of `active` lifted the suspension —
-  // which was the defect. It guards the OVER-correction: a rule that told an
-  // auto-advance apart from a visitor and then never lifted for either would
-  // be the older defect (one gesture killing the camera for the life of the
-  // page) in new clothes, and it would satisfy the case above perfectly.
+  // THE OVER-CORRECTION GUARD, KEPT. A rule that told an auto-advance apart
+  // from a visitor and then never lifted for either would be the older defect
+  // (one gesture killing the camera for the life of the page) in new clothes.
+  // Paused, so there is no clock to race — the arrow press is the only thing
+  // that can move the camera here.
   test("and an arrow press — a visitor asking for somewhere else — gives it back", async ({
     page,
   }) => {
@@ -916,13 +911,15 @@ test.describe("the band's auto-advance keeps its hands off the visitor's view", 
     await drawn(page, 0);
     expect(await cameraProbeInstalled(page)).toBe(true);
 
+    await page.getByRole("button", { name: "Pause slides" }).click();
+    await expect(page.getByRole("button", { name: "Play slides" })).toBeVisible();
     const expand = page.locator("[data-map-expand]").first();
     await expand.click();
-    await page.waitForTimeout(600);
-    await aFreshDwell(page);
+    await page.waitForTimeout(1200);
     const before = await mapZoom(page);
     const spot = await wheelSpot(page);
     await page.mouse.move(spot.x, spot.y);
+    await page.waitForTimeout(700);
     for (let i = 0; i < 4; i++) {
       await page.mouse.wheel(0, -120);
       await page.waitForTimeout(150);
@@ -933,9 +930,6 @@ test.describe("the band's auto-advance keeps its hands off the visitor's view", 
       before + 0.1,
     );
 
-    // THE OTHER HALF OF THE RULE. A suspension that nothing could lift would be
-    // the older defect — one pan killing the feature for the life of the page —
-    // wearing different clothes.
     await page.mouse.move(2, 2);
     const held = await mapCentre(page);
     await resetCamera(page);
@@ -947,13 +941,10 @@ test.describe("the band's auto-advance keeps its hands off the visitor's view", 
       log.fly.length + log.ease.length + log.jump.length,
       "the visitor asked for a different listing, so the camera follows again",
     ).toBeGreaterThan(0);
-    // WHAT PROVES IT FOLLOWED, since 2026-09-23. This used to be "and it is
-    // back on the frame's own zoom" — a zoom that differed from the visitor's
-    // was the evidence the camera had moved. It is no longer the evidence
-    // because it is no longer true: the visitor's zoom is carried to the next
-    // listing now (`chosenZoom`, PropertyMap.svelte), so the camera arrives
-    // somewhere ELSE at the SAME zoom. Both halves are asserted, the second
-    // being the carry itself.
+    // WHAT PROVES IT FOLLOWED, since 2026-09-23: the camera arrives somewhere
+    // ELSE at the SAME zoom — the visitor's zoom is carried to the next
+    // listing (`chosenZoom`, PropertyMap.svelte), so a zoom that differed from
+    // theirs is no longer the evidence.
     const moved = await mapCentre(page);
     expect(
       Math.hypot(moved.lng - held.lng, moved.lat - held.lat),

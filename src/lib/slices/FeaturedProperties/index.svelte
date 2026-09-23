@@ -587,6 +587,7 @@
         points={mapPoints}
         active={slides[carousel.index]?.id ?? null}
         activeBy={carousel.turnedBy}
+        interactive={carousel.paused || !carousel.eligible}
         label={heading}
         tone="cream"
         class="h-50 w-full lg:h-full"

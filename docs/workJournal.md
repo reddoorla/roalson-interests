@@ -9322,3 +9322,302 @@ gestures turn the plain wheel back into a page scroll — the opposite of the as
 click-to-activate adds a click nothing on screen asks for.
 
 Touch is #123, with this entry's numbers posted there.
+
+### Amended the same day: the homepage lock, and the wheel that stays with its scroll
+
+Two more operator calls landed on this branch after the entry above, and a third
+change (on `feat/manual-turns-animate`) that its tests had to survive. The work
+was resumed once more: an earlier run of this amendment was stopped at 12:25 with
+nothing written.
+
+**The homepage call (10:31), verbatim:** _"map should get all navigation tools
+when the slideshow is paused, and be uninteractable when the slideshow is
+running"._ It came up because this branch made `scrollZoom` unconditional, and
+the homepage band renders a PropertyMap too.
+
+**The trap call (~12:05):** the operator chose the mitigation this entry
+recommended above: "keep the wheel attached to wherever the scroll started".
+
+#### "Paused" is `carousel.paused || !carousel.eligible`, and why not `!rotating`
+
+PropertyMap takes one new prop, `interactive` (default `true`, so `/properties`
+never changes). The band passes `interactive={carousel.paused ||
+!carousel.eligible}`, and that attribute is the only line changed in the
+FeaturedProperties slice. `paused` is the visitor's own stop: the Pause button,
+or focus entering the carousel. It is also the value the button's "Play slides"
+/ "Pause slides" name is read from, so the lock and the button cannot disagree.
+`!eligible` is the case where nothing can run at all, i.e. reduced motion.
+
+The brief ruled out `!carousel.rotating` because "`rotating` is also false on
+hover, so the map would unlock whenever the pointer rests on it". **The
+conclusion holds, but the reason given was wrong, and the measurement corrects
+it.** On a production build of `/` at 1440x900, a pointer resting on the **map**
+does not pause the slideshow: the band turned 3791ms later, because the map
+slot sits outside the carousel's region. A pointer resting on the **card** does
+pause it (no turn in 12s). So under `!rotating` the map would unlock while the
+pointer sat on the card beside it, and on a hidden tab, both states in which
+nobody has stopped the slideshow. The unit guards drive both.
+
+**The same measurement disproved a second premise in the brief.** It assumed
+that pressing the expand control below `lg` "is focus entering the carousel" and
+so would unlock the map. It is not: the control belongs to the map, which is
+outside the region. At 390x844 a tap on it enlarges the map, the slideshow keeps
+running, and the enlarged map is still a picture. The rule is applied literally
+and the question goes to the operator (PR body).
+
+#### What "all navigation tools" is
+
+It is not a list kept in this file. It is read from the instance at boot:
+whichever of maplibre's navigation handlers the map was built with. Measured on
+`/properties` (production build, 1440x900): **scrollZoom, boxZoom, dragPan,
+keyboard, doubleClickZoom, touchZoomRotate** are on; dragRotate, touchPitch and
+cooperativeGestures are off. There is no NavigationControl (+/−) on either
+map, and none was added. The lock switches the whole set together, and with it:
+
+- the pins (`disabled`, and `pointer-events: none` so the pointer reaches the
+  canvas);
+- the canvas's `tabindex`, removed rather than set to −1, which a click would
+  still land on;
+- its name ("… listings, map" rather than "… listings, interactive map");
+- maplibre's `.maplibregl-interactive` grab cursor.
+
+Locking also hands the camera back:
+
+- a gesture in progress is `stop()`ped, unless the page's own flight is the
+  thing in the air;
+- the suspension ends, so Play resumes the clock's flights (a suspension outlives
+  `activeBy: "auto"` turns by design, #118);
+- the visitor's `chosenZoom` is forgotten;
+- the camera flies back to the slide on screen if the visitor had moved it;
+- the pin sheet closes.
+
+The third and fourth are calls the operator can reverse, each in one line.
+
+#### The trap on `/`, before and after
+
+Production build, 1440x900, pointer resting on bare canvas, 120px notches:
+
+|                                             | before (this entry, above) | after, running               | after, paused             |
+| ------------------------------------------- | -------------------------- | ---------------------------- | ------------------------- |
+| 1 notch over the map                        | page 0, zoom −0.1796       | **page 120**, at rest at z12 | page 0, zoom −0.1796      |
+| 5 notches over the map                      | page 0, zoom −0.8979       | **page 600**, at rest at z12 | page 0, zoom −0.8979      |
+| trackpad-style stream (438px)               | —                          | **page 438**                 | page 0, zoom −3.0637      |
+| Chromium's synthesized gesture (600px)      | —                          | **page 600**                 | —                         |
+| 390x844, one-finger 144px drag over the map | page 0, map panned −145.2  | **page +129, no pan**        | page 0, map panned −144.5 |
+
+The card control is 120 / 600. The running trap is 0. The measurement ran at
+load 38.7→31.8, so treat it as noisy. **A raw zoom delta is not evidence on a
+running band**, and the first harness showed why: one notch over the locked map
+read −0.811 because the clock's own flight was mid-arc when the second zoom was
+read. The committed guards read the zoom _at rest_, where every flight has
+landed at z12, and count only gesture-tagged `movestart`s.
+
+**Keyboard, while the slideshow runs.** Shift+Tab from the first stop after the
+band walks back through the map's two attribution links and its three Google
+Maps list links. The list is the map's accessible equivalent and stays. The walk
+never lands on the canvas, and the slideshow runs at every stop inside the map.
+Tabbing forward into the carousel pauses it (APG, focus entering), which unlocks
+the map, so a keyboard user coming down the page reaches an interactive canvas
+after the card. Paused, the same walk stops on the canvas. The locked map passes
+axe.
+
+**Reduced motion:** nothing can run, so the map is interactive from the start
+and has no Pause button to press.
+
+#### The wheel stays with its scroll: `WHEEL_QUIET_MS` = 500, `WHEEL_SLOP_PX` = 10
+
+`wheelRun` ($lib/property-map) files every wheel on the page into a run. A new
+run starts after 500ms of quiet, or when the pointer is more than 10px from where
+the current run began. A run belongs to this map only if it began over the map
+while the map was taking the wheel. Otherwise the map's root stops it in the
+capture phase, before maplibre sees it, and nothing prevents it.
+
+**The two numbers are Chromium's, not ones I chose.** They are
+`kDefaultMouseWheelLatchingTransaction` (500ms) and `kWheelLatchingSlopRegion`
+(10.0), both in `content/browser/renderer_host/input/mouse_wheel_phase_handler.h`.
+Chromium itself synthesises phases for a phaseless mouse wheel with exactly this
+window and slop, and Blink keeps the DOM `wheel_target_` for the sequence. Read
+in that source: in a real Chrome with a real mouse, a steady run begun over the
+page is probably already delivered to the page when the map slides under the
+pointer. **That would make the "stopped dead mid-scroll" numbers above a
+property of CDP input**, where every notch is its own `kPhaseBegan` gesture,
+rather than of a hand. I could not test this: the machine has no real mouse
+reachable. With the same two numbers the rule can never disagree with Chrome.
+Where Chrome latched, nothing here changes; where a notch arrives as its own
+gesture, it does what Chrome would have done.
+
+The other constants it has to fit:
+
+- the longest gap inside a trackpad flick is the finger lift before momentum,
+  which Chromium waits at most 100ms for
+  (`max_time_between_phase_ended_and_momentum_phase_began_`);
+- Firefox's `mousewheel.transaction.timeout` is 1500ms.
+
+**Measured, as opposed to cited.** CDP's `timestamp` sets the DOM event's
+`timeStamp` exactly. Notches sent 700ms and then ~0ms apart in wall time, with
+timestamps 0.13s and 0.87s apart, arrived 130 and 870 apart. That let the guards
+pin the event clock. With pinned 130ms notches a run never broke at any resting
+y. With pinned 650ms notches it broke at every notch, which is what the rule
+says. The harness's own unpinned notches at load 16–38 ran a median of
+170–220ms apart, with stalls up to 1255ms. **Every unpinned run that stopped did
+so right after a real stall over 500ms**: 580ms before the stop at 2760, and
+673ms before 4685. The rule was working. The harness had become a hand that
+paused.
+
+**Not measured:** human notch spacing, and a real trackpad's momentum tail.
+`wheel-logger.html` (scratchpad, not committed) records both from a real device
+in a minute.
+
+**A belief corrected on contact.** The builder's "pointer at y 405 → the page
+stops at 120" row was not the map arriving after one notch. It was a race.
+Chromium sends a wheel over the page without waiting (`cancelable: false`) and
+the compositor scrolls at once, but the main thread hit-tests for the DOM target
+later. At 1440 with the pointer 110px above the map, 6 of 8 runs delivered the
+**first** notch, sent at scrollY 0, to the map's canvas, with scrollY already
+120 at dispatch. maplibre's `preventDefault()` on it was a no-op, so **the map
+zoomed while the page scrolled**. That defect predates this branch. My first
+version of the rule filed that notch as a run begun over the map, and at y 405
+it still stopped at 120. The rule now says **an uncancellable wheel is the
+page's**: it neither begins a map run nor reaches maplibre.
+
+**The resting-pointer table, before and after.** Production builds, continuous
+120px notches from scrollY 0. Before: the builder's table, reproduced exactly on
+this machine at load 6.6→13.3. After: pinned 130ms, load 38.7→25.4.
+
+| pointer rests at y | 1440 before | 1440 after                                | 1280 before | 1280 after       |
+| ------------------ | ----------- | ----------------------------------------- | ----------- | ---------------- |
+| 40                 | 6968 (foot) | 6968                                      | 7100 (foot) | 7100             |
+| 150                | 480         | **6968** (62 notches on the map, 0 taken) | 480         | **7100** (61, 0) |
+| 405 / 360          | 120         | **6968** (57, 0)                          | 240         | **7100** (56, 0) |
+| 680                | 0           | 0                                         | 0           | 0                |
+| 860 / 760          | 0           | 0                                         | 0           | 0                |
+
+The last two rows do not reach the foot, and they should not. At 1440 the map's
+top is at y 516 at scrollY 0, and it has drawn, so those scrolls **begin on the
+map**. By the rule, a scroll that begins on the map zooms it (6 of 6 notches
+taken). The brief expected the foot at every resting y; that is not what "keep
+the wheel attached to where the scroll started" means for a scroll that starts
+on the map.
+
+**A wheel that starts over the map still zooms it.** At both sizes, 1 and 5
+notches after the pointer moves onto the map give +0.1796 and +0.8979 with the
+page at 0. After 700ms of quiet with the pointer still, they give −0.1796 and
+−0.8979.
+
+**At the zoom limits nothing changed** for a scroll that begins on the map.
+Max z16 is reached after 24–25 notches and min z3 after 74. Five more notches
+at either limit move the page 0 and the zoom 0. A scroll that began on the page
+passes over the map at any zoom, because the rule never reads the zoom.
+
+#### Tests that had assumed a 4000ms dwell
+
+On `feat/manual-turns-animate` the dwell doubles to 8000ms and hover stops
+pausing. Three waits here were sized for 4000:
+
+- the prod band case's `waitForTimeout(9000)`;
+- `aFreshDwell`'s 6s lapse, which "simply lapses" without failing;
+- the dev band case's "two and a bit full dwells (4000ms each)", 9500ms.
+
+At 8000 each would pass without testing anything, because no turn fell inside
+the window. `tests/interaction/band-turn.ts` now waits for the slide on stage to
+change, and fails if it does not. "Longer than a dwell" is measured from two of
+the band's own turns.
+
+The homepage lock also changed what the two prod band cases can mean. A visitor
+can now have a view only while the band is paused, and a paused band has no
+clock. So they now assert the new boundary: paused, the view outlasts twice the
+measured dwell; Play flies the camera back at z12 and follows the clock's next
+turn. #148 was this case's premise failing on main under load, with the zoom
+going down after wheel-ins while the clock ran. It is addressed by
+construction, since the clock cannot turn inside the wheel window, and left open
+for the verifier.
+
+#### Found and not fixed
+
+- **#154.** The "flat, north-up" map still rotates. Three Shift+← presses on the
+  focused `/properties` canvas turned the bearing from 0 to −45°, and
+  `touchZoomRotate` rotation is live.
+- **#135 reproduced.** The prod "expanding and collapsing" case fails 8/8 on
+  this branch and 4/4 on its head `5fac6be`, with the probe's `maps[0]`
+  undefined. It is pre-existing.
+
+#### Every guard, mutated
+
+Each mutation was applied, run and restored, and every file was checked by
+sha256 afterwards.
+
+**The band's rule** (`interactive={…}` at the call site):
+
+| mutation                 | unit (FeaturedProperties.test.ts)                         | browser (band-lock spec, production build)                               |
+| ------------------------ | --------------------------------------------------------- | ------------------------------------------------------------------------ |
+| always locked (`false`)  | 3 red: Pause, focus entering, reduced motion              | 7 red, including both Play-ends cases (re-checked after their last edit) |
+| always unlocked (`true`) | 4 red: running, Pause/Play, hover on the card, hidden tab | 10 red                                                                   |
+| `!carousel.rotating`     | 2 red: hover on the card, hidden tab                      | 2 red: hidden tab, hover on the card                                     |
+
+On the merged tree hover no longer pauses the carousel. The hover case will
+still pass there, but it will stop discriminating; the hidden-tab case goes on
+reddening `!rotating`.
+
+**The lock's own parts** (unit, final code):
+
+| mutation                                             | red |
+| ---------------------------------------------------- | --- |
+| handlers left alone                                  | 3   |
+| canvas keeps its tabindex                            | 2   |
+| name still says "interactive"                        | 1   |
+| pins never disabled                                  | 2   |
+| lock never `stop()`s                                 | 1   |
+| lock always `stop()`s, cutting the page's own flight | 1   |
+| suspension kept                                      | 1   |
+| zoom kept                                            | 1   |
+| no fly-back                                          | 1   |
+| no `handedBack` bump                                 | 1   |
+| sheet left open                                      | 1   |
+| inventory taken as every handler, not the built set  | 2   |
+
+**The latch:**
+
+| mutation                                                   | unit   | browser (production build)                                                 |
+| ---------------------------------------------------------- | ------ | -------------------------------------------------------------------------- |
+| always zoom                                                | 4 red  | 3 red: the run to the foot, the first-notch race, the quiet case's premise |
+| always page                                                | 10 red | 2 red: move-on, quiet                                                      |
+| move trigger removed                                       | 4 red  | 1 red: move-on                                                             |
+| threshold ignored                                          | 2 red  | 1 red: quiet                                                               |
+| an uncancellable wheel may begin a map run                 | 1 red  | 1 red: the first-notch race                                                |
+| an uncancellable wheel may reach maplibre inside a map run | 1 red  | no browser guard: CDP cannot reliably produce that sequence                |
+
+The race guard reddens as often as the race reproduces, 6 in 8 in the
+measurement.
+
+**The dwell**, run both ways:
+
+- at 4000ms: the dev band case, both prod band cases and band-lock's
+  clock-turn case pass;
+- `DWELL = 8000`, edited and reverted: 3/3 on a production build, and the dev
+  band case passed (53.2s);
+- `autoplay: 0`: every dwell-dependent case fails on the event-driven wait
+  ("the band turned on its own from slide 0"), and none passes vacuously. The
+  arrow-press case fails at the missing Pause button; it no longer waits on a
+  dwell at all.
+
+#### Repeat ratios (`--repeat-each=16`, production build, load 7 → 52, noisy)
+
+400 runs, 397 passed:
+
+- 23 of the 25 cases 16/16: every band-lock case but the two below, all four latch cases, both
+  prod band cases, and the six `/properties` "no arc is abandoned" cases the
+  filter pulled in. That also shows the latch left the existing wheel-scroll
+  camera guards intact.
+- "Play ends a drag in progress", 14/16. It read `isMoving()` once, 1500ms
+  after Play, and the clock's resumed flight was in the air. The case now polls
+  the camera to rest and asserts the drag handler inactive; the wheel case got
+  the same fix. Then 31/32, the one miss being the drag's own premise read
+  before maplibre's next frame, now polled. Then **32/32** at load 22–32, and
+  both cases still red under the band mutations.
+- The paused-arrows coalesce case, 15/16. The miss was a `route.fetch
+ECONNRESET` from the preview server under load, the same reset that
+  interrupted one measurement run. It is infrastructure, not the assertion.
+
+On the dev server (CI's path), the map specs ran 75/75 once. That covers the
+band-lock, scroll-zoom, camera (with the measured dwell), property-map and
+featured-properties specs.
