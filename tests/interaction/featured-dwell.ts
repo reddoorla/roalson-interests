@@ -31,6 +31,19 @@ export const FEATURED_DWELL = (() => {
   return Number(declared[1]);
 })();
 
+/** How far the photo's drift travels across a dwell: the slice's KEN_BURNS
+ *  (1.00 → 1.03). Read out of the slice for DWELL's reason — the slice calls
+ *  it reversible (0.06 is the old speed over the new dwell), and a spec that
+ *  checks where the photo should be on a given frame must follow it. */
+export const FEATURED_KEN_BURNS = (() => {
+  const declared = /^\s*export const KEN_BURNS = (\d*\.?\d+);$/m.exec(readFileSync(SLICE, "utf8"));
+  if (!declared)
+    throw new Error(
+      "src/lib/slices/FeaturedProperties/index.svelte no longer declares `export const KEN_BURNS = <scale>;`",
+    );
+  return Number(declared[1]);
+})();
+
 /** The slice's DISSOLVE, which is CAMERA_FLIGHT_MS — pinned at 500 by
  *  property-map.test.ts (property-map-camera-prod.spec.ts repeats it the same
  *  way). The dwell doubling did not touch it: the hand-over is how long a turn

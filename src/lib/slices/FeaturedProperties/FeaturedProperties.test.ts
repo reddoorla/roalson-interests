@@ -395,6 +395,104 @@ describe("FeaturedProperties slice", () => {
       expect(scaleOf(photos()[1]), `frozen at ${frozen}`).toBe(frozen);
     });
 
+    /** The bar's declared value: `progress` itself, unrounded. */
+    const barOf = (container: HTMLElement) =>
+      Number(
+        /scaleX\(([^)]+)\)/.exec(
+          container
+            .querySelector<HTMLElement>("[data-carousel-progress] > div")!
+            .getAttribute("style") ?? "",
+        )?.[1],
+      );
+    /** How far through KEN_BURNS a declared scale is. */
+    const driftOf = (scale: number) => (scale - 1) / KEN_BURNS;
+
+    it("Play after a visitor's turn hands the drift to the clock: from where it stands, landing on the turn", async () => {
+      // THE HAND-OVER THE OLD `max` ONLY CLAIMED. The photo drew max(clock,
+      // visitor's run), and the run is AHEAD of a restarted clock by however
+      // long the visitor waited before Play — so the max was the run until it
+      // ended, and then the photo sat at 1.03 while the bar filled on to the
+      // turn (measured by the combined-tree verifier on a production build:
+      // Play 3.2s after the turn, the photo still from 8.5s to the turn at
+      // 11.7s). Here Play comes a quarter of the way through the run, and from
+      // then on the photo is the run's quarter plus the bar's share of the
+      // three quarters left.
+      vi.useFakeTimers();
+      const { container, getByLabelText } = render(FeaturedProperties, {
+        props: { slice: featuredPropertiesFixture() },
+      });
+      const photos = () => [...container.querySelectorAll<HTMLElement>("[data-featured-photo]")];
+      await fireEvent.click(getByLabelText("Pause slides"));
+      await fireEvent.click(getByLabelText("Next slide"));
+      await advance(DISSOLVE + DWELL / 4);
+      const from = driftOf(scaleOf(photos()[1]));
+      expect(from, "premise: the visitor's run is a quarter through").toBeCloseTo(0.25, 2);
+      /** The photo as the hand-over draws it: `from`, then the bar's share. */
+      const handed = () => at(from + (1 - from) * barOf(container));
+
+      await fireEvent.click(getByLabelText("Play slides"));
+      expect(driftOf(scaleOf(photos()[1])), "nothing moves on the press").toBeCloseTo(from, 3);
+
+      // The settle: the bar holds at 0 for DISSOLVE, and the photo with it.
+      await advance(DISSOLVE - 20);
+      expect(barOf(container), "the bar, still in the settle").toBe(0);
+      expect(driftOf(scaleOf(photos()[1])), "the photo waits with it").toBeCloseTo(from, 3);
+
+      // Halfway through the resumed dwell. The old max() read the RUN here —
+      // a quarter plus (DISSOLVE + DWELL / 2) / DWELL, ~0.81 of the travel.
+      await advance(20 + DWELL / 2);
+      expect(barOf(container), "premise: the clock is counting").toBeCloseTo(0.5, 2);
+      expect(scaleOf(photos()[1]), "halfway, with the bar").toBeCloseTo(handed(), 4);
+
+      // A frame before the turn: still travelling, still short of the end.
+      await advance(DWELL / 2 - 16);
+      expect(
+        slidesOf(container).map((sl) => sl.hasAttribute("inert")),
+        "premise: not turned yet",
+      ).toEqual([true, false, true]);
+      expect(barOf(container), "premise: the bar nearly full").toBeGreaterThan(0.99);
+      expect(scaleOf(photos()[1]), "still with the bar, a frame out").toBeCloseTo(handed(), 4);
+      expect(scaleOf(photos()[1]), "and not parked at the end early").toBeLessThan(at(1));
+
+      // …and it lands WITH the bar: the clock turns (within a frame — 8500 is
+      // not a whole number of 16ms frames), and the photo that left is held
+      // where it ended — at the end scale, to within a frame of drift.
+      await advance(32);
+      expect(slidesOf(container).map((sl) => sl.hasAttribute("inert"))).toEqual([
+        true,
+        true,
+        false,
+      ]);
+      expect(scaleOf(photos()[1]), "left at the end, with the bar full").toBeCloseTo(at(1), 3);
+    });
+
+    it("Play after the visitor's run has ENDED holds the end scale — a photo is never sent back", async () => {
+      // THE ONE THING A HAND-OVER CANNOT DO (#156). The run is over and the
+      // photo is at 1.03; the resumed dwell has no travel left to draw, and
+      // every way to draw some moves the photo backwards in full view. So it
+      // holds — and this pins "never backwards", because the quick "fix" is
+      // to restart the drift at 1.00: a 27.8px jump in one frame.
+      vi.useFakeTimers();
+      const { container, getByLabelText } = render(FeaturedProperties, {
+        props: { slice: featuredPropertiesFixture() },
+      });
+      const photos = () => [...container.querySelectorAll<HTMLElement>("[data-featured-photo]")];
+      await fireEvent.click(getByLabelText("Pause slides"));
+      await fireEvent.click(getByLabelText("Next slide"));
+      await advance(DISSOLVE + DWELL + 1000);
+      expect(scaleOf(photos()[1]), "premise: the run has ended").toBe(at(1));
+
+      await fireEvent.click(getByLabelText("Play slides"));
+      let bar = 0;
+      for (let step = 0; step < 8; step++) {
+        await advance((DISSOLVE + DWELL) / 8 - 16);
+        expect(barOf(container), "premise: the clock is counting").toBeGreaterThanOrEqual(bar);
+        bar = barOf(container);
+        expect(scaleOf(photos()[1]), `with the bar at ${bar.toFixed(3)}`).toBe(at(1));
+      }
+      expect(bar, "premise: watched to the end of the dwell").toBeGreaterThan(0.95);
+    });
+
     it("two presses inside one dissolve leave BOTH outgoing photos where they were", async () => {
       // Two presses 200ms apart leave two photos showing: the first one's
       // `opacity-0` still waits out its 500ms. Holding only "the one that just

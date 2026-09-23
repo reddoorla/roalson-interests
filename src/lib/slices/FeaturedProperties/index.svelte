@@ -358,8 +358,9 @@
    *  operator took the hover pause off this band — `pauseOnHover: false`. A
    *  mouse press still focuses the arrow, so this run is still what a
    *  Chromium visitor paging by hand sees; a swipe, which focuses nothing,
-   *  now restarts a clock that is RUNNING, and the `max` below draws the same
-   *  curve from either.)
+   *  now restarts a clock that is RUNNING, and a turn the clock is running
+   *  through is handed to the clock on the spot — see "THE CLOCK TAKES THE
+   *  DRIFT OVER" below.)
    *
    *  RESTARTING THE DWELL on a manual turn — "normal carousel behaviour" —
    *  would not have fixed that, which is why it was not done. The pointer
@@ -374,9 +375,25 @@
    *  elapsed from −settle, `clamp01(elapsed / DWELL)` — i.e. the curve the
    *  clock would have drawn had it been running: still through the 500ms
    *  dissolve, then 1.00 → 1.03 over DWELL (8000ms since 2026-09-23; it was
-   *  4000), then held at 1.03. The photo shows the `max` of the two, so where
-   *  rotation DOES resume (Play) the clock takes over from underneath without
-   *  the photo ever moving backwards.
+   *  4000), then held at 1.03.
+   *
+   *  THE CLOCK TAKES THE DRIFT OVER the moment it runs on the slide — Play, or
+   *  a turn it was already running through — and from then on the photo
+   *  moves only with the bar: from wherever the run had got to, across the
+   *  travel that is left, landing on 1.03 on the frame the clock turns
+   *  (`handedAt + (1 − handedAt) × progress`). So the bar and the photo start
+   *  together after the settle, stop together on Pause, and end together.
+   *  This paragraph used to say the photo drew "the `max` of the two" and
+   *  that the clock "takes over from underneath"; it never did. The run is
+   *  AHEAD of a restarted clock by however long the visitor waited before
+   *  Play, so the max was the run until the run ended, and then the photo sat
+   *  at 1.03 while the bar went on filling.
+   *
+   *  THE ONE THING A HAND-OVER CANNOT DO IS GIVE TRAVEL BACK. A Play after the
+   *  run has ENDED (DISSOLVE + DWELL or more after the turn) finds the photo
+   *  at 1.03 already, so the resumed dwell holds it there: every way to draw
+   *  a drift from that point moves the photo backwards in full view, and
+   *  which of them to take is a design call, not a timing fix (#156).
    *
    *  WHAT KEEPS IT HONEST:
    *   - reduced motion never starts it — the loop needs `eligible` — and
@@ -403,14 +420,23 @@
    *  primitive's own `elapsed`, restarted by the same turn. */
   let kickElapsed = $state(0);
   let kickFrozen = $state(false);
+  /** Where the visitor's run stood when the clock took the slide over — 0 for
+   *  a slide the clock has had from its first frame, and 0 again at every
+   *  turn. */
+  let handedAt = $state(0);
 
-  /** The on-stage photo's drift: the clock's, or the visitor's run, whichever
-   *  is further on. */
+  /** The visitor's run, 0 → 1: 0 through the dissolve, then across DWELL. */
+  const run = $derived(Math.min(1, Math.max(0, kickElapsed / DWELL)));
+
+  /** The on-stage photo's drift, drawn by ONE clock at a time: the visitor's
+   *  run while it has the slide, the carousel's from the moment the clock
+   *  takes it over, scaled onto the travel the run left. (`kick.index` is
+   *  checked because the index moves a flush before the effect below
+   *  re-points `kick`.) */
   const live = $derived(
-    Math.max(
-      carousel.progress,
-      kick?.index === carousel.index ? Math.min(1, Math.max(0, kickElapsed / DWELL)) : 0,
-    ),
+    kick !== null && kick.index === carousel.index
+      ? run
+      : handedAt + (1 - handedAt) * carousel.progress,
   );
 
   /** WHERE EACH PHOTO IS HELD WHILE IT IS OFF STAGE: at the drift it had when
@@ -444,6 +470,7 @@
   $effect.pre(() => {
     const i = carousel.index;
     const paused = carousel.paused;
+    const clock = carousel.rotating;
     const drift = live;
     untrack(() => {
       // BEFORE the turn is handled, so a pause and a turn landing in one flush
@@ -454,19 +481,31 @@
       wasPaused = paused;
       if (i === shownIndex) {
         shownDrift = drift;
-        return;
+      } else {
+        parked[shownIndex] = shownDrift;
+        shownIndex = i;
+        shownDrift = 0;
+        kick = carousel.turnedBy === "visitor" ? { index: i } : null;
+        kickElapsed = -carousel.settle;
+        kickFrozen = false;
+        handedAt = 0;
       }
-      parked[shownIndex] = shownDrift;
-      shownIndex = i;
-      shownDrift = 0;
-      kick = carousel.turnedBy === "visitor" ? { index: i } : null;
-      kickElapsed = -carousel.settle;
-      kickFrozen = false;
+      // THE CLOCK TAKES THE DRIFT OVER (see `kick`): AFTER the turn is
+      // handled, so a visitor's turn the clock runs straight through — a
+      // swipe, which focuses nothing — is handed over at once, at 0, and draws
+      // the clock's own curve. It moves nothing on the frame it happens:
+      // `progress` is 0 there, because the turn parked `elapsed` at −settle
+      // and this runs in the flush the clock starts, before its first frame.
+      if (clock && kick !== null) {
+        handedAt = run;
+        kick = null;
+      }
     });
   });
 
   // The visitor's run. Torn down by a freeze, by the next turn (a new `kick`
-  // object) and by losing `eligible`; it stops itself at the end of the dwell.
+  // object), by the clock taking the drift over (`kick` → null) and by losing
+  // `eligible`; it stops itself at the end of the dwell.
   $effect(() => {
     if (kick === null || kickFrozen || !carousel.eligible) return;
     let before = performance.now();

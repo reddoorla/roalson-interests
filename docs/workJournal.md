@@ -3785,9 +3785,7 @@ tests, axe 0 violations across 4 routes, at load average 8.
 > count — stands and is what shaped the replacement: only opacity dissolves, and
 > `scaleX` still snaps.
 
-> Superseded in part by 2026-09-23 — A visitor's turn animates now: the comp's instant arrows overruled, a drift no clock could draw, and a hand-over that painted the wrong words. "The user's own turns are instant, as the comp
-> wires its arrows" was the comp's reading and the operator overruled it: a
-> visitor's turn now dissolves, staggers and drifts as the clock's does.
+> Superseded in part by 2026-09-23 — A visitor's turn animates now: the comp's instant arrows overruled, a drift no clock could draw, and a hand-over that painted the wrong words.
 
 The homepage's "Properties" band (`6802:1460` at 1440, `6994:820` at 390): a
 reserved map column on `#3d0707` beside a sand card that turns through the
@@ -5844,11 +5842,7 @@ are the browser-level proof the swap actually reaches a pixel.
 
 ## 2026-09-22 — Four animations on the featured band, and two tests that passed a mutation (`feat/carousel-motion`)
 
-> Superseded in part by 2026-09-23 — A visitor's turn animates now: the comp's instant arrows overruled, a drift no clock could draw, and a hand-over that painted the wrong words. Two beliefs below were corrected there: "a turn
-> with the clock running SHOULD dissolve, because a swipe … is exactly that
-> case" — a visitor's turn drew a FULL bar for a dwell nobody had counted, and a
-> handover now follows only a clock turn; and "An off-stage photo is held at the
-> END scale" — each photo is now parked at the drift it last drew.
+> Superseded in part by 2026-09-23 — A visitor's turn animates now: the comp's instant arrows overruled, a drift no clock could draw, and a hand-over that painted the wrong words.
 
 Four things the operator asked for on the homepage's Properties carousel: the
 slide's text arrives as four staggered lines instead of one block, the photo
@@ -9647,3 +9641,172 @@ lists the band's old 4000ms and "every hover" prose around the map: the
 `<PropertyMap` call's comment in this slice, `PropertyMap.svelte`,
 `PropertyMap.test.ts` and `property-map.ts`. I left all of it alone because #150
 is editing that call and that component now.
+
+### Verification on the integrated tree: a hand-over the slice only claimed, and a #150 test this branch turns red (~15:45)
+
+Independent verifiers ran the three in-flight branches merged onto main
+(`verify/combined-r1` @ `548b394`: main + #152 + #150 + this branch at
+`daef517`). Three findings came back against this branch. Two are fixed here and
+one cannot be committed from here, for the reason given below.
+
+#### Play never handed the drift back to the clock
+
+The Ken Burns section above says: "The photo draws the `max` of the two runs.
+Where rotation does resume (Play, or a swipe's pointer leaving), the clock takes
+over from underneath and the photo never moves backwards." The slice comment
+said the same. **It was false.** A clock resumed by Play restarts its dwell from
+−settle, and the visitor's run is ahead of it by however long the visitor waited
+before pressing Play. So the `max` was the run until the run ended, and then the
+photo sat at 1.03 while the bar went on filling. The verifier measured this on a
+production build (load 19–27). With Play at +3219ms, the photo reached 1.03 at
+8517ms and held still until the clock turned at 11732ms, while the bar filled
+0.03 → 0.9996. With Play at +10213ms, the photo stayed at 1.03 for the whole
+resumed dwell while the bar went 0 → 0.9993. On main the same sequence drifted
+1.00 → 1.03 in step with the bar, but only because main's photo never moved after
+a manual turn at all.
+
+**The belief corrected is about evidence, not code.** "Measured through a Play:
+1.00676 → 1.01037, continuous" was true. It measured the one frame where the two
+curves are guaranteed to agree, the press itself, and was taken as proof of what
+happens for the next eight seconds. A continuity check at a hand-over says
+nothing about who draws the photo after it.
+
+**The fix is a real hand-over.** When the clock starts running on a slide the
+visitor's run has, the run stops. From then on the photo draws `handedAt + (1 −
+handedAt) × progress`: it starts from wherever the run had got to, crosses the
+travel that is left, and lands on 1.03 on the frame the clock turns. The bar and
+the photo now start together after the settle, stop together on Pause, and end
+together. It runs in the `$effect.pre` that already tracks turns, after the turn
+is handled, so a visitor's turn that the clock runs straight through (a swipe,
+which focuses nothing) is handed over at once, at 0, and draws the clock's own
+curve. It moves nothing on the frame it happens, because `progress` is 0 there:
+the turn parked `elapsed` at −settle, and nothing has run it since.
+
+What it costs, stated rather than hidden. The photo now waits out the 500ms
+settle after Play, as the bar does, where the run used to carry on through it.
+After that it moves at `(1 − handedAt)` of the run's rate, because the same
+remaining travel is spread across a whole dwell. Two alternatives were rejected.
+Handing back to the raw clock (`progress` alone) would drop the photo from
+wherever the run had got to back to 1.00: up to 27.8 × 16.3px in one frame, in
+full view. Keeping `max` is the defect itself.
+
+**What a hand-over cannot do is give travel back: #156.** A Play 8.5s or more
+after the turn finds the run over and the photo at 1.03, so the resumed dwell
+holds it there while the bar fills. Every way to draw a drift across that dwell
+moves the photo backwards from where it stands. The options are to hold (what
+ships), drift back 1.03 → 1.00 as a zoom-out, shorten the visitor's run so travel
+is always left, or restart at 1.00 (a jump, rejected). Choosing between them is a
+design call, so it is filed for the operator rather than decided here. The unit
+suite pins "a photo is never sent back", so the jump cannot land by accident.
+
+**Measured on a production build of `/`** at 1440, using an uncommitted harness
+that recorded every frame in the page, the bar's declared value and the photo's
+computed scale in one callback (load 10.5–13.5, noisy):
+
+- **Play at +3267ms.** The last frame before Play read 1.01034; the hand-over
+  was solved at drift 0.3460. Then, with the bar at 0 / 0.25 / 0.5 / 0.751 /
+  0.901 / 0.9906, the photo read 1.01038 / 1.01528 / 1.02019 / 1.02511 /
+  1.02806 / 1.02982, against a formula value of 1.01038 / 1.01529 / 1.02019 /
+  1.02512 / 1.02806 / 1.02982. The last frame before the clock's turn at
+  11776.6ms read 1.02998 with the bar at 0.9989. Across 1021 frames the worst
+  deviation was 0.00029 of the travel, and no frame went backwards. The largest
+  frame gap was 851.6ms.
+- **Play at +10235ms** (#156's case). The photo read 1.03 on every one of 1021
+  frames while the bar went 0 → 0.9996, and the clock turned at 18751.6ms.
+
+**Guards, and their reds.** Two unit cases and one browser case are new:
+
+- _"Play after a visitor's turn hands the drift to the clock…"_ (fake timers).
+  Play comes a quarter of the way through the run; the case checks the settle,
+  halfway, a frame before the turn, and after the turn.
+- _"Play after the visitor's run has ENDED holds the end scale — a photo is never
+  sent back"_ (fake timers).
+- _"Play after a VISITOR's turn: the clock takes the drift over, and the photo
+  lands with the bar"_ (browser, `no-preference`). A real press is followed by
+  Play once the run has travelled, and every frame is recorded until the
+  clock's turn. On every frame the photo must equal the hand-over value plus the
+  bar's share, the hand-over must be at or past where the run stood, and nothing
+  may go backwards. `from` is solved from the first frame after Play rather than
+  read off a bar of 0, so a loaded machine that drops the whole settle between
+  two frames cannot make it vacuous. The spec reads `KEN_BURNS` out of the
+  slice, as it already did `DWELL` (`featured-dwell.ts`).
+
+Each was run against the mutations below:
+
+- **The old `max` put back:**
+  - unit: "the photo waits with it: expected 0.3093 to be close to 0.2493";
+  - browser: "frames where the photo and the bar disagreed (949 after Play, 43
+    in the settle)", with 928 frames listed. 309 of them are the verifier's
+    shape, "1.03 with the bar at 0.665: expected 1.02269" and on to the turn.
+- **Hand-over skipped, new formula kept:** unit, the same "waits with it" red.
+- **Hand-over at 0 instead of the run's value:**
+  - unit: "nothing moves on the press: expected +0 to be close to 0.2493", and
+    "with the bar at 0.068: expected 1.00204 to be 1.03";
+  - browser: "the clock took the drift over from where the run stood — not from
+    the top: expected >= 0.268, received 0". The browser case's first form went
+    red on its own premise for this mutation instead, "the run had travelled:
+    expected > 0.1, received 0". A mutation caught for the wrong reason is a
+    guard that names the wrong defect, so the premise now reads the last frame
+    before Play and the continuity is its own assertion.
+
+**`--repeat-each=16` on the new case and the four drift and Play cases around
+it: 80/80** (4.2m, load 11.7 rising to ~35 while I ran the integrated tree's
+unit suite beside it, so noisy). **The first attempt is not in that count, and
+it is worth recording why.** Two cases went red in it: the new one, whose
+recorder never saw the turn, and "drifts the photo it brought on", which read
+1.02765 where it expected 1.03. Both failed at ~16:04, the moment I edited a
+comment in `index.svelte` to fill in #156's number. The dev server hot-reloaded
+the component under the running tests. That reset the carousel to slide 1 with
+its clock running, and left my recorder holding a detached live region. I
+stopped that run and started a clean one, and edited nothing under `src` until it
+finished. I did not isolate the cause any further than that timing.
+
+#### A unit test on #150 that this branch turns red — fixed, and not committed here
+
+map-scroll-zoom's _"a pointer resting on the card stops the clock but leaves the
+map locked"_ (043b20c, ~:1117) asserts as its premise that hover stops the
+clock. `pauseOnHover: false` falsifies it. On the integrated tree it fails with
+"premise: the hover stopped the clock: expected true to be false". It is green
+on #150 alone and on this branch alone. #153 listed the stale prose around the
+map and missed this test.
+
+The fix flips the premise and keeps the promise: the pointer on the card is not
+a pause, and the map stays locked under it. That is the shape the browser twin
+(`property-map-band-lock.spec.ts:538`) was already written in. **It is not
+committed on this branch, because the test exists only on #150's.** Making it
+pass from here would mean merging #150 into this branch, and stacking one open
+PR on another is exactly how CLAUDE.md says an unreviewed branch gets dragged
+onto main. So the patch is on #153 and in the PR, for whichever of the two lands
+second. Measured on a scratch worktree of `548b394` with this branch's fix and
+the patch applied, over the FeaturedProperties slice, PropertyMap, property-map
+and PropertyListing: **216/216**. Without the patch it was 44/45, the red above.
+With the patch and `pauseOnHover: false` removed, it went red on "premise: hover
+is not a pause on this band (#151): expected false to be true", beside this
+branch's own "turned under a resting pointer: expected 1 to be 2". **Until one
+branch carries it, a re-combined `pnpm verify` stays red at vitest on this one
+case.**
+
+#### The forward pointers were paragraphs
+
+The two pointers this branch added were three and five lines, and they quoted
+the corrections into the old entries. That breaks the rule that a pointer is one
+line that asserts nothing. Each is now one line naming this entry. The
+corrections they carried are all made in this entry, where they belong:
+
+- 2026-09-21's "the user's own turns are instant, as the comp wires its arrows"
+  is overruled at the top of this entry.
+- 2026-09-22's "a turn with the clock running SHOULD dissolve" is corrected under
+  "The bar drew a full count nobody had counted".
+- 2026-09-22's off-stage photo "held at the END scale" is corrected under "The
+  outgoing photo is parked per slide". That section says the hold "used to" be
+  the end scale without naming the entry; this is the entry it corrects.
+
+**Checks run:**
+
+- `pnpm lint`: exit 0.
+- `pnpm check`: 0 errors, 0 warnings in 4661 files.
+- vitest over FeaturedProperties, carousel, CarouselProgress and the capability
+  index: 130/130.
+- `featured-properties.spec.ts` on dev: 34/34 (load 6–9).
+- `node scripts/capability-index.mjs`: no change.
+- The full `pnpm verify` was not run; it runs on the re-combined tree.

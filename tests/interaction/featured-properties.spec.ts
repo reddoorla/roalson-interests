@@ -1,7 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Browser, type Locator, type Page } from "@playwright/test";
 import { expectRing, GARNET } from "./expect-ring";
-import { FEATURED_DISSOLVE, FEATURED_DWELL } from "./featured-dwell";
+import { FEATURED_DISSOLVE, FEATURED_DWELL, FEATURED_KEN_BURNS } from "./featured-dwell";
 import { HYDRATION_TIMEOUT } from "./hydrated";
 
 // The homepage's featured band (src/lib/slices/FeaturedProperties) is the
@@ -2022,6 +2022,167 @@ test.describe("motion", () => {
       expect(widest, `the fill reached ${widest}px of a ${track}px track`).toBeLessThan(
         track * 0.9,
       );
+    } finally {
+      await context.close();
+    }
+  });
+
+  test("Play after a VISITOR's turn: the clock takes the drift over, and the photo lands with the bar", async ({
+    browser,
+  }) => {
+    // THE HAND-OVER THE SLICE USED TO ONLY CLAIM. It drew max(clock, the
+    // visitor's run), and the run is AHEAD of a restarted clock by however
+    // long the visitor waited before Play — so the photo followed the run,
+    // reached 1.03 8.5s after the turn and sat there while the bar filled on
+    // to the clock's turn (the combined-tree verifier, production build: Play
+    // at +3.2s, the photo still from 8.5s to the turn at 11.7s). Now the clock
+    // takes it over on Play: from where the run stood, across what is left.
+    //
+    // Every frame from before Play to the clock's turn is recorded IN THE
+    // PAGE, the bar's declared value and the photo's computed scale in the
+    // same callback, so the two are one frame's state and never a round trip
+    // apart. What is asserted is the relation between them on every frame,
+    // not a time: on a loaded machine when a frame lands is noise, and what
+    // it draws is not.
+    test.setTimeout(60_000);
+    const { context, page } = await moving(browser);
+    try {
+      await page.goto(HOME);
+      await adopted(page);
+      await pointerAway(page);
+
+      // A real press: the arrow's focus is the pause, and Play lifts it.
+      await page.getByRole("button", { name: "Next slide" }).click();
+      await expect(page.getByRole("button", { name: "Play slides" })).toBeVisible();
+      await pointerAway(page);
+      // Let the visitor's run travel, so the hand-over has travel on BOTH
+      // sides of it — the case the max got wrong, and the one it cannot fake.
+      await expect.poll(() => photoScale(page), { timeout: 8_000 }).toBeGreaterThan(1.006);
+
+      await page.evaluate((card) => {
+        const w = window as unknown as {
+          __drift: {
+            t: number;
+            label: string | null;
+            turned: boolean;
+            mode: string;
+            bar: number;
+            scale: number | null;
+          }[];
+        };
+        w.__drift = [];
+        const region = document.querySelector(card)!;
+        const live = region.querySelector("[aria-live]")!;
+        const fill = region.querySelector<HTMLElement>("[data-carousel-progress] > div")!;
+        // THIS slide's photo, held by reference: it must be read through the
+        // turn, when `:not([inert])` starts naming the next one.
+        const photo = region.querySelector(
+          "[data-featured-slide]:not([inert]) [data-featured-photo]",
+        )!;
+        const first = live.textContent;
+        const tick = () => {
+          const transform = getComputedStyle(photo).transform;
+          const turned = live.textContent !== first;
+          w.__drift.push({
+            t: performance.now(),
+            label: region.querySelector("button")!.getAttribute("aria-label"),
+            turned,
+            mode: fill.dataset.carouselFill ?? "",
+            bar: Number(/scaleX\(([^)]+)\)/.exec(fill.getAttribute("style") ?? "")?.[1]),
+            scale: transform === "none" ? null : Number(/matrix\(([^,]+),/.exec(transform)![1]),
+          });
+          if (!turned) requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+      }, CARD);
+      const onStageText = await status(page).textContent();
+      await page.getByRole("button", { name: "Play slides" }).click();
+      await pointerAway(page);
+      // Positive evidence the clock ran this dwell OUT: it turned the slide.
+      await expect(status(page)).not.toHaveText(onStageText!, { timeout: TURN_CEILING });
+      await expect
+        .poll(() =>
+          page.evaluate(
+            () => (window as unknown as { __drift: { turned: boolean }[] }).__drift.at(-1)?.turned,
+          ),
+        )
+        .toBe(true);
+
+      const frames = await page.evaluate(
+        () =>
+          (
+            window as unknown as {
+              __drift: {
+                t: number;
+                label: string | null;
+                turned: boolean;
+                mode: string;
+                bar: number;
+                scale: number | null;
+              }[];
+            }
+          ).__drift,
+      );
+      const drift = (f: { scale: number | null }) => (f.scale! - 1) / FEATURED_KEN_BURNS;
+      const pressed = frames.findIndex((f) => f.label === "Pause slides");
+      expect(pressed, "sampled across the Play press").toBeGreaterThan(0);
+      const before = frames.slice(0, pressed);
+      const after = frames.slice(pressed).filter((f) => !f.turned);
+      expect(
+        before.every((f) => f.label === "Play slides"),
+        "premise: stopped until Play",
+      ).toBe(true);
+      expect(
+        after.every((f) => f.label === "Pause slides" && f.mode === "timed"),
+        "premise: running, and COUNTING, from Play to the turn",
+      ).toBe(true);
+      expect(
+        Math.max(...after.map((f) => f.bar)),
+        "premise: the bar counted the dwell out",
+      ).toBeGreaterThan(0.95);
+
+      // The visitor's run, on the last frame before Play: it has travelled,
+      // and has travel left — the only case where the two answers differ.
+      const ran = drift(before.at(-1)!);
+      expect(ran, "premise: the run had travelled before Play").toBeGreaterThan(0.1);
+      expect(ran, "premise: the run had travel left at Play").toBeLessThan(0.8);
+
+      // Where the hand-over took the drift, solved from the first frame after
+      // Play: drift = from + (1 − from) × bar. That frame is normally in the
+      // settle, where the bar reads 0 and the photo simply IS `from`; solving
+      // rather than requiring a bar of 0 keeps this honest when a loaded
+      // machine drops the whole 500ms settle between two frames. It can only
+      // be at or past `ran` — the run moves on until the flush Play lands in.
+      const from = (drift(after[0]) - after[0].bar) / (1 - after[0].bar);
+      expect(
+        from,
+        "the clock took the drift over from where the run stood — not from the top",
+      ).toBeGreaterThanOrEqual(ran - 0.001);
+      const settled = after.filter((f) => f.bar === 0).length;
+
+      // EVERY FRAME from Play to the turn: the run's share, plus the bar's
+      // share of the travel the run left. Under the old max this is off by the
+      // run's lead — 500ms of drift already in the settle, and the whole of
+      // what was left by the time the run parked at 1.03.
+      const off = after
+        .map((f) => ({ f, want: from + (1 - from) * f.bar }))
+        .filter(({ f, want }) => Math.abs(drift(f) - want) > 0.01)
+        .map(
+          ({ f, want }) =>
+            `${f.scale} with the bar at ${f.bar.toFixed(3)}: expected ${(1 + FEATURED_KEN_BURNS * want).toFixed(5)}`,
+        );
+      expect(
+        off,
+        `frames where the photo and the bar disagreed (${after.length} after Play, ${settled} in the settle)`,
+      ).toEqual([]);
+
+      // Never backwards, through the press and the hand-over.
+      const seen = frames.filter((f) => !f.turned);
+      for (let i = 1; i < seen.length; i++)
+        expect(
+          seen[i].scale!,
+          `${(seen[i].t - seen[0].t).toFixed(1)}ms into the recording`,
+        ).toBeGreaterThanOrEqual(seen[i - 1].scale!);
     } finally {
       await context.close();
     }
