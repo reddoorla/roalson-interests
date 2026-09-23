@@ -6907,6 +6907,8 @@ Every guard below was broken on purpose and watched go red before being kept.
 | always jump, as reduced motion would                   | `95 frames sampled: expected > 3, received 0`                                                 |
 | let the flight test inherit the fleet's `reduce`       | `the fleet's reduced-motion emulation is lifted in this block: expected false, received true` |
 | cut the homepage camera loose from the carousel        | `expected true, received false`                                                               |
+| unpin the map (against the REWRITTEN release test)     | `pinned at the offset: expected 0, received -228.984375`                                      |
+| let a Properties pin open the sheet again              | `expected 0, received 1`                                                                      |
 
 **One of them came back GREEN and that is the most useful line here.** "Takes
 the newest intersecting entry of a batch" was written with a batch whose newest
@@ -6922,6 +6924,46 @@ And one existing guard went red for a reason that was never its claim:
 class string, and `.` does not cross a newline — the moment the string grew past
 prettier's width and got wrapped, the regex stopped matching two classes that
 were both still there. It is a token-list check now.
+
+### What `pnpm verify` caught that a targeted run did not
+
+The new spec was green on its own and the gate was not. Three failures, and
+only one of them was a flake-shaped thing:
+
+**Two were this change's intended behaviour colliding with the tests that
+described the old one.** `property-map.spec.ts` asserted a pin press opens the
+details sheet, in two places, both on `/dev/properties` — which is exactly the
+page that now passes `onselect` and therefore opens no sheet at all. Those
+assertions did not weaken, they MOVED: the homepage band still draws the sheet
+because it has no card beside its map, and its 390 map is the same 200px
+full-bleed box the credit hit-test was written against (measured: 375 × 200,
+three single pins, no clusters, expand drawn; 508.2 × 820.5 and three pins at
+1440). `/dev/properties` gained the opposite assertion in their place — a pin
+press there opens NO sheet — which is a claim about the new behaviour rather
+than a deletion of the old one. Mutating `onselect` off the caller turns it red
+with `expected 0, received 1`.
+
+**The third was my own test measuring a page that no longer existed.** "Lets go
+at the section's end" computed a travel and a stick point up front and scrolled
+to them afterwards; alone it passed, and inside `pnpm verify` it failed with the
+map's top at 0 against an expected 100. The fixture's card heights settle late —
+its photos are data: URIs that fail to load (#17 logs two console errors per
+load for exactly this) — so a plan measured before the settle described a
+different page from the one being scrolled. Every number now comes out of the
+same `evaluate` as the assertion it feeds, and the release claim is stated
+relationally: the map is parked on the BOTTOM of its own grid area, which is the
+only thing `position: sticky` does here and the thing nothing in the code asks
+for explicitly. It still goes red on `unpin the map entirely`, now with
+`pinned at the offset: expected 0, received -228.984375`.
+
+**And one self-inflicted loss, recorded because it is cheap to repeat.** A
+one-off mutation run was reverted with `git checkout -- <file>` instead of the
+`cp`/`mv` backup the mutation script uses, on a TRACKED file with uncommitted
+work in it. That is not a revert of the mutation, it is a revert to `HEAD`:
+every change to `PropertyListing.svelte` went with it. Rebuilt from the session
+transcript and re-verified (`pnpm check` clean, 21 unit cases green), then
+committed immediately rather than after the next gate. `git checkout --` is not
+an undo.
 
 ### Filed, not fixed
 
