@@ -50,11 +50,26 @@
   // 2. IT RELEASES BY ITSELF. A sticky grid item is confined to its GRID AREA,
   //    so the map stops travelling when the card column ends and no script has
   //    to notice. Measured rather than assumed, on the fixture at 1440x900:
-  //    grid top 476.02, grid height 1092.39, map 595 — so 497.39px of travel,
-  //    stuck from scrollY 376.02 to 873.41, and at scrollY 900 the map's top
-  //    reads 73.4 (= 100 - 26.6 of overshoot). Exactly the predicted release.
+  //    grid top 476.02, GRID PADDING-TOP 40, border-box 1092.39 — so a CONTENT
+  //    box of 1052.39, and against a 595 map that is 457.39px of travel,
+  //    stuck from scrollY 416.02 to 873.41. At scrollY 900 the map's top reads
+  //    73.41 (= 100 - 26.59 of overshoot). Exactly the predicted release.
+  //
+  //    THE GRID AREA IS THE CONTENT BOX, and an earlier version of this note
+  //    subtracted the map from the BORDER box instead — which includes the
+  //    `lg:pt-10` the area does not. It read "497.39px of travel, stuck from
+  //    376.02", both 40 out, and the claim that the map is stuck anywhere in
+  //    376..416 was simply false: measured at 1440x900, the map's top is
+  //    140.02 at scrollY 376 and first reaches its 100px offset at 416. The
+  //    RELEASE point survived the error only because the two 40s cancel at
+  //    that end (416.02 + 457.39 = 376.02 + 497.39), which is exactly why it
+  //    went unnoticed — the one number anyone checked was the one the mistake
+  //    could not move.
+  //
   //    On the real portfolio the land section gives 4499.86px of travel and
-  //    the improved section 873.63.
+  //    the improved section 873.63. Those two were RE-MEASURED rather than
+  //    assumed to carry the same error, and they do not: both are already the
+  //    content-box figures (the border boxes are 4539.86 and 1013.63).
   //
   // 3. ONLY FROM `lg`. At 390 the map is a 200px box ABOVE the cards; pinning
   //    it would spend 200 of a 844px viewport permanently and the comp does not
@@ -88,22 +103,43 @@
   /** `--screen-lg` (app.css). The one breakpoint this file pins at. */
   const LG = 1024;
 
-  /** What `--sticky-top` holds until the first measurement — app.css's own
-   *  `scroll-padding-top` at `lg`, which is the bar plus 20px of air. It is
-   *  never the answer for a pinned divider; it is what a map is offset by for
-   *  the one frame before `measure()` runs, and on a server render, where
-   *  nothing is scrolled and nothing is stuck. */
-  const UNMEASURED_TOP = 100;
+  /**
+   * What `--sticky-top` holds until the first measurement, PER SECTION — and
+   * the reason it is a CSS expression rather than a number is that it has to
+   * be right with no script at all.
+   *
+   * Both the map and the divider are `position: sticky` in plain CSS, so they
+   * pin on a page that never hydrates. This used to ship `100px` for every
+   * section and be corrected only by an `$effect`, which meant that with
+   * script off — and in every frame before hydration — a pinned section's map
+   * pinned 45.41px BEHIND its own opaque divider. Measured on a production
+   * build of /properties at 1440x900, scrollY 6000: `--sticky-top` 100px, map
+   * top 100, divider bottom 145.41, and 45.41px of the fallback list of
+   * listing links painted under it. That list is the whole of the map for a
+   * no-JS visitor, and the part covered was its top.
+   *
+   * So the server now sends the right answer for the case it can know:
+   * section 0's divider does not pin (its map lands on the declared usable
+   * top), every later one does (its map lands on the divider). Both come from
+   * app.css, which is where this site says where its usable top is.
+   */
+  const UNMEASURED_TOP = "var(--usable-top)";
+  const UNMEASURED_PINNED_TOP = "var(--listing-divider-top)";
+  const unmeasuredTop = (i: number) => (i > 0 ? UNMEASURED_PINNED_TOP : UNMEASURED_TOP);
 
   let dividerEls = $state<(HTMLElement | undefined)[]>([]);
   let listEls = $state<(HTMLElement | undefined)[]>([]);
-  let stickyTops = $state<number[]>([]);
+  /** Per section: the MEASURED offset in px, or undefined where nothing has
+   *  been measured yet — in which case the CSS fallback above stands. */
+  let stickyTops = $state<(number | undefined)[]>([]);
   /** Section id → the listing id on the centre line. */
   let activeIds = $state<Record<string, string>>({});
 
-  function usableTop(): number {
+  /** The scrollport's declared usable top, read rather than typed — app.css
+   *  declares it as `--usable-top` and applies it as `scroll-padding-top`. */
+  function usableTop(): number | undefined {
     const declared = parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop);
-    return Number.isFinite(declared) ? declared : UNMEASURED_TOP;
+    return Number.isFinite(declared) ? declared : undefined;
   }
 
   function measure() {
@@ -114,10 +150,17 @@
       // A ZERO HEIGHT IS NOT A MEASUREMENT. Under jsdom every box is 0, and in
       // a browser this can be asked before first layout; either way `top: 0`
       // would pin the map against the very top of the window, under the bar.
-      // Falling back to the declared usable top is the honest answer to "I
-      // could not measure it".
+      //
+      // Section 0 has no pinned divider to read, so its answer is the declared
+      // usable top. Every other section that could not be measured returns
+      // `undefined` and KEEPS THE CSS FALLBACK, which for a pinned section is
+      // the derived divider height — not the bar. Returning a number here was
+      // the old behaviour and it is what put the naked 100 back over a
+      // correctly-rendered no-JS page the moment hydration ran with a
+      // divider it could not yet measure.
       const measured = el ? el.getBoundingClientRect().height : 0;
-      return measured > 0 ? measured : usableTop();
+      if (measured > 0) return measured;
+      return i > 0 ? undefined : usableTop();
     });
   }
 
@@ -139,10 +182,74 @@
     return () => ro.disconnect();
   });
 
+  /**
+   * How long the centre rule stays suspended after a press-initiated scroll
+   * falls quiet, and the ceiling on the whole suspension.
+   *
+   * SETTLE is a debounce on the document's own `scroll` events, not a guess at
+   * how long a smooth scroll takes: a smooth scroll delivers an event about
+   * every frame, so ~120ms of silence means it has stopped, whatever distance
+   * it covered. A fixed duration would have to be long enough for the 4500px
+   * land section and would then freeze the map for a second on a 200px hop.
+   *
+   * CAP exists because a scroll that never happens produces no events to
+   * debounce — press the pin of the card already on the centre line and
+   * nothing moves at all. The timer is therefore armed at the press rather
+   * than at the first scroll, and CAP is the backstop for a scroll that is
+   * interrupted mid-flight (the visitor grabs the scrollbar) and never
+   * reaches its destination. Nothing correctness-critical hangs on either
+   * number: the worst a wrong one does is resume the rule a beat early or
+   * late, and the rule's answer is still the rule's answer.
+   */
+  const SETTLE_MS = 120;
+  const SUSPEND_CAP_MS = 2000;
+
+  /** Section index → true while a scroll THIS component started is travelling.
+   *  See centreWatch.ts: the rule is suspended, never overruled. */
+  let pressScrolling = $state<Record<number, boolean>>({});
+  let settleTimer: ReturnType<typeof setTimeout> | undefined;
+  let capTimer: ReturnType<typeof setTimeout> | undefined;
+  let scrollWatch: (() => void) | undefined;
+
+  function endSuspension(sectionIndex: number) {
+    clearTimeout(settleTimer);
+    clearTimeout(capTimer);
+    if (scrollWatch) window.removeEventListener("scroll", scrollWatch);
+    scrollWatch = undefined;
+    // A new object, not a mutation: `pressScrolling[i] = false` on a `$state`
+    // record is reactive in Svelte 5, but the action reads this through its
+    // options and a fresh object makes the `update` unambiguous.
+    pressScrolling = { ...pressScrolling, [sectionIndex]: false };
+  }
+
+  function suspendWhileScrolling(sectionIndex: number) {
+    clearTimeout(settleTimer);
+    clearTimeout(capTimer);
+    if (scrollWatch) window.removeEventListener("scroll", scrollWatch);
+    pressScrolling = { ...pressScrolling, [sectionIndex]: true };
+    const arm = () => {
+      clearTimeout(settleTimer);
+      settleTimer = setTimeout(() => endSuspension(sectionIndex), SETTLE_MS);
+    };
+    scrollWatch = arm;
+    window.addEventListener("scroll", arm, { passive: true });
+    arm();
+    capTimer = setTimeout(() => endSuspension(sectionIndex), SUSPEND_CAP_MS);
+  }
+
   /** A pressed pin scrolls its card to the middle of the screen, where
    *  `centreWatch` then finds it and makes it active. Two steps on purpose —
    *  see centreWatch.ts for why a press may not name the active listing
    *  itself.
+   *
+   *  AND THE CENTRE RULE IS HELD WHILE THAT SCROLL TRAVELS. A smooth scroll
+   *  crosses every card between here and there, and the rule fired at each
+   *  one: pressing the IH-35 pin from scrollY 0 at 1440x900 with motion
+   *  allowed sent the page 0 -> 936 and the camera FOUR flights in 322ms.
+   *  Suspending is the only fix available, because the press is not allowed to
+   *  name the active listing itself — that would be the second author of
+   *  `active` the operator's rule forbids. When the scroll settles the pressed
+   *  card IS the card on the centre line, so the one rule answers once.
    *
    *  `scrollIntoView`, not `scrollTo`: CLAUDE.md's rule is about not fighting
    *  SvelteKit's own post-navigation scroll, and `$lib/utils/instantNavScroll`
@@ -157,10 +264,20 @@
     if (!list) return;
     for (const child of list.children) {
       if ((child as HTMLElement).dataset.centreId !== id) continue;
+      suspendWhileScrolling(sectionIndex);
       (child as HTMLElement).scrollIntoView?.({ block: "center" });
       return;
     }
   }
+
+  // A press can be the last thing that happens before a navigation, so the
+  // window listener and both timers have to go with the component.
+  $effect(() => () => {
+    clearTimeout(settleTimer);
+    clearTimeout(capTimer);
+    if (scrollWatch) window.removeEventListener("scroll", scrollWatch);
+    scrollWatch = undefined;
+  });
 </script>
 
 <div class={passedClasses}>
@@ -209,7 +326,9 @@
              the first card 20 below the map — so `pt-5` under `lg` whenever
              there is a map to draw, and `lg:pt-10` always. -->
         <div
-          style="--sticky-top: {stickyTops[i] ?? UNMEASURED_TOP}px"
+          style="--sticky-top: {stickyTops[i] !== undefined
+            ? `${stickyTops[i]}px`
+            : unmeasuredTop(i)}"
           class="{GUTTERS} {points.length > 0 ? 'pt-5' : 'pt-10'} lg:grid
             lg:grid-cols-[397fr_847fr] lg:gap-9 lg:pt-10 {last ? 'pb-[100px]' : ''}"
         >
@@ -240,6 +359,7 @@
             use:centreWatch={{
               minWidth: LG,
               enabled: points.length > 0,
+              suspended: pressScrolling[i] === true,
               onactive: (id) => (activeIds[section.id] = id),
             }}
             class="flex flex-col gap-5 lg:col-start-2"
@@ -251,8 +371,29 @@
                    what the map follows is which listing you are looking at, and
                    the <li> is the box that is or is not on the centre line.
                    PropertyListing.test.ts counts these THROUGH the imported
-                   constant, so the two cannot drift apart silently. -->
-              <li data-centre-id={property.id}>
+                   constant, so the two cannot drift apart silently.
+
+                   AND IT CARRIES THE EXTRA SCROLL MARGIN A PINNED DIVIDER
+                   COSTS. `html { scroll-padding-top }` says where this
+                   scrollport's usable top is, and inside a section whose
+                   divider pins it is wrong by exactly the difference between
+                   the divider and the bar. Measured on a production build at
+                   1440x900: a card scrolled to the top of the scrollport — a
+                   fragment, or a backward Tab — landed its top at 99.95 with
+                   the divider's bottom at 145.41, so 45.45px of it was behind
+                   an opaque block.
+
+                   `calc(var(--sticky-top) - var(--usable-top))` is the
+                   difference and not a typed 45.4: `--sticky-top` is the same
+                   variable the map is offset by (the divider's own measured
+                   height, or its CSS-derived fallback), and `--usable-top` is
+                   what `scroll-padding-top` already applied. In section 0,
+                   where nothing pins, the two are equal and this is 0.
+                   `lg:` because none of it pins below that. -->
+              <li
+                data-centre-id={property.id}
+                class="lg:scroll-mt-[calc(var(--sticky-top)-var(--usable-top))]"
+              >
                 <PropertyCard
                   {property}
                   variant={j === 0 ? "featured" : i === 0 ? "sand" : "cream"}

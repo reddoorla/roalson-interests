@@ -8,7 +8,7 @@
 import { describe, it, expect } from "vitest";
 import { SVELTE_EVENT_REPLAY_HASH } from "@reddoorla/maintenance/configs/svelte";
 
-import { MAP_TILE_HOST } from "../src/lib/property-map";
+import { DEFAULT_MAP_STYLE_URL, MAP_TILE_HOST } from "../src/lib/property-map";
 
 // The served policy is asserted where it is authored. Svelte 5 server-renders
 // `onload="this.__e=event"` (and onerror) on every element that takes an
@@ -62,6 +62,18 @@ describe("the template's Content-Security-Policy", () => {
         if (name === "connect-src") continue;
         expect(values, `${name} should not need the tile host`).not.toContain(MAP_TILE_HOST);
       }
+    });
+
+    // THE STYLE DOCUMENT MOVED TO OUR OWN ORIGIN (2026-09-22,
+    // scripts/map-style.mjs), and MapLibre fetches it — so `'self'` in
+    // connect-src is now load-bearing for the map as well as for /api/*.
+    // Without this case, deleting `'self'` from connect-src would leave every
+    // assertion in this file green and the map dead in production: the tile
+    // host above would still be listed, and nothing else here reads the
+    // directive at all.
+    it("allows the same-origin style document the map now loads", () => {
+      expect(DEFAULT_MAP_STYLE_URL.startsWith("/")).toBe(true);
+      expect(connectSrc).toContain("self");
     });
 
     // MapLibre 6 compiles style expressions without `eval`/`new Function`, and

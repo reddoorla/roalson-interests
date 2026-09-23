@@ -1,5 +1,6 @@
 import { cleanup, render, within } from "@testing-library/svelte";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { tick } from "svelte";
 
 import PropertyListing from "./PropertyListing.svelte";
 import { CENTRE_ID } from "$lib/actions/centreWatch";
@@ -172,14 +173,89 @@ describe("PropertyListing", () => {
     }
   });
 
-  it("serves the sticky offset as a variable on the grid, set before hydration", () => {
+  // THE PRE-MEASUREMENT VALUE IS A CSS EXPRESSION, NOT A NUMBER, and which
+  // expression depends on whether that section's divider pins. jsdom has no
+  // ResizeObserver and no layout, so this is exactly what a server render and
+  // a no-JS browser get — the state that used to ship a flat `100px` and put
+  // a pinned section's map 45.41px behind its own opaque divider.
+  it("serves a sticky offset that is already correct with no script at all", () => {
     const { getAllByRole } = render(PropertyListing, { props: { sections: sections() } });
-    for (const section of getAllByRole("region").slice(0, 2)) {
-      const grid = section.querySelector<HTMLElement>("[data-property-map]")!.parentElement!;
-      // jsdom has no ResizeObserver, so this is the PRE-measurement value —
-      // which is the point: the variable is never missing, so `top` is never
-      // `auto` and the map is never stuck at its own resting place.
-      expect(grid.style.getPropertyValue("--sticky-top")).toBe("100px");
+    const [land, improved] = getAllByRole("region");
+    const gridOf = (section: HTMLElement) =>
+      section.querySelector<HTMLElement>("[data-property-map]")!.parentElement!;
+
+    // Section 0 pins no divider: its map lands on the scrollport's own
+    // declared usable top.
+    expect(gridOf(land!).style.getPropertyValue("--sticky-top")).toBe("var(--usable-top)");
+    // Every later section does: its map lands on the DIVIDER, whose height
+    // app.css derives from the divider's own declared parts.
+    expect(gridOf(improved!).style.getPropertyValue("--sticky-top")).toBe(
+      "var(--listing-divider-top)",
+    );
+    // Never missing, whichever it is — a missing variable makes `top` resolve
+    // to `auto` and the map never pins at all.
+    for (const section of [land!, improved!])
+      expect(gridOf(section).style.getPropertyValue("--sticky-top")).not.toBe("");
+  });
+
+  // …AND `measure()` REALLY DOES OVERRIDE IT. The assertion above is about the
+  // fallback, and a fallback assertion survives deleting the measurement
+  // entirely — which is what the version of this test it replaces did: it read
+  // `"100px"`, the `?? UNMEASURED_TOP` branch, and stayed green with
+  // `measure()`, the ResizeObserver effect and `stickyTops` all removed.
+  //
+  // So this one gives jsdom the two things it lacks — a ResizeObserver that
+  // fires, and dividers with a real height — and asserts the variable becomes
+  // that height. Delete `measure()` and it reads `var(--listing-divider-top)`
+  // instead of `145.4px`.
+  it("replaces the fallback with the divider's real height once it can measure one", async () => {
+    const DIVIDER_HEIGHT = 145.4;
+    const observers: ResizeObserverCallback[] = [];
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        constructor(public cb: ResizeObserverCallback) {
+          observers.push(cb);
+        }
+        observe() {
+          this.cb([], this as never);
+        }
+        unobserve() {}
+        disconnect() {}
+      },
+    );
+    // Only the divider is given a box: `measure()` reads section i's FIRST
+    // child, and reporting a height for everything would not tell us it read
+    // the right element.
+    const realRect = Element.prototype.getBoundingClientRect;
+    vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (
+      this: Element,
+    ) {
+      const isDivider =
+        this.parentElement?.matches("section[aria-labelledby^='listing-']") === true &&
+        this.parentElement.firstElementChild === this;
+      if (isDivider) return { ...realRect.call(this), height: DIVIDER_HEIGHT } as DOMRect;
+      return realRect.call(this);
+    });
+
+    try {
+      const { getAllByRole } = render(PropertyListing, { props: { sections: sections() } });
+      await tick();
+      for (const cb of observers) cb([], null as never);
+      await tick();
+
+      const [land, improved] = getAllByRole("region");
+      const gridOf = (section: HTMLElement) =>
+        section.querySelector<HTMLElement>("[data-property-map]")!.parentElement!;
+
+      // The pinned section's offset is now the MEASURED height.
+      expect(gridOf(improved!).style.getPropertyValue("--sticky-top")).toBe(`${DIVIDER_HEIGHT}px`);
+      // And section 0's is not, because its divider deliberately does not pin —
+      // so this also proves `measure()` read the divider and not just any box.
+      expect(gridOf(land!).style.getPropertyValue("--sticky-top")).not.toBe(`${DIVIDER_HEIGHT}px`);
+    } finally {
+      vi.restoreAllMocks();
+      vi.unstubAllGlobals();
     }
   });
 

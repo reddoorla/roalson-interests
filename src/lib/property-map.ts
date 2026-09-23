@@ -39,10 +39,21 @@ import { linkResolver } from "$lib/prismicio";
 import { mapsUrl } from "$lib/property";
 import type { PropertyDocument } from "../prismicio-types";
 
-/** OpenStreetMap data served as vector tiles, no key and no account — and no
- *  cookie set on our page, which is why it is the default. Overridable so that
- *  swapping to a keyed provider later is one env var plus one CSP host. */
-export const DEFAULT_MAP_STYLE_URL = "https://tiles.openfreemap.org/styles/liberty";
+/** OUR OWN STYLE, SERVED FROM OUR OWN ORIGIN, over OpenFreeMap's tiles.
+ *
+ *  `static/map-style.json` is OpenFreeMap's "liberty" style with 117 paint
+ *  values repainted into this site's palette, five layers removed and the
+ *  attribution trimmed to what the licence actually requires. It is generated
+ *  by `node scripts/map-style.mjs` and COMMITTED — never fetched at build time,
+ *  because a build that depends on a third party's uptime fails on PRs that
+ *  touched nothing near the map.
+ *
+ *  Only the STYLE moved. The vector tiles, the sprite sheet and the glyph
+ *  ranges are still OpenFreeMap's (MAP_TILE_HOST), still keyless, still
+ *  account-free and still set no cookie on our page — which is why the CSP
+ *  entry below did not change. Overridable so that swapping to a keyed provider
+ *  later is one env var plus one CSP host. */
+export const DEFAULT_MAP_STYLE_URL = "/map-style.json";
 
 /** The style URL to load, given `PUBLIC_MAP_STYLE_URL` exactly as the
  *  environment holds it. Blank, whitespace or unset means the default: an
@@ -52,7 +63,10 @@ export function mapStyleUrl(configured?: string | null): string {
   return trimmed ? trimmed : DEFAULT_MAP_STYLE_URL;
 }
 
-/** Whichever CSP host the style above needs, for docs/security.md to quote. */
+/** Whichever CSP host the style above needs, for docs/security.md to quote.
+ *  Still the only external host the map reaches: the style is ours, everything
+ *  it POINTS at is OpenFreeMap's. `scripts/map-style.test.ts` asserts that of
+ *  the committed file rather than taking this comment's word for it. */
 export const MAP_TILE_HOST = "https://tiles.openfreemap.org";
 
 /** One listing on the map. Everything a pin draws or links to, and nothing
@@ -297,12 +311,19 @@ export function fitCamera(
 /**
  * How long a flight to the active listing lasts, in ms.
  *
- * It is the homepage band's own `DISSOLVE` (FeaturedProperties/index.svelte,
- * 500), and that is the reason for the number rather than a coincidence: on
- * that band the photo cross-fades over 500ms while the map travels to the
- * same listing, so the picture and the place arrive together and the pair
- * reads as ONE change. 500 also sits well inside the band's 4000ms dwell, so
- * the map is stationary for 87.5% of every slide.
+ * It is the homepage band's own `DISSOLVE` (FeaturedProperties/index.svelte),
+ * and that is the reason for the number rather than a coincidence: on that
+ * band the photo cross-fades over 500ms while the map travels to the same
+ * listing, so the picture and the place arrive together and the pair reads as
+ * ONE change. 500 also sits well inside the band's 4000ms dwell, so the map is
+ * stationary for 87.5% of every slide.
+ *
+ * THE BAND IMPORTS THIS CONSTANT, which it did not always do — the two modules
+ * each typed a `500` and this paragraph asserted a coupling that nothing in
+ * the code held, so tuning either number would have broken the pairing
+ * silently and neither file would have looked wrong. The dependency runs that
+ * way round (slice → lib, never lib → slice) because the flight is a property
+ * of the camera and the band is one of its callers.
  *
  * The Properties page inherits it for a different reason — nothing there is
  * timing out — but the same number is the right one anyway: a scroll that

@@ -67,7 +67,7 @@
   import { cmsHref } from "$lib/cms-href";
   import { featuredListings } from "$lib/featured-properties";
   import { linkResolver } from "$lib/prismicio";
-  import { slidePoints } from "$lib/property-map";
+  import { CAMERA_FLIGHT_MS, slidePoints } from "$lib/property-map";
   import { DEFAULT_IMAGE_WIDTHS, imgix, srcset } from "$lib/utils/image";
 
   let { slice }: { slice: Content.FeaturedPropertiesSlice } = $props();
@@ -75,9 +75,18 @@
   const uid = $props.id();
 
   /** The comp's prototype: a 4s SMART_ANIMATE fills the bar, then a 0.5s
-   *  DISSOLVE to the next variant (6843:993 → 6843:995 → 6843:1089 …). */
+   *  DISSOLVE to the next variant (6843:993 → 6843:995 → 6843:1089 …).
+   *
+   *  IT IS THE CAMERA'S FLIGHT, IMPORTED, not a second 500 that happens to
+   *  match. The band cross-fades the photo while the map flies to the same
+   *  listing, and the pair only reads as ONE change if the two last the same
+   *  time — which `property-map.ts` says in prose where `CAMERA_FLIGHT_MS` is
+   *  declared, and said only in prose until now: both modules typed their own
+   *  `500` and neither imported the other, so the coupling the comments on
+   *  both sides claimed was real did not exist and tuning either one would
+   *  have silently broken it. */
   const DWELL = 4000;
-  const DISSOLVE = 500;
+  const DISSOLVE = CAMERA_FLIGHT_MS;
 
   /** How far the photo travels across its own dwell, drawn off `progress` (see
    *  `zoom` below): 1.00 → 1.03. On the 928 × 542 box that is 27.8px of extra
