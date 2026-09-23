@@ -119,7 +119,12 @@ describe("PropertyListing", () => {
       // class names was never the claim anyway.
       const classes = map!.className.split(/\s+/);
       expect(classes, `${name}: the comp's 200 / 595, never stretched`).toContain("h-50");
-      expect(classes, `${name}: the comp's 200 / 595, never stretched`).toContain("lg:h-[595px]");
+      // The 595 is declared ONCE, as `--map-height`, because the centring
+      // offset needs half of it too (see the next describe's sticky case).
+      expect(classes, `${name}: the comp's 200 / 595, never stretched`).toContain(
+        "lg:[--map-height:595px]",
+      );
+      expect(classes, `${name}: the height IS that variable`).toContain("lg:h-(--map-height)");
       expect(map!.className, `${name}: column 1, row 1`).toMatch(/lg:col-start-1/);
       expect(map!.querySelectorAll("[data-map-link]"), `${name}: one link per pin`).toHaveLength(
         pins,
@@ -151,9 +156,18 @@ describe("PropertyListing", () => {
       // box above the cards and pinning it would spend a quarter of the
       // viewport permanently.
       expect(classes, `${name}: pinned`).toContain("lg:sticky");
-      expect(classes, `${name}: offset by the measured variable`).toContain(
-        "lg:top-[var(--sticky-top)]",
+      // Centred in the window, never above the measured variable (operator,
+      // 2026-09-23: "stick the map in the center of the screen"). Half the
+      // map comes from the one `--map-height`, not a second literal 297.5.
+      // This is the class string; WHERE it lands is measured in a browser by
+      // tests/interaction/property-map-centred.spec.ts.
+      expect(classes, `${name}: centred, and floored at the measured variable`).toContain(
+        "lg:top-[max(var(--sticky-top),calc(50vh-var(--map-height)/2))]",
       );
+      expect(
+        classes.filter((c) => /^lg:top-/.test(c)),
+        `${name}: one top, not a second one fighting it`,
+      ).toHaveLength(1);
       // NO z-index of its own. The divider's `lg:z-10` is what keeps the map
       // under it — a positive z-index paints above every `auto` positioned
       // sibling regardless of tree order — and PropertyMap's root `isolate`

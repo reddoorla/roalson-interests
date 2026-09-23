@@ -9265,3 +9265,149 @@ runs. A sibling agent's `mutate.py` overwrote this branch's at the same path
 mid-session. Nothing was mutated in either worktree, because each script
 rejected the other's arguments before touching a file. Every file of this
 branch's now lives in a subdirectory named for it.
+
+### Amendment, same day: the map pins in the middle of the window
+
+The operator, at about 13:25: _"on properties, stick the map in the center of
+the screen rather than floating to the top"_.
+
+The map's sticky offset was `var(--sticky-top)`: the declared usable top (100)
+in the first section, the pinned divider's measured height (145.41) in every
+later one. It is now `max(var(--sticky-top), 50vh - var(--map-height) / 2)`,
+and the 595 is declared once, as `lg:[--map-height:595px]`, with the height
+reading it (`lg:h-(--map-height)`). The half is derived, not typed as 297.5.
+Tailwind emitted `top:max(var(--sticky-top), calc(50vh - var(--map-height) /
+2))`, read out of the built CSS rather than assumed.
+
+**Why the window's centre, and not the centre of the space under the
+divider.** The garnet card and the camera both follow the card crossing the
+window's middle (`centreWatch`). A window-centred map puts its own centre on
+that same line, level with the card it is showing. That is the reason, and it
+is also the operator's word. The other reading, centre of the area under a
+pinned divider, is top 202.5 at 1440x900 and a one-token change.
+
+**The clamp is `--sticky-top`, so everything the first entry built still
+matters.** Half the window less half the map goes above the floor on a window
+shorter than 795 (section 0) or 885.81 (a pinned section). There the map sits
+exactly where it pinned before. Everything below was measured on a production
+build of `/properties`, JS on unless marked, before (HEAD `5f97089`) and after.
+Loads were 6 to 19.
+
+| viewport  | section  | before: map box                                   | after: map box          | after: centre / window centre |
+| --------- | -------- | ------------------------------------------------- | ----------------------- | ----------------------------- |
+| 1440x900  | land     | 100–695                                           | **152.5–747.5**         | 450 / 450                     |
+| 1440x900  | improved | 145.41–740.41                                     | **152.5–747.5**         | 450 / 450                     |
+| 1920x1080 | land     | 100–695                                           | **242.5–837.5**         | 540 / 540                     |
+| 1920x1080 | improved | 145.41–740.41                                     | **242.5–837.5**         | 540 / 540                     |
+| 1280x800  | land     | 100–695                                           | **102.5–697.5**         | 400 / 400                     |
+| 1280x800  | improved | 145.41–740.41                                     | 145.41–740.41 (clamped) | 442.91 / 400                  |
+| 1440x720  | both     | 100–695 / 145.41–740.41                           | unchanged (clamped)     | 397.5, 442.91 / 360           |
+| 1024x768  | both     | 100–695 / 145.41–740.41                           | unchanged (clamped)     | 397.5, 442.91 / 384           |
+| 390x844   | both     | `position: relative`, moves 400 with a 400 scroll | unchanged               | —                             |
+
+**Pin and release moved EARLIER, not later.** The brief expected later. A
+larger `top` is reached sooner by a box coming up the page, and the same is
+true of the release. The travel length does not change. The scrollY values
+below were computed from the grid area and then checked by scrolling 20px
+either side of each end.
+
+| viewport           | section  | before: pin → release | after: pin → release | travel  |
+| ------------------ | -------- | --------------------- | -------------------- | ------- |
+| 1440x900           | land     | 416.02 → 4915.88      | 363.52 → 4863.38     | 4499.86 |
+| 1440x900           | improved | 5641.48 → 6515.11     | 5634.39 → 6508.02    | 873.63  |
+| 1920x1080          | land     | 416.02 → 4941.75      | 273.52 → 4799.25     | 4525.73 |
+| 1920x1080          | improved | 5667.36 → 6547.45     | 5570.27 → 6450.36    | 880.09  |
+| 1280x800           | land     | 416.02 → 4946.63      | 413.52 → 4944.13     | 4530.61 |
+| 1280x800           | improved | 5672.23 → 6547.22     | unchanged            | 874.98  |
+| 1440x720, 1024x768 | both     | —                     | unchanged            | —       |
+
+20px past the release the map sits 20 above its offset, within 0.4: 132.88
+against an expected 132.5 for land at 1440x900. The sticky grid item still
+parks on the foot of its grid area by itself.
+
+**No JS.** Before the first measurement `--sticky-top` is still the server's
+`var(--usable-top)` / `var(--listing-divider-top)`. The computed value of the
+second is the unevaluated `calc(100px + 2px + 18px + 34.8px - 9.4px)`, which
+is why the new spec resolves it on a probe element instead of parsing it. With
+scripting off the numbers match the JS run to the pixel: centred at 152.5 at
+1440x900 in both sections, and 100 / 145.4 (the derived divider height) at
+1440x720.
+
+**The pin press, proved rather than assumed.** A real mouse press on a land
+pin at 1440x900 (production build): the card went garnet and was alone, it
+crossed the window's centre line by an independent box test, the page moved,
+and the pressed listing's pin tip settled at the map's middle, `[0, 0]` off.
+The card landed at 302.83–697.66, so it spans the map's centre (450). Its own
+centre is 50.24 below the map's centre. That is not new. `block: "center"`
+centres the card in the scrollport less `scroll-padding-top`, so the card
+centres on 500, or on 522.91 under a pinned divider (+45.41 / 2). Before this
+change the land map's centre was 397.5, so the same press sat 102.5 below it. Filed as #155 with a candidate
+(`scroll-mb-[var(--sticky-top)]`), because it also moves #114's Tab scrolls.
+
+**Guards.** `tests/interaction/property-map-centred.spec.ts` runs on
+`/properties`, so it runs on a production build. It has five cases:
+
+- centre within 1px at 1440x900 and at 1920x1080;
+- on `--sticky-top` within 1px at 1440x720, and on the divider's bottom or the
+  usable top, with a precondition that centring would have gone above the
+  floor;
+- the same two with scripting off;
+- the press.
+
+Every geometry case first proves the map is pinned: its area has scrolled past
+both ends, and a further 100px scroll moved the content 100 and the map 0.
+Mutations, each run against the final spec and restored:
+
+- **M1**, top back to `var(--sticky-top)`: 1440x900 red, `Received 52.5`
+  (land centre 397.5 against 450). 1920x1080 red, `142.5`. No-JS red, `52.5`.
+  The unit test is red. The 720 and press cases stay green, correctly.
+- **M2**, clamp removed: 1440x720 red, `map top 62.5 against --sticky-top
+100`. No-JS red. The unit test is red. Both `property-map-camera.spec.ts`
+  cases this amendment moved to 720 are red (`Received "62.5px"`, and `62.5`
+  against 100).
+- **M6**, clamp floors at `--usable-top` instead of `--sticky-top`: only the
+  improved section is wrong, and it is caught. 720 red, `map top 100 against
+--sticky-top 145.40625`. No-JS red, `145.390625`.
+- **M3**, the press does nothing, and **M5**, `block: "end"`: the press case is
+  red, the garnet card is not the pressed one.
+- **M4**, `block: "start"`: **survives**. The two pressed cards measured were
+  264 and 395 tall, so one aligned to the top of the scrollport still crosses 450. The case claims
+  "on the line and level with the map", not "centred". #155 is where a
+  centring claim would belong.
+
+`--repeat-each=16`: **80/80** at load 51.50 → 58.50.
+
+The first version of the geometry read spread itself over four calls with a
+150ms wait. Once, with scripting off at 1440x720, it read a 100px nudge as 90.
+The page's geometry is steady from `load` (four no-JS loads, six samples each
+to 2.5s, identical), so I did not find which gap it fell into. The read is now
+one synchronous pass with no gaps. The 80/80 is on that version.
+
+**Two existing cases moved to 1440x720**, and both are in
+`property-map-camera.spec.ts`, outside this amendment's brief:
+
+- "sticks under the pinned divider, at the divider's own measured height";
+- the no-JS "pins clear of its own divider", which also carries app.css's
+  `--listing-divider-top` derivation guard.
+
+At 900 both maps now centre at 152.5, which hides the offset they measure.
+At 720 the clamp exposes it again. Their hunks (lines ~124 and ~1011) do not
+touch `feat/map-scroll-zoom`'s (548–653 and 804–845 of the same file).
+
+**Belief corrected on contact.** `vite preview` keeps the server manifest it
+started with. After a rebuild in the same worktree, a preview left running
+served new prerendered HTML naming CSS it no longer had. The page rendered
+unstyled: a land grid 29,030px tall where the real one is 5,135. The only
+symptom was absurd numbers. Every measurement above was taken on a preview
+restarted after the build it measures. The Playwright runs are unaffected,
+because each one builds and starts its own server.
+
+**Seen, not this change's.** Two cases were red during these checks. Neither
+depends on where the map pins:
+
+- `property-map-camera.spec.ts:439` "travels, rather than arriving", red twice
+  at load 35 to 42 with 10 and 15 rAF frames in 900ms. Interleaved against the
+  old offset it was old 12/12 and new 12/12. Recorded on #144.
+- `property-map-camera-prod.spec.ts:703`, expand/collapse on a production
+  build: `Cannot read properties of undefined (reading 'getZoom')`. Identical
+  with the old offset (2 of 2 red each way). That is #135.

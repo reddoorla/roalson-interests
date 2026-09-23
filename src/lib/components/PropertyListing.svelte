@@ -30,8 +30,9 @@
   // nothing in this file consults a breakpoint twice.
   //
   // TOP-ALIGNED, NEVER STRETCHED. The comp holds the panel at 595 beside a
-  // 5-card list 1457.48 tall, so `lg:h-[595px]` and no `h-full`/`self-stretch`
-  // — the grid's default `stretch` would grow the map to the list's height.
+  // 5-card list 1457.48 tall, so a fixed `lg:h-(--map-height)` (595, see
+  // 4 below for why it is a variable) and no `h-full`/`self-stretch` — the
+  // grid's default `stretch` would grow the map to the list's height.
   //
   // THE MAP PINS TOO, AND ITS CAMERA FOLLOWS THE CARDS (#112, the operator's
   // ask: "the idea is the map is sticky and as different properties highlight
@@ -77,6 +78,38 @@
   //    draw it. `centreWatch` is told the same breakpoint and does not run
   //    below it — not "runs and is ignored", which would be an observer per
   //    section on every phone.
+  //
+  // 4. IT PINS IN THE MIDDLE OF THE WINDOW, AND 1 IS ITS FLOOR (operator,
+  //    2026-09-23: "on properties, stick the map in the center of the screen
+  //    rather than floating to the top"). The offset is
+  //    `max(var(--sticky-top), 50vh - half the map)`.
+  //
+  //    The WINDOW's middle, not the middle of the space under the divider,
+  //    because that is the line everything else here keys to: the card the
+  //    camera follows and the garnet card are both the card crossing the
+  //    window's middle (`centreWatch`). A window-centred map puts its own
+  //    centre on that line, level with the card it is showing. Measured on a
+  //    production build at 1440x900: box 152.5–747.5, centre 450 of 900, where
+  //    it used to be 100–695 in section 0 and 145.41–740.41 under a pinned
+  //    divider.
+  //
+  //    THE `max` IS THE CLAMP, and the reason 1 still matters. On a window
+  //    shorter than the map plus twice the floor, half the window less half the
+  //    map is above the floor — 62.5 at 1440x720, which is under the bar in
+  //    section 0 and 83px under the pinned divider in every later section — so
+  //    the map holds at `--sticky-top` instead, exactly where it pinned before.
+  //    The two meet at a window 795 tall in section 0 and 885.81 under a pinned
+  //    divider; below those it is the old pin, above them it is centred.
+  //
+  //    The half is DERIVED from the one `--map-height`, not typed as 297.5, so
+  //    the comp's 595 is one edit and not two.
+  //
+  //    The offset moves both ends of the travel and not its length: a larger
+  //    `top` pins EARLIER in the scroll and lets go earlier, by the same
+  //    amount. 2's fixture numbers were measured at the old 100. On the real
+  //    portfolio at 1440x900 (production build) the land map now pins at
+  //    scrollY 363.52 and lets go at 4863.38 (was 416.02 and 4915.88), and the
+  //    improved map at 5634.39 and 6508.02 (was 5641.48 and 6515.11).
   //
   // WHICH LISTING IS ACTIVE HAS ONE ANSWER: the card crossing the middle of
   // the screen. Pressing a pin does NOT set it — the press scrolls that card
@@ -338,7 +371,8 @@
               active={activeIds[section.id] ?? null}
               onselect={(id) => revealCard(i, id)}
               class="mb-5 h-50 lg:col-start-1 lg:row-start-1 lg:mb-0 lg:sticky
-                lg:top-[var(--sticky-top)] lg:h-[595px]"
+                lg:[--map-height:595px] lg:h-(--map-height)
+                lg:top-[max(var(--sticky-top),calc(50vh-var(--map-height)/2))]"
             />
           {/if}
           <ul

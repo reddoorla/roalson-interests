@@ -121,10 +121,16 @@ async function centre(page: Page, id: string) {
 }
 
 test.describe("the map pins beside its cards", () => {
+  // AT 1440x720, THE CLAMP. The map now pins in the middle of the window and
+  // the divider is only its FLOOR (PropertyListing's note 4): at 1440x900 both
+  // sections' maps pin at 152.5, which hides the offset this test is about. At
+  // 720 half the window less half the map is 62.5, above either floor, so the
+  // map sits exactly on it. Where it centres is
+  // tests/interaction/property-map-centred.spec.ts's claim.
   test("sticks under the pinned divider, at the divider's own measured height", async ({
     browser,
   }) => {
-    const { context, page } = await at(browser, 1440);
+    const { context, page } = await at(browser, 1440, 720);
     try {
       await page.goto(PROPERTIES);
       await hydrated(page);
@@ -1009,7 +1015,11 @@ test.describe("with scripting off", () => {
   test.use({ javaScriptEnabled: false });
 
   test("the map still pins clear of its own divider, not behind it", async ({ page }) => {
-    await page.setViewportSize({ width: 1440, height: 900 });
+    // 720 tall, where the centring clamps to `--sticky-top` and so exposes it
+    // (see "sticks under the pinned divider" above). At 900 the map centres at
+    // 152.5 in both sections and this could not see the server's offset at
+    // all — including the `--listing-divider-top` derivation guarded below.
+    await page.setViewportSize({ width: 1440, height: 720 });
     await page.goto(PROPERTIES);
 
     // Positive evidence that script really is off, and therefore that what
