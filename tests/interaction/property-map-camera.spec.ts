@@ -10,6 +10,7 @@ import {
   watchCamera,
 } from "./camera-probe";
 import { hydrated } from "./hydrated";
+import { placedMarkers, placedPin } from "./placed-markers";
 
 // THE STICKY MAP AND ITS CAMERA (#13 follow-up), in the only place either can
 // be checked. Four claims, none of which jsdom can see:
@@ -92,12 +93,12 @@ const onCentreLine = (section: Locator) =>
 
 /** Where a pin's own coordinate sits inside the map box, in px. The element is
  *  translated to the projected point and then by its own anchor, so the first
- *  translate IS the point. */
-const pinAt = (section: Locator, id: string) =>
-  section.locator(`[data-map-pin="${id}"]`).evaluate((el) => {
-    const m = /translate\(([-\d.]+)px,\s*([-\d.]+)px\)/.exec((el as HTMLElement).style.transform);
-    return m ? { x: Number(m[1]), y: Number(m[2]) } : null;
-  });
+ *  translate IS the point.
+ *
+ *  Through `placedPin` (#143), which is what makes a `null` here mean "that
+ *  listing is inside a cluster" and never "it was read a `tick()` too early". */
+const pinAt = async (section: Locator, id: string) =>
+  (await placedPin(section.locator(MAP).first(), id, `${id}'s pin`))?.point ?? null;
 
 const mapBox = (section: Locator) =>
   section.locator(MAP).evaluate((el) => {
@@ -326,12 +327,14 @@ test.describe("the map pins beside its cards", () => {
       // sit where the FIT put them, and scrolling past three cards moves
       // nothing. (Above `lg` the same scroll moves the camera — the tests below
       // measure that, which is what keeps this one from being vacuous.)
-      const pinsAt = () =>
-        map.evaluate((el) =>
-          [...el.querySelectorAll<HTMLElement>("[data-map-pin],[data-map-cluster]")].map(
-            (p) => p.style.transform,
-          ),
-        );
+      //
+      // Through `placedMarkers` (#143), and that is not decoration here: this
+      // compares two lists of transforms, so a read that caught the markers
+      // between the `{#each}` and `reposition()` would answer a list of empty
+      // strings — and TWO such reads would be EQUAL, which is a green for a
+      // camera that had in fact moved.
+      const pinsAt = async () =>
+        (await placedMarkers(map, "the band's markers")).markers.map((m) => m.transform);
       const first = await pinsAt();
       expect(first.length).toBeGreaterThan(0);
       await page.evaluate(() => window.scrollBy(0, 700));
@@ -511,12 +514,13 @@ test.describe("the homepage band, where the carousel drives the camera", () => {
       await drawn(page);
       const map = page.locator(MAP).first();
 
-      const where = () =>
-        map.evaluate((el) =>
-          [...el.querySelectorAll<HTMLElement>("[data-map-pin],[data-map-cluster]")]
-            .map((p) => p.style.transform)
-            .join("|"),
-        );
+      // Through `placedMarkers` (#143): "a paused carousel is a still map" is
+      // an equality between two reads, and two reads that both caught the
+      // markers unplaced are equal for a reason that has nothing to do with the
+      // carousel. `parked.length > 0` would not catch it either — a list of
+      // empty strings joins to a non-empty string of separators.
+      const where = async () =>
+        (await placedMarkers(map, "the band's markers")).markers.map((m) => m.transform).join("|");
 
       // PAUSED FIRST. WCAG 2.2.2's mechanism for this band is the carousel's
       // own pause control, and the claim measured here is that it stops the MAP

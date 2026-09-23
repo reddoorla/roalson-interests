@@ -1,5 +1,7 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
 
+import { steadyMarkers } from "./placed-markers";
+
 // THE FIXED-FRAME PLACEHOLDER (#122), on the routes the site really serves.
 //
 // WHAT ONLY A BROWSER CAN SAY HERE, and it is the whole reason this file is not
@@ -66,38 +68,29 @@ const painted = (page: Page, nth = 0) =>
       })),
     );
 
-/**
- * Every live marker has been PLACED, which is not the same as rendered.
- *
- * `reposition()` writes each marker's `transform` from `map.project()`, and
- * Svelte renders the markers one keyed `{#each}` earlier — so a marker read
- * between those two sits at the overlay's ORIGIN, with an empty `transform`
- * and a rect at the box's top-left. Under four parallel workers that window is
- * wide enough to land in: the case below failed 4 times in 112 repeats at
- * `Received: 246.5`, which is exactly the first picture pin's own x — the live
- * pin it was compared against was at 0, not 246.5 away.
- *
- * So the wait is on the artifact a placed marker has, never on a timeout.
- */
-const placed = (page: Page, nth = 0) =>
-  expect
-    .poll(
-      () =>
-        page
-          .locator(MAP)
-          .nth(nth)
-          .locator("[data-map-pin]")
-          .evaluateAll(
-            (els) =>
-              els.length > 0 && els.every((el) => (el as HTMLElement).style.transform !== ""),
-          ),
-      { timeout: 15_000 },
-    )
-    .toBe(true);
+// WHERE THE `placed()` POLL WENT (#143). It waited for every `[data-map-pin]`
+// to carry a transform and then read the positions in a SECOND round trip —
+// and `clusters` re-deriving re-keys the `{#each}`, so a marker could be
+// rendered unplaced again in between. It was measured failing 1/16 on a
+// production build and 3/16 on dev, at `Received: 246.5` — the first picture
+// pin's own x, against a live pin still sitting at the overlay's origin.
+//
+// AND IT WOULD NOT HAVE BEEN ENOUGH EITHER. Measured while replacing it: the
+// markers' transforms were RIGHT on the failing runs (`translate(257.451px,
+// …)`, against the picture's 246.5 + half a 22px pin) and their
+// `getBoundingClientRect()` was at the overlay's corner anyway — for exactly
+// one animation frame, on every marker at once, correct on the next. No check
+// on `style.transform` can see that. `steadyMarkers()` (./placed-markers)
+// waits for two consecutive frames whose rects agree, which the stale frame
+// cannot do, and every test in this repo that reads a marker's position now
+// goes through that module.
 
 /** Every marker the given selector draws in the nth map, as offsets from that
  *  map's own box — which is the only frame of reference the picture and the
- *  live canvas share. */
+ *  live canvas share.
+ *
+ *  For the PICTURE's pins, which the server places with CSS and which carry no
+ *  `transform` to wait for. The live canvas's are `steadyMarkers()`. */
 const markers = (page: Page, selector: string, id: string, nth = 0) =>
   page
     .locator(MAP)
@@ -309,22 +302,30 @@ test("the live pins land exactly where the picture drew them", async ({ browser 
   await page.goto(PROPERTIES);
   await page.locator(MAP).first().scrollIntoViewIfNeeded();
   await drawn(page);
-  await placed(page);
-  const canvas = await markers(page, "[data-map-pin]", "mapPin");
+  const live0 = await steadyMarkers(page.locator(MAP).first(), "the band's live pins");
   await live.close();
 
   // The comparison is only honest if both loads got the same box: pin offsets
   // are measured from the box's centre, so a different width would move every
   // one of them for a reason that has nothing to do with the camera.
-  expect(canvas[0]!.box, "both loads laid the map out the same").toEqual(picture[0]!.box);
+  expect(live0.box, "both loads laid the map out the same").toEqual(picture[0]!.box);
 
+  // THE WHOLE STATE IN THE MESSAGE, because a delta on its own cannot be
+  // diagnosed: "246.5" was chased through two sessions as a placement race
+  // before anyone could see that the number was one pin's ENTIRE x and not a
+  // drift in it. Both sets, and the transform MapLibre wrote, go in every
+  // failure this loop produces.
+  const state =
+    `picture ${JSON.stringify(picture.map((p) => [p.id, p.x, p.y, p.w, p.h]))} ` +
+    `liveBox ${JSON.stringify(live0.box)} ` +
+    `live ${JSON.stringify(live0.markers.map((m) => [m.id, m.x, m.y, m.w, m.h, m.transform]))}`;
   for (const pin of picture) {
-    const drawnLive = canvas.find((a) => a.id === pin.id);
-    expect(drawnLive, `the live map draws ${pin.id} too`).toBeDefined();
+    const drawnLive = live0.markers.find((a) => a.id === pin.id);
+    expect(drawnLive, `the live map draws ${pin.id} too — ${state}`).toBeDefined();
     // One CSS pixel: MapLibre rounds its own transform, and the question is
     // "did anything visibly move", not "are two floats bit-identical".
-    expect(Math.abs(drawnLive!.x - pin.x), `${pin.id} x`).toBeLessThanOrEqual(1);
-    expect(Math.abs(drawnLive!.y - pin.y), `${pin.id} y`).toBeLessThanOrEqual(1);
+    expect(Math.abs(drawnLive!.x - pin.x), `${pin.id} x — ${state}`).toBeLessThanOrEqual(1);
+    expect(Math.abs(drawnLive!.y - pin.y), `${pin.id} y — ${state}`).toBeLessThanOrEqual(1);
     expect(drawnLive!.w).toBeCloseTo(pin.w, 1);
     expect(drawnLive!.h).toBeCloseTo(pin.h, 1);
   }

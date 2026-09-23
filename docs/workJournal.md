@@ -8899,3 +8899,171 @@ and one that is right by luck, and the guard is still worth its lines, but it
 guards the CONTRACT of an exported pure function rather than a live defect. Said
 plainly here because the alternative is someone spending a day building the
 browser case that cannot exist.
+
+## 2026-09-23 — Three test-infrastructure reds on #130, and all three guards were measuring the sampling rather than the page (#142, #143, #144, `feat/map-home`)
+
+CI was red on #130 and nothing in the map work put it there. Three guards
+failed, on three unrelated mechanisms, and every one of them turned out to be a
+proxy standing in for the thing the case was actually about. Two of the three
+were diagnosed wrongly before this session — including by the issue filed for
+one of them — and the corrections are the part of this worth keeping.
+
+### #142 — the contrast count was being measured on markup no reader ever sees
+
+`featured-properties.spec.ts`'s narrow-card case threw
+`TypeError: Cannot read properties of undefined (reading 'nodes')` on
+`results.passes.find((r) => r.id === "color-contrast")!`. Reproduced here at
+**1 in 16** with `--repeat-each=16`, exactly as CI had it.
+
+Instrumented, running the case's own flow 16 times and dumping what axe
+answered, the state splits three ways and all three occurred:
+
+| the card at audit time                                                | axe's `color-contrast`                               |
+| --------------------------------------------------------------------- | ---------------------------------------------------- |
+| `opacity 1`, no `data-reveal`, no inline style — **not hydrated yet** | 10 passed, 0 incomplete                              |
+| `opacity 0.0466`, mid-fade                                            | 0 passed, **10 incomplete**, messageKey `equalRatio` |
+| `opacity 0`, hidden and never scrolled to                             | rule **absent** — `inapplicable`                     |
+
+So the case had been passing on the pre-hydration state. `moving()` opens its
+context with `reducedMotion: "no-preference"`, `use:animateIn` therefore really
+does hide the card, and the launch band on /dev/a11y-fixtures sits at **y=16119
+of a 900 viewport** — it is never scrolled to, so it never reveals. Ten runs in
+sixteen simply audited the server's markup before script had touched it; three
+lost that race and met a card at opacity 0. The `!` was not the defect, it was
+where the defect surfaced.
+
+**This class had already been closed once in the same file.** The /dev/home band
+audit got the scroll-then-`revealed()` wait on 2026-09-22 with a comment saying
+exactly why. The two `/dev/a11y-fixtures` and `?featured=one` audits beside it
+did not, and nobody looked for them. Both have it now, through a
+`settledForAudit()` that waits for `data-reveal` to APPEAR first — animateIn
+writes it and nothing else does, so it is the artefact that says the action ran,
+where `revealed()` alone answers instantly on an un-hydrated card and cannot
+tell the two states apart.
+
+The count itself moved from `passes` to `passes + incomplete`, because which
+side of that line a node lands on is timing-dependent (this file's own comments
+record the split going both ways) while the sum is not. The sum can never stand
+in for the real claim: 9 measured + 1 incomplete is 10 as well, which is exactly
+the `bgOverlap` defect the button was once removed for. So the incompletes are
+asserted empty first, and the sum second.
+
+And the case now measures its title. "Drops it to its own row rather than over
+the text" is geometry, so it is asserted as geometry: the button's box shares no
+pixel with any word in the card. Mutating the `@container` query away
+(`@min-[40rem]:row-start-4` made unconditional) reds it **3/3** naming the
+element — `a: Learn more about 25331 IH 10`. With that assertion silenced, the
+contrast half reds **3/3** on its own, naming the same link as the node axe
+could not measure. Both halves bite, and neither needs to win a race any more.
+
+**16/16 on both cases after, from 15/16 and a latent 0/16 on what they claimed
+to measure.**
+
+### #144, ex-#130 — `End` travels 7000px every single time, and the premise was counting frames
+
+`property-map-camera-prod.spec.ts`'s "the End key lands every arc it starts"
+failed on `and it crossed several cards on the way (2)`, wanting more than 2.
+**11/16 and 9/16** on two baseline runs here. The brief said "under CI load the
+page scrolls less far". It does not. Measured 32 times by sampling
+`window.scrollY` every frame from inside the page:
+
+|                                        |                                              |
+| -------------------------------------- | -------------------------------------------- |
+| journey                                | **0 → 7000 on a 7900px document, every run** |
+| how long the position kept changing    | **139–256ms**                                |
+| rAF samples in the window              | 52–270                                       |
+| **distinct positions**                 | **4–10**, four of them exactly 4             |
+| cards the centre line **swept**        | **22 of 22, every run**                      |
+| cards a **sampled** position landed on | **1–7**                                      |
+
+The scroll is composited. The main thread sees one **3841px step** where the
+reader sees a glide — `447 → 4288 → 7000` is a real run, verbatim. Both failing
+premises were counts over those 4–10 samples: `crossed > 2` fired 1 in 16, and
+`distinct positions > 4` fired **6 in 16**, sitting one above the platform's own
+minimum on a page that had not changed.
+
+`crossed` now counts every card whose box meets the interval the centre line
+SWEPT. That is 22/22 deterministically and strictly more than the sampled set
+ever contained. "It glided" is now two assertions on axes the old count could
+not see: it **occupied the middle** (a position strictly between its first and
+its last) and the travel **took time** (`movingFor > 32ms`, two frames, against
+a measured 139–256). A sweep is only a sweep if the page glided, which is why
+the glide premise is asserted first — an instant `scrollTo` of the same distance
+would sweep all 22 cards too. Mutated to exactly that, the glide premise reds
+**3/3** at "2 distinct" positions. Mutated the other way — the `in-flight`
+refusal deleted from `cameraMove` — the CLAIM reds **3/3** at 91, 185 and 186ms
+into a 500ms arc, so the premises still let the real defect through to it.
+
+**16/16 after.** Said out loud and filed as **#144**: on the distinct-positions
+axis this now asks for 3 where it asked for 5. That is a reduction, it buys
+assertions on elapsed time that the old line could not make at all, and the
+number it replaces was met by 4 on a quarter of runs.
+
+### #143 — the transform was right and `getBoundingClientRect()` was a frame behind
+
+`map-home.spec.ts`'s live-pin case failed at `Received: 246.5`, 3/16 here. #143
+diagnosed it as a placement race: `reposition()` writes each marker's transform
+a `tick()` after Svelte renders it, `clusters` re-deriving can re-key the
+`{#each}`, and the spec's `placed()` poll read positions in a second round trip
+afterwards. That diagnosis is **wrong**, and this session's first fix — check
+and read in one synchronous `evaluate`, which nothing can re-render through —
+changed the rate not at all: **still 3/16**.
+
+What the failure actually was, once the failure message carried the whole state:
+
+```
+picture  arFhVhIAAC0ALcOb  x 246.5
+live     arFhVhIAAC0ALcOb  x 0      transform translate(257.451px, 164.436px) translate(-50%, -100%)
+```
+
+257.451 − 11 (half a 22px pin) = 246.45. **The pins were exactly where the
+picture drew them.** Every one of the ten markers reported `x 0, y 0` with a
+correct transform and a correct 22×19.8 box. Reading the same markers on six
+consecutive animation frames, 10 runs:
+
+```
+run 3, frame 0:  rect   0.0   transform translate(257.451px, …)
+run 3, frame 1:  rect 246.5   transform translate(257.451px, …)
+```
+
+Every marker at once, for exactly one frame, correct on the next. `style.transform`
+reads back whatever was assigned to it whether or not the box has been
+recomputed from it, so a marker in this state passes every placement check there
+is and still measures at the overlay's corner. 1 run in 10 as a raw read; 3 in
+16 through the case.
+
+So the wait is for **two consecutive animation frames whose rects agree** —
+which the stale frame cannot do, because it disagrees with the one after it.
+That is what #143 itself proposed as an alternative and what the placement
+theory displaced. **16/16 after, and faster: 1.3m against 2.4m**, because the
+settle is now a rAF rather than a poll with a 50ms floor.
+
+The class is enumerated in `tests/interaction/placed-markers.ts`, which is the
+only place in the suite that reads a marker's position. Two waits, because they
+are not the same artefact: `placedMarkers` (every marker has a transform) for
+reads of the projected point, and `steadyMarkers` (that, plus two frames
+agreeing) for reads of a rect — `steadyMarkers` requires a still map by
+construction and would spin through a flight, so a case that watches a camera
+move must not use it. `property-map-camera-prod`'s `pinAt` stopped reading a
+rect at all: a pin is anchored `-50%,-100%`, so the first `translate()` **is**
+its tip. `property-map-camera`'s `pinsAt` and `where` went through the same
+module for a different reason — both compare two reads for equality, and two
+reads that both caught the markers unplaced are equal for a reason that has
+nothing to do with the carousel. Mutating `reposition()` to place pins 3px right
+of the projection reds the live-pin case **3/3**, at 3.
+
+### What this cost, and the shape to remember
+
+Three sessions' worth of diagnosis in these three cases was spent on mechanisms
+that were real, documented, and not what was failing. The pattern in all three:
+**a guard that asserts on a sample of a continuous thing** — how many contrast
+nodes axe happened to resolve on whichever frame the audit landed in, how many
+cards a rAF sample happened to sit on, where a rect happened to be on one frame.
+Each was stable enough to look like a measurement and each was a lottery. In
+every case the fix was to find the artefact that is stable by construction: the
+settled reveal, the swept interval, two frames that agree.
+
+Not fixed here: **#144** (the glide premise's reduced floor) and
+`featured-properties.spec.ts:243` at 436.890625, which is #80/#124's macOS
+scrollbar gutter and green on CI's Linux. Load averages ran 4.5–9.4 through the
+session; CI is the authority.

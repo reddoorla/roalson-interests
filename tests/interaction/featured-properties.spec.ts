@@ -1,6 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
-import { expect, test, type Browser, type Page } from "@playwright/test";
+import { expect, test, type Browser, type Locator, type Page } from "@playwright/test";
 import { expectRing, GARNET } from "./expect-ring";
+import { HYDRATION_TIMEOUT } from "./hydrated";
 
 // The homepage's featured band (src/lib/slices/FeaturedProperties) is the
 // headless carousel's first consumer, and makes promises jsdom cannot check:
@@ -84,18 +85,73 @@ const LINES = `${CARD} [data-featured-slide]:not([inert]) [data-featured-line]`;
 
 /** The card's scroll reveal has finished. animateIn hands the element back to
  *  its stylesheet when the reveal is over — every inline style it wrote is
- *  removed — so this is the revealed state and not merely "opacity says 1". */
-const revealed = (page: Page) =>
+ *  removed — so this is the revealed state and not merely "opacity says 1".
+ *
+ *  Takes a LOCATOR, not the page: /dev/a11y-fixtures draws two of these bands
+ *  and the audits below measure the second one. */
+const revealed = (card: Locator) =>
   expect
     .poll(
       () =>
-        page.locator(CARD).evaluate((el) => {
+        card.evaluate((el) => {
           const cs = getComputedStyle(el);
           return { opacity: cs.opacity, transform: cs.transform };
         }),
       { timeout: 10_000 },
     )
     .toEqual({ opacity: "1", transform: "none" });
+
+/** SCRIPT HAS HIDDEN THIS CARD, which is the half of the reveal that is easy to
+ *  forget to wait for and the reason three audits in this file were measuring
+ *  the server's markup rather than the page.
+ *
+ *  `revealed()` alone cannot say so: before hydration the card is at opacity 1
+ *  with no transform and answers it instantly — the SAME answer the finished
+ *  reveal gives. `data-reveal` is written by animateIn and by nothing else, so
+ *  it is the positive artefact that the action ran. Pair it with `revealed()`
+ *  around a scroll and the audit is pinned to one state: hidden by script, then
+ *  revealed by script, then measured.
+ *
+ *  Only sound for a card that is BELOW THE FOLD at load, which every band on
+ *  /dev/home and /dev/a11y-fixtures is (measured: the fixtures page's launch
+ *  band sits at y=16119 of a 900 viewport). A card already on screen is hidden
+ *  and revealed inside one frame and this would race it. */
+const hiddenByScript = (card: Locator) =>
+  expect(card).toHaveAttribute("data-reveal", "", { timeout: HYDRATION_TIMEOUT });
+
+/** The one settled state every contrast audit in this file measures: script has
+ *  hidden the card, the reader has scrolled to it, and the reveal is over.
+ *
+ *  WHY THIS IS A HELPER AND NOT THREE COPIES. axe answers `color-contrast` for
+ *  text under a transparent ancestor with an INCOMPLETE rather than a ratio,
+ *  and drops the rule entirely — neither passed nor incomplete, `inapplicable`
+ *  — once opacity reaches 0. Measured on /dev/a11y-fixtures at 1440 across 16
+ *  runs of the case at :1299, all three states occurred: 10 passed (the card
+ *  still un-hydrated), 10 incomplete with messageKey `equalRatio` (caught
+ *  mid-fade at opacity 0.0466), and the rule absent altogether (opacity 0),
+ *  which is the `TypeError: Cannot read properties of undefined` of issue #142.
+ *  The case that used to be the only one waiting for this (the /dev/home band
+ *  audit) got the wait on 2026-09-22; these did not, and that is the class. */
+async function settledForAudit(page: Page, card: Locator) {
+  await hiddenByScript(card);
+  await card.scrollIntoViewIfNeeded();
+  await revealed(card);
+}
+
+/** The `color-contrast` nodes axe RESOLVED and the ones it could not, as two
+ *  lists — never `passes.find(...)!`, which throws when the rule is absent.
+ *
+ *  The split between the two moves with load and with the frame the audit
+ *  landed in (#142); their SUM is what a settled card makes stable, so a count
+ *  is asserted over the sum and the incompletes are asserted empty separately.
+ *  An incomplete is not a pass — that assertion is the `bgOverlap` guard and
+ *  the only reason these audits exist — so the sum may never stand in for it. */
+const contrastOf = (results: { passes: AxeRule[]; incomplete: AxeRule[] }) => ({
+  measured: results.passes.find((r) => r.id === "color-contrast")?.nodes ?? [],
+  unmeasured: results.incomplete.find((r) => r.id === "color-contrast")?.nodes ?? [],
+});
+
+type AxeRule = { id: string; nodes: { html: string; any?: { data?: unknown }[] }[] };
 
 /** Which slides are on stage, by title — read off `inert`, the thing that
  *  actually takes a slide out of the tab order. */
@@ -614,7 +670,7 @@ test.describe("rotation", () => {
       // evidence the reveal has finished (animateIn removes every style it
       // wrote), and only then audit.
       await page.locator(BAND).scrollIntoViewIfNeeded();
-      await revealed(page);
+      await revealed(page.locator(CARD));
       await page.getByRole("button", { name: "Pause slides" }).click();
       await expect(page.getByRole("button", { name: "Play slides" })).toBeVisible();
 
@@ -1226,7 +1282,7 @@ test.describe("motion", () => {
         await expect(page.locator(CARD)).toHaveCSS("transition-delay", "0s");
 
         await page.locator(BAND).scrollIntoViewIfNeeded();
-        await revealed(page);
+        await revealed(page.locator(CARD));
 
         // ONCE. Scroll away and back: the observer disconnected on the first
         // intersection, so nothing hides it again.
@@ -1310,8 +1366,18 @@ test.describe("the portfolio button", () => {
     try {
       await page.goto("/dev/a11y-fixtures");
       const card = page.locator(CARD).nth(1);
+      // The settled state, and the correction #142 asked for. What stood here
+      // read the card the instant the document had loaded, which in 10 of 16
+      // measured runs was BEFORE hydration: the assertions below were being
+      // made against the server's markup, and the three runs that lost that
+      // race met a card at opacity 0 — `color-contrast` absent from `passes`
+      // altogether, and `passes.find(...)!.nodes.length` a TypeError.
+      await settledForAudit(page, card);
+
       const learn = card.getByRole("link", { name: /Learn more/ });
       const portfolio = card.getByRole("link", { name: "Our portfolio" });
+      // Read after the scroll, not before: every assertion below is one box
+      // against another, so the frame they share only has to be the same one.
       const [c, l, p] = await Promise.all([
         card.boundingBox(),
         learn.boundingBox(),
@@ -1319,23 +1385,66 @@ test.describe("the portfolio button", () => {
       ]);
       expect(c!.width, "the wrapper squeezes the card").toBeLessThan(640);
 
-      // THE CONSEQUENCE FIRST, because it is the claim: axe can still MEASURE
-      // the card here. The geometry below is only the explanation.
-      await card.evaluate((el) => el.setAttribute("data-narrow-scope", ""));
-      const results = await new AxeBuilder({ page }).include("[data-narrow-scope]").analyze();
-      const incomplete = results.incomplete.find((r) => r.id === "color-contrast");
+      // THE TITLE'S CLAIM, MEASURED AS GEOMETRY, because that is what it is
+      // about. What stood here made it entirely through axe's contrast count,
+      // and a count of the nodes axe HAPPENED TO RESOLVE is a bad proxy for
+      // "the button is not over the text": the count moves with the frame the
+      // audit landed in (#142) and it cannot say WHICH node was covered.
+      //
+      // ITS OWN ROW, UNDER THE TEXT: the button's box shares no pixel with any
+      // word in the card. `row-start-4` — the placement this `@container`
+      // query replaced — put it at left 236.42 against LEARN MORE's right
+      // 355.13 on LEARN MORE's own line, so this is the assertion that goes
+      // red on a revert, by 118.71px of overlap, naming the element it lands on.
+      const text = await card.evaluate((el) =>
+        [...el.querySelectorAll<HTMLElement>("h2, h3, p, li, a")]
+          .filter((n) => !n.closest("[data-featured-portfolio]") && n.textContent?.trim())
+          .map((n) => {
+            const b = n.getBoundingClientRect();
+            return {
+              tag: `${n.tagName.toLowerCase()}: ${n.textContent!.trim().slice(0, 28)}`,
+              x: b.x,
+              y: b.y,
+              w: b.width,
+              h: b.height,
+            };
+          }),
+      );
+      expect(text.length, "the card has words to be painted over").toBeGreaterThan(5);
+      const overlapping = text.filter(
+        (t) =>
+          t.x < p!.x + p!.width && t.x + t.w > p!.x && t.y < p!.y + p!.height && t.y + t.h > p!.y,
+      );
       expect(
-        incomplete?.nodes.map((n) => n.html.slice(0, 60)) ?? [],
-        "axe could not measure these",
+        overlapping.map((t) => t.tag),
+        "the button is painted over these",
       ).toEqual([]);
-      expect(
-        results.passes.find((r) => r.id === "color-contrast")!.nodes.length,
-        "nine and this one, on a 425.89 card too",
-      ).toBe(10);
-
-      // Its own row UNDER the text, on the card's left padding — not beside it.
+      // …and below, not merely clear of: the row IS the claim, and a button
+      // that cleared the words by sitting in the margin beside them would pass
+      // the line above.
       expect(p!.y, "below LEARN MORE").toBeGreaterThanOrEqual(l!.y + l!.height);
       expect(p!.x - c!.x, "on the card's 20").toBeCloseTo(20, 0);
+
+      // AND THE CONSEQUENCE THE BUTTON WAS ONCE REMOVED FOR, which geometry
+      // alone cannot reach: axe can still MEASURE every word on this card.
+      // An element painted over text does not move it — it makes its contrast
+      // unknowable, which axe answers with an INCOMPLETE rather than a ratio.
+      await card.evaluate((el) => el.setAttribute("data-narrow-scope", ""));
+      const results = await new AxeBuilder({ page }).include("[data-narrow-scope]").analyze();
+      const { measured, unmeasured } = contrastOf(results as never);
+      expect(
+        unmeasured.map((n) => n.html.slice(0, 60)),
+        "axe could not measure these",
+      ).toEqual([]);
+      // Over the SUM, never over `passes` alone. Which side of the line a node
+      // lands on is timing-dependent — this very file records the split going
+      // both ways at :1288 and :1331 — but every node axe looked at is in one
+      // list or the other, so the total is what a settled card makes stable.
+      // The emptiness asserted above is what keeps this from being satisfied by
+      // ten incompletes: the two lines together say ten nodes, all resolved.
+      expect(measured.length + unmeasured.length, "nine and this one, on a 425.89 card too").toBe(
+        10,
+      );
     } finally {
       await context.close();
     }
@@ -1356,6 +1465,13 @@ test.describe("the portfolio button", () => {
     try {
       await page.goto(`${HOME}?featured=one`);
       await page.locator(`${CARD} [data-featured-portfolio]`).waitFor();
+      // THE SAME SETTLE AS EVERY OTHER CONTRAST AUDIT HERE, and the third and
+      // last instance of #142's class in this file. This case never went red,
+      // and that is the point: it was winning the pre-hydration race and
+      // auditing markup no reader ever sees. On the settled card the numbers
+      // below are unchanged — 10 measured, 0 incomplete — which is the
+      // evidence that the wait costs this case nothing.
+      await settledForAudit(page, page.locator(CARD));
       // The map's subtree is EXCLUDED rather than the audit narrowed to the
       // card: the band's ground is part of what this measures, and the map
       // (#13) brings text nodes of its own — the section's listings, as links.
