@@ -8172,3 +8172,144 @@ and then never lifts for either).
 - **Local Playwright numbers on this machine are suspect** and every run above
   says so: load averages ran 3.6–10.2 through the session. The production-build
   runs quoted here were at 4.25–5.60. CI is the authority.
+
+## 2026-09-23 — Two of #126's three majors are genuinely closed; the third is closed only for scrolls faster than its own debounce (`verify/camera-126`, #127 #128 #129)
+
+#126 squash-merged to main as `36c8c0e` without the adversarial review that had
+been promised for it — a subagent merged it against instruction — which made it
+the second time the camera landed unreviewed. This session is that review, run
+against `36c8c0e` with nothing taken on trust. No code changed; the outcome is
+three issues and this entry.
+
+Rebuilt from main in a clean worktree, `pnpm build` + `vite preview` on a
+private port, and measured on the real `/` and `/properties`. The probe is my
+own, not the branch's: a standalone Playwright script rather than a spec under
+the fleet config, because that config sets `contextOptions.reducedMotion:
+"reduce"` and app.css turns that into `scroll-behavior: auto !important` — every
+smooth-scroll number in this entry would have been vacuous under it. It patches
+maplibre's `flyTo`/`easeTo`/`jumpTo` on the production chunk (found by the
+`maplibre-gl-worker` string, patched through `import(import.meta.url)`, the same
+trick the branch's probe uses because it is the only one that reaches a hashed
+chunk) and additionally samples `getCenter()`/`getZoom()` every frame, so a
+count can be checked against what the camera actually did. One correction to my
+own harness mid-session: the probe adopts maps in lazy-boot order, which is NOT
+stable between runs — an early result keyed "m0" meant Land in one run and
+Improved in the next. Everything below is keyed by the map's accessible name.
+
+**MAJOR 1, the cross-section freeze, is closed.** The press sequence that froze
+it — a Land pin, then an Improved pin 300ms later — leaves the Land camera
+answering exactly as the control does: 2 flights across the same five settled
+card crossings, with and without the cross-section press, and the Improved map
+answers 4 in its own section. The machinery is gone rather than repaired, which
+was the right call and is the reason there is nothing left to key per-section.
+
+**MAJOR 2, the band's clock passing as a visitor, is closed, and the control
+runs both ways.** On `/` at 390x844 with motion allowed: expand the band map,
+four wheel-up ticks, z12 → **12.5387** (the fixer's number, reproduced to four
+decimals). Then nine seconds of no input at all, during which the band provably
+turned through all three slides: **0 camera commands, zoom held at 12.5387
+exactly.** A green that only said "nothing moved" would be worthless, so the
+other half: a visitor pressing Next issues 1 command and the zoom goes back to 12. Deleting `if (by !== "visitor") return;` and rebuilding puts the defect back
+precisely — **2 flyTo over the same nine idle seconds, z12.5387 → z12** — which
+is what makes the 0 above evidence rather than an absence.
+
+One thing the measurement turned up that is not a defect: the FIRST Next press
+after the gesture issued 0 commands, because the band has three slides and that
+press landed back on the very slide the wheel-zoom happened on. `drivenAt !== a`
+is the lift rule, so asking to be where you already are lifts nothing. Correct,
+but it cost a re-run — a one-press control here proves nothing either way.
+
+**MAJOR 3 is not closed.** `$lib/scroll-activity` is a 120ms debounce on the
+window's `scroll` event, and its own doc comment states the assumption it rests
+on: "a scroll delivers an event about every frame". That is true of every scroll
+the branch's gate drives — `End`, `PageDown`, `Space`, a smooth `scrollTo`, all
+of which animate at frame rate — and false of a mouse wheel, where one notch is
+one event and the spacing is set by a human hand. Real `page.mouse.wheel` events
+on `/properties`, the same 2560px of travel from scrollY 600 to 3160 every time,
+counting `flyTo` on the Land map:
+
+| notch gap | main | with the refusal DELETED |
+| --------- | ---- | ------------------------ |
+| 40ms      | 1    | 9                        |
+| 100ms     | 2    | 9                        |
+| 130ms     | 9    | 9                        |
+| 160ms     | 9    | 9                        |
+| 220ms     | 9    | 9                        |
+
+At 130ms and beyond main is indistinguishable from a build with the guard
+removed outright. The guard is not weak there, it is absent: `pageScrolling()`
+falls back to false in the gap between two notches and the camera launches a
+500ms Van Wijk arc it will replace 130-220ms later. Reproduced at 1440x900,
+1280x800 and 1024x768 with a realistic 100px notch (1 flight at 60ms, 8-9 at
+150ms), so it is not a viewport artifact. #127.
+
+The belief corrected here is the module's own: **silence is not the same
+question as "is a flight in the air".** The debounce measures the page and the
+camera is what needs protecting. `map.isEasing()`, or a comparison against the
+`CAMERA_FLIGHT_MS` the component already owns, answers the real question and
+does not have a threshold a hand can fall either side of.
+
+**And the mechanism that was deleted was also carrying a ceiling.**
+`PropertyListing`'s `SUSPEND_CAP_MS = 2000` existed for "a scroll that is
+interrupted mid-flight (the visitor grabs the scrollbar) and never reaches its
+destination". The refusal that replaced it has no bound at all. A continuous
+scroll for ten seconds — 10006ms, 4804px, an event every frame, which is what a
+scrollbar drag is — issues **0 camera commands for its entire duration** and
+exactly 1 when it stops. The camera recovers, so it is a freeze and not a hang,
+but the map sits on the listing you started from for as long as you keep
+scrolling, and that is longest on the longest page. Nothing asserts an upper
+bound on a refusal anywhere; every case in the branch's spec scrolls for well
+under a second. #128. Gating on a flight in progress instead of on scroll
+silence bounds it at 500ms by construction and closes #127 in the same stroke,
+which is why the two issues name each other.
+
+**The ref-counted listener is sound, and I tried to break it.** Three round
+trips of client-side navigation between `/` (one map) and `/properties` (two),
+counting window `scroll` listeners from an init script that wraps
+`addEventListener` before any app code runs: a constant 2, never 3, never 1.
+The `released` flag does its job; dropping it reds two cases in
+`scroll-activity.svelte.test.ts`.
+
+**Every guard #126 added was mutated, and every one of them red.** Deleting the
+`page-scrolling` refusal (1 failure), hoisting it above `arrived` so it can
+pre-empt it (2), letting it deny a jump as well as a flight (1), writing
+`by = turnedBy` before `step()`'s bail-outs instead of after (1), having the
+clock report itself as `"visitor"` (2), dropping `watchPageScroll`'s
+double-teardown guard (2), deleting `activeBy`'s check in PropertyMap (1), and
+making `onScroll` never set `scrolling` true (3). None survived — the unit-level
+guards are real, not decorative. The one thing they cannot see is the wheel,
+because `cameraMove` is a pure function handed `pageScrolling` as a parameter
+and the question in #127 is what that parameter's SOURCE is worth.
+
+`turnedBy` was checked against every path that can change the slide, not just
+`step()`. `step()` and `goTo()` both write it. The derived clamp
+(`index = min(max(0, raw), last)`) does not: if `count` shrinks, `index` follows
+with `by` left at whatever the last real turn was, so a page-driven change can
+report as a visitor's — MAJOR 2's own defect, on the path MAJOR 2's fix does not
+cover. It is not reachable on this site (`count` is `() => slides.length` over a
+static slice prop) and I could not construct it in a browser, only in a unit
+test, so it is filed as latent: #129.
+
+### What is NOT done
+
+- **No PR, nothing merged.** This was a read-and-measure brief; the three
+  findings are issues, and the only commit is this entry. The standing
+  merge-on-green authority is the parent session's and was not exercised here.
+- **The pan-loss question on `/properties` is unmeasured.** `activeBy` defaults
+  to `"visitor"` there on the argument that "a scroll is a visitor", which means
+  every card crossing lifts a `userMoved` suspension. I could not land a drag on
+  the Land map with synthetic mouse input — `movestart` logged only
+  `"programmatic"` and the centre never moved — so I have no number, only the
+  reading of the code and the component's own comment conceding the objection
+  still stands. Worth a real measurement; deliberately NOT filed as an issue on
+  a code reading alone.
+- **`Space`, find-in-page and an AT's scroll-into-view** are still unmeasured as
+  wheel-like (human-paced) event sources. `Space` animates, so it should be
+  safe; the other two I did not drive.
+- **Local numbers on this machine are suspect, as always.** Load averages ran
+  4.73–13.72 through the session; the runs quoted above were at 4.73–10.40. CI
+  is the authority. The Playwright work here deliberately avoided `pnpm
+test:smoke` and its webServer timeout, which killed two attempts earlier
+  tonight.
+- **`featured-properties.spec.ts:243` at 436.890625** was not touched — that is
+  #80/#124, a macOS scrollbar-gutter difference, green on CI's Linux.
