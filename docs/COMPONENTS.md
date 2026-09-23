@@ -51,7 +51,7 @@ source. It is the fastest way to recognise what a thing does.
 | [`PreNavTransition.svelte`](../src/lib/components/PreNavTransition.svelte) | `duration`, `holdDuration` | 10 | ms the overlay fades in before the deferred navigation is issued |
 | [`PropertyCard.svelte`](../src/lib/components/PropertyCard.svelte) | `property`, `variant`, `layout` | 9 | The comp's `property` card, three tones |
 | [`PropertyDetail.svelte`](../src/lib/components/PropertyDetail.svelte) | `property` | 9 | The property page |
-| [`PropertyListing.svelte`](../src/lib/components/PropertyListing.svelte) | `sections` | 13 | The Properties page body: the comp's stacked sections (6903:1030 at 1440, 6992:2468 at 390), each a divider — a 2px garnet rule over an H3 label — and its listing |
+| [`PropertyListing.svelte`](../src/lib/components/PropertyListing.svelte) | `sections` | 16 | The Properties page body: the comp's stacked sections (6903:1030 at 1440, 6992:2468 at 390), each a divider — a 2px garnet rule over an H3 label — and its listing |
 | [`PropertyMap.svelte`](../src/lib/components/PropertyMap.svelte) | `points`, `label`, `engine`, `tone`, `active`, `activeBy`, `onselect` | 45 | The comp's per-section property map (#13), with its ground tones EXPORTED from this module script as `MAP_TONES` |
 | [`RichTextBody.svelte`](../src/lib/components/RichTextBody.svelte) | `field` | 4 |  |
 | [`RichTextHeading.svelte`](../src/lib/components/RichTextHeading.svelte) | `node`, `children` | — |  |
@@ -100,4 +100,4 @@ source. It is the fastest way to recognise what a thing does.
 | [`vimeo.ts`](../src/lib/utils/vimeo.ts) | `checkVimeoVideo`, `parseVimeoId` | 11 | True when the Vimeo video exists and is embeddable (oEmbed responds 200) |
 | [`vimeoBackground.svelte.ts`](../src/lib/utils/vimeoBackground.svelte.ts) | `VIMEO_PLAYER_ORIGIN`, `backgroundEmbedSrc`, `VimeoBackground` | 5 | The gate, the heartbeat and the pause flag behind every chrome-less Vimeo background embed in this repo — lifted OUT of VimeoBanner.svelte so the homepage hero could have all three without taking VimeoBanner's markup with them |
 
-82 modules, 752 tests behind them.
+82 modules, 755 tests behind them.

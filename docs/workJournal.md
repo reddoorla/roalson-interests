@@ -9067,3 +9067,347 @@ Not fixed here: **#144** (the glide premise's reduced floor) and
 `featured-properties.spec.ts:243` at 436.890625, which is #80/#124's macOS
 scrollbar gutter and green on CI's Linux. Load averages ran 4.5–9.4 through the
 session; CI is the authority.
+
+## 2026-09-23 — The garnet card follows the centre line, and its fade lives in app.css so the server's markup did not move (`feat/active-card-highlight`)
+
+The operator, on the merged map work: _"looks amazing, please change the
+highlighted box as we scroll."_ The garnet `featured` card was nailed to the
+first listing of each active section (`j === 0`). It now follows
+`activeIds[section.id]`, the same centre-line answer the sticky map's camera
+already follows. It is one expression, `activeIds[section.id] ??
+section.properties[0]?.id`, and no second source of truth. The fallback is not
+defensive: it is the whole no-JS, pre-hydration and below-`lg` state.
+
+**This branch was resumed, not started.** The first agent died when the
+operator's machine rebooted at about 09:43 with nothing committed. Its draft
+was reused as a hypothesis. Its M7 layout-shift reading and its discovery that
+axe files a 1:1 contrast under `incomplete`, not `violations`, both held when
+re-run. Its Tab probe for #114 was re-run on a production build. Its
+measurements had been taken at load averages of 34 to 96 on 8 cores.
+
+### Why PropertyCard ended up with comments and no classes
+
+The draft put `transition-colors` on four elements in PropertyCard, which was
+most of its 51 lines, and wrote that the server render was "byte-identical to
+what shipped before". Its own dev-server diff had counted **42 changed chunks**,
+every one a `transition-colors` class on a card whose tone the server can never
+change. The brief asked for the SSR markup to be unchanged, so the fade moved to
+one app.css rule keyed to `[data-centre-id]` (the ground, the photo box via
+`div:has(> img)`, the status badges). That follows the masthead scrim, which is
+in app.css for the same reason. Keying to the watched attribute also leaves the
+Sold grid out, since its cards never re-tone.
+
+Measured on two production builds (main `6cfeba8` built from a `git archive` in
+the scratchpad, and this branch): the prerendered `/properties` is identical
+once 25 hashed asset paths, 2 CSP script hashes and 2 `__sveltekit_*` names are
+normalised. The `<body>` up to the hydration script, 88,092 bytes, is
+byte-identical with no normalisation at all. It has two garnet articles, one
+per active section.
+
+### The fade, read as transitions that started, not as a configured property
+
+The guard reads `getAnimations({ subtree: true })` from a MutationObserver on
+the card's `class`, a microtask after Svelte writes it. That makes it
+independent of machine load, because no animation frame can pass before the
+read. With motion allowed, the card taking the highlight starts exactly these
+fades, all at 150ms: the ground's `background-color` and `color`, the photo
+box's `background-color` (and the `color` it inherits, which has no text to
+show), the badge's `background-color` and `color`, and the button's own
+`border-*-color` and `color`. The motion-allowed case asserts that exact set.
+
+Two beliefs were corrected on contact:
+
+- **A `CSSTransition` names longhands.** `border-color` arrives as four sides.
+- **app.css's reduced-motion block does not remove transitions. It creates
+  them.** It sets `transition-duration: 0.01ms !important` on `*`, and every
+  element's initial `transition-property` is `all`, so under `reduce` every
+  element in the card starts a 0.01ms fade on every property that changes. The
+  badge's `ul` and `span` show up beside the `li`. It is harmless, since 0.01ms
+  is instant. But under `reduce` the presence of a transition says nothing
+  about any rule, so that case asserts only that every duration is 0.01.
+
+### Guards, each mutated in its final form
+
+The final pass ran over the whole 13-case spec. The clean baseline was 13 of 13
+at load 16.23.
+
+| mutation                                                              | red                                                                                                                  |
+| --------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| M1 highlight nailed to card 0                                         | 10 of 13, including the fixture walk, camera, re-tone, geometry, both fades, both axe cases, live walk and live fade |
+| M2 fallback is card 1                                                 | 9, including both server-render cases (`fm-1560-galm` expected, `potranco-road` received) and the phone case         |
+| M3 no fade on the ground                                              | 2: `card:background-color` and `card:color` missing, on the fixture and on the shipped CSS                           |
+| M4 no fade on the photo box                                           | 2, on the fixture and live                                                                                           |
+| M5 badge's `aria-label` renamed (the markup moves under the selector) | 3: the badge reads `null`, and its fades are missing                                                                 |
+| M6 selector widened to `article *`                                    | 1: 11 extra `color` fades (`h3`, `p`, `svg`, `path`, `img`, …)                                                       |
+| M7 `p-px` on `featured`                                               | 2: heights 222.03 to 220.03, tops 242.03 to 240.03 on the fixture; the live column moves too                         |
+| M8 featured ground sand                                               | 13 of 13                                                                                                             |
+| M10 garnet text on the garnet card                                    | 6, including both axe cases on "contrast axe could not settle"                                                       |
+| M9 `LG = 0`                                                           | 1: the phone case, `potranco-road` went garnet at 390                                                                |
+| M12 reduce block loses its duration                                   | 2: 150 received where 0.01 was expected                                                                              |
+| M13 map handed `active={null}`                                        | 1: the camera case, polled to `[-201, 164]` px off centre where `[0, 0]` was expected                                |
+| M15 button tone stays garnet                                          | 6, including both axe cases (garnet on garnet)                                                                       |
+| M16 featured photo box keeps the flat tone                            | 4                                                                                                                    |
+
+The unit tests in PropertyListing.test.ts go red on M1 (3 of 16) and M2 (4 of
+16). They stay green on M13, correctly: jsdom cannot see the camera, and the
+browser case is the one that goes red.
+
+The camera case first failed on `-0` against `0`: `Math.round(-0.3)` is `-0`,
+and `toEqual` uses `Object.is`. The map was centred.
+
+### The flake, and what it was
+
+The first `--repeat-each=16` of the spec failed **1 of 192**: the live walk's
+last step stayed sand past Playwright's 5s default, while load climbed from
+15.05 to 43.71. A probe then timed 120 instant scrolls on `/properties` at load
+22 to 25 (noisy). The median to garnet was 23 to 47ms and the worst 2,479ms,
+and no scroll whose card crossed the line failed to turn garnet. So it was
+starvation, not a missed report. I checked the compiled component, because
+that is where a real defect would be: `featuredId` and `points` are separate
+`$.derived`s, so a highlight change does not re-run the `centreWatch`
+argument, rebuild the observer, or hand the map a new `points` array. Every
+garnet wait now takes a named `MOVE_TIMEOUT` of 15s, and the rerun was **192 of
+192** at load 20.8 to 24.3 (noisy). On the production bundle
+(`REDDOOR_GATE_SERVER=preview`), the four `/properties` cases pass and the
+fixture cases skip. The skip keys on that setting, never on seeing a 404.
+
+### #114, now visible, and not fixed here
+
+Tab measured through the 17 live land cards at 1440x900, identically on dev and
+on a production build: the presses alternate. On an odd press the browser
+scrolls the next LEARN MORE into view, the card lands at top 165 to 340, the
+centre rule reports it, and the highlight and map follow the focus. On an even
+press (8 of the 16) that link is already visible, so nothing scrolls. The
+focused card sits at top 580 to 624 of 900, below the line, and the garnet card
+and the map stay on the card above the focus ring until the next press. Before
+this branch the same disagreement existed between the map and the focus, but
+the garnet card was card 0, usually scrolled away. The fix #114 describes (a
+`focusin` that calls `revealCard`) would make every Tab scroll the page by a
+card's height. That is an operator call and it is left for them.
+
+### Below `lg`, deliberately unchanged
+
+`centreWatch` does not run below 1024, so a phone keeps card 0 garnet. At
+390x844 the 17 live land cards are 315 to 646px tall (median 492), and the map
+is a 200px `position: relative` box above them. A travelling highlight there
+would change about every 500px of scroll with nothing on screen to match it.
+Extending it would mean running `centreWatch` at every width and gating only
+the map's `active` at `lg` (a `MediaQuery` in PropertyListing). That is about
+six lines, plus inverting this spec's phone case and renaming "watches nothing
+there" in property-map-camera.spec.ts, whose camera assertion would still
+hold. It also has to be reconciled with #14's in-card carousel at 390 when that
+lands.
+
+### A spec that assumed card 1 is sand, found by the second full verify
+
+The first `pnpm verify` on this branch passed. The second, on the committed
+tree, failed `focus-ring.spec.ts:13`: card 1's LEARN MORE ring read off-white
+where garnet was expected, for the whole 20s poll. The site was right and the
+spec's premise had expired. `expectRing` presses Tab before it focuses, and
+Tab from card 0's link lands on card 1's. The browser then scrolls it into
+view, which on the fixture at 1440x900 puts card 1 across the centre line (top
+272, step 1 of the #114 table). Card 1 then is the garnet card, and a ring on
+garnet is correctly off-white. The first run passed only because its poll read
+before the observer fired.
+
+The card half of that spec now focuses in place (`preventScroll`, no Tab: the
+bar's check has already put the page in keyboard modality). It asserts the
+card's ground in the same read as the ring, so a pass names the ground it was
+measured on. It also gains the case this feature created: with card 1's link
+focused, card 1 is scrolled onto the line, and its ring must follow the ground
+to off-white. That passed 48 of 48 at `--repeat-each=16` (load 22 to 24,
+noisy). It goes red under M1 (card 1 stays sand, with a garnet ring) and when
+`.bg-primary` is dropped from app.css's dark-ground ring list (a garnet ring on
+card 0). I enumerated the class: no other spec reads a PropertyCard's tone. The
+carousel spec's garnet and sand cards are its own fixtures, and
+property-map.spec.ts reads only the first card's box.
+
+### Rotating below `lg` freezes the highlight, as it already froze the map
+
+`activeIds` is never cleared. On the fixture at 1180x820 with Castroville on
+the line, rotating to 820x1180 stops `centreWatch` (it re-checks its media
+query), and the garnet card stays on Castroville, even scrolled back to the
+top. Rotating back to 1180 restarts the rule, which reports again. The map's
+`active` has always been frozen the same way, so the two still agree. But the
+brief's "below `lg` the first card stays featured" holds only for a page loaded
+below `lg`. This is not fixed here and is filed as #147, with the two ways to
+settle it.
+
+### The red that was not this branch's
+
+The third and fourth full verifies each failed one case,
+`property-map-camera.spec.ts:663`, on its premise that the rAF-sampled scroll
+"crossed several cards": only `fm-1560-galm` and the destination were seen.
+That is #144's class. #130 moved the production spec to the swept interval,
+and the dev spec still counts sampled positions. To check the fades had not
+made it likelier (they add paint work during that very scroll), I ran the case
+interleaved on main's tree and on this branch, 8 at a time. At load 19 to 24:
+main 1 of 16, branch 0 of 16. At load 59 to 81: main 6 of 24, branch 4 of 24.
+So main fails 7 of 40 and the branch 4 of 40. It is recorded on #144 and not
+fixed here.
+
+The fifth verify, at load 30 rising to 79, failed three other cases, none on
+the listing page. `data-centre-id` appears only in PropertyListing,
+centreWatch and this branch's one app.css rule. The three were the homepage
+carousel's Pause (#117, already filed as flaky on main), the homepage band's
+wheel premise (`property-map-camera-prod.spec.ts:876`, which failed 1 of 16 on
+main against the branch's 16 of 16, filed as #148), and `/dev/animate-in`'s
+reveal (`reveal-no-js.spec.ts:91`, seen once and then 4 of 4 green alone,
+filed as #149). In #148 the zoom went down after four wheel-in ticks, both on
+main and on the branch, so something re-framed the camera inside the wheel
+window. That is worth telling apart from load before anyone loosens that
+premise.
+
+### Honest accounting
+
+This scratchpad directory is shared with the other agents the parent session
+runs. A sibling agent's `mutate.py` overwrote this branch's at the same path
+mid-session. Nothing was mutated in either worktree, because each script
+rejected the other's arguments before touching a file. Every file of this
+branch's now lives in a subdirectory named for it.
+
+### Amendment, same day: the map pins in the middle of the window
+
+The operator, at about 13:25: _"on properties, stick the map in the center of
+the screen rather than floating to the top"_.
+
+The map's sticky offset was `var(--sticky-top)`: the declared usable top (100)
+in the first section, the pinned divider's measured height (145.41) in every
+later one. It is now `max(var(--sticky-top), 50vh - var(--map-height) / 2)`,
+and the 595 is declared once, as `lg:[--map-height:595px]`, with the height
+reading it (`lg:h-(--map-height)`). The half is derived, not typed as 297.5.
+Tailwind emitted `top:max(var(--sticky-top), calc(50vh - var(--map-height) /
+2))`, read out of the built CSS rather than assumed.
+
+**Why the window's centre, and not the centre of the space under the
+divider.** The garnet card and the camera both follow the card crossing the
+window's middle (`centreWatch`). A window-centred map puts its own centre on
+that same line, level with the card it is showing. That is the reason, and it
+is also the operator's word. The other reading, centre of the area under a
+pinned divider, is top 202.5 at 1440x900 and a one-token change.
+
+**The clamp is `--sticky-top`, so everything the first entry built still
+matters.** Half the window less half the map goes above the floor on a window
+shorter than 795 (section 0) or 885.81 (a pinned section). There the map sits
+exactly where it pinned before. Everything below was measured on a production
+build of `/properties`, JS on unless marked, before (HEAD `5f97089`) and after.
+Loads were 6 to 19.
+
+| viewport  | section  | before: map box                                   | after: map box          | after: centre / window centre |
+| --------- | -------- | ------------------------------------------------- | ----------------------- | ----------------------------- |
+| 1440x900  | land     | 100–695                                           | **152.5–747.5**         | 450 / 450                     |
+| 1440x900  | improved | 145.41–740.41                                     | **152.5–747.5**         | 450 / 450                     |
+| 1920x1080 | land     | 100–695                                           | **242.5–837.5**         | 540 / 540                     |
+| 1920x1080 | improved | 145.41–740.41                                     | **242.5–837.5**         | 540 / 540                     |
+| 1280x800  | land     | 100–695                                           | **102.5–697.5**         | 400 / 400                     |
+| 1280x800  | improved | 145.41–740.41                                     | 145.41–740.41 (clamped) | 442.91 / 400                  |
+| 1440x720  | both     | 100–695 / 145.41–740.41                           | unchanged (clamped)     | 397.5, 442.91 / 360           |
+| 1024x768  | both     | 100–695 / 145.41–740.41                           | unchanged (clamped)     | 397.5, 442.91 / 384           |
+| 390x844   | both     | `position: relative`, moves 400 with a 400 scroll | unchanged               | —                             |
+
+**Pin and release moved EARLIER, not later.** The brief expected later. A
+larger `top` is reached sooner by a box coming up the page, and the same is
+true of the release. The travel length does not change. The scrollY values
+below were computed from the grid area and then checked by scrolling 20px
+either side of each end.
+
+| viewport           | section  | before: pin → release | after: pin → release | travel  |
+| ------------------ | -------- | --------------------- | -------------------- | ------- |
+| 1440x900           | land     | 416.02 → 4915.88      | 363.52 → 4863.38     | 4499.86 |
+| 1440x900           | improved | 5641.48 → 6515.11     | 5634.39 → 6508.02    | 873.63  |
+| 1920x1080          | land     | 416.02 → 4941.75      | 273.52 → 4799.25     | 4525.73 |
+| 1920x1080          | improved | 5667.36 → 6547.45     | 5570.27 → 6450.36    | 880.09  |
+| 1280x800           | land     | 416.02 → 4946.63      | 413.52 → 4944.13     | 4530.61 |
+| 1280x800           | improved | 5672.23 → 6547.22     | unchanged            | 874.98  |
+| 1440x720, 1024x768 | both     | —                     | unchanged            | —       |
+
+20px past the release the map sits 20 above its offset, within 0.4: 132.88
+against an expected 132.5 for land at 1440x900. The sticky grid item still
+parks on the foot of its grid area by itself.
+
+**No JS.** Before the first measurement `--sticky-top` is still the server's
+`var(--usable-top)` / `var(--listing-divider-top)`. The computed value of the
+second is the unevaluated `calc(100px + 2px + 18px + 34.8px - 9.4px)`, which
+is why the new spec resolves it on a probe element instead of parsing it. With
+scripting off the numbers match the JS run to the pixel: centred at 152.5 at
+1440x900 in both sections, and 100 / 145.4 (the derived divider height) at
+1440x720.
+
+**The pin press, proved rather than assumed.** A real mouse press on a land
+pin at 1440x900 (production build): the card went garnet and was alone, it
+crossed the window's centre line by an independent box test, the page moved,
+and the pressed listing's pin tip settled at the map's middle, `[0, 0]` off.
+The card landed at 302.83–697.66, so it spans the map's centre (450). Its own
+centre is 50.24 below the map's centre. That is not new. `block: "center"`
+centres the card in the scrollport less `scroll-padding-top`, so the card
+centres on 500, or on 522.91 under a pinned divider (+45.41 / 2). Before this
+change the land map's centre was 397.5, so the same press sat 102.5 below it. Filed as #155 with a candidate
+(`scroll-mb-[var(--sticky-top)]`), because it also moves #114's Tab scrolls.
+
+**Guards.** `tests/interaction/property-map-centred.spec.ts` runs on
+`/properties`, so it runs on a production build. It has five cases:
+
+- centre within 1px at 1440x900 and at 1920x1080;
+- on `--sticky-top` within 1px at 1440x720, and on the divider's bottom or the
+  usable top, with a precondition that centring would have gone above the
+  floor;
+- the same two with scripting off;
+- the press.
+
+Every geometry case first proves the map is pinned: its area has scrolled past
+both ends, and a further 100px scroll moved the content 100 and the map 0.
+Mutations, each run against the final spec and restored:
+
+- **M1**, top back to `var(--sticky-top)`: 1440x900 red, `Received 52.5`
+  (land centre 397.5 against 450). 1920x1080 red, `142.5`. No-JS red, `52.5`.
+  The unit test is red. The 720 and press cases stay green, correctly.
+- **M2**, clamp removed: 1440x720 red, `map top 62.5 against --sticky-top
+100`. No-JS red. The unit test is red. Both `property-map-camera.spec.ts`
+  cases this amendment moved to 720 are red (`Received "62.5px"`, and `62.5`
+  against 100).
+- **M6**, clamp floors at `--usable-top` instead of `--sticky-top`: only the
+  improved section is wrong, and it is caught. 720 red, `map top 100 against
+--sticky-top 145.40625`. No-JS red, `145.390625`.
+- **M3**, the press does nothing, and **M5**, `block: "end"`: the press case is
+  red, the garnet card is not the pressed one.
+- **M4**, `block: "start"`: **survives**. The two pressed cards measured were
+  264 and 395 tall, so one aligned to the top of the scrollport still crosses 450. The case claims
+  "on the line and level with the map", not "centred". #155 is where a
+  centring claim would belong.
+
+`--repeat-each=16`: **80/80** at load 51.50 → 58.50.
+
+The first version of the geometry read spread itself over four calls with a
+150ms wait. Once, with scripting off at 1440x720, it read a 100px nudge as 90.
+The page's geometry is steady from `load` (four no-JS loads, six samples each
+to 2.5s, identical), so I did not find which gap it fell into. The read is now
+one synchronous pass with no gaps. The 80/80 is on that version.
+
+**Two existing cases moved to 1440x720**, and both are in
+`property-map-camera.spec.ts`, outside this amendment's brief:
+
+- "sticks under the pinned divider, at the divider's own measured height";
+- the no-JS "pins clear of its own divider", which also carries app.css's
+  `--listing-divider-top` derivation guard.
+
+At 900 both maps now centre at 152.5, which hides the offset they measure.
+At 720 the clamp exposes it again. Their hunks (lines ~124 and ~1011) do not
+touch `feat/map-scroll-zoom`'s (548–653 and 804–845 of the same file).
+
+**Belief corrected on contact.** `vite preview` keeps the server manifest it
+started with. After a rebuild in the same worktree, a preview left running
+served new prerendered HTML naming CSS it no longer had. The page rendered
+unstyled: a land grid 29,030px tall where the real one is 5,135. The only
+symptom was absurd numbers. Every measurement above was taken on a preview
+restarted after the build it measures. The Playwright runs are unaffected,
+because each one builds and starts its own server.
+
+**Seen, not this change's.** Two cases were red during these checks. Neither
+depends on where the map pins:
+
+- `property-map-camera.spec.ts:439` "travels, rather than arriving", red twice
+  at load 35 to 42 with 10 and 15 rAF frames in 900ms. Interleaved against the
+  old offset it was old 12/12 and new 12/12. Recorded on #144.
+- `property-map-camera-prod.spec.ts:703`, expand/collapse on a production
+  build: `Cannot read properties of undefined (reading 'getZoom')`. Identical
+  with the old offset (2 of 2 red each way). That is #135.
