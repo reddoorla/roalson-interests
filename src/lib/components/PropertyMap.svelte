@@ -1184,8 +1184,17 @@
      RANGE SYNTAX, and it is not tidiness: `max-height: 299.98px` paired with
      `min-height: 300px` leaves (299.98, 300) matching NEITHER rule, so a box
      landing in it drew no layer at all — a blank ground with an `sr-only` list
-     under it. 0.02px wide, never reached, and a range query is `frameFor`'s
-     `<` exactly rather than a transcription of it.
+     under it. 0.02px wide, never reached, and the upper bound is now
+     `frameFor`'s own `< 300` rather than a transcription of it.
+     THE LOWER BOUND IS NOT `frameFor`, and it is the half that mattered
+     (#133). A container query is evaluated before layout has given the
+     container a size, and an unresolved size reads as ZERO — which
+     `height < 300px` matches. So the homepage band, whose box ends up 843.44
+     tall, requested the COMPACT raster on every single load: 16 of 16, and
+     moving the URL into these rules alone did not touch that. `frameFor` is
+     never asked about a zero-height box (the component measures first), so
+     this excludes a case the function does not have rather than contradicting
+     it — and at height 0 there is nothing to paint either way.
      EACH RULE ALSO CARRIES THE IMAGE (#133). `background-image` used to sit in
      both layers' inline `style`, and the request for the layer that loses goes
      out anyway — measured as both rasters fetched on up to 16/16 loads, which
