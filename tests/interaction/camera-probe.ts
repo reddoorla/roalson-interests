@@ -85,6 +85,12 @@ const BODY = `
     //    measurably loses the race with the app's own dynamic import: the boot
     //    jumpTo and addControl both happen first. Adopting on the first command
     //    that IS seen is what gets a movestart listener onto those maps.
+    //  - …and a map that is never COMMANDED — /properties loaded at the top,
+    //    where no listing is active and the camera stays on MAP_HOME — was
+    //    never adopted at all on a production build: 0 maps after a 30s poll
+    //    (verification of #150). PropertyMap calls \`resize()\` once its first
+    //    frame is drawn (the camera effect's first box), long after the patch
+    //    has landed, so that is adopted too.
     if (!self.__camera_seen) {
       self.__camera_seen = true;
       maps.push(self);
@@ -96,11 +102,12 @@ const BODY = `
   const rec = (bucket) => (o, self) => window.__camera[bucket].push({
     center: o && o.center, zoom: o && o.zoom, t: performance.now() - t0, m: see(self),
   });
-  const of = p.flyTo, oe = p.easeTo, oj = p.jumpTo, oa = p.addControl;
+  const of = p.flyTo, oe = p.easeTo, oj = p.jumpTo, oa = p.addControl, orz = p.resize;
   p.flyTo = function (o, ...r) { rec("fly")(o, this); return of.call(this, o, ...r); };
   p.easeTo = function (o, ...r) { rec("ease")(o, this); return oe.call(this, o, ...r); };
   p.jumpTo = function (o, ...r) { rec("jump")(o, this); return oj.call(this, o, ...r); };
   p.addControl = function (...a) { see(this); return oa.apply(this, a); };
+  p.resize = function (...a) { see(this); return orz.apply(this, a); };
 `;
 
 /** The dev server serves `$lib/map-engine` as itself, so the namespace is in
@@ -257,10 +264,12 @@ declare global {
         getZoom(): number;
         getCenter(): { lng: number; lat: number };
         getCanvas(): HTMLCanvasElement;
-        /** Only the EXPANDED map takes the wheel, and a test that asserts a
-         *  zoom changed has to be able to say that is why. */
-        scrollZoom: { isEnabled(): boolean };
+        /** Whether the wheel zooms this map — every in-page map since the
+         *  operator's reversal (2026-09-23), where it used to be only the
+         *  EXPANDED one. A test that asserts a zoom changed can say why. */
+        scrollZoom: { isEnabled(): boolean; isActive(): boolean };
         jumpTo(options: { zoom?: number; center?: [number, number] }): unknown;
+        on(type: string, listener: (e?: unknown) => void): unknown;
       }[];
     };
   }
