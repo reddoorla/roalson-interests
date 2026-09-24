@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { cleanup, render, within } from "@testing-library/svelte";
+import { cleanup, fireEvent, render, within } from "@testing-library/svelte";
 import { tick } from "svelte";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -12,7 +12,7 @@ import {
 } from "$lib/home-fixture";
 import { CAMERA_FLIGHT_MS } from "$lib/property-map";
 import { components } from "$lib/slices";
-import FeaturedProperties from "./index.svelte";
+import FeaturedProperties, { DWELL, KEN_BURNS } from "./index.svelte";
 
 // THE ENGINE, for the one block below that boots the band's map: a fake that
 // keeps maplibre's navigation handlers as real on/off state, so the band's
@@ -116,7 +116,10 @@ const motion = (reduce: boolean) => {
 };
 
 beforeEach(() => motion(false));
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+});
 
 const band = (container: HTMLElement) =>
   container.querySelector<HTMLElement>('[data-slice-type="featured_properties"]')!;
@@ -327,7 +330,9 @@ describe("FeaturedProperties slice", () => {
       }
     });
 
-    it("zooms only the photo, only from the clock, and holds an off-stage one at the end", () => {
+    it("zooms only the photo, and holds one that has never been on stage at the end", () => {
+      // Titled "…only from the clock…" until 2026-09-23, when a visitor's turn
+      // gained a run of the drift of its own (see the cases below).
       const { container } = render(FeaturedProperties, {
         props: { slice: featuredPropertiesFixture() },
       });
@@ -346,6 +351,340 @@ describe("FeaturedProperties slice", () => {
         expect(photo.parentElement!.getAttribute("style")).toBeNull();
         expect(photo.className).not.toContain("transition");
       }
+    });
+
+    it("holds the photo that just LEFT where it was, not at the end scale", async () => {
+      // The end-scale hold above is the state before any turn. Once a turn has
+      // happened the slide that left is held at the drift it HAD, because the
+      // user's turns now dissolve (2026-09-23) and that photo is fully opaque
+      // for the whole 500ms — a jump to 1.03 under an incoming photo at
+      // opacity 0 is a 27.8px change of width in one frame, in full view.
+      //
+      // jsdom runs no animation frames worth the name, so `progress` here has
+      // never left 0: the outgoing slide must therefore be held at scale(1),
+      // which is exactly where it was, and NOT at the 1.03 the old code gave
+      // every off-stage slide unconditionally. That difference is the whole
+      // assertion — reverting `drift` to the old `: 1` makes this read
+      // 1.03000 and go red.
+      const { container, getByLabelText } = render(FeaturedProperties, {
+        props: { slice: featuredPropertiesFixture() },
+      });
+      const photos = () => [...container.querySelectorAll<HTMLElement>("[data-featured-photo]")];
+      expect(photos()[0].getAttribute("style")).toBe("transform: scale(1.00000);");
+
+      await fireEvent.click(getByLabelText("Next slide"));
+
+      const after = photos().map((el) => el.getAttribute("style"));
+      expect(after[0], "the slide that just left, held where it was").toBe(
+        "transform: scale(1.00000);",
+      );
+      expect(after[1], "on stage, at the top of a dwell that has not started").toBe(
+        "transform: scale(1.00000);",
+      );
+      // Never off-stage, never the outgoing one: still the end scale, and
+      // unobservable either way behind `invisible`.
+      expect(after[2]).toBe("transform: scale(1.03000);");
+    });
+
+    // ── a visitor's turn drifts on a run of its own (2026-09-23) ──────────
+    //
+    // Fake timers fake requestAnimationFrame at 16ms a frame and
+    // `performance.now()` with it (carousel.svelte.test.ts's clock), so the
+    // drift can be read to the frame. jsdom's `click` focuses nothing: these
+    // cases say with the Pause button which pause is on, and when.
+
+    /** The scale a photo's inline style declares, as a number. */
+    const scaleOf = (el: HTMLElement) =>
+      Number(/scale\(([^)]+)\)/.exec(el.getAttribute("style") ?? "")?.[1]);
+    const advance = async (ms: number) => {
+      await vi.advanceTimersByTimeAsync(ms);
+      await tick();
+    };
+    /** The hand-over, which the dwell doubling did NOT change. */
+    const DISSOLVE = CAMERA_FLIGHT_MS;
+    /** Where the drift stands `fraction` of the way through a dwell. */
+    const at = (fraction: number) => 1 + KEN_BURNS * fraction;
+
+    it("a VISITOR's turn drifts the photo it brought on — with the clock stopped", async () => {
+      // THE HALF THE OLD GATE COULD NOT REACH. The drift was `progress` and
+      // nothing else, and every way a visitor turns this band is a pause (the
+      // arrow's focus, the pointer on the card), so a manual turn got no drift
+      // at all: measured on main at 1440, scale(1) for 5000ms after a real
+      // press. Here the clock is stopped BEFORE the turn — Pause, standing in
+      // for the arrow's own focus — so any movement is the visitor's run.
+      vi.useFakeTimers();
+      const { container, getByLabelText } = render(FeaturedProperties, {
+        props: { slice: featuredPropertiesFixture() },
+      });
+      const photos = () => [...container.querySelectorAll<HTMLElement>("[data-featured-photo]")];
+      await fireEvent.click(getByLabelText("Pause slides"));
+      await fireEvent.click(getByLabelText("Next slide"));
+      expect(getByLabelText("Play slides"), "the clock stays stopped").toBeTruthy();
+
+      // Still through the dissolve, exactly as a clock turn holds it through
+      // the settle: the drift starts on a photo that has finished arriving.
+      await advance(DISSOLVE - 20);
+      expect(scaleOf(photos()[1]), `${DISSOLVE - 20}ms: still inside the dissolve`).toBe(1);
+      // Then the dwell's own rate, KEN_BURNS over DWELL (0.03 over 8000ms
+      // since 2026-09-23; it was 4000): halfway at DISSOLVE + DWELL / 2.
+      await advance(20 + DWELL / 2);
+      expect(scaleOf(photos()[1]), `${DISSOLVE + DWELL / 2}ms: half a dwell in`).toBeCloseTo(
+        at(0.5),
+        3,
+      );
+      // Not yet at the end a quarter of a dwell before it — the run is one
+      // DWELL long, whatever DWELL is, and not the 4000 it used to be.
+      await advance(DWELL / 4);
+      expect(scaleOf(photos()[1]), "three quarters in").toBeCloseTo(at(0.75), 3);
+      await advance(DWELL / 4);
+      expect(scaleOf(photos()[1]), `${DISSOLVE + DWELL}ms: the end of the dwell`).toBeCloseTo(
+        at(1),
+        4,
+      );
+      // …and it ENDS: no loop, no second lap, nothing turned.
+      await advance(DWELL + 2000);
+      expect(scaleOf(photos()[1]), "held at the end").toBe(at(1));
+      expect(getByLabelText("Play slides")).toBeTruthy();
+      expect(slidesOf(container).map((sl) => sl.hasAttribute("inert"))).toEqual([
+        true,
+        false,
+        true,
+      ]);
+      // The bar is the ROTATION's clock and says so: stopped, at 0.
+      const fill = container.querySelector<HTMLElement>("[data-carousel-progress] > div")!;
+      expect(fill.getAttribute("style")).toContain("scaleX(0)");
+    });
+
+    it("a Pause pressed AFTER the turn freezes the visitor's drift where it stands", async () => {
+      // THE ONE-CLOCK RULE, KEPT. A drift that ran on after Pause would be
+      // "Pause stops the bar and not the photo" — the defect the rule exists
+      // for. The clock is RUNNING through this turn (jsdom's click focuses
+      // nothing — a swipe's case), so both runs are drawing the photo, and the
+      // Pause has to stop both of them.
+      vi.useFakeTimers();
+      const { container, getByLabelText } = render(FeaturedProperties, {
+        props: { slice: featuredPropertiesFixture() },
+      });
+      const photos = () => [...container.querySelectorAll<HTMLElement>("[data-featured-photo]")];
+      await fireEvent.click(getByLabelText("Next slide"));
+      await advance(DISSOLVE + DWELL / 2);
+      const moving = scaleOf(photos()[1]);
+      expect(moving, "drifting when Pause is pressed").toBeCloseTo(at(0.5), 3);
+
+      await fireEvent.click(getByLabelText("Pause slides"));
+      const frozen = scaleOf(photos()[1]);
+      // Longer than the rest of the run: an unfrozen one would have ended.
+      await advance(DWELL);
+      expect(scaleOf(photos()[1]), `frozen at ${frozen}`).toBe(frozen);
+    });
+
+    /** The bar's declared value: `progress` itself, unrounded. */
+    const barOf = (container: HTMLElement) =>
+      Number(
+        /scaleX\(([^)]+)\)/.exec(
+          container
+            .querySelector<HTMLElement>("[data-carousel-progress] > div")!
+            .getAttribute("style") ?? "",
+        )?.[1],
+      );
+    /** How far through KEN_BURNS a declared scale is. */
+    const driftOf = (scale: number) => (scale - 1) / KEN_BURNS;
+
+    it("Play after a visitor's turn hands the drift to the clock: from where it stands, landing on the turn", async () => {
+      // THE HAND-OVER THE OLD `max` ONLY CLAIMED. The photo drew max(clock,
+      // visitor's run), and the run is AHEAD of a restarted clock by however
+      // long the visitor waited before Play — so the max was the run until it
+      // ended, and then the photo sat at 1.03 while the bar filled on to the
+      // turn (measured by the combined-tree verifier on a production build:
+      // Play 3.2s after the turn, the photo still from 8.5s to the turn at
+      // 11.7s). Here Play comes a quarter of the way through the run, and from
+      // then on the photo is the run's quarter plus the bar's share of the
+      // three quarters left.
+      vi.useFakeTimers();
+      const { container, getByLabelText } = render(FeaturedProperties, {
+        props: { slice: featuredPropertiesFixture() },
+      });
+      const photos = () => [...container.querySelectorAll<HTMLElement>("[data-featured-photo]")];
+      await fireEvent.click(getByLabelText("Pause slides"));
+      await fireEvent.click(getByLabelText("Next slide"));
+      await advance(DISSOLVE + DWELL / 4);
+      const from = driftOf(scaleOf(photos()[1]));
+      expect(from, "premise: the visitor's run is a quarter through").toBeCloseTo(0.25, 2);
+      /** The photo as the hand-over draws it: `from`, then the bar's share. */
+      const handed = () => at(from + (1 - from) * barOf(container));
+
+      await fireEvent.click(getByLabelText("Play slides"));
+      expect(driftOf(scaleOf(photos()[1])), "nothing moves on the press").toBeCloseTo(from, 3);
+
+      // The settle: the bar holds at 0 for DISSOLVE, and the photo with it.
+      await advance(DISSOLVE - 20);
+      expect(barOf(container), "the bar, still in the settle").toBe(0);
+      expect(driftOf(scaleOf(photos()[1])), "the photo waits with it").toBeCloseTo(from, 3);
+
+      // Halfway through the resumed dwell. The old max() read the RUN here —
+      // a quarter plus (DISSOLVE + DWELL / 2) / DWELL, ~0.81 of the travel.
+      await advance(20 + DWELL / 2);
+      expect(barOf(container), "premise: the clock is counting").toBeCloseTo(0.5, 2);
+      expect(scaleOf(photos()[1]), "halfway, with the bar").toBeCloseTo(handed(), 4);
+
+      // A frame before the turn: still travelling, still short of the end.
+      await advance(DWELL / 2 - 16);
+      expect(
+        slidesOf(container).map((sl) => sl.hasAttribute("inert")),
+        "premise: not turned yet",
+      ).toEqual([true, false, true]);
+      expect(barOf(container), "premise: the bar nearly full").toBeGreaterThan(0.99);
+      expect(scaleOf(photos()[1]), "still with the bar, a frame out").toBeCloseTo(handed(), 4);
+      expect(scaleOf(photos()[1]), "and not parked at the end early").toBeLessThan(at(1));
+
+      // …and it lands WITH the bar: the clock turns (within a frame — 8500 is
+      // not a whole number of 16ms frames), and the photo that left is held
+      // where it ended — at the end scale, to within a frame of drift.
+      await advance(32);
+      expect(slidesOf(container).map((sl) => sl.hasAttribute("inert"))).toEqual([
+        true,
+        true,
+        false,
+      ]);
+      expect(scaleOf(photos()[1]), "left at the end, with the bar full").toBeCloseTo(at(1), 3);
+    });
+
+    it("Play after the visitor's run has ENDED holds the end scale — a photo is never sent back", async () => {
+      // THE ONE THING A HAND-OVER CANNOT DO (#156). The run is over and the
+      // photo is at 1.03; the resumed dwell has no travel left to draw, and
+      // every way to draw some moves the photo backwards in full view. So it
+      // holds — and this pins "never backwards", because the quick "fix" is
+      // to restart the drift at 1.00: a 27.8px jump in one frame.
+      vi.useFakeTimers();
+      const { container, getByLabelText } = render(FeaturedProperties, {
+        props: { slice: featuredPropertiesFixture() },
+      });
+      const photos = () => [...container.querySelectorAll<HTMLElement>("[data-featured-photo]")];
+      await fireEvent.click(getByLabelText("Pause slides"));
+      await fireEvent.click(getByLabelText("Next slide"));
+      await advance(DISSOLVE + DWELL + 1000);
+      expect(scaleOf(photos()[1]), "premise: the run has ended").toBe(at(1));
+
+      await fireEvent.click(getByLabelText("Play slides"));
+      let bar = 0;
+      for (let step = 0; step < 8; step++) {
+        await advance((DISSOLVE + DWELL) / 8 - 16);
+        expect(barOf(container), "premise: the clock is counting").toBeGreaterThanOrEqual(bar);
+        bar = barOf(container);
+        expect(scaleOf(photos()[1]), `with the bar at ${bar.toFixed(3)}`).toBe(at(1));
+      }
+      expect(bar, "premise: watched to the end of the dwell").toBeGreaterThan(0.95);
+    });
+
+    it("two presses inside one dissolve leave BOTH outgoing photos where they were", async () => {
+      // Two presses 200ms apart leave two photos showing: the first one's
+      // `opacity-0` still waits out its 500ms. Holding only "the one that just
+      // left" would snap the OLDER one to the end scale under the newer — the
+      // jump the hold exists to prevent, one press later.
+      vi.useFakeTimers();
+      const { container, getByLabelText } = render(FeaturedProperties, {
+        props: { slice: featuredPropertiesFixture() },
+      });
+      const photos = () => [...container.querySelectorAll<HTMLElement>("[data-featured-photo]")];
+      await advance(DWELL / 2);
+      const first = scaleOf(photos()[0]);
+      expect(first, "slide 1 mid-dwell on the clock").toBeCloseTo(at(0.5), 3);
+
+      await fireEvent.click(getByLabelText("Next slide"));
+      await advance(200);
+      await fireEvent.click(getByLabelText("Next slide"));
+      expect(scaleOf(photos()[0]), "the OLDER outgoing photo, still held").toBe(first);
+      expect(scaleOf(photos()[1]), "the newer one, held inside its own dissolve").toBe(1);
+      expect(scaleOf(photos()[2]), "on stage, from the top").toBe(1);
+    });
+
+    it("under reduced motion a turn adds no transform, however long it is watched", async () => {
+      // app.css zeroes CSS durations under reduce; it cannot touch a value
+      // script writes every frame. So the visitor's run is gated twice — it
+      // never starts without `eligible`, and `zoom` writes nothing without it
+      // — and this is the case that watches a turn for longer than the run.
+      motion(true);
+      vi.useFakeTimers();
+      const { container, getByLabelText } = render(FeaturedProperties, {
+        props: { slice: featuredPropertiesFixture() },
+      });
+      await fireEvent.click(getByLabelText("Next slide"));
+      // Past the END of a visitor's run (DISSOLVE + DWELL), whatever DWELL
+      // is: these steps summed to 8350ms when the run was 4500, and would have
+      // stopped watching 150ms short of it at 8000.
+      let watched = 0;
+      for (const ms of [0, 250, 600, DWELL / 2, DWELL / 2, 2000]) {
+        await advance(ms);
+        watched += ms;
+        for (const photo of container.querySelectorAll("[data-featured-photo]"))
+          expect(photo.getAttribute("style"), `${watched}ms after the turn`).toBeNull();
+      }
+      expect(watched, "watched for longer than the run").toBeGreaterThan(DISSOLVE + DWELL);
+    });
+
+    // ── the clock: the operator's 8000, and no hover pause (2026-09-23) ────
+    //
+    // Two calls on one afternoon: "remove the pause on hover, they have a
+    // pause button for that. also double the length on time on each property,
+    // it feels like we're rushing." What they look like in a browser is
+    // featured-properties.spec.ts's; what is pinned here is the wiring.
+
+    /** 1-based number of the slide the live region names. */
+    const announced = (container: HTMLElement) =>
+      Number(
+        /Slide (\d+) of/.exec(card(container).querySelector("[aria-live]")!.textContent!)?.[1],
+      );
+
+    it("dwells the operator's 8000ms on each listing — twice the comp's 4000 — and turns on it", async () => {
+      // The number, pinned once: every other case here and in the browser
+      // spec reads DWELL rather than repeating it, so this is the line that
+      // says the call was carried out.
+      expect(DWELL).toBe(8000);
+      // …and it is the number the carousel was BUILT with, not only the one
+      // exported: the first slide has no settle to wait for, so the clock
+      // turns on exactly DWELL, and the next after DISSOLVE + DWELL more —
+      // within a frame, since 8500 is not a whole number of 16ms frames.
+      vi.useFakeTimers();
+      const { container } = render(FeaturedProperties, {
+        props: { slice: featuredPropertiesFixture() },
+      });
+      await advance(DWELL - 16);
+      expect(announced(container)).toBe(1);
+      await advance(16);
+      expect(announced(container)).toBe(2);
+      await advance(DISSOLVE + DWELL - 16);
+      expect(announced(container)).toBe(2);
+      await advance(32);
+      expect(announced(container)).toBe(3);
+    });
+
+    it("a pointer resting on the card does not stop the clock; Pause and focus still do", async () => {
+      vi.useFakeTimers();
+      const { container, getByLabelText } = render(FeaturedProperties, {
+        props: { slice: featuredPropertiesFixture() },
+      });
+      const region = card(container);
+      await advance(DWELL / 4);
+      await fireEvent(region, new Event("pointerenter"));
+      // The pointer never leaves. The turn comes on the dot: a clock the
+      // hover had stopped for even one frame would be one frame late.
+      await advance((DWELL * 3) / 4 - 16);
+      expect(announced(container)).toBe(1);
+      await advance(16);
+      expect(announced(container), "turned under a resting pointer").toBe(2);
+      expect(region.querySelector("[aria-live]")!.getAttribute("aria-live")).toBe("off");
+      expect(getByLabelText("Pause slides"), "and nobody paused it").toBeTruthy();
+
+      // Pause still stops it, with the pointer still there…
+      await fireEvent.click(getByLabelText("Pause slides"));
+      await advance(3 * (DISSOLVE + DWELL));
+      expect(announced(container)).toBe(2);
+      // …and so does focus entering, which a keyboard user needs (APG).
+      await fireEvent.click(getByLabelText("Play slides"));
+      await fireEvent.focusIn(getByLabelText("Next slide"));
+      expect(getByLabelText("Play slides"), "focus entering is a pause").toBeTruthy();
+      await advance(3 * (DISSOLVE + DWELL));
+      expect(announced(container)).toBe(2);
     });
 
     it("reveals the card at 24px over 600ms — and never ships `data-reveal`", () => {
@@ -430,10 +769,16 @@ describe("FeaturedProperties slice", () => {
 
     it("under reduced motion NONE of the four animations exists — one case, all four", () => {
       // Enumerated together on purpose: each of the four is switched off by a
-      // different mechanism (`rotating` for the stagger, `eligible` for the
-      // zoom and the bar's mode, the action's own teardown for the reveal),
-      // and four separate cases would let one of them be quietly rewired onto
-      // a mechanism that does not hold.
+      // different mechanism (`eligible` for the stagger, the zoom and the
+      // bar's mode, the action's own teardown for the reveal), and four
+      // separate cases would let one of them be quietly rewired onto a
+      // mechanism that does not hold.
+      //
+      // The stagger's gate used to be `rotating` and is `eligible` since
+      // 2026-09-23, when the operator asked for the user's turns to animate
+      // too. `rotating` implies `eligible`, so this case did not change — and
+      // that is precisely why it is worth saying which one it now reads: it
+      // would have gone on passing over a gate that no longer existed.
       motion(true);
       const { container } = render(FeaturedProperties, {
         props: { slice: featuredPropertiesFixture() },

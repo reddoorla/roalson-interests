@@ -69,9 +69,31 @@
   // `rotating`, not `settling` alone: after a MANUAL turn `elapsed` is parked
   // at -settle with no frame loop to run it down, so `settling` stays true
   // indefinitely and a bar gated on it alone would fade out and never come
-  // back. The user's own turns are instant, which is what the consumer's
-  // slides do too (see the featured band's `fade`).
-  const handover = $derived(timed && carousel.rotating && carousel.settling);
+  // back.
+  //
+  // AND ONLY A CLOCK TURN HANDS OVER — `turnedBy === "auto"` (2026-09-23).
+  // Without it, the two conditions above were also true for the settle a
+  // VISITOR's turn parks, the moment rotation resumed over it: press an arrow
+  // (focus is a pause), then Play — or swipe, where the pointer that stopped
+  // the clock leaves with the finger — and the bar drew FULL, 887px at 1440,
+  // and faded out over 500ms, for a dwell that had been abandoned at whatever
+  // it had reached and was never counted out. Measured on the featured band
+  // before this line: 41 frames in `handover` at 887px after a manual turn
+  // and Play. So the paragraph below — "a handover only ever follows a
+  // COMPLETED dwell" — was false on the visitor's path, and is true now.
+  // A visitor's turn restarts the dwell, so the bar sits at 0 through the
+  // settle and fills from there.
+  //
+  // WHAT THE BAR DOES AT THE VISITOR'S TURN ITSELF is unchanged, and on
+  // purpose: it drops to 0 on the frame of the turn. The consumer's slide
+  // dissolves there now (the featured band's `fade`, operator call
+  // 2026-09-23), but a full bar is not what the clock last said, and a
+  // partial one fading out would need the pre-turn value remembered and a
+  // timer to end a fade the stopped clock never will — the second clock this
+  // header refuses.
+  const handover = $derived(
+    timed && carousel.rotating && carousel.settling && carousel.turnedBy === "auto",
+  );
 
   // AND IT HOLDS FULL WHILE IT FADES. This is the correction that made the
   // dissolve exist: `progress` is `clamp01(elapsed / dwell)` and `elapsed` is
