@@ -3,8 +3,8 @@ import { expect, type Locator, type Page } from "@playwright/test";
 // WAITING ON THE HOMEPAGE BAND'S CLOCK BY WHAT IT DOES, NEVER BY HOW LONG IT
 // IS SUPPOSED TO TAKE.
 //
-// The band's dwell is 4000ms on main and 8000ms on the branch that doubles it
-// (operator call, 2026-09-23), and specs on both sides of that merge wait on
+// The band's dwell was 4000ms until the operator doubled it to 8000ms
+// (2026-09-23, #151), and specs written on both sides of that change wait on
 // it. A wait sized for one dwell is wrong on the other in the worst direction:
 // sized for 4000 and run at 8000, "nothing turned inside the window" is true
 // because nothing TRIED to turn, and a test of "the clock left the visitor's

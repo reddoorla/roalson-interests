@@ -885,14 +885,15 @@
     <div data-map-slot class="max-lg:order-first lg:col-start-1 lg:row-start-1">
       <!-- THE CAMERA FOLLOWS THE ACTIVE SLIDE, AND THAT IS THE WHOLE GATE.
            WCAG 2.2.2 is live on this band: it autoplays, so a camera that
-           moved on its own every four seconds would be auto-moving content in
-           parallel with other content. It cannot. `active` is read off
-           `carousel.index`, and the index only advances while the carousel is
-           `rotating` — which is already `hydrated && eligible && !userPaused &&
-           !hovered && !pageHidden && !atEnd`, i.e. every pause, every hover,
-           a hidden tab and `prefers-reduced-motion` all stop it. Pressing the
-           band's Pause control stops the index, so it stops the map; under
-           reduced motion the index never moves at all, so the map never does.
+           moved on its own every eight seconds (`DWELL`) would be auto-moving
+           content in parallel with other content. It cannot. `active` is read
+           off `carousel.index`, and the clock only advances it while the
+           carousel is `rotating` — which is already `hydrated && eligible &&
+           !userPaused && !pageHidden && !atEnd` here (hover is not a pause on
+           this band, `pauseOnHover: false`), i.e. every pause, a hidden tab and
+           `prefers-reduced-motion` all stop it. Pressing the band's Pause
+           control stops the index, so it stops the map; under reduced motion
+           the index never moves at all, so the map never does.
            That is ONE mechanism. A second gate here — a `paused` prop the map
            also consulted — could only ever disagree with this one, and the
            first thing it would disagree about is a MANUAL turn: pressing an
@@ -911,7 +912,7 @@
       <!-- `activeBy` IS WHAT KEEPS A VISITOR'S OWN ZOOM. The map suspends its
            camera when the visitor drives it and lifts that suspension when the
            visitor asks for a different listing — and on this band the index
-           moves on a 4000ms clock with nobody touching anything, which the map
+           moves on an 8000ms clock with nobody touching anything, which the map
            cannot tell from an arrow press by watching `active` alone. It read
            every auto-advance as the visitor asking, so a pinch or a wheel-zoom
            on the expanded map was thrown away one dwell later: measured on a

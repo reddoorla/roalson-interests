@@ -163,12 +163,13 @@
      * A gesture suspends the camera, and what ends the suspension is the
      * visitor asking to be somewhere else. `active` alone cannot tell that
      * apart from the PAGE moving on by itself: the homepage band advances
-     * every 4000ms with nobody touching anything, so the shipped rule —
-     * "`active` changed, therefore the visitor asked" — threw a visitor's own
-     * zoom away with no user action at all. Measured on a production build of
-     * `/` at 390x844 with motion allowed: expand the band's map, four wheel-up
-     * ticks take it from z12 to z12.5387, and ~9s later, with no further
-     * input, the camera has issued 2 `flyTo` back to z12.
+     * after every 8000ms dwell with nobody touching anything, so the shipped
+     * rule — "`active` changed, therefore the visitor asked" — threw a
+     * visitor's own zoom away with no user action at all. Measured on a
+     * production build of `/` at 390x844 with motion allowed, when the dwell
+     * was still 4000ms: expand the band's map, four wheel-up ticks take it
+     * from z12 to z12.5387, and ~9s later, with no further input, the camera
+     * has issued 2 `flyTo` back to z12.
      *
      * So the caller says. `"visitor"` is the default because on the Properties
      * page it is simply true — `active` there is the card the visitor scrolled
@@ -210,7 +211,8 @@
      * outside the carousel's region); a pointer resting on the CARD does (no
      * turn in 12s). So under `!rotating` the map would unlock whenever the
      * pointer sat on the card beside it, and on a hidden tab — states in which
-     * the slideshow has not been stopped by anybody.
+     * the slideshow has not been stopped by anybody. (Hover stopped pausing
+     * this band later that day, `pauseOnHover: false`; the hidden tab stands.)
      *
      * ONE SWITCH FOR THE WHOLE SET, so the set cannot half-apply: every
      * maplibre navigation handler this map was built with (`navigation`), the
@@ -306,13 +308,14 @@
    *
    * AND "THE VISITOR" IS THE HALF THAT WAS MISSING. This shipped as "until the
    * PAGE asks for a different listing", i.e. any change of `active` at all,
-   * and the homepage band changes `active` on a 4000ms timer with nobody
+   * and the homepage band changes `active` on an 8000ms timer with nobody
    * touching anything — so on that band the suspension ended, every time,
    * with no user action. Measured on a production build of `/` at 390x844,
-   * motion allowed: expand the band's map (at the time, the one state where
-   * scroll-zoom was the visitor's; since the reversal it is every state, which
-   * only makes this easier to reach), four wheel-up ticks to z12.5387, then no
-   * further input — ~9s later the camera had issued 2 `flyTo` back to z12 and
+   * motion allowed, at the then 4000ms dwell: expand the band's map (at the
+   * time, the one state where scroll-zoom was the visitor's; since the
+   * reversal it is every state, which only makes this easier to reach), four
+   * wheel-up ticks to z12.5387, then no further input — ~9s later the camera
+   * had issued 2 `flyTo` back to z12 and
    * the zoom was gone while the map was still expanded. Nobody could hold a
    * view on that map for longer than one dwell. `activeBy` is how the caller
    * says which kind of change this was; see the prop.
