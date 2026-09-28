@@ -9,26 +9,28 @@
   //
   // THE COLOURS ARE NOT THE COMP'S, ON PURPOSE. The comp fills garnet over a
   // dust track on the sand card: fill against track is 5.11:1, but the TRACK
-  // is 1.73:1 on sand (1.97 on off-white) — dust is a fill-only token exactly
+  // is 1.83:1 on sand (2.01 on off-white) — dust is a fill-only token exactly
   // because it disappears on light grounds — and on #14's cards the comp draws
   // fill and track in ONE colour, so there is no bar at all. In position mode
   // this bar is the only visible "2 of 3", so both of its edges are
   // information (WCAG 1.4.11): the fill must be 3:1 against the track AND the
   // track 3:1 against the ground. Three colours each 3:1 apart need at least
-  // 9:1 between the outer two, and garnet on sand is 8.87 — no track colour
-  // exists for the comp's fill on the homepage card; the best possible is
-  // 2.98 / 2.97. So:
+  // 9:1 between the outer two. Garnet on the old sand was 8.87, so no track
+  // existed for the comp's fill at all; on the less yellow sand of 2026-09-28
+  // it is 9.38, and exactly two alphas of garnet (55% and 56%) now clear 3:1
+  // both ways — at 3.10 / 3.03, a knife edge with no room for a rounding step.
+  // `dark` stays: its worst pair on sand is 3.63. So:
   //
-  //   "garnet" — light grounds: fill `dark` #3d0707 (13.09:1 on sand), track
-  //              the same colour at 53%.   sand      3.66 fill:track  3.57 track:ground
-  //                                        off-white 4.03             3.69
+  //   "garnet" — light grounds: fill `dark` #3d0707 (13.84:1 on sand), track
+  //              the same colour at 53%.   sand      3.81 fill:track  3.63 track:ground
+  //                                        off-white 4.09             3.70
   //                                        white     4.47             3.81
   //   "cream"  — dark grounds: fill off-white, track off-white at 44%.
-  //                                        garnet    3.17             3.17
-  //                                        #3d0707   4.04             3.68
+  //                                        garnet    3.19             3.21
+  //                                        #3d0707   4.07             3.72
   //
   // The track is an ALPHA of the fill rather than a fourth and fifth token, so
-  // one class serves every ground of its tone; the passing windows are 48–59%
+  // one class serves every ground of its tone; the passing windows are 47–60%
   // and 42–46%. It must therefore sit on the flat card ground, never over a
   // photo. CarouselProgress.test.ts recomputes every ratio above from app.css
   // and these strings. On a 2px line #3d0707 for #652323 is not a visible

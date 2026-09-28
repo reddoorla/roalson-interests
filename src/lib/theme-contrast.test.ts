@@ -42,11 +42,11 @@ const LIGHT_GROUNDS = ["background", "white", "light"] as const;
  *  specialty line and the open menu's type, and `light` (sand) the status
  *  badges on garnet AND — since the operator's 2026-09-22 call — every
  *  button's light tone, label and 1px outline both. Both are text ONLY on dark
- *  grounds, where they measure 5.11:1 and 8.87:1 on garnet. Neither may appear
+ *  grounds, where they measure 5.11:1 and 9.38:1 on garnet. Neither may appear
  *  as text on a light ground.
  *  `background` (the page's off-white) joined 2026-09-20: the listing's
  *  featured card is the comp's garnet card with off-white text and an
- *  off-white-outlined button — 10.5:1 on garnet. */
+ *  off-white-outlined button — 10.25:1 on garnet. */
 const DARK_GROUND_TEXT = ["white", "dust", "light", "background"] as const;
 /** The dark grounds those land on. */
 const DARK_GROUNDS = ["primary", "dark", "black"] as const;
@@ -80,7 +80,8 @@ const FILL_PAIRS = [
  * on `bg-light`, add "light" to LIGHT_GROUNDS and fix whichever value then
  * fails." PropertyDetail.svelte is that nesting (roalson-interests, 2026-09-18),
  * so it is in. Against this site's palette nothing failed: secondary on sand
- * measures 4.80:1, garnet 8.87:1. (The template's placeholder palette still
+ * measured 4.80:1, garnet 8.87:1 — and 5.08:1 and 9.38:1 on the less yellow
+ * sand of 2026-09-28. (The template's placeholder palette still
  * fails it at 3.90:1 — a clone that keeps those defaults and renders the
  * property page would learn so here.)
  */
@@ -242,21 +243,21 @@ describe("the property map's tinted palette", () => {
     expect(ratio(PALETTE.darkGarnet, PALETTE.water)).toBeCloseTo(8.0248, 3);
   });
 
-  it("puts place labels on the ground at 14.85:1", () => {
-    expect(ratio(PALETTE.darkGarnet, PALETTE.ground)).toBeCloseTo(14.8543, 3);
+  it("puts place labels on the ground at 15.13:1", () => {
+    expect(ratio(PALETTE.darkGarnet, PALETTE.ground)).toBeCloseTo(15.1309, 3);
   });
 
   /**
    * The brief said 6.98:1 for garnet on park and that is wrong by any reading.
    * The park FILL is `#d3d7bd` — 7.82:1 — and it is never even painted neat:
    * the layer carries `fill-opacity: 0.7`, so what a label actually sits on is
-   * that fill blended over the ground, `#dcdeca`, at 8.44:1. Both are recorded,
+   * that fill blended over the ground, `#dddfcc`, at 8.53:1. Both are recorded,
    * because the composite is what a visitor sees and the literal is what the
    * style file says.
    */
-  it("puts country and state labels on parkland at 7.82:1 neat, 8.44:1 as painted", () => {
+  it("puts country and state labels on parkland at 7.82:1 neat, 8.53:1 as painted", () => {
     expect(ratio(PALETTE.garnet, PALETTE.park)).toBeCloseTo(7.8243, 3);
-    expect(ratio(PALETTE.garnet, over(PALETTE.park, PALETTE.ground, 0.7))).toBeCloseTo(8.4402, 3);
+    expect(ratio(PALETTE.garnet, over(PALETTE.park, PALETTE.ground, 0.7))).toBeCloseTo(8.5265, 3);
   });
 
   /**
@@ -274,14 +275,15 @@ describe("the property map's tinted palette", () => {
    * for it to mitigate: the halo is no longer load-bearing for AA. It stays
    * anyway, and for a reason that was always the better one — a glyph's edge is
    * read against the pixel immediately outside it, which on a 1px stroke is the
-   * halo and not the fill, and the halo's own number (5.4472:1 on the ground)
+   * halo and not the fill, and the halo's own number (5.5487:1 on the ground)
    * is the highest of the lot. `scripts/map-style.test.ts` now asserts it is
    * really in the committed file WITH a non-zero width, which nothing did when
    * the claim was load-bearing.
    *
    * The brief that commissioned the first table said "secondary on sand road
-   * 4.80:1". 4.80 is `--color-secondary` on the BRAND's sand `#e8e1d1` — the
-   * number already in app.css's table — and no road on this map is or was that
+   * 4.80:1". 4.80 was `--color-secondary` on the BRAND's sand as it then was,
+   * `#e8e1d1` — the number app.css's table carried until the 2026-09-28 swap
+   * (5.08:1 on today's `#eae7e4`) — and no road on this map is or was that
    * colour. Kept here because it is the kind of number that gets re-derived.
    */
   it("keeps every road label above AA on its own fill, halo or no halo", () => {
@@ -303,7 +305,7 @@ describe("the property map's tinted palette", () => {
       );
     }
     // The halo, which is what the glyph's edge actually lands on.
-    expect(ratio(PALETTE.secondary, PALETTE.ground)).toBeCloseTo(5.4472, 3);
+    expect(ratio(PALETTE.secondary, PALETTE.ground)).toBeCloseTo(5.5487, 3);
     expect(ratio(PALETTE.secondary, PALETTE.ground)).toBeGreaterThanOrEqual(AA_NORMAL_TEXT);
   });
 
@@ -320,17 +322,21 @@ describe("the property map's tinted palette", () => {
    * what it is adjacent to.
    *
    * The first table failed that badly: motorway casing `#c8b98f` measured
-   * **1.6956:1** against the ground, i.e. sand on sand. The operator's report
+   * **1.6956:1** against the ground of the time, i.e. sand on sand (1.7271:1
+   * against today's `#f3f1ef`). The operator's report
    * was that I-10 through Boerne did not read as a road at all; what is
    * measured here is the ratio, and the render is in the PR. The retune roughly
    * doubles the motorway's distance from the ground — but it is honest about
-   * where it lands:
+   * where it lands (against the ground `#f3f1ef`; the 2026-09-22 figures,
+   * against the more yellow `#f2efe9`, were 2.7090 / 2.0836 / 1.6900 / 1.4034 /
+   * 1.1795 — the ground's move gained every casing about 0.02-0.05 and moved
+   * none of them across 3):
    *
-   *   motorway            #a3906a  2.7090  still under 3
-   *   motorway_link/…     #b6a685  2.0836  still under 3
-   *   secondary/tertiary  #c6b99d  1.6900
-   *   minor / street      #d5cbb5  1.4034
-   *   service / track     #e4ddcc  1.1795
+   *   motorway            #a3906a  2.7595  still under 3
+   *   motorway_link/…     #b6a685  2.1224  still under 3
+   *   secondary/tertiary  #c6b99d  1.7215
+   *   minor / street      #d5cbb5  1.4295
+   *   service / track     #e4ddcc  1.2015
    *
    * NOT ONE OF THEM MEETS 3:1. The operator's table was measured by eye against
    * a render, and by eye it is a large improvement; by the criterion it is a
@@ -344,11 +350,11 @@ describe("the property map's tinted palette", () => {
    * assert >= 3, because that would be red on purpose.
    */
   it("records every road casing against the ground, including the ones under 3:1", () => {
-    expect(ratio(PALETTE.motorwayCasing, PALETTE.ground)).toBeCloseTo(2.709, 3);
-    expect(ratio(PALETTE.arterialCasing, PALETTE.ground)).toBeCloseTo(2.0836, 3);
-    expect(ratio(PALETTE.secondaryRoadCasing, PALETTE.ground)).toBeCloseTo(1.69, 3);
-    expect(ratio(PALETTE.minorRoadCasing, PALETTE.ground)).toBeCloseTo(1.4034, 3);
-    expect(ratio(PALETTE.serviceRoadCasing, PALETTE.ground)).toBeCloseTo(1.1795, 3);
+    expect(ratio(PALETTE.motorwayCasing, PALETTE.ground)).toBeCloseTo(2.7595, 3);
+    expect(ratio(PALETTE.arterialCasing, PALETTE.ground)).toBeCloseTo(2.1224, 3);
+    expect(ratio(PALETTE.secondaryRoadCasing, PALETTE.ground)).toBeCloseTo(1.7215, 3);
+    expect(ratio(PALETTE.minorRoadCasing, PALETTE.ground)).toBeCloseTo(1.4295, 3);
+    expect(ratio(PALETTE.serviceRoadCasing, PALETTE.ground)).toBeCloseTo(1.2015, 3);
     // Every one is still under the 3:1 SC 1.4.11 asks for. Asserted as a fact
     // about today so that the day one of them passes, this line says so.
     for (const casing of [
@@ -365,7 +371,7 @@ describe("the property map's tinted palette", () => {
     // And the retune really did move the motorway casing, which is the one the
     // operator measured. The shipped value is here so the comparison is real
     // rather than a remembered number.
-    expect(ratio("#c8b98f", PALETTE.ground)).toBeCloseTo(1.6956, 3);
+    expect(ratio("#c8b98f", PALETTE.ground)).toBeCloseTo(1.7271, 3);
     expect(ratio(PALETTE.motorwayCasing, PALETTE.ground)).toBeGreaterThan(
       ratio("#c8b98f", PALETTE.ground),
     );
@@ -374,12 +380,13 @@ describe("the property map's tinted palette", () => {
   /**
    * NOT A PASS, and recorded as a number rather than left out. `highway-name-path`
    * is footpath and track names at minzoom 15.5 — well past every section's fit
-   * (6.948 land, 9.644 improved) but reachable by pinching in — and at 3.27:1 on
-   * its halo it is below AA for normal text. Tracked as an issue rather than
+   * (6.948 land, 9.644 improved) but reachable by pinching in — and at 3.33:1 on
+   * its halo it is below AA for normal text (3.27:1 on the ground before
+   * 2026-09-28). Tracked as an issue rather than
    * quietly darkened here, because the tone came from the operator's table.
    */
   it("records the one map label that is BELOW AA, so it cannot be forgotten", () => {
-    expect(ratio(PALETTE.pathLabel, PALETTE.ground)).toBeCloseTo(3.2686, 3);
+    expect(ratio(PALETTE.pathLabel, PALETTE.ground)).toBeCloseTo(3.3294, 3);
     expect(ratio(PALETTE.pathLabel, PALETTE.ground)).toBeLessThan(AA_NORMAL_TEXT);
   });
 

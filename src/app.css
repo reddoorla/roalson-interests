@@ -23,21 +23,28 @@
   --color-current: currentColor;
   --color-black: black;
   --color-white: white;
-  --color-background: #f2efe9;
+  --color-background: #f3f1ef;
 
   /* Roalson Interests brand palette. Transcribed from the Figma styles at
      bootstrap and NOT yet reconciled against `get_variable_defs` — do that at
      /figma-slices Stage A and correct here, since a derived transcription has
      been wrong by one value per channel before.
 
+     Off-white and sand are NOT the bootstrap values. The client found the old
+     pair (#f2efe9 / #e8e1d1) "a little bit too yellow", and the designer's
+     revision (Figma 'Homepage - REVISED', 7091:631, 2026-09-26) replaced them
+     everywhere: #e8e1d1 -> #eae7e4, #f2efe9 -> #f3f1ef. The two grounds now
+     step 1.09:1 apart, down from 1.14:1, so a sand panel on the page reads
+     more quietly than it did.
+
      CONTRAST, measured (WCAG 2.x relative luminance), against this page ground:
-       garnet   on off-white  10.07:1  pass
-       garnet   on sand        8.87:1  pass
+       garnet   on off-white  10.25:1  pass
+       garnet   on sand        9.38:1  pass
        white    on garnet     11.55:1  pass
-       sand     on garnet      8.87:1  pass
+       sand     on garnet      9.38:1  pass
        dust     on garnet      5.11:1  pass
-       dust     on off-white   1.97:1  FAIL
-       dust     on sand        1.73:1  FAIL
+       dust     on off-white   2.01:1  FAIL
+       dust     on sand        1.83:1  FAIL
        dust     on white       2.26:1  FAIL
 
      So brand dust CANNOT hold this template's `secondary` role. `secondary` is
@@ -45,7 +52,8 @@
      field descriptions, slice eyebrows, the testimonial role line and the
      contact intro, eight places in all — so assigning dust to it fails axe on
      every page at once. It was caught exactly that way during this bootstrap:
-     the footer's "© 2026 Roalson Interests" went red at 1.97:1.
+     the footer's "© 2026 Roalson Interests" went red at 1.97:1 (on the
+     bootstrap off-white; 2.01:1 on today's).
 
      The mapping therefore splits the two jobs rather than renaming the failure:
        --color-secondary  the AA-safe secondary TEXT colour (dust darkened 56%)
@@ -56,11 +64,11 @@
      are light grounds, so both need a solid or darker treatment. The wordmark's
      dust "INTERESTS" is part of a logo and is exempt.
      Do not collapse these two tokens back into one. */
-  --color-light: #e8e1d1; /* sand — card ground, light type on garnet */
+  --color-light: #eae7e4; /* sand — card ground, light type on garnet */
   --color-primary: #652323; /* garnet */
   --color-dark: #3d0707; /* dark garnet — gradient end, deep ground */
   /* Dust darkened to 56%. Measured on every light ground in this palette:
-     off-white 5.45:1, white 6.25:1, sand 4.80:1 — all AA with margin. */
+     off-white 5.55:1, white 6.25:1, sand 5.08:1 — all AA with margin. */
   --color-secondary: #646059;
   --color-dust: #b2ac9f; /* brand dust — FILL on light grounds; text only on garnet */
   --color-accent: #565637; /* olive — from the logo files, unused in the comps */
@@ -546,7 +554,7 @@ main > section.hero-band:first-child {
        account of which way round this used to be and why it was wrong.
 
        Naming the canvas here also takes body OUT of that propagation: body
-       paints #f2efe9 in its OWN box, which spans the whole document (the
+       paints #f3f1ef in its OWN box, which spans the whole document (the
        layout's wrapper is `min-h-screen`), so nothing on any route changes —
        only the overscroll does.
 

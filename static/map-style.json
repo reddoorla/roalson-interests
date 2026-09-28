@@ -4,7 +4,7 @@
     {
       "id": "background",
       "paint": {
-        "background-color": "#f2efe9"
+        "background-color": "#f3f1ef"
       },
       "type": "background"
     },
@@ -448,7 +448,7 @@
       "id": "aeroway_runway",
       "minzoom": 11,
       "paint": {
-        "line-color": "#f2efe9",
+        "line-color": "#f3f1ef",
         "line-width": [
           "interpolate",
           [
@@ -495,7 +495,7 @@
       "id": "aeroway_taxiway",
       "minzoom": 11,
       "paint": {
-        "line-color": "#f2efe9",
+        "line-color": "#f3f1ef",
         "line-width": [
           "interpolate",
           [
@@ -4153,7 +4153,7 @@
       "minzoom": 10,
       "paint": {
         "text-color": "#3d0707",
-        "text-halo-color": "#f2efe9",
+        "text-halo-color": "#f3f1ef",
         "text-halo-width": 1.5
       },
       "source": "openmaptiles",
@@ -4226,7 +4226,7 @@
       },
       "paint": {
         "text-color": "#3d0707",
-        "text-halo-color": "#f2efe9",
+        "text-halo-color": "#f3f1ef",
         "text-halo-width": 1.5
       },
       "source": "openmaptiles",
@@ -4289,7 +4289,7 @@
       },
       "paint": {
         "text-color": "#3d0707",
-        "text-halo-color": "#f2efe9",
+        "text-halo-color": "#f3f1ef",
         "text-halo-width": 1.5
       },
       "source": "openmaptiles",
@@ -4359,7 +4359,7 @@
       "minzoom": 15.5,
       "paint": {
         "text-color": "#8a8378",
-        "text-halo-color": "#f2efe9",
+        "text-halo-color": "#f3f1ef",
         "text-halo-width": 0.5
       },
       "source": "openmaptiles",
@@ -4451,7 +4451,7 @@
       "paint": {
         "text-color": "#646059",
         "text-halo-blur": 0.5,
-        "text-halo-color": "#f2efe9",
+        "text-halo-color": "#f3f1ef",
         "text-halo-width": 1
       },
       "source": "openmaptiles",
@@ -4529,7 +4529,7 @@
       "paint": {
         "text-color": "#646059",
         "text-halo-blur": 0.5,
-        "text-halo-color": "#f2efe9",
+        "text-halo-color": "#f3f1ef",
         "text-halo-width": 1
       },
       "source": "openmaptiles",
@@ -4836,7 +4836,7 @@
       "paint": {
         "text-color": "#646059",
         "text-halo-blur": 0.5,
-        "text-halo-color": "#f2efe9",
+        "text-halo-color": "#f3f1ef",
         "text-halo-width": 1
       },
       "source": "openmaptiles",
@@ -4917,7 +4917,7 @@
       "paint": {
         "text-color": "#3d0707",
         "text-halo-blur": 1,
-        "text-halo-color": "#f2efe9",
+        "text-halo-color": "#f3f1ef",
         "text-halo-width": 1
       },
       "source": "openmaptiles",
@@ -5001,7 +5001,7 @@
       "paint": {
         "text-color": "#3d0707",
         "text-halo-blur": 1,
-        "text-halo-color": "#f2efe9",
+        "text-halo-color": "#f3f1ef",
         "text-halo-width": 1
       },
       "source": "openmaptiles",
@@ -5085,7 +5085,7 @@
       "paint": {
         "text-color": "#3d0707",
         "text-halo-blur": 1,
-        "text-halo-color": "#f2efe9",
+        "text-halo-color": "#f3f1ef",
         "text-halo-width": 1
       },
       "source": "openmaptiles",
@@ -5158,7 +5158,7 @@
       "paint": {
         "text-color": "#652323",
         "text-halo-blur": 1,
-        "text-halo-color": "#f2efe9",
+        "text-halo-color": "#f3f1ef",
         "text-halo-width": 1
       },
       "source": "openmaptiles",
@@ -5259,7 +5259,7 @@
       "paint": {
         "text-color": "#3d0707",
         "text-halo-blur": 1,
-        "text-halo-color": "#f2efe9",
+        "text-halo-color": "#f3f1ef",
         "text-halo-width": 1
       },
       "source": "openmaptiles",
@@ -5360,7 +5360,7 @@
       "paint": {
         "text-color": "#3d0707",
         "text-halo-blur": 1,
-        "text-halo-color": "#f2efe9",
+        "text-halo-color": "#f3f1ef",
         "text-halo-width": 1
       },
       "source": "openmaptiles",
@@ -5442,7 +5442,7 @@
       "paint": {
         "text-color": "#652323",
         "text-halo-blur": 1,
-        "text-halo-color": "#f2efe9",
+        "text-halo-color": "#f3f1ef",
         "text-halo-width": 1
       },
       "source": "openmaptiles",
@@ -5523,7 +5523,7 @@
       "paint": {
         "text-color": "#652323",
         "text-halo-blur": 1,
-        "text-halo-color": "#f2efe9",
+        "text-halo-color": "#f3f1ef",
         "text-halo-width": 1
       },
       "source": "openmaptiles",
@@ -5604,7 +5604,7 @@
       "paint": {
         "text-color": "#652323",
         "text-halo-blur": 1,
-        "text-halo-color": "#f2efe9",
+        "text-halo-color": "#f3f1ef",
         "text-halo-width": 1
       },
       "source": "openmaptiles",

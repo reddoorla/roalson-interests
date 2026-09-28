@@ -14,7 +14,7 @@
    * Before the tiles arrive — and forever, with scripting off — this component
    * is not a map. It is a list of links, and a list of links needs a ground it
    * is legible on. The first version hard-coded `bg-light text-primary`, which
-   * is right on the Properties page (sand panel on an off-white page, 8.87:1)
+   * is right on the Properties page (sand panel on an off-white page, 9.38:1)
    * and wrong on the homepage band, where it painted a full-bleed SAND
    * rectangle over the band's #3d0707 until MapLibre finished booting —
    * measured at 513 × 826.4 at 1455 × 900 and 375 × 200 at 390 × 844, i.e. the
@@ -26,8 +26,8 @@
    * So the caller says which ground it is placing the map on, the way
    * CarouselArrows and CarouselProgress already do. Measured, both ways round:
    *
-   *   garnet  sand ground, garnet text      8.87:1   — the Properties page
-   *   cream   #3d0707 ground, off-white     14.85:1  — the homepage band
+   *   garnet  sand ground, garnet text      9.38:1   — the Properties page
+   *   cream   #3d0707 ground, off-white     15.13:1  — the homepage band
    *
    * `cream` paints the band's own colour rather than going transparent: it is
    * the same pixel either way, and an explicit ground is what src/focus-floor
@@ -1833,7 +1833,7 @@
 
   /* MapLibre's attribution, toned to the brand. It is a licence condition, so
      it is legible rather than hidden: sand ground, garnet text, and the
-     4.5:1 the palette already measures for that pair (8.87:1). */
+     4.5:1 the palette already measures for that pair (9.38:1). */
   /* OPAQUE, not 88%. Two reasons and they are the same reason. A translucent
      chip over map tiles has no fixed contrast — the ratio depends on whatever
      imagery happens to be under it — and axe says so: it answers
@@ -1842,7 +1842,7 @@
      contains an image node". That incomplete is what forced the whole map
      subtree out of the band's axe run, which in turn silenced axe over the
      OpenStreetMap credit this component argues is a LICENCE CONDITION. At
-     100% it is garnet on sand, 8.87:1, measurable and fixed.
+     100% it is garnet on sand, 9.38:1, measurable and fixed.
 
      AND IT TAKES THREE CLASSES TO SAY IT, which is the correction. The rule
      below read `[data-property-map] .maplibregl-ctrl-attrib` — specificity
@@ -1855,7 +1855,8 @@
      again ON A PRODUCTION BUILD, because a cascade order is exactly the kind of
      thing `vite dev` can flatter — `pnpm build && pnpm preview`, `/` and
      `/properties`, both `rgba(255, 255, 255, 0.5)` before and both
-     `rgb(232, 225, 209)` after. It was shipped, not a dev artefact. Every
+     `rgb(232, 225, 209)` after (the sand of the time; it has been
+     `rgb(234, 231, 228)` since 2026-09-28). It was shipped, not a dev artefact. Every
      consequence the comment above describes was therefore still live — axe
      answered `color-contrast` with `imgNode` incomplete for
      `.maplibregl-ctrl-attrib-inner` and both licence links, on a chip this file

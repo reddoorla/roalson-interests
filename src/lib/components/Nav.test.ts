@@ -114,7 +114,7 @@ describe("Nav — the bar's ground", () => {
     const bar = getByRole("navigation", { name: "Primary" });
     expect(bar.hasAttribute("data-floating")).toBe(false);
     expect(resting(bar)).toEqual(expect.arrayContaining(["fixed", "bg-background"]));
-    // Dust is fill-only on a light ground: 1.97:1 as a label, and as a glyph.
+    // Dust is fill-only on a light ground: 2.01:1 as a label, and as a glyph.
     expect(resting(getByLabelText("Open menu"))).toContain("text-primary");
     expect(resting(getByRole("link", { name: "Contact us" }))).toContain("text-primary");
   });
