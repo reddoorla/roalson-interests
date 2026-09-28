@@ -84,7 +84,7 @@ source. It is the fastest way to recognise what a thing does.
 | [`property-fixture.ts`](../src/lib/property-fixture.ts) | `PROPERTIES_MASTHEAD_FIXTURE`, `propertyFixture`, `propertyListingFixture` | — |  |
 | [`property-listing-load.ts`](../src/lib/property-listing-load.ts) | `LISTING_TITLE`, `LISTING_DESCRIPTION`, `emptyListing`, `loadPropertyListing` | 3 |  |
 | [`property-listing.ts`](../src/lib/property-listing.ts) | `LISTING_SECTIONS`, `PAST_SECTION`, `LISTING_VIEWS`, `listingViews`, `viewFromHash`, `listingOrder`, `groupListings` | 13 |  |
-| [`property-load.ts`](../src/lib/property-load.ts) | `loadProperty` | 5 |  |
+| [`property-load.ts`](../src/lib/property-load.ts) | `ARCHIVED_LISTINGS`, `loadProperty` | 6 |  |
 | [`property-map.ts`](../src/lib/property-map.ts) | `DEFAULT_MAP_STYLE_URL`, `mapStyleUrl`, `MAP_TILE_HOST`, `sectionPoints`, `slidePoints`, `WORLD_TILE_SIZE`, `worldSize`, `projectX`, `projectY`, `unprojectLng`, `unprojectLat`, `pixelDistance`, `MAP_FRAMES`, `COMPACT_MAX_HEIGHT`, `frameFor`, `MAP_MIN_ZOOM`, `MAP_MAX_ZOOM`, `MAP_ZOOM_STEP_MS`, `ACTIVE_PIN_SCALE`, `MAP_HOME`, `homeMarkers`, `homeCamera`, `homeFrames`, `fitCamera`, `CAMERA_FLIGHT_MS`, `activeTarget`, `cameraMove`, `WHEEL_QUIET_MS`, `WHEEL_SLOP_PX`, `wheelRun`, `clusterPoints`, `expansionZoom`, `clusterSignature`, `PIN_VIEWBOX`, `PIN_PATH`, `PIN_HOLE`, `PIN_ASPECT`, `clusterDiameter`, `MAP_HOME_FADE_MS`, `MAP_HOME_GROUND` | 80 | Everything the per-section map knows that is NOT MapLibre (#13) |
 | [`property-meta.ts`](../src/lib/property-meta.ts) | `propertyDescription`, `propertyJsonLd`, `propertyMeta` | 8 |  |
 | [`property.ts`](../src/lib/property.ts) | `PROPERTY_CATEGORIES`, `PROPERTY_STATUSES`, `LISTING_STATES`, `isArchived`, `isPastProject`, `isListed`, `statusLabel`, `propertyHighlights`, `propertyFacts`, `propertyTracts`, `propertyPackage`, `mapsUrl` | 19 |  |
@@ -105,4 +105,4 @@ source. It is the fastest way to recognise what a thing does.
 | [`vimeo.ts`](../src/lib/utils/vimeo.ts) | `checkVimeoVideo`, `parseVimeoId` | 11 | True when the Vimeo video exists and is embeddable (oEmbed responds 200) |
 | [`vimeoBackground.svelte.ts`](../src/lib/utils/vimeoBackground.svelte.ts) | `VIMEO_PLAYER_ORIGIN`, `backgroundEmbedSrc`, `VimeoBackground` | 5 | The gate, the heartbeat and the pause flag behind every chrome-less Vimeo background embed in this repo — lifted OUT of VimeoBanner.svelte so the homepage hero could have all three without taking VimeoBanner's markup with them |
 
-87 modules, 830 tests behind them.
+87 modules, 831 tests behind them.
