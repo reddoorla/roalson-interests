@@ -2,7 +2,8 @@
   // The Properties page body: the comp's stacked sections (6903:1030 at 1440,
   // 6992:2468 at 390), each a divider — a 2px garnet rule over an H3 label —
   // and its listing. Active sections put the listing in the comp's right
-  // column (847 of 1280) with the first card featured and the rest in the light
+  // column (847 of 1280) with ONE card featured — the comp's first, ours the
+  // one on the centre line, see below — and the rest in the light
   // token their ground does not use; the Sold section is a 3×2 grid of
   // unlinked off-white cards across the full width (6991:1145).
   //
@@ -29,8 +30,9 @@
   // nothing in this file consults a breakpoint twice.
   //
   // TOP-ALIGNED, NEVER STRETCHED. The comp holds the panel at 595 beside a
-  // 5-card list 1457.48 tall, so `lg:h-[595px]` and no `h-full`/`self-stretch`
-  // — the grid's default `stretch` would grow the map to the list's height.
+  // 5-card list 1457.48 tall, so a fixed `lg:h-(--map-height)` (595, see
+  // 4 below for why it is a variable) and no `h-full`/`self-stretch` — the
+  // grid's default `stretch` would grow the map to the list's height.
   //
   // THE MAP PINS TOO, AND ITS CAMERA FOLLOWS THE CARDS (#112, the operator's
   // ask: "the idea is the map is sticky and as different properties highlight
@@ -77,9 +79,60 @@
   //    below it — not "runs and is ignored", which would be an observer per
   //    section on every phone.
   //
+  // 4. IT PINS IN THE MIDDLE OF THE WINDOW, AND 1 IS ITS FLOOR (operator,
+  //    2026-09-23: "on properties, stick the map in the center of the screen
+  //    rather than floating to the top"). The offset is
+  //    `max(var(--sticky-top), 50vh - half the map)`.
+  //
+  //    The WINDOW's middle, not the middle of the space under the divider,
+  //    because that is the line everything else here keys to: the card the
+  //    camera follows and the garnet card are both the card crossing the
+  //    window's middle (`centreWatch`). A window-centred map puts its own
+  //    centre on that line, level with the card it is showing. Measured on a
+  //    production build at 1440x900: box 152.5–747.5, centre 450 of 900, where
+  //    it used to be 100–695 in section 0 and 145.41–740.41 under a pinned
+  //    divider.
+  //
+  //    THE `max` IS THE CLAMP, and the reason 1 still matters. On a window
+  //    shorter than the map plus twice the floor, half the window less half the
+  //    map is above the floor — 62.5 at 1440x720, which is under the bar in
+  //    section 0 and 83px under the pinned divider in every later section — so
+  //    the map holds at `--sticky-top` instead, exactly where it pinned before.
+  //    The two meet at a window 795 tall in section 0 and 885.81 under a pinned
+  //    divider; below those it is the old pin, above them it is centred.
+  //
+  //    The half is DERIVED from the one `--map-height`, not typed as 297.5, so
+  //    the comp's 595 is one edit and not two.
+  //
+  //    The offset moves both ends of the travel and not its length: a larger
+  //    `top` pins EARLIER in the scroll and lets go earlier, by the same
+  //    amount. 2's fixture numbers were measured at the old 100. On the real
+  //    portfolio at 1440x900 (production build) the land map now pins at
+  //    scrollY 363.52 and lets go at 4863.38 (was 416.02 and 4915.88), and the
+  //    improved map at 5634.39 and 6508.02 (was 5641.48 and 6515.11).
+  //
   // WHICH LISTING IS ACTIVE HAS ONE ANSWER: the card crossing the middle of
   // the screen. Pressing a pin does NOT set it — the press scrolls that card
   // to the centre and the same rule then reports it. See centreWatch.ts.
+  //
+  // AND THE GARNET CARD IS THAT ANSWER DRAWN (operator, 2026-09-23: "please
+  // change the highlighted box as we scroll"). The comp features the FIRST
+  // listing of each active section. Once the map's camera followed the centre
+  // line, a highlight nailed to card 0 disagreed with the map. So the same
+  // `activeIds[section.id]` the map is handed picks the featured card. There
+  // is no second source of truth: not a press, not focus, not a hover.
+  //
+  // `featured` is colour only (PropertyCard's TONES), so the highlight moves
+  // without moving the column; active-card-highlight.spec.ts measures every
+  // card's box either side of a move. The fade is app.css's, keyed to
+  // `data-centre-id`, so it adds nothing to the server's markup.
+  //
+  // WHAT DOES NOT MOVE. With no script, and in every frame before hydration,
+  // `activeIds` is empty and the fallback is the first listing, the `j === 0`
+  // this replaced. Below `lg` `centreWatch` does not run (3 above), so a phone
+  // keeps card 0 featured too. There the map is a 200px box above the cards
+  // and does not stick, so a travelling highlight would match nothing on
+  // screen. Sold sections have no map and no watcher.
   //
   // AND NOTHING HERE HOLDS THAT RULE BACK WHILE A SCROLL TRAVELS. It used to —
   // see `revealCard` for the two separate defects that cost — and the job now
@@ -282,6 +335,10 @@
         </ul>
       {:else}
         {@const points = sectionPoints(section.properties)}
+        <!-- The garnet card: whichever listing the centre rule reports, and
+             the first until it reports one. The fallback is not defensive: it
+             is the whole no-JS, pre-hydration and below-`lg` state. -->
+        {@const featuredId = activeIds[section.id] ?? section.properties[0]?.id}
         <!-- Column 1 is the section's map, 397 × 595 in the comp; `lg:gap-9`
              is its measured 36.0 to the cards. The top pad is the comp's at
              both widths and they differ: 40 from the divider to the first card
@@ -314,7 +371,8 @@
               active={activeIds[section.id] ?? null}
               onselect={(id) => revealCard(i, id)}
               class="mb-5 h-50 lg:col-start-1 lg:row-start-1 lg:mb-0 lg:sticky
-                lg:top-[var(--sticky-top)] lg:h-[595px]"
+                lg:[--map-height:595px] lg:h-(--map-height)
+                lg:top-[max(var(--sticky-top),calc(50vh-var(--map-height)/2))]"
             />
           {/if}
           <ul
@@ -326,7 +384,7 @@
             }}
             class="flex flex-col gap-5 lg:col-start-2"
           >
-            {#each section.properties as property, j (property.id)}
+            {#each section.properties as property (property.id)}
               <!-- `data-centre-id` — the `CENTRE_ID` the action exports,
                    written out because an attribute name is not an expression.
                    The id the centre rule reports, on the CARD's own wrapper:
@@ -358,7 +416,7 @@
               >
                 <PropertyCard
                   {property}
-                  variant={j === 0 ? "featured" : i === 0 ? "sand" : "cream"}
+                  variant={property.id === featuredId ? "featured" : i === 0 ? "sand" : "cream"}
                   layout="row"
                 />
               </li>

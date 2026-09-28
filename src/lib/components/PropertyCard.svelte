@@ -1,13 +1,21 @@
 <script lang="ts">
-  // The comp's `property` card, three tones. On the Properties page the FIRST
+  // The comp's `property` card, three tones. On the Properties page ONE
   // listing of each active section is the garnet card (6904:2068: off-white
-  // text and an off-white-outlined LEARN MORE). Every later card takes
+  // text and an off-white-outlined LEARN MORE) — the comp draws the first, and
+  // PropertyListing moves it to the card on the centre line. Every other card takes
   // whichever light token its section's ground does NOT use, so it always
   // reads as a panel: sand (6913:1982, `#e8e1d1`) on the first section's
   // off-white ground, off-white (6913:2062, `#f2efe9`) on the sand ground the
   // page warms to. The Sold grid's card (6991:1227) is the off-white card with
   // the photo above the text and no button — a sold listing keeps its page but
   // its card is unlinked (Stage B call 5).
+  //
+  // The tones are colour only, and the fade between them is NOT in this file:
+  // app.css gives a watched card's ground, photo box and status badges
+  // `transition-colors` by selector, so the server's markup did not change
+  // when the highlight started moving. Those selectors read this markup's
+  // structure — tests/interaction/active-card-highlight.spec.ts goes red if
+  // it moves out from under them.
   //
   // Anatomy, shared with PropertyDetail: photo box 423.5 × 267.5 beside (or
   // above) a panel padded 20 / 20 / 40; size line over title with the card's
@@ -25,9 +33,9 @@
 
   interface Props {
     property: PropertyDocument;
-    /** "featured" is the garnet card, the first listing of each active
-     *  section; "sand" and "cream" are the flat card on the off-white and the
-     *  sand ground respectively. */
+    /** "featured" is the garnet card, one listing per active section (which
+     *  one is the caller's call); "sand" and "cream" are the flat card on the
+     *  off-white and the sand ground respectively. */
     variant?: "featured" | "sand" | "cream";
     /** "row": photo beside the panel from md up, as in the listing column.
      *  "column": photo above, as in the Sold grid. Below md every card is a
