@@ -523,6 +523,19 @@ main > section.hero-band:first-child {
   @apply border-primary bg-primary text-light;
 }
 
+/* The same state for a screen reader, with no script (#178). aria-current
+   waits for hydration: the server cannot know the fragment, and CSS cannot set
+   an attribute. Generated text is in the accessible name, so until `data-view`
+   exists the selected tab's name ends "(selected)", visually hidden; the
+   hydrated form drops it, so aria-current is never announced twice. */
+[data-listing]:not([data-view]):not(:has(#land:target, #improved:target))
+  [data-view-tab="all"]::after,
+[data-listing]:not([data-view]):has(#land:target) [data-view-tab="land"]::after,
+[data-listing]:not([data-view]):has(#improved:target) [data-view-tab="improved"]::after {
+  content: " (selected)";
+  @apply sr-only normal-case;
+}
+
 /* Land then Past Projects: warm the seam the second section's strip covers
    under All. */
 [data-listing]:is([data-view="land"], :not([data-view]):has(#land:target))

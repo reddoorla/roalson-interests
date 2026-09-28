@@ -338,7 +338,8 @@
 
   {#if views.length}
     <!-- Colours are app.css's, keyed to `:target` and `data-view`. aria-current
-         only once hydrated: without script the server cannot know the view. -->
+         only once hydrated: without script the server cannot know the view,
+         and app.css puts a hidden "(selected)" in the tab's name instead. -->
     <div role="group" aria-label="Show listings" class="{GUTTERS} flex flex-wrap gap-2.5 pt-10">
       {#each views as view (view.id)}
         <a
