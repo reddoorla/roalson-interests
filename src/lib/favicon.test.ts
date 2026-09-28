@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { createHash } from "node:crypto";
 import { readdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import sharp from "sharp";
 
 /**
  * #4 measured the gap this closes: "a wrong favicon ships green". Nothing in
@@ -59,6 +60,16 @@ const links: IconLink[] = [...appHtml.matchAll(/<link\b[^>]*>/g)]
 const basename = (href: string) => href.split("/").pop() ?? href;
 
 const read = (name: string) => readFileSync(resolve(staticDir, name));
+
+/** A `--color-*` hex from app.css's `@theme` block, lower-cased. */
+const theme = /@theme\s*\{([\s\S]*?)\n\}/.exec(
+  readFileSync(resolve(root, "src/app.css"), "utf8"),
+)![1];
+const themeHex = (token: string) => {
+  const value = new RegExp(`--color-${token}:\\s*([^;]+);`).exec(theme)?.[1].trim();
+  if (!value || !/^#[0-9a-f]{6}$/i.test(value)) throw new Error(`--color-${token} is "${value}"`);
+  return value.toLowerCase();
+};
 
 /** The PNG chunk names in order, so tRNS can be ruled out rather than assumed. */
 function pngChunks(bytes: Buffer) {
@@ -165,6 +176,47 @@ describe("the site's icons", () => {
       svg.indexOf("<path"),
     );
   });
+
+  // THE ICON'S TWO COLOURS ARE THE PALETTE'S, and nothing held them there. The
+  // knockout was drawn in the page's off-white BECAUSE it is the page's
+  // off-white (journal, the favicon entry) — so when the palette moved on
+  // 2026-09-28 (#f2efe9 -> #f3f1ef) the icon was a second spelling of the old
+  // colour that no test could see. The mark is the brand's garnet for the same
+  // reason. Both are read from app.css, not restated here.
+  it("draws its ground in --color-background and its mark in --color-primary", () => {
+    const svg = read("favicon.svg").toString("utf8");
+    const rect = /<rect\b[^>]*\bfill="(#[0-9a-fA-F]{6})"/.exec(svg);
+    const path = /<path\b[^>]*\bfill="(#[0-9a-fA-F]{6})"/.exec(svg);
+    expect(rect?.[1].toLowerCase(), "favicon.svg's ground").toBe(themeHex("background"));
+    expect(path?.[1].toLowerCase(), "favicon.svg's mark").toBe(themeHex("primary"));
+  });
+
+  // And the PNGs are rasters OF that SVG, not of an older one. Recolouring the
+  // SVG alone leaves both PNGs a picture of the previous ground, green on every
+  // case above: they are still opaque, still the right size, still linked. The
+  // ground is 30.18% of the 32px icon and 37.75% of the 180px one, as exact
+  // pixels, because a flat fill survives a palette PNG untouched; 20% is a floor
+  // well under both and far over what a stale one scores, which is 0.
+  it.each(["favicon-32.png", "apple-touch-icon.png"])(
+    "%s is a raster of the SVG's ground, pixel for pixel",
+    async (name) => {
+      const ground = themeHex("background");
+      const want = [1, 3, 5].map((i) => parseInt(ground.slice(i, i + 2), 16));
+      const { data, info } = await sharp(read(name))
+        .removeAlpha()
+        .raw()
+        .toBuffer({ resolveWithObject: true });
+      let exact = 0;
+      for (let i = 0; i < data.length; i += 3) {
+        if (data[i] === want[0] && data[i + 1] === want[1] && data[i + 2] === want[2]) exact += 1;
+      }
+      const share = exact / (info.width * info.height);
+      expect(
+        share,
+        `${name} is ${(share * 100).toFixed(2)}% ${ground} — regenerate it from favicon.svg`,
+      ).toBeGreaterThanOrEqual(0.2);
+    },
+  );
 
   // The trap #4 named: `immutable` promises the bytes at a path never change,
   // which is only true of a content-hashed path. It was pinned on
