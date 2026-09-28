@@ -332,9 +332,12 @@ test.describe("the expand affordance", () => {
 
 test.describe("the engine, and what it costs", () => {
   test("is not in the first-paint path, and arrives when the box is", async ({ browser }) => {
-    // A short window so the homepage band is well clear of the fold — the
+    // A short window so the homepage band is clear of the fold — the
     // non-vacuity guard below is the point: if the map were on screen,
-    // "not loaded yet" would be meaningless.
+    // "not loaded yet" would be meaningless. Measured at 390 x 640 on
+    // /dev/home: the map slot's top is y=921 with the revised one-column hero
+    // (2026-09-28; the band is 393 tall under the 528px photo), 281px below
+    // the fold. It was 1149 under the old two-column band.
     const { context, page } = await at(browser, 390, 640);
     try {
       await page.goto(HOME);
@@ -367,13 +370,26 @@ test.describe("the engine, and what it costs", () => {
 
       const before = {
         ...(await weigh()),
-        top: await page.evaluate(
-          () => document.querySelector("[data-map-slot]")!.getBoundingClientRect().top,
-        ),
+        ...(await page.evaluate(() => ({
+          top: document.querySelector("[data-map-slot]")!.getBoundingClientRect().top,
+          fold: window.innerHeight,
+        }))),
       };
       // Non-vacuity: if the map were on screen, "not loaded yet" would be
-      // meaningless.
-      expect(before.top, "the band is below the fold").toBeGreaterThan(640 + 300);
+      // meaningless. NOT ONE PIXEL of the slot may be on screen at rest, which
+      // is stricter than what the lazy gate needs to stay shut (half of the
+      // box, or of the window if that is smaller — PropertyMap.svelte), and
+      // does not depend on that fraction.
+      //
+      // This read `640 + 300` until 2026-09-28. The 300 was the observer's
+      // first `rootMargin: "300px 0px"` LEAD, which the half-visible gate
+      // replaced inside the same PR that wrote this test (#107; the conflict
+      // it caused is issue #103), so the margin guarded a mechanism that never
+      // shipped — and when the revised hero put the slot at 921, it failed a
+      // correct page by 19px.
+      expect(before.top, `the band is below the fold (${before.fold})`).toBeGreaterThan(
+        before.fold,
+      );
       expect(before.named, "no maplibre chunk before it is needed (dev-only read)").toBe(false);
 
       await page.locator("[data-map-slot]").scrollIntoViewIfNeeded();
