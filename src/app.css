@@ -14,10 +14,11 @@
 @source not "../docs";
 
 @theme {
-  --screen-sm: 560px;
-  --screen-md: 768px;
-  --screen-lg: 1024px;
-  --screen-xl: 1340px;
+  /* Breakpoints are Tailwind's defaults: sm 640, md 768, lg 1024, xl 1280.
+     This block used to declare `--screen-sm: 560px` and `--screen-xl: 1340px`,
+     v3 names that v4 ignores, and two readers took those numbers as real
+     (#171). To move a breakpoint, declare `--breakpoint-*` and do a visual
+     pass. */
 
   --color-transparent: transparent;
   --color-current: currentColor;
@@ -521,6 +522,19 @@ main > section.hero-band:first-child {
 [data-listing]:is([data-view="improved"], :not([data-view]):has(#improved:target))
   [data-view-tab="improved"] {
   @apply border-primary bg-primary text-light;
+}
+
+/* The same state for a screen reader, with no script (#178). aria-current
+   waits for hydration: the server cannot know the fragment, and CSS cannot set
+   an attribute. Generated text is in the accessible name, so until `data-view`
+   exists the selected tab's name ends "(selected)", visually hidden; the
+   hydrated form drops it, so aria-current is never announced twice. */
+[data-listing]:not([data-view]):not(:has(#land:target, #improved:target))
+  [data-view-tab="all"]::after,
+[data-listing]:not([data-view]):has(#land:target) [data-view-tab="land"]::after,
+[data-listing]:not([data-view]):has(#improved:target) [data-view-tab="improved"]::after {
+  content: " (selected)";
+  @apply sr-only normal-case;
 }
 
 /* Land then Past Projects: warm the seam the second section's strip covers

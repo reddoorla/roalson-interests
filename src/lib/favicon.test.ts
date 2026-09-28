@@ -4,6 +4,8 @@ import { readdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import sharp from "sharp";
 
+import { SITE_NAME } from "./seo";
+
 /**
  * #4 measured the gap this closes: "a wrong favicon ships green". Nothing in
  * the repo checked that the icon existed, what size it was, or that it was not
@@ -60,6 +62,32 @@ const links: IconLink[] = [...appHtml.matchAll(/<link\b[^>]*>/g)]
 const basename = (href: string) => href.split("/").pop() ?? href;
 
 const read = (name: string) => readFileSync(resolve(staticDir, name));
+
+/** The web app manifest app.html links, if any (#78). */
+type Manifest = {
+  name?: string;
+  short_name?: string;
+  start_url?: string;
+  theme_color?: string;
+  background_color?: string;
+  icons?: { src: string; sizes?: string; type?: string }[];
+};
+const manifestTag = [...appHtml.matchAll(/<link\b[^>]*>/g)]
+  .map((m) => m[0])
+  .find((tag) => attr(tag, "rel") === "manifest");
+const manifest: Manifest | undefined = manifestTag
+  ? JSON.parse(read(basename(attr(manifestTag, "href") ?? "")).toString("utf8"))
+  : undefined;
+
+/** Its icons are links too: a PNG only the manifest names is still linked. */
+links.push(
+  ...(manifest?.icons ?? []).map((icon) => ({
+    rel: "manifest",
+    href: icon.src,
+    type: icon.type,
+    sizes: icon.sizes,
+  })),
+);
 
 /** A `--color-*` hex from app.css's `@theme` block, lower-cased. */
 const theme = /@theme\s*\{([\s\S]*?)\n\}/.exec(
@@ -197,7 +225,9 @@ describe("the site's icons", () => {
   // ground is 30.18% of the 32px icon and 37.75% of the 180px one, as exact
   // pixels, because a flat fill survives a palette PNG untouched; 20% is a floor
   // well under both and far over what a stale one scores, which is 0.
-  it.each(["favicon-32.png", "apple-touch-icon.png"])(
+  // Every shipped PNG, not a list: the manifest's 192 and 512 (37.21% and
+  // 38.18%) joined this case by being shipped, not by being named here.
+  it.each(shipped.filter((n) => n.endsWith(".png")))(
     "%s is a raster of the SVG's ground, pixel for pixel",
     async (name) => {
       const ground = themeHex("background");
@@ -217,6 +247,19 @@ describe("the site's icons", () => {
       ).toBeGreaterThanOrEqual(0.2);
     },
   );
+
+  // #78. Chrome on Android takes a home-screen icon from the manifest, and
+  // wants a 192 and a 512; without one it draws a screenshot or a globe.
+  it("links a manifest with a 192 and a 512, in the site's name and colours", () => {
+    expect(manifest, "app.html links no rel=manifest").toBeDefined();
+    expect(manifest!.name).toBe(SITE_NAME);
+    expect(manifest!.start_url).toBe("/");
+    expect(manifest!.theme_color).toBe(themeHex("primary"));
+    expect(manifest!.background_color).toBe(themeHex("background"));
+    const sizes = (manifest!.icons ?? []).map((i) => i.sizes).sort();
+    expect(sizes).toEqual(["192x192", "512x512"]);
+    for (const icon of manifest!.icons ?? []) expect(icon.type).toBe("image/png");
+  });
 
   // The trap #4 named: `immutable` promises the bytes at a path never change,
   // which is only true of a content-hashed path. It was pinned on

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { createHash } from "node:crypto";
 import { readFileSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 import sharp from "sharp";
@@ -22,6 +23,16 @@ describe("the default social-share card", () => {
     expect(DEFAULT_OG_IMAGE).not.toBe("");
     expect(DEFAULT_OG_IMAGE.startsWith("/")).toBe(true);
     expect(statSync(file).isFile()).toBe(true);
+  });
+
+  // #167. Share platforms cache a card by URL: recoloured bytes at the same
+  // path kept showing the old card until each one re-scraped. So the path
+  // names its bytes, and a re-compose that keeps the old name goes red here.
+  it("names its own bytes, so a new card is a new URL", () => {
+    const hash = /^\/og-card-([0-9a-f]{8})\.png$/.exec(DEFAULT_OG_IMAGE)?.[1];
+    expect(hash, `${DEFAULT_OG_IMAGE} carries no content hash`).toBeDefined();
+    const sha = createHash("sha256").update(readFileSync(file)).digest("hex");
+    expect(hash, `rename the card to /og-card-${sha.slice(0, 8)}.png`).toBe(sha.slice(0, 8));
   });
 
   // The one image this stack never resizes: `imgix()` returns a non-Prismic URL

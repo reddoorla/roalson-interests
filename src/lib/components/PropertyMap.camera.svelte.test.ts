@@ -1105,7 +1105,9 @@ describe("the +/− buttons are the visitor's zoom (P3)", () => {
     const ease = eases(record).at(-1)!;
     expect(ease.zoom).toBe(from + 1);
     expect((ease.data as { originalEvent?: unknown }).originalEvent).toBeInstanceOf(MouseEvent);
+    // The ease ends as maplibre ends it: `zoomend`, then `moveend` (#173).
     record.handlers.zoomend?.(ease.data);
+    record.handlers.moveend?.(ease.data);
     flushSync();
 
     props.active = "b";
@@ -1114,6 +1116,49 @@ describe("the +/− buttons are the visitor's zoom (P3)", () => {
       flights(record).map((f) => f.zoom),
       "the next listing at the chosen zoom",
     ).toEqual([from + 1]);
+  });
+
+  // #173. A press's ease is no maplibre handler, so a listing asked for inside
+  // its 300ms ended the suspension at once and the step was never recorded.
+  it("a listing asked for during the press's ease waits for it, and flies at the step", async () => {
+    const { props, record, view } = await booted("a");
+    const from = record.zoomNow;
+    press(view, "zoom-in");
+    const ease = eases(record).at(-1)!;
+    props.active = "b";
+    flushSync();
+    expect(flights(record), "no flight on top of the visitor's ease").toHaveLength(0);
+    // maplibre's order at the ease's end: `zoomend`, then `moveend`.
+    record.handlers.zoomend?.(ease.data);
+    record.handlers.moveend?.(ease.data);
+    flushSync();
+    expect(
+      flights(record).map((f) => f.zoom),
+      "the next listing at the step's zoom",
+    ).toEqual([from + 1]);
+  });
+
+  // A press over a flight stops it inside `easeTo`, whose `zoomend` then fires
+  // while the press is already easing. The press steps from the flight's
+  // target, so that stop is no `shortfall` — only an active handler's is.
+  it("a press that stops a flight is not also counted as the flight's shortfall", async () => {
+    const { props, record, view } = await booted("a");
+    props.active = "b";
+    flushSync();
+    const flight = flights(record).at(-1)!;
+    record.zoomNow = 7.5; // the arc's waypoint
+    press(view, "zoom-in");
+    record.handlers.zoomend?.(flight.data);
+    record.handlers.moveend?.(flight.data);
+    const ease = eases(record).at(-1)!;
+    record.handlers.zoomend?.(ease.data);
+    record.handlers.moveend?.(ease.data);
+    flushSync();
+    props.active = "c";
+    flushSync();
+    expect(flights(record).at(-1)!.zoom, "one level past the flight's target").toBe(
+      flight.zoom! + 1,
+    );
   });
 
   it("− eases one level out", async () => {

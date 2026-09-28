@@ -12,20 +12,26 @@
   //              field (#15). The default carries the photo, because that is
   //              the page as designed.
   //
-  // Fixture photos are data: pixels, which PrismicImage turns into imgix URLs,
-  // so cards render their alt text where the photo would be. The masthead's is
-  // a drawing for the same reason (see PROPERTIES_MASTHEAD_FIXTURE) — and a
+  // Card photos are one drawn JPEG from static/dev/ (see FIXTURE_PHOTO_PATH),
+  // on this page's own origin because PrismicImage needs an absolute URL. The
+  // masthead's is a drawing too (see PROPERTIES_MASTHEAD_FIXTURE) — and a
   // deliberately near-white one, so the scrim is reviewed against the ground it
   // was sized for rather than a forgiving one.
   import { page } from "$app/state";
   import PageMasthead from "$lib/components/PageMasthead.svelte";
   import PropertyListing from "$lib/components/PropertyListing.svelte";
-  import { PROPERTIES_MASTHEAD_FIXTURE, propertyListingFixture } from "$lib/property-fixture";
+  import {
+    PROPERTIES_MASTHEAD_FIXTURE,
+    propertyListingFixture,
+    withFixturePhoto,
+  } from "$lib/property-fixture";
   import { groupListings } from "$lib/property-listing";
   import { LISTING_TITLE } from "$lib/property-listing-load";
 
   const sections = $derived(
-    page.url.searchParams.has("empty") ? [] : groupListings(propertyListingFixture()),
+    page.url.searchParams.has("empty")
+      ? []
+      : groupListings(propertyListingFixture().map((p) => withFixturePhoto(p, page.url.origin))),
   );
   const masthead = $derived(
     page.url.searchParams.has("nophoto") ? null : PROPERTIES_MASTHEAD_FIXTURE,

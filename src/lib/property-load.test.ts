@@ -1,3 +1,8 @@
+// @vitest-environment node
+//
+// Node, not jsdom: the #176 case imports the real svelte.config.js, whose
+// adapter pulls in esbuild, which refuses to load under jsdom (see
+// scripts/csp-policy.test.ts). Nothing else here touches a DOM.
 import { describe, expect, it } from "vitest";
 import { NotFoundError, RepositoryNotFoundError } from "@prismicio/client";
 
@@ -48,5 +53,37 @@ describe("loadProperty", () => {
       throw wrongRepo;
     });
     await expect(loadProperty(client, "x", url)).rejects.toBe(wrongRepo);
+  });
+
+  // #176: the build's crawler follows a link to an archived listing, this
+  // loader 404s it, and svelte.config.js's handleHttpError — which sees only
+  // a status and a path — must say which listing and why, not a bare 404.
+  it("lets the build's 404 handler name an archived listing that a page still links to", async () => {
+    const { default: config } = await import("../../svelte.config.js");
+    const handle = config.kit!.prerender!.handleHttpError as (details: {
+      path: string;
+      status: number;
+      message: string;
+      referrer: string | null;
+      referenceType: "linked" | "fetched";
+    }) => void;
+    const details = (uid: string) => ({
+      path: `/properties/${uid}`,
+      status: 404,
+      message: `404 /properties/${uid} (linked from /)`,
+      referrer: "/",
+      referenceType: "linked" as const,
+    });
+    const archived = clientThat(async () => propertyFixture({ listing_state: "Archived" }));
+    await expect(loadProperty(archived, "archived-176", url)).rejects.toMatchObject({
+      status: 404,
+    });
+    expect(() => handle(details("archived-176"))).toThrow(
+      /"archived-176" is set to Archived in Prismic .* and \/ still links to it/,
+    );
+    // A 404 the loader never saw archived stays the plain one.
+    expect(() => handle(details("never-archived-176"))).toThrow(
+      /^404 \/properties\/never-archived-176 \(linked from \/\): 404/,
+    );
   });
 });

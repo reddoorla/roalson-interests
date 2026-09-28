@@ -7,9 +7,9 @@
 //   node scripts/seed/people.mjs --apply         stage them
 //
 // pages.mjs's skeleton without the slice preflight (a person has no slices):
-// the type must exist in Prismic before any write, `$image` filenames resolve
-// against the media library (read, never written), and each id goes into
-// people.state.json at once. Run it, and publish, BEFORE pages.mjs stages the
+// Prismic's `person` model must match the local one before any write,
+// `$image` filenames resolve against the media library (read, never written),
+// and each id goes into people.state.json at once. Run it, and publish, BEFORE pages.mjs stages the
 // home page's `$person` links — that script refuses a person that is not live.
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -18,6 +18,7 @@ import {
   ROOT,
   THROTTLE_MS,
   contentSignature,
+  customTypeOutOfSync,
   existingAssets,
   headersFor,
   masterRef,
@@ -28,7 +29,6 @@ import {
   sleep,
   stageDocument,
   stripEmpty,
-  typeExists,
   writeState,
 } from "./lib.mjs";
 import { imageRefs, resolveRefs } from "./pages.mjs";
@@ -71,10 +71,11 @@ async function main(argv) {
   }
 
   const state = readState(STATE_PATH);
-  if (!(await typeExists(TYPE, headers))) {
+  const model = JSON.parse(readFileSync(join(ROOT, `customtypes/${TYPE}/index.json`), "utf8"));
+  const stale = await customTypeOutOfSync(TYPE, model, headers);
+  if (stale) {
     throw new Error(
-      `preflight: repository ${repo} has no "${TYPE}" custom type yet — ` +
-        "models are delivered by the prismic-models workflow on merge to main.",
+      `preflight: ${stale} — models are delivered by the prismic-models workflow on merge to main.`,
     );
   }
   await sleep(THROTTLE_MS);

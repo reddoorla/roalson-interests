@@ -3,7 +3,7 @@ import { expect, test, type Browser, type Locator, type Page } from "@playwright
 import { expectRing, GARNET } from "./expect-ring";
 import { FEATURED_DISSOLVE, FEATURED_DWELL, FEATURED_KEN_BURNS } from "./featured-dwell";
 import { HYDRATION_TIMEOUT } from "./hydrated";
-import { SAND } from "./palette";
+import { DARK, SAND } from "./palette";
 
 // The homepage's featured band (src/lib/slices/FeaturedProperties) is the
 // headless carousel's first consumer, and makes promises jsdom cannot check:
@@ -382,9 +382,7 @@ test.describe("where the comp draws it", () => {
       // #3d0707. Until the tiles arrive the map IS its ground plus a list of
       // links, so the ground is the child's, and it is the child that is read.
       expect(g.slot.background, `${width}: the slot itself`).toBe("rgba(0, 0, 0, 0)");
-      expect(g.map.background, `${width}: what the visitor sees before tiles`).toBe(
-        "rgb(61, 7, 7)",
-      );
+      expect(g.map.background, `${width}: what the visitor sees before tiles`).toBe(DARK);
       expect(g.map.background, `${width}: sand over the dark band`).not.toBe(SAND);
     }
   });

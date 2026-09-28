@@ -102,12 +102,22 @@ test.describe("hydrated", () => {
     await hydrated(page);
     const landMap = sectionOf(page, "land").locator("[data-property-map]");
     await expect(landMap).toHaveAttribute("data-map-ready", "");
+    // A mark on the element itself. `{#if}` would pass everything else here:
+    // the section leaves the DOM (so `toBeHidden` holds) and a NEW map boots
+    // and reports ready at the same width (#174, measured). Only the same node
+    // coming back carries this.
+    await landMap.evaluate((el) => el.setAttribute("data-mount-probe", ""));
     const before = (await landMap.locator("canvas").first().boundingBox())!.width;
     await tabOf(page, "improved").click();
     await expectView(page, "improved");
     await expect(tabOf(page, "improved")).toHaveAttribute("aria-current", "true");
+    await expect(sectionOf(page, "land"), "hidden, not removed").toHaveCSS("display", "none");
     await tabOf(page, "all").click();
     await expectView(page, "all");
+    await expect(landMap, "the same map element, not a new one").toHaveAttribute(
+      "data-mount-probe",
+      "",
+    );
     await expect(landMap).toHaveAttribute("data-map-ready", "");
     await expect(landMap.locator("canvas").first()).toBeVisible();
     const after = (await landMap.locator("canvas").first().boundingBox())!.width;

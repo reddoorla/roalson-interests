@@ -43,8 +43,8 @@
   // The comp's per-section property map (#13): 397 x 595 in the Properties
   // page's left column at 1440, 350 x 200 above the cards at 390, 512 x 827
   // full-bleed on the homepage band and 390 x 200 full-bleed on its phone
-  // frame. Sold sections get none (the 1440 tree draws one and its wrapper is
-  // `visible: false`).
+  // frame. Past Projects (the comp's Sold section, `section.past`) gets none
+  // (the 1440 tree draws one and its wrapper is `visible: false`).
   //
   // WHAT IS SERVER-RENDERED IS A LIST, NEVER A BOX. #13's definition of done
   // says the no-JS state must not be a blank box, and the honest reading of
@@ -163,12 +163,13 @@
      * A gesture suspends the camera, and what ends the suspension is the
      * visitor asking to be somewhere else. `active` alone cannot tell that
      * apart from the PAGE moving on by itself: the homepage band advances
-     * every 4000ms with nobody touching anything, so the shipped rule —
-     * "`active` changed, therefore the visitor asked" — threw a visitor's own
-     * zoom away with no user action at all. Measured on a production build of
-     * `/` at 390x844 with motion allowed: expand the band's map, four wheel-up
-     * ticks take it from z12 to z12.5387, and ~9s later, with no further
-     * input, the camera has issued 2 `flyTo` back to z12.
+     * after every 8000ms dwell with nobody touching anything, so the shipped
+     * rule — "`active` changed, therefore the visitor asked" — threw a
+     * visitor's own zoom away with no user action at all. Measured on a
+     * production build of `/` at 390x844 with motion allowed, when the dwell
+     * was still 4000ms: expand the band's map, four wheel-up ticks take it
+     * from z12 to z12.5387, and ~9s later, with no further input, the camera
+     * has issued 2 `flyTo` back to z12.
      *
      * So the caller says. `"visitor"` is the default because on the Properties
      * page it is simply true — `active` there is the card the visitor scrolled
@@ -210,7 +211,8 @@
      * outside the carousel's region); a pointer resting on the CARD does (no
      * turn in 12s). So under `!rotating` the map would unlock whenever the
      * pointer sat on the card beside it, and on a hidden tab — states in which
-     * the slideshow has not been stopped by anybody.
+     * the slideshow has not been stopped by anybody. (Hover stopped pausing
+     * this band later that day, `pauseOnHover: false`; the hidden tab stands.)
      *
      * ONE SWITCH FOR THE WHOLE SET, so the set cannot half-apply: every
      * maplibre navigation handler this map was built with (`navigation`), the
@@ -306,13 +308,14 @@
    *
    * AND "THE VISITOR" IS THE HALF THAT WAS MISSING. This shipped as "until the
    * PAGE asks for a different listing", i.e. any change of `active` at all,
-   * and the homepage band changes `active` on a 4000ms timer with nobody
+   * and the homepage band changes `active` on an 8000ms timer with nobody
    * touching anything — so on that band the suspension ended, every time,
    * with no user action. Measured on a production build of `/` at 390x844,
-   * motion allowed: expand the band's map (at the time, the one state where
-   * scroll-zoom was the visitor's; since the reversal it is every state, which
-   * only makes this easier to reach), four wheel-up ticks to z12.5387, then no
-   * further input — ~9s later the camera had issued 2 `flyTo` back to z12 and
+   * motion allowed, at the then 4000ms dwell: expand the band's map (at the
+   * time, the one state where scroll-zoom was the visitor's; since the
+   * reversal it is every state, which only makes this easier to reach), four
+   * wheel-up ticks to z12.5387, then no further input — ~9s later the camera
+   * had issued 2 `flyTo` back to z12 and
    * the zoom was gone while the map was still expanded. Nobody could hold a
    * view on that map for longer than one dwell. `activeBy` is how the caller
    * says which kind of change this was; see the prop.
@@ -434,6 +437,17 @@
    * has what that costs and why it is not reachable by hand.
    */
   let releaseDue = false;
+
+  /**
+   * THE CLICK OF A +/− PRESS WHOSE EASE IS STILL RUNNING, or null. The ease is
+   * the visitor's gesture as much as a wheel's is, but no maplibre handler is
+   * active for it, so without this `gestureInProgress` said no and a listing
+   * asked for inside its 300ms ended the suspension before `zoomend` recorded
+   * the step (#173). Cleared by that ease's own `moveend` — maplibre copies
+   * its event data, so `originalEvent` is this click — which fires whether it
+   * finished or something stopped it.
+   */
+  let stepping: MouseEvent | null = null;
 
   /** The event data every camera command of this component carries, which
    *  maplibre copies onto the events that move fires — `movestart` to
@@ -576,13 +590,19 @@
     );
   };
 
-  /** A visitor's gesture is moving this map right now: one of its navigation
-   *  handlers is active. For the wheel that is from maplibre's first zoom frame
-   *  until 200ms after its ease settles, which is exactly the window whose end
-   *  fires `zoomend`. False with no map. A function declaration so the effect
-   *  above, which runs long after this script, can call it by name. */
+  /** One of this map's navigation handlers is active. For the wheel that is
+   *  from maplibre's first zoom frame until 200ms after its ease settles,
+   *  which is exactly the window whose end fires `zoomend`. */
+  function handlerActive(instance: MapInstance) {
+    return navigation.some((name) => handler(instance, name).isActive());
+  }
+
+  /** A visitor's gesture is moving this map right now: a handler is active,
+   *  or a +/− press is still easing (`stepping`). False with no map. A
+   *  function declaration so the effect above, which runs long after this
+   *  script, can call it by name. */
   function gestureInProgress(instance: MapInstance | null) {
-    return instance !== null && navigation.some((name) => handler(instance, name).isActive());
+    return instance !== null && (stepping !== null || handlerActive(instance));
   }
 
   /**
@@ -649,6 +669,7 @@
     selected = null;
     drivenAt = undefined;
     releaseDue = false;
+    stepping = null;
     chosenZoom = null;
     shortfall = 0;
     if (!flying && commanded && !isAt(instance, commanded)) commanded = null;
@@ -964,9 +985,9 @@
         // Landed, no handler is active and it is on target: nothing to note.
         // Stopped by a gesture, the handler that stopped it IS active at this
         // moment (maplibre stops the flight because it went active), and the
-        // gap is how far the arc was from where it was going.
-        if (commanded && gestureInProgress(instance))
-          shortfall = commanded.zoom - instance.getZoom();
+        // gap is how far the arc was from where it was going. A +/− press is
+        // not asked: it steps from the flight's target itself (`zoomBy`).
+        if (commanded && handlerActive(instance)) shortfall = commanded.zoom - instance.getZoom();
         // Mutated, removing this `return` stays green: what it would record is
         // this flight's own zoom plus its own gap, i.e. `commanded.zoom`, which
         // is already what gets carried. It is the rule, stated, not a guard.
@@ -978,8 +999,10 @@
     // camera's own `moveend`, without saying so: a flight of ours cannot be in
     // the air while `releaseDue` is set, because the gesture it waits on is
     // what stopped it. A `moveend` with a handler still active — a `resize()`
-    // mid-ease — is not the end of anything.
-    instance.on("moveend", () => {
+    // mid-ease — is not the end of anything. A +/− ease's own `moveend` is its
+    // end, so `stepping` clears first.
+    instance.on("moveend", (e: { originalEvent?: unknown } | undefined) => {
+      if (stepping && e?.originalEvent === stepping) stepping = null;
       if (!releaseDue || gestureInProgress(instance)) return;
       releaseDue = false;
       drivenAt = undefined;
@@ -1007,6 +1030,7 @@
     onListing = false;
     drivenAt = undefined;
     releaseDue = false;
+    stepping = null;
     chosenZoom = null;
     shortfall = 0;
     // A re-boot takes its own inventory and is its own first apply.
@@ -1244,9 +1268,9 @@
   //
   // A press is the visitor driving, like a wheel notch: `drivenAt` here, and
   // `originalEvent` on the ease so `movestart` and `zoomend` read it as theirs.
-  // Known gap: a different listing asked for DURING the 300ms ease ends the
-  // suspension before `zoomend` records the zoom (no handler is active), so
-  // that one step is not carried — the `releaseDue` shape, left as is.
+  // Its ease is a gesture in progress (`stepping`), so a different listing
+  // asked for during it waits for its `zoomend`, as a wheel's does (#173).
+  // Set before `easeTo`: an ease of 0ms ends, and clears it, inside the call.
   function zoomBy(delta: 1 | -1, e: MouseEvent) {
     const instance = map;
     if (!instance || !ready) return;
@@ -1260,6 +1284,7 @@
     const base = flying && commanded ? commanded : null;
     if (base) endFlight();
     shortfall = 0;
+    stepping = e;
     instance.easeTo(
       {
         ...(base ? { center: [base.lng, base.lat] as [number, number] } : {}),

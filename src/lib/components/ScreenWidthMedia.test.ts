@@ -202,3 +202,66 @@ describe("ScreenWidthMedia quality reveal", () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 });
+
+// WCAG 2.2.2 (#81). `loop=1`, so a pause mechanism is required. The control
+// is VimeoBackground's, fed by a heartbeat from THIS iframe.
+describe("ScreenWidthMedia pause control", () => {
+  const toggle = (c: HTMLElement) =>
+    c.querySelector<HTMLButtonElement>("[data-screen-media-toggle]");
+
+  function beat(iframe: HTMLIFrameElement) {
+    window.dispatchEvent(
+      new MessageEvent("message", {
+        origin: "https://player.vimeo.com",
+        source: iframe.contentWindow as unknown as MessageEventSource,
+        data: JSON.stringify({ event: "playProgress" }),
+      }),
+    );
+  }
+
+  it("offers none until its own player has sent a heartbeat", async () => {
+    const { container } = render(ScreenWidthMedia, props);
+    await advancePastDefer();
+    const iframe = container.querySelector("iframe")!;
+    expect(toggle(container)).toBeNull();
+
+    beat(iframe);
+    await tick();
+    expect(toggle(container)).toBeTruthy();
+  });
+
+  it("pauses on press: posts `pause` AND hides a revealed video", async () => {
+    const { container } = render(ScreenWidthMedia, props);
+    await advancePastDefer();
+    const iframe = container.querySelector("iframe")!;
+    vi.advanceTimersByTime(6000); // the hard cap reveals it
+    beat(iframe);
+    await tick();
+    expect(iframe.className).toContain("opacity-100");
+
+    const posted: string[] = [];
+    Object.defineProperty(iframe, "contentWindow", {
+      configurable: true,
+      value: { postMessage: (data: string) => posted.push(data) },
+    });
+    const button = toggle(container)!;
+    expect(button.getAttribute("aria-label")).toBe("Pause the background video");
+    button.click();
+    await tick();
+    expect(posted.map((p) => JSON.parse(p).method)).toContain("pause");
+    expect(iframe.className).toContain("opacity-0");
+    expect(toggle(container)!.getAttribute("aria-label")).toBe("Play the background video");
+  });
+
+  // A backdrop is `fixed -z-10`, under the page: a control inside it would be
+  // painted beneath whatever covers it and never take a click.
+  it("seats a backdrop's control outside the backdrop, fixed", async () => {
+    const { container } = render(ScreenWidthMedia, { ...props, backdrop: true });
+    await advancePastDefer();
+    beat(container.querySelector("iframe")!);
+    await tick();
+    const seat = toggle(container)!.parentElement!;
+    expect(seat.closest("section")).toBeNull();
+    expect(seat.className.split(/\s+/)).toContain("fixed");
+  });
+});

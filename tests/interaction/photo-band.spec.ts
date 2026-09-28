@@ -2,7 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 
 import { HYDRATION_TIMEOUT } from "./hydrated";
-import { OFF_WHITE } from "./palette";
+import { DARK, GARNET, OFF_WHITE } from "./palette";
 
 // The homepage's photo band makes promises jsdom cannot check (see
 // src/lib/slices/PhotoBand/index.svelte and the `[data-pinned-band]` block in
@@ -39,9 +39,6 @@ const HOME = "/dev/home";
 
 const BAND = "[data-pinned-band]";
 const SPACER = ".pinned-band-spacer";
-
-const GARNET = "rgb(101, 35, 35)";
-const DARK = "rgb(61, 7, 7)";
 
 /** Positive evidence of hydration: only the footer's own effect writes this.
  *

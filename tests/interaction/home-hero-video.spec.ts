@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { hydrated } from "./hydrated";
+import { DARK } from "./palette";
 
 // The homepage hero's video layer (#29) in a real engine. What is here is the
 // half jsdom cannot decide: whether the layer exists at all under the two
@@ -79,7 +80,7 @@ test("under the forced reduce, the hero with a video id is the hero without one"
   // The band is untouched: same height, same ground, same (non-)pin ruling.
   const box = (await page.locator(pin).boundingBox())!;
   expect(box.height).toBe(528);
-  await expect(page.locator(pin)).toHaveCSS("background-color", "rgb(61, 7, 7)");
+  await expect(page.locator(pin)).toHaveCSS("background-color", DARK);
   await expect(page.locator(pin)).toHaveCSS("position", "relative");
 });
 

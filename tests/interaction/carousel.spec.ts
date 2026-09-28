@@ -411,8 +411,8 @@ for (const viewport of [
       await expect(next).toHaveCSS("width", "40px");
       await expect(next).toHaveCSS("height", "40px");
       await expect(next).toHaveCSS("border-top-width", "1px");
-      await expect(next).toHaveCSS("border-top-color", "rgb(101, 35, 35)");
-      await expect(next).toHaveCSS("color", "rgb(101, 35, 35)");
+      await expect(next).toHaveCSS("border-top-color", GARNET);
+      await expect(next).toHaveCSS("color", GARNET);
       await expect(next.locator("svg")).toHaveCSS("width", "25px");
       await expect(prev.locator("svg")).toHaveCSS("rotate", "180deg");
       await expect(region.locator("[data-carousel-progress]")).toHaveCSS("height", "2px");

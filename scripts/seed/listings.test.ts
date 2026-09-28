@@ -2,12 +2,11 @@ import { describe, expect, it, vi } from "vitest";
 import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-// @ts-expect-error — plain ESM scripts, no declarations
-import { assetFilename, toPayload } from "./listings.mjs";
-// @ts-expect-error — plain ESM scripts, no declarations
+import { assetFilename, overLive, toPayload } from "./listings.mjs";
 import { notYetLive, stagedByType } from "./publish-release.mjs";
 import {
   contentSignature,
+  customTypeOutOfSync,
   fetchWithRetry,
   publishMigrationRelease,
   readToken,
@@ -15,8 +14,6 @@ import {
   stageDocument,
   stripEmpty,
   tokenEnvName,
-  typeExists,
-  // @ts-expect-error — plain ESM scripts, no declarations
 } from "./lib.mjs";
 
 type Entry = {
@@ -25,6 +22,12 @@ type Entry = {
   assets: Record<string, { url: string; bytes?: number; filename?: string; alt?: string }>;
   source: Record<string, string>;
 };
+
+/** A stand-in for `fetch`, typed as it: the lib's `fetchImpl` defaults to
+ *  `fetch`, so scripts/tsconfig.json holds every fake to that signature. Each
+ *  answer carries only what the function under test reads. */
+const fakeFetch = (answer: (url: string) => unknown) =>
+  vi.fn<typeof fetch>(async (input) => answer(String(input)) as Response);
 
 const root = process.cwd();
 const listings = JSON.parse(
@@ -214,32 +217,55 @@ describe("seed lib", () => {
     expect(readToken("r", {}, join(dir, "c.env"))).toBe("from-file");
   });
 
-  it("asks the Custom Types API whether a type exists, and refuses to guess from anything but 200 or 404", async () => {
+  it("holds Prismic's property model to the local one — a field it lacks is dropped with a 200 (#177)", async () => {
     const headers = { auth: { repository: "r" }, json: {} };
-    const answer = (status: number) =>
-      vi.fn(async () => ({ status, ok: status < 400, text: async () => "nope" }));
-    const yes = answer(200);
-    expect(await typeExists("property", headers, yes)).toBe(true);
-    expect(yes.mock.calls[0][0]).toBe("https://customtypes.prismic.io/customtypes/property");
-    expect(await typeExists("property", headers, answer(404))).toBe(false);
-    await expect(typeExists("property", headers, answer(403))).rejects.toThrow(
+    const local = structuredClone(model);
+    const answer = (status: number, body: unknown = {}) =>
+      fakeFetch(() => new Response(JSON.stringify(body), { status }));
+    // Same model, keys in another order: a match.
+    const reordered = { ...local, json: Object.fromEntries(Object.entries(local.json).reverse()) };
+    const same = answer(200, reordered);
+    expect(await customTypeOutOfSync("property", local, headers, same)).toBeNull();
+    expect(same.mock.calls[0][0]).toBe("https://customtypes.prismic.io/customtypes/property");
+    // The 2026-09-28 shape: the model pushed before listing_state existed.
+    const { listing_state: _, ...main } = local.json.Main;
+    const before = { ...local, json: { ...local.json, Main: main } };
+    expect(await customTypeOutOfSync("property", local, headers, answer(200, before))).toMatch(
+      /has no listing_state/,
+    );
+    const relabelled = structuredClone(local);
+    relabelled.json.Main.title.config.label = "Name";
+    expect(await customTypeOutOfSync("property", local, headers, answer(200, relabelled))).toMatch(
+      /differs from customtypes\/property/,
+    );
+    expect(await customTypeOutOfSync("property", local, headers, answer(404))).toMatch(
+      /not registered/,
+    );
+    await expect(customTypeOutOfSync("property", local, headers, answer(403))).rejects.toThrow(
       /read custom type property: 403/,
     );
   });
 
+  it("names every listing a PUT would stage over a live one — an editor's draft there is invisible (#177)", () => {
+    const entries = [{ uid: "a" }, { uid: "b" }, { uid: "c" }];
+    expect(overLive(entries, { b: { id: "B" }, z: { id: "Z" } })).toEqual(["b"]);
+    expect(overLive(entries, {})).toEqual([]);
+  });
+
   it("backs off on 429 and gives up with the last answer", async () => {
-    const wait = vi.fn(async () => {});
+    const wait = vi.fn(async (_ms: number) => {});
     const answers = [{ status: 429 }, { status: 429 }, { status: 200 }];
-    const fetchImpl = vi.fn(async () => answers.shift());
+    const fetchImpl = fakeFetch(() => answers.shift());
     expect((await fetchWithRetry("u", {}, { fetchImpl, wait })).status).toBe(200);
     expect(wait.mock.calls.map((c) => c[0])).toEqual([1500, 3000]);
   });
 
   it("creates on 201, replaces when an id is known, and STOPS on 'already exists' with no id", async () => {
     const headers = { auth: {}, json: {} };
-    const ok = vi.fn(async () => ({ status: 201, ok: true, json: async () => ({ id: "new1" }) }));
+    const ok = fakeFetch(() => ({ status: 201, ok: true, json: async () => ({ id: "new1" }) }));
     expect(
       await stageDocument({
+        id: undefined,
         type: "property",
         uid: "a",
         title: "A",
@@ -251,9 +277,9 @@ describe("seed lib", () => {
       id: "new1",
       created: true,
     });
-    expect(ok.mock.calls[0][1].method).toBe("POST");
+    expect(ok.mock.calls[0][1]?.method).toBe("POST");
 
-    const put = vi.fn(async () => ({ status: 200, ok: true, json: async () => ({}) }));
+    const put = fakeFetch(() => ({ status: 200, ok: true, json: async () => ({}) }));
     await stageDocument({
       id: "known",
       type: "property",
@@ -264,15 +290,16 @@ describe("seed lib", () => {
       fetchImpl: put,
     });
     expect(put.mock.calls[0][0]).toBe("https://migration.prismic.io/documents/known");
-    expect(put.mock.calls[0][1].method).toBe("PUT");
+    expect(put.mock.calls[0][1]?.method).toBe("PUT");
 
-    const exists = vi.fn(async () => ({
+    const exists = fakeFetch(() => ({
       status: 400,
       ok: false,
       text: async () => "A document with this UID already exists",
     }));
     await expect(
       stageDocument({
+        id: undefined,
         type: "property",
         uid: "a",
         title: "A",
@@ -288,7 +315,7 @@ describe("seed lib", () => {
 describe("publishing the migration release", () => {
   it("succeeds on 202 only, and says how many items are releasing", async () => {
     const headers = { auth: {}, json: { repository: "r" } };
-    const ok = vi.fn(async () => ({
+    const ok = fakeFetch(() => ({
       status: 202,
       ok: true,
       json: async () => ({ totalItems: 23 }),
@@ -297,7 +324,7 @@ describe("publishing the migration release", () => {
     expect(ok.mock.calls[0][0]).toBe("https://migration.prismic.io/migration-release/publish");
     expect(ok.mock.calls[0][1]).toMatchObject({ method: "POST", body: "{}" });
 
-    const no = vi.fn(async () => ({ status: 200, ok: true, text: async () => "unexpected" }));
+    const no = fakeFetch(() => ({ status: 200, ok: true, text: async () => "unexpected" }));
     await expect(publishMigrationRelease(headers, no)).rejects.toThrow(
       /publish the migration release: 200/,
     );
@@ -318,11 +345,11 @@ describe("publishing the migration release", () => {
   // site. The pass is the live CONTENT matching what was staged.
   it("the pass is the live content matching what was staged — not the 202, and not the uid", async () => {
     const api = (data: unknown) =>
-      vi.fn(async (url: string) => ({
+      fakeFetch((url) => ({
         ok: true,
         status: 200,
         json: async () =>
-          String(url).endsWith("/api/v2")
+          url.endsWith("/api/v2")
             ? { refs: [{ isMasterRef: true, ref: "m" }] }
             : { results: [{ uid: "a", id: "1", data }], total_pages: 1 },
       }));

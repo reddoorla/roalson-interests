@@ -33,7 +33,7 @@ source. It is the fastest way to recognise what a thing does.
 | [`CarouselArrows.svelte`](../src/lib/components/CarouselArrows.svelte) | `carousel`, `tone` | 13 | The comp's carousel arrows (`l arrow` / `r arrow`, 6843:972 / 6843:977 in the homepage `properties slideshow` set; the same pair on issue #14's 390 cards) for a `createCarousel` instance, plus the pause / play control the comp does not draw and WCAG 2.2.2 requires of anything that autoplays |
 | [`CarouselProgress.svelte`](../src/lib/components/CarouselProgress.svelte) | `carousel`, `tone` | 13 | The comp's 2px carousel progress bar (`progress bar` 6843:964: 888 × 2 at 1440, 350 × 2 at 390, 20px under the photo) for a `createCarousel` instance |
 | [`ContentBand.svelte`](../src/lib/components/ContentBand.svelte) | `sliceType`, `variation`, `sectionClass`, `contentClass`, `fallbackHeight`, `background`, `children` | — |  |
-| [`ContentWidth.svelte`](../src/lib/components/ContentWidth.svelte) | `reveals`, `style`, `children`, `edgeFadeColor` | 2 |  |
+| [`ContentWidth.svelte`](../src/lib/components/ContentWidth.svelte) | `reveals`, `style`, `children`, `edgeFadeColor` | 3 |  |
 | [`CountUp.svelte`](../src/lib/components/CountUp.svelte) | `value`, `startValue`, `duration`, `startOnVisible`, `once`, `label`, `decimals`, `prefix`, `suffix`, `useGrouping`, `locale` | 12 | The number to count up to |
 | [`DefaultButton.svelte`](../src/lib/components/DefaultButton.svelte) | `href`, `onclick`, `children` | — | Shape and skin of the shared button, split so callers that must render a different element can still wear it |
 | [`DelayedLink.svelte`](../src/lib/components/DelayedLink.svelte) | `href`, `delay`, `children`, `beforeNavigate`, `onclick` | 5 |  |
@@ -48,7 +48,7 @@ source. It is the fastest way to recognise what a thing does.
 | [`Nav.svelte`](../src/lib/components/Nav.svelte) | `items`, `logo`, `cta`, `over`, `wordmark`, `currentPath` | 33 | The site's bar and its menu |
 | [`PageMasthead.svelte`](../src/lib/components/PageMasthead.svelte) | `title`, `image`, `preload` | 9 | The comp's `Masthead #1` as the Properties page wears it (6991:978 at 1440, 6992:2865 at 390): a 400px band — 240 on mobile — with the page's H1 sitting on the listing column's left edge, its baseline 72px above the band's bottom (44 on mobile, centred) |
 | [`PersonProfile.svelte`](../src/lib/components/PersonProfile.svelte) | `person` | 5 | A partner's profile page, /team/<uid> (F4, operator 2026-09-28) |
-| [`PlayPauseGlyph.svelte`](../src/lib/components/PlayPauseGlyph.svelte) | `paused` | — | The pause / play glyph for every WCAG 2.2.2 control on this site — the carousel's (CarouselArrows) and the homepage hero's video (HeroBackgroundVideo) |
+| [`PlayPauseGlyph.svelte`](../src/lib/components/PlayPauseGlyph.svelte) | `paused` | — | The pause / play glyph for every WCAG 2.2.2 control on this site — the carousel's (CarouselArrows) and each background video's (HeroBackgroundVideo, VimeoBanner, ScreenWidthMedia) |
 | [`PreNavTransition.svelte`](../src/lib/components/PreNavTransition.svelte) | `duration`, `holdDuration` | 10 | ms the overlay fades in before the deferred navigation is issued |
 | [`PropertyCard.svelte`](../src/lib/components/PropertyCard.svelte) | `property`, `variant`, `layout` | 10 | The comp's `property` card, three tones |
 | [`PropertyDetail.svelte`](../src/lib/components/PropertyDetail.svelte) | `property` | 10 | The property page |
@@ -57,14 +57,14 @@ source. It is the fastest way to recognise what a thing does.
 | [`RichTextBody.svelte`](../src/lib/components/RichTextBody.svelte) | `field` | 4 |  |
 | [`RichTextHeading.svelte`](../src/lib/components/RichTextHeading.svelte) | `node`, `children` | — |  |
 | [`ScaleTextToContainer.svelte`](../src/lib/components/ScaleTextToContainer.svelte) | `children` | — |  |
-| [`ScreenWidthMedia.svelte`](../src/lib/components/ScreenWidthMedia.svelte) | `src`, `field`, `altText`, `vimeoId`, `darken`, `backdrop`, `percentHeight`, `children` | 11 |  |
+| [`ScreenWidthMedia.svelte`](../src/lib/components/ScreenWidthMedia.svelte) | `src`, `field`, `altText`, `vimeoId`, `darken`, `backdrop`, `percentHeight`, `children` | 14 |  |
 | [`Seo.svelte`](../src/lib/components/Seo.svelte) | `title`, `description`, `image`, `imageAlt`, `url`, `type`, `siteName`, `locale`, `noindex`, `jsonLd` | 14 | The page title — used verbatim for <title> and og/twitter:title |
 | [`SkeletonLoader.svelte`](../src/lib/components/SkeletonLoader.svelte) | `lines`, `circle`, `height`, `width` | — |  |
 | [`Slider.svelte`](../src/lib/components/Slider.svelte) | `itemCount`, `label`, `children`, `cardsPerView`, `gap`, `mobileGap`, `mode`, `loop`, `autoplay`, `showDots`, `showArrows`, `transitionClass`, `navigationClass`, `arrowClass`, `pauseClass`, `dotClass`, `activeDotClass` | 23 | Accessible name for the carousel region — say what's inside ("Customer testimonials"), not "Slider" |
 | [`TextLinkArrow.svelte`](../src/lib/components/TextLinkArrow.svelte) | — | — | The comp's TEXT-LINK arrow — the "→" after PROFILE and CONTACT on the partner cards, and after every `text link` in the comp's (hidden) resources lists |
 | [`TransitionOverlay.svelte`](../src/lib/components/TransitionOverlay.svelte) | `visibleDuration`, `fadeInDuration`, `fadeOutDuration`, `so` | 9 | ms the cover holds once the incoming route has arrived |
 | [`TurnstileWidget.svelte`](../src/lib/components/TurnstileWidget.svelte) | — | 6 |  |
-| [`VimeoBanner.svelte`](../src/lib/components/VimeoBanner.svelte) | `vimeoId`, `poster`, `alt` | 7 | Full-bleed background-video banner |
+| [`VimeoBanner.svelte`](../src/lib/components/VimeoBanner.svelte) | `vimeoId`, `poster`, `alt`, `label` | 10 | Full-bleed background-video banner |
 | [`featured-properties.ts`](../src/lib/featured-properties.ts) | `featuredListings` | 9 | Which of the editor's picks the homepage's featured band can actually show |
 | [`home-fixture.ts`](../src/lib/home-fixture.ts) | `HOME_POSTER_FIXTURE`, `HOME_VIMEO_FIXTURE`, `homeHeroFixture`, `HOME_PHOTO_FIXTURE`, `photoBandFixture`, `PARTNER_PHOTO_FIXTURE`, `PARTNER_PROFILE_FIXTURE`, `partnerFixture`, `partnersFixture`, `partnersFixtureState`, `featuredPickFixture`, `featuredPropertiesFixture`, `featuredLaunchFixture`, `stageFeatured`, `homeFixture` | — | The homepage as fixture data — what /dev/home renders through the real layout, and what /dev/a11y-fixtures and the unit tests build on |
 | [`home-page.ts`](../src/lib/home-page.ts) | `splitHomeHero` | 5 | The home route's shape, as data |
@@ -81,11 +81,11 @@ source. It is the fastest way to recognise what a thing does.
 | [`person-meta.ts`](../src/lib/person-meta.ts) | `personJsonLd`, `personMeta` | 3 |  |
 | [`person.ts`](../src/lib/person.ts) | `emailHref`, `phoneHref`, `isPlaceholderBio`, `personDisplayName` | 6 | A `person` document's contact fields as links |
 | [`prismicio.ts`](../src/lib/prismicio.ts) | `repositoryName`, `isPlaceholderRepo`, `linkResolver`, `createClient` | 7 |  |
-| [`property-fixture.ts`](../src/lib/property-fixture.ts) | `PROPERTIES_MASTHEAD_FIXTURE`, `propertyFixture`, `propertyListingFixture` | — |  |
+| [`property-fixture.ts`](../src/lib/property-fixture.ts) | `FIXTURE_PHOTO_PATH`, `withFixturePhoto`, `PROPERTIES_MASTHEAD_FIXTURE`, `propertyFixture`, `propertyListingFixture` | — |  |
 | [`property-listing-load.ts`](../src/lib/property-listing-load.ts) | `LISTING_TITLE`, `LISTING_DESCRIPTION`, `emptyListing`, `loadPropertyListing` | 3 |  |
 | [`property-listing.ts`](../src/lib/property-listing.ts) | `LISTING_SECTIONS`, `PAST_SECTION`, `LISTING_VIEWS`, `listingViews`, `viewFromHash`, `listingOrder`, `groupListings` | 13 |  |
-| [`property-load.ts`](../src/lib/property-load.ts) | `loadProperty` | 5 |  |
-| [`property-map.ts`](../src/lib/property-map.ts) | `DEFAULT_MAP_STYLE_URL`, `mapStyleUrl`, `MAP_TILE_HOST`, `sectionPoints`, `slidePoints`, `WORLD_TILE_SIZE`, `worldSize`, `projectX`, `projectY`, `unprojectLng`, `unprojectLat`, `pixelDistance`, `MAP_FRAMES`, `COMPACT_MAX_HEIGHT`, `frameFor`, `MAP_MIN_ZOOM`, `MAP_MAX_ZOOM`, `MAP_ZOOM_STEP_MS`, `ACTIVE_PIN_SCALE`, `MAP_HOME`, `homeMarkers`, `homeCamera`, `homeFrames`, `fitCamera`, `CAMERA_FLIGHT_MS`, `activeTarget`, `cameraMove`, `WHEEL_QUIET_MS`, `WHEEL_SLOP_PX`, `wheelRun`, `clusterPoints`, `expansionZoom`, `clusterSignature`, `PIN_VIEWBOX`, `PIN_PATH`, `PIN_HOLE`, `PIN_ASPECT`, `clusterDiameter`, `MAP_HOME_FADE_MS`, `MAP_HOME_GROUND` | 80 | Everything the per-section map knows that is NOT MapLibre (#13) |
+| [`property-load.ts`](../src/lib/property-load.ts) | `ARCHIVED_LISTINGS`, `loadProperty` | 6 |  |
+| [`property-map.ts`](../src/lib/property-map.ts) | `DEFAULT_MAP_STYLE_URL`, `mapStyleUrl`, `MAP_TILE_HOST`, `sectionPoints`, `slidePoints`, `WORLD_TILE_SIZE`, `worldSize`, `projectX`, `projectY`, `unprojectLng`, `unprojectLat`, `pixelDistance`, `MAP_FRAMES`, `COMPACT_MAX_HEIGHT`, `frameFor`, `MAP_MIN_ZOOM`, `MAP_MAX_ZOOM`, `MAP_ZOOM_STEP_MS`, `ACTIVE_PIN_SCALE`, `MAP_HOME`, `homeMarkers`, `homeCamera`, `homeFrames`, `fitCamera`, `CAMERA_FLIGHT_MS`, `activeTarget`, `cameraMove`, `WHEEL_QUIET_MS`, `WHEEL_SLOP_PX`, `wheelRun`, `clusterPoints`, `expansionZoom`, `clusterSignature`, `PIN_VIEWBOX`, `PIN_PATH`, `PIN_HOLE`, `PIN_ASPECT`, `clusterDiameter`, `MAP_HOME_FADE_MS`, `MAP_HOME_GROUND` | 84 | Everything the per-section map knows that is NOT MapLibre (#13) |
 | [`property-meta.ts`](../src/lib/property-meta.ts) | `propertyDescription`, `propertyJsonLd`, `propertyMeta` | 8 |  |
 | [`property.ts`](../src/lib/property.ts) | `PROPERTY_CATEGORIES`, `PROPERTY_STATUSES`, `LISTING_STATES`, `isArchived`, `isPastProject`, `isListed`, `statusLabel`, `propertyHighlights`, `propertyFacts`, `propertyTracts`, `propertyPackage`, `mapsUrl` | 19 |  |
 | [`seo.ts`](../src/lib/seo.ts) | `SITE_NAME`, `SITE_LOCALE`, `DEFAULT_DESCRIPTION`, `DEFAULT_OG_IMAGE`, `DEFAULT_OG_IMAGE_ALT`, `OG_IMAGE_WIDTH`, `OG_IMAGE_HEIGHT`, `NOINDEX_PREFIXES`, `isNoindexPath`, `isNoindexPage`, `NOINDEX_ENFORCED`, `composeTitle`, `jsonLdScript`, `canonicalUrl`, `resolveOgImage`, `organizationJsonLd` | 26 | Site-wide SEO configuration + helpers |
@@ -105,4 +105,4 @@ source. It is the fastest way to recognise what a thing does.
 | [`vimeo.ts`](../src/lib/utils/vimeo.ts) | `checkVimeoVideo`, `parseVimeoId` | 11 | True when the Vimeo video exists and is embeddable (oEmbed responds 200) |
 | [`vimeoBackground.svelte.ts`](../src/lib/utils/vimeoBackground.svelte.ts) | `VIMEO_PLAYER_ORIGIN`, `backgroundEmbedSrc`, `VimeoBackground` | 5 | The gate, the heartbeat and the pause flag behind every chrome-less Vimeo background embed in this repo — lifted OUT of VimeoBanner.svelte so the homepage hero could have all three without taking VimeoBanner's markup with them |
 
-87 modules, 830 tests behind them.
+87 modules, 842 tests behind them.

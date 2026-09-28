@@ -810,8 +810,8 @@ test.describe("the band's auto-advance keeps its hands off the visitor's view", 
   // hands the map back to the clock on purpose.
   //
   // EVENT-DRIVEN, BOTH WAYS. "Longer than a dwell" is measured off two of the
-  // band's own turns rather than assumed (it is 4000ms here and 8000ms on the
-  // branch that doubles it), and every wait for a turn fails if none comes.
+  // band's own turns rather than assumed (8000ms since #151; it was 4000ms),
+  // and every wait for a turn fails if none comes.
   test("paused, the visitor's view outlasts the dwell; Play hands the map back to the clock", async ({
     page,
   }) => {

@@ -1,8 +1,17 @@
 import { expect, test, type Page } from "@playwright/test";
 import sharp from "sharp";
 
+import { forceStyle } from "./force-style";
 import { hydrated } from "./hydrated";
-import { OFF_WHITE_HEX, OFF_WHITE_RGB, SAND_RGB } from "./palette";
+import {
+  DARK_HEX,
+  DARK_RGB,
+  GARNET_HEX,
+  GARNET_RGB,
+  OFF_WHITE_HEX,
+  OFF_WHITE_RGB,
+  SAND_RGB,
+} from "./palette";
 
 // THE GROUND PAST BOTH ENDS OF THE PAGE. A rubber-band overscroll on a Mac
 // pulls the scrolling contents away from the viewport and shows what is behind
@@ -84,10 +93,10 @@ import { OFF_WHITE_HEX, OFF_WHITE_RGB, SAND_RGB } from "./palette";
 // none → a listing detail). The real routes were checked by hand on a
 // production build; see docs/workJournal.md for the head bytes.
 
-/** #3d0707 — HomeHero's flat ground, the homepage's `canvasTop: "dark"`. */
-const DARK = [61, 7, 7];
-/** #652323 — PageMasthead's top gradient stop, `canvasTop: "primary"`. */
-const GARNET = [101, 35, 35];
+/** --color-dark — HomeHero's flat ground, the homepage's `canvasTop: "dark"`. */
+const DARK = DARK_RGB;
+/** --color-primary — PageMasthead's top gradient stop, `canvasTop: "primary"`. */
+const GARNET = GARNET_RGB;
 /** --color-light, sand: the footer's foot, and the ground past it. */
 const SAND = SAND_RGB;
 /** --color-background, the page ground. What BOTH ends used to show, and the
@@ -115,46 +124,18 @@ async function pixel(page: Page, x: number, y: number): Promise<number[]> {
 
 /**
  * Write a declaration from script and WAIT until the page is actually wearing
- * it. Both halves are needed under this harness.
+ * it, through ./force-style: `transition: none !important` beside the write,
+ * then a poll. Both halves are needed under this harness.
  *
- * `transition: none !important` first, because app.css gives every element a
- * 0.01ms transition under `reduce` and the computed `transition-property` is
- * `all`: without it the write starts a transition, and a transition's value
- * beats even an inline `!important` for as long as it runs. A real rubber-band
- * is a compositor translation with no CSS in it at all, so the transition is an
- * artifact of the proxy, not of the thing under test — suppressing it makes the
- * proxy faithful rather than lenient. An inline `!important` is what it takes:
- * the app's rule is itself `!important`.
- *
- * Then poll, because "I wrote it" is not "it is applied" — two frames was
- * enough on four of this file's tests and not on the other two, which is how a
- * fixed frame count fails: intermittently, and silently, by measuring the page
- * at rest.
+ * Suppressing the transition makes the proxy faithful rather than lenient: a
+ * real rubber-band is a compositor translation with no CSS in it at all, so the
+ * transition the reduce rule would start is an artifact of the proxy, not of
+ * the thing under test. And the poll, because two frames was enough on four of
+ * this file's tests and not on the other two, which is how a fixed frame count
+ * fails: intermittently, and silently, by measuring the page at rest.
  */
-async function writeStyle(page: Page, selector: string, prop: string, value: string, want: string) {
-  await page.evaluate(
-    ([sel, name, v]) => {
-      const el = document.querySelector(sel as string) as HTMLElement;
-      el.style.setProperty("transition", "none", "important");
-      if (v === "") el.style.removeProperty(name as string);
-      else el.style.setProperty(name as string, v as string, "important");
-    },
-    [selector, prop, value] as const,
-  );
-  await expect
-    .poll(
-      () =>
-        page.evaluate(
-          ([sel, name]) =>
-            getComputedStyle(document.querySelector(sel as string)!).getPropertyValue(
-              name as string,
-            ),
-          [selector, prop] as const,
-        ),
-      `${selector} never took ${prop}: ${value}`,
-    )
-    .toBe(want);
-}
+const writeStyle = (page: Page, selector: string, prop: string, value: string, want: string) =>
+  forceStyle(page, [[selector, prop, value, want]], `${selector} never took ${prop}: ${value}`);
 
 /** The two backgrounds the fix is made of, the foot element's box, and the
  *  document's own extent. */
@@ -214,8 +195,8 @@ async function open(page: Page, url: string, width = 1455, height = 900) {
 
 test.describe("the ground ABOVE the top of the document", () => {
   const ROUTES = [
-    { url: "/dev/home", claim: "dark", colour: DARK, theme: "#3d0707" },
-    { url: "/dev/properties", claim: "primary", colour: GARNET, theme: "#652323" },
+    { url: "/dev/home", claim: "dark", colour: DARK, theme: DARK_HEX },
+    { url: "/dev/properties", claim: "primary", colour: GARNET, theme: GARNET_HEX },
   ] as const;
 
   for (const route of ROUTES) {

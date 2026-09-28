@@ -10914,6 +10914,8 @@ depends on where the map pins:
 
 ## 2026-09-28 — Roalson's 2026-09-25 meeting notes, built: one-column hero, less yellow grounds, lighter masthead, map controls, view tabs, Past Projects, partner pages (`claude/roalson-comments-review-45cstm`)
 
+> Superseded in part by 2026-09-28 — After #180: the content published through the connector, a hook build that prerendered the old page, and an issue sweep.
+
 The client's feedback came in three pieces. Erik relayed the first on Discord on
 2026-09-24: the /properties masthead looked too dark ("aren't multiplying?"), a
 selected pin should turn its card garnet, and he wanted zoom buttons. The second
@@ -11375,3 +11377,164 @@ archiving a linked listing reds the build (#176), listings.mjs's two blind spots
 (#177), the no-JS tabs' missing `aria-current` (#178), and partner data written
 twice (#179). New numbers went on #53, #73, #79, #88, #91, #94, #105, #111 and
 #119. #51 is moot, because the disclosure it asks about is gone.
+
+## 2026-09-28 — After #180: the content published through the connector, a hook build that prerendered the old page, and an issue sweep (`claude/roalson-comments-review-45cstm`)
+
+This continues the entry above, on the same branch. #180 was merged as `4c52085`
+after CI passed on `3383cc4`, and the `prismic-models` apply on main succeeded,
+so the `person` type existed in Prismic. What remained was that entry's
+post-merge content sequence and then, at the operator's request, every open
+issue that could be settled without the client. The four sweep branches were
+merged at `10414c8`.
+
+### The seed could not write, so the content went through the connector
+
+The previous entry's step 2 asked which repository `PRISMIC_WRITE_TOKEN` writes
+to. **Not this one:** the Custom Types API answered `403 … explicit deny` for
+`roalson-interests` (the environment's `PRISMIC_REPOSITORY_NAME` is
+`the-pointe-burbank`), so no seed script could run. The content went through the
+Prismic MCP connector under the operator's account, as one release
+(`arrAWRIAAMQLQHGR`). It created `person/matt-howard` (`arrAaRIAACoAQHGr`) and
+`person/bart-wilson` (`arrAaxIAACwAQHGx`), and updated `home` from its published
+version: heading, subheading, buttons reordered and relabelled,
+`portfolio_label`, and each partner row's profile and email. The `home_hero`
+specialty fields were already gone from the document, dropped by the model
+push; a delete of those paths answered "matched no field". `diff_release`
+showed three documents and exactly nine deltas on `home`, all intended. It was
+published and read back by value from the public CDN's master ref, since the
+content signature cannot see values.
+
+**The seed's state files were not updated.** `people.state.json` does not
+exist, and `pages.state.json` still holds the 2026-09-22 signature, with
+`specialties` in it. A re-run will not duplicate anything, because `people.mjs`
+and `pages.mjs` both fall back to the published id by uid. But `pages.mjs`
+resolves `$person` only from `people.state.json`, so it stops on "no staged id
+for person", dry run included, until `people.mjs --apply` has run once. That
+needs a Roalson-scoped write token, which the cloud environment still lacks.
+
+### The hook build prerendered the old homepage
+
+**A Prismic publish already rebuilds the site.** Netlify lists deploys titled
+"Deploy triggered by hook: Prismic publish". This one started about 20 seconds
+after the publish and prerendered `/` with the pre-publish content: the old
+heading, "Our specialty" and "Our portfolio", in the served HTML and in its
+embedded page data. The `/team/*` pages were right because they render on
+demand, so checking only the new pages would have passed a stale homepage. A
+second build, triggered through the Netlify API, served the new content (deploy
+`6abad6efed9cc5422ee3da86`, 21:06Z). Why the first build read old content was
+not measured. The merge's own production deploy reads `error` with
+error_message `Skipped`: the hook build superseded it, and it did not fail.
+**The rule, recorded on #161 (now closed): after a publish, read `/` for the new
+copy, and rebuild once if it is stale.** A green hook deploy is not evidence
+that the content is live.
+
+### The issue sweep: closed, decided, filed
+
+The operator asked for groups 1 to 3 to be resolved. #88 was closed as
+superseded (the live site says "Properties") and #51 as moot (the disclosure it
+asked about is gone). A read-only triage agent then read the 52 remaining open
+issues against the code at `a334f33`: 26 we can do, 11 defer, 7 close, 6 need
+the client and 2 need the operator. All seven closes were taken: #133 and #132
+were already fixed by #130, #116 was an answered note, and both instances of
+the #65 class were resolved. The map fixer confirmed that #134's filter and
+guard had landed with #130, so it was closed too. Three of the seven were
+decisions: **#136 keeps three flights per pin press**, under the operator's
+standing rule that the viewport centre alone sets the active listing; **#131
+keeps the map placeholder at 1x**, because 2x is 212 KB, half the 426 KB map
+bundle, for a softness seen only at boot; and **#156 keeps option 1**, which
+already ships. Filed: #181, three listing aerials with a baked-in "Map data
+©2016 Google" strip, a licensing question for the client (known since the
+2026-09-22 entry, in no issue until the triage); #182, the Seguin pin below;
+#183, the dead v3 theme names `ease-fast-slow` and `--transition-*-expo`; and
+#184, the data-URI pixel on `/dev/a11y-fixtures`.
+
+### Four fixers on a lighter brief
+
+Four agents each took a cluster in its own worktree (`sweep/map`,
+`sweep/listings`, `sweep/polish`, `sweep/tests`, off `4c52085`), on a lighter
+brief than batch 1: one mutation per new guard and no review round.
+`docs/COMPONENTS.md` conflicted at every merge and was regenerated.
+
+**Map.** In #173, a +/− press eases for 300ms, but an ease is no maplibre
+handler, so `gestureInProgress` said no; a card crossing inside the ease ended
+the suspension, and the flight cut the ease off. With the fix mutated out (dev,
+1440×900), + from z12 crossed at z12.3584, the ease was cut at z12.5957 and the
+flight went back to z12. Fixed, the press lands at z13. **The existing "+ … is
+carried" unit case had fired `zoomend` alone**; maplibre fires `moveend` after
+it, and the fake now does too. #153 moved the dwell prose to 8000ms. For #175,
+the view-tab row moved everything 80px: production /properties pins the land map
+at 443.52 and lets go at 4963.38 (was 363.52 and 4863.38).
+
+**Listings.** #165 was the one red in the previous entry's `pnpm verify`: 6 of 10
+red when reproduced, it passes 13 of 13 with and without `NODE_USE_ENV_PROXY`.
+#177 replaced `typeExists` in all three seed scripts with `customTypeOutOfSync`,
+proven first on the three live models, each canonical-equal to `customtypes/`.
+Drafts are invisible to the seed (`/api/v2` lists only the master ref), so
+**`listings.mjs --apply` now refuses to PUT over a live listing unless
+`--over-live` is passed**, and a re-run over the 22 live listings needs it. #176
+makes a page linking an archived listing fail the build by name. #178's no-script
+selected tab reads "LAND (selected)", `normal-case` because Chrome uppercases the
+accessible name. #168's own proposal measured 231 errors, 191 in 11 `.mjs`
+files, so `scripts/typecheck.test.ts` runs `tsc` over a scripts-only tsconfig
+instead, since CI calls `svelte-check` directly. It found 33 errors.
+
+**Polish.** #171 deleted the `--screen-*` tokens rather than renaming them, so
+no breakpoint moves, and ContentWidth's `XL_BREAKPOINT` went 1340 → 1280: at
+1330 its fade was 55px against a 53.2px gutter. #58 put Slider on tokens, the
+idle dot at 5.55:1 where dust would be 2.01:1. #81 gives VimeoBanner and
+ScreenWidthMedia the hero's pause control. #78 adds a manifest and icons, its
+background today's `#f3f1ef`, not the issue's `#f2efe9`. #167 names the share card
+`og-card-aa09dd5f.png` after its hash. #17's fixture photo took /dev/properties
+from one `ERR_INVALID_URL` and five cards at `naturalWidth` 0 to neither.
+
+**Tests.** #166 moved 19 garnet literals in 12 specs onto `palette.ts`, and the
+guard now reads regex literals, because `contact.spec.ts` spelled garnet in one.
+#170's cause, which the previous entry called probable, is proven: with the bar
+alone hidden, 12 of 12 descendants still computed `visible` under `reduce`, 0 of
+12 under no-preference, and 0 of 12 under `reduce` with app.css's `0.01ms` rule
+deleted. A shared `forceStyle` helper replaces two specs' private ones; scoping
+the rule would stop `transitionend` site-wide under reduce, a product call.
+
+### Batch 2's guards, mutated at last (#174)
+
+**The previous entry said none of batch 2's guards had been seen red. The
+mutation pass has now been run over them, and two were vacuous.** Skipping the pages seed's
+`$person` preflight stayed green (49 of 49), because the check sat untested
+inside `main()`. It is now `refsLive`, with a test that goes 2 of 4 red when
+re-mutated; deleting the call from `main()` is still uncovered. Swapping the
+hidden sections' `display:none` for `{#if}` stayed green (4 of 4), because a
+remounted map boots again at the same width and `toBeHidden` holds for a removed
+node. The guard now requires the same node back.
+
+**Plan guard 2i was built and found a real defect (#182).** Over the real
+22-listing portfolio at MAP_HOME, the Seguin land pin's centre sits under the −
+target on a compact Properties map 358 to 445 wide. In Chromium on the live
+/properties, a 430 window (a 375×200 box) put it at (366.3, 115.8), which
+hit-tests to zoom-out, matching the unit numbers to the tenth; so did 480,
+while 390 and 412 were clear. With overlay scrollbars the box is the window less
+40, not 55, so phones about 398 to 485 wide are affected, a 412 Android among
+them by that arithmetic (not measured). The fix is the camera or the column, a
+design call, so the test pins the 88 colliding widths and reds on any change.
+
+### Branches, verification, and honest accounting
+
+Deleting the 19 merged feature branches, each head first checked equal to its
+merged PR's head, was refused by the permission classifier as destructive.
+`verify/camera-126` was deliberately kept: it holds a 141-line 2026-09-23
+verification entry that never reached main.
+
+Each fixer verified its own branch; the #173 and #178 browser guards also
+passed on a production build. After all four merges, `pnpm lint`, `pnpm check`
+(0 errors, 4,697 files) and `vitest run` (118 files, 1,595 tests) passed. A full
+`pnpm verify` under `NODE_USE_ENV_PROXY=1` passed end to end on the merged branch: the build, the axe gate (0 violations across 5 routes), vitest (118 files, 1,595 tests, now green under that variable too) and Playwright (281 passed, 7 skipped, 0 failed, in 9.0 minutes)
+
+The two vacuous guards were found by the agent whose whole job was mutation;
+the fixers' own new guards were held to one mutation each, below batch 1's
+standard. The content is live, but the state files that record what the repo
+staged are now behind Prismic.
+
+Open for the operator: #164, since `.claude/` is gitignored and the cloud setup
+script must be pasted into the environment's Setup script by hand (it has not
+yet run as one); a Roalson-scoped write token, then one people seed apply; the
+`--over-live` flag on any listings re-run; the design call on #182; the
+client's answer on #181; and the 19 branches.

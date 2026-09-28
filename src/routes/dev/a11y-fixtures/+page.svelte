@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Content, ImageField } from "@prismicio/client";
+  import { page } from "$app/state";
   import Accordion from "$lib/components/Accordion.svelte";
   import BrandIcon from "$lib/components/BrandIcon.svelte";
   import Modal from "$lib/components/Modal.svelte";
@@ -36,6 +37,7 @@
     PROPERTIES_MASTHEAD_FIXTURE,
     propertyFixture,
     propertyListingFixture,
+    withFixturePhoto,
   } from "$lib/property-fixture";
   import { groupListings } from "$lib/property-listing";
   // Aliased: `Accordion` above is the primitive ($lib/components/Accordion.svelte).
@@ -437,7 +439,9 @@
        that, and the gate is here for the component's contrast, names and
        table semantics. Under Contract + the fixture's NEW flag render both
        garnet badges; the Past project tag uses the same markup. -->
-  <PropertyDetail property={propertyFixture({ status: "Under Contract" })} />
+  <PropertyDetail
+    property={withFixturePhoto(propertyFixture({ status: "Under Contract" }), page.url.origin)}
+  />
 
   <!-- The listing page: its masthead in BOTH states (two more h1s on this page,
        see above) and every card variant — garnet featured with the cream
@@ -497,7 +501,11 @@
 
   <PageMasthead title="Our Properties" image={PROPERTIES_MASTHEAD_FIXTURE} preload={false} />
   <PageMasthead title="Our Properties, no photo" preload={false} />
-  <PropertyListing sections={groupListings(propertyListingFixture())} />
+  <PropertyListing
+    sections={groupListings(
+      propertyListingFixture().map((p) => withFixturePhoto(p, page.url.origin)),
+    )}
+  />
 
   <!-- The top of the homepage (one more h1 on this page, see above): the sand
        headline, the sentence under it and the cream buttons on the garnet

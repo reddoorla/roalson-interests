@@ -1000,7 +1000,7 @@ describe("the camera the page drives", () => {
 
   // WHO ASKED (#118 review, MAJOR 2). The suspension ends when the VISITOR
   // asks for a different listing, and on the homepage band the index moves on
-  // a 4000ms clock with nobody touching anything. `active` alone cannot tell
+  // an 8000ms clock (`DWELL`) with nobody touching anything. `active` alone cannot tell
   // those apart, so the caller says.
   it("does not end a suspension for a change the page made on its own", async () => {
     const { view, record } = await booted({ active: "b", activeBy: "auto" });

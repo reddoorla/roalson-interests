@@ -443,8 +443,8 @@ export function fitCamera(
  * and that is the reason for the number rather than a coincidence: on that
  * band the photo cross-fades over 500ms while the map travels to the same
  * listing, so the picture and the place arrive together and the pair reads as
- * ONE change. 500 also sits well inside the band's 4000ms dwell, so the map is
- * stationary for 87.5% of every slide.
+ * ONE change. 500 is also small beside the band's 8500ms lap (its 8000ms
+ * `DWELL` plus this hand-over), so the map is stationary for 94% of it.
  *
  * THE BAND IMPORTS THIS CONSTANT, which it did not always do — the two modules
  * each typed a `500` and this paragraph asserted a coupling that nothing in

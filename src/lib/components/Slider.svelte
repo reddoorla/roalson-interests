@@ -38,6 +38,9 @@
     class?: string;
   }
 
+  // The dots and buttons default to brand tokens (#58), not the template's
+  // greys. The idle dot is `secondary` because `dust` is 2.01:1 on off-white,
+  // under the 3:1 WCAG 1.4.11 asks of a control.
   let {
     itemCount,
     label,
@@ -54,8 +57,8 @@
     navigationClass = "",
     arrowClass = "",
     pauseClass = "",
-    dotClass = "bg-gray-500 group-hover:bg-gray-600 group-active:bg-gray-700",
-    activeDotClass = "bg-gray-800",
+    dotClass = "bg-secondary group-hover:bg-primary group-active:bg-dark",
+    activeDotClass = "bg-primary",
     class: passedClasses = "",
   }: Props = $props();
 
@@ -262,7 +265,7 @@
         <button
           type="button"
           onclick={() => (userPaused = !userPaused)}
-          class="w-8 h-8 rounded-full text-gray-700 hover:bg-gray-200 transition-colors duration-200 flex items-center justify-center {pauseClass}"
+          class="w-8 h-8 rounded-full text-primary hover:bg-light transition-colors duration-200 flex items-center justify-center {pauseClass}"
           aria-label={userPaused ? "Play slides" : "Pause slides"}
         >
           {#if userPaused}
@@ -285,7 +288,7 @@
           onclick={prevSlide}
           onkeydown={handleKeydown}
           aria-disabled={atStart ? "true" : undefined}
-          class="w-8 h-8 rounded-full text-gray-700 hover:bg-gray-200 transition-colors duration-200 flex items-center justify-center aria-disabled:opacity-40 aria-disabled:hover:bg-transparent aria-disabled:cursor-default {arrowClass}"
+          class="w-8 h-8 rounded-full text-primary hover:bg-light transition-colors duration-200 flex items-center justify-center aria-disabled:opacity-40 aria-disabled:hover:bg-transparent aria-disabled:cursor-default {arrowClass}"
           aria-label="Previous slide"
         >
           <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -330,7 +333,7 @@
           onclick={nextSlide}
           onkeydown={handleKeydown}
           aria-disabled={atEnd ? "true" : undefined}
-          class="w-8 h-8 rounded-full text-gray-700 hover:bg-gray-200 transition-colors duration-200 flex items-center justify-center aria-disabled:opacity-40 aria-disabled:hover:bg-transparent aria-disabled:cursor-default {arrowClass}"
+          class="w-8 h-8 rounded-full text-primary hover:bg-light transition-colors duration-200 flex items-center justify-center aria-disabled:opacity-40 aria-disabled:hover:bg-transparent aria-disabled:cursor-default {arrowClass}"
           aria-label="Next slide"
         >
           <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">

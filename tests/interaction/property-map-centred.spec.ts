@@ -1,6 +1,7 @@
 import { expect, test, type Browser, type Locator, type Page } from "@playwright/test";
 
 import { hydrated } from "./hydrated";
+import { GARNET } from "./palette";
 import { placedPin, steadyMarkers } from "./placed-markers";
 
 // THE STICKY MAP PINS IN THE MIDDLE OF THE WINDOW (operator, 2026-09-23: "on
@@ -34,9 +35,6 @@ import { placedPin, steadyMarkers } from "./placed-markers";
 
 const LIVE = "/properties";
 const MAP = "[data-property-map]";
-
-/** Brand garnet as a COMPUTED colour (app.css `--color-primary`). */
-const GARNET = "rgb(101, 35, 35)";
 
 /** A scroll that turns a card garnet can take seconds on a loaded machine;
  *  see active-card-highlight.spec.ts's MOVE_TIMEOUT. A green run pays nothing. */
