@@ -211,13 +211,14 @@ test("at 1440 the band keeps the comp's rhythm and its text stands on the site's
   near(first.contact.left - first.profile!.right, 20, "gap between the two links");
   near(first.contact.top, first.profile!.top, "one line");
 
-  // Right column: on the line the hero's headline stands on — the site's ONE
-  // grid — measured against that element, not against the window.
-  const heroLeft = await page
-    .locator('[data-slice-type="home_hero"] h1')
+  // Right column: on the line the footer's headline stands on — the site's ONE
+  // grid — measured against that element, not against the window. (It was the
+  // hero's H1 until the revised hero went one column, 2026-09-28.)
+  const lineLeft = await page
+    .locator("footer h2")
     .evaluate((el) => el.getBoundingClientRect().left);
   const bandLeft = await page.locator(band).evaluate((el) => el.getBoundingClientRect().left);
-  near(g.headline.left, heroLeft - bandLeft, "headline on the hero headline's column");
+  near(g.headline.left, lineLeft - bandLeft, "headline on the footer headline's column");
   near(g.headline.left, 513, "right column x (ruling C3; the comp draws 514)");
   near(g.headline.top + TRIM.h2, 80, "headline cap top");
   near(g.headline.width, 586, "headline measure");

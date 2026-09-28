@@ -25,11 +25,14 @@ describe("loadSiteConfig", () => {
 describe("the checked-in footer", () => {
   const { footer } = loadSiteConfig();
 
-  it("breaks the headline where the comp does, and orders the buttons as the comp does", () => {
+  // The revised comp's footer CTA (7091:771) is PROPERTIES | CONTACT US — the
+  // client's order for every such pair (2026-09-25: "Swap the positions … our
+  // portfolio should always just be properties").
+  it("breaks the headline where the comp does, and puts PROPERTIES before CONTACT US", () => {
     expect(footer.cta?.heading).toEqual(["We look forward", "to serving you."]);
     expect(footer.cta?.links).toEqual([
+      { label: "Properties", href: "/properties" },
       { label: "Contact us", href: "/contact" },
-      { label: "Our portfolio", href: "/properties" },
     ]);
   });
 
@@ -59,13 +62,15 @@ describe("the checked-in footer", () => {
 });
 
 describe("footerNav", () => {
-  // The comp's footer lists two pages, "Our portfolio" and "Contact us" (the
+  // The comp's footer lists two pages, properties and "Contact us" (the
   // wordmark above them is the home link), so that is what the site's config
   // says. The first build of this footer offered the menu's three entries and
-  // stood 37.91px taller than the comp at 1440; the review measured it.
+  // stood 37.91px taller than the comp at 1440; the review measured it. The
+  // revised comp still spells the first "Our portfolio" (7091:757); the client
+  // asked for "Properties" everywhere, and that is the call (operator D7).
   it("is the comp's two pages on this site — and still every page the dead-trigger fallback must offer", () => {
     expect(footerNav()).toEqual([
-      { label: "Our portfolio", href: "/properties" },
+      { label: "Properties", href: "/properties" },
       { label: "Contact us", href: "/contact" },
     ]);
     // Issue #19's fallback sends a visitor here when the menu cannot open:
@@ -105,7 +110,7 @@ describe("footerNav", () => {
 
   it("prefers the footer's own list when the config gives one", () => {
     const own = [
-      { label: "Our portfolio", href: "/properties" },
+      { label: "Properties", href: "/properties" },
       { label: "Contact us", href: "/contact" },
     ];
     const config: SiteConfig = {

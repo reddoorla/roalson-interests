@@ -500,7 +500,9 @@
   <PropertyListing sections={groupListings(propertyListingFixture())} />
 
   <!-- The top of the homepage (one more h1 on this page, see above): the sand
-       headline, dust list and cream buttons on the garnet band. Poster-less,
+       headline, the sentence under it and the cream buttons on the garnet
+       band (the dust specialty list went with the revised one-column hero,
+       2026-09-28). Poster-less,
        which is the launch state — and the hero carries no text, so a poster
        would add nothing for axe to measure. The band's ground is a gradient,
        which axe reports as "needs review" rather than measuring; the pairs on
@@ -522,7 +524,7 @@
 
   <!-- The homepage's featured band, twice: the comp's three listings (a
        carousel — garnet arrows and bar on the sand card, and the garnet
-       "Our portfolio" button at the card's foot) and launch day's ONE (a plain
+       "Properties" button at the card's foot) and launch day's ONE (a plain
        card: no region, no arrows, no bar — under its own heading,
        because two landmarks may not share a name on one page). This gate runs
        under reduced motion, so the Pause control is never in what axe sees

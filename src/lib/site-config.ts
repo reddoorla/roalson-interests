@@ -24,7 +24,8 @@ export type SiteConfig = {
   footer: {
     /** The closing call to action. `heading` is one string per DRAWN line — the
      *  comp breaks it with U+2028, which is not shipped. `links` are its
-     *  buttons, in the comp's order (CONTACT US first). */
+     *  buttons, in the revised comp's order (7091:771): PROPERTIES first, then
+     *  CONTACT US — the client's rule for every such pair on the site. */
     cta?: { heading: string[]; links: FooterLink[] };
     /** Only to make the footer's list differ from the menu's. Left out — as it
      *  is — the footer lists `nav.items`, so the site has ONE list of pages and

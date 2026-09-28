@@ -49,8 +49,12 @@ export const HOME_POSTER_FIXTURE = {
  *  interacts. */
 export const HOME_VIMEO_FIXTURE = "1229048743";
 
-/** The `home_hero` slice, filled with the comp's own words (6802:1428,
- *  6806:51, 6802:1437, 6802:1441, 6802:1459). Pass `primary` to override.
+/** The `home_hero` slice, filled with the revised comp's own words
+ *  ('Homepage - REVISED' 7091:651, 7091:903, 7091:652): the headline broken
+ *  after "Commercial", the placeholder sentence Nicole drew under it, and
+ *  PROPERTIES before CONTACT US (the client, 2026-09-25: "Swap the positions
+ *  … our portfolio should always just be properties"). Pass `primary` to
+ *  override.
  *
  *  No poster and no Vimeo id by default: that IS the launch state (operator
  *  call 11 — the hero runs on the dark ground until a licensed photo exists).
@@ -73,19 +77,14 @@ export function homeHeroFixture(primary: Partial<HomeHeroPrimary> = {}): Content
       heading: [
         {
           type: "heading1",
-          text: "San Antonio's Commercial Real Estate Experts.\nSince 1983.",
+          text: "San Antonio's Commercial\nReal Estate Experts Since 1983.",
           spans: [],
         },
       ],
+      subheading: "A placeholder for a sentence to come.",
       buttons: [
+        { label: "Properties", link: { link_type: "Web", url: "/properties" } },
         { label: "Contact us", link: { link_type: "Web", url: "https:///contact" } },
-        { label: "Our portfolio", link: { link_type: "Web", url: "/properties" } },
-      ],
-      specialty_label: "Our specialty",
-      specialties: [
-        { text: "Consulting and brokerage" },
-        { text: "Acquisition and disposition properties" },
-        { text: "Buyer and tenant representation" },
       ],
       ...primary,
     },
@@ -416,7 +415,7 @@ export function featuredPropertiesFixture(
     primary: {
       heading: "Featured Properties",
       properties: featuredPicks(),
-      portfolio_label: "Our portfolio",
+      portfolio_label: "Properties",
       portfolio_link: { link_type: "Web", url: "/properties" },
       ...primary,
     },

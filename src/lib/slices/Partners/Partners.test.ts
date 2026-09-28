@@ -62,8 +62,9 @@ describe("Partners slice — the band", () => {
     // The cards come first in the DOM, so a partner's name must not be a
     // heading: an h3 ahead of this band's h2 belongs, in the outline, to the
     // PREVIOUS band's h2. This is the only guard. axe's heading-order was tried
-    // and passes with the names as h3s — the hero's "Our specialty" h2 precedes
-    // them on the homepage, and h2 → h3 skips no level.
+    // and passes with the names as h3s — an h2 precedes them on the homepage
+    // (the featured band's, since the hero's "Our specialty" went), and h2 → h3
+    // skips no level.
     expect(getAllByRole("heading").map((h) => h.tagName)).toEqual(["H2"]);
   });
 
@@ -99,7 +100,7 @@ describe("Partners slice — the band", () => {
 
   it("draws no buttons — the comp has none — until an editor fills them", () => {
     const bare = render(Partners, { props: { slice: partnersFixture() } });
-    expect(bare.queryByRole("link", { name: /portfolio/i })).toBeNull();
+    expect(bare.queryByRole("link", { name: /properties/i })).toBeNull();
     // Every link in the launch state is a partner's CONTACT.
     expect(bare.getAllByRole("link").map((a) => a.textContent?.trim())).toEqual([
       "Contact Matt Howard",
@@ -110,13 +111,13 @@ describe("Partners slice — the band", () => {
     const slice = partnersFixture({
       buttons: [
         { label: "No link", link: { link_type: "Any" } },
-        { label: "Our portfolio", link: { link_type: "Web", url: "https:///properties" } },
+        { label: "Properties", link: { link_type: "Web", url: "https:///properties" } },
         { label: "Contact us", link: { link_type: "Web", url: "/contact" } },
         { label: "Third", link: { link_type: "Web", url: "/third" } },
       ],
     } as never);
     const filled = render(Partners, { props: { slice } });
-    const portfolio = filled.getByRole("link", { name: "Our portfolio" });
+    const portfolio = filled.getByRole("link", { name: "Properties" });
     expect(portfolio.getAttribute("href")).toBe("/properties");
     // The garnet tone — the one for a light ground.
     expect(portfolio.className).toContain("border-primary");

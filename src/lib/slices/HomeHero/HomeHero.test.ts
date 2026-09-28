@@ -1,4 +1,4 @@
-import { cleanup, render, within } from "@testing-library/svelte";
+import { cleanup, render } from "@testing-library/svelte";
 import { createHash } from "node:crypto";
 import { afterEach, describe, expect, it } from "vitest";
 import type { Content } from "@prismicio/client";
@@ -10,7 +10,7 @@ import HomeHero from "./index.svelte";
 afterEach(cleanup);
 
 // jsdom resolves no stylesheets: the pin, the cutout's seat on the band and the
-// 390 order swap are tests/interaction/home-hero.spec.ts's. What is checked
+// band's one-column geometry are tests/interaction/home-hero.spec.ts's. What is checked
 // here is what the markup says — content, empty branches, and the hooks the
 // browser spec and the wordmark gate (#18) hang on.
 
@@ -25,20 +25,22 @@ describe("HomeHero slice", () => {
   it("renders the headline as the page's h1, honouring the editor's soft break", () => {
     const { getByRole } = render(HomeHero, { props: { slice: homeHeroFixture() } });
     const h1 = getByRole("heading", { level: 1 });
-    // One <br> where the editor pressed Shift+Enter — the comp's U+2028 after
-    // "Experts." (6802:1428) — and the words on either side of it intact.
+    // One <br> where the editor pressed Shift+Enter — the revised comp's
+    // U+2028 after "Commercial" (7091:651) — and the words on either side of it
+    // intact. The final period stays (operator call D1: the comp keeps it).
     expect(h1.querySelectorAll("br").length).toBe(1);
     expect(h1.textContent?.replace(/\s+/g, " ").trim()).toBe(
-      "San Antonio's Commercial Real Estate Experts. Since 1983.",
+      "San Antonio's Commercial Real Estate Experts Since 1983.",
     );
-    const [before, after] = h1.innerHTML.split(/<br[^>]*>/);
-    expect(before).toContain("Experts.");
-    expect(after).toContain("Since 1983.");
-    // The break applies only where the comp's first line fits (1366 up); below
-    // that it is display:none and the text flows — see the component.
+    // Svelte's hydration anchors are comments; only the words are compared.
+    const [before, after] = h1.innerHTML.replace(/<!--.*?-->/g, "").split(/<br[^>]*>/);
+    expect(before.trim()).toBe("San Antonio's Commercial");
+    expect(after.trim()).toBe("Real Estate Experts Since 1983.");
+    // The break applies from a 1040 viewport, where both 66px lines fit with a
+    // margin; below it the text flows — see the component.
     const br = h1.querySelector("br")!;
     expect(br.className.split(/\s+/)).toEqual(
-      expect.arrayContaining(["hidden", "min-[1366px]:inline"]),
+      expect.arrayContaining(["hidden", "min-[1040px]:inline"]),
     );
     expect(h1.className).toContain("t-h2");
     expect(h1.className).toContain("lg:t-h1");
@@ -52,7 +54,7 @@ describe("HomeHero slice", () => {
       heading: [
         {
           type: "heading1",
-          text: `Real Estate Experts. ${LINE_SEPARATOR}Since 1983.`,
+          text: `San Antonio's Commercial ${LINE_SEPARATOR}Real Estate Experts Since 1983.`,
           spans: [],
         },
       ],
@@ -74,23 +76,36 @@ describe("HomeHero slice", () => {
   it("points its buttons at the filesystem routes, whatever shape the CMS stored", () => {
     const slice = homeHeroFixture({
       buttons: [
-        { label: "Contact us", link: { link_type: "Web", url: "https:///contact" } },
         {
-          label: "Our portfolio",
+          label: "Properties",
           link: { link_type: "Web", url: "https://www.roalson.com/properties" },
         },
+        { label: "Contact us", link: { link_type: "Web", url: "https:///contact" } },
       ],
     } as never);
     const { getByRole } = render(HomeHero, { props: { slice } });
+    expect(getByRole("link", { name: "Properties" }).getAttribute("href")).toBe("/properties");
     expect(getByRole("link", { name: "Contact us" }).getAttribute("href")).toBe("/contact");
-    expect(getByRole("link", { name: "Our portfolio" }).getAttribute("href")).toBe("/properties");
+  });
+
+  it("draws PROPERTIES first and CONTACT US second — the client's order, from the content", () => {
+    // The component draws the CMS order; the order itself is the fixture's
+    // and the seed's (scripts/seed/pages.test.ts holds the seed's).
+    const { container } = render(HomeHero, { props: { slice: homeHeroFixture() } });
+    const links = [...section(container).querySelectorAll("a")];
+    expect(links.map((a) => [a.textContent?.trim(), a.getAttribute("href")])).toEqual([
+      ["Properties", "/properties"],
+      ["Contact us", "/contact"],
+    ]);
   });
 
   it("wears the cream tone — off-white outline and label on the garnet band", () => {
     const { getByRole } = render(HomeHero, { props: { slice: homeHeroFixture() } });
-    const button = getByRole("link", { name: "Contact us" });
-    expect(button.className).toContain("border-background");
-    expect(button.className).toContain("text-background");
+    for (const name of ["Properties", "Contact us"]) {
+      const button = getByRole("link", { name });
+      expect(button.className, name).toContain("border-background");
+      expect(button.className, name).toContain("text-background");
+    }
   });
 
   it("shows the first two complete buttons and no anchor for an incomplete one", () => {
@@ -128,42 +143,58 @@ describe("HomeHero slice", () => {
     expect(internal.hasAttribute("rel")).toBe(false);
   });
 
-  it("names the specialty list with an h2 and lists every specialty", () => {
-    const { getByRole } = render(HomeHero, { props: { slice: homeHeroFixture() } });
-    const label = getByRole("heading", { level: 2, name: "Our specialty" });
-    expect(label.className).toContain("t-h5");
-    const list = getByRole("list", { name: "Our specialty" });
-    expect(
-      within(list)
-        .getAllByRole("listitem")
-        .map((li) => li.textContent?.trim()),
-    ).toEqual([
-      "Consulting and brokerage",
-      "Acquisition and disposition properties",
-      "Buyer and tenant representation",
-    ]);
-  });
-
-  it("renders the text block before the list — the 390 comp's order, and the reading order", () => {
-    const { getByRole } = render(HomeHero, { props: { slice: homeHeroFixture() } });
+  it("renders the subheading as Body 1, between the headline and the buttons", () => {
+    const { getByRole, getByText } = render(HomeHero, { props: { slice: homeHeroFixture() } });
     const h1 = getByRole("heading", { level: 1 });
-    const list = getByRole("list");
-    expect(h1.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const sub = getByText("A placeholder for a sentence to come.");
+    expect(sub.tagName).toBe("P");
+    // 7091:903 is Body 1 (400 16/24) in the headline's own off-white.
+    expect(sub.className.split(/\s+/)).toEqual(expect.arrayContaining(["t-body-1", "text-light"]));
+    const first = getByRole("link", { name: "Properties" });
+    expect(h1.compareDocumentPosition(sub) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(sub.compareDocumentPosition(first) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it("drops blank specialties, and the whole list column when nothing is in it", () => {
-    const some = homeHeroFixture({
-      specialties: [{ text: "Brokerage" }, { text: "  " }, { text: null }],
-    } as never);
-    const first = render(HomeHero, { props: { slice: some } });
-    expect(first.getAllByRole("listitem").length).toBe(1);
-    cleanup();
+  it("draws no <p> at all for a null, empty or blank subheading", () => {
+    for (const subheading of [null, "", "   "]) {
+      const { container, unmount } = render(HomeHero, {
+        props: { slice: homeHeroFixture({ subheading } as never) },
+      });
+      const band = section(container).querySelector("[data-nav-gate]")!;
+      // The headline and the buttons are still there: only the sentence went.
+      expect(band.querySelector("h1"), String(subheading)).not.toBeNull();
+      expect(band.querySelectorAll("a").length, String(subheading)).toBe(2);
+      expect(band.querySelector("p"), String(subheading)).toBeNull();
+      unmount();
+    }
+  });
 
-    const none = homeHeroFixture({ specialty_label: "", specialties: [] } as never);
-    const second = render(HomeHero, { props: { slice: none } });
-    expect(second.queryByRole("list")).toBeNull();
-    expect(second.queryByRole("heading", { level: 2 })).toBeNull();
-    expect(second.getByRole("heading", { level: 1 })).toBeTruthy();
+  it("renders no list and no h2 for a stale document still carrying the specialty fields", () => {
+    // The live `home` document was published with `specialty_label` and three
+    // `specialties`, and keeps them until it is re-staged: dropping a field
+    // from the model does not strip it from content already written. The
+    // band must ignore them — the revised comp has no list.
+    const stale = homeHeroFixture({
+      specialty_label: "Our specialty",
+      specialties: [
+        { text: "Consulting and brokerage" },
+        { text: "Acquisition and disposition properties" },
+        { text: "Buyer and tenant representation" },
+      ],
+    } as never);
+    const { container, queryByRole, getByRole } = render(HomeHero, { props: { slice: stale } });
+    expect(getByRole("heading", { level: 1 })).toBeTruthy();
+    expect(queryByRole("list")).toBeNull();
+    expect(queryByRole("heading", { level: 2 })).toBeNull();
+    expect(section(container).textContent).not.toMatch(/specialty|Consulting and brokerage/i);
+  });
+
+  it("is one column: nothing in the band sits on the site's two-column grid", () => {
+    // The browser spec measures the x=80; what the markup can say is that the
+    // grid and its right-column placement are gone.
+    const { container } = render(HomeHero, { props: { slice: homeHeroFixture() } });
+    const band = section(container).querySelector("[data-nav-gate]")!;
+    expect(band.innerHTML).not.toMatch(/grid-cols|col-start/);
   });
 
   it("stamps the slice attributes, the pin and the nav gate", () => {
@@ -307,9 +338,8 @@ describe("HomeHero slice", () => {
         poster: {},
         vimeo_id: null,
         heading: [],
+        subheading: null,
         buttons: [],
-        specialty_label: null,
-        specialties: [],
       },
       items: [],
     } as unknown as Content.HomeHeroSlice;
@@ -317,6 +347,6 @@ describe("HomeHero slice", () => {
     expect(section(container).querySelector("[data-nav-gate]")).not.toBeNull();
     expect(queryByRole("heading")).toBeNull();
     expect(queryByRole("link")).toBeNull();
-    expect(queryByRole("list")).toBeNull();
+    expect(section(container).querySelector("[data-nav-gate] p")).toBeNull();
   });
 });

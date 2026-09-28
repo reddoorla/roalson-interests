@@ -1449,8 +1449,10 @@
     //
     // This started as 300px of LEAD (`rootMargin: "300px 0px"`), and what that
     // actually did took measuring rather than reading. The map IS below the
-    // fold on the homepage — at 1455x900 the hero is 1007 tall and the map
-    // slot's top is at y = 1007, so ZERO pixels of it are on screen at rest.
+    // fold on the homepage — at 1455x900 the hero was 1007 tall and the map
+    // slot's top at y = 1007 when this was measured (921 for both since the
+    // revised one-column hero of 2026-09-28, with the seeded copy), so ZERO
+    // pixels of it are on screen at rest.
     // 300px of lead expands the observer's root to 1200, which reaches a map
     // a whole viewport away: it fired at load, and 426 KB of parse plus a
     // WebGL context landed inside the featured carousel's first 4-second
@@ -1472,7 +1474,8 @@
     // is the better rule anyway: a visitor who never scrolls to the map now
     // pays nothing for it, which is what "lazy" was supposed to mean. The
     // price is that the map arrives a little later than it used to — at
-    // 1440x900 the homepage band needs about 520px of scroll rather than 107 —
+    // 1440x900 the homepage band needed about 520px of scroll rather than 107
+    // (434 rather than 21 since the revised hero, measured on /dev/home) —
     // and until then its box shows the list of listings, which is the same
     // content. See issue #103.
     const io = new IntersectionObserver(
