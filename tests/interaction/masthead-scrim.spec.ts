@@ -154,12 +154,7 @@ const read = (page: Page) =>
           shade: band.querySelectorAll(".masthead-shade").length,
           scrim: band.querySelectorAll(".masthead-scrim").length,
         },
-        photo: img
-          ? {
-              loaded: img.complete && img.naturalWidth > 0,
-              objectPosition: getComputedStyle(img).objectPosition,
-            }
-          : null,
+        photo: img ? { objectPosition: getComputedStyle(img).objectPosition } : null,
       };
     },
     [BAR, BAND] as const,
