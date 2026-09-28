@@ -10911,3 +10911,467 @@ depends on where the map pins:
 - `property-map-camera-prod.spec.ts:703`, expand/collapse on a production
   build: `Cannot read properties of undefined (reading 'getZoom')`. Identical
   with the old offset (2 of 2 red each way). That is #135.
+
+## 2026-09-28 — Roalson's 2026-09-25 meeting notes, built: one-column hero, less yellow grounds, lighter masthead, map controls, view tabs, Past Projects, partner pages (`claude/roalson-comments-review-45cstm`)
+
+The client's feedback came in three pieces. Erik relayed the first on Discord on
+2026-09-24: the /properties masthead looked too dark ("aren't multiplying?"), a
+selected pin should turn its card garnet, and he wanted zoom buttons. The second
+was his voice-typed notes from the in-person meeting on 2026-09-25 (H1, B1, M1,
+P4 to P6, C1), plus Figma comments on 'Homepage' 6802:1416 (F1 to F4). The third
+was Nicole's colour swap and hero redraw on 2026-09-26, in the new frame
+'Homepage - REVISED' 7091:631. The work was split into six clusters. Planner
+agents read the code but did not change it. Builders then worked in separate
+worktrees on `impl/<cluster>` branches off `d9def2e`, and those branches were
+merged into this one. Batch 1 (hero-buttons, colours, masthead) went through an
+adversarial review and a fix round. Batch 2 (map-controls, listings, team) was
+built on a lighter brief with no mutation passes, at the operator's request,
+because the process was too slow. The head is `c9d22c5`.
+
+### First, the two open PRs, and a red that hid behind prettier
+
+The operator asked for "all outstanding PRs" to be resolved first. #152 (the
+garnet card follows the centre line) conflicted only in the journal and in
+COMPONENTS.md. Main was merged into it, and it was squash-merged as `894abc4`
+after CI passed on `df3165c`.
+
+#151 (the homepage slideshow) had been red since 2026-09-24. Its own merge of
+main, `f23a814`, was half-resolved. `property-map-camera-prod.spec.ts` read
+`slideBefore`/`held` while declaring `slide`/`log` (2 eslint and 5 TypeScript
+errors), `property-map-camera.spec.ts` kept #151's `FEATURED_LAP` wait over
+#150's measured-dwell rewrite, COMPONENTS.md was stale, and the journal was
+missing a blank line.
+
+**The blank line was CI's only visible red, because prettier runs first**, so a
+reader of the failed check saw a formatting nit and not seven compile errors.
+#150's rewrite had made #151's edits to both specs redundant, so both were
+restored to main's versions. #151 was merged as `d9def2e` after CI passed on
+`4e7edee`. That reverses one claim in #151's own entry: the two map specs do not
+use `FEATURED_LAP`.
+
+### What Figma actually changed
+
+The repo was built against the Figma version of 2026-09-17
+(`2400253637071034566`). Diffing it against today's file, only 'Homepage'
+6802:1416 changed: the mid-headline period went, and the button pair became
+Properties | contact us. The new frame 'Homepage - REVISED' 7091:631 was also
+added. Laptop 6993:443, mobile 6994:796 and all three Properties frames
+(6903:1030, 6992:1323, 6992:2468) are unchanged. **So the view tabs, Past
+Projects, the partner pages and the map's +/− have no comp.** They were designed
+from the existing system, and each is listed for Nicole in the design-review
+issue. Erik's F2 comment says "No '.'", but both frames keep the trailing period
+and drop only the middle one. The operator ruled to keep the trailing period
+(D1), so the seeded heading is "San Antonio's Commercial⏎Real Estate Experts
+Since 1983."
+
+### The hero goes one column, and every button says Properties (H1, B1, F1, F2)
+
+The band is now one flex column on the site's gutters (x=80 at 1440). The
+headline, a Body 1 subheading and the buttons are 30 apart, with 20 between the
+buttons (was 40) and 65 under them at `lg` (was 115). It is no longer the
+`[397fr_847fr]` grid with the text at x=513. The model gains `subheading` (Text)
+and **loses `specialty_label` and `specialties`** (D6). That removal is
+destructive in Prismic, and the models workflow's PR comment will say so. The
+nav item, the footer CTA (reordered to Properties | Contact us, as the revised
+comp's 7091:771 draws it), the footer link, the seed, both slice mocks and the
+home fixture all say "Properties" now. The FeaturedProperties API id
+`portfolio_label` was kept so the published value is not orphaned, and the
+masthead's H1 "Our Properties" and the "All properties" back link stay (D8).
+
+Measured in Chromium 151, with Atkinson Hyperlegible Next 500 66/80 confirmed
+loaded, identically on dev and on a production build: "San Antonio's
+Commercial" is 779 wide and "Real Estate Experts Since 1983." is 943.
+"…Commercial Real" is 928 and "…Commercial Real Estate" is 1132 (the plan's
+unkerned woff2 figures were 0.5 to 0.8% wider). The column is 945 at a 1024
+window (1024 − 15 scrollbar − 2×32), 961 at 1040, 1120 at 1295 and 1280
+from 1455.
+
+**The forced break waits for 1040, not `lg`.** At 1024, line two is 943 in a 945
+column. The spec went green on that, and the green was the wrong reason to keep
+it: 2px of margin in one engine, gone under a 17px scrollbar, where 1% of 943 is
+9px of cross-platform drift. From 1040 the margin is 18px. From 1024 to 1039 the
+headline breaks after "Real" instead (928 in 945). This is a deviation in a band
+of widths the comp does not draw, and it is flagged for Nicole.
+
+The band is **393** tall at 1440 (80 + 124 + 30 + 24 + 30 + 40 + 65; the comp
+draws 392, with a 39px button). It is also 393 at 390 with the seeded copy. The
+builder first recorded the old band as 478 and 644. **The review measured 479
+and 621.** So the hero's sticky hold is 86px shorter at 1440 and 228px shorter
+at 390, not 85 and 251. The component comment now carries the corrected numbers.
+On the live `home` document, which still holds the old copy until it is
+re-seeded, the band is 419 at 1455: no subheading (−54) and a third heading line
+(+80).
+
+**The review's blocker was a guard, not the hero.** `property-map.spec.ts`'s
+first-paint guard needed the homepage map slot more than `640 + 300` down a
+390×640 window. The 300 was the observer's first `rootMargin`, which the
+half-visible gate replaced inside #107 itself. So the margin guarded a mechanism
+that never shipped, and it survived only because the old hero kept the slot
+at 1149. The new hero puts it at 921, and the test went red at `921 > 940`. The
+builder had written the map specs off as "a reading, not a run", and this one's
+premise was a hard-coded offset. The guard now asks for what it needs: not one
+pixel of the slot on screen at rest (`top > innerHeight`). That leaves 281px of
+clearance, where the reviewer's alternative (a 560-tall window) would have
+left 61. A 200px hero pin puts the slot at 593 and turns it red.
+
+The featured card's column-line test was anchored to the hero's H1, which moved
+433px for a correct change; the featured and partners specs now read the footer
+headline, on the same grid. Two absence checks queried `/portfolio/i` and would
+have gone vacuous with the rename. The new `properties-label.test.ts` walks
+site-config, the seed, every mocks.json and the fixture, and counts nine
+/properties label sites.
+
+**What the shorter hero moved.** The featured band's top went from 1007 to 921
+at 1455×900 (947 on the live doc). From `lg` the card reveal now plays only in
+windows shorter than 921: it still plays at 1455×900, but no longer at 1455×960
+or 1551×960, where it did before. That fires the re-plan trigger in
+FeaturedProperties' own comment, and it is recorded on #105. **The reviewer was
+corrected on one row:** 1680×1050 already skipped the reveal under the old hero,
+because 1007 < 1050.
+
+### Off-white and sand become Nicole's less yellow pair (C1)
+
+The tokens changed: sand `#e8e1d1` → `#eae7e4` and off-white `#f2efe9` →
+`#f3f1ef`. Every `bg-light`/`text-light`/`from-background` class follows. The
+work was enumerating everything that must spell a colour without `var()`.
+
+**Four UI grounds are now guarded against app.css:** `CANVAS_TOP_DEFAULT_HEX`,
+`map-style.mjs`'s ground (19 literals in the style), `MAP_HOME_GROUND` and the
+committed map pictures. **The artwork was recoloured:** the favicon and its two
+PNGs, `logo-reverse.svg`'s INTERESTS line, and `og-card.png`, re-projected pixel
+by pixel onto the new blend line (12,781 of 12,918 band pixels changed; the
+10,239 exact old-sand pixels became exact `#eae7e4`; garnet and white counts
+unchanged). The fixture SVGs that stand in for photographs, the Figma node
+citations and `docs/` were left alone.
+
+**21 colour spellings sat in 14 browser specs.** Two were negative assertions
+(`.not.toBe("rgb(232, 225, 209)")`) that would have passed forever on the old
+value. Every spelling now imports from `tests/interaction/palette.ts`, and
+`scripts/spec-palette.test.ts` walks every file under `tests/` and fails on any
+hand-spelled off-white or sand.
+
+Every contrast pair rose or held, and none crossed a threshold:
+
+| pair                          | before → after            |
+| ----------------------------- | ------------------------- |
+| garnet on off-white           | 10.07 → 10.25             |
+| garnet on sand                | 8.87 → 9.38               |
+| secondary on off-white / sand | 5.45 / 4.80 → 5.55 / 5.08 |
+| footpath label (#111)         | 3.2686 → 3.3294           |
+| motorway casing (#119)        | 2.7090 → 2.7595           |
+
+**The one pair that fell is sand against off-white, 1.135 → 1.093.** The two
+grounds step less, so sand panels and the sand/off-white card variants stand out
+less than before.
+
+**The most useful measurement of the session.** Before rendering the new map
+pictures, the builder rendered the OLD style with this container's Chromium and
+today's tiles. It reproduced the committed `map-home-full.webp` and
+`-compact.webp` byte for byte. So every difference in the new pictures comes from
+the ground. `paintedShare` went 0.2054 → 0.2187 (full) and 0.2604 → 0.2768
+(compact), where the old pictures score 0.3155 and 0.4088 against the new
+ground, and the new pictures' commonest pixel is exactly `#f3f1ef`. Chromium 141
+and 151 gave the same bytes for both styles. The new style's sha is
+`cbe4ea0a…`: 19 changed lines, all of them the ground.
+
+Beliefs corrected on contact:
+
+- **"webp at q82 perturbs even the flat ground"** (map-home.mjs, and the
+  2026-09-23 map-home entry) was a property of the colour, not of q82. `#f2efe9`
+  comes back as `#f3efea`, while `#f3f1ef` survives the encode exactly on 56.3%
+  of the full frame. `INK_TOLERANCE` is still needed for the fringe: exact
+  equality would read 43.7% painted, against the tolerant 21.9%.
+- **"10.5:1" for off-white on garnet** was never true: it was 10.07, and it is
+  10.25 now. And the map style's ground is on 19 layers, not "ninety".
+
+New guards, each seen red. **map-home.test.ts** holds each picture's commonest
+colour within 2 levels of `MAP_HOME_GROUND`: the old webps with a hand-edited
+manifest turn 2 cases red and leave 11 green, **and those 11 are the hole it
+closes.** favicon.test.ts and og-card.test.ts hold the artwork to the tokens.
+CarouselProgress.test.ts pins that garnet at 55% now clears 3:1 on sand,
+off-white AND white, so the comp's garnet track is feasible; the shipped `dark`
+track was kept (D5).
+
+`pnpm test:a11y` could not run at the time (its CLI launches its own Chromium),
+so `@axe-core/playwright` was run on the production build's three routes instead.
+It found 0 violations, and the color-contrast pass and incomplete counts were
+identical to main's. No CMS, model, seed or site-config value carries either
+colour.
+
+### The /properties masthead is sized for the ink the bar actually wears (P1)
+
+"Multiply" is not in the comp: there is no MULTIPLY among 10,906 blend entries
+on the Designs canvas, and black at partial opacity already is a multiply by
+grey. Three things we control made the band heavy:
+
+1. **`.masthead-shade` was sized for dust.** It was 0.82 → 0.78 black, which
+   dust (#b2ac9f) on the bar needs over a white pixel (0.744). #96 moved every
+   light-tone button to sand on 2026-09-22, and sand needs 0.605. The shade was
+   never re-sized. Its CSS comment, its component comment, the test's DUST ink
+   and the test's failure message all still said dust. **The gate had floors and
+   no ceilings, so nothing said "no darker than needed".** The client saw it
+   before a test did.
+2. **The title was held to 4.5:1 by choice.** One `AA = 4.5` covered both the
+   title and the bar. The h1 is large text (66px, or 38px below `lg`, at weight
+   500), so WCAG asks 3:1. Holding 4.5 cost 0.16 black under it.
+3. **The photo was centre-cropped.** The comp sets its 978px image at y −401
+   in a 400px band: 401 of 578px of overflow (69.4%). Centred, the 1440 band
+   showed mostly sky. Where the two layers parted (0.10 black at y≈176), that
+   near-white sky was the "hazy light band". At 390 the layers never parted at
+   all (0.389 minimum).
+
+Some top shade is unavoidable with a transparent bar. The comp's own 0→20%
+overlay gives sand 1.00:1 over this photo. Option A, the operator's choice, is:
+
+- shade stops 0.66 at 0%, 0.62 at 46%, 0.36 at 62%, 0.14 at 80%, 0 at 100%;
+- scrim stops 0 at 36%, 0.20 at 54%, 0.44 at 66%, 0.50 at 100%;
+- `object-[50%_70%]` on the photo, passed as the full class list, because a
+  class on HeroBackgroundImage replaces its defaults.
+
+Everything is still sized against a pure-white pixel. On the model, the title
+line box went from 5.78 to 3.25:1, the bar with the shipped sand `#eae7e4` from
+9.21 to 5.05:1, and the darkest point over the bar from 0.820 to 0.660. A photo
+window now opens at 390 (0.287 at y=124).
+
+On paint, `masthead-scrim.spec.ts` hides the ink, screenshots the band and reads
+the pixels. On a white ground at the old sand it measured CONTACT US 4.98 (4.90
+on a production build, not investigated), menu 4.90 and h1 3.23; at `#eae7e4`,
+CONTACT US 5.26 and menu 5.18. Over the real CMS photo it read CONTACT US 5.82,
+menu 5.85 and h1 3.47 at 1440, and 7.24 and 3.62 at 390. Paint agrees with the
+model where both were measured (0.820 / 0.671 / 0.384 against 0.820 / 0.672 /
+0.389).
+
+The review found two false greens in the new spec, and both were reproduced
+before the fix:
+
+- **The as-drawn cases never proved the photo painted.** The spec's comment said
+  "Decoded, not merely `complete`", but its code checked `naturalWidth` only. With
+  `opacity-0` on the img, all four cases passed over a band showing only the
+  garnet gradient. Now the spec shoots the band again with the image hidden (the
+  counterfactual), and at least half the pixels under every ink must differ from
+  it by more than 8 levels. That reads 100% on the real photo and 0% under the
+  mutation. The class ("pixels sampled from an image whose paint is taken on
+  trust") was enumerated across the other pixel-reading specs; this was its
+  only instance.
+- **The CTA check guessed its breakpoint from `--screen-sm: 560px`**, a Tailwind
+  v3 token that v4 ignores. The CTA actually appears from 640. It was red at 600.
+  The viewports now declare what the bar draws at each width.
+
+**A harness trap, measured.** Under the harness's `reducedMotion: "reduce"`, a
+nav set to `visibility: hidden` left its CTA and menu button computing `visible`
+for at least a frame. The screenshot caught the glyph at 1.00:1. This is
+probably app.css's reduce block turning an inherited property change into a
+0.01ms transition, which the #152 entry found for a different case. It is not
+proven, and it is filed. The #91 seam narrows but stays open: the band's row 0
+went from rgb(35,39,40) to rgb(74,79,80) at 1440, still grey against garnet.
+
+### Every map gets +/− and expand; expanded is a full-window overlay (M1, P3, #154)
+
+Every map now draws one column at the bottom right: + above − above expand. Each
+button is a 44px target around a 20.88px garnet box (the expand icon's size and
+radius, 10px in), and the painted boxes sit at bottoms 10, 54 and 98. These are
+our own buttons, not maplibre's `NavigationControl`, which has 29px targets and a
+compass. The comp draws only the expand box, and only at 390.
+
+**Expanded no longer grows the box in place to `min(70dvh, 520px)`.** It is one
+`position: fixed; inset: 0; z-index: 70` overlay at every width, above the nav
+(z-50). A spacer holds the slot, and it brings `trapFocus`, `lockBodyScroll` and
+Escape to collapse. A pin pressed in the expanded /properties map closes the
+overlay and reports the press one tick later, so the page is back in flow when
+`revealCard` scrolls. It also passes `restoreFocus`, so the page does not jump
+back to the expand button (D4). On the homepage band, pressing +, − or expand
+pauses a running slideshow. Collapsing does not resume it; only Play does (D3).
+That answers the question #150 left open, where expanding below `lg` left the
+slideshow running and the enlarged map a picture. `disableRotation()` closes
+#154, and the lock's handler set is unchanged.
+
+The planner found two defects, and both were fixed. The band's focus ring was
+off-white on the off-white map ground, and `overflow-hidden` clipped it; it is
+now garnet, on the painted box. The expand target covered the pin sheet's × at
+390; the sheet now stops 54px short of the right edge.
+
+**The P2/P4 connection:** the active listing's pin is drawn 1.5×
+(`data-map-active`). The mark is size, not motion, so it holds under reduced
+motion. It applies at `lg`+ on /properties and on the homepage band, where it
+changes size with no transition at each 8s turn.
+
+The overlay's fixed box is 375 wide at a 390 window. `scrollbar-gutter: stable`
+keeps the 15px gutter reserved under the scroll lock, and
+`documentElement.clientWidth` still reads 390. The spec compares against a
+`position:fixed; inset:0` probe for that reason, and the uncovered strip is
+filed.
+
+**None of the new guards has been seen red.** Batch 2 ran no mutation passes.
+The plan's guard 2i (no pin centre under a control at rest) was not built.
+
+### View tabs and Past Projects (P5, P6); the highlight stays on the centre line
+
+**Tabs.** /properties is prerendered, so `?view=` cannot filter without JS: the
+static file ignores the query, and a shared link would paint All and then
+reflow. The tabs are `<a href="#land|#improved|#all">`, filtered by `:target` on
+empty spans before hydration and by `data-view` on the listing root after.
+A fragment that names no view (such as the skip link's `#main-content`) keeps
+the current one. This changes the mechanism of Stage A decision 3
+(`replaceState` + `searchParams`) but keeps its principle: the state is in the
+URL. Hidden sections are `display:none`, not `{#if}`, so a land map keeps its
+state across a round trip. The selected tab is garnet with sand text, and the
+others are `text-secondary`: garnet at partial opacity fails AA. `aria-current`
+is set only after hydration, because the server cannot know the fragment. The
+live `/properties#land` no-JS case passes on a production build.
+
+**Past Projects.** `property.listing_state` is a Select (Listed, Past project,
+Archived) with **no default**, because a default would type the field as always
+filled while the 22 live documents return null. Sold counts as a past project.
+
+**A past project** moves to a Past Projects section at the bottom, shown under
+every tab, which replaces Sold. Its card is photo, title and bullets only, and
+its page is kept, noindexed, without package, price or tract table. **An
+archived listing** is hidden everywhere: the listing, the pins, the homepage
+band, the sitemap and `entries()`. `loadProperty` itself 404s, because
+`prerender = "auto"` still renders a uid that `entries()` left out.
+
+`listings.mjs` PUTs whole documents. `toPayload` now carries a live
+`listing_state` over when the seed row has none. `listings.json` is untouched,
+so no signature moves.
+
+P2/P4 ("comes to the top") was **not** built as asked. "Top" contradicts the
+window-centred map the operator chose, so #152's centre-line rule stands, and
+the active pin is the added connection. Phones keep card 0 garnet. One belief
+was corrected: the land canvas at 1440 is **392** wide, not ≥397 (397/1244 ×
+1229, after Chromium's 15px scrollbar).
+
+### Partner profile pages at /team/<uid> (F4)
+
+There is a new `person` custom type and a `/team/[uid]` route that renders
+`PersonProfile`, which overturns operator call 12 (no PROFILE until a bio). The
+route follows the property route's pattern. An absent type returns `[]`, so the
+build stays green before the model is pushed. On the partner cards, **PROFILE** is a document link to
+the Person, dropped when `isBroken` because `asLink` ignores that flag and would
+link a 404. The `<details>` bio disclosure, its `:has()` stylesheet and the
+row's `bio` field are gone (both live rows had `bio: []`, but the removal is
+still destructive in the model push). **CONTACT** is `contact_link` if filled,
+else `mailto:` the row's new `email` field, else `/contact`.
+
+The addresses are mhoward@ and bwilson@roalson.com. Both are public on
+roalson.com's contact page and in the card wireframe 6745:48718. The hero
+builder's note that "the site prints none" was written before this cluster
+settled D3. The profile page prints the email and the office line (210)
+496-5800, and no mobile or licence numbers. The bios are placeholders that make
+no claim about either man. `bio_is_placeholder` drives a visible chip, `noindex`
+and exclusion from the sitemap.
+
+**The content signature now sees group rows.** Each Group appends its rows'
+filled keys, for example
+`partners/default(…)[partners:email,name,photo,profile,role|…]`. Without that,
+adding `profile` and `email` to the rows would not have moved the signature,
+and the publisher would have said "everything staged is live" while releasing
+nothing: the #79 and #94 shape again, one level down, caught before it shipped.
+It changes every grouped slice's signature, not just the partners one.
+Slice-less documents (all 22 properties) are byte-identical. **Values are still
+invisible:** a relabel or a reordered button moves nothing. The hero cluster
+added a seed-level value test for that, and #79 stays open.
+
+### Verification on the integrated head, honestly
+
+Each builder verified its own branch; those runs are summarised above. On
+`c9d22c5`, `pnpm lint`, `pnpm check` (0 errors across 4,688 files) and the full
+`vitest run` (116 files, 1,568 tests) passed. A `pnpm verify` run under
+`NODE_USE_ENV_PROXY=1` then passed lint, check, the build and `pnpm test:a11y`
+(0 violations across 5 routes), and went red in
+`scripts/placeholder-hatch.test.ts` (6 of 10). The container needs that
+variable, because Node's fetch ignores `HTTPS_PROXY` and the prerender reads
+Prismic. But the test spawns child Nodes that inherit it, and each one prints
+undici's "EnvHttpProxyAgent is experimental" warning to a stderr the test
+requires to be empty. That red stopped `pnpm test` before Playwright, so
+`pnpm test:smoke` was then run on its own on the same head, under the same
+variable: **269 passed, 6 skipped, 0 failed, in 9.4 minutes.** The six skips are
+the live-content cases that run only under `REDDOOR_GATE_SERVER=preview`. With
+the vitest run above that covers every step of `pnpm verify`; the one red is the
+test's own environment, filed below.
+
+### Still to do after merge (none of it done this session)
+
+Models reach Prismic only through `prismic-models.yml` on a push to main. The
+PR's dry-run comment should print ⚠ DESTRUCTIVE for `home_hero.specialty_label`,
+`home_hero.specialties` and the partners row's `bio`. All three removals are
+intended. It should also show `person` and `property.listing_state` as new. Then:
+
+1. Run `pnpm exec reddoor-maint prismic-models` and require "match".
+2. **Prove which repository `PRISMIC_WRITE_TOKEN` writes to.** This
+   environment's `PRISMIC_REPOSITORY_NAME` is `the-pointe-burbank`, another
+   client's. This repo never reads that variable, but the token beside it may be
+   Pointe's. The planner's read-only probe was refused, so this is unverified.
+3. Run `node scripts/seed/people.mjs --apply`, then `publish-release.mjs --yes`.
+   The content API does not know a type until one document of it is published.
+   `pages.mjs`, dry run included, throws "no staged id for person …" until
+   `people.state.json` exists. **The hero cluster's sequence predates this, and
+   this order supersedes it.**
+4. Run `pages.mjs`, then `pages.mjs --apply --only home`. The publisher's dry run
+   must list `page/home` as differing, and it will, because the key set changed.
+   Then `--yes`. `totalItems` must equal the number of documents staged.
+5. Read the values back from the master ref, because the signature cannot see
+   them: the heading, the button labels and their order, the subheading,
+   `portfolio_label` "Properties", and each partner row's `profile` and `email`.
+6. Commit both state files, rebuild Netlify, and grep the live `/` for
+   "Properties" and the subheading.
+
+Until step 4, the live site renders the old document with the new code. The
+heading sets as three lines (band 419 at 1455, measured), the buttons read
+Contact us | Our portfolio, the featured button reads "Our portfolio", and the
+partner cards have no PROFILE, with CONTACT going to /contact. The menu and
+footer come from site-config, so they already say Properties.
+
+### Open for the operator, the client or Nicole
+
+The design-review issue collects what has no comp or departs from it: the +/−
+column, the 1.5× active pin (the band may be better unmarked), the tab look, the
+past-project card, the 1024–1039 break, the masthead's shade over a bar the comp
+draws transparent, the revised comp's own footer link still reading "Our
+portfolio" (7091:757), and the master wordmark 6788:3777 still binding INTERESTS
+to the old sand. Ask Erik what "multiplying" meant: a warm garnet tint would
+need at least 0.78 over the bar, and if the grey top still reads as a band, the
+next step is Option B, a garnet bar, which would also close #91. The map's road
+and landuse tints were deliberately not retuned (D6); tuned against the old
+ground, they may now read more yellow, which is the client's complaint. The
+client still owes the real hero sentence, two bios, a licensed masthead photo
+(#3; the crop `50% 70%` is tuned to the placeholder), and a usable headshot of
+Bart Wilson (#73), which now also renders up to 371px wide on his profile page.
+
+### Honest accounting
+
+The operator found the session slow, and it was. Most of the wall-clock went to
+repeated verification on a 4-CPU container running two agents at a time:
+mutation passes, `--repeat-each`, production builds, and reviewers re-running
+builders' checks. The stringency paid for itself once. The hero review's run
+found a blocker that the builder's "a reading, not a run" had waved through, and
+it found the masthead spec's two false greens. It also cost enough that batch 2
+dropped mutation passes entirely. **That is exactly the trade the batch-2 guards
+now carry: they have never been seen red, and an issue says so.** A comment
+proposing tiered verification was posted on reddoor-maintenance #545. The
+proposal is a fast lane into staging and full stringency from staging to main.
+
+The shared container cost time too. `@playwright/test` 1.62.1 wants
+chromium-1234, and the image ships 1194 (Chromium 141). The colours builder used
+`executablePath`, the hero builder installed 1234 into the scratchpad, and at
+17:15 the masthead builder installed it into the shared `/opt/pw-browsers`,
+which changed every other agent's default browser mid-run. Chromium also had no
+proxy CA until `certutil -A -t "C,,"` was run by hand. Until then `map:home`'s
+blank-render guard correctly refused to write a white map. And the favicon
+change cannot be seen at 16px: it was made because its stated reason ("equals
+`--color-background`") had stopped being true.
+
+### Found and not fixed: filed
+
+Launch blockers: the placeholder hero sentence (#158) and the placeholder bios
+(#159). Also filed: routing the contact form to Matt and Bart (F3, #160), the
+post-merge publish sequence (#161), the design review (#162), the map tints
+(#163), the cloud-session browsers and CA (#164), `placeholder-hatch.test.ts`
+under `NODE_USE_ENV_PROXY` (#165), the specs' garnet literals (#166), the
+og-card cache (#167), `scripts/` outside svelte-check (#168), the masthead crop
+(#169), the reduced-motion visibility frame (#170), the dead `--screen-*` tokens
+(#171), the overlay's gutter strip (#172), a +/− ease lost to a card crossing
+(#173), batch 2's unmutated guards (#174), three stale comments (#175),
+archiving a linked listing reds the build (#176), listings.mjs's two blind spots
+(#177), the no-JS tabs' missing `aria-current` (#178), and partner data written
+twice (#179). New numbers went on #53, #73, #79, #88, #91, #94, #105, #111 and
+#119. #51 is moot, because the disclosure it asks about is gone.
