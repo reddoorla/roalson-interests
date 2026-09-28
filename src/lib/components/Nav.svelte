@@ -16,7 +16,7 @@
   //    at the top of a page whose
   //    first band is dark (`over="dark"`), and takes the page's off-white
   //    ground with garnet marks as soon as the page moves. Dust cannot follow
-  //    it there: 1.97:1 on off-white, as text or as a control's glyph.
+  //    it there: 2.01:1 on off-white, as text or as a control's glyph.
   //
   // 2. Nothing here may depend on script to stay LEGIBLE. A floating bar that
   //    is pinned needs script to re-tone it once light content is under it, so

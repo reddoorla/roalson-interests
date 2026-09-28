@@ -10,7 +10,7 @@
   //
   // Named, as Figma names it, for the BUTTON's tone, so it is the one for LIGHT
   // grounds: garnet outline and text; hover fills garnet with SAND text
-  // (8.87:1).
+  // (9.38:1).
   //
   // Its sibling `button light` (4840:372) is the "light" tone — the navbar's
   // CONTACT US while the bar floats over a dark band.
@@ -23,9 +23,12 @@
   //                    label + 1px outline        garnet on
   //                    on garnet   on #3d0707     the filled button
   //     dust (comp)      5.11:1       7.55:1          5.11:1
-  //     sand  (ours)     8.87:1      13.09:1          8.87:1
+  //     sand  (ours)     9.38:1      13.84:1          9.38:1
   //
-  // The tone is still for DARK grounds only — sand is 1.14:1 on the off-white
+  // (Sand is the designer's less yellow #eae7e4 since 2026-09-28; on the
+  // #e8e1d1 this call was made against, the sand row read 8.87 / 13.09 / 8.87.)
+  //
+  // The tone is still for DARK grounds only — sand is 1.09:1 on the off-white
   // page — so the nav still swaps to "garnet" the moment it takes its
   // off-white ground. What changed is which light token the swap lands on.
   //
@@ -33,7 +36,7 @@
   // garnet where the comp puts it: HomeHero's specialty line, the open menu's
   // "Menu" eyebrow and its sub-labels, the menu links' underline. After this
   // change dust is a fill NOWHERE — CarouselProgress had already refused it
-  // (its track is 1.73:1 on sand), so `theme-contrast.test.ts`'s FILL_PAIRS
+  // (its track is 1.83:1 on sand), so `theme-contrast.test.ts`'s FILL_PAIRS
   // moved to sand with it.
   // (The garnet property card's button is "cream", below.)
   //
@@ -61,9 +64,9 @@
   /** "garnet" is the comp's `button dark` as drawn on a light ground. "cream"
    *  is the same button on the garnet property card (6904:2081): off-white
    *  outline and label, filling off-white with garnet text on hover —
-   *  10.5:1 and 10.07:1. "light" is the comp's `button light` for dark
-   *  grounds, in SAND rather than the comp's dust: 8.87:1 on garnet and
-   *  13.09:1 on #3d0707, with garnet on the sand fill the same pair inverted.
+   *  10.25:1 both ways. "light" is the comp's `button light` for dark
+   *  grounds, in SAND rather than the comp's dust: 9.38:1 on garnet and
+   *  13.84:1 on #3d0707, with garnet on the sand fill the same pair inverted.
    *  Every tone is measured by theme-contrast.test.ts. */
   export const BRAND_BUTTON_TONES = {
     garnet: "border-primary text-primary hover:bg-primary hover:text-light",

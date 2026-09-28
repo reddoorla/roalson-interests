@@ -70,15 +70,15 @@
   // 24 line + 22 padding + 2 border = 48px tall; never below 16px type, or iOS
   // Safari zooms the page on focus.
   //
-  // A LIGHT-GROUND control: garnet border, text and ring are 10.07:1 on the
-  // page's off-white, 8.87:1 on sand, 11.55:1 on white — and 1:1 on garnet.
+  // A LIGHT-GROUND control: garnet border, text and ring are 10.25:1 on the
+  // page's off-white, 9.38:1 on sand, 11.55:1 on white — and 1:1 on garnet.
   // The template's border was `border-secondary` because ITS `--color-light`
   // measured 1.20:1 on white; this palette's resting border clears WCAG
   // 1.4.11's 3:1 by a factor of three, and Field.test.ts holds it to a token
   // that does.
   //
   // Focus: the 1px border gains a 2px ring of the same garnet outside it — a
-  // 3px frame, and the ring's own pixels go off-white → garnet (10.07:1).
+  // 3px frame, and the ring's own pixels go off-white → garnet (10.25:1).
   // `error` against `primary` is only 1.79:1, so an invalid border is never the
   // sole signal: the `role="alert"` message below always accompanies it.
   // `aria-invalid:focus:ring-error` carries two variants, so it beats

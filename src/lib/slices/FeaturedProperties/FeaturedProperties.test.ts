@@ -1046,7 +1046,7 @@ describe("FeaturedProperties slice", () => {
 
     it("is drawn on the CARD's ground, so it wears the tone for a light one", () => {
       // The old one was `cream` because it sat on the band's dark ground. It is
-      // on the sand card now (8.87:1, theme-contrast.test.ts) — garnet, which
+      // on the sand card now (9.38:1, theme-contrast.test.ts) — garnet, which
       // is BrandButton's default and what the slide's LEARN MORE beside it
       // wears.
       const { getByRole } = render(FeaturedProperties, {

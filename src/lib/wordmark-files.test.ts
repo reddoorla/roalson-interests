@@ -29,8 +29,12 @@ describe("the two wordmark files", () => {
     expect(viewBox(garnet)).toBe("0 0 383 123");
   });
 
+  // The reverse file's INTERESTS line is the palette's sand. It was #e8e1d1
+  // until 2026-09-28, when the designer's revision recoloured it with the rest
+  // of the palette (Figma 7091:631, the navbar's wordmark instance) to #eae7e4.
+  // og-card.test.ts holds the share card, which draws this same wordmark, to it.
   it("differ only in fill: garnet + dust, and white + sand", () => {
     expect(fills(garnet)).toEqual(["#652323", "#b2ac9f"]);
-    expect(fills(reverse)).toEqual(["#e8e1d1", "#ffffff"]);
+    expect(fills(reverse)).toEqual(["#eae7e4", "#ffffff"]);
   });
 });

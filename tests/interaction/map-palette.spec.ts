@@ -3,10 +3,11 @@ import sharp from "sharp";
 
 import { cameraProbeInstalled, jumpToZoom, mapZoom, watchCamera } from "./camera-probe";
 import { hydrated } from "./hydrated";
+import { OFF_WHITE_HEX } from "./palette";
 
 // WHAT COLOUR THE TILES ACTUALLY COME OUT (#13 follow-up).
 //
-// `scripts/map-style.test.ts` proves the committed style SAYS `#f2efe9`. That
+// `scripts/map-style.test.ts` proves the committed style SAYS `#f3f1ef`. That
 // is a claim about a JSON file and it is worth nothing on its own: the style
 // could fail to load, `PUBLIC_MAP_STYLE_URL` could still point upstream, a
 // same-origin fetch could be refused by CSP, MapLibre could reject a layer and
@@ -71,6 +72,12 @@ import { hydrated } from "./hydrated";
 //
 // WHAT THE CAMERA (#112) DOES CHANGE is WHICH GROUND is under the sample, and
 // that turned out to matter a great deal — see the note on the first case.
+//
+// EVERY DATED COUNT IN THIS FILE WAS TAKEN ON THE OLD GROUND. The land colour
+// counted is the page's off-white, which was `#f2efe9` until 2026-09-28 and is
+// `#f3f1ef` since (OURS.land now reads it from ./palette). The counts quoting
+// `#f2efe9` below are records of those runs, not expectations; the floors are
+// shares and pixel counts, and do not name the colour.
 const MAP = "[data-property-map]";
 
 /** OpenFreeMap's stock style, for the control in the Natural Earth case below.
@@ -83,7 +90,7 @@ const MAP = "[data-property-map]";
 const STOCK_STYLE_URL = "https://tiles.openfreemap.org/styles/liberty";
 
 /** The colours at issue. Upstream's two are here to be DENIED, never to grant. */
-const OURS = { land: "#f2efe9", water: "#a8b4b8" };
+const OURS = { land: OFF_WHITE_HEX, water: "#a8b4b8" };
 const UPSTREAM = { land: "#f8f4f0", water: "#9ebdff" };
 
 /** Positive evidence a frame was drawn: MapLibre's own `load` sets this. */

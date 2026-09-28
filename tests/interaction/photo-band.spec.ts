@@ -2,6 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 
 import { HYDRATION_TIMEOUT } from "./hydrated";
+import { OFF_WHITE } from "./palette";
 
 // The homepage's photo band makes promises jsdom cannot check (see
 // src/lib/slices/PhotoBand/index.svelte and the `[data-pinned-band]` block in
@@ -282,12 +283,12 @@ test.describe("with motion allowed", () => {
     // An editor drops a slice AFTER the band. Ungated, the band would stay
     // pinned over it (positioned beats unpositioned) and the footer would be
     // pulled up over the page's last 500px of content.
-    await page.evaluate(() => {
+    await page.evaluate((ground) => {
       const after = document.createElement("section");
       after.id = "after-the-band";
-      after.style.cssText = "height: 1200px; background: rgb(242, 239, 233)";
+      after.style.cssText = `height: 1200px; background: ${ground}`;
       document.querySelector("main")!.append(after);
-    });
+    }, OFF_WHITE);
     await expect(band).toHaveCSS("position", "static");
     await expect(page.locator(SPACER)).toHaveCSS("height", "0px");
     await expect(footer).toHaveCSS("margin-top", "0px");

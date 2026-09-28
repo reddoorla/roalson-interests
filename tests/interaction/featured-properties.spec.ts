@@ -3,6 +3,7 @@ import { expect, test, type Browser, type Locator, type Page } from "@playwright
 import { expectRing, GARNET } from "./expect-ring";
 import { FEATURED_DISSOLVE, FEATURED_DWELL, FEATURED_KEN_BURNS } from "./featured-dwell";
 import { HYDRATION_TIMEOUT } from "./hydrated";
+import { SAND } from "./palette";
 
 // The homepage's featured band (src/lib/slices/FeaturedProperties) is the
 // headless carousel's first consumer, and makes promises jsdom cannot check:
@@ -375,7 +376,7 @@ test.describe("where the comp draws it", () => {
       expect(g.map.background, `${width}: what the visitor sees before tiles`).toBe(
         "rgb(61, 7, 7)",
       );
-      expect(g.map.background, `${width}: sand over the dark band`).not.toBe("rgb(232, 225, 209)");
+      expect(g.map.background, `${width}: sand over the dark band`).not.toBe(SAND);
     }
   });
 
@@ -980,7 +981,9 @@ test.describe("rotation", () => {
       // /dev/properties alike. Fixed in PropertyMap.svelte by naming
       // `.maplibregl-ctrl` too, (0,3,0); the chip now computes
       // `rgb(232, 225, 209)` and axe reads the OpenStreetMap credit at
-      // **8.86:1**, against the 8.87 that component predicted.
+      // **8.86:1**, against the 8.87 that component predicted. (That was the
+      // sand of the time; since 2026-09-28 the chip is `rgb(234, 231, 228)`
+      // and the pair is 9.38:1 by app.css's table.)
       const contrast = results.passes.find((p) => p.id === "color-contrast");
       const credit = contrast?.nodes.filter((n) => n.html.includes("openstreetmap.org")) ?? [];
       expect(

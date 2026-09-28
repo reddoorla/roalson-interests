@@ -113,7 +113,7 @@ export const MAP_HOME = {
  * two ever differ, because a placeholder whose margin is a different beige
  * from the map's is a visible seam at exactly the moment the tiles arrive.
  */
-export const MAP_HOME_GROUND = "#f2efe9";
+export const MAP_HOME_GROUND = "#f3f1ef";
 
 /**
  * How long the canvas takes to come up over the picture, in ms.

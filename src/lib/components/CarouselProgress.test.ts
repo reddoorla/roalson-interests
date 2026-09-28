@@ -344,18 +344,35 @@ describe("CarouselProgress tones", () => {
     },
   );
 
-  it("cannot use the comp's own colours: dust is 1.73:1 on sand, and garnet leaves no room for ANY track", () => {
+  // The premise this test used to state — "garnet leaves no room for ANY
+  // track" on sand, 8.87:1 against the 9:1 three 3:1 steps need — stopped
+  // being true on 2026-09-28, when sand went from #e8e1d1 to #eae7e4 and garnet
+  // on it rose to 9.38:1. The comp's garnet is now FEASIBLE on the homepage
+  // card, at exactly two alphas, and `dark` is kept because it has margin the
+  // comp's colour does not. That is a claim about numbers, so it is measured.
+  it("keeps `dark`: the comp's garnet clears 3:1 on sand only at 55–56%, and with less margin", () => {
     const sand = token("light");
+    // Dust, the comp's track, is still a fill that vanishes on sand.
     expect(contrast(token("dust"), sand)).toBeLessThan(NON_TEXT);
-    // Three colours each 3:1 apart need 9:1 between the outer two.
-    expect(contrast(token("primary"), sand)).toBeLessThan(NON_TEXT * NON_TEXT);
-    expect(contrast(token("dark"), sand)).toBeGreaterThan(NON_TEXT * NON_TEXT);
-    // …searched, not just argued: no alpha of garnet works on the homepage card.
-    const passing = Array.from({ length: 99 }, (_, i) => i + 1).filter((pct) => {
+    // Three colours each 3:1 apart need 9:1 between the outer two — and
+    // garnet on today's sand has it, where on the old sand it did not.
+    expect(contrast(token("primary"), sand)).toBeGreaterThanOrEqual(NON_TEXT * NON_TEXT);
+    // …searched, not just argued: the alphas of garnet that work on the card.
+    const clears = (pct: number) => {
       const track = painted(`bg-primary/${pct}`, sand);
       return contrast(token("primary"), track) >= NON_TEXT && contrast(track, sand) >= NON_TEXT;
-    });
-    expect(passing).toEqual([]);
+    };
+    const passing = Array.from({ length: 99 }, (_, i) => i + 1).filter(clears);
+    expect(passing).toEqual([55, 56]);
+    // And the shipped tone beats the best of them on the one ground they share.
+    const worst = (fill: string, track: string) => {
+      const f = painted(fill, sand);
+      const t = painted(track, sand);
+      return Math.min(contrast(f, t), contrast(t, sand));
+    };
+    expect(worst("bg-primary", "bg-primary/55")).toBeLessThan(
+      worst(PROGRESS_TONES.garnet.fill, PROGRESS_TONES.garnet.track),
+    );
   });
 
   it("covers every tone the component ships", () => {

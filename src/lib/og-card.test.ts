@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync, statSync } from "node:fs";
 import { resolve } from "node:path";
+import sharp from "sharp";
 
 import { DEFAULT_OG_IMAGE, DEFAULT_OG_IMAGE_ALT, OG_IMAGE_HEIGHT, OG_IMAGE_WIDTH } from "./seo";
 
@@ -34,6 +35,30 @@ describe("the default social-share card", () => {
 
   it("is small enough to be fetched by a crawler that will not wait", () => {
     expect(pngSize(file).bytes).toBeLessThan(300_000);
+  });
+
+  // The card is the REVERSE wordmark on garnet, composed once in Chromium with
+  // no script to re-run — so when the wordmark's INTERESTS line moved from
+  // #e8e1d1 to #eae7e4 (2026-09-28) nothing tied the picture to the file. Its
+  // flat letter strokes survive the lossless encode exactly: 10,239 pixels of
+  // the sand the file names. A card left on another sand scores 0, and 5,000 is
+  // a floor far from both.
+  it("draws the wordmark in the colours logo-reverse.svg names", async () => {
+    const svg = readFileSync(resolve(process.cwd(), "static", "logo-reverse.svg"), "utf8");
+    const accents = [
+      ...new Set([...svg.matchAll(/fill="(#[0-9a-fA-F]{6})"/g)].map((m) => m[1].toLowerCase())),
+    ].filter((hex) => hex !== "#ffffff");
+    expect(accents, "logo-reverse.svg's non-white fills").toHaveLength(1);
+    const want = [1, 3, 5].map((i) => parseInt(accents[0].slice(i, i + 2), 16));
+    const raw = await sharp(file).removeAlpha().raw().toBuffer();
+    let exact = 0;
+    for (let i = 0; i < raw.length; i += 3) {
+      if (raw[i] === want[0] && raw[i + 1] === want[1] && raw[i + 2] === want[2]) exact += 1;
+    }
+    expect(
+      exact,
+      `${DEFAULT_OG_IMAGE} has ${exact} pixels of ${accents[0]} — it draws another wordmark`,
+    ).toBeGreaterThan(5_000);
   });
 
   // Seo.svelte falls back to the page title, which describes the PAGE. For a

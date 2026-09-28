@@ -80,7 +80,7 @@ describe("BrandButton", () => {
     });
     const a = getByRole("link");
     expect(rest(a)).toEqual(expect.arrayContaining(["border-light", "text-light"]));
-    // The light tone is for DARK grounds only — sand is 1.14:1 on the off-white
+    // The light tone is for DARK grounds only — sand is 1.09:1 on the off-white
     // page — so it must never pick up the garnet tone's resting colours.
     expect(rest(a)).not.toContain("text-primary");
     expect(rest(a)).not.toContain("border-primary");

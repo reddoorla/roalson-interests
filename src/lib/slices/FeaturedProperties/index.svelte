@@ -851,7 +851,7 @@
          1455 × 900 and 375 × 200 at 390 × 844. The guard "measuring" it read
          the slot, which is transparent whatever the child does, so it passed
          throughout. The ground is the child's to draw, so the child is told
-         which one: off-white on #3d0707, 14.85:1. -->
+         which one: off-white on #3d0707, 15.13:1. -->
     <div data-map-slot class="max-lg:order-first lg:col-start-1 lg:row-start-1">
       <!-- THE CAMERA FOLLOWS THE ACTIVE SLIDE, AND THAT IS THE WHOLE GATE.
            WCAG 2.2.2 is live on this band: it autoplays, so a camera that

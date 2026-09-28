@@ -1,14 +1,16 @@
 import { expect, type Locator, type Page } from "@playwright/test";
 
 import { HYDRATION_TIMEOUT } from "./hydrated";
+import { GARNET, OFF_WHITE } from "./palette";
 
 // How every spec reads the keyboard-focus ring. It lives here, and not in
 // focus-ring.spec.ts where it was written, because Playwright will not let one
 // spec import another — and a second copy is how the read got flaky the first
 // time: each half below was a failure on its own, found separately.
 
-export const OFF_WHITE = "rgb(242, 239, 233)";
-export const GARNET = "rgb(101, 35, 35)";
+// The two ring colours, re-exported from ./palette so the specs that already
+// import them from here keep doing so.
+export { GARNET, OFF_WHITE };
 
 /** Focus as a keyboard user does and require the ring, in this colour.
  *

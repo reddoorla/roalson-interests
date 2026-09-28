@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { hydrated } from "./hydrated";
+import { OFF_WHITE } from "./palette";
 
 // The top of the homepage makes three promises jsdom cannot check (see
 // src/lib/slices/HomeHero/index.svelte):
@@ -31,7 +32,6 @@ import { hydrated } from "./hydrated";
 const HOME = "/dev/home";
 
 const DARK = "rgb(61, 7, 7)";
-const OFF_WHITE = "rgb(242, 239, 233)";
 
 const bar = 'nav[aria-label="Primary"]';
 const section = '[data-slice-type="home_hero"]';

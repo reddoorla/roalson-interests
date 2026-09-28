@@ -163,7 +163,8 @@ describe("the committed map style", () => {
      * to an upstream literal, which the stray-colour test then catches as a
      * colour belonging to nobody's table. HALO_ADDED's two rows are the only
      * ADDITIONS, and deleting one leaves the property simply absent — no stray
-     * colour, no missing literal (`#f2efe9` is on ninety other layers), so the
+     * colour, no missing literal (the ground, `#f3f1ef`, is on eighteen other
+     * layers — counted 2026-09-28; this line said "ninety" before), so the
      * set stays exactly right. Proved by mutation: removing both halo rows from
      * the table and from the committed JSON left all 137 cases green, and
      * src/lib/theme-contrast.test.ts's case titled "via the halo it added"
