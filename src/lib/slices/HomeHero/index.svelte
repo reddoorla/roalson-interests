@@ -16,7 +16,7 @@
   // THE BAND IS 'Homepage - REVISED' 7091:640 (2026-09-26), not 6802:1425. The
   // client asked for the headline full width with the left-hand column gone,
   // and one sentence under it "before the buttons"; Nicole drew that at 1440
-  // only. One column, padding 80/80 with 30 between headline, subheading and
+  // only. One column on the gutter, 30 between headline, subheading and
   // buttons. The "Our specialty" list the old band carried in its left column
   // is gone from the comp, and from the model with it: the phrases survive in
   // the page's meta description, not in its body. The revision has no 390 or
@@ -26,9 +26,9 @@
   // and `position: sticky` is bounded by its PARENT. Sharing a <section> with
   // the band gives the hero exactly the band's height to stay pinned for (393px
   // at 1440 and at 390 with the seeded copy; 478 and 644 before the revision)
-  // while the band — and the cutout riding on it — slides
-  // up over it. As sibling slices in <main> the hero would pin for the whole
-  // page and every later band would need an opaque ground forever.
+  // while the band — and the cutout riding on it — slides up over it. As
+  // sibling slices in <main> the hero would pin for the whole page and every
+  // later band would need an opaque ground forever.
   //
   // Three things here are load-bearing and look like tidying targets:
   //
