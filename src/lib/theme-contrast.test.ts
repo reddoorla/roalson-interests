@@ -38,8 +38,9 @@ const LIGHT_GROUND_TEXT = ["secondary", "primary", "dark", "black", "error"] as 
  *  garnet text — see the note below, which predicted exactly this. */
 const LIGHT_GROUNDS = ["background", "white", "light"] as const;
 
-/** Tokens the template renders as text on a DARK ground. `dust` is HomeHero's
- *  specialty line and the open menu's type, and `light` (sand) the status
+/** Tokens the template renders as text on a DARK ground. `dust` is the open
+ *  menu's type (HomeHero's specialty list was the other, until the revised
+ *  hero dropped it on 2026-09-28), and `light` (sand) the status
  *  badges on garnet AND — since the operator's 2026-09-22 call — every
  *  button's light tone, label and 1px outline both. Both are text ONLY on dark
  *  grounds, where they measure 5.11:1 and 8.87:1 on garnet. Neither may appear
@@ -58,8 +59,9 @@ const DARK_GROUNDS = ["primary", "dark", "black"] as const;
  *  2.75:1, so adding it to LIGHT_GROUNDS would be a claim the palette cannot
  *  keep. Until 2026-09-22 it was the navbar's CONTACT US fill (the comp's
  *  `button light`); the operator moved every button's light colour to the tan
- *  that day, so no BUTTON fills dust now — HomeHero's half-pixel rule is the
- *  only `bg-dust` left in src/, and that carries no text at all. The pair is
+ *  that day, so no BUTTON fills dust now, and since the revised hero dropped
+ *  its specialty list and that list's half-pixel rule (2026-09-28) nothing in
+ *  src/ fills dust at all. The pair is
  *  kept, not deleted: dust is still the one token the palette permits as a
  *  non-ground fill, and 5.11:1 is what has to hold the next time something
  *  fills it.

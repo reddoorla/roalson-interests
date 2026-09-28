@@ -173,7 +173,7 @@ describe("the home document's bands", () => {
     // out of it. Its link is the typed path $lib/cms-href reduces, the same
     // shape the hero's second button is seeded with.
     expect(Object.keys(band!.primary)).toEqual(["properties", "portfolio_label", "portfolio_link"]);
-    expect(band!.primary.portfolio_label).toBe("Our portfolio");
+    expect(band!.primary.portfolio_label).toBe("Properties");
     expect(band!.primary.portfolio_link).toEqual({ link_type: "Web", url: "/properties" });
   });
 
@@ -226,6 +226,28 @@ describe("the home document's bands", () => {
       "partner-matt-howard.jpg",
       "partner-bart-wilson.jpg",
     ]);
+  });
+
+  it("seeds the hero as the revised comp: one break after Commercial, the sentence, PROPERTIES first", () => {
+    // 'Homepage - REVISED' 7091:631. The publisher's content signature records
+    // which fields are FILLED, not what they say, so a swapped pair or an old
+    // label would stage and publish as "live" (see the signature's own tests
+    // below). This is the value-level pin, on the file the seed stages.
+    const hero = (home.data.slices ?? []).find((s) => s.slice_type === "home_hero")!;
+    const heading = hero.primary.heading as { type: string; text: string }[];
+    expect(heading).toHaveLength(1);
+    expect(heading[0].type).toBe("heading1");
+    expect(heading[0].text).toBe("San Antonio's Commercial\nReal Estate Experts Since 1983.");
+    expect(hero.primary.subheading).toBe("A placeholder for a sentence to come.");
+    const buttons = hero.primary.buttons as { label: string; link: { url: string } }[];
+    expect(buttons.map((b) => [b.label, b.link.url])).toEqual([
+      ["Properties", "/properties"],
+      ["Contact us", "/contact"],
+    ]);
+    // The model no longer declares the list, and the fills-only-declared-fields
+    // test above would say so — this names it.
+    expect(Object.keys(hero.primary)).not.toContain("specialties");
+    expect(Object.keys(hero.primary)).not.toContain("specialty_label");
   });
 
   it("gives the hero the poster its own Vimeo film opens on", () => {

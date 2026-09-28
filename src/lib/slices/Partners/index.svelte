@@ -11,8 +11,9 @@
   // <p> wearing `t-h3`, never an <h3>: a heading belongs to the heading BEFORE
   // it, and an h3 here would file both partners under the previous band's h2.
   // Nothing but Partners.test.ts holds that. axe does NOT — tried: with the
-  // names as h3s its heading-order passes on /dev/home, because the hero's
-  // "Our specialty" h2 comes first and h2 → h3 skips nothing. (The scout's
+  // names as h3s its heading-order passes on /dev/home, because an h2 comes
+  // first (the hero's "Our specialty" then; the featured band's own h2 since
+  // the revised hero dropped that list) and h2 → h3 skips nothing. (The scout's
   // alternative — text first in the DOM and `order-first` on the cards below
   // `lg` — keeps the h3s, and breaks focus order on a phone the day an editor
   // puts a link in the body or fills the optional buttons: the cards are drawn

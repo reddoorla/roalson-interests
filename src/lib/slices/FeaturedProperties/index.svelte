@@ -72,14 +72,17 @@
   // The slot itself still has no fill, which is true of the comp's frame too.
   // See $lib/components/PropertyMap.svelte and the 2026-09-22 journal entry.
   //
-  // THE CARD'S LEFT EDGE IS THE SITE'S COLUMN LINE, not the comp's 512. Every
-  // other band puts its right column at x=513 (1440) through the gutters and
-  // `[397fr_847fr] gap-9`; the comp draws this one at 512 as a bare 512 : 928
+  // THE CARD'S LEFT EDGE IS THE SITE'S COLUMN LINE, not the comp's 512. The
+  // two-column bands put their right column at x=513 (1440) through the gutters
+  // and `[397fr_847fr] gap-9`; the comp draws this one at 512 as a bare 512 : 928
   // ratio. The two are 1px apart at 1440 (513 against 512 — the pixel critic
   // ruling C3 accepts, and why the card measures 927 × 541.41 for the comp's
   // 928 × 542) and drift from there: 6.83px at 1280, where the ratio gives
   // 455.11 and the site's line is 461.94. The column below is the site's
-  // arithmetic, so the H1 above and this card share one edge at every width.
+  // arithmetic, so this card shares one edge with the Partners headline below
+  // it and the footer's at every width. (It shared it with the hero's H1 until
+  // the revised hero went one column, 2026-09-28: that H1 stands on the
+  // gutter, x=80, now.)
   //
   // mocks.json CANNOT SHOW THIS BAND IN THE SLICE SIMULATOR, and that is not a
   // bug to chase. Slice Machine writes a content relationship as a bare
@@ -539,7 +542,7 @@
 {#if slides.length === 0}
   <!-- THE EMPTY STATE IS NO BAND: a dark 827px box around an empty card is a
        broken page, and every listing is still one link away (the hero's and
-       the footer's "Our portfolio"). What is left is a hidden marker carrying
+       the footer's "Properties"). What is left is a hidden marker carrying
        the counts, so "the editor picked nothing showable" and "the API sent the
        picks bare" (`unembedded`, see $lib/featured-properties) can be told
        apart from View Source instead of guessed at. -->

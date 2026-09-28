@@ -10,8 +10,17 @@
   //                                        the letterforms knocked out, 451² at
   //                                        1440 and 195² (half the band) at 390, its
   //                                        bottom edge ON the band's top
-  //   Value Prop #1 6802:1425 / 6994:805   the garnet band: H1, two buttons and
-  //                                        the "our specialty" list
+  //   Value Prop #1 6802:1425 / 6994:805   the garnet band: H1, a one-sentence
+  //                                        subheading and two buttons
+  //
+  // THE BAND IS 'Homepage - REVISED' 7091:640 (2026-09-26), not 6802:1425. The
+  // client asked for the headline full width with the left-hand column gone,
+  // and one sentence under it "before the buttons"; Nicole drew that at 1440
+  // only. One column, padding 80/80 with 30 between headline, subheading and
+  // buttons. The "Our specialty" list the old band carried in its left column
+  // is gone from the comp, and from the model with it: the phrases survive in
+  // the page's meta description, not in its body. The revision has no 390 or
+  // 1280 frame, so its rhythm is applied at every width (operator call D5).
   //
   // ONE slice, not two, because of how the comp moves: only the hero is sticky,
   // and `position: sticky` is bounded by its PARENT. Sharing a <section> with
@@ -62,12 +71,9 @@
 
   let { slice }: { slice?: Content.HomeHeroSlice } = $props();
 
-  const uid = $props.id();
-
-  // The site's gutters and its ONE two-column grid: the right column starts at
-  // x=513 on every band of every page. This band is drawn 374 | 60 | 846
-  // (text at x=514) — the comp is 1px inconsistent between its own bands — so
-  // the grid stays the site's and the LEFT column's content is capped instead.
+  // The site's gutters. The revised band does NOT use the site's two-column
+  // grid (`[397fr_847fr]`, right column at x=513): its text stands on the
+  // gutter itself, x=80 at 1440, 1280 wide.
   const GUTTERS = "mx-auto max-w-[1440px] px-5 sm:px-8 xl:px-20";
 
   const primary = $derived(slice?.primary);
@@ -81,6 +87,9 @@
       .map((line) => line.trim())
       .filter(Boolean),
   );
+
+  // Every line but the last keeps a trailing space — see the H1's note.
+  const spoken = $derived(lines.map((line, i) => (i < lines.length - 1 ? `${line} ` : line)));
 
   const poster = $derived(primary && isFilled.image(primary.poster) ? primary.poster : undefined);
 
@@ -98,11 +107,8 @@
       .slice(0, 2),
   );
 
-  const label = $derived(primary?.specialty_label?.trim() ?? "");
-  const specialties = $derived(
-    (primary?.specialties ?? []).map((item) => item.text?.trim() ?? "").filter(Boolean),
-  );
-  const hasList = $derived(label !== "" || specialties.length > 0);
+  // One sentence, plain text. A blank one draws no empty <p> and no gap.
+  const subheading = $derived(primary?.subheading?.trim() ?? "");
 </script>
 
 <section
@@ -173,93 +179,65 @@
         />
       </svg>
 
-      <!-- Padding 40/20/60/20 at 390 and 80/80/120/80 at 1440 — where the comp's
-           wrapper is a typed 1006 that its hugging band overruns by 5px, the
-           next band painting over the difference. 115 is the visible result. -->
-      <div class="{GUTTERS} pt-10 pb-[60px] lg:pt-20 lg:pb-[115px]">
-        <!-- DOM order is the 390 comp's and the reading order: headline and
-             buttons, then the list. From `lg` the list takes the left column
-             by placement; it holds nothing focusable, so focus order is the
-             same either way. -->
-        <div class="flex flex-col gap-[60px] lg:grid lg:grid-cols-[397fr_847fr] lg:gap-9">
-          <div class="flex flex-col items-start gap-10 lg:col-start-2 lg:row-start-1">
-            {#if lines.length > 0}
-              <!-- 390's 42/52.5 headline carries no style id and is not in the
-                   ramp; it renders in H2, the call PageMasthead already made.
-                   The space kept before each <br> is for everything that reads
-                   the TEXT — a search snippet, a copy — where a bare <br> welds
-                   "Experts.Since"; at a line's end it paints nothing. -->
-              <!-- The editor's soft break applies only where the comp's first
-                   line FITS. "San Antonio's Commercial" is 779px at 66px and
-                   the right column is (W − 196) × 847/1244, so it needs a
-                   layout of 1340 — and the layout is 15px narrower than the
-                   viewport wherever a scrollbar takes space, hence 1366 (which
-                   is also the commonest laptop width). Below that the break is
-                   `display: none` and the text flows: three lines at 1280
-                   ("San Antonio's / Commercial Real Estate / Experts. Since
-                   1983.") where the forced break made four, with "Experts."
-                   alone on a line and the band 76px taller than the comp. At
-                   390 the comp has no break either. -->
-              <h1 class="t-h2 text-light lg:t-h1">
-                {#each lines as line, i (i)}{#if i > 0}<br
-                      class="hidden min-[1366px]:inline"
-                    />{/if}{i < lines.length - 1 ? `${line} ` : line}{/each}
-              </h1>
-            {/if}
-            {#if buttons.length > 0}
-              <!-- The comp's `button light` with a pure-white override. "cream"
-                   is 5% of luminance off that and keeps the fill-on-hover every
-                   other button has; the comp's own hover here is the component's
-                   variants wired backwards. -->
-              <div class="flex flex-wrap gap-x-10 gap-y-5">
-                {#each buttons as button, i (i)}
-                  <BrandButton
-                    href={button.href}
-                    tone="cream"
-                    target={button.blank ? "_blank" : undefined}
-                    rel={button.blank ? "noopener noreferrer" : undefined}
-                  >
-                    {button.text}
-                  </BrandButton>
-                {/each}
-              </div>
-            {/if}
-          </div>
-
-          {#if hasList}
-            <!-- Every child of the comp's list is 30 from the next: label, rule,
-                 item, rule, item… The ramp class sits on an inner element so
-                 its cap-height trim is taken from the TEXT and not from outside
-                 the rule.
-
-                 The rule is the comp's 0.5px dust stroke (6806:50), and it is
-                 NOT a border: Chromium snaps `border-top-width: 0.5px` up to a
-                 whole CSS pixel — measured here at 1× AND at an emulated 2×,
-                 where it painted two solid device rows, double the comp's
-                 weight. A 1px box scaled to half paints what Figma paints: one
-                 crisp device row at 2×, one row at half strength at 1×. Out of
-                 flow, like the comp's zero-height line, so the 30s stay 30. -->
-            <div class="lg:col-start-1 lg:row-start-1 lg:max-w-[374px]">
-              {#if label}
-                <h2 id="{uid}-specialty" class="t-h5 text-light">{label}</h2>
-              {/if}
-              {#if specialties.length > 0}
-                <ul
-                  aria-labelledby={label ? `${uid}-specialty` : undefined}
-                  class="flex flex-col gap-[30px] {label ? 'mt-[30px]' : ''}"
+      <!-- Padding 40/20/60/20 at 390 and 80/80/65/80 at 1440. The revised
+           comp declares 120 at the foot, but its wrapper `Frame 202` is a
+           typed 920 that the band's hug overruns, and the next band paints
+           over the difference: 65 under the buttons is what it SHOWS (render,
+           855 → 920). The same rule gave the old band's 115 against its 120. -->
+      <div class="{GUTTERS} pt-10 pb-[60px] lg:pt-20 lg:pb-[65px]">
+        <!-- 30 between the three, as drawn (7091:650, vertical, gap 30). The
+             ramp's negative margins make the H1 occupy its cap box, so the gap
+             runs cap-box to subheading like Figma's: 124 + 30 + 24 + 30 at 1440. -->
+        <div class="flex flex-col items-start gap-[30px]">
+          {#if lines.length > 0}
+            <!-- 390's 42/52.5 headline carries no style id and is not in the
+                 ramp; it renders in H2, the call PageMasthead already made.
+                 The space kept before each <br> is for everything that reads
+                 the TEXT — a search snippet, a copy — where a bare <br> welds
+                 "CommercialReal"; at a line's end it paints nothing. -->
+            <!-- The editor's soft break applies from `lg`. The revised comp
+                 breaks after "Commercial" (U+2028 in 7091:651), and that break
+                 is FORCED there, not a wrap: in its 1280 box the words would
+                 wrap as "…Commercial Real Estate / Experts Since 1983."
+                 ("San Antonio's Commercial Real Estate" is 1141 at 66px). The
+                 longer line is the second, "Real Estate Experts Since 1983.",
+                 measured in Chromium on the served face — see
+                 tests/interaction/home-hero.spec.ts, which holds two lines at
+                 the narrowest `lg` layout, 1024 − 15 scrollbar − 64 gutters =
+                 945. Below `lg` the text is H2 and flows; the 390 comp has no
+                 break either. -->
+            <h1 class="t-h2 text-light lg:t-h1">
+              {#each spoken as line, i (i)}{#if i > 0}<br
+                    class="hidden lg:inline"
+                  />{/if}{line}{/each}
+            </h1>
+          {/if}
+          {#if subheading}
+            <!-- Body 1 (style 2763:58107, 400 16/24, untrimmed), the headline's
+                 own off-white: 7091:903. The client's note said "the size of
+                 consulting and brokerage", which was H5 caps in dust; the comp
+                 Nicole drew answers it with Body 1, and the comp is the call
+                 (operator D2). -->
+            <p class="t-body-1 text-light">{subheading}</p>
+          {/if}
+          {#if buttons.length > 0}
+            <!-- The comp's `button light` with a pure-white override. "cream"
+                 is 5% of luminance off that and keeps the fill-on-hover every
+                 other button has; the comp's own hover here is the component's
+                 variants wired backwards. 20 apart in the revision (7091:652),
+                 where the old band had 40. CMS order: PROPERTIES first, then
+                 CONTACT US, is the content's job (the seed and the fixture). -->
+            <div class="flex flex-wrap gap-5">
+              {#each buttons as button, i (i)}
+                <BrandButton
+                  href={button.href}
+                  tone="cream"
+                  target={button.blank ? "_blank" : undefined}
+                  rel={button.blank ? "noopener noreferrer" : undefined}
                 >
-                  <!-- Index-keyed: two specialties may read the same. -->
-                  {#each specialties as specialty, i (i)}
-                    <li
-                      data-home-hero-rule
-                      class="relative pt-[30px] before:absolute before:inset-x-0 before:top-0
-                        before:h-px before:origin-top before:scale-y-50 before:bg-dust"
-                    >
-                      <span class="t-h5 block text-dust">{specialty}</span>
-                    </li>
-                  {/each}
-                </ul>
-              {/if}
+                  {button.text}
+                </BrandButton>
+              {/each}
             </div>
           {/if}
         </div>

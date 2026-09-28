@@ -90,7 +90,7 @@ describe("BrandButton", () => {
 
   // The operator's 2026-09-22 call moved every button's light colour off dust
   // onto the tan. Dust is still a palette token and still TEXT on garnet
-  // (HomeHero's specialty line, the open menu's type), so a guard that only
+  // (the open menu's type), so a guard that only
   // checked the new colour would pass just as happily if a tone quietly went
   // back. This names the thing that must NOT be there.
   it("spends no dust in any tone — that is what moved, and it moved everywhere", () => {

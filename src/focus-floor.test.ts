@@ -49,7 +49,8 @@ describe("the focus ring follows its ground", () => {
   const LIGHT = ["background", "light", "white"] as const;
   /** Fills that are never a container's ground. `dust` was the buttons' hover
    *  fill until the operator moved their light colour to the tan on 2026-09-22;
-   *  its only `bg-dust` in src/ now is HomeHero's half-pixel rule. Either way a
+   *  HomeHero's half-pixel rule was its last `bg-dust` in src/, until the
+   *  revised hero dropped the specialty list on 2026-09-28. Either way a
    *  hover fill is `hover:bg-*`, which the scan below does not count. */
   const NOT_A_GROUND = ["dust", "transparent", "current"] as const;
 

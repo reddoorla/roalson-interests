@@ -30,8 +30,9 @@
   // off-white ground. What changed is which light token the swap lands on.
   //
   // Dust did not leave the palette, it left the BUTTONS. It is still text on
-  // garnet where the comp puts it: HomeHero's specialty line, the open menu's
-  // "Menu" eyebrow and its sub-labels, the menu links' underline. After this
+  // garnet where the comp puts it: the open menu's "Menu" eyebrow and its
+  // sub-labels, the menu links' underline (and, until the revised hero dropped
+  // it on 2026-09-28, HomeHero's specialty list). After this
   // change dust is a fill NOWHERE — CarouselProgress had already refused it
   // (its track is 1.73:1 on sand), so `theme-contrast.test.ts`'s FILL_PAIRS
   // moved to sand with it.

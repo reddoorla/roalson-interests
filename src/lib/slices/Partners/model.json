@@ -46,7 +46,7 @@
                 "type": "Text",
                 "config": {
                   "label": "Label",
-                  "placeholder": "e.g. Our portfolio"
+                  "placeholder": "e.g. Properties"
                 }
               },
               "link": {

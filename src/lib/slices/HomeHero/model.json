@@ -2,7 +2,7 @@
   "id": "home_hero",
   "type": "SharedSlice",
   "name": "HomeHero",
-  "description": "The top of the homepage: a pinned 528px hero, the RI cutout, and the garnet band with the headline, two buttons and the specialty list",
+  "description": "The top of the homepage: a pinned 528px hero, the RI cutout, and the garnet band with the headline, a one-sentence subheading and two buttons",
   "variations": [
     {
       "id": "default",
@@ -31,52 +31,36 @@
           "type": "StructuredText",
           "config": {
             "label": "Headline — Shift+Enter for a line break",
-            "placeholder": "San Antonio's Commercial Real Estate Experts. Since 1983.",
+            "placeholder": "San Antonio's Commercial Real Estate Experts Since 1983.",
             "single": "heading1"
+          }
+        },
+        "subheading": {
+          "type": "Text",
+          "config": {
+            "label": "Subheading — one sentence under the headline",
+            "placeholder": "A placeholder for a sentence to come."
           }
         },
         "buttons": {
           "type": "Group",
           "config": {
-            "label": "Buttons (the first two are shown)",
+            "label": "Buttons (the first two are shown; Properties first, then Contact us)",
             "repeat": true,
             "fields": {
               "label": {
                 "type": "Text",
                 "config": {
                   "label": "Label",
-                  "placeholder": "e.g. Contact us"
+                  "placeholder": "e.g. Properties"
                 }
               },
               "link": {
                 "type": "Link",
                 "config": {
-                  "label": "Link — a page on this site can be typed as a path, e.g. /contact",
-                  "placeholder": "/contact",
+                  "label": "Link — a page on this site can be typed as a path, e.g. /properties",
+                  "placeholder": "/properties",
                   "allowTargetBlank": true
-                }
-              }
-            }
-          }
-        },
-        "specialty_label": {
-          "type": "Text",
-          "config": {
-            "label": "List label",
-            "placeholder": "Our specialty"
-          }
-        },
-        "specialties": {
-          "type": "Group",
-          "config": {
-            "label": "Specialties",
-            "repeat": true,
-            "fields": {
-              "text": {
-                "type": "Text",
-                "config": {
-                  "label": "Specialty",
-                  "placeholder": "e.g. Consulting and brokerage"
                 }
               }
             }
