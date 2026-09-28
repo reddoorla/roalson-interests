@@ -43,8 +43,8 @@
   // The comp's per-section property map (#13): 397 x 595 in the Properties
   // page's left column at 1440, 350 x 200 above the cards at 390, 512 x 827
   // full-bleed on the homepage band and 390 x 200 full-bleed on its phone
-  // frame. Sold sections get none (the 1440 tree draws one and its wrapper is
-  // `visible: false`).
+  // frame. Past Projects (the comp's Sold section, `section.past`) gets none
+  // (the 1440 tree draws one and its wrapper is `visible: false`).
   //
   // WHAT IS SERVER-RENDERED IS A LIST, NEVER A BOX. #13's definition of done
   // says the no-JS state must not be a blank box, and the honest reading of
