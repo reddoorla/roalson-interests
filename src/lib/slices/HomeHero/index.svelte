@@ -24,8 +24,9 @@
   //
   // ONE slice, not two, because of how the comp moves: only the hero is sticky,
   // and `position: sticky` is bounded by its PARENT. Sharing a <section> with
-  // the band gives the hero exactly the band's height to stay pinned for (478px
-  // at 1440, 644 at 390) while the band — and the cutout riding on it — slides
+  // the band gives the hero exactly the band's height to stay pinned for (393px
+  // at 1440 and at 390 with the seeded copy; 478 and 644 before the revision)
+  // while the band — and the cutout riding on it — slides
   // up over it. As sibling slices in <main> the hero would pin for the whole
   // page and every later band would need an opaque ground forever.
   //
@@ -195,20 +196,28 @@
                  The space kept before each <br> is for everything that reads
                  the TEXT — a search snippet, a copy — where a bare <br> welds
                  "CommercialReal"; at a line's end it paints nothing. -->
-            <!-- The editor's soft break applies from `lg`. The revised comp
-                 breaks after "Commercial" (U+2028 in 7091:651), and that break
-                 is FORCED there, not a wrap: in its 1280 box the words would
-                 wrap as "…Commercial Real Estate / Experts Since 1983."
-                 ("San Antonio's Commercial Real Estate" is 1141 at 66px). The
-                 longer line is the second, "Real Estate Experts Since 1983.",
-                 measured in Chromium on the served face — see
-                 tests/interaction/home-hero.spec.ts, which holds two lines at
-                 the narrowest `lg` layout, 1024 − 15 scrollbar − 64 gutters =
-                 945. Below `lg` the text is H2 and flows; the 390 comp has no
-                 break either. -->
+            <!-- The editor's soft break applies from a 1040 viewport. The
+                 revised comp breaks after "Commercial" (U+2028 in 7091:651),
+                 and that break is FORCED there, not a wrap: in its 1280 box
+                 the words would wrap as "…Commercial Real Estate / Experts
+                 Since 1983." ("San Antonio's Commercial Real Estate" is 1132
+                 at 66px in Chromium). Measured on the served face: line one
+                 is 779, line two — "Real Estate Experts Since 1983." — is 943.
+
+                 WHY 1040 AND NOT `lg`. At the narrowest `lg` viewport, 1024,
+                 the column is 1024 − 15 scrollbar − 2 × 32 gutters = 945: line
+                 two fits by 2px in headless Chromium on Linux, and a 17px
+                 scrollbar or another platform's text metrics (1% of 943 is
+                 9px) would push "1983." onto a third line. From 1040 the
+                 column is 961, an 18px margin. Between 1024 and 1039 the text
+                 flows at 66px instead, as "San Antonio's Commercial Real /
+                 Estate Experts Since 1983." — also two lines, with a 17px
+                 margin. tests/interaction/home-hero.spec.ts holds both sides.
+                 Below `lg` the text is H2 and flows; the 390 comp has no break
+                 either. -->
             <h1 class="t-h2 text-light lg:t-h1">
               {#each spoken as line, i (i)}{#if i > 0}<br
-                    class="hidden lg:inline"
+                    class="hidden min-[1040px]:inline"
                   />{/if}{line}{/each}
             </h1>
           {/if}

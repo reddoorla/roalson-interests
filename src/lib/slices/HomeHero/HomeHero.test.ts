@@ -36,10 +36,12 @@ describe("HomeHero slice", () => {
     const [before, after] = h1.innerHTML.replace(/<!--.*?-->/g, "").split(/<br[^>]*>/);
     expect(before.trim()).toBe("San Antonio's Commercial");
     expect(after.trim()).toBe("Real Estate Experts Since 1983.");
-    // The break applies from `lg`, where the H1 is 66px and both lines fit;
-    // below it the text is H2 and flows — see the component.
+    // The break applies from a 1040 viewport, where both 66px lines fit with a
+    // margin; below it the text flows — see the component.
     const br = h1.querySelector("br")!;
-    expect(br.className.split(/\s+/)).toEqual(expect.arrayContaining(["hidden", "lg:inline"]));
+    expect(br.className.split(/\s+/)).toEqual(
+      expect.arrayContaining(["hidden", "min-[1040px]:inline"]),
+    );
     expect(h1.className).toContain("t-h2");
     expect(h1.className).toContain("lg:t-h1");
   });

@@ -236,7 +236,7 @@ test("with scripting off the footer is whole, and --footer-h is simply unset", a
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto(LIGHT, { waitUntil: "domcontentloaded" });
     const footer = page.locator("footer");
-    await expect(footer.locator("#footer-nav a")).toHaveText(["Our portfolio", "Contact us"]);
+    await expect(footer.locator("#footer-nav a")).toHaveText(["Properties", "Contact us"]);
     await expect(footer.locator("address")).toContainText("San Antonio, TX 78258");
     await expect(footer.getByRole("heading", { level: 2 })).toBeVisible();
     // A reader of the property must fall back to 0 — nothing ever wrote it.

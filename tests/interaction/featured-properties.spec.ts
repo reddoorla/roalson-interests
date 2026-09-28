@@ -340,21 +340,29 @@ test.describe("where the comp draws it", () => {
     }
   });
 
-  test("the card starts on the site's column line — the hero's h1 — at every lg width", async ({
+  // The line is read off the FOOTER's headline, which sits in the site's grid
+  // (`[397fr_847fr] gap-9`, the same gutters) at `lg:col-start-2`. It was the
+  // hero's H1 until the revised hero went one column (2026-09-28) and moved
+  // that H1 to the gutter — the anchor had to move, the line did not.
+  test("the card starts on the site's column line — the footer headline's — at every lg width", async ({
     page,
   }) => {
     for (const width of [1440, 1280, 1100, 1920]) {
       await page.setViewportSize(viewportFor(width));
       await page.goto(HOME);
-      const h1 = page.locator('[data-slice-type="home_hero"] h1');
+      const line = page.locator("footer h2");
+      await expect(line).toHaveCount(1);
       // Auto-retrying: the first read after a viewport change can be the old layout.
       await expect
         .poll(
           async () => {
-            const [a, b] = await Promise.all([h1.boundingBox(), page.locator(CARD).boundingBox()]);
+            const [a, b] = await Promise.all([
+              line.boundingBox(),
+              page.locator(CARD).boundingBox(),
+            ]);
             return Math.abs(a!.x - b!.x);
           },
-          { message: `card vs h1 left edge at ${width}` },
+          { message: `card vs the footer headline's left edge at ${width}` },
         )
         .toBeLessThanOrEqual(1);
       // …and the map's column is the rest of the band, flush against the card.
@@ -2344,7 +2352,7 @@ test.describe("the portfolio button", () => {
       await settledForAudit(page, card);
 
       const learn = card.getByRole("link", { name: /Learn more/ });
-      const portfolio = card.getByRole("link", { name: "Our portfolio" });
+      const portfolio = card.getByRole("link", { name: "Properties", exact: true });
       // Read after the scroll, not before: every assertion below is one box
       // against another, so the frame they share only has to be the same one.
       const [c, l, p] = await Promise.all([
@@ -2598,7 +2606,7 @@ test.describe("the other states", () => {
       // this band draws of its own, server-rendered like everything else here,
       // so a visitor without the bundle still has a way to all of them (#47).
       // It is a plain <a> in the markup: nothing about it waits on hydration.
-      const portfolio = card.getByRole("link", { name: "Our portfolio" });
+      const portfolio = card.getByRole("link", { name: "Properties", exact: true });
       await expect(portfolio).toBeVisible();
       await expect(portfolio).toHaveAttribute("href", "/properties");
       // The map's own links go to Google Maps by design (#13), and they are

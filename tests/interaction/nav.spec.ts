@@ -104,7 +104,7 @@ test("with scripting off, the floating bar stays on its dark band and the links 
     await expect(page.locator(menuTrigger), "the list below already is the menu").toBeHidden();
 
     const links = page.locator(`${bar} noscript a`);
-    await expect(links).toHaveText(["Our Properties", "Contact Us"]);
+    await expect(links).toHaveText(["Properties", "Contact Us"]);
     await expect(links.first()).toBeVisible();
     await expect(links.first()).toHaveCSS("color", SAND);
     // At this width the CTA is in the bar and already is the second link…
@@ -335,7 +335,7 @@ test("the open menu: named, focused, locked, clean under axe, and closed by Esca
   await expect(page.getByLabel("Close menu")).toBeFocused();
   await expect(page.locator("body")).toHaveCSS("overflow", "hidden");
 
-  await expect(menu.locator("ul a")).toHaveText(["Home", "Our Properties", "Contact Us"]);
+  await expect(menu.locator("ul a")).toHaveText(["Home", "Properties", "Contact Us"]);
   // The fixture is not a real destination, so nothing is current here…
   await expect(menu.locator('[aria-current="page"]')).toHaveCount(0);
 
@@ -371,7 +371,7 @@ test("the menu marks the page you are on", async ({ page }) => {
   await adopted(page);
   await page.getByLabel("Open menu").click();
   const current = page.getByRole("dialog", { name: "Menu" }).locator('[aria-current="page"]');
-  await expect(current).toHaveText(["Our Properties"]);
+  await expect(current).toHaveText(["Properties"]);
 });
 
 // ---------------------------------------------------------------------------
