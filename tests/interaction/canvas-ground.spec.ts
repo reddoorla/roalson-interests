@@ -2,7 +2,15 @@ import { expect, test, type Page } from "@playwright/test";
 import sharp from "sharp";
 
 import { hydrated } from "./hydrated";
-import { OFF_WHITE_HEX, OFF_WHITE_RGB, SAND_RGB } from "./palette";
+import {
+  DARK_HEX,
+  DARK_RGB,
+  GARNET_HEX,
+  GARNET_RGB,
+  OFF_WHITE_HEX,
+  OFF_WHITE_RGB,
+  SAND_RGB,
+} from "./palette";
 
 // THE GROUND PAST BOTH ENDS OF THE PAGE. A rubber-band overscroll on a Mac
 // pulls the scrolling contents away from the viewport and shows what is behind
@@ -84,10 +92,10 @@ import { OFF_WHITE_HEX, OFF_WHITE_RGB, SAND_RGB } from "./palette";
 // none → a listing detail). The real routes were checked by hand on a
 // production build; see docs/workJournal.md for the head bytes.
 
-/** #3d0707 — HomeHero's flat ground, the homepage's `canvasTop: "dark"`. */
-const DARK = [61, 7, 7];
-/** #652323 — PageMasthead's top gradient stop, `canvasTop: "primary"`. */
-const GARNET = [101, 35, 35];
+/** --color-dark — HomeHero's flat ground, the homepage's `canvasTop: "dark"`. */
+const DARK = DARK_RGB;
+/** --color-primary — PageMasthead's top gradient stop, `canvasTop: "primary"`. */
+const GARNET = GARNET_RGB;
 /** --color-light, sand: the footer's foot, and the ground past it. */
 const SAND = SAND_RGB;
 /** --color-background, the page ground. What BOTH ends used to show, and the
@@ -214,8 +222,8 @@ async function open(page: Page, url: string, width = 1455, height = 900) {
 
 test.describe("the ground ABOVE the top of the document", () => {
   const ROUTES = [
-    { url: "/dev/home", claim: "dark", colour: DARK, theme: "#3d0707" },
-    { url: "/dev/properties", claim: "primary", colour: GARNET, theme: "#652323" },
+    { url: "/dev/home", claim: "dark", colour: DARK, theme: DARK_HEX },
+    { url: "/dev/properties", claim: "primary", colour: GARNET, theme: GARNET_HEX },
   ] as const;
 
   for (const route of ROUTES) {

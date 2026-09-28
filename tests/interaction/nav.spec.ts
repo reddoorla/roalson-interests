@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { hydrated } from "./hydrated";
-import { OFF_WHITE, SAND } from "./palette";
+import { GARNET, OFF_WHITE, SAND } from "./palette";
 
 // The bar makes promises jsdom cannot check (see Nav.svelte) — three here, and
 // a fourth about the homepage alone, at the foot of this file:
@@ -20,7 +20,6 @@ import { OFF_WHITE, SAND } from "./palette";
 const DARK = "/dev/properties";
 const LIGHT = "/dev/property";
 
-const GARNET = "rgb(101, 35, 35)";
 // SAND (./palette) is what the floating bar's controls are drawn in. They were
 // DUST (#b2ac9f) until the operator moved every button's light colour to the
 // tan on 2026-09-22; on garnet that took them from 5.11:1 to 8.87:1, and the

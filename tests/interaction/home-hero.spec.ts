@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { hydrated } from "./hydrated";
-import { OFF_WHITE } from "./palette";
+import { DARK, OFF_WHITE } from "./palette";
 
 // The top of the homepage makes three promises jsdom cannot check (see
 // src/lib/slices/HomeHero/index.svelte):
@@ -33,8 +33,6 @@ import { OFF_WHITE } from "./palette";
 // the `reduce` case is its own test. Under `no-preference` app.css makes
 // scrollTo a smooth glide, so every scroll here is `behavior: "instant"`.
 const HOME = "/dev/home";
-
-const DARK = "rgb(61, 7, 7)";
 
 const bar = 'nav[aria-label="Primary"]';
 const section = '[data-slice-type="home_hero"]';
