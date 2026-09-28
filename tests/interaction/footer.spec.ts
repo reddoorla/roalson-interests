@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { HYDRATION_TIMEOUT } from "./hydrated";
+import { OFF_WHITE, SAND } from "./palette";
 
 // The footer makes promises jsdom cannot check (see Footer.svelte): where its
 // blocks sit against the comp, that the order flips on a phone, what ground it
@@ -19,9 +20,6 @@ import { HYDRATION_TIMEOUT } from "./hydrated";
 const LISTING = "/dev/properties";
 const FADE = "/dev/footer";
 const LIGHT = "/dev/property";
-
-const SAND = "rgb(232, 225, 209)";
-const OFF_WHITE = "rgb(242, 239, 233)";
 
 /** Half the leading the ramp trims off `t-h1` (80 line, 44 cap box). The comp
  *  measures from the CAP box, CSS from the line box. */

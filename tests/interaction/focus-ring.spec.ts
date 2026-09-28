@@ -1,6 +1,7 @@
 import { expect, test, type Locator } from "@playwright/test";
 import { expectRing, GARNET, OFF_WHITE } from "./expect-ring";
 import { HYDRATION_TIMEOUT, hydrated } from "./hydrated";
+import { SAND } from "./palette";
 
 /** `expectRing` for a property card's LEARN MORE, WITHOUT MOVING THE PAGE, and
  *  with the card's own ground read in the same synchronous block.
@@ -33,8 +34,6 @@ async function expectCardRing(card: Locator, ground: string, color: string) {
     )
     .toEqual({ ground, showing: true, color, width: "2px", style: "solid" });
 }
-
-const SAND = "rgb(232, 225, 209)";
 
 // The keyboard-focus ring is drawn OUTSIDE its element, so what it has to be
 // legible against is the container's ground. It was garnet on every ground —

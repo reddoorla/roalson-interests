@@ -2,6 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { expectRing, GARNET, OFF_WHITE } from "./expect-ring";
 import { hydrated } from "./hydrated";
+import { SAND } from "./palette";
 
 // The "Our Legacy" band makes promises jsdom cannot check (see
 // src/lib/slices/Partners/index.svelte):
@@ -33,8 +34,6 @@ import { hydrated } from "./hydrated";
 const LAUNCH = "/dev/home";
 const BIO = "/dev/home?bio";
 const FULL = "/dev/home?bio&photos";
-
-const SAND = "rgb(232, 225, 209)";
 
 const bar = 'nav[aria-label="Primary"]';
 const band = '[data-slice-type="partners"]';

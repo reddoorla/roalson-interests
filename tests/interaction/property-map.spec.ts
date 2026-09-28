@@ -1,6 +1,7 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
 
 import { hydrated } from "./hydrated";
+import { SAND } from "./palette";
 
 // THE PER-SECTION MAP (#13), in the only place its promises can be checked.
 //
@@ -636,8 +637,8 @@ test.describe("the engine, and what it costs", () => {
           wide: true,
           tall: true,
           background: GARNET,
-          // Sand on garnet: 8.87:1, the pair app.css's table already measures.
-          color: "rgb(232, 225, 209)",
+          // Sand on garnet: 9.38:1, the pair app.css's table already measures.
+          color: SAND,
         });
     } finally {
       await context.close();
