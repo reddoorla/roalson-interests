@@ -2,7 +2,7 @@ import { asLink, type PrismicDocument } from "@prismicio/client";
 
 import { isNetlifyMirrorHost } from "$lib/indexability";
 import { createClient, isPlaceholderRepo, linkResolver } from "$lib/prismicio";
-import { isSold } from "$lib/property";
+import { isListed } from "$lib/property";
 import type { RequestHandler } from "./$types";
 
 // Rendered PER REQUEST, not prerendered (#140): a prerendered sitemap lists the
@@ -33,10 +33,10 @@ export const GET: RequestHandler = async ({ fetch, url }) => {
 
   // One entry per routable document, its path from linkResolver so the sitemap
   // and the site can never disagree about where a document lives ("home"
-  // renders at "/"). Sold listings are left out: their pages stay up for links
-  // already shared, but carry noindex, and a sitemap that lists a noindexed URL
-  // contradicts itself. Empty on an unconfigured starter so the route works
-  // before Prismic is wired.
+  // renders at "/"). Only listed properties are in: a past project's page stays
+  // up for links already shared, but carries noindex (an archived one has no
+  // page), and a sitemap that lists a noindexed URL contradicts itself. Empty
+  // on an unconfigured starter so the route works before Prismic is wired.
   type Entry = { path: string; lastmod?: string };
   const toEntry = (doc: PrismicDocument) => ({
     path: asLink(doc, { linkResolver }) ?? "",
@@ -49,9 +49,7 @@ export const GET: RequestHandler = async ({ fetch, url }) => {
       client.getAllByType("page"),
       client.getAllByType("property"),
     ]);
-    docEntries = [...pages, ...properties.filter((p) => !isSold(p))]
-      .map(toEntry)
-      .filter((e) => e.path);
+    docEntries = [...pages, ...properties.filter(isListed)].map(toEntry).filter((e) => e.path);
   }
 
   // A static route carries no <lastmod>. While this was prerendered, build time

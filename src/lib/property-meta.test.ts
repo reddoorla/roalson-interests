@@ -6,8 +6,10 @@ import { propertyFixture } from "./property-fixture";
 const url = new URL("https://www.roalson.com/preview/properties/25331-ih-10-west?utm_source=email");
 
 describe("propertyMeta", () => {
-  it("noindexes a sold listing — and only a sold one", () => {
+  it("noindexes a past project, sold or marked — and only a listing no longer listed", () => {
     expect(propertyMeta(propertyFixture({ status: "Sold" }), url).noindex).toBe(true);
+    const marked = propertyFixture({ listing_state: "Past project" });
+    expect(propertyMeta(marked, url).noindex).toBe(true);
     expect(propertyMeta(propertyFixture({ status: "Under Contract" }), url).noindex).toBe(false);
     expect(propertyMeta(propertyFixture({ status: "Available" }), url).noindex).toBe(false);
   });

@@ -156,6 +156,14 @@ describe("toPayload", () => {
     expect(toPayload(entry).data).not.toHaveProperty("package_pdf");
   });
 
+  it("keeps an editor's listing_state on a re-run — PUT would wipe it", () => {
+    expect(entry.data).not.toHaveProperty("listing_state");
+    const live = { listing_state: "Past project" };
+    expect(toPayload(entry, {}, live).data.listing_state).toBe("Past project");
+    expect(toPayload(entry).data).not.toHaveProperty("listing_state");
+    expect(toPayload(entry, {}, { listing_state: null }).data).not.toHaveProperty("listing_state");
+  });
+
   it("names assets by listing, so a re-run finds them again", () => {
     expect(
       assetFilename("x", "package_pdf", { url: "https://www.roalson.com/props/A%20B/A%20B.pdf" }),

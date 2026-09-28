@@ -322,6 +322,7 @@ export function featuredPickFixture(
       data: {
         title: uid,
         status: "Available",
+        listing_state: null,
         size_label: null,
         feature_image: {},
         highlights: [],

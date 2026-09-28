@@ -24,37 +24,37 @@ describe("PropertyListing", () => {
     expect(regions.map((r) => r.getAttribute("aria-labelledby"))).toEqual([
       "listing-land",
       "listing-improved",
-      "listing-sold",
+      "listing-past",
     ]);
     const h2s = getAllByRole("heading", { level: 2 });
-    expect(h2s.map((h) => h.textContent)).toEqual(["Land", "Improved Projects", "Sold"]);
+    expect(h2s.map((h) => h.textContent)).toEqual(["Land", "Improved Projects", "Past Projects"]);
     h2s.forEach((h, i) => expect(h.id).toBe(regions[i].getAttribute("aria-labelledby")));
   });
 
-  it("features only the first card of each active section, and none in Sold", () => {
+  it("features only the first card of each active section, and none in Past Projects", () => {
     const { getAllByRole } = render(PropertyListing, { props: { sections: sections() } });
     for (const region of getAllByRole("region")) {
       const cards = [...region.querySelectorAll("article")];
       const garnet = cards.map((c) => /\bbg-primary\b/.test(c.className));
-      const sold = region.getAttribute("aria-labelledby") === "listing-sold";
-      expect(garnet).toEqual(cards.map((_, i) => i === 0 && !sold));
+      const past = region.getAttribute("aria-labelledby") === "listing-past";
+      expect(garnet).toEqual(cards.map((_, i) => i === 0 && !past));
     }
   });
 
   it("gives the flat cards the light token their section's ground does not use", () => {
     const { getAllByRole } = render(PropertyListing, { props: { sections: sections() } });
-    const [land, improved, sold] = getAllByRole("region");
+    const [land, improved, past] = getAllByRole("region");
     const flat = (region: HTMLElement) =>
       [...region.querySelectorAll("article")].filter((c) => !/\bbg-primary\b/.test(c.className));
     expect(flat(land).every((c) => /\bbg-light\b/.test(c.className))).toBe(true);
     expect(flat(improved).every((c) => /\bbg-background\b/.test(c.className))).toBe(true);
-    expect(flat(sold).every((c) => /\bbg-background\b/.test(c.className))).toBe(true);
-    expect(flat(land).length + flat(improved).length + flat(sold).length).toBe(6);
+    expect(flat(past).every((c) => /\bbg-background\b/.test(c.className))).toBe(true);
+    expect(flat(land).length + flat(improved).length + flat(past).length).toBe(7);
   });
 
-  it("links every active listing and none of the sold ones", () => {
+  it("links every active listing and none of the past ones", () => {
     const { getAllByRole } = render(PropertyListing, { props: { sections: sections() } });
-    const [land, improved, sold] = getAllByRole("region");
+    const [land, improved, past] = getAllByRole("region");
     // The map's own list is in the section too, one Google Maps link per pin
     // (#13) — the no-JS state PropertyMap server-renders. Excluded here so
     // this stays a statement about the CARDS: it used to read 4 and 2 by
@@ -66,8 +66,8 @@ describe("PropertyListing", () => {
         .filter((a) => !a.hasAttribute("data-map-link"));
     expect(cards(land!)).toHaveLength(4);
     expect(cards(improved!)).toHaveLength(2);
-    // Sold has no map either, so this stays an unqualified none.
-    expect(within(sold!).queryAllByRole("link")).toEqual([]);
+    // Past Projects has no map either, so this stays an unqualified none.
+    expect(within(past!).queryAllByRole("link")).toEqual([]);
   });
 
   it("pins every divider but the first, on large screens only, and never the first", () => {
@@ -91,10 +91,10 @@ describe("PropertyListing", () => {
     ]);
   });
 
-  it("lays the Sold section out as a grid and the active ones as a column beside the map", () => {
+  it("lays the Past Projects section out as a grid and the active ones as a column beside the map", () => {
     const { getAllByRole } = render(PropertyListing, { props: { sections: sections() } });
-    const [land, , sold] = getAllByRole("region");
-    expect(sold!.querySelector("ul")!.className).toMatch(/\blg:grid-cols-3\b/);
+    const [land, , past] = getAllByRole("region");
+    expect(past!.querySelector("ul")!.className).toMatch(/\blg:grid-cols-3\b/);
     // `:not([data-map-list])`: the map is FIRST in the grid, so its own list
     // of Google Maps links is the first <ul> in the section now. Reading
     // `querySelector("ul")` measured that one and said the cards had lost
@@ -104,9 +104,9 @@ describe("PropertyListing", () => {
     expect(cards.parentElement!.className).toMatch(/lg:grid-cols-\[397fr_847fr\]/);
   });
 
-  it("puts a map in column 1 of every active section and none in Sold (#13)", () => {
+  it("puts a map in column 1 of every active section and none in Past Projects (#13)", () => {
     const { getAllByRole } = render(PropertyListing, { props: { sections: sections() } });
-    const [land, improved, sold] = getAllByRole("region");
+    const [land, improved, past] = getAllByRole("region");
     for (const [name, section, pins] of [
       ["land", land!, 4],
       ["improved", improved!, 2],
@@ -136,7 +136,7 @@ describe("PropertyListing", () => {
         `${name}: the map precedes the first card`,
       ).toBeTruthy();
     }
-    expect(sold!.querySelector("[data-property-map]"), "Sold gets no map").toBeNull();
+    expect(past!.querySelector("[data-property-map]"), "Past Projects gets no map").toBeNull();
   });
 
   // ── the map pins, and its camera follows the cards ────────────────────────
@@ -276,7 +276,7 @@ describe("PropertyListing", () => {
   it("marks every card with the id the centre rule reports", () => {
     const groups = sections();
     const { getAllByRole } = render(PropertyListing, { props: { sections: groups } });
-    const [land, improved, sold] = getAllByRole("region");
+    const [land, improved, past] = getAllByRole("region");
     for (const [name, section, group] of [
       ["land", land!, groups[0]!],
       ["improved", improved!, groups[1]!],
@@ -297,8 +297,8 @@ describe("PropertyListing", () => {
         ),
       ).toBe(true);
     }
-    // Sold has no map, so nothing drives anything there.
-    expect(sold!.querySelectorAll(`[${CENTRE_ID}]`)).toHaveLength(0);
+    // Past Projects has no map, so nothing drives anything there.
+    expect(past!.querySelectorAll(`[${CENTRE_ID}]`)).toHaveLength(0);
   });
 
   // ── the garnet card travels with the centre rule ──────────────────────
@@ -411,7 +411,7 @@ describe("PropertyListing", () => {
       const groups = sections();
       const { getAllByRole } = render(PropertyListing, { props: { sections: groups } });
       await tick();
-      const [land, improved, sold] = getAllByRole("region");
+      const [land, improved, past] = getAllByRole("region");
 
       await rule.report(groups[0]!.properties[3]!.id);
       // The improved section was not asked about and did not move: a single
@@ -422,11 +422,11 @@ describe("PropertyListing", () => {
       expect(garnetIds(improved!)).toEqual([groups[1]!.properties[1]!.id]);
       expect(garnetIds(land!), "land keeps its own answer").toEqual([groups[0]!.properties[3]!.id]);
 
-      // Sold has no map, so `centreWatch` is disabled there and nothing is
+      // Past Projects has no map, so `centreWatch` is disabled there and nothing is
       // featured at all — before or after any of this.
-      expect(sold!.querySelectorAll(`[${CENTRE_ID}]`)).toHaveLength(0);
+      expect(past!.querySelectorAll(`[${CENTRE_ID}]`)).toHaveLength(0);
       expect(
-        [...sold!.querySelectorAll("article")].some((c) => /\bbg-primary\b/.test(c.className)),
+        [...past!.querySelectorAll("article")].some((c) => /\bbg-primary\b/.test(c.className)),
       ).toBe(false);
     } finally {
       vi.unstubAllGlobals();
@@ -464,5 +464,84 @@ describe("PropertyListing", () => {
     const { getByText, queryAllByRole } = render(PropertyListing, { props: { sections: [] } });
     expect(getByText(/No properties are listed/)).not.toBeNull();
     expect(queryAllByRole("region")).toEqual([]);
+  });
+});
+
+describe("PropertyListing view tabs", () => {
+  afterEach(() => history.replaceState(null, "", location.pathname));
+
+  const tabs = (container: HTMLElement) => [
+    ...container.querySelectorAll<HTMLAnchorElement>("[data-view-tab]"),
+  ];
+  const currentTab = (container: HTMLElement) =>
+    tabs(container)
+      .filter((a) => a.getAttribute("aria-current") === "true")
+      .map((a) => a.dataset.viewTab);
+
+  it("links Land, Improved Projects and All to their fragments, in that order, in a named group", () => {
+    const { container, getByRole } = render(PropertyListing, { props: { sections: sections() } });
+    expect(getByRole("group", { name: "Show listings" })).not.toBeNull();
+    expect(tabs(container).map((a) => a.getAttribute("href"))).toEqual([
+      "#land",
+      "#improved",
+      "#all",
+    ]);
+    expect(tabs(container).map((a) => a.textContent?.trim())).toEqual([
+      "Land",
+      "Improved Projects",
+      "All",
+    ]);
+  });
+
+  it("keeps every section in the DOM, each active one marked with its view", () => {
+    const { getAllByRole } = render(PropertyListing, { props: { sections: sections() } });
+    const regions = getAllByRole("region");
+    expect(regions.map((r) => r.dataset.viewSection ?? null)).toEqual(["land", "improved", null]);
+    expect(regions[2].hasAttribute("data-past")).toBe(true);
+  });
+
+  // A visible target would be scrolled to by every tab press.
+  it("puts the fragment targets, hidden, between the tab row and the first section", () => {
+    const { container } = render(PropertyListing, { props: { sections: sections() } });
+    const targets = [...container.querySelectorAll<HTMLElement>("[data-view-target]")];
+    expect(targets.map((t) => t.id)).toEqual(["land", "improved", "all"]);
+    expect(targets.every((t) => t.hidden)).toBe(true);
+    const group = container.querySelector('[role="group"]')!;
+    const firstSection = container.querySelector("section")!;
+    for (const t of targets) {
+      expect(group.compareDocumentPosition(t) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+      expect(
+        t.compareDocumentPosition(firstSection) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+    }
+  });
+
+  it("starts on All, follows the fragment, and ignores a fragment that names no view", async () => {
+    const { container } = render(PropertyListing, { props: { sections: sections() } });
+    const root = container.querySelector<HTMLElement>("[data-listing]")!;
+    await tick();
+    expect(currentTab(container)).toEqual(["all"]);
+    expect(root.dataset.view).toBe("all");
+
+    location.hash = "#improved";
+    window.dispatchEvent(new HashChangeEvent("hashchange"));
+    await tick();
+    expect(currentTab(container)).toEqual(["improved"]);
+    expect(root.dataset.view).toBe("improved");
+
+    // The skip link.
+    location.hash = "#main-content";
+    window.dispatchEvent(new HashChangeEvent("hashchange"));
+    await tick();
+    expect(root.dataset.view).toBe("improved");
+  });
+
+  it("draws no tab row with only one active section", () => {
+    const improvedOnly = sections().filter((s) => s.id !== "land");
+    const { container, queryByRole } = render(PropertyListing, {
+      props: { sections: improvedOnly },
+    });
+    expect(queryByRole("group", { name: "Show listings" })).toBeNull();
+    expect(container.querySelectorAll("[data-view-target]")).toHaveLength(0);
   });
 });

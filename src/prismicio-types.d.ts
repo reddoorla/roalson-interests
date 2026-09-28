@@ -271,7 +271,7 @@ export interface PropertyDocumentDataHighlightsItem {
    * Highlight field in *Property → Highlights*
    *
    * - **Field Type**: Text
-   * - **Placeholder**: One short line — the first two show on the card
+   * - **Placeholder**: One short line each; every line shows on the card. On a past project, this is where its notes go.
    * - **API ID Path**: property.highlights[].text
    * - **Documentation**: https://prismic.io/docs/fields/text
    */
@@ -349,7 +349,7 @@ interface PropertyDocumentData {
    * Status field in *Property*
    *
    * - **Field Type**: Select
-   * - **Placeholder**: Sold listings move to the Sold section and leave search results
+   * - **Placeholder**: Sold listings move to Past Projects and leave search results
    * - **Default Value**: Available
    * - **API ID Path**: property.status
    * - **Tab**: Main
@@ -359,6 +359,17 @@ interface PropertyDocumentData {
     "Available" | "Under Contract" | "Sold",
     "filled"
   >;
+
+  /**
+   * Show on the site as field in *Property*
+   *
+   * - **Field Type**: Select
+   * - **Placeholder**: Past project: moves to Past Projects at the bottom of Properties, with photo, address and bullets only (no price, no package, no link). Archived: hidden everywhere on the site.
+   * - **API ID Path**: property.listing_state
+   * - **Tab**: Main
+   * - **Documentation**: https://prismic.io/docs/fields/select
+   */
+  listing_state: prismic.SelectField<"Listed" | "Past project" | "Archived">;
 
   /**
    * New listing field in *Property*
@@ -768,7 +779,7 @@ export interface FeaturedPropertiesSliceDefaultPrimaryPropertiesItem {
    * Listing field in *FeaturedProperties → Default → Primary → Featured listings — shown in this order*
    *
    * - **Field Type**: Content Relationship
-   * - **Placeholder**: Pick a listing — only listings with a feature image are shown; sold ones are skipped
+   * - **Placeholder**: Pick a listing — only listings with a feature image are shown; past projects and archived listings are skipped
    * - **API ID Path**: featured_properties.default.primary.properties[].property
    * - **Documentation**: https://prismic.io/docs/fields/content-relationship
    */
@@ -779,6 +790,7 @@ export interface FeaturedPropertiesSliceDefaultPrimaryPropertiesItem {
         fields: [
           "title",
           "status",
+          "listing_state",
           "size_label",
           "feature_image",
           { id: "highlights"; fields: ["text"] },

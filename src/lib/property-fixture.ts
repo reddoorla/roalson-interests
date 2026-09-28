@@ -71,6 +71,7 @@ export function propertyFixture(
       title: "25331 IH 10 West",
       category: "Improved",
       status: "Available",
+      listing_state: null,
       is_new: true,
       order: 1,
       size_label: "Up to 16,700 SF",
@@ -119,8 +120,10 @@ export function propertyFixture(
 
 /** A small portfolio for the listing page: both land categories, improved
  *  listings with and without a photo, an order tie-breaker case, an empty
- *  order, and sold listings from BOTH categories so the Sold section proves it
- *  is a status, not a category. Titles are the outline's real listings.
+ *  order, sold listings from BOTH categories plus one MARKED past project so
+ *  Past Projects proves it is a state, not a category, and one archived land
+ *  listing inside the land cluster, so a leak shows as an extra card and pin.
+ *  Titles are the outline's real listings (the last two are invented).
  *
  *  THE COORDINATES ARE CONSTRUCTED, and deliberately. `propertyFixture` gives
  *  every listing 25331 IH 10 West's pin, so before the map (#13) every card on
@@ -209,6 +212,24 @@ export function propertyListingFixture(): PropertyDocument[] {
       size_label: "6.1 acres",
       feature_image: {},
       location: { latitude: 29.4692, longitude: -98.6621 },
+    }),
+    at("1604-bandera-road", {
+      title: "1604 & Bandera Road",
+      category: "Improved",
+      listing_state: "Past project",
+      order: 3,
+      is_new: true,
+      size_label: "48,000 SF",
+      location: { latitude: 29.5421, longitude: -98.6612 },
+    }),
+    at("archived-land", {
+      title: "Archived land tract",
+      category: "Land — SA Metro & Surrounding",
+      listing_state: "Archived",
+      order: 1,
+      is_new: false,
+      size_label: "9.9 acres",
+      location: { latitude: 29.53, longitude: -98.71 },
     }),
   ];
 }

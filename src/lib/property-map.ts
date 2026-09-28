@@ -22,7 +22,7 @@
 //                          277.0 km N-S, 101.7 km E-W
 //   improved   5 listings  lat 29.4254..29.6774  lng -98.6383..-98.3668
 //                          28.0 km N-S, 26.3 km E-W
-//   sold       0           (groupListings drops an empty section)
+//   past       0           (groupListings drops an empty section)
 //
 // Land does not fit one legible frame. At the comp's 397 x 595 panel the fit
 // zoom is 6.948, and at THAT zoom 32 of the 136 land pairs are closer than the

@@ -3,17 +3,17 @@
 // The band is a PHOTO-led slideshow, and the portfolio is not: on the day this
 // was written the live repository held 22 listings and exactly ONE feature
 // image (25331 IH 10 West). A listing with no photo would be a slide 542px
-// shorter than its neighbours, so it is dropped — as is a sold listing (its
-// card is unlinked everywhere else too), a relationship to a document that has
+// shorter than its neighbours, so it is dropped — as is a past project or an
+// archived listing (unlinked or hidden everywhere else too), a relationship to a document that has
 // since been unpublished, an empty row, and a listing picked twice. The
 // model's placeholder tells the editor so.
 //
 // HOW THE LISTINGS GET HERE. Slices do not fetch. The slice's model is a Group
 // of content relationships whose `customtypes` entry names the fields to embed
-// (title, status, size_label, feature_image, highlights.text, location), so the
-// page query that loads the `home` document brings each listing's fields along
-// inside the relationship, typed by the codegen — no second query, no loader
-// change, no `fetchLinks`.
+// (title, status, listing_state, size_label, feature_image, highlights.text,
+// location), so the page query that loads the `home` document brings each
+// listing's fields along inside the relationship, typed by the codegen — no
+// second query, no loader change, no `fetchLinks`.
 //
 // THAT EMBEDDING IS DOCUMENTED, NOT YET OBSERVED. No document in the live
 // repository holds this slice, so nothing here has seen the Content API answer
@@ -27,7 +27,7 @@ import { isFilled, type Content, type GeoPointField, type ImageField } from "@pr
 
 import { cmsHref } from "$lib/cms-href";
 import { linkResolver } from "$lib/prismicio";
-import { isSold, propertyHighlights } from "$lib/property";
+import { isListed, propertyHighlights } from "$lib/property";
 
 type FeaturedPick = Content.FeaturedPropertiesSliceDefaultPrimaryPropertiesItem;
 
@@ -81,8 +81,14 @@ export function featuredListings(
     if (title === "" || !isFilled.image(data.feature_image)) continue;
     // `highlights` is absent, not empty, if the embed ever carries the group
     // without its sub-field; the helpers take the structural minimum.
-    const listing = { data: { status: data.status, highlights: data.highlights ?? [] } };
-    if (isSold(listing)) continue;
+    const listing = {
+      data: {
+        status: data.status,
+        listing_state: data.listing_state ?? null,
+        highlights: data.highlights ?? [],
+      },
+    };
+    if (!isListed(listing)) continue;
 
     seen.add(property.id);
     slides.push({

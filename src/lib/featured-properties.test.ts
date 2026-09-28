@@ -84,6 +84,18 @@ describe("featuredListings", () => {
     expect(slides.map((s) => s.title)).toEqual(["pending", "unset"]);
   });
 
+  it("drops a past project and an archived listing, and keeps an unset or Listed state", () => {
+    const { slides } = featuredListings([
+      pick("past", { listing_state: "Past project" }),
+      pick("archived", { listing_state: "Archived" }),
+      pick("listed", { listing_state: "Listed" }),
+      pick("unset", { listing_state: null }),
+      // An embed that predates the field arrives without it at all.
+      pick("absent", { listing_state: undefined }),
+    ]);
+    expect(slides.map((s) => s.title)).toEqual(["listed", "unset", "absent"]);
+  });
+
   it("drops an empty row, a broken relationship, a title-less listing and a duplicate", () => {
     const empty = { property: { link_type: "Document" } } as never;
     const { slides, picked, unembedded } = featuredListings([

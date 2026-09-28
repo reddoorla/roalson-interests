@@ -483,7 +483,8 @@ main > section.hero-band:first-child {
    It is here and not in PropertyCard's class lists because a class there
    changes the server's markup for a card whose tone the server can never
    change. With no script `[data-centre-id]` cards never re-tone. Keyed to that
-   attribute, the rule also leaves out the Sold grid, whose cards never move.
+   attribute, the rule also leaves out the Past Projects grid, whose cards never
+   move.
    Under `prefers-reduced-motion: reduce` the `@layer base` block below cuts
    the duration to 0.01ms with `!important`, which beats anything unlayered
    here.
@@ -493,6 +494,42 @@ main > section.hero-band:first-child {
 [data-centre-id] > article > div:has(> img),
 [data-centre-id] [aria-label="Listing status"] > li {
   @apply transition-colors;
+}
+
+/* The Properties view tabs (PropertyListing.svelte). Each rule has two forms:
+   `data-view` once the component has hydrated, and `:target` before that or
+   with no script at all. A view hides the OTHER active sections; Past Projects
+   has no `data-view-section` and always shows. `display: none`, not `{#if}`,
+   so a hidden section's map keeps its state. property-listing.test.ts reads
+   one hide and one selected rule per view off this block. */
+[data-listing]:is([data-view="land"], :not([data-view]):has(#land:target))
+  section[data-view-section]:not([data-view-section="land"]),
+[data-listing]:is([data-view="improved"], :not([data-view]):has(#improved:target))
+  section[data-view-section]:not([data-view-section="improved"]) {
+  display: none;
+}
+
+/* Ghosted: secondary text, the AA pair on the off-white ground (garnet at
+   partial opacity is not). Selected: garnet fill, sand text — the button's
+   hover made permanent (8.87:1). */
+[data-view-tab] {
+  @apply border-transparent text-secondary hover:border-primary hover:text-primary;
+}
+[data-listing]:is([data-view="all"], :not([data-view]):not(:has(#land:target, #improved:target)))
+  [data-view-tab="all"],
+[data-listing]:is([data-view="land"], :not([data-view]):has(#land:target)) [data-view-tab="land"],
+[data-listing]:is([data-view="improved"], :not([data-view]):has(#improved:target))
+  [data-view-tab="improved"] {
+  @apply border-primary bg-primary text-light;
+}
+
+/* Land then Past Projects: warm the seam the second section's strip covers
+   under All. */
+[data-listing]:is([data-view="land"], :not([data-view]):has(#land:target))
+  section[data-past]
+  > div:first-child
+  > div:first-child {
+  @apply bg-gradient-to-b from-background to-light;
 }
 
 /* The two scrim layers $lib/components/PageMasthead.svelte draws over its

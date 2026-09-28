@@ -49,9 +49,9 @@ source. It is the fastest way to recognise what a thing does.
 | [`PageMasthead.svelte`](../src/lib/components/PageMasthead.svelte) | `title`, `image`, `preload` | 8 | The comp's `Masthead #1` as the Properties page wears it (6991:978 at 1440, 6992:2865 at 390): a 400px band — 240 on mobile — with the page's H1 sitting on the listing column's left edge, its baseline 72px above the band's bottom (44 on mobile, centred) |
 | [`PlayPauseGlyph.svelte`](../src/lib/components/PlayPauseGlyph.svelte) | `paused` | — | The pause / play glyph for every WCAG 2.2.2 control on this site — the carousel's (CarouselArrows) and the homepage hero's video (HeroBackgroundVideo) |
 | [`PreNavTransition.svelte`](../src/lib/components/PreNavTransition.svelte) | `duration`, `holdDuration` | 10 | ms the overlay fades in before the deferred navigation is issued |
-| [`PropertyCard.svelte`](../src/lib/components/PropertyCard.svelte) | `property`, `variant`, `layout` | 9 | The comp's `property` card, three tones |
-| [`PropertyDetail.svelte`](../src/lib/components/PropertyDetail.svelte) | `property` | 9 | The property page |
-| [`PropertyListing.svelte`](../src/lib/components/PropertyListing.svelte) | `sections` | 16 | The Properties page body: the comp's stacked sections (6903:1030 at 1440, 6992:2468 at 390), each a divider — a 2px garnet rule over an H3 label — and its listing |
+| [`PropertyCard.svelte`](../src/lib/components/PropertyCard.svelte) | `property`, `variant`, `layout` | 10 | The comp's `property` card, three tones |
+| [`PropertyDetail.svelte`](../src/lib/components/PropertyDetail.svelte) | `property` | 10 | The property page |
+| [`PropertyListing.svelte`](../src/lib/components/PropertyListing.svelte) | `sections` | 21 | The Properties page body: the comp's stacked sections (6903:1030 at 1440, 6992:2468 at 390), each a divider — a 2px garnet rule over an H3 label — and its listing |
 | [`PropertyMap.svelte`](../src/lib/components/PropertyMap.svelte) | `points`, `label`, `engine`, `tone`, `active`, `activeBy`, `onselect`, `interactive` | 56 | The comp's per-section property map (#13), with its ground tones EXPORTED from this module script as `MAP_TONES` |
 | [`RichTextBody.svelte`](../src/lib/components/RichTextBody.svelte) | `field` | 4 |  |
 | [`RichTextHeading.svelte`](../src/lib/components/RichTextHeading.svelte) | `node`, `children` | — |  |
@@ -64,7 +64,7 @@ source. It is the fastest way to recognise what a thing does.
 | [`TransitionOverlay.svelte`](../src/lib/components/TransitionOverlay.svelte) | `visibleDuration`, `fadeInDuration`, `fadeOutDuration`, `so` | 9 | ms the cover holds once the incoming route has arrived |
 | [`TurnstileWidget.svelte`](../src/lib/components/TurnstileWidget.svelte) | — | 6 |  |
 | [`VimeoBanner.svelte`](../src/lib/components/VimeoBanner.svelte) | `vimeoId`, `poster`, `alt` | 7 | Full-bleed background-video banner |
-| [`featured-properties.ts`](../src/lib/featured-properties.ts) | `featuredListings` | 8 | Which of the editor's picks the homepage's featured band can actually show |
+| [`featured-properties.ts`](../src/lib/featured-properties.ts) | `featuredListings` | 9 | Which of the editor's picks the homepage's featured band can actually show |
 | [`home-fixture.ts`](../src/lib/home-fixture.ts) | `HOME_POSTER_FIXTURE`, `HOME_VIMEO_FIXTURE`, `homeHeroFixture`, `HOME_PHOTO_FIXTURE`, `photoBandFixture`, `PARTNER_PHOTO_FIXTURE`, `PARTNER_BIO_FIXTURE`, `partnerFixture`, `partnersFixture`, `partnersFixtureState`, `featuredPickFixture`, `featuredPropertiesFixture`, `featuredLaunchFixture`, `stageFeatured`, `homeFixture` | — | The homepage as fixture data — what /dev/home renders through the real layout, and what /dev/a11y-fixtures and the unit tests build on |
 | [`home-page.ts`](../src/lib/home-page.ts) | `splitHomeHero` | 5 | The home route's shape, as data |
 | [`index.ts`](../src/lib/index.ts) | — | — | place files you want to import through the `$lib` alias in this folder |
@@ -78,11 +78,11 @@ source. It is the fastest way to recognise what a thing does.
 | [`prismicio.ts`](../src/lib/prismicio.ts) | `repositoryName`, `isPlaceholderRepo`, `linkResolver`, `createClient` | 6 |  |
 | [`property-fixture.ts`](../src/lib/property-fixture.ts) | `PROPERTIES_MASTHEAD_FIXTURE`, `propertyFixture`, `propertyListingFixture` | — |  |
 | [`property-listing-load.ts`](../src/lib/property-listing-load.ts) | `LISTING_TITLE`, `LISTING_DESCRIPTION`, `emptyListing`, `loadPropertyListing` | 3 |  |
-| [`property-listing.ts`](../src/lib/property-listing.ts) | `LISTING_SECTIONS`, `SOLD_SECTION`, `listingOrder`, `groupListings` | 8 |  |
-| [`property-load.ts`](../src/lib/property-load.ts) | `loadProperty` | 3 |  |
+| [`property-listing.ts`](../src/lib/property-listing.ts) | `LISTING_SECTIONS`, `PAST_SECTION`, `LISTING_VIEWS`, `listingViews`, `viewFromHash`, `listingOrder`, `groupListings` | 13 |  |
+| [`property-load.ts`](../src/lib/property-load.ts) | `loadProperty` | 5 |  |
 | [`property-map.ts`](../src/lib/property-map.ts) | `DEFAULT_MAP_STYLE_URL`, `mapStyleUrl`, `MAP_TILE_HOST`, `sectionPoints`, `slidePoints`, `WORLD_TILE_SIZE`, `worldSize`, `projectX`, `projectY`, `unprojectLng`, `unprojectLat`, `pixelDistance`, `MAP_FRAMES`, `COMPACT_MAX_HEIGHT`, `frameFor`, `MAP_HOME`, `homeMarkers`, `homeCamera`, `homeFrames`, `fitCamera`, `CAMERA_FLIGHT_MS`, `activeTarget`, `cameraMove`, `WHEEL_QUIET_MS`, `WHEEL_SLOP_PX`, `wheelRun`, `clusterPoints`, `expansionZoom`, `clusterSignature`, `PIN_VIEWBOX`, `PIN_PATH`, `PIN_HOLE`, `PIN_ASPECT`, `clusterDiameter`, `MAP_HOME_FADE_MS`, `MAP_HOME_GROUND` | 80 | Everything the per-section map knows that is NOT MapLibre (#13) |
 | [`property-meta.ts`](../src/lib/property-meta.ts) | `propertyDescription`, `propertyJsonLd`, `propertyMeta` | 8 |  |
-| [`property.ts`](../src/lib/property.ts) | `PROPERTY_CATEGORIES`, `PROPERTY_STATUSES`, `isSold`, `statusLabel`, `propertyHighlights`, `propertyFacts`, `propertyTracts`, `propertyPackage`, `mapsUrl` | 15 |  |
+| [`property.ts`](../src/lib/property.ts) | `PROPERTY_CATEGORIES`, `PROPERTY_STATUSES`, `LISTING_STATES`, `isArchived`, `isPastProject`, `isListed`, `statusLabel`, `propertyHighlights`, `propertyFacts`, `propertyTracts`, `propertyPackage`, `mapsUrl` | 19 |  |
 | [`seo.ts`](../src/lib/seo.ts) | `SITE_NAME`, `SITE_LOCALE`, `DEFAULT_DESCRIPTION`, `DEFAULT_OG_IMAGE`, `DEFAULT_OG_IMAGE_ALT`, `OG_IMAGE_WIDTH`, `OG_IMAGE_HEIGHT`, `NOINDEX_PREFIXES`, `isNoindexPath`, `isNoindexPage`, `NOINDEX_ENFORCED`, `composeTitle`, `jsonLdScript`, `canonicalUrl`, `resolveOgImage`, `organizationJsonLd` | 26 | Site-wide SEO configuration + helpers |
 | [`reply-copy.ts`](../src/lib/server/reply-copy.ts) | `replyCopyFor` | — |  |
 | [`site-config.ts`](../src/lib/site-config.ts) | `loadSiteConfig`, `FOOTER_NAV_ID`, `footerNav` | 11 | Site chrome (navigation + footer) from a checked-in JSON file |
@@ -100,4 +100,4 @@ source. It is the fastest way to recognise what a thing does.
 | [`vimeo.ts`](../src/lib/utils/vimeo.ts) | `checkVimeoVideo`, `parseVimeoId` | 11 | True when the Vimeo video exists and is embeddable (oEmbed responds 200) |
 | [`vimeoBackground.svelte.ts`](../src/lib/utils/vimeoBackground.svelte.ts) | `VIMEO_PLAYER_ORIGIN`, `backgroundEmbedSrc`, `VimeoBackground` | 5 | The gate, the heartbeat and the pause flag behind every chrome-less Vimeo background embed in this repo — lifted OUT of VimeoBanner.svelte so the homepage hero could have all three without taking VimeoBanner's markup with them |
 
-82 modules, 783 tests behind them.
+82 modules, 802 tests behind them.
