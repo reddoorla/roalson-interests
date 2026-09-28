@@ -1236,3 +1236,84 @@ describe("which scroll a wheel event belongs to", () => {
     expect(run.mine).toBe(true);
   });
 });
+
+// Plan guard 2i (#174): the control column (+, −, expand) sits bottom-right
+// over the map, and MAP_FRAMES' right padding is only 44/26, so a pin could
+// open UNDER a control and be unpressable. At MAP_HOME, at rest, over the real
+// portfolio, no marker's centre may sit in the column's targets. The column's
+// geometry is property-map.spec.ts's "the control column": three 44px targets
+// stacked flush with the map's right and bottom edges. Measured 2026-09-28:
+// on the full frame the tightest clearance is 36.8px (the land panel).
+describe("no marker opens under the control column (plan guard 2i)", () => {
+  const COLUMN = { width: 44, height: 3 * 44 };
+  /** The homepage band's picks (scripts/seed/pages.json). */
+  const bandPicks = improved.filter((p) =>
+    ["25331-ih-10-west", "101-w-commerce-street", "13810-lookout-road"].includes(p.id),
+  );
+  // Every box each frame is drawn at: the full frame's fixed panel and the
+  // band's measured slots (map-home.ts), and the compact frame at every width
+  // below `lg`.
+  const FULL: Box[] = [
+    PANEL,
+    BAND,
+    { width: 513, height: 843.4 },
+    { width: 753, height: 983.6 },
+    { width: 1073, height: 1170.5 },
+  ];
+  const COMPACT: Box[] = [];
+  for (let width = 350; width <= 1023; width++) COMPACT.push({ width, height: 200 });
+
+  const underColumn = (points: MapPoint[], frame: "full" | "compact", boxes: Box[]) => {
+    const { pin } = MAP_FRAMES[frame];
+    const hits: string[] = [];
+    for (const box of boxes)
+      for (const m of homeMarkers(points, frame)) {
+        // A pin is anchored at its tip; a cluster disc at its centre.
+        const x = box.width / 2 + m.dx;
+        const y = box.height / 2 + m.dy - (m.point ? (pin * PIN_ASPECT) / 2 : 0);
+        if (x > box.width - COLUMN.width && x <= box.width)
+          if (y > box.height - COLUMN.height && y <= box.height)
+            hits.push(`${m.id} at ${box.width} x ${box.height}`);
+      }
+    return hits;
+  };
+
+  it("the improved section, at every Properties box", () => {
+    expect(underColumn(improved, "full", [PANEL])).toEqual([]);
+    expect(underColumn(improved, "compact", COMPACT)).toEqual([]);
+  });
+
+  // FOUND BY THIS GUARD, NOT FIXED HERE: on a compact Properties map 358 to
+  // 445 wide (a 398-485px phone; the 430px Pro Max is one), the Seguin pin's
+  // centre is under the − target. Confirmed in Chromium on the live /properties
+  // at 430: the pin's centre, (366.3, 115.8) in a 375 x 200 box, hit-tests to
+  // `zoom-out`. Moving the camera or the column is a design call, so this list
+  // pins the known collision exactly: a new one, or the fix, turns it red.
+  const SEGUIN_UNDER_MINUS = Array.from(
+    { length: 445 - 358 + 1 },
+    (_, i) => `ih-10-at-fm-725-seguin at ${358 + i} x 200`,
+  );
+  it("the land section, at every Properties box: only the known Seguin collision", () => {
+    expect(underColumn(land, "full", [PANEL])).toEqual([]);
+    expect(underColumn(land, "compact", COMPACT)).toEqual(SEGUIN_UNDER_MINUS);
+  });
+
+  it("the homepage band's picks, at every band box", () => {
+    expect(bandPicks).toHaveLength(3);
+    expect(underColumn(bandPicks, "full", FULL)).toEqual([]);
+    expect(underColumn(bandPicks, "compact", COMPACT)).toEqual([]);
+  });
+
+  // Guard the guard: a marker put in the middle target (the −) is found.
+  it("finds a marker placed under the column", () => {
+    const { camera } = MAP_HOME.full;
+    const [x, y] = [PANEL.width - 22, PANEL.height - 66 + (48 * PIN_ASPECT) / 2];
+    const probe = {
+      ...land[0]!,
+      id: "probe",
+      lng: unprojectLng(projectX(camera.lng, camera.zoom) + x - PANEL.width / 2, camera.zoom),
+      lat: unprojectLat(projectY(camera.lat, camera.zoom) + y - PANEL.height / 2, camera.zoom),
+    };
+    expect(underColumn([probe], "full", [PANEL])).toEqual(["probe at 397 x 595"]);
+  });
+});
