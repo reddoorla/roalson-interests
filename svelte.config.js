@@ -7,6 +7,8 @@ const slicemachine = JSON.parse(
   readFileSync(new URL("./slicemachine.config.json", import.meta.url), "utf-8"),
 );
 const PLACEHOLDER_SENTINEL = "your-prismic-repo-name";
+// Written by $lib/property-load for each archived listing it 404s (#176).
+const ARCHIVED_LISTINGS = Symbol.for("roalson.archivedListings");
 const isPlaceholderRepo =
   (process.env.VITE_PRISMIC_ENVIRONMENT || slicemachine.repositoryName) === PLACEHOLDER_SENTINEL;
 
@@ -53,6 +55,18 @@ const config = {
       handleHttpError: ({ path, status, message, referrer }) => {
         if (isPlaceholderRepo && status === 404) {
           return;
+        }
+        // An editor's "Archived" takes a listing's page away, and a page that
+        // still links to it would otherwise fail the deploy as a bare 404.
+        const uid = /^\/properties\/([^/]+)\/?$/.exec(path)?.[1];
+        const g = /** @type {{ [ARCHIVED_LISTINGS]?: Set<string> }} */ (globalThis);
+        if (status === 404 && uid && g[ARCHIVED_LISTINGS]?.has(uid)) {
+          throw new Error(
+            `${status} ${path}${referrer ? ` (linked from ${referrer})` : ""}: the listing ` +
+              `"${uid}" is set to Archived in Prismic ("Show on the site as"), so it has no ` +
+              `page, and ${referrer ?? "a prerendered page"} still links to it. Remove that ` +
+              "link, or set the listing to Listed or Past project, then redeploy.",
+          );
         }
         throw new Error(
           `${status} ${path}${referrer ? ` (linked from ${referrer})` : ""}: ${message}`,

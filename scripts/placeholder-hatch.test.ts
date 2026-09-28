@@ -15,13 +15,32 @@ import { dirname, resolve } from "node:path";
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const SENTINEL = "your-prismic-repo-name";
 
+/** Node's own runtime warnings — `(node:123) [UNDICI-EHPA] Warning: …`, an
+ *  ExperimentalWarning, a DeprecationWarning — plus the one `(Use \`node
+ *  --trace-…\`)` hint line after them. The environment prints these, not the
+ *  guard: `NODE_USE_ENV_PROXY=1`, which a proxied cloud container needs for the
+ *  build's Prismic fetches, puts one on EVERY child Node (#165). Only whole
+ *  lines in exactly that shape go; anything else, the guard's throw included,
+ *  survives. */
+const NODE_WARNING = /^\(node:\d+\) (?:\[[\w-]+\] )?\w*Warning: .*$/;
+const TRACE_HINT = /^\(Use `node --trace-[\w-]+ \.\.\.` to show where the warning was created\)$/;
+function withoutNodeWarnings(stderr: string): string {
+  return stderr
+    .split("\n")
+    .filter((line) => !NODE_WARNING.test(line) && !TRACE_HINT.test(line))
+    .join("\n")
+    .trim();
+}
+
 /** Import `file` in a child Node with exactly the env described. `CI`,
  *  `NETLIFY` and the hatch are always stripped first so the CONTROL case is a
  *  real control even when vitest itself runs under Actions (where `CI=true` is
- *  inherited) or on a machine whose shell exports the hatch. */
+ *  inherited) or on a machine whose shell exports the hatch. `warn` has the
+ *  child print a Node warning of its own before the import, so the tolerance
+ *  above is exercised whatever the machine running vitest exports. */
 function importUnder(
   file: string,
-  env: { ci?: boolean; netlify?: boolean; hatch?: boolean },
+  env: { ci?: boolean; netlify?: boolean; hatch?: boolean; warn?: boolean },
 ): { status: number | null; stderr: string } {
   const child = { ...process.env };
   delete child.CI;
@@ -30,7 +49,8 @@ function importUnder(
   if (env.ci) child.CI = "true";
   if (env.netlify) child.NETLIFY = "true";
   if (env.hatch) child.VITE_PRISMIC_ENVIRONMENT = SENTINEL;
-  const r = spawnSync(process.execPath, ["-e", `import(${JSON.stringify(file)})`], {
+  const warn = env.warn ? `process.emitWarning("probe", "ExperimentalWarning");` : "";
+  const r = spawnSync(process.execPath, ["-e", `${warn}import(${JSON.stringify(file)})`], {
     cwd: repoRoot,
     env: child,
     encoding: "utf-8",
@@ -47,19 +67,19 @@ const FILES = [
 describe.each(FILES)("$label placeholder hatch", ({ file }) => {
   it("loads cleanly with neither the hatch nor CI set (the control)", () => {
     const r = importUnder(file, {});
-    expect(r.stderr).toBe("");
+    expect(withoutNodeWarnings(r.stderr)).toBe("");
     expect(r.status).toBe(0);
   });
 
   it("loads cleanly with the hatch set on a developer machine (its one legitimate use)", () => {
     const r = importUnder(file, { hatch: true });
-    expect(r.stderr).toBe("");
+    expect(withoutNodeWarnings(r.stderr)).toBe("");
     expect(r.status).toBe(0);
   });
 
   it("loads cleanly in CI without the hatch (a wired site, or the sentinel in the config file)", () => {
     const r = importUnder(file, { ci: true });
-    expect(r.stderr).toBe("");
+    expect(withoutNodeWarnings(r.stderr)).toBe("");
     expect(r.status).toBe(0);
   });
 
@@ -75,5 +95,29 @@ describe.each(FILES)("$label placeholder hatch", ({ file }) => {
     const r = importUnder(file, { hatch: true, netlify: true });
     expect(r.status).not.toBe(0);
     expect(r.stderr).toMatch(/local-only/i);
+  });
+
+  it("loads cleanly when the child Node prints a runtime warning of its own (#165)", () => {
+    const r = importUnder(file, { warn: true });
+    expect(r.stderr).toMatch(/ExperimentalWarning: probe/);
+    expect(withoutNodeWarnings(r.stderr)).toBe("");
+    expect(r.status).toBe(0);
+  });
+});
+
+describe("withoutNodeWarnings", () => {
+  it("strips Node's warning lines and hint, and keeps every other line", () => {
+    const stderr = [
+      "(node:9156) [UNDICI-EHPA] Warning: EnvHttpProxyAgent is experimental, expect them to change at any time.",
+      "(Use `node --trace-warnings ...` to show where the warning was created)",
+      "(node:9156) [DEP0040] DeprecationWarning: The `punycode` module is deprecated.",
+      "Error: VITE_PRISMIC_ENVIRONMENT=your-prismic-repo-name is a local-only hatch",
+      "    at file:///svelte.config.js:22:9",
+      "",
+    ].join("\n");
+    expect(withoutNodeWarnings(stderr)).toBe(
+      "Error: VITE_PRISMIC_ENVIRONMENT=your-prismic-repo-name is a local-only hatch\n" +
+        "    at file:///svelte.config.js:22:9",
+    );
   });
 });

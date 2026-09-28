@@ -2,11 +2,8 @@ import { describe, expect, it } from "vitest";
 import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-// @ts-expect-error — plain ESM scripts, no declarations
 import { toPayload } from "./people.mjs";
-// @ts-expect-error — plain ESM scripts, no declarations
 import { imageRefs } from "./pages.mjs";
-// @ts-expect-error — plain ESM scripts, no declarations
 import { stagedByType } from "./publish-release.mjs";
 
 type Person = { uid: string; data: Record<string, unknown>; source: Record<string, string> };

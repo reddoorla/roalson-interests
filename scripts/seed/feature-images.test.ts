@@ -1,13 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import {
-  chooseFeatureImage,
-  locate,
-  pageCandidates,
-  parseImageList,
-  // @ts-expect-error — plain ESM scripts, no declarations
-} from "./feature-images.mjs";
+import { chooseFeatureImage, locate, pageCandidates, parseImageList } from "./feature-images.mjs";
 
 type Entry = {
   uid: string;
