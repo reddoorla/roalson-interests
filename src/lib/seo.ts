@@ -18,12 +18,16 @@ export const DEFAULT_DESCRIPTION = "";
  *  Reddoor-branded default is deliberately NOT shipped, since every cloned
  *  site would then leak the Reddoor card until the owner replaced it.
  *
- *  `/og-card.png` is composed from `static/logo-reverse.svg`, this site's own
+ *  The card is composed from `static/logo-reverse.svg`, this site's own
  *  reverse wordmark, on `--color-primary`. It is EXACTLY 1200x630 because a
  *  static card is the one image this stack never resizes: `imgix()` returns a
  *  non-Prismic URL unchanged, so the committed bytes are what every crawler
- *  downloads. Re-compose it, do not scale it. */
-export const DEFAULT_OG_IMAGE = "/og-card.png";
+ *  downloads. Re-compose it, do not scale it.
+ *
+ *  The name carries the first 8 hex of the file's sha256 (#167). Facebook,
+ *  LinkedIn and X cache a card by URL, so new bytes at an old path keep
+ *  showing the old card; og-card.test.ts fails until the name follows. */
+export const DEFAULT_OG_IMAGE = "/og-card-aa09dd5f.png";
 
 /** Alt text for that card, and only for it. `Seo.svelte` otherwise falls back
  *  to the page title, which describes the PAGE and not this image — every
