@@ -19,8 +19,8 @@
   //             interaction gates use it.
   //   ?bare     a `home` document with NO hero slice: the route still opens on
   //             the dark 528px ground its `navOver` claim promises.
-  //   ?bio      the first partner has a bio, so ONE card carries PROFILE and the
-  //             other does not. No bio is the default: it is the launch state.
+  //   ?profile  the first partner links a Person page, so ONE card carries
+  //             PROFILE and the other does not.
   //   ?photos   both partner cards carry a headshot — a generated drawing (the
   //             comp's two are placeholders, #3). Launch has none.
   //   ?photo    with a picture in the photo band — again a drawing, not the
@@ -54,8 +54,8 @@
       ),
       params.get("featured"),
     ).map((slice) =>
-      slice.slice_type === "partners" && (params.has("bio") || params.has("photos"))
-        ? partnersFixtureState({ bio: params.has("bio"), photos: params.has("photos") })
+      slice.slice_type === "partners" && (params.has("profile") || params.has("photos"))
+        ? partnersFixtureState({ profile: params.has("profile"), photos: params.has("photos") })
         : slice,
     ),
   );

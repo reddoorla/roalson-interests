@@ -41,8 +41,11 @@ describe("linkResolver", () => {
     expect(linkResolver(doc("property", "home"))).toBe("/properties/home");
   });
 
+  it("resolves person docs to /team/:uid", () => {
+    expect(linkResolver(doc("person", "matt-howard"))).toBe("/team/matt-howard");
+  });
+
   it("returns null for types with no route", () => {
-    expect(linkResolver(doc("person", "dr-quan"))).toBeNull();
     expect(linkResolver(doc("settings", "x"))).toBeNull();
     expect(linkResolver(doc("form_replies", "x"))).toBeNull();
   });

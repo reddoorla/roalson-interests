@@ -47,6 +47,7 @@ source. It is the fastest way to recognise what a thing does.
 | [`Modal.svelte`](../src/lib/components/Modal.svelte) | `open`, `onclose`, `label`, `labelledby`, `children` | 16 | Accessible name for the dialog |
 | [`Nav.svelte`](../src/lib/components/Nav.svelte) | `items`, `logo`, `cta`, `over`, `wordmark`, `currentPath` | 33 | The site's bar and its menu |
 | [`PageMasthead.svelte`](../src/lib/components/PageMasthead.svelte) | `title`, `image`, `preload` | 8 | The comp's `Masthead #1` as the Properties page wears it (6991:978 at 1440, 6992:2865 at 390): a 400px band — 240 on mobile — with the page's H1 sitting on the listing column's left edge, its baseline 72px above the band's bottom (44 on mobile, centred) |
+| [`PersonProfile.svelte`](../src/lib/components/PersonProfile.svelte) | `person` | 5 | A partner's profile page, /team/<uid> (F4, operator 2026-09-28) |
 | [`PlayPauseGlyph.svelte`](../src/lib/components/PlayPauseGlyph.svelte) | `paused` | — | The pause / play glyph for every WCAG 2.2.2 control on this site — the carousel's (CarouselArrows) and the homepage hero's video (HeroBackgroundVideo) |
 | [`PreNavTransition.svelte`](../src/lib/components/PreNavTransition.svelte) | `duration`, `holdDuration` | 10 | ms the overlay fades in before the deferred navigation is issued |
 | [`PropertyCard.svelte`](../src/lib/components/PropertyCard.svelte) | `property`, `variant`, `layout` | 10 | The comp's `property` card, three tones |
@@ -65,7 +66,7 @@ source. It is the fastest way to recognise what a thing does.
 | [`TurnstileWidget.svelte`](../src/lib/components/TurnstileWidget.svelte) | — | 6 |  |
 | [`VimeoBanner.svelte`](../src/lib/components/VimeoBanner.svelte) | `vimeoId`, `poster`, `alt` | 7 | Full-bleed background-video banner |
 | [`featured-properties.ts`](../src/lib/featured-properties.ts) | `featuredListings` | 9 | Which of the editor's picks the homepage's featured band can actually show |
-| [`home-fixture.ts`](../src/lib/home-fixture.ts) | `HOME_POSTER_FIXTURE`, `HOME_VIMEO_FIXTURE`, `homeHeroFixture`, `HOME_PHOTO_FIXTURE`, `photoBandFixture`, `PARTNER_PHOTO_FIXTURE`, `PARTNER_BIO_FIXTURE`, `partnerFixture`, `partnersFixture`, `partnersFixtureState`, `featuredPickFixture`, `featuredPropertiesFixture`, `featuredLaunchFixture`, `stageFeatured`, `homeFixture` | — | The homepage as fixture data — what /dev/home renders through the real layout, and what /dev/a11y-fixtures and the unit tests build on |
+| [`home-fixture.ts`](../src/lib/home-fixture.ts) | `HOME_POSTER_FIXTURE`, `HOME_VIMEO_FIXTURE`, `homeHeroFixture`, `HOME_PHOTO_FIXTURE`, `photoBandFixture`, `PARTNER_PHOTO_FIXTURE`, `PARTNER_PROFILE_FIXTURE`, `partnerFixture`, `partnersFixture`, `partnersFixtureState`, `featuredPickFixture`, `featuredPropertiesFixture`, `featuredLaunchFixture`, `stageFeatured`, `homeFixture` | — | The homepage as fixture data — what /dev/home renders through the real layout, and what /dev/a11y-fixtures and the unit tests build on |
 | [`home-page.ts`](../src/lib/home-page.ts) | `splitHomeHero` | 5 | The home route's shape, as data |
 | [`index.ts`](../src/lib/index.ts) | — | — | place files you want to import through the `$lib` alias in this folder |
 | [`indexability.ts`](../src/lib/indexability.ts) | `MIRROR_ROBOTS_TAG`, `isNetlifyMirrorHost` | 6 | Which HOST a request arrived on decides whether it may be indexed (#140) |
@@ -75,7 +76,11 @@ source. It is the fastest way to recognise what a thing does.
 | [`page-load.ts`](../src/lib/page-load.ts) | `orNotFound`, `loadPage` | 4 |  |
 | [`page-media-load.ts`](../src/lib/page-media-load.ts) | `loadPropertiesMasthead` | 5 | The `page_media` singleton: media for pages that have no Prismic document |
 | [`page-meta.ts`](../src/lib/page-meta.ts) | `pageMeta` | 2 |  |
-| [`prismicio.ts`](../src/lib/prismicio.ts) | `repositoryName`, `isPlaceholderRepo`, `linkResolver`, `createClient` | 6 |  |
+| [`person-fixture.ts`](../src/lib/person-fixture.ts) | `personFixture` | — |  |
+| [`person-load.ts`](../src/lib/person-load.ts) | `loadPerson` | 3 |  |
+| [`person-meta.ts`](../src/lib/person-meta.ts) | `personJsonLd`, `personMeta` | 3 |  |
+| [`person.ts`](../src/lib/person.ts) | `emailHref`, `phoneHref`, `isPlaceholderBio`, `personDisplayName` | 6 | A `person` document's contact fields as links |
+| [`prismicio.ts`](../src/lib/prismicio.ts) | `repositoryName`, `isPlaceholderRepo`, `linkResolver`, `createClient` | 7 |  |
 | [`property-fixture.ts`](../src/lib/property-fixture.ts) | `PROPERTIES_MASTHEAD_FIXTURE`, `propertyFixture`, `propertyListingFixture` | — |  |
 | [`property-listing-load.ts`](../src/lib/property-listing-load.ts) | `LISTING_TITLE`, `LISTING_DESCRIPTION`, `emptyListing`, `loadPropertyListing` | 3 |  |
 | [`property-listing.ts`](../src/lib/property-listing.ts) | `LISTING_SECTIONS`, `PAST_SECTION`, `LISTING_VIEWS`, `listingViews`, `viewFromHash`, `listingOrder`, `groupListings` | 13 |  |
@@ -100,4 +105,4 @@ source. It is the fastest way to recognise what a thing does.
 | [`vimeo.ts`](../src/lib/utils/vimeo.ts) | `checkVimeoVideo`, `parseVimeoId` | 11 | True when the Vimeo video exists and is embeddable (oEmbed responds 200) |
 | [`vimeoBackground.svelte.ts`](../src/lib/utils/vimeoBackground.svelte.ts) | `VIMEO_PLAYER_ORIGIN`, `backgroundEmbedSrc`, `VimeoBackground` | 5 | The gate, the heartbeat and the pause flag behind every chrome-less Vimeo background embed in this repo — lifted OUT of VimeoBanner.svelte so the homepage hero could have all three without taking VimeoBanner's markup with them |
 
-82 modules, 811 tests behind them.
+87 modules, 829 tests behind them.

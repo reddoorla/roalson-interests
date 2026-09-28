@@ -21,7 +21,9 @@
   import CtaBanner from "$lib/slices/CtaBanner/index.svelte";
   import HomeHero from "$lib/slices/HomeHero/index.svelte";
   import Partners from "$lib/slices/Partners/index.svelte";
-  import { partnersFixtureState } from "$lib/home-fixture";
+  import { PARTNER_PHOTO_FIXTURE, partnersFixtureState } from "$lib/home-fixture";
+  import PersonProfile from "$lib/components/PersonProfile.svelte";
+  import { personFixture } from "$lib/person-fixture";
   import PropertyDetail from "$lib/components/PropertyDetail.svelte";
   import PageMasthead from "$lib/components/PageMasthead.svelte";
   import PropertyListing from "$lib/components/PropertyListing.svelte";
@@ -558,13 +560,15 @@
   <FeaturedProperties slice={featuredLaunchFixture({ heading: "Featured Property" })} />
 
   <!-- The homepage's "Our Legacy" band in its FULLEST state, not its launch
-       one: a headshot on both cards and a bio on the first, so axe sees the
-       <details>/<summary> PROFILE, both 24px link targets and the photo's empty
-       alt beside a partner with neither. The bio is closed here, as it is on
-       arrival; tests/interaction/partners.spec.ts audits it open, and requires
-       that axe MEASURED every text node rather than leaving the 12px links as
-       "needs review". -->
-  <Partners slice={partnersFixtureState({ bio: true, photos: true })} />
+       one: a headshot on both cards and a PROFILE on the first, so axe sees
+       all three 24px link targets and the photo's empty alt.
+       tests/interaction/partners.spec.ts requires that axe MEASURED every text
+       node rather than leaving the 12px links as "needs review". -->
+  <Partners slice={partnersFixtureState({ profile: true, photos: true })} />
+
+  <!-- A partner's profile page, /team/<uid>: placeholder chip, headshot,
+       bio and the contact list. -->
+  <PersonProfile person={personFixture({ photo: PARTNER_PHOTO_FIXTURE } as never)} />
 
   <!-- The homepage's photo band, FILLED — a drawing with an alt, so axe has an
        image to hold to `image-alt`; empty (the launch state) it is a gradient

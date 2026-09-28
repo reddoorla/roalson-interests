@@ -72,6 +72,8 @@ a chat log does not survive one:
 12. **A partners block, not profile pages.** Name, role and CONTACT from the
     CMS; PROFILE renders only when a bio exists and opens an on-page
     disclosure. No `/team/<uid>`.
+    _Overturned 2026-09-28 by the operator (Figma comment F4): PROFILE links a
+    `person` page at `/team/<uid>`, and CONTACT mails the partner._
 13. **Publishing: the home page and the seeded listings.** Asked once it was
     clear that a connected repo fails its build unless a `home` document is
     published, the operator chose to have both published, so the deploy shows

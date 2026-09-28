@@ -1,0 +1,116 @@
+{
+  "id": "person",
+  "label": "Person",
+  "format": "page",
+  "repeatable": true,
+  "status": true,
+  "json": {
+    "Main": {
+      "uid": {
+        "type": "UID",
+        "config": {
+          "label": "URL slug",
+          "placeholder": "The name in lower case with hyphens, e.g. matt-howard — the page is /team/<slug>"
+        }
+      },
+      "name": {
+        "type": "Text",
+        "config": {
+          "label": "Name",
+          "placeholder": "e.g. Matt Howard"
+        }
+      },
+      "credentials": {
+        "type": "Text",
+        "config": {
+          "label": "Designations after the name (optional)",
+          "placeholder": "e.g. CCIM"
+        }
+      },
+      "role": {
+        "type": "Text",
+        "config": {
+          "label": "Title",
+          "placeholder": "e.g. Partner"
+        }
+      },
+      "photo": {
+        "type": "Image",
+        "config": {
+          "label": "Headshot (square crop)",
+          "constraint": {
+            "width": 612,
+            "height": 612
+          },
+          "thumbnails": []
+        }
+      },
+      "email": {
+        "type": "Text",
+        "config": {
+          "label": "Email (optional — shown as a link)",
+          "placeholder": "e.g. mhoward@roalson.com"
+        }
+      },
+      "phone": {
+        "type": "Text",
+        "config": {
+          "label": "Phone (optional — ten digits, shown as a link)",
+          "placeholder": "e.g. (210) 496-5800"
+        }
+      },
+      "license": {
+        "type": "Text",
+        "config": {
+          "label": "Texas real estate license number (optional)",
+          "placeholder": "e.g. 603462"
+        }
+      },
+      "bio": {
+        "type": "StructuredText",
+        "config": {
+          "label": "Biography",
+          "placeholder": "Paragraphs; a Heading 2 and a bulleted list for affiliations or education",
+          "multi": "paragraph,heading2,strong,em,hyperlink,list-item",
+          "allowTargetBlank": true
+        }
+      },
+      "bio_is_placeholder": {
+        "type": "Boolean",
+        "config": {
+          "label": "Placeholder biography — marks the page as a placeholder and keeps it out of search",
+          "placeholder_false": "Real biography",
+          "placeholder_true": "PLACEHOLDER biography",
+          "default_value": false
+        }
+      }
+    },
+    "SEO & Metadata": {
+      "meta_title": {
+        "type": "Text",
+        "config": {
+          "label": "Meta Title",
+          "placeholder": "Leave empty to use the name"
+        }
+      },
+      "meta_description": {
+        "type": "Text",
+        "config": {
+          "label": "Meta Description",
+          "placeholder": "Leave empty to use the name and title"
+        }
+      },
+      "meta_image": {
+        "type": "Image",
+        "config": {
+          "label": "Meta Image",
+          "constraint": {
+            "width": 2400,
+            "height": 1260
+          },
+          "thumbnails": []
+        }
+      }
+    }
+  }
+}
