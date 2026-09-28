@@ -889,11 +889,16 @@
            z12.5387 and ~9s later the camera had flown back to z12 twice with
            no further input. `carousel.turnedBy` is the only thing that knows,
            because the carousel is what turned it. -->
+      <!-- `onengage` ANSWERS #150's OPEN QUESTION the client's way (M1,
+           operator call 2026-09-28): pressing +, − or expand on a running
+           slideshow pauses it, and the unlocked map then acts. Collapsing does
+           not resume it; only Play does. `interactive` stays the one switch. -->
       <PropertyMap
         points={mapPoints}
         active={slides[carousel.index]?.id ?? null}
         activeBy={carousel.turnedBy}
         interactive={carousel.paused || !carousel.eligible}
+        onengage={carousel.pause}
         label={heading}
         tone="cream"
         class="h-50 w-full lg:h-full"

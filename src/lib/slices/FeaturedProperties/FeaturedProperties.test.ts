@@ -32,6 +32,7 @@ const engine = vi.hoisted(() => {
       return this.enabled;
     },
     isActive: () => false,
+    disableRotation() {},
   });
   const maps: FakeMap[] = [];
   class FakeMap {
@@ -1194,6 +1195,39 @@ describe("FeaturedProperties slice", () => {
       expect(running(container), "premise: running again").toBe(true);
       expect(map.tools()).toEqual([]);
       expect(canvas.hasAttribute("tabindex")).toBe(false);
+    });
+
+    // M1 (operator call 2026-09-28): the map's own controls engage it. The
+    // expand press on a running slideshow is a pause; collapsing is not a Play.
+    it("pressing the map's expand on a running slideshow pauses it and unlocks the map", async () => {
+      vi.stubGlobal(
+        "ResizeObserver",
+        class {
+          constructor(public cb: ResizeObserverCallback) {}
+          observe() {
+            this.cb(
+              [{ contentRect: { width: 390, height: 200 } } as ResizeObserverEntry],
+              this as never,
+            );
+          }
+          unobserve() {}
+          disconnect() {}
+        },
+      );
+      const { container, getByRole, map } = await withMap();
+      expect(running(container), "premise: the slideshow is running").toBe(true);
+      const expand = container.querySelector<HTMLButtonElement>("[data-map-expand]")!;
+      expand.click();
+      await tick();
+      expect(getByRole("button", { name: "Play slides" }), "the press paused it").toBeTruthy();
+      expect(map.tools()).toEqual(PROPERTIES_SET);
+
+      container.querySelector<HTMLButtonElement>("[data-map-expand]")!.click();
+      await tick();
+      expect(
+        getByRole("button", { name: "Play slides" }),
+        "collapsing does not resume it; only Play does",
+      ).toBeTruthy();
     });
 
     it("focus entering the carousel is a pause, and unlocks it the same way", async () => {

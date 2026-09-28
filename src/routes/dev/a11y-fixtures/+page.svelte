@@ -456,8 +456,9 @@
        afternoon. `off` renders exactly what the server renders and never
        imports the engine, so what is audited here is the state that matters
        for this gate anyway: the list of listings, its accessible name, the
-       garnet-on-sand of its links, and — on the 200px instance — the expand
-       affordance's name, its 44 x 44 target and its contrast. The pins, the
+       garnet-on-sand of its links, and — on both instances since M1 — the
+       expand affordance's name, its 44 x 44 target and its contrast (+ and −
+       need a drawn map, so they are not here). The pins, the
        sheet, the focused chip and the attribution are measured in a real
        browser by tests/interaction/property-map.spec.ts instead, and the
        geometry could not be measured here anyway (`max-w-3xl` squeezes every
@@ -477,8 +478,8 @@
        that exist to be audited.
 
        Two boxes because the frame is chosen by the container's HEIGHT: 200 is
-       the comp's phone map and draws the expand button, 595 is its 1440 panel
-       and must not. -->
+       the comp's phone map, 595 its 1440 panel. Both draw the expand button
+       (M1). -->
   <PropertyMap
     points={sectionPoints(groupListings(propertyListingFixture())[0].properties)}
     label="Land"

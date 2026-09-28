@@ -3,7 +3,13 @@ import { render, cleanup } from "@testing-library/svelte";
 import { flushSync, tick } from "svelte";
 
 import PropertyMap from "./PropertyMap.svelte";
-import { CAMERA_FLIGHT_MS, frameFor, MAP_HOME, type MapPoint } from "$lib/property-map";
+import {
+  CAMERA_FLIGHT_MS,
+  frameFor,
+  MAP_HOME,
+  MAP_MAX_ZOOM,
+  type MapPoint,
+} from "$lib/property-map";
 
 /**
  * THE COALESCING GUARD THAT CAN SEE ITS OWN SOURCE (#127, #128).
@@ -65,10 +71,12 @@ const engine = vi.hoisted(() => {
     disable(): void;
     isEnabled(): boolean;
     isActive(): boolean;
+    disableRotation(): void;
   }
   const fakeHandler = (enabled: boolean): FakeHandler => ({
     enabled,
     active: false,
+    disableRotation() {},
     enable() {
       this.enabled = true;
     },
@@ -281,7 +289,7 @@ function stubObservers(box = { width: 397, height: 595 }) {
  */
 async function booted(
   active: string,
-  more: { interactive?: boolean; activeBy?: "visitor" | "auto" } = {},
+  more: { interactive?: boolean; activeBy?: "visitor" | "auto"; onengage?: () => void } = {},
 ) {
   stubObservers();
   const props: {
@@ -290,6 +298,7 @@ async function booted(
     active: string | null;
     interactive?: boolean;
     activeBy?: "visitor" | "auto";
+    onengage?: () => void;
   } = $state({
     points,
     label: "Land",
@@ -1078,5 +1087,95 @@ describe("a map the page can lock (the homepage band's Pause and Play)", () => {
     flushSync();
     expect(view.container.querySelector("[data-map-sheet]")).toBeNull();
     void record;
+  });
+});
+
+describe("the +/− buttons are the visitor's zoom (P3)", () => {
+  const press = (view: { container: HTMLElement }, which: "zoom-in" | "zoom-out" | "expand") => {
+    view.container.querySelector<HTMLButtonElement>(`[data-map-control="${which}"]`)!.click();
+    flushSync();
+  };
+  const eases = (record: { commands: Command[] }) =>
+    record.commands.filter((c) => c.kind === "ease");
+
+  it("+ eases one whole level, tagged as the visitor's, and that zoom is carried", async () => {
+    const { props, record, view } = await booted("a");
+    const from = record.zoomNow;
+    press(view, "zoom-in");
+    const ease = eases(record).at(-1)!;
+    expect(ease.zoom).toBe(from + 1);
+    expect((ease.data as { originalEvent?: unknown }).originalEvent).toBeInstanceOf(MouseEvent);
+    record.handlers.zoomend?.(ease.data);
+    flushSync();
+
+    props.active = "b";
+    flushSync();
+    expect(
+      flights(record).map((f) => f.zoom),
+      "the next listing at the chosen zoom",
+    ).toEqual([from + 1]);
+  });
+
+  it("− eases one level out", async () => {
+    const { record, view } = await booted("a");
+    const from = record.zoomNow;
+    press(view, "zoom-out");
+    expect(eases(record).at(-1)!.zoom).toBe(from - 1);
+  });
+
+  it("holds the view against the clock's next turn, as a wheel does", async () => {
+    const { props, record, view } = await booted("a", { activeBy: "auto" });
+    press(view, "zoom-in");
+    props.active = "b";
+    flushSync();
+    expect(flights(record), "a clock turn does not undo the visitor's +").toHaveLength(0);
+  });
+
+  it("over a flight still in the air, steps from where the flight was GOING", async () => {
+    const { props, record, view } = await booted("a");
+    props.active = "b";
+    flushSync();
+    const flight = flights(record).at(-1)!;
+    record.zoomNow = 7.5; // the arc's waypoint
+    press(view, "zoom-in");
+    const ease = eases(record).at(-1)!;
+    expect(ease.zoom).toBe(flight.zoom! + 1);
+    expect(ease.center[0]).toBeCloseTo(flight.center[0], 6);
+    expect(ease.center[1]).toBeCloseTo(flight.center[1], 6);
+  });
+
+  it("at MAP_MAX_ZOOM, + is aria-disabled and does nothing", async () => {
+    const { record, view } = await booted("a");
+    record.zoomNow = MAP_MAX_ZOOM;
+    record.handlers.zoom?.();
+    flushSync();
+    const plus = view.container.querySelector("[data-map-control='zoom-in']")!;
+    expect(plus.getAttribute("aria-disabled")).toBe("true");
+    const before = eases(record).length;
+    press(view, "zoom-in");
+    expect(eases(record)).toHaveLength(before);
+    expect(
+      view.container.querySelector("[data-map-control='zoom-out']")!.hasAttribute("aria-disabled"),
+      "the control",
+    ).toBe(false);
+  });
+
+  it("on a locked map asks the page to engage it first, then acts", async () => {
+    const engage = vi.fn();
+    const { record, view } = await booted("a", { interactive: false, onengage: engage });
+    press(view, "zoom-in");
+    expect(engage).toHaveBeenCalledTimes(1);
+    expect(eases(record), "and then zooms").toHaveLength(1);
+    press(view, "expand");
+    expect(engage).toHaveBeenCalledTimes(2);
+    expect(view.container.querySelector("[data-property-map]")!.getAttribute("data-expanded")).toBe(
+      "true",
+    );
+  });
+
+  it("…and without `onengage` a locked map's + does nothing — the control", async () => {
+    const { record, view } = await booted("a", { interactive: false });
+    press(view, "zoom-in");
+    expect(eases(record)).toHaveLength(0);
   });
 });

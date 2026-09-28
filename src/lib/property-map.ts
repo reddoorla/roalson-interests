@@ -210,8 +210,8 @@ export interface Camera {
  * `compact` is the 390 comp's 350 x 200 (and the homepage band's 390 x 200);
  * `full` is the 1440 comp's 397 x 595 panel and its 512 x 827 band. They are
  * chosen by the container's MEASURED HEIGHT, not by a viewport media query,
- * because what makes a 22px pin right is a 200px-tall box — and that is also
- * true of the same box grown by the expand affordance.
+ * because what makes a 22px pin right is a 200px-tall box — and a box the
+ * expand affordance grows to the window is a full frame by the same rule.
  *
  * `pin` is the comp's box size S (`np_pin-map_4984332`, drawn at S=48 on every
  * 1440 map and S=22 on every 390 map).
@@ -220,8 +220,8 @@ export interface Camera {
  * decoration: a marker is anchored at its TIP, so the glyph reaches 0.801019S
  * ABOVE the coordinate — 38.45px at S=48. A top pad smaller than that clips
  * the northernmost pin's head off the frame. The extra on `bottom` is the
- * attribution row (and, when compact, the expand affordance's 20.88px button
- * on its 10px inset).
+ * attribution row (and the control column's bottom 20.88px box on its 10px
+ * inset).
  *
  * `maxZoom` only ever bites on a ONE-PIN section, where the bounds are a point
  * and the fit zoom is infinite. 12 puts 397px of frame across 6.6 km at this
@@ -261,6 +261,17 @@ export const COMPACT_MAX_HEIGHT = 300;
 export function frameFor(box: Box): MapFrame {
   return box.height < COMPACT_MAX_HEIGHT ? "compact" : "full";
 }
+
+/** The camera's zoom bounds, and one +/− press (M1/P3): a whole zoom level,
+ *  eased over MAP_ZOOM_STEP_MS (0 under reduced motion). */
+export const MAP_MIN_ZOOM = 3;
+export const MAP_MAX_ZOOM = 16;
+export const MAP_ZOOM_STEP_MS = 300;
+
+/** The ACTIVE listing's pin — the one whose card is garnet — drawn this many
+ *  times the frame's pin, above its neighbours. Size, not motion, so it holds
+ *  under reduced motion; the fill stays garnet (>= 3:1 on the map ground). */
+export const ACTIVE_PIN_SCALE = 1.5;
 
 // ---------------------------------------------------------------------------
 // MAP_HOME — the frame the map OPENS on, and the frame the raster is of (#122)
@@ -613,7 +624,7 @@ export interface CameraState {
    * `COMPACT_MAX_HEIGHT` while the picture is up repaints the PICTURE at the
    * other frame (the container query is on the box's height and answers
    * immediately) while a refused camera stays at the frame it booted with. The
-   * expand affordance below `lg` does exactly that, 200 -> min(70dvh, 520px),
+   * expand affordance does exactly that, 200 -> the window,
    * and `PropertyMap.test.ts`'s re-frame case went red on it. Resolving to
    * `home` rather than refusing keeps the two halves together by construction:
    * whichever frame the picture is showing, the camera is at that frame's
@@ -777,7 +788,7 @@ export function cameraMove(state: CameraState): CameraMove {
   // have always sat, for the same reason. Put `in-flight` above it instead and
   // it refuses a move it was never meant to touch: the one move still due
   // under the picture, the frame change the expand affordance makes
-  // (200 -> min(70dvh, 520px), across `COMPACT_MAX_HEIGHT`). The container
+  // (200 -> the window, across `COMPACT_MAX_HEIGHT`). The container
   // query repaints the PICTURE at the other frame immediately; a camera held
   // back by a flight that is still in the air stays at the frame it booted
   // with; and that is #132 again — the live map off the frame its own picture
