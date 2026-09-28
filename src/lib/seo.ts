@@ -61,7 +61,7 @@ export function isNoindexPath(pathname: string): boolean {
 }
 
 /** Whether a page must say "not in the index": its path is under
- *  NOINDEX_PREFIXES, or its route's own data asks — a sold listing keeps its
+ *  NOINDEX_PREFIXES, or its route's own data asks — a past project keeps its
  *  page so shared links survive, but leaves search (see $lib/property-meta).
  *  Only a literal `true` counts; a missing or malformed flag indexes. */
 export function isNoindexPage(pathname: string, dataNoindex?: unknown): boolean {

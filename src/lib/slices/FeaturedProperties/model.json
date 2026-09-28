@@ -30,13 +30,14 @@
                 "config": {
                   "label": "Listing",
                   "select": "document",
-                  "placeholder": "Pick a listing — only listings with a feature image are shown; sold ones are skipped",
+                  "placeholder": "Pick a listing — only listings with a feature image are shown; past projects and archived listings are skipped",
                   "customtypes": [
                     {
                       "id": "property",
                       "fields": [
                         "title",
                         "status",
+                        "listing_state",
                         "size_label",
                         "feature_image",
                         {

@@ -32,9 +32,17 @@
         "type": "Select",
         "config": {
           "label": "Status",
-          "placeholder": "Sold listings move to the Sold section and leave search results",
+          "placeholder": "Sold listings move to Past Projects and leave search results",
           "options": ["Available", "Under Contract", "Sold"],
           "default_value": "Available"
+        }
+      },
+      "listing_state": {
+        "type": "Select",
+        "config": {
+          "label": "Show on the site as",
+          "placeholder": "Past project: moves to Past Projects at the bottom of Properties, with photo, address and bullets only (no price, no package, no link). Archived: hidden everywhere on the site.",
+          "options": ["Listed", "Past project", "Archived"]
         }
       },
       "is_new": {
@@ -78,7 +86,7 @@
               "type": "Text",
               "config": {
                 "label": "Highlight",
-                "placeholder": "One short line — the first two show on the card"
+                "placeholder": "One short line each; every line shows on the card. On a past project, this is where its notes go."
               }
             }
           }

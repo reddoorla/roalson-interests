@@ -1,7 +1,7 @@
 import { isFilled } from "@prismicio/client";
 
 import type { PropertyDocument } from "../prismicio-types";
-import { isSold, propertyHighlights } from "$lib/property";
+import { isListed, propertyHighlights } from "$lib/property";
 import { canonicalUrl } from "$lib/seo";
 import { imgix } from "$lib/utils/image";
 
@@ -59,7 +59,7 @@ export function propertyJsonLd(
 
 /** The layout's head payload for a property page (see <Seo> in +layout.svelte)
  *  — the same shape pageMeta returns, plus the two things only a listing
- *  supplies: its structured data, and `noindex` once it has sold. */
+ *  supplies: its structured data, and `noindex` once it is no longer listed. */
 export function propertyMeta(property: PropertyDocument, url: URL) {
   const d = property.data;
   const description = d.meta_description?.trim() || propertyDescription(property);
@@ -70,7 +70,7 @@ export function propertyMeta(property: PropertyDocument, url: URL) {
     meta_description: description,
     meta_image: image?.url ?? undefined,
     meta_image_alt: image?.alt ?? undefined,
-    noindex: isSold(property),
+    noindex: !isListed(property),
     jsonLd: propertyJsonLd(property, canonicalUrl(url), description),
   };
 }

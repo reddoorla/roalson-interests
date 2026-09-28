@@ -80,7 +80,8 @@ test.describe("the no-JS state is the content, not a blank box", () => {
     const listing = await (await page.request.get(PROPERTIES)).text();
     const links = listing.match(/data-map-link=""/g) ?? [];
     // The fixture portfolio: 4 land + 2 improved active listings with pins.
-    // Sold gets no map at all, which is the next assertion.
+    // Past Projects gets no map at all, which is the next assertion, and the
+    // archived land listing gets no pin (a leak reads 7).
     expect(links.length, `${PROPERTIES} server-renders a link per pin`).toBe(6);
     expect(listing).toContain("https://www.google.com/maps/search/?api=1&amp;query=");
 
@@ -88,11 +89,11 @@ test.describe("the no-JS state is the content, not a blank box", () => {
     expect((home.match(/data-map-link=""/g) ?? []).length).toBe(3);
   });
 
-  test("the Sold section gets no map, as the comp says", async ({ page }) => {
+  test("the Past Projects section gets no map, as the comp says of Sold", async ({ page }) => {
     await page.goto(PROPERTIES);
-    const sold = page.locator('section[aria-labelledby="listing-sold"]');
-    await expect(sold).toHaveCount(1);
-    await expect(sold.locator(MAP)).toHaveCount(0);
+    const past = page.locator('section[aria-labelledby="listing-past"]');
+    await expect(past).toHaveCount(1);
+    await expect(past.locator(MAP)).toHaveCount(0);
   });
 
   // WHAT THIS CASE ASSERTED UNTIL #122, and why it no longer can. It read

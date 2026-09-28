@@ -6,7 +6,9 @@
   // then. /dev/a11y-fixtures carries the same component for the axe gate, but
   // inside a 768px column that never reaches its two-column layout.
   //
-  //   ?status=Sold | Under Contract   the other listing states
+  //   ?status=Sold | Under Contract   the other listing statuses
+  //   ?state=Past project | Archived  the listing_state Select (Archived is
+  //                                   what loadProperty 404s; shown here as is)
   //   ?photo                          with the fixture's photo — which renders
   //                                   as alt text here: the fixture image is a
   //                                   data: pixel, and PrismicImage appends
@@ -18,11 +20,13 @@
 
   const params = $derived(page.url.searchParams);
   const status = $derived(params.get("status") ?? "Available");
+  const state = $derived(params.get("state"));
 </script>
 
 <PropertyDetail
   property={propertyFixture({
     status: status as "Available" | "Under Contract" | "Sold",
+    listing_state: state as "Listed" | "Past project" | "Archived" | null,
     ...(params.has("photo") ? {} : { feature_image: {} }),
   })}
 />

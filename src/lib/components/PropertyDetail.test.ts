@@ -35,11 +35,13 @@ describe("PropertyDetail", () => {
     expect(getByRole("link", { name: "All properties" }).getAttribute("href")).toBe("/properties");
   });
 
-  it("announces a sold listing, and marks nothing on an available one", () => {
+  it("tags a sold listing as a past project, and marks nothing on an available one", () => {
     const sold = render(PropertyDetail, {
       props: { property: propertyFixture({ status: "Sold", is_new: false }) },
     });
-    expect(sold.getByRole("list", { name: "Listing status" }).textContent).toContain("Sold");
+    const soldTags = sold.getByRole("list", { name: "Listing status" }).textContent;
+    expect(soldTags).toContain("Past project");
+    expect(soldTags).not.toContain("Sold");
     sold.unmount();
 
     const available = render(PropertyDetail, {
@@ -47,6 +49,23 @@ describe("PropertyDetail", () => {
     });
     const tags = available.getByRole("list", { name: "Listing status" });
     expect(tags.textContent).not.toMatch(/Sold|Under Contract|Available/);
+  });
+
+  it("shows a past project as a record — no package, no price rows, no tracts, no NEW", () => {
+    const { getByRole, queryByRole, queryByText, container } = render(PropertyDetail, {
+      props: { property: propertyFixture({ listing_state: "Past project", is_new: true }) },
+    });
+    expect(getByRole("list", { name: "Listing status" }).textContent).toContain("Past project");
+    expect(getByRole("list", { name: "Listing status" }).textContent).not.toContain("New");
+    expect(queryByRole("link", { name: /Property package/ })).toBeNull();
+    expect(queryByText(/^PDF/)).toBeNull();
+    const terms = [...container.querySelectorAll("dt")].map((dt) => dt.textContent);
+    expect(terms).not.toContain("Offered for");
+    expect(terms).not.toContain("Total price");
+    expect(terms).not.toContain("Price");
+    expect(terms).toContain("Building size");
+    expect(queryByRole("table")).toBeNull();
+    expect(getByRole("link", { name: /View on Google Maps/ })).toBeTruthy();
   });
 
   it("gives the package link its file type and size in its accessible name", () => {

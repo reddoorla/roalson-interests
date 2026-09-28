@@ -28,8 +28,9 @@ export const linkResolver: prismic.LinkResolverFunction = (doc) => {
   if (doc.type === "page" && doc.uid) {
     return doc.uid === "home" ? "/" : `/${doc.uid}`;
   }
-  // Every listing has its own page — sold ones included, so a link a broker
-  // already emailed keeps resolving after the listing sells.
+  // Every listing has its own page — past projects included, so a link a
+  // broker already emailed keeps resolving after the listing sells. (An
+  // archived listing's page 404s; see $lib/property-load.)
   if (doc.type === "property" && doc.uid) {
     return `/properties/${doc.uid}`;
   }

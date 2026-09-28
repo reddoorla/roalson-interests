@@ -24,10 +24,10 @@ import {
   THROTTLE_MS,
   existingAssets,
   headersFor,
-  publishedByUid,
   readState,
   readToken,
   masterRef,
+  publishedDocs,
   repositoryName,
   sleep,
   contentSignature,
@@ -51,9 +51,17 @@ export function assetFilename(uid, kind, asset) {
   return `${uid}-${kind === "package_pdf" ? "package" : kind}.${ext}`;
 }
 
-/** The whole document payload, every time: PUT replaces, it never merges. */
-export function toPayload(entry, assetIds = {}) {
+/** Fields the seed data never sets and an editor does. PUT replaces, so a
+ *  re-run carries the live value over rather than wiping the editor's call. */
+export const EDITOR_FIELDS = ["listing_state"];
+
+/** The whole document payload, every time: PUT replaces, it never merges.
+ *  `live` is the published document's `data`, for EDITOR_FIELDS. */
+export function toPayload(entry, assetIds = {}, live = {}) {
   const data = { ...entry.data };
+  for (const field of EDITOR_FIELDS) {
+    if (data[field] == null && live?.[field] != null) data[field] = live[field];
+  }
   const pdf = assetIds[`${entry.uid}:package_pdf`];
   const photo = assetIds[`${entry.uid}:feature_image`];
   if (pdf) data.package_pdf = { link_type: "Media", id: pdf };
@@ -112,9 +120,9 @@ async function main(argv) {
       `preflight: the asset API answered ${assetProbe.status} — this token cannot write content`,
     );
   }
-  const published = await publishedByUid(repo, TYPE, await masterRef(repo));
+  const live = await publishedDocs(repo, TYPE, await masterRef(repo));
   console.log(
-    `preflight ok: type present, asset API 200, ${Object.keys(published).length} listing(s) already live`,
+    `preflight ok: type present, asset API 200, ${Object.keys(live).length} listing(s) already live`,
   );
 
   const assetIds = {};
@@ -181,8 +189,8 @@ async function main(argv) {
   let created = 0;
   let updated = 0;
   for (const e of entries) {
-    const id = state.documents[e.uid]?.id ?? published[e.uid];
-    const payload = toPayload(e, assetIds);
+    const id = state.documents[e.uid]?.id ?? live[e.uid]?.id;
+    const payload = toPayload(e, assetIds, live[e.uid]?.data);
     const result = await stageDocument({ id, headers, ...payload });
     // The signature of what was SENT — publish-release.mjs holds the live
     // document to it, because a uid being listed says nothing about which

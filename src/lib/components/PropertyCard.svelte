@@ -6,9 +6,10 @@
   // whichever light token its section's ground does NOT use, so it always
   // reads as a panel: sand (6913:1982, `#e8e1d1`) on the first section's
   // off-white ground, off-white (6913:2062, `#f2efe9`) on the sand ground the
-  // page warms to. The Sold grid's card (6991:1227) is the off-white card with
-  // the photo above the text and no button — a sold listing keeps its page but
-  // its card is unlinked (Stage B call 5).
+  // page warms to. The Past Projects grid's card (the comp's Sold card,
+  // 6991:1227) is the off-white card with the photo above the text and no
+  // button — a past project keeps its page but its card is unlinked (Stage B
+  // call 5), and shows only photo, address and bullets (client, 2026-09-25).
   //
   // The tones are colour only, and the fade between them is NOT in this file:
   // app.css gives a watched card's ground, photo box and status badges
@@ -29,7 +30,7 @@
   import type { PropertyDocument } from "../../prismicio-types";
   import BrandButton from "$lib/components/BrandButton.svelte";
   import { linkResolver } from "$lib/prismicio";
-  import { isSold, propertyHighlights, statusLabel } from "$lib/property";
+  import { isPastProject, propertyHighlights, statusLabel } from "$lib/property";
 
   interface Props {
     property: PropertyDocument;
@@ -38,7 +39,7 @@
      *  off-white and the sand ground respectively. */
     variant?: "featured" | "sand" | "cream";
     /** "row": photo beside the panel from md up, as in the listing column.
-     *  "column": photo above, as in the Sold grid. Below md every card is a
+     *  "column": photo above, as in the Past Projects grid. Below md every card is a
      *  column; the 390 comp stacks them. */
     layout?: "row" | "column";
     class?: string;
@@ -63,7 +64,7 @@
   const tone = $derived(TONES[variant]);
 
   const data = $derived(property.data);
-  const sold = $derived(isSold(property));
+  const past = $derived(isPastProject(property));
   const status = $derived(statusLabel(property));
   const highlights = $derived(propertyHighlights(property));
   const hasPhoto = $derived(isFilled.image(data.feature_image));
@@ -88,7 +89,7 @@
   {/if}
 
   <div class="flex min-w-0 flex-1 flex-col gap-5 px-5 pt-5 pb-10">
-    {#if status || data.is_new}
+    {#if !past && (status || data.is_new)}
       <ul class="flex flex-wrap items-center gap-2.5" aria-label="Listing status">
         {#if status}
           <li class={tone.badge}>
@@ -104,7 +105,7 @@
     {/if}
 
     <div class="flex flex-col gap-[15px]">
-      {#if data.size_label}
+      {#if !past && data.size_label}
         <p class="t-h4">{data.size_label}</p>
       {/if}
       <h3 class="t-h3">{data.title}</h3>
@@ -118,7 +119,7 @@
       </ul>
     {/if}
 
-    {#if !sold && href}
+    {#if !past && href}
       <BrandButton {href} arrow tone={featured ? "cream" : "garnet"} class="self-start">
         Learn more <span class="sr-only">about {data.title}</span>
       </BrandButton>

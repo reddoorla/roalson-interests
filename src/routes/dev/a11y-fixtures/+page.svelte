@@ -434,13 +434,13 @@
        /properties/<uid>), so this page carries two; axe has no rule against
        that, and the gate is here for the component's contrast, names and
        table semantics. Under Contract + the fixture's NEW flag render both
-       garnet badges; Sold uses the same markup. -->
+       garnet badges; the Past project tag uses the same markup. -->
   <PropertyDetail property={propertyFixture({ status: "Under Contract" })} />
 
   <!-- The listing page: its masthead in BOTH states (two more h1s on this page,
        see above) and every card variant — garnet featured with the cream
        button, flat with the garnet button, Under Contract + New badges on both
-       grounds, and the unlinked Sold grid on sand.
+       grounds, the view tabs, and the unlinked Past Projects grid on sand.
 
        The photo state first, on a drawn near-white ground (#15). axe cannot
        measure text over an image — it files colour-contrast as `incomplete`,

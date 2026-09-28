@@ -325,11 +325,11 @@ async function serverFeaturesFirstCards(page: Page, route: string) {
   for (const chunk of active) {
     expect(featuredIn(chunk), "one garnet card, and it is the first").toEqual([idsIn(chunk)[0]]);
   }
-  // Sold is not watched and nothing in it is garnet.
-  const sold = chunks[labels.indexOf("sold")];
-  if (sold !== undefined) {
-    expect(idsIn(sold)).toEqual([]);
-    expect(sold).not.toMatch(/<article class="[^"]*\bbg-primary\b/);
+  // Past Projects is not watched and nothing in it is garnet.
+  const past = chunks[labels.indexOf("past")];
+  if (past !== undefined) {
+    expect(idsIn(past)).toEqual([]);
+    expect(past).not.toMatch(/<article class="[^"]*\bbg-primary\b/);
   }
   return labels;
 }
@@ -339,7 +339,7 @@ test.describe("the server still features the first card, and that is the whole n
     page,
   }) => {
     test.skip(PREVIEW, NO_FIXTURE);
-    expect(await serverFeaturesFirstCards(page, FIXTURE)).toEqual(["land", "improved", "sold"]);
+    expect(await serverFeaturesFirstCards(page, FIXTURE)).toEqual(["land", "improved", "past"]);
   });
 });
 

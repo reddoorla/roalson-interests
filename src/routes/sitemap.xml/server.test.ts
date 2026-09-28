@@ -79,6 +79,18 @@ const docsByType: Record<string, unknown[]> = {
       last_publication_date: published,
       data: { status: "Sold" },
     },
+    {
+      type: "property",
+      uid: "marked-past",
+      last_publication_date: published,
+      data: { status: "Available", listing_state: "Past project" },
+    },
+    {
+      type: "property",
+      uid: "archived-one",
+      last_publication_date: published,
+      data: { status: "Available", listing_state: "Archived" },
+    },
   ],
 };
 
@@ -116,7 +128,7 @@ describe("GET /sitemap.xml on a netlify.app host", () => {
     expect(xml).toContain("<lastmod>2026-09-01T00:00:00.000Z</lastmod>");
   });
 
-  it("lists every page and every unsold listing on the production domain, on that domain's origin", async () => {
+  it("lists every page and every listed property on the production domain, on that domain's origin", async () => {
     wired();
     expect(locs(await body("https://www.example.com"))).toEqual([
       "https://www.example.com/",
@@ -128,12 +140,14 @@ describe("GET /sitemap.xml on a netlify.app host", () => {
     ]);
   });
 
-  it("leaves a sold listing out — its page stays up for shared links, but is noindexed", async () => {
+  it("leaves past projects and archived listings out — a past page stays up, but is noindexed", async () => {
     // A sitemap listing a noindexed URL contradicts itself. The page itself
     // still prerenders (see properties/[uid] entries()); only discovery stops.
     wired();
     const xml = await body("https://www.example.com");
     expect(xml).not.toContain("5001-walzem-road");
+    expect(xml).not.toContain("marked-past");
+    expect(xml).not.toContain("archived-one");
     expect(prismic.getAllByType).toHaveBeenCalledWith("property");
   });
 });
