@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import sharp from "sharp";
 
+import { forceStyle } from "./force-style";
 import { hydrated } from "./hydrated";
 import {
   DARK_HEX,
@@ -123,46 +124,18 @@ async function pixel(page: Page, x: number, y: number): Promise<number[]> {
 
 /**
  * Write a declaration from script and WAIT until the page is actually wearing
- * it. Both halves are needed under this harness.
+ * it, through ./force-style: `transition: none !important` beside the write,
+ * then a poll. Both halves are needed under this harness.
  *
- * `transition: none !important` first, because app.css gives every element a
- * 0.01ms transition under `reduce` and the computed `transition-property` is
- * `all`: without it the write starts a transition, and a transition's value
- * beats even an inline `!important` for as long as it runs. A real rubber-band
- * is a compositor translation with no CSS in it at all, so the transition is an
- * artifact of the proxy, not of the thing under test — suppressing it makes the
- * proxy faithful rather than lenient. An inline `!important` is what it takes:
- * the app's rule is itself `!important`.
- *
- * Then poll, because "I wrote it" is not "it is applied" — two frames was
- * enough on four of this file's tests and not on the other two, which is how a
- * fixed frame count fails: intermittently, and silently, by measuring the page
- * at rest.
+ * Suppressing the transition makes the proxy faithful rather than lenient: a
+ * real rubber-band is a compositor translation with no CSS in it at all, so the
+ * transition the reduce rule would start is an artifact of the proxy, not of
+ * the thing under test. And the poll, because two frames was enough on four of
+ * this file's tests and not on the other two, which is how a fixed frame count
+ * fails: intermittently, and silently, by measuring the page at rest.
  */
-async function writeStyle(page: Page, selector: string, prop: string, value: string, want: string) {
-  await page.evaluate(
-    ([sel, name, v]) => {
-      const el = document.querySelector(sel as string) as HTMLElement;
-      el.style.setProperty("transition", "none", "important");
-      if (v === "") el.style.removeProperty(name as string);
-      else el.style.setProperty(name as string, v as string, "important");
-    },
-    [selector, prop, value] as const,
-  );
-  await expect
-    .poll(
-      () =>
-        page.evaluate(
-          ([sel, name]) =>
-            getComputedStyle(document.querySelector(sel as string)!).getPropertyValue(
-              name as string,
-            ),
-          [selector, prop] as const,
-        ),
-      `${selector} never took ${prop}: ${value}`,
-    )
-    .toBe(want);
-}
+const writeStyle = (page: Page, selector: string, prop: string, value: string, want: string) =>
+  forceStyle(page, [[selector, prop, value, want]], `${selector} never took ${prop}: ${value}`);
 
 /** The two backgrounds the fix is made of, the foot element's box, and the
  *  document's own extent. */
