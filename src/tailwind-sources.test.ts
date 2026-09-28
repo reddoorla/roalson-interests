@@ -39,36 +39,18 @@ function* files(dir: string): Generator<string> {
   }
 }
 
-/** Slider.svelte is the template's carousel, mounted only on /dev/a11y-fixtures,
- *  and still wears the template's greys. Found and left by the contact batch,
- *  and tracked as an issue rather than a comment; listed here so the day they
- *  go, this goes red and the exception is deleted with them. */
-/** This file spells KNOWN's utilities, so it is skipped — and ships nothing new
- *  by it: every one of them is already spent by the file it is listed under. */
-const SELF = "src/tailwind-sources.test.ts";
-
-const KNOWN: Record<string, string[]> = {
-  "src/lib/components/Slider.svelte": [
-    "bg-gray-500",
-    "bg-gray-800",
-    "group-active:bg-gray-700",
-    "group-hover:bg-gray-600",
-    "hover:bg-gray-200",
-    "text-gray-700",
-  ],
-};
-
 describe("what Tailwind's source scan can see", () => {
   it("spells no default-palette utility — in markup, a comment or a test", () => {
     const found: Record<string, string[]> = {};
     for (const dir of SCANNED) {
       for (const rel of files(dir)) {
-        if (rel === SELF) continue;
         const hits = readFileSync(join(ROOT, rel), "utf8").match(UTILITY);
         if (hits) found[rel] = [...new Set(hits)].sort();
       }
     }
-    expect(found).toEqual(KNOWN);
+    // Empty since Slider.svelte's six greys went to tokens (#58), which were
+    // the one listed exception.
+    expect(found).toEqual({});
   });
 
   it("does not read docs/, where the journal names old classes on purpose", () => {
