@@ -29,37 +29,22 @@
   // - No buttons are drawn under the body. `buttons` is modelled because the
   //   batch asked for it, and renders nothing while it is empty.
   //
-  // PROFILE (operator call 12) has NO comp for its open state. It renders only
-  // when the partner has a bio, and it is a real <details>/<summary>, so it
-  // opens with no script, before hydration, and when the bundle never arrives —
-  // there is no handler here to be missing. What is unusual is where the bio
-  // sits: the comp puts PROFILE inside the 218px panel, beside CONTACT, and a
-  // bio set on a 188px measure is unreadable. A <details> keeps its content
-  // inside its own box, and that box is a flex item in the links row. So the
-  // <details> holds ONLY the summary, the bio is the card's last child at the
-  // card's full width (KNOWN COST, accepted for the comp's layout: the opened
-  // bio does not follow its trigger in reading order — CONTACT sits between
-  // PROFILE and the bio, so a screen-reader user passes one link to reach what
-  // they opened; `aria-controls` names the bio for the readers that use it),
-  // and the stylesheet below closes it while the card's
-  // <details> is not `[open]`.
+  // PROFILE is a link to the partner's Person page, /team/<uid> (F4, operator
+  // 2026-09-28; it replaced a disclosure that opened a bio in place). It
+  // renders only when the row links a published Person. CONTACT opens a
+  // message to the row's email (decision D3); `contact_link` overrides it, and
+  // /contact is the fallback when neither is set.
   //
-  // The rule is written as "hide while closed", never "show while open": a
-  // browser without `:has()` (Firefox < 121, Safari < 15.4) drops the whole
-  // rule and shows every bio, open. The other way round it would hide them
-  // for good. tests/interaction/partners.spec.ts drives it with scripting off.
-  //
-  // Declined, having read them: `Accordion.svelte` — its panel is mounted with
-  // `{#if}`, so without script the bio would not be in the page at all, its
-  // content is a plain string and its chevron is lucide's. `ArrowRight` — the
-  // buttons' 25px arrow; the text links carry a different glyph, exported as
-  // TextLinkArrow. `PrismicLink` drops a document link's href on this
-  // routes-free client (#10), so CONTACT is a plain <a> over $lib/cms-href.
+  // Declined, having read them: `ArrowRight` — the buttons' 25px arrow; the
+  // text links carry a different glyph, exported as TextLinkArrow.
+  // `PrismicLink` drops a document link's href on this routes-free client
+  // (#10), so both links are plain <a>s over $lib/cms-href.
   import { asText, isFilled, type Content } from "@prismicio/client";
   import BrandButton from "$lib/components/BrandButton.svelte";
   import RichTextBody from "$lib/components/RichTextBody.svelte";
   import TextLinkArrow from "$lib/components/TextLinkArrow.svelte";
   import { cmsHref } from "$lib/cms-href";
+  import { emailHref } from "$lib/person";
   import { linkResolver } from "$lib/prismicio";
   import { imgix, srcset } from "$lib/utils/image";
 
@@ -74,7 +59,7 @@
   // capped at the comp's 371 instead.
   const GUTTERS = "mx-auto max-w-[1440px] px-5 sm:px-8 xl:px-20";
 
-  /** Where CONTACT goes when the editor has not said (operator call 12). */
+  /** Where CONTACT goes when the row has no link and no email. */
   const CONTACT_FALLBACK = "/contact";
 
   /** The headshot box is 153 CSS px at every width: 1×, 2× and 3×. */
@@ -95,8 +80,15 @@
           name,
           role: partner.role?.trim() ?? "",
           photo: isFilled.image(partner.photo) ? partner.photo : undefined,
-          contact: cmsHref(partner.contact_link, { linkResolver }) ?? CONTACT_FALLBACK,
-          bio: isFilled.richText(partner.bio) ? partner.bio : undefined,
+          // `asLink` ignores `isBroken`: an unpublished Person would 404.
+          profile:
+            isFilled.contentRelationship(partner.profile) && !partner.profile.isBroken
+              ? cmsHref(partner.profile, { linkResolver })
+              : null,
+          contact:
+            cmsHref(partner.contact_link, { linkResolver }) ??
+            emailHref(partner.email) ??
+            CONTACT_FALLBACK,
         },
       ];
     }),
@@ -236,33 +228,18 @@
                         data-partner-links
                         class="-mr-[15px] flex flex-wrap items-start gap-x-5 gap-y-4"
                       >
-                        {#if partner.bio}
-                          <details data-partner-profile class="group/profile">
-                            <!-- `block`, with the flex row INSIDE it — a
-                                 precaution, not a measurement: WebKit long
-                                 ignored `display: flex` on a <summary>, there
-                                 is no Safari on the build machine to ask, and
-                                 an inner row costs nothing. `list-none` and
-                                 the -webkit- rule remove the disclosure
-                                 triangle; the drawn arrow is the affordance,
-                                 and turns to point down while the bio is open. -->
-                            <summary
-                              aria-controls="{uid}-bio-{i}"
-                              class="{LINK} cursor-pointer list-none [&::-webkit-details-marker]:hidden"
-                            >
-                              <span class={LINK_ROW}>
-                                <span class={LINK_TEXT}
-                                  >Profile<span class="sr-only normal-case">, {partner.name}</span
-                                  ></span
-                                >
-                                <TextLinkArrow
-                                  class="transition-transform duration-200 group-open/profile:rotate-90"
-                                />
-                              </span>
-                            </summary>
-                          </details>
+                        {#if partner.profile}
+                          <a href={partner.profile} data-partner-profile class={LINK}>
+                            <span class={LINK_ROW}>
+                              <span class={LINK_TEXT}
+                                >Profile<span class="sr-only normal-case">, {partner.name}</span
+                                ></span
+                              >
+                              <TextLinkArrow />
+                            </span>
+                          </a>
                         {/if}
-                        <a href={partner.contact} class={LINK}>
+                        <a href={partner.contact} data-partner-contact class={LINK}>
                           <span class={LINK_ROW}>
                             <!-- The space belongs to the OUTER text, before the
                                  hidden span. Inside the span it is lost twice
@@ -281,22 +258,6 @@
                       </div>
                     </div>
                   </div>
-                  {#if partner.bio}
-                    <!-- ALWAYS in the markup — never `{#if open}` — so the
-                         server's HTML holds the bio and the stylesheet alone
-                         decides whether it shows. Sand, like the panel it
-                         continues; Body 2; one blank line between paragraphs.
-                         20 under a headshot; under a text-only card the
-                         panel's own 40 of slack is already the space. -->
-                    <div
-                      id="{uid}-bio-{i}"
-                      data-partner-bio
-                      class="t-body-2 bg-light px-[15px] pb-[30px] text-dark [&_a]:underline
-                        [&_p+p]:mt-5 {partner.photo ? 'pt-5' : ''}"
-                    >
-                      <RichTextBody field={partner.bio} />
-                    </div>
-                  {/if}
                 </li>
               {/each}
             </ul>
@@ -340,12 +301,3 @@
     </div>
   </div>
 </section>
-
-<style>
-  /* Closed unless the card's PROFILE is open. "Hide while closed", so that a
-     browser with no `:has()` drops the rule and shows every bio — see the note
-     at the top of this file. */
-  li:has(details:not([open])) > [data-partner-bio] {
-    display: none;
-  }
-</style>

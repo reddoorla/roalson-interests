@@ -264,6 +264,154 @@ export type PageMediaDocument<Lang extends string = string> =
   >;
 
 /**
+ * Content for Person documents
+ */
+interface PersonDocumentData {
+  /**
+   * Name field in *Person*
+   *
+   * - **Field Type**: Text
+   * - **Placeholder**: e.g. Matt Howard
+   * - **API ID Path**: person.name
+   * - **Tab**: Main
+   * - **Documentation**: https://prismic.io/docs/fields/text
+   */
+  name: prismic.KeyTextField;
+
+  /**
+   * Designations after the name (optional) field in *Person*
+   *
+   * - **Field Type**: Text
+   * - **Placeholder**: e.g. CCIM
+   * - **API ID Path**: person.credentials
+   * - **Tab**: Main
+   * - **Documentation**: https://prismic.io/docs/fields/text
+   */
+  credentials: prismic.KeyTextField;
+
+  /**
+   * Title field in *Person*
+   *
+   * - **Field Type**: Text
+   * - **Placeholder**: e.g. Partner
+   * - **API ID Path**: person.role
+   * - **Tab**: Main
+   * - **Documentation**: https://prismic.io/docs/fields/text
+   */
+  role: prismic.KeyTextField;
+
+  /**
+   * Headshot (square crop) field in *Person*
+   *
+   * - **Field Type**: Image
+   * - **Placeholder**: *None*
+   * - **API ID Path**: person.photo
+   * - **Tab**: Main
+   * - **Documentation**: https://prismic.io/docs/fields/image
+   */
+  photo: prismic.ImageField<never>;
+
+  /**
+   * Email (optional — shown as a link) field in *Person*
+   *
+   * - **Field Type**: Text
+   * - **Placeholder**: e.g. mhoward@roalson.com
+   * - **API ID Path**: person.email
+   * - **Tab**: Main
+   * - **Documentation**: https://prismic.io/docs/fields/text
+   */
+  email: prismic.KeyTextField;
+
+  /**
+   * Phone (optional — ten digits, shown as a link) field in *Person*
+   *
+   * - **Field Type**: Text
+   * - **Placeholder**: e.g. (210) 496-5800
+   * - **API ID Path**: person.phone
+   * - **Tab**: Main
+   * - **Documentation**: https://prismic.io/docs/fields/text
+   */
+  phone: prismic.KeyTextField;
+
+  /**
+   * Texas real estate license number (optional) field in *Person*
+   *
+   * - **Field Type**: Text
+   * - **Placeholder**: e.g. 603462
+   * - **API ID Path**: person.license
+   * - **Tab**: Main
+   * - **Documentation**: https://prismic.io/docs/fields/text
+   */
+  license: prismic.KeyTextField;
+
+  /**
+   * Biography field in *Person*
+   *
+   * - **Field Type**: Rich Text
+   * - **Placeholder**: Paragraphs; a Heading 2 and a bulleted list for affiliations or education
+   * - **API ID Path**: person.bio
+   * - **Tab**: Main
+   * - **Documentation**: https://prismic.io/docs/fields/rich-text
+   */
+  bio: prismic.RichTextField;
+
+  /**
+   * Placeholder biography — marks the page as a placeholder and keeps it out of search field in *Person*
+   *
+   * - **Field Type**: Boolean
+   * - **Placeholder**: *None*
+   * - **Default Value**: false
+   * - **API ID Path**: person.bio_is_placeholder
+   * - **Tab**: Main
+   * - **Documentation**: https://prismic.io/docs/fields/boolean
+   */
+  bio_is_placeholder: prismic.BooleanField; /**
+   * Meta Title field in *Person*
+   *
+   * - **Field Type**: Text
+   * - **Placeholder**: Leave empty to use the name
+   * - **API ID Path**: person.meta_title
+   * - **Tab**: SEO & Metadata
+   * - **Documentation**: https://prismic.io/docs/fields/text
+   */
+  meta_title: prismic.KeyTextField;
+
+  /**
+   * Meta Description field in *Person*
+   *
+   * - **Field Type**: Text
+   * - **Placeholder**: Leave empty to use the name and title
+   * - **API ID Path**: person.meta_description
+   * - **Tab**: SEO & Metadata
+   * - **Documentation**: https://prismic.io/docs/fields/text
+   */
+  meta_description: prismic.KeyTextField;
+
+  /**
+   * Meta Image field in *Person*
+   *
+   * - **Field Type**: Image
+   * - **Placeholder**: *None*
+   * - **API ID Path**: person.meta_image
+   * - **Tab**: SEO & Metadata
+   * - **Documentation**: https://prismic.io/docs/fields/image
+   */
+  meta_image: prismic.ImageField<never>;
+}
+
+/**
+ * Person document from Prismic
+ *
+ * - **API ID**: `person`
+ * - **Repeatable**: `true`
+ * - **Documentation**: https://prismic.io/docs/content-modeling
+ *
+ * @typeParam Lang - Language API ID of the document.
+ */
+export type PersonDocument<Lang extends string = string> =
+  prismic.PrismicDocumentWithUID<Simplify<PersonDocumentData>, "person", Lang>;
+
+/**
  * Item in *Property → Highlights*
  */
 export interface PropertyDocumentDataHighlightsItem {
@@ -595,7 +743,11 @@ export type PropertyDocument<Lang extends string = string> =
   >;
 
 export type AllDocumentTypes =
-  FormRepliesDocument | PageDocument | PageMediaDocument | PropertyDocument;
+  | FormRepliesDocument
+  | PageDocument
+  | PageMediaDocument
+  | PersonDocument
+  | PropertyDocument;
 
 /**
  * Item in *Accordion → Default → Primary → items*
@@ -1326,7 +1478,27 @@ export interface PartnersSliceDefaultPrimaryPartnersItem {
   photo: prismic.ImageField<never>;
 
   /**
-   * CONTACT goes to — mailto:, tel: or a page. Left empty, it goes to /contact field in *Partners → Default → Primary → Partners*
+   * PROFILE goes to — this partner's Person page. Left empty, the card has no PROFILE field in *Partners → Default → Primary → Partners*
+   *
+   * - **Field Type**: Content Relationship
+   * - **Placeholder**: *None*
+   * - **API ID Path**: partners.default.primary.partners[].profile
+   * - **Documentation**: https://prismic.io/docs/fields/content-relationship
+   */
+  profile: prismic.ContentRelationshipField<"person">;
+
+  /**
+   * Email — CONTACT opens a message to it (unless a CONTACT link is set below) field in *Partners → Default → Primary → Partners*
+   *
+   * - **Field Type**: Text
+   * - **Placeholder**: e.g. mhoward@roalson.com
+   * - **API ID Path**: partners.default.primary.partners[].email
+   * - **Documentation**: https://prismic.io/docs/fields/text
+   */
+  email: prismic.KeyTextField;
+
+  /**
+   * CONTACT goes to (optional override) — mailto:, tel: or a page. Left empty, it opens the email above, else /contact field in *Partners → Default → Primary → Partners*
    *
    * - **Field Type**: Link
    * - **Placeholder**: /contact
@@ -1340,16 +1512,6 @@ export interface PartnersSliceDefaultPrimaryPartnersItem {
     prismic.FieldState,
     never
   >;
-
-  /**
-   * Bio — PROFILE appears on the card only when this is filled field in *Partners → Default → Primary → Partners*
-   *
-   * - **Field Type**: Rich Text
-   * - **Placeholder**: A few paragraphs about this partner
-   * - **API ID Path**: partners.default.primary.partners[].bio
-   * - **Documentation**: https://prismic.io/docs/fields/rich-text
-   */
-  bio: prismic.RichTextField;
 }
 
 /**
@@ -1413,7 +1575,7 @@ export interface PartnersSliceDefaultPrimary {
  * Default variation for Partners Slice
  *
  * - **API ID**: `default`
- * - **Description**: Partner cards (name, role, CONTACT, and PROFILE when there is a bio) beside a headline and body copy
+ * - **Description**: Partner cards (name, role, PROFILE when the row links a Person page, and CONTACT) beside a headline and body copy
  * - **Documentation**: https://prismic.io/docs/slices
  */
 export type PartnersSliceDefault = prismic.SharedSliceVariation<
@@ -1853,6 +2015,8 @@ declare module "@prismicio/client" {
       PageDocumentDataSlicesSlice,
       PageMediaDocument,
       PageMediaDocumentData,
+      PersonDocument,
+      PersonDocumentData,
       PropertyDocument,
       PropertyDocumentData,
       PropertyDocumentDataHighlightsItem,

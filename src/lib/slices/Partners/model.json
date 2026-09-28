@@ -9,7 +9,7 @@
       "name": "Default",
       "docURL": "...",
       "version": "initial",
-      "description": "Partner cards (name, role, CONTACT, and PROFILE when there is a bio) beside a headline and body copy",
+      "description": "Partner cards (name, role, PROFILE when the row links a Person page, and CONTACT) beside a headline and body copy",
       "imageUrl": "",
       "primary": {
         "eyebrow": {
@@ -91,21 +91,27 @@
                   "thumbnails": []
                 }
               },
+              "profile": {
+                "type": "Link",
+                "config": {
+                  "label": "PROFILE goes to — this partner's Person page. Left empty, the card has no PROFILE",
+                  "select": "document",
+                  "customtypes": ["person"]
+                }
+              },
+              "email": {
+                "type": "Text",
+                "config": {
+                  "label": "Email — CONTACT opens a message to it (unless a CONTACT link is set below)",
+                  "placeholder": "e.g. mhoward@roalson.com"
+                }
+              },
               "contact_link": {
                 "type": "Link",
                 "config": {
-                  "label": "CONTACT goes to — mailto:, tel: or a page. Left empty, it goes to /contact",
+                  "label": "CONTACT goes to (optional override) — mailto:, tel: or a page. Left empty, it opens the email above, else /contact",
                   "placeholder": "/contact",
                   "allowTargetBlank": false
-                }
-              },
-              "bio": {
-                "type": "StructuredText",
-                "config": {
-                  "label": "Bio — PROFILE appears on the card only when this is filled",
-                  "placeholder": "A few paragraphs about this partner",
-                  "multi": "paragraph,strong,em,hyperlink",
-                  "allowTargetBlank": true
                 }
               }
             }

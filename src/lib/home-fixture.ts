@@ -176,33 +176,30 @@ export const PARTNER_PHOTO_FIXTURE = {
   edit: { x: 0, y: 0, zoom: 1, background: "transparent" },
 };
 
-/** A bio for the `?bio` state. It is about the FIXTURE on purpose: these are
- *  real people, neither has given the site a bio, and an invented one is one
- *  seed script away from being published. Two paragraphs, so the space
- *  between them can be measured. */
-export const PARTNER_BIO_FIXTURE = [
-  {
-    type: "paragraph",
-    text: "Fixture copy, not a biography. The partners' bios are written in Prismic, and neither has one yet, so this paragraph stands in for one: PROFILE appears on a card only when its bio is filled, and this is what it opens.",
-    spans: [],
-  },
-  {
-    type: "paragraph",
-    text: "A second paragraph, so the space between two of them can be measured. It says nothing about anyone.",
-    spans: [],
-  },
-];
+/** PROFILE's target for the `?profile` state: a published Person document
+ *  link, as the API delivers one. */
+export const PARTNER_PROFILE_FIXTURE = {
+  link_type: "Document",
+  id: "fixture-person-matt",
+  type: "person",
+  uid: "matt-howard",
+  lang: "en-us",
+  tags: [],
+  slug: "matt-howard",
+  isBroken: false,
+};
 
-/** One partner row. Bare by default — no photo, no bio, no contact link —
- *  which is every partner's launch state: the card is text only, PROFILE does
- *  not render, and CONTACT falls back to /contact (operator call 12). */
+/** One partner row. Bare by default — no photo, no profile, no email, no
+ *  contact link: the card is text only, PROFILE does not render, and CONTACT
+ *  falls back to /contact. */
 export function partnerFixture(row: Partial<PartnerRow> = {}): PartnerRow {
   return {
     name: "Matt Howard",
     role: "Partner",
     photo: {},
+    profile: { link_type: "Any" },
+    email: null,
     contact_link: { link_type: "Any" },
-    bio: [],
     ...row,
   } as unknown as PartnerRow;
 }
@@ -250,17 +247,19 @@ export function partnersFixture(primary: Partial<PartnersPrimary> = {}): Content
 }
 
 /** The partner cards' other states, as /dev/home's query string asks for them:
- *  `bio` gives the FIRST partner a bio (so one card has PROFILE and one does
- *  not, side by side), `photos` gives both a headshot. Neither is the default
- *  because neither is the launch state. */
+ *  `profile` links the FIRST partner's Person page (so one card has PROFILE and
+ *  one does not, side by side), `photos` gives both a headshot. */
 export function partnersFixtureState(state: {
-  bio?: boolean;
+  profile?: boolean;
   photos?: boolean;
 }): Content.PartnersSlice {
   const photo = state.photos ? { photo: PARTNER_PHOTO_FIXTURE } : {};
   return partnersFixture({
     partners: [
-      partnerFixture({ ...photo, ...(state.bio ? { bio: PARTNER_BIO_FIXTURE } : {}) } as never),
+      partnerFixture({
+        ...photo,
+        ...(state.profile ? { profile: PARTNER_PROFILE_FIXTURE } : {}),
+      } as never),
       partnerFixture({ name: "Bart Wilson", ...photo } as never),
     ],
   });

@@ -1,6 +1,7 @@
 import { asLink, type PrismicDocument } from "@prismicio/client";
 
 import { isNetlifyMirrorHost } from "$lib/indexability";
+import { isPlaceholderBio } from "$lib/person";
 import { createClient, isPlaceholderRepo, linkResolver } from "$lib/prismicio";
 import { isSold } from "$lib/property";
 import type { RequestHandler } from "./$types";
@@ -45,11 +46,17 @@ export const GET: RequestHandler = async ({ fetch, url }) => {
   let docEntries: Entry[] = [];
   if (!mirror && !isPlaceholderRepo) {
     const client = createClient({ fetch });
-    const [pages, properties] = await Promise.all([
+    const [pages, properties, people] = await Promise.all([
       client.getAllByType("page"),
       client.getAllByType("property"),
+      client.getAllByType("person"),
     ]);
-    docEntries = [...pages, ...properties.filter((p) => !isSold(p))]
+    // A placeholder biography is noindexed (see $lib/person-meta), so it stays out too.
+    docEntries = [
+      ...pages,
+      ...properties.filter((p) => !isSold(p)),
+      ...people.filter((p) => !isPlaceholderBio(p)),
+    ]
       .map(toEntry)
       .filter((e) => e.path);
   }

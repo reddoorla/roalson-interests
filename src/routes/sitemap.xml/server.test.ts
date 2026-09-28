@@ -80,6 +80,20 @@ const docsByType: Record<string, unknown[]> = {
       data: { status: "Sold" },
     },
   ],
+  person: [
+    {
+      type: "person",
+      uid: "matt-howard",
+      last_publication_date: published,
+      data: { bio_is_placeholder: false },
+    },
+    {
+      type: "person",
+      uid: "bart-wilson",
+      last_publication_date: published,
+      data: { bio_is_placeholder: true },
+    },
+  ],
 };
 
 // #140: rendered per request so the netlify.app mirror can answer differently
@@ -123,6 +137,7 @@ describe("GET /sitemap.xml on a netlify.app host", () => {
       "https://www.example.com/about",
       "https://www.example.com/properties/25331-ih-10-west",
       "https://www.example.com/properties/402-nueva",
+      "https://www.example.com/team/matt-howard",
       "https://www.example.com/properties",
       "https://www.example.com/contact",
     ]);
@@ -135,5 +150,13 @@ describe("GET /sitemap.xml on a netlify.app host", () => {
     const xml = await body("https://www.example.com");
     expect(xml).not.toContain("5001-walzem-road");
     expect(prismic.getAllByType).toHaveBeenCalledWith("property");
+  });
+
+  it("leaves a placeholder biography's profile out — it is noindexed", async () => {
+    wired();
+    const xml = await body("https://www.example.com");
+    expect(xml).toContain("/team/matt-howard");
+    expect(xml).not.toContain("bart-wilson");
+    expect(prismic.getAllByType).toHaveBeenCalledWith("person");
   });
 });

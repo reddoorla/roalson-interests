@@ -33,6 +33,10 @@ export const linkResolver: prismic.LinkResolverFunction = (doc) => {
   if (doc.type === "property" && doc.uid) {
     return `/properties/${doc.uid}`;
   }
+  // A partner's profile page — PROFILE on the homepage's partner cards.
+  if (doc.type === "person" && doc.uid) {
+    return `/team/${doc.uid}`;
+  }
   return null;
 };
 
