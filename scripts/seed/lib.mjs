@@ -131,26 +131,11 @@ export function writeState(path, state) {
  *  still rejected `my.property.uid` — the content API learns a type when a
  *  document of it is first published, not when the model is pushed. A
  *  preflight that read `types` here refused to stage into a repository that
- *  was ready. Ask `typeExists` instead. */
+ *  was ready. Ask `customTypeOutOfSync` instead. */
 export async function masterRef(repo, fetchImpl = fetch) {
   const res = await fetchImpl(`https://${repo}.prismic.io/api/v2`);
   if (!res.ok) throw await failure(res, `read https://${repo}.prismic.io/api/v2`);
   return (await res.json()).refs.find((r) => r.isMasterRef).ref;
-}
-
-/** Does the repository have this custom type? Asked of the Custom Types API,
- *  the one place a pushed model is visible before anything is published. 200
- *  is yes and 404 is no; anything else is "could not tell" and throws, because
- *  an unreadable answer must never read as either. */
-export async function typeExists(type, headers, fetchImpl = fetch) {
-  const res = await fetchWithRetry(
-    `https://customtypes.prismic.io/customtypes/${type}`,
-    { headers: headers.auth },
-    { fetchImpl },
-  );
-  if (res.status === 200) return true;
-  if (res.status === 404) return false;
-  throw await failure(res, `read custom type ${type}`);
 }
 
 /** JSON with every object's keys sorted, so two models compare by content and
@@ -186,6 +171,34 @@ export async function sliceOutOfSync(id, localModel, headers, fetchImpl = fetch)
   return JSON.stringify(canonical(remote)) === JSON.stringify(canonical(localModel))
     ? null
     : `${id}: the model in Prismic differs from the local model.json`;
+}
+
+/** `sliceOutOfSync` for a custom type's own fields (#177). Asked of the Custom
+ *  Types API, the one place a pushed model is visible before anything is
+ *  published. Replaces a `typeExists` that only asked whether the type was
+ *  there, which staged a field the pushed model lacked for the Migration API
+ *  to drop with a 200. Compares `json`, the field definitions, and names any
+ *  local field Prismic's copy lacks; null when they match. 404 is "not
+ *  registered"; any other non-200 throws, because an unreadable answer must
+ *  never read as either. On 2026-09-28 `property`, `person` and `page` all
+ *  matched, read through the Prismic connector. */
+export async function customTypeOutOfSync(type, localModel, headers, fetchImpl = fetch) {
+  const res = await fetchWithRetry(
+    `https://customtypes.prismic.io/customtypes/${type}`,
+    { headers: headers.auth },
+    { fetchImpl },
+  );
+  if (res.status === 404) return `${type}: not registered in Prismic`;
+  if (res.status !== 200) throw await failure(res, `read custom type ${type}`);
+  const remote = await res.json();
+  if (JSON.stringify(canonical(remote.json)) === JSON.stringify(canonical(localModel.json))) {
+    return null;
+  }
+  const fields = (model) => Object.values(model.json ?? {}).flatMap((tab) => Object.keys(tab));
+  const missing = fields(localModel).filter((f) => !fields(remote).includes(f));
+  return missing.length
+    ? `${type}: Prismic's model has no ${missing.join(", ")} — the Migration API would drop it`
+    : `${type}: the model in Prismic differs from customtypes/${type}/index.json`;
 }
 
 /** The slice ids the repository's copy of a custom type offers in a slice

@@ -3,11 +3,12 @@ import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 // @ts-expect-error — plain ESM scripts, no declarations
-import { assetFilename, toPayload } from "./listings.mjs";
+import { assetFilename, overLive, toPayload } from "./listings.mjs";
 // @ts-expect-error — plain ESM scripts, no declarations
 import { notYetLive, stagedByType } from "./publish-release.mjs";
 import {
   contentSignature,
+  customTypeOutOfSync,
   fetchWithRetry,
   publishMigrationRelease,
   readToken,
@@ -15,7 +16,6 @@ import {
   stageDocument,
   stripEmpty,
   tokenEnvName,
-  typeExists,
   // @ts-expect-error — plain ESM scripts, no declarations
 } from "./lib.mjs";
 
@@ -214,17 +214,39 @@ describe("seed lib", () => {
     expect(readToken("r", {}, join(dir, "c.env"))).toBe("from-file");
   });
 
-  it("asks the Custom Types API whether a type exists, and refuses to guess from anything but 200 or 404", async () => {
+  it("holds Prismic's property model to the local one — a field it lacks is dropped with a 200 (#177)", async () => {
     const headers = { auth: { repository: "r" }, json: {} };
-    const answer = (status: number) =>
-      vi.fn(async () => ({ status, ok: status < 400, text: async () => "nope" }));
-    const yes = answer(200);
-    expect(await typeExists("property", headers, yes)).toBe(true);
-    expect(yes.mock.calls[0][0]).toBe("https://customtypes.prismic.io/customtypes/property");
-    expect(await typeExists("property", headers, answer(404))).toBe(false);
-    await expect(typeExists("property", headers, answer(403))).rejects.toThrow(
+    const local = structuredClone(model);
+    const answer = (status: number, body: unknown = {}) =>
+      vi.fn(async () => new Response(JSON.stringify(body), { status }));
+    // Same model, keys in another order: a match.
+    const reordered = { ...local, json: Object.fromEntries(Object.entries(local.json).reverse()) };
+    const same = answer(200, reordered);
+    expect(await customTypeOutOfSync("property", local, headers, same)).toBeNull();
+    expect(same.mock.calls[0][0]).toBe("https://customtypes.prismic.io/customtypes/property");
+    // The 2026-09-28 shape: the model pushed before listing_state existed.
+    const { listing_state: _, ...main } = local.json.Main;
+    const before = { ...local, json: { ...local.json, Main: main } };
+    expect(await customTypeOutOfSync("property", local, headers, answer(200, before))).toMatch(
+      /has no listing_state/,
+    );
+    const relabelled = structuredClone(local);
+    relabelled.json.Main.title.config.label = "Name";
+    expect(await customTypeOutOfSync("property", local, headers, answer(200, relabelled))).toMatch(
+      /differs from customtypes\/property/,
+    );
+    expect(await customTypeOutOfSync("property", local, headers, answer(404))).toMatch(
+      /not registered/,
+    );
+    await expect(customTypeOutOfSync("property", local, headers, answer(403))).rejects.toThrow(
       /read custom type property: 403/,
     );
+  });
+
+  it("names every listing a PUT would stage over a live one — an editor's draft there is invisible (#177)", () => {
+    const entries = [{ uid: "a" }, { uid: "b" }, { uid: "c" }];
+    expect(overLive(entries, { b: { id: "B" }, z: { id: "Z" } })).toEqual(["b"]);
+    expect(overLive(entries, {})).toEqual([]);
   });
 
   it("backs off on 429 and gives up with the last answer", async () => {

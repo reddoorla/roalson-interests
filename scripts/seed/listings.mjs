@@ -5,6 +5,7 @@
 //   node scripts/seed/listings.mjs --apply             stage the documents (drafts, migration release)
 //   node scripts/seed/listings.mjs --apply --with-assets   …uploading package PDFs and photos first
 //   node scripts/seed/listings.mjs --apply --only <uid>
+//   node scripts/seed/listings.mjs --apply --over-live  …over listings that are already live
 //
 // DATA: scripts/seed/listings.json — 22 rows, each with a `source` map saying
 // where every field came from. Two public sources, joined 22/22 on the package
@@ -31,9 +32,9 @@ import {
   repositoryName,
   sleep,
   contentSignature,
+  customTypeOutOfSync,
   stageDocument,
   stripEmpty,
-  typeExists,
   uploadAsset,
   writeState,
   fetchWithRetry,
@@ -54,6 +55,17 @@ export function assetFilename(uid, kind, asset) {
 /** Fields the seed data never sets and an editor does. PUT replaces, so a
  *  re-run carries the live value over rather than wiping the editor's call. */
 export const EDITOR_FIELDS = ["listing_state"];
+
+/** The uids a PUT would stage over a LIVE listing. Any of them may hold an
+ *  editor's unpublished draft — a "Past project" mark, say — that this token
+ *  cannot see: the content API serves the master ref only (no release refs,
+ *  measured 2026-09-28) and the migration release answers 403. EDITOR_FIELDS
+ *  come from the PUBLISHED version, so a draft-only value is lost and the two
+ *  versions conflict (#177). Nothing here can tell a listing with a draft from
+ *  one without, so `--over-live` is the operator saying they looked. */
+export function overLive(entries, live) {
+  return entries.map((e) => e.uid).filter((uid) => live[uid]);
+}
 
 /** The whole document payload, every time: PUT replaces, it never merges.
  *  `live` is the published document's `data`, for EDITOR_FIELDS. */
@@ -105,9 +117,11 @@ async function main(argv) {
   const state = readState(STATE_PATH);
 
   // Preflights. Each REQUIRES a positive answer before any write.
-  if (!(await typeExists(TYPE, headers))) {
+  const model = JSON.parse(readFileSync(join(ROOT, `customtypes/${TYPE}/index.json`), "utf8"));
+  const stale = await customTypeOutOfSync(TYPE, model, headers);
+  if (stale) {
     throw new Error(
-      `preflight: repository ${repo} has no "${TYPE}" custom type yet. ` +
+      `preflight: ${stale}. ` +
         "The models are delivered by the prismic-models workflow on merge to main — wait for its run.",
     );
   }
@@ -121,8 +135,16 @@ async function main(argv) {
     );
   }
   const live = await publishedDocs(repo, TYPE, await masterRef(repo));
+  const risky = overLive(entries, live);
+  if (risky.length && !argv.includes("--over-live")) {
+    throw new Error(
+      `preflight: ${risky.length} listing(s) are live, and an editor's unpublished draft of any ` +
+        "of them is invisible from here; this PUT would stage over it. Check their versions in " +
+        `Prismic, then re-run with --over-live. Live: ${risky.join(", ")}`,
+    );
+  }
   console.log(
-    `preflight ok: type present, asset API 200, ${Object.keys(live).length} listing(s) already live`,
+    `preflight ok: model matches Prismic, asset API 200, ${Object.keys(live).length} listing(s) already live`,
   );
 
   const assetIds = {};

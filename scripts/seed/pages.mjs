@@ -12,8 +12,8 @@
 //
 //   - The Migration API DROPS a field the repository's model does not declare,
 //     and a slice its zone does not list — 200, no warning. So before any write
-//     every slice this seed uses is compared, model for model, with Prismic's
-//     copy, and the `page` type's zone is read for each slice id.
+//     the `page` type and every slice this seed uses are compared, model for
+//     model, with Prismic's copy, and the type's zone is read for each slice id.
 //   - A content relationship is an id, and an id only means something once the
 //     document it names is LIVE. `{ "$property": "<uid>" }` in pages.json is
 //     resolved through listings.state.json and then held against the public
@@ -43,9 +43,9 @@ import {
   sleep,
   sliceOutOfSync,
   contentSignature,
+  customTypeOutOfSync,
   stageDocument,
   stripEmpty,
-  typeExists,
   writeState,
 } from "./lib.mjs";
 
@@ -224,14 +224,13 @@ async function main(argv) {
   const state = readState(STATE_PATH);
 
   // Preflights. Each REQUIRES a positive answer before any write.
-  if (!(await typeExists(TYPE, headers))) {
-    throw new Error(`preflight: repository ${repo} has no "${TYPE}" custom type yet.`);
-  }
+  const typeModel = JSON.parse(readFileSync(join(ROOT, `customtypes/${TYPE}/index.json`), "utf8"));
+  const typeStale = await customTypeOutOfSync(TYPE, typeModel, headers);
   await sleep(THROTTLE_MS);
 
   const local = localSliceModels();
   const wanted = [...new Set(entries.flatMap(sliceIds))];
-  const stale = [];
+  const stale = typeStale ? [typeStale] : [];
   for (const id of wanted) {
     if (!local[id]) stale.push(`${id}: no local model.json`);
     else {
