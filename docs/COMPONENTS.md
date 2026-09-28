@@ -33,7 +33,7 @@ source. It is the fastest way to recognise what a thing does.
 | [`CarouselArrows.svelte`](../src/lib/components/CarouselArrows.svelte) | `carousel`, `tone` | 13 | The comp's carousel arrows (`l arrow` / `r arrow`, 6843:972 / 6843:977 in the homepage `properties slideshow` set; the same pair on issue #14's 390 cards) for a `createCarousel` instance, plus the pause / play control the comp does not draw and WCAG 2.2.2 requires of anything that autoplays |
 | [`CarouselProgress.svelte`](../src/lib/components/CarouselProgress.svelte) | `carousel`, `tone` | 13 | The comp's 2px carousel progress bar (`progress bar` 6843:964: 888 × 2 at 1440, 350 × 2 at 390, 20px under the photo) for a `createCarousel` instance |
 | [`ContentBand.svelte`](../src/lib/components/ContentBand.svelte) | `sliceType`, `variation`, `sectionClass`, `contentClass`, `fallbackHeight`, `background`, `children` | — |  |
-| [`ContentWidth.svelte`](../src/lib/components/ContentWidth.svelte) | `reveals`, `style`, `children`, `edgeFadeColor` | 2 |  |
+| [`ContentWidth.svelte`](../src/lib/components/ContentWidth.svelte) | `reveals`, `style`, `children`, `edgeFadeColor` | 3 |  |
 | [`CountUp.svelte`](../src/lib/components/CountUp.svelte) | `value`, `startValue`, `duration`, `startOnVisible`, `once`, `label`, `decimals`, `prefix`, `suffix`, `useGrouping`, `locale` | 12 | The number to count up to |
 | [`DefaultButton.svelte`](../src/lib/components/DefaultButton.svelte) | `href`, `onclick`, `children` | — | Shape and skin of the shared button, split so callers that must render a different element can still wear it |
 | [`DelayedLink.svelte`](../src/lib/components/DelayedLink.svelte) | `href`, `delay`, `children`, `beforeNavigate`, `onclick` | 5 |  |
@@ -105,4 +105,4 @@ source. It is the fastest way to recognise what a thing does.
 | [`vimeo.ts`](../src/lib/utils/vimeo.ts) | `checkVimeoVideo`, `parseVimeoId` | 11 | True when the Vimeo video exists and is embeddable (oEmbed responds 200) |
 | [`vimeoBackground.svelte.ts`](../src/lib/utils/vimeoBackground.svelte.ts) | `VIMEO_PLAYER_ORIGIN`, `backgroundEmbedSrc`, `VimeoBackground` | 5 | The gate, the heartbeat and the pause flag behind every chrome-less Vimeo background embed in this repo — lifted OUT of VimeoBanner.svelte so the homepage hero could have all three without taking VimeoBanner's markup with them |
 
-87 modules, 830 tests behind them.
+87 modules, 831 tests behind them.

@@ -69,7 +69,7 @@ const WINDOW_CEILING = 0.35;
 /** What the bar draws at each width: the menu trigger always, and the CTA,
  *  whose wrapper in Nav.svelte is `hidden sm:block`, at 1440 but not at 390.
  *  DECLARED per viewport, never inferred from a breakpoint. This spec used to
- *  expect the CTA from a band 560px wide, the `--screen-sm` app.css declares —
+ *  expect the CTA from a band 560px wide, the `--screen-sm` app.css declared —
  *  but Tailwind v4 ignores `--screen-*`, so the shipped `sm:` is 40rem, 640px.
  *  The band measures 15px narrower than the viewport (545 at 560, 624 at 639;
  *  html has `scrollbar-gutter: stable`), so the guess expected a CTA the page
