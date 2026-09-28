@@ -12,7 +12,7 @@ import {
 
 const ROOT = join(import.meta.dirname, "..", "..");
 const INDEX = readFileSync(join(ROOT, "docs/COMPONENTS.md"), "utf8");
-const ROWS = parseIndex(INDEX);
+const ROWS: { name: string; path: string; surface: string[]; tests: number }[] = parseIndex(INDEX);
 
 describe("parseIndex", () => {
   it("reads every module row out of the generated index", () => {

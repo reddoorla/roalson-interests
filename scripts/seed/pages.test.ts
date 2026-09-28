@@ -9,11 +9,8 @@ import {
   resolveRefs,
   sliceIds,
   toPayload,
-  // @ts-expect-error — plain ESM scripts, no declarations
 } from "./pages.mjs";
-// @ts-expect-error — plain ESM scripts, no declarations
 import { canonical, contentSignature, remoteSliceChoices, sliceOutOfSync } from "./lib.mjs";
-// @ts-expect-error — plain ESM scripts, no declarations
 import { notYetLive } from "./publish-release.mjs";
 
 type Slice = { slice_type: string; variation: string; primary: Record<string, unknown> };
@@ -583,15 +580,17 @@ describe("the content signature — what makes a publish's pass positive evidenc
 
 describe("notYetLive", () => {
   const staged = { page: { home: { id: "X", signature: contentSignature({ meta_title: "T" }) } } };
-  const api = (docs: unknown[]) => async (url: string) =>
-    new Response(
-      JSON.stringify(
-        url.includes("/documents/search")
-          ? { results: docs, total_pages: 1 }
-          : { refs: [{ isMasterRef: true, ref: "R" }] },
-      ),
-      { status: 200 },
-    );
+  const api =
+    (docs: unknown[]): typeof fetch =>
+    async (url) =>
+      new Response(
+        JSON.stringify(
+          String(url).includes("/documents/search")
+            ? { results: docs, total_pages: 1 }
+            : { refs: [{ isMasterRef: true, ref: "R" }] },
+        ),
+        { status: 200 },
+      );
 
   it("holds a published document to the content that was staged, not to its uid", async () => {
     await expect(

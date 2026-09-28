@@ -1,0 +1,26 @@
+{
+  // Type-checks the TypeScript under scripts/ — the tests of the seed, map and
+  // index scripts — which the root program (src/, tests/, vite.config.*) never
+  // reaches (#168). Run by scripts/typecheck.test.ts, so `pnpm test` and CI's
+  // unit step fail on a type error here: CI runs svelte-check against the ROOT
+  // tsconfig directly, not `pnpm check`, so a line in that script would never
+  // reach CI.
+  //
+  // The scripts themselves are plain ESM run by `node` and stay unchecked:
+  // `checkJs` off here. Their types are still INFERRED for the tests that
+  // import them, which is what catches a test calling a script wrongly. Turning
+  // checkJs on surfaced 191 implicit-any errors across 11 .mjs files (measured
+  // 2026-09-28): a typing project of its own, not this file's.
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "checkJs": false
+  },
+  "include": [
+    "./**/*.ts",
+    "../.svelte-kit/ambient.d.ts",
+    "../.svelte-kit/non-ambient.d.ts",
+    "../src/app.d.ts"
+  ],
+  // A template to copy per migration: it imports packages installed only then.
+  "exclude": ["./import/migrate.example.ts"]
+}
