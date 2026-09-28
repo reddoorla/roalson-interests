@@ -438,6 +438,17 @@
    */
   let releaseDue = false;
 
+  /**
+   * THE CLICK OF A +/− PRESS WHOSE EASE IS STILL RUNNING, or null. The ease is
+   * the visitor's gesture as much as a wheel's is, but no maplibre handler is
+   * active for it, so without this `gestureInProgress` said no and a listing
+   * asked for inside its 300ms ended the suspension before `zoomend` recorded
+   * the step (#173). Cleared by that ease's own `moveend` — maplibre copies
+   * its event data, so `originalEvent` is this click — which fires whether it
+   * finished or something stopped it.
+   */
+  let stepping: MouseEvent | null = null;
+
   /** The event data every camera command of this component carries, which
    *  maplibre copies onto the events that move fires — `movestart` to
    *  `moveend`, and the `zoomend` / `moveend` of the stop when a gesture cuts
@@ -579,13 +590,19 @@
     );
   };
 
-  /** A visitor's gesture is moving this map right now: one of its navigation
-   *  handlers is active. For the wheel that is from maplibre's first zoom frame
-   *  until 200ms after its ease settles, which is exactly the window whose end
-   *  fires `zoomend`. False with no map. A function declaration so the effect
-   *  above, which runs long after this script, can call it by name. */
+  /** One of this map's navigation handlers is active. For the wheel that is
+   *  from maplibre's first zoom frame until 200ms after its ease settles,
+   *  which is exactly the window whose end fires `zoomend`. */
+  function handlerActive(instance: MapInstance) {
+    return navigation.some((name) => handler(instance, name).isActive());
+  }
+
+  /** A visitor's gesture is moving this map right now: a handler is active,
+   *  or a +/− press is still easing (`stepping`). False with no map. A
+   *  function declaration so the effect above, which runs long after this
+   *  script, can call it by name. */
   function gestureInProgress(instance: MapInstance | null) {
-    return instance !== null && navigation.some((name) => handler(instance, name).isActive());
+    return instance !== null && (stepping !== null || handlerActive(instance));
   }
 
   /**
@@ -652,6 +669,7 @@
     selected = null;
     drivenAt = undefined;
     releaseDue = false;
+    stepping = null;
     chosenZoom = null;
     shortfall = 0;
     if (!flying && commanded && !isAt(instance, commanded)) commanded = null;
@@ -967,9 +985,9 @@
         // Landed, no handler is active and it is on target: nothing to note.
         // Stopped by a gesture, the handler that stopped it IS active at this
         // moment (maplibre stops the flight because it went active), and the
-        // gap is how far the arc was from where it was going.
-        if (commanded && gestureInProgress(instance))
-          shortfall = commanded.zoom - instance.getZoom();
+        // gap is how far the arc was from where it was going. A +/− press is
+        // not asked: it steps from the flight's target itself (`zoomBy`).
+        if (commanded && handlerActive(instance)) shortfall = commanded.zoom - instance.getZoom();
         // Mutated, removing this `return` stays green: what it would record is
         // this flight's own zoom plus its own gap, i.e. `commanded.zoom`, which
         // is already what gets carried. It is the rule, stated, not a guard.
@@ -981,8 +999,10 @@
     // camera's own `moveend`, without saying so: a flight of ours cannot be in
     // the air while `releaseDue` is set, because the gesture it waits on is
     // what stopped it. A `moveend` with a handler still active — a `resize()`
-    // mid-ease — is not the end of anything.
-    instance.on("moveend", () => {
+    // mid-ease — is not the end of anything. A +/− ease's own `moveend` is its
+    // end, so `stepping` clears first.
+    instance.on("moveend", (e: { originalEvent?: unknown } | undefined) => {
+      if (stepping && e?.originalEvent === stepping) stepping = null;
       if (!releaseDue || gestureInProgress(instance)) return;
       releaseDue = false;
       drivenAt = undefined;
@@ -1010,6 +1030,7 @@
     onListing = false;
     drivenAt = undefined;
     releaseDue = false;
+    stepping = null;
     chosenZoom = null;
     shortfall = 0;
     // A re-boot takes its own inventory and is its own first apply.
@@ -1247,9 +1268,9 @@
   //
   // A press is the visitor driving, like a wheel notch: `drivenAt` here, and
   // `originalEvent` on the ease so `movestart` and `zoomend` read it as theirs.
-  // Known gap: a different listing asked for DURING the 300ms ease ends the
-  // suspension before `zoomend` records the zoom (no handler is active), so
-  // that one step is not carried — the `releaseDue` shape, left as is.
+  // Its ease is a gesture in progress (`stepping`), so a different listing
+  // asked for during it waits for its `zoomend`, as a wheel's does (#173).
+  // Set before `easeTo`: an ease of 0ms ends, and clears it, inside the call.
   function zoomBy(delta: 1 | -1, e: MouseEvent) {
     const instance = map;
     if (!instance || !ready) return;
@@ -1263,6 +1284,7 @@
     const base = flying && commanded ? commanded : null;
     if (base) endFlight();
     shortfall = 0;
+    stepping = e;
     instance.easeTo(
       {
         ...(base ? { center: [base.lng, base.lat] as [number, number] } : {}),

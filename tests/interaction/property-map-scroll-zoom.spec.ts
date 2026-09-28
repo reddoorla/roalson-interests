@@ -732,6 +732,77 @@ test.describe("the zoom carried is one the visitor chose, on a listing", () => {
     }
     throw new Error("no attempt crossed while the wheel's ease was running (see annotations)");
   });
+
+  test("a crossing while a + press is still easing waits for it, and flies one level closer (#173)", async ({
+    page,
+  }) => {
+    // The press's 300ms ease is no maplibre handler, so the crossing ended the
+    // suspension at once, the flight cut the ease off, and the step was lost.
+    // Measured with the fix mutated away (dev server, 1440x900): + from z12, a
+    // crossing at z12.3584, the flight out at z12, the ease cut off at z12.5957.
+    test.setTimeout(300_000);
+    await landMapUp(page);
+    await parkAt(page, 2400);
+    const plus = page.locator('[data-map-control="zoom-in"]').first();
+    await recordZoomends(page);
+
+    let from = await onCentreLine(page);
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      await cameraStill(page);
+      await resetCamera(page);
+      await clearZoomends(page);
+      const z0 = await mapZoom(page);
+      const box = await plus.boundingBox();
+      expect(box, "the + control is drawn").not.toBeNull();
+      await page.mouse.click(box!.x + box!.width / 2, box!.y + box!.height / 2);
+      // The crossing, in the same task as the read that proves the press's
+      // ease was still running when it happened.
+      const at = await page.evaluate(
+        ({ current }) => {
+          const m = window.__camera.maps[0]! as (typeof window.__camera.maps)[number] & {
+            isZooming(): boolean;
+          };
+          const easing = m.isZooming();
+          const zoom = m.getZoom();
+          const all = [...document.querySelectorAll<HTMLElement>("[data-centre-id]")];
+          const f = all.find((li) => li.dataset.centreId === current)!;
+          const own = all.filter((li) => li.closest("section") === f.closest("section"));
+          const next = own[own.indexOf(f) + 1]!;
+          const b = next.getBoundingClientRect();
+          window.scrollTo({
+            top: window.scrollY + b.top + b.height / 2 - window.innerHeight / 2,
+            behavior: "instant",
+          });
+          return { easing, zoom, next: next.dataset.centreId ?? null };
+        },
+        { current: from },
+      );
+      await page.waitForTimeout(1500);
+      from = at.next;
+      const log = await cameraLog(page);
+      const ends = await zoomends(page);
+      test.info().annotations.push({
+        type: "crossing",
+        description: `attempt ${attempt}: z${z0.toFixed(4)}, crossing at z${at.zoom.toFixed(4)} (easing ${at.easing}); eases ${JSON.stringify(log.ease)}; zoomends ${JSON.stringify(ends)}; flights ${JSON.stringify(log.fly)}`,
+      });
+      // THE PREMISE: the press really eased, and was still short of its step
+      // at the crossing.
+      expect(log.ease.length, "the press eased the map").toBeGreaterThan(0);
+      if (!at.easing || at.zoom >= z0 + 1 - 0.005) continue;
+
+      const flight = log.fly[0];
+      expect(flight, "the crossing flew").toBeDefined();
+      expect(flight!.zoom, "the flight went one level in from the press's start").toBeCloseTo(
+        z0 + 1,
+        3,
+      );
+      const settledEnd = ends.filter((e) => e.t <= flight!.t).at(-1);
+      expect(settledEnd, "the press's ease ended before the flight left").toBeDefined();
+      expect(settledEnd!.zoom, "…on the step, not cut off short of it").toBeCloseTo(z0 + 1, 3);
+      return;
+    }
+    throw new Error("no attempt crossed while the press's ease was running (see annotations)");
+  });
 });
 
 // ---------------------------------------------------------------------------
