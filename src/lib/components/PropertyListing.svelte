@@ -189,7 +189,7 @@
   // the 390 frame being read).
   const GUTTERS = "mx-auto max-w-[1440px] px-5 sm:px-8 xl:px-20";
 
-  /** `--screen-lg` (app.css). The one breakpoint this file pins at. */
+  /** Tailwind's `lg` (64rem). The one breakpoint this file pins at. */
   const LG = 1024;
 
   /**

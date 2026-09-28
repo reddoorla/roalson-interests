@@ -1,10 +1,34 @@
-import type { ImageField } from "@prismicio/client";
+import { isFilled, type ImageField } from "@prismicio/client";
 
 import type { PropertyDocument } from "../prismicio-types";
 
 /** Inline pixel, so a fixture never depends on an external host — the axe run
  *  must stay hermetic (see /dev/a11y-fixtures). */
 const PIXEL = "data:image/gif;base64,R0lGODlhAQABAAAAACw=";
+
+/** The listing photo a fixture page shows (#17): a drawing made for the job
+ *  (never a comp photo, #3), 1600x1010 like the fixture's `dimensions`, served
+ *  from `static/dev/`. PIXEL cannot stand in for it on a page: PrismicImage
+ *  appends `?width=` for its srcset, a data: URI with a query is not a URL
+ *  (ERR_INVALID_URL in the console, alt text in the card), and it builds that
+ *  srcset with `new URL()`, which refuses a bare path. So a page passes its
+ *  own origin through `withFixturePhoto`; unit tests keep PIXEL. */
+export const FIXTURE_PHOTO_PATH = "/dev/fixture-listing.jpg";
+
+/** `doc` with a filled feature image pointed at FIXTURE_PHOTO_PATH on
+ *  `origin`. An empty one stays empty: "no photo" is a state the fixtures
+ *  test on purpose. */
+export function withFixturePhoto(doc: PropertyDocument, origin: string): PropertyDocument {
+  const image = doc.data.feature_image;
+  if (!isFilled.image(image)) return doc;
+  return {
+    ...doc,
+    data: {
+      ...doc.data,
+      feature_image: { ...image, url: new URL(FIXTURE_PHOTO_PATH, origin).href },
+    },
+  };
+}
 
 /** A drawn stand-in for the Properties masthead photograph, on
  *  HOME_POSTER_FIXTURE's precedent: the real file is a placeholder the client

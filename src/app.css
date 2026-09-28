@@ -14,10 +14,11 @@
 @source not "../docs";
 
 @theme {
-  --screen-sm: 560px;
-  --screen-md: 768px;
-  --screen-lg: 1024px;
-  --screen-xl: 1340px;
+  /* Breakpoints are Tailwind's defaults: sm 640, md 768, lg 1024, xl 1280.
+     This block used to declare `--screen-sm: 560px` and `--screen-xl: 1340px`,
+     v3 names that v4 ignores, and two readers took those numbers as real
+     (#171). To move a breakpoint, declare `--breakpoint-*` and do a visual
+     pass. */
 
   --color-transparent: transparent;
   --color-current: currentColor;

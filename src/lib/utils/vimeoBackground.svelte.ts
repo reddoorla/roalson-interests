@@ -10,7 +10,8 @@
 // stacking context are load-bearing (#38, #45). Neither can wear the other's
 // box. Before this file the two were going to be a second and a third copy of
 // the same sixty lines — see docs/workJournal.md 2026-09-21.
-// (ScreenWidthMedia's SDK-based variant is still its own; issue for it filed.)
+// (ScreenWidthMedia keeps its player.js SDK for the quality reveal, and takes
+// only `watch` and `toggle` from here for its pause control, #81.)
 //
 // WHAT EACH PIECE IS FOR:
 //

@@ -25,6 +25,10 @@
     <link rel="icon" type="image/png" sizes="32x32" href="%sveltekit.assets%/favicon-32.png" />
     <link rel="icon" type="image/svg+xml" href="%sveltekit.assets%/favicon.svg" />
     <link rel="apple-touch-icon" href="%sveltekit.assets%/apple-touch-icon.png" />
+    <!-- Android's home-screen icon (#78): the 192 and 512 are rasters of
+         favicon.svg, like the two above. `display: browser`, so it buys the
+         icon and nothing else; no install prompt, no service worker. -->
+    <link rel="manifest" href="%sveltekit.assets%/site.webmanifest" />
     <meta name="viewport" content="width=device-width" />
     <!-- Atkinson Hyperlegible Next — the design's only licensed face. OFL on
          Google Fonts, which answers the licence question Erik raised on

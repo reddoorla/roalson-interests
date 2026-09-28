@@ -18,7 +18,9 @@
   // content max-width changes so the edge fade math stays in sync.
   const CONTAINER_MAX_MD = 1220;
   const CONTAINER_MAX_XL = 1440;
-  const XL_BREAKPOINT = 1340;
+  // Tailwind's own `xl` (80rem). It was 1340, app.css's dead `--screen-xl`
+  // (#171), which put the fade 1.8px wide of the box at 1330.
+  const XL_BREAKPOINT = 1280;
   const SIDE_MARGIN_RATIO = 0.04;
 
   // Note: keep these as literal strings — Tailwind's JIT doesn't scan template

@@ -51,8 +51,10 @@ describe("the focus ring follows its ground", () => {
    *  fill until the operator moved their light colour to the tan on 2026-09-22;
    *  HomeHero's half-pixel rule was its last `bg-dust` in src/, until the
    *  revised hero dropped the specialty list on 2026-09-28. Either way a
-   *  hover fill is `hover:bg-*`, which the scan below does not count. */
-  const NOT_A_GROUND = ["dust", "transparent", "current"] as const;
+   *  hover fill is `hover:bg-*`, which the scan below does not count.
+   *  `secondary` is Slider's idle dot (#58): a childless <span>, so nothing
+   *  is ever focused on it. */
+  const NOT_A_GROUND = ["dust", "secondary", "transparent", "current"] as const;
 
   /** The rule that sets a value: from the `:where(` that opens its selector
    *  to its closing brace — not from the previous `}`, which would drag the

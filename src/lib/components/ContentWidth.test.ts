@@ -62,3 +62,21 @@ describe("ContentWidth", () => {
     expect(inner.style.transform).toBe("");
   });
 });
+
+// #171. `xl:` is Tailwind's default 1280, not the 1340 app.css used to
+// declare. Between 1326 and 1340 the two disagree: at 1330 the box is already
+// `xl` (92%, centred), so each gutter is 4% = 53.2px; the old constant still
+// used the md branch and drew 55px.
+describe("ContentWidth edge fade", () => {
+  it("matches the gutter the xl box really leaves at 1330", () => {
+    const before = window.innerWidth;
+    window.innerWidth = 1330;
+    try {
+      const { container } = render(ContentWidth, { edgeFadeColor: "#fff", children: body() });
+      const fade = container.querySelector<HTMLElement>(".absolute.right-0")!;
+      expect(fade.style.width).toBe("53.2px");
+    } finally {
+      window.innerWidth = before;
+    }
+  });
+});
