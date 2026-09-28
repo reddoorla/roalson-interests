@@ -51,7 +51,9 @@
   // choice. Sized for sand and for large text, the bar is 0.66→0.62 and the
   // title's line box 0.44–0.48. "Multiply" is not in the comp — no layer in the
   // Figma file uses it, and black at partial opacity already IS a multiply by
-  // grey.
+  // grey. On the real photo at the comp's crop (production build, read off the
+  // pixels by tests/interaction/masthead-scrim.spec.ts): the title 3.47:1 at
+  // 1440 and 3.62:1 at 390, CONTACT US 5.82:1, the menu glyph 5.85:1 / 7.24:1.
   //
   // THE CROP is the comp's too: `object-[50%_70%]`. It offsets the photo 401px
   // into 578px of overflow at 1440 (69.4%), which puts the skyline under the
