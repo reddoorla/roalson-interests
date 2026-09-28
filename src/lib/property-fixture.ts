@@ -11,16 +11,26 @@ const PIXEL = "data:image/gif;base64,R0lGODlhAQABAAAAACw=";
  *  replaces and lives in the CMS, never in this public repo.
  *
  *  Deliberately the WORST case rather than a flattering one. Every value in it
- *  is >= #d8cfbb, and the top band is pure white — so /dev/properties and the
- *  axe fixtures render the masthead over the brightest ground a photograph can
+ *  is >= #d8cfbb, and the sky is pure white — so /dev/properties and the axe
+ *  fixtures render the masthead over the brightest ground a photograph can
  *  present, which is exactly the ground PageMasthead's scrim is sized against.
  *  A pretty fixture would have hidden that the scrim is load-bearing.
- *  2560x1739 — the aspect of the real asset, so the object-cover crop matches. */
+ *  2560x1739 — the aspect of the real asset, so the object-cover crop matches.
+ *
+ *  The sky is held WHITE to 77% because of that crop. PageMasthead frames the
+ *  photo at `object-[50%_70%]` (the comp's), which shows image rows 41–82% at
+ *  1440 and 7–97% at 390; the h1's line box then falls on rows 68.6–76.8% at
+ *  1440, 69.2–73.8% at 2560 and 66.8–84.9% at 390, and the bar on 41–50% /
+ *  7–33%. So the brightest pixel under the bar and under the title is pure
+ *  white at every width. When the crop was the centre (until 2026-09-28) the
+ *  title sat on rows 57–65%, where this sky had already faded to #fdfaf3 —
+ *  never quite the worst case, and under the new crop it would have been
+ *  further off. */
 const MASTHEAD_SVG =
   `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2560 1739">` +
   `<defs><linearGradient id="m" x1="0" y1="0" x2="0" y2="1">` +
-  `<stop offset="0" stop-color="#ffffff"/><stop offset="0.58" stop-color="#fdfaf3"/>` +
-  `<stop offset="1" stop-color="#f4ecdc"/>` +
+  `<stop offset="0" stop-color="#ffffff"/><stop offset="0.77" stop-color="#ffffff"/>` +
+  `<stop offset="0.85" stop-color="#fdfaf3"/><stop offset="1" stop-color="#f4ecdc"/>` +
   `</linearGradient></defs>` +
   `<rect width="2560" height="1739" fill="url(#m)"/>` +
   `<g fill="#e8e1d1">` +
@@ -71,6 +81,7 @@ export function propertyFixture(
       title: "25331 IH 10 West",
       category: "Improved",
       status: "Available",
+      listing_state: null,
       is_new: true,
       order: 1,
       size_label: "Up to 16,700 SF",
@@ -119,8 +130,10 @@ export function propertyFixture(
 
 /** A small portfolio for the listing page: both land categories, improved
  *  listings with and without a photo, an order tie-breaker case, an empty
- *  order, and sold listings from BOTH categories so the Sold section proves it
- *  is a status, not a category. Titles are the outline's real listings.
+ *  order, sold listings from BOTH categories plus one MARKED past project so
+ *  Past Projects proves it is a state, not a category, and one archived land
+ *  listing inside the land cluster, so a leak shows as an extra card and pin.
+ *  Titles are the outline's real listings (the last two are invented).
  *
  *  THE COORDINATES ARE CONSTRUCTED, and deliberately. `propertyFixture` gives
  *  every listing 25331 IH 10 West's pin, so before the map (#13) every card on
@@ -209,6 +222,24 @@ export function propertyListingFixture(): PropertyDocument[] {
       size_label: "6.1 acres",
       feature_image: {},
       location: { latitude: 29.4692, longitude: -98.6621 },
+    }),
+    at("1604-bandera-road", {
+      title: "1604 & Bandera Road",
+      category: "Improved",
+      listing_state: "Past project",
+      order: 3,
+      is_new: true,
+      size_label: "48,000 SF",
+      location: { latitude: 29.5421, longitude: -98.6612 },
+    }),
+    at("archived-land", {
+      title: "Archived land tract",
+      category: "Land — SA Metro & Surrounding",
+      listing_state: "Archived",
+      order: 1,
+      is_new: false,
+      size_label: "9.9 acres",
+      location: { latitude: 29.53, longitude: -98.71 },
     }),
   ];
 }

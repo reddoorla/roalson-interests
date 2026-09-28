@@ -1,6 +1,7 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { HYDRATION_TIMEOUT } from "./hydrated";
+import { SAND } from "./palette";
 
 // The contact page makes promises jsdom cannot check: that its two columns
 // stand on the site's one grid, that a field is the height and the border the
@@ -28,7 +29,6 @@ const FIXTURES = "/dev/a11y-fixtures";
 
 const GARNET = "rgb(101, 35, 35)";
 const ERROR = "rgb(185, 28, 28)";
-const SAND = "rgb(232, 225, 209)";
 
 const bar = 'nav[aria-label="Primary"]';
 const office = 'section[aria-labelledby="contact-office"]';

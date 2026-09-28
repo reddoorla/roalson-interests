@@ -23,21 +23,28 @@
   --color-current: currentColor;
   --color-black: black;
   --color-white: white;
-  --color-background: #f2efe9;
+  --color-background: #f3f1ef;
 
   /* Roalson Interests brand palette. Transcribed from the Figma styles at
      bootstrap and NOT yet reconciled against `get_variable_defs` — do that at
      /figma-slices Stage A and correct here, since a derived transcription has
      been wrong by one value per channel before.
 
+     Off-white and sand are NOT the bootstrap values. The client found the old
+     pair (#f2efe9 / #e8e1d1) "a little bit too yellow", and the designer's
+     revision (Figma 'Homepage - REVISED', 7091:631, 2026-09-26) replaced them
+     everywhere: #e8e1d1 -> #eae7e4, #f2efe9 -> #f3f1ef. The two grounds now
+     step 1.09:1 apart, down from 1.14:1, so a sand panel on the page reads
+     more quietly than it did.
+
      CONTRAST, measured (WCAG 2.x relative luminance), against this page ground:
-       garnet   on off-white  10.07:1  pass
-       garnet   on sand        8.87:1  pass
+       garnet   on off-white  10.25:1  pass
+       garnet   on sand        9.38:1  pass
        white    on garnet     11.55:1  pass
-       sand     on garnet      8.87:1  pass
+       sand     on garnet      9.38:1  pass
        dust     on garnet      5.11:1  pass
-       dust     on off-white   1.97:1  FAIL
-       dust     on sand        1.73:1  FAIL
+       dust     on off-white   2.01:1  FAIL
+       dust     on sand        1.83:1  FAIL
        dust     on white       2.26:1  FAIL
 
      So brand dust CANNOT hold this template's `secondary` role. `secondary` is
@@ -45,7 +52,8 @@
      field descriptions, slice eyebrows, the testimonial role line and the
      contact intro, eight places in all — so assigning dust to it fails axe on
      every page at once. It was caught exactly that way during this bootstrap:
-     the footer's "© 2026 Roalson Interests" went red at 1.97:1.
+     the footer's "© 2026 Roalson Interests" went red at 1.97:1 (on the
+     bootstrap off-white; 2.01:1 on today's).
 
      The mapping therefore splits the two jobs rather than renaming the failure:
        --color-secondary  the AA-safe secondary TEXT colour (dust darkened 56%)
@@ -56,11 +64,11 @@
      are light grounds, so both need a solid or darker treatment. The wordmark's
      dust "INTERESTS" is part of a logo and is exempt.
      Do not collapse these two tokens back into one. */
-  --color-light: #e8e1d1; /* sand — card ground, light type on garnet */
+  --color-light: #eae7e4; /* sand — card ground, light type on garnet */
   --color-primary: #652323; /* garnet */
   --color-dark: #3d0707; /* dark garnet — gradient end, deep ground */
   /* Dust darkened to 56%. Measured on every light ground in this palette:
-     off-white 5.45:1, white 6.25:1, sand 4.80:1 — all AA with margin. */
+     off-white 5.55:1, white 6.25:1, sand 5.08:1 — all AA with margin. */
   --color-secondary: #646059;
   --color-dust: #b2ac9f; /* brand dust — FILL on light grounds; text only on garnet */
   --color-accent: #565637; /* olive — from the logo files, unused in the comps */
@@ -475,7 +483,8 @@ main > section.hero-band:first-child {
    It is here and not in PropertyCard's class lists because a class there
    changes the server's markup for a card whose tone the server can never
    change. With no script `[data-centre-id]` cards never re-tone. Keyed to that
-   attribute, the rule also leaves out the Sold grid, whose cards never move.
+   attribute, the rule also leaves out the Past Projects grid, whose cards never
+   move.
    Under `prefers-reduced-motion: reduce` the `@layer base` block below cuts
    the duration to 0.01ms with `!important`, which beats anything unlayered
    here.
@@ -485,6 +494,42 @@ main > section.hero-band:first-child {
 [data-centre-id] > article > div:has(> img),
 [data-centre-id] [aria-label="Listing status"] > li {
   @apply transition-colors;
+}
+
+/* The Properties view tabs (PropertyListing.svelte). Each rule has two forms:
+   `data-view` once the component has hydrated, and `:target` before that or
+   with no script at all. A view hides the OTHER active sections; Past Projects
+   has no `data-view-section` and always shows. `display: none`, not `{#if}`,
+   so a hidden section's map keeps its state. property-listing.test.ts reads
+   one hide and one selected rule per view off this block. */
+[data-listing]:is([data-view="land"], :not([data-view]):has(#land:target))
+  section[data-view-section]:not([data-view-section="land"]),
+[data-listing]:is([data-view="improved"], :not([data-view]):has(#improved:target))
+  section[data-view-section]:not([data-view-section="improved"]) {
+  display: none;
+}
+
+/* Ghosted: secondary text, the AA pair on the off-white ground (garnet at
+   partial opacity is not). Selected: garnet fill, sand text — the button's
+   hover made permanent (8.87:1). */
+[data-view-tab] {
+  @apply border-transparent text-secondary hover:border-primary hover:text-primary;
+}
+[data-listing]:is([data-view="all"], :not([data-view]):not(:has(#land:target, #improved:target)))
+  [data-view-tab="all"],
+[data-listing]:is([data-view="land"], :not([data-view]):has(#land:target)) [data-view-tab="land"],
+[data-listing]:is([data-view="improved"], :not([data-view]):has(#improved:target))
+  [data-view-tab="improved"] {
+  @apply border-primary bg-primary text-light;
+}
+
+/* Land then Past Projects: warm the seam the second section's strip covers
+   under All. */
+[data-listing]:is([data-view="land"], :not([data-view]):has(#land:target))
+  section[data-past]
+  > div:first-child
+  > div:first-child {
+  @apply bg-gradient-to-b from-background to-light;
 }
 
 /* The two scrim layers $lib/components/PageMasthead.svelte draws over its
@@ -497,33 +542,52 @@ main > section.hero-band:first-child {
    Sized against a PURE WHITE photo pixel, not against the photo we happen to
    have: the picture is content an editor replaces, so the guarantee has to
    hold for whatever they upload next. PageMasthead.test.ts parses these stops
-   and recomputes both ratios; the component's header comment carries the
-   reasoning and the numbers measured on the real asset.
+   and recomputes both ratios, and CAPS them too: a floor alone let this band
+   drift to 0.82 black over the bar, darker than any ink on it needed, and
+   that was the client's "too dark" (2026-09-24).
+   tests/interaction/masthead-scrim.spec.ts samples the painted pixels. The
+   component's header comment carries the reasoning and the numbers measured
+   on the real asset.
 
    `rgb(0 0 0 / 0)` rather than `transparent` — the keyword interpolates
    through premultiplied black in some engines and grey in others. */
 
-/* The band. >= 0.60 black from 66% down, which is where the h1's line box
-   starts at both breakpoints: white clears 5.74:1 on pure white there. */
+/* The band. From 66% down — where the h1's line box starts at both
+   breakpoints — it is >= 0.44 black, which puts white at 3.25:1 on a pure-white
+   pixel: WCAG 1.4.3's 3:1 for LARGE text, and the h1 is 66px / 38px. It was
+   held to 4.5:1 (0.60 black here) until 2026-09-28, by choice rather than by
+   WCAG, and that choice is half of what read as "too dark". Nothing above 36%:
+   between the bar and the title the photo shows through. */
 .masthead-scrim {
   background-image: linear-gradient(
     to bottom,
-    rgb(0 0 0 / 0) 38%,
-    rgb(0 0 0 / 0.3) 56%,
-    rgb(0 0 0 / 0.6) 66%,
-    rgb(0 0 0 / 0.72) 100%
+    rgb(0 0 0 / 0) 36%,
+    rgb(0 0 0 / 0.2) 54%,
+    rgb(0 0 0 / 0.44) 66%,
+    rgb(0 0 0 / 0.5) 100%
   );
 }
 
 /* The bar's. Its box is sized so the floating nav's 80px (70 below lg) lands
-   in the top 45.45%, held at >= 0.78 — dust at 5.12:1 on pure white. Dust is a
-   mid tone, so a LIGHTER shade here makes a bright sky worse, not better. */
+   in the top 45.45%, held at >= 0.62 — enough for the bar's INK, which is the
+   BrandButton `light` tone's text token (sand since #96): 4.77:1 on pure white
+   with sand at #e8e1d1, 5.05:1 at #eae7e4. PageMasthead.test.ts reads that ink
+   out of BrandButton.svelte and @theme, so a new sand re-measures itself.
+   It was sized for DUST (0.82 → 0.78) until 2026-09-28; no bar control has
+   been dust since #96, and the extra 0.16 was the heavy band the client saw.
+   Past the bar it falls away by 80%, and the scrim does not start until 36%,
+   so between them the photo itself shows: the combined darkening dips to 0.09
+   at 1440 (y≈176) and 0.29 at 390 (y≈124). That gap is where the client saw a
+   "hazy light band" — near-white SKY, under the old centred crop, between two
+   dark bands. The comp's crop (PageMasthead) puts the sunrise skyline there,
+   and a lighter bar leaves less of a step down to it. */
 .masthead-shade {
   background-image: linear-gradient(
     to bottom,
-    rgb(0 0 0 / 0.82) 0%,
-    rgb(0 0 0 / 0.78) 45%,
-    rgb(0 0 0 / 0.3) 72%,
+    rgb(0 0 0 / 0.66) 0%,
+    rgb(0 0 0 / 0.62) 46%,
+    rgb(0 0 0 / 0.36) 62%,
+    rgb(0 0 0 / 0.14) 80%,
     rgb(0 0 0 / 0) 100%
   );
 }
@@ -546,7 +610,7 @@ main > section.hero-band:first-child {
        account of which way round this used to be and why it was wrong.
 
        Naming the canvas here also takes body OUT of that propagation: body
-       paints #f2efe9 in its OWN box, which spans the whole document (the
+       paints #f3f1ef in its OWN box, which spans the whole document (the
        layout's wrapper is `min-h-screen`), so nothing on any route changes —
        only the overscroll does.
 

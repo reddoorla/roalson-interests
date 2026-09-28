@@ -11,8 +11,9 @@
   // <p> wearing `t-h3`, never an <h3>: a heading belongs to the heading BEFORE
   // it, and an h3 here would file both partners under the previous band's h2.
   // Nothing but Partners.test.ts holds that. axe does NOT — tried: with the
-  // names as h3s its heading-order passes on /dev/home, because the hero's
-  // "Our specialty" h2 comes first and h2 → h3 skips nothing. (The scout's
+  // names as h3s its heading-order passes on /dev/home, because an h2 comes
+  // first (the hero's "Our specialty" then; the featured band's own h2 since
+  // the revised hero dropped that list) and h2 → h3 skips nothing. (The scout's
   // alternative — text first in the DOM and `order-first` on the cards below
   // `lg` — keeps the h3s, and breaks focus order on a phone the day an editor
   // puts a link in the body or fills the optional buttons: the cards are drawn
@@ -29,37 +30,22 @@
   // - No buttons are drawn under the body. `buttons` is modelled because the
   //   batch asked for it, and renders nothing while it is empty.
   //
-  // PROFILE (operator call 12) has NO comp for its open state. It renders only
-  // when the partner has a bio, and it is a real <details>/<summary>, so it
-  // opens with no script, before hydration, and when the bundle never arrives —
-  // there is no handler here to be missing. What is unusual is where the bio
-  // sits: the comp puts PROFILE inside the 218px panel, beside CONTACT, and a
-  // bio set on a 188px measure is unreadable. A <details> keeps its content
-  // inside its own box, and that box is a flex item in the links row. So the
-  // <details> holds ONLY the summary, the bio is the card's last child at the
-  // card's full width (KNOWN COST, accepted for the comp's layout: the opened
-  // bio does not follow its trigger in reading order — CONTACT sits between
-  // PROFILE and the bio, so a screen-reader user passes one link to reach what
-  // they opened; `aria-controls` names the bio for the readers that use it),
-  // and the stylesheet below closes it while the card's
-  // <details> is not `[open]`.
+  // PROFILE is a link to the partner's Person page, /team/<uid> (F4, operator
+  // 2026-09-28; it replaced a disclosure that opened a bio in place). It
+  // renders only when the row links a published Person. CONTACT opens a
+  // message to the row's email (decision D3); `contact_link` overrides it, and
+  // /contact is the fallback when neither is set.
   //
-  // The rule is written as "hide while closed", never "show while open": a
-  // browser without `:has()` (Firefox < 121, Safari < 15.4) drops the whole
-  // rule and shows every bio, open. The other way round it would hide them
-  // for good. tests/interaction/partners.spec.ts drives it with scripting off.
-  //
-  // Declined, having read them: `Accordion.svelte` — its panel is mounted with
-  // `{#if}`, so without script the bio would not be in the page at all, its
-  // content is a plain string and its chevron is lucide's. `ArrowRight` — the
-  // buttons' 25px arrow; the text links carry a different glyph, exported as
-  // TextLinkArrow. `PrismicLink` drops a document link's href on this
-  // routes-free client (#10), so CONTACT is a plain <a> over $lib/cms-href.
+  // Declined, having read them: `ArrowRight` — the buttons' 25px arrow; the
+  // text links carry a different glyph, exported as TextLinkArrow.
+  // `PrismicLink` drops a document link's href on this routes-free client
+  // (#10), so both links are plain <a>s over $lib/cms-href.
   import { asText, isFilled, type Content } from "@prismicio/client";
   import BrandButton from "$lib/components/BrandButton.svelte";
   import RichTextBody from "$lib/components/RichTextBody.svelte";
   import TextLinkArrow from "$lib/components/TextLinkArrow.svelte";
   import { cmsHref } from "$lib/cms-href";
+  import { emailHref } from "$lib/person";
   import { linkResolver } from "$lib/prismicio";
   import { imgix, srcset } from "$lib/utils/image";
 
@@ -74,7 +60,7 @@
   // capped at the comp's 371 instead.
   const GUTTERS = "mx-auto max-w-[1440px] px-5 sm:px-8 xl:px-20";
 
-  /** Where CONTACT goes when the editor has not said (operator call 12). */
+  /** Where CONTACT goes when the row has no link and no email. */
   const CONTACT_FALLBACK = "/contact";
 
   /** The headshot box is 153 CSS px at every width: 1×, 2× and 3×. */
@@ -95,8 +81,15 @@
           name,
           role: partner.role?.trim() ?? "",
           photo: isFilled.image(partner.photo) ? partner.photo : undefined,
-          contact: cmsHref(partner.contact_link, { linkResolver }) ?? CONTACT_FALLBACK,
-          bio: isFilled.richText(partner.bio) ? partner.bio : undefined,
+          // `asLink` ignores `isBroken`: an unpublished Person would 404.
+          profile:
+            isFilled.contentRelationship(partner.profile) && !partner.profile.isBroken
+              ? cmsHref(partner.profile, { linkResolver })
+              : null,
+          contact:
+            cmsHref(partner.contact_link, { linkResolver }) ??
+            emailHref(partner.email) ??
+            CONTACT_FALLBACK,
         },
       ];
     }),
@@ -153,19 +146,21 @@
             <p id="{uid}-eyebrow" class="t-h5 text-primary">{eyebrow}</p>
           {/if}
           {#if partners.length > 0}
-            <!-- The rule is the comp's 0.5px garnet stroke (6820:120), drawn
-                 for the reason HomeHero gives: Chromium snaps a 0.5px BORDER
-                 up to a whole pixel, and a 1px box scaled to half paints what
-                 Figma paints — AT 2x AND ABOVE. Measured by pixel row: at 1x
-                 it is one full device row of solid garnet, indistinguishable
-                 from a 1px border and heavier than Figma's own 1x render (a
-                 50% blend, 172,137,134). HomeHero's rule is the same technique
-                 and the same caveat. `-mb-px` gives its one pixel back, so like the
-                 comp's zero-height line it takes no room and the 30 under it
-                 stays 30. It is the column's width — the comp's 374 in a 371
-                 column is 3px of drift from the band above.
+            <!-- The rule is the comp's 0.5px garnet stroke (6820:120), and it
+                 is not a border: Chromium snaps a 0.5px BORDER up to a whole
+                 pixel (measured on HomeHero's specialty rules, at 1x and an
+                 emulated 2x, before the revised hero dropped that list on
+                 2026-09-28 — this is the site's only half-pixel rule now),
+                 and a 1px box scaled to half paints what Figma paints — AT 2x
+                 AND ABOVE. Measured by pixel row: at 1x it is one full device
+                 row of solid garnet, indistinguishable from a 1px border and
+                 heavier than Figma's own 1x render (a 50% blend, 172,137,134).
+                 `-mb-px` gives its one pixel back, so like the comp's
+                 zero-height line it takes no room and the 30 under it stays
+                 30. It is the column's width — the comp's 374 in a 371 column
+                 is 3px of drift from the band above.
 
-                 An ELEMENT, where HomeHero's is a `before:` on its list — and
+                 An ELEMENT, where HomeHero's was a `before:` on its list — and
                  not for taste. axe's color-contrast refuses to measure text
                  when an ANCESTOR carries a pseudo-element a quarter of the
                  text's own area, and a 371 × 1 rule is nearly half of a
@@ -236,33 +231,18 @@
                         data-partner-links
                         class="-mr-[15px] flex flex-wrap items-start gap-x-5 gap-y-4"
                       >
-                        {#if partner.bio}
-                          <details data-partner-profile class="group/profile">
-                            <!-- `block`, with the flex row INSIDE it — a
-                                 precaution, not a measurement: WebKit long
-                                 ignored `display: flex` on a <summary>, there
-                                 is no Safari on the build machine to ask, and
-                                 an inner row costs nothing. `list-none` and
-                                 the -webkit- rule remove the disclosure
-                                 triangle; the drawn arrow is the affordance,
-                                 and turns to point down while the bio is open. -->
-                            <summary
-                              aria-controls="{uid}-bio-{i}"
-                              class="{LINK} cursor-pointer list-none [&::-webkit-details-marker]:hidden"
-                            >
-                              <span class={LINK_ROW}>
-                                <span class={LINK_TEXT}
-                                  >Profile<span class="sr-only normal-case">, {partner.name}</span
-                                  ></span
-                                >
-                                <TextLinkArrow
-                                  class="transition-transform duration-200 group-open/profile:rotate-90"
-                                />
-                              </span>
-                            </summary>
-                          </details>
+                        {#if partner.profile}
+                          <a href={partner.profile} data-partner-profile class={LINK}>
+                            <span class={LINK_ROW}>
+                              <span class={LINK_TEXT}
+                                >Profile<span class="sr-only normal-case">, {partner.name}</span
+                                ></span
+                              >
+                              <TextLinkArrow />
+                            </span>
+                          </a>
                         {/if}
-                        <a href={partner.contact} class={LINK}>
+                        <a href={partner.contact} data-partner-contact class={LINK}>
                           <span class={LINK_ROW}>
                             <!-- The space belongs to the OUTER text, before the
                                  hidden span. Inside the span it is lost twice
@@ -281,22 +261,6 @@
                       </div>
                     </div>
                   </div>
-                  {#if partner.bio}
-                    <!-- ALWAYS in the markup — never `{#if open}` — so the
-                         server's HTML holds the bio and the stylesheet alone
-                         decides whether it shows. Sand, like the panel it
-                         continues; Body 2; one blank line between paragraphs.
-                         20 under a headshot; under a text-only card the
-                         panel's own 40 of slack is already the space. -->
-                    <div
-                      id="{uid}-bio-{i}"
-                      data-partner-bio
-                      class="t-body-2 bg-light px-[15px] pb-[30px] text-dark [&_a]:underline
-                        [&_p+p]:mt-5 {partner.photo ? 'pt-5' : ''}"
-                    >
-                      <RichTextBody field={partner.bio} />
-                    </div>
-                  {/if}
                 </li>
               {/each}
             </ul>
@@ -340,12 +304,3 @@
     </div>
   </div>
 </section>
-
-<style>
-  /* Closed unless the card's PROFILE is open. "Hide while closed", so that a
-     browser with no `:has()` drops the rule and shows every bio — see the note
-     at the top of this file. */
-  li:has(details:not([open])) > [data-partner-bio] {
-    display: none;
-  }
-</style>

@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 import {
   imageRefs,
   localSliceModels,
+  personRefs,
   propertyRefs,
   resolveRefs,
   sliceIds,
@@ -150,6 +151,7 @@ describe("the pages data file", () => {
 describe("the home document's bands", () => {
   const home = pages.find((p) => p.uid === "home") as Entry;
   const ids = Object.fromEntries(listings.map((uid) => [uid, `ID-${uid}`]));
+  const personIds = Object.fromEntries(personRefs(home.data).map((u: string) => [u, `ID-${u}`]));
   const order = (home.data.slices ?? []).map((s) => s.slice_type);
   // The media library as `existingAssets()` returns it, for whatever the file
   // names — so the assertions below cannot pass by naming a photograph the
@@ -173,7 +175,7 @@ describe("the home document's bands", () => {
     // out of it. Its link is the typed path $lib/cms-href reduces, the same
     // shape the hero's second button is seeded with.
     expect(Object.keys(band!.primary)).toEqual(["properties", "portfolio_label", "portfolio_link"]);
-    expect(band!.primary.portfolio_label).toBe("Our portfolio");
+    expect(band!.primary.portfolio_label).toBe("Properties");
     expect(band!.primary.portfolio_link).toEqual({ link_type: "Web", url: "/properties" });
   });
 
@@ -193,7 +195,7 @@ describe("the home document's bands", () => {
   });
 
   it("fills the photo band: a band with no image was the launch state, and is not any more", () => {
-    const payload = toPayload(home, ids, library);
+    const payload = toPayload(home, ids, library, personIds);
     const band = payload.data.slices.find((s: Slice) => s.slice_type === "photo_band");
     expect(band.primary).toEqual({
       image: { id: "ASSET-home-photo-band-san-antonio-skyline.jpg" },
@@ -215,11 +217,17 @@ describe("the home document's bands", () => {
     expect(band.items).toEqual([]);
   });
 
-  it("gives each partner a name, a role and the client's own headshot — and still no bio or address", () => {
+  it("gives each partner a name, a role, the client's own headshot, a PROFILE and an email", () => {
     const partners = (home.data.slices ?? []).find((s) => s.slice_type === "partners");
-    const rows = partners?.primary.partners as Record<string, { $image?: string }>[];
+    const rows = partners?.primary.partners as Record<
+      string,
+      { $image?: string; $person?: string }
+    >[];
     expect(rows.map((r) => r.name)).toEqual(["Matt Howard", "Bart Wilson"]);
-    for (const row of rows) expect(Object.keys(row).sort()).toEqual(["name", "photo", "role"]);
+    for (const row of rows)
+      expect(Object.keys(row).sort()).toEqual(["email", "name", "photo", "profile", "role"]);
+    expect(rows.map((r) => r.profile?.$person)).toEqual(["matt-howard", "bart-wilson"]);
+    expect(rows.map((r) => r.email)).toEqual(["mhoward@roalson.com", "bwilson@roalson.com"]);
     // Bart Wilson's file is 140×177 in a 153px box and renders soft — #73, not
     // a defect of this seed, and the only file that exists of him.
     expect(rows.map((r) => r.photo?.$image)).toEqual([
@@ -228,10 +236,32 @@ describe("the home document's bands", () => {
     ]);
   });
 
+  it("seeds the hero as the revised comp: one break after Commercial, the sentence, PROPERTIES first", () => {
+    // 'Homepage - REVISED' 7091:631. The publisher's content signature records
+    // which fields are FILLED, not what they say, so a swapped pair or an old
+    // label would stage and publish as "live" (see the signature's own tests
+    // below). This is the value-level pin, on the file the seed stages.
+    const hero = (home.data.slices ?? []).find((s) => s.slice_type === "home_hero")!;
+    const heading = hero.primary.heading as { type: string; text: string }[];
+    expect(heading).toHaveLength(1);
+    expect(heading[0].type).toBe("heading1");
+    expect(heading[0].text).toBe("San Antonio's Commercial\nReal Estate Experts Since 1983.");
+    expect(hero.primary.subheading).toBe("A placeholder for a sentence to come.");
+    const buttons = hero.primary.buttons as { label: string; link: { url: string } }[];
+    expect(buttons.map((b) => [b.label, b.link.url])).toEqual([
+      ["Properties", "/properties"],
+      ["Contact us", "/contact"],
+    ]);
+    // The model no longer declares the list, and the fills-only-declared-fields
+    // test above would say so — this names it.
+    expect(Object.keys(hero.primary)).not.toContain("specialties");
+    expect(Object.keys(hero.primary)).not.toContain("specialty_label");
+  });
+
   it("gives the hero the poster its own Vimeo film opens on", () => {
     const hero = (home.data.slices ?? []).find((s) => s.slice_type === "home_hero");
     expect(hero?.primary.vimeo_id).toBe("1229048743");
-    const payload = toPayload(home, ids, library);
+    const payload = toPayload(home, ids, library, personIds);
     const staged = payload.data.slices.find((s: Slice) => s.slice_type === "home_hero");
     expect(staged.primary.poster).toEqual({
       id: "ASSET-home-hero-poster-suburban-to-country.jpg",
@@ -261,6 +291,28 @@ describe("resolving listings into content relationships", () => {
 
   it("STOPS on a listing it holds no id for — an empty relationship would stage happily", () => {
     expect(() => resolveRefs(data, { a: "ID-A" })).toThrow(/no staged id for property "b"/);
+  });
+});
+
+describe("resolving people into content relationships", () => {
+  it("turns each $person into a Document link by the id people.state.json holds", () => {
+    const data = { partners: [{ profile: { $person: "matt-howard" } }] };
+    expect(resolveRefs(data, {}, {}, { "matt-howard": "ID-M" })).toEqual({
+      partners: [{ profile: { link_type: "Document", id: "ID-M" } }],
+    });
+    expect(personRefs(data)).toEqual(["matt-howard"]);
+  });
+
+  it("throws on a person with no staged id rather than staging an empty PROFILE", () => {
+    const data = { profile: { $person: "bart-wilson" } };
+    expect(() => resolveRefs(data, {}, {}, {})).toThrow(/no staged id for person "bart-wilson"/);
+  });
+
+  it("names only people the people seed stages", () => {
+    const people = (read("scripts/seed/people.json") as { uid: string }[]).map((p) => p.uid);
+    const refs = pages.flatMap((p) => personRefs(p.data));
+    expect(refs.length).toBeGreaterThan(0);
+    expect(refs.filter((u: string) => !people.includes(u))).toEqual([]);
   });
 });
 
@@ -325,6 +377,7 @@ describe("toPayload", () => {
       home,
       Object.fromEntries(listings.map((u) => [u, `ID-${u}`])),
       Object.fromEntries((imageRefs(home.data) as string[]).map((f) => [f, { id: `ASSET-${f}` }])),
+      Object.fromEntries((personRefs(home.data) as string[]).map((u) => [u, `ID-${u}`])),
     );
     expect(payload.type).toBe("page");
     expect(payload.uid).toBe("home");
@@ -333,6 +386,7 @@ describe("toPayload", () => {
     for (const slice of payload.data.slices) expect(slice.items).toEqual([]);
     expect(JSON.stringify(payload)).not.toContain("$property");
     expect(JSON.stringify(payload)).not.toContain("$image");
+    expect(JSON.stringify(payload)).not.toContain("$person");
     // No empty value anywhere — EXCEPT a slice's own `primary`, which is what
     // an unfilled band is. Every band on the home page is filled today, so the
     // replacement below has nothing to do; the contract is held by its own
@@ -476,6 +530,49 @@ describe("the content signature — what makes a publish's pass positive evidenc
     expect(contentSignature({ ...home, tracts: [], note: "", extra: null })).toBe(
       contentSignature(home),
     );
+  });
+
+  it("changes when a group row gains a field — a partner's PROFILE arriving", () => {
+    // 2026-09-28: the partner rows gained `profile` and `email`, and a key list
+    // that stopped at the primary would have read the home page as live.
+    const row = { name: "Matt Howard", photo: { id: "P" } };
+    const band = (partners: object[]) => ({
+      ...home,
+      slices: [{ slice_type: "partners", variation: "default", primary: { partners } }],
+    });
+    const before = contentSignature(band([row]));
+    const after = contentSignature(band([{ ...row, profile: { link_type: "Document", id: "M" } }]));
+    expect(after).not.toBe(before);
+    expect(JSON.parse(after).slices).toEqual([
+      "partners/default(partners)[partners:name,photo,profile]",
+    ]);
+  });
+
+  it("reads a row's unfilled link the same whether the API delivers { link_type } or the payload omits it", () => {
+    const sent = { slices: [{ slice_type: "partners", primary: { partners: [{ name: "M" }] } }] };
+    const delivered = {
+      slices: [
+        {
+          slice_type: "partners",
+          primary: {
+            partners: [{ name: "M", contact_link: { link_type: "Any" }, email: null, bio: [] }],
+          },
+        },
+      ],
+    };
+    expect(contentSignature(delivered)).toBe(contentSignature(sent));
+  });
+
+  it("does not read rich text as a group", () => {
+    const withBody = {
+      slices: [
+        {
+          slice_type: "partners",
+          primary: { body: [{ type: "paragraph", text: "x", spans: [] }] },
+        },
+      ],
+    };
+    expect(JSON.parse(contentSignature(withBody)).slices).toEqual(["partners/default(body)"]);
   });
 
   it("says what it cannot see: a word changed inside rich text", () => {

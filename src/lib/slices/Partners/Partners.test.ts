@@ -6,8 +6,8 @@ import { afterEach, describe, expect, it } from "vitest";
 import type { Content } from "@prismicio/client";
 
 import {
-  PARTNER_BIO_FIXTURE,
   PARTNER_PHOTO_FIXTURE,
+  PARTNER_PROFILE_FIXTURE,
   partnerFixture,
   partnersFixture,
   partnersFixtureState,
@@ -17,8 +17,8 @@ import Partners from "./index.svelte";
 
 afterEach(cleanup);
 
-// jsdom resolves no stylesheets: whether a bio SHOWS, where the blocks sit and
-// how big a target is are tests/interaction/partners.spec.ts's. What is checked
+// jsdom resolves no stylesheets: where the blocks sit and how big a target is
+// are tests/interaction/partners.spec.ts's. What is checked
 // here is what the markup says — what renders for which fields, in what order,
 // under what names.
 
@@ -28,10 +28,10 @@ const cards = (container: HTMLElement) => [
   ...section(container).querySelectorAll<HTMLElement>("[data-partner]"),
 ];
 
-const withBio = () =>
+const withProfile = () =>
   partnersFixture({
     partners: [
-      partnerFixture({ bio: PARTNER_BIO_FIXTURE } as never),
+      partnerFixture({ profile: PARTNER_PROFILE_FIXTURE } as never),
       partnerFixture({ name: "Bart Wilson" }),
     ],
   });
@@ -62,8 +62,9 @@ describe("Partners slice — the band", () => {
     // The cards come first in the DOM, so a partner's name must not be a
     // heading: an h3 ahead of this band's h2 belongs, in the outline, to the
     // PREVIOUS band's h2. This is the only guard. axe's heading-order was tried
-    // and passes with the names as h3s — the hero's "Our specialty" h2 precedes
-    // them on the homepage, and h2 → h3 skips no level.
+    // and passes with the names as h3s — an h2 precedes them on the homepage
+    // (the featured band's, since the hero's "Our specialty" went), and h2 → h3
+    // skips no level.
     expect(getAllByRole("heading").map((h) => h.tagName)).toEqual(["H2"]);
   });
 
@@ -99,7 +100,7 @@ describe("Partners slice — the band", () => {
 
   it("draws no buttons — the comp has none — until an editor fills them", () => {
     const bare = render(Partners, { props: { slice: partnersFixture() } });
-    expect(bare.queryByRole("link", { name: /portfolio/i })).toBeNull();
+    expect(bare.queryByRole("link", { name: /properties/i })).toBeNull();
     // Every link in the launch state is a partner's CONTACT.
     expect(bare.getAllByRole("link").map((a) => a.textContent?.trim())).toEqual([
       "Contact Matt Howard",
@@ -110,13 +111,13 @@ describe("Partners slice — the band", () => {
     const slice = partnersFixture({
       buttons: [
         { label: "No link", link: { link_type: "Any" } },
-        { label: "Our portfolio", link: { link_type: "Web", url: "https:///properties" } },
+        { label: "Properties", link: { link_type: "Web", url: "https:///properties" } },
         { label: "Contact us", link: { link_type: "Web", url: "/contact" } },
         { label: "Third", link: { link_type: "Web", url: "/third" } },
       ],
     } as never);
     const filled = render(Partners, { props: { slice } });
-    const portfolio = filled.getByRole("link", { name: "Our portfolio" });
+    const portfolio = filled.getByRole("link", { name: "Properties" });
     expect(portfolio.getAttribute("href")).toBe("/properties");
     // The garnet tone — the one for a light ground.
     expect(portfolio.className).toContain("border-primary");
@@ -189,7 +190,7 @@ describe("Partners slice — a card", () => {
     expect(cards(container)[0].querySelector(".t-h4")).toBeNull();
   });
 
-  it("sends CONTACT to /contact when the editor has set no link (operator call 12)", () => {
+  it("sends CONTACT to /contact when the row has neither a link nor an email", () => {
     const { getByRole } = render(Partners, { props: { slice: partnersFixture() } });
     expect(getByRole("link", { name: "Contact Matt Howard" }).getAttribute("href")).toBe(
       "/contact",
@@ -229,6 +230,32 @@ describe("Partners slice — a card", () => {
     );
   });
 
+  it("mails the partner's own address when the row has an email and no link (D3)", () => {
+    const slice = partnersFixture({
+      partners: [
+        partnerFixture({ email: " mhoward@roalson.com " } as never),
+        partnerFixture({ name: "Bart Wilson", email: "not an address" } as never),
+        partnerFixture({
+          name: "A Third",
+          email: "third@roalson.com",
+          contact_link: { link_type: "Web", url: "/contact?who=third" },
+        } as never),
+      ],
+    });
+    const { getByRole } = render(Partners, { props: { slice } });
+    expect(getByRole("link", { name: "Contact Matt Howard" }).getAttribute("href")).toBe(
+      "mailto:mhoward@roalson.com",
+    );
+    // An unusable address falls back rather than shipping a broken mailto:.
+    expect(getByRole("link", { name: "Contact Bart Wilson" }).getAttribute("href")).toBe(
+      "/contact",
+    );
+    // The link, when set, overrides the email.
+    expect(getByRole("link", { name: "Contact A Third" }).getAttribute("href")).toBe(
+      "/contact?who=third",
+    );
+  });
+
   it("names each CONTACT for its partner — two links reading 'Contact' are one name twice", () => {
     const { getAllByRole } = render(Partners, { props: { slice: partnersFixture() } });
     const names = getAllByRole("link").map((a) => a.textContent?.trim());
@@ -238,9 +265,9 @@ describe("Partners slice — a card", () => {
   });
 
   it("gives every text link the padded 24px target, with the ramp class on an INNER element", () => {
-    const { container } = render(Partners, { props: { slice: withBio() } });
+    const { container } = render(Partners, { props: { slice: withProfile() } });
     const targets = [
-      ...section(container).querySelectorAll<HTMLElement>("[data-partner-links] > a, summary"),
+      ...section(container).querySelectorAll<HTMLElement>("[data-partner-links] > a"),
     ];
     expect(targets.length).toBe(3);
     for (const target of targets) {
@@ -254,7 +281,7 @@ describe("Partners slice — a card", () => {
   });
 
   it("ships the Figma export's arrow bytes on every text link, not a redraw and not ArrowRight", () => {
-    const { container } = render(Partners, { props: { slice: withBio() } });
+    const { container } = render(Partners, { props: { slice: withProfile() } });
     const arrows = [...section(container).querySelectorAll<SVGElement>("[data-partner-links] svg")];
     // PROFILE + CONTACT on the first card, CONTACT on the second.
     expect(arrows.length).toBe(3);
@@ -275,84 +302,51 @@ describe("Partners slice — a card", () => {
   });
 });
 
-describe("Partners slice — PROFILE and the bio", () => {
-  it("WITHOUT a bio renders no PROFILE at all: no <details>, no <summary>, no bio region", () => {
+describe("Partners slice — PROFILE, the partner's page", () => {
+  it("WITHOUT a profile renders no PROFILE at all", () => {
     const { container, queryByText } = render(Partners, { props: { slice: partnersFixture() } });
-    const root = section(container);
-    expect(root.querySelector("details")).toBeNull();
-    expect(root.querySelector("summary")).toBeNull();
-    expect(root.querySelector("[data-partner-bio]")).toBeNull();
+    expect(section(container).querySelector("[data-partner-profile]")).toBeNull();
     expect(queryByText(/profile/i)).toBeNull();
   });
 
-  it("treats an empty paragraph as no bio — what the editor leaves behind after deleting one", () => {
+  it("WITH a profile renders PROFILE as a link to /team/<uid>, before CONTACT, on that card only", () => {
+    const { container, getByRole } = render(Partners, { props: { slice: withProfile() } });
+    const [matt, bart] = cards(container);
+    const profile = getByRole("link", { name: "Profile, Matt Howard" });
+    expect(profile.getAttribute("href")).toBe("/team/matt-howard");
+    expect(profile.hasAttribute("data-partner-profile")).toBe(true);
+    const links = matt.querySelector("[data-partner-links]")!;
+    expect(
+      [...links.children].map((el) =>
+        el.hasAttribute("data-partner-profile")
+          ? "profile"
+          : el.hasAttribute("data-partner-contact")
+            ? "contact"
+            : el.tagName,
+      ),
+    ).toEqual(["profile", "contact"]);
+    expect(bart.querySelector("[data-partner-profile]")).toBeNull();
+    expect(
+      [...bart.querySelectorAll("[data-partner-links] > *")].map((a) => a.textContent?.trim()),
+    ).toEqual(["Contact Bart Wilson"]);
+  });
+
+  it("drops PROFILE when the linked Person is unpublished — asLink ignores isBroken", () => {
     const slice = partnersFixture({
-      partners: [partnerFixture({ bio: [{ type: "paragraph", text: "", spans: [] }] } as never)],
+      partners: [
+        partnerFixture({ profile: { ...PARTNER_PROFILE_FIXTURE, isBroken: true } } as never),
+      ],
     });
     const { container } = render(Partners, { props: { slice } });
-    expect(section(container).querySelector("details")).toBeNull();
-    expect(section(container).querySelector("[data-partner-bio]")).toBeNull();
+    expect(section(container).querySelector("[data-partner-profile]")).toBeNull();
   });
 
-  it("WITH a bio renders PROFILE as a native <details>/<summary>, closed, on that card only", () => {
-    const { container } = render(Partners, { props: { slice: withBio() } });
-    const [matt, bart] = cards(container);
-
-    const details = matt.querySelector("details")!;
-    expect(details).not.toBeNull();
-    expect(details.hasAttribute("open")).toBe(false);
-    const summary = details.querySelector("summary")!;
-    expect(summary.textContent?.trim()).toBe("Profile, Matt Howard");
-    // PROFILE comes before CONTACT, as drawn.
-    const links = matt.querySelector("[data-partner-links]")!;
-    expect([...links.children].map((el) => el.tagName)).toEqual(["DETAILS", "A"]);
-
-    expect(bart.querySelector("details")).toBeNull();
-    expect(bart.querySelector("[data-partner-bio]")).toBeNull();
-    expect(bart.querySelector("a")?.textContent?.trim()).toBe("Contact Bart Wilson");
-  });
-
-  it("holds the bio in the markup from the start, OUTSIDE the <details>, at the card's full width", () => {
-    const { container } = render(Partners, { props: { slice: withBio() } });
-    const [matt] = cards(container);
-    const bio = matt.querySelector<HTMLElement>("[data-partner-bio]")!;
-    expect(bio).not.toBeNull();
-    expect(bio.querySelectorAll("p").length).toBe(2);
-    expect(bio.textContent).toContain("Fixture copy, not a biography.");
-    // The <details> holds the summary and nothing else: its box is a flex item
-    // in a 188px panel, and a bio set inside it would be set on that measure.
-    const details = matt.querySelector("details")!;
-    expect([...details.children].map((el) => el.tagName)).toEqual(["SUMMARY"]);
-    expect(details.contains(bio)).toBe(false);
-    // The card's LAST child, a direct child of the <li> — which is what the
-    // stylesheet's `li:has(…) > [data-partner-bio]` needs it to be.
-    expect(bio.parentElement).toBe(matt);
-    expect(matt.lastElementChild).toBe(bio);
-    expect(bio.className).toContain("bg-light");
-    expect(bio.className).toContain("t-body-2");
-    // And the summary says what it controls.
-    expect(details.querySelector("summary")!.getAttribute("aria-controls")).toBe(bio.id);
-    expect(bio.id).not.toBe("");
-  });
-
-  it("writes the closing rule as HIDE-WHILE-CLOSED, so a browser without :has() shows the bio", () => {
-    // Chromium cannot tell the two directions apart — both work where :has()
-    // does. Only the source can: "show while open" hides every bio for good in
-    // a browser that drops the rule.
+  it("no longer carries the <details> bio disclosure or its stylesheet", () => {
     const source = readFileSync(
       resolve(process.cwd(), "src/lib/slices/Partners/index.svelte"),
       "utf8",
     );
-    const style = /<style>([\s\S]*?)<\/style>/.exec(source)?.[1] ?? "";
-    const rules = style.replace(/\/\*[\s\S]*?\*\//g, "").trim();
-    expect(rules.replace(/\s+/g, " ")).toBe(
-      "li:has(details:not([open])) > [data-partner-bio] { display: none; }",
-    );
-    // …and nothing in the markup hides it by default.
-    const { container } = render(Partners, { props: { slice: withBio() } });
-    const bio = section(container).querySelector<HTMLElement>("[data-partner-bio]")!;
-    expect(bio.hasAttribute("hidden")).toBe(false);
-    expect(bio.className.split(/\s+/)).not.toContain("hidden");
+    expect(source).not.toMatch(/<details|<summary|<style>/);
   });
 });
 
@@ -418,24 +412,24 @@ describe("Partners slice — the headshot", () => {
 });
 
 describe("the /dev/home partner states", () => {
-  it("default is launch: no bios, no photos, no contact links", () => {
+  it("default is bare: no profiles, no photos, no emails, no contact links", () => {
     const rows = partnersFixture().primary.partners;
     expect(rows.map((row) => row.name)).toEqual(["Matt Howard", "Bart Wilson"]);
     for (const row of rows) {
-      expect(row.bio).toEqual([]);
+      expect(row.profile).toEqual({ link_type: "Any" });
       expect(row.photo).toEqual({});
+      expect(row.email).toBeNull();
       expect(row.contact_link).toEqual({ link_type: "Any" });
     }
   });
 
-  it("?bio gives ONE partner a bio, so both PROFILE states are on the page together", () => {
+  it("?profile gives ONE partner a profile, so both PROFILE states are on the page together", () => {
     const { container } = render(Partners, {
-      props: { slice: partnersFixtureState({ bio: true }) },
+      props: { slice: partnersFixtureState({ profile: true }) },
     });
-    expect(cards(container).map((card) => card.querySelector("details") !== null)).toEqual([
-      true,
-      false,
-    ]);
+    expect(
+      cards(container).map((card) => card.querySelector("[data-partner-profile]") !== null),
+    ).toEqual([true, false]);
     expect(section(container).querySelector("img")).toBeNull();
   });
 
@@ -450,6 +444,6 @@ describe("the /dev/home partner states", () => {
       // Not a Prismic URL, so no srcset is invented for it.
       expect(img.hasAttribute("srcset")).toBe(false);
     }
-    expect(section(container).querySelector("details")).toBeNull();
+    expect(section(container).querySelector("[data-partner-profile]")).toBeNull();
   });
 });

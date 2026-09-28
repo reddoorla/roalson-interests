@@ -4,8 +4,18 @@
   // and its listing. Active sections put the listing in the comp's right
   // column (847 of 1280) with ONE card featured — the comp's first, ours the
   // one on the centre line, see below — and the rest in the light
-  // token their ground does not use; the Sold section is a 3×2 grid of
-  // unlinked off-white cards across the full width (6991:1145).
+  // token their ground does not use; Past Projects (the comp's Sold section)
+  // is a 3×2 grid of unlinked off-white cards across the full width
+  // (6991:1145).
+  //
+  // THE VIEW TABS (P5, 2026-09-25: "land / improved projects / all") are links
+  // to a fragment, and app.css filters by `:target` — so they work with no
+  // script, on first paint of a shared `/properties#land`, and with Back. The
+  // targets are empty `hidden` spans, so following one scrolls nothing. Once
+  // hydrated, `data-view` holds the view and the CSS reads that instead, so a
+  // fragment that is not a view (the skip link's) leaves it alone. A hidden
+  // section stays in the DOM: its map keeps its state and its cards are just
+  // off the centre line. Past Projects has no view and shows under every tab.
   //
   // Two of the comp's mechanisms belong to this component and are page-level:
   //
@@ -110,6 +120,8 @@
   //    portfolio at 1440x900 (production build) the land map now pins at
   //    scrollY 363.52 and lets go at 4863.38 (was 416.02 and 4915.88), and the
   //    improved map at 5634.39 and 6508.02 (was 5641.48 and 6515.11).
+  //    Every scrollY in 2 and 4 was measured BEFORE the view tabs, whose row
+  //    moves everything under it down; the offsets and travel lengths are not.
   //
   // WHICH LISTING IS ACTIVE HAS ONE ANSWER: the card crossing the middle of
   // the screen. Pressing a pin does NOT set it — the press scrolls that card
@@ -132,7 +144,7 @@
   // this replaced. Below `lg` `centreWatch` does not run (3 above), so a phone
   // keeps card 0 featured too. There the map is a 200px box above the cards
   // and does not stick, so a travelling highlight would match nothing on
-  // screen. Sold sections have no map and no watcher.
+  // screen. Past Projects has no map and no watcher.
   //
   // AND NOTHING HERE HOLDS THAT RULE BACK WHILE A SCROLL TRAVELS. It used to —
   // see `revealCard` for the two separate defects that cost — and the job now
@@ -142,10 +154,18 @@
   //
   // Still not here: the 390 comp's in-card carousel (#14 — this stacks the
   // cards, which is also that carousel's no-JS state).
+  import { onMount } from "svelte";
+
   import { centreWatch } from "$lib/actions/centreWatch";
+  import { brandButtonBase, brandButtonPadding } from "$lib/components/BrandButton.svelte";
   import PropertyCard from "$lib/components/PropertyCard.svelte";
   import PropertyMap from "$lib/components/PropertyMap.svelte";
-  import type { ListingSection } from "$lib/property-listing";
+  import {
+    listingViews,
+    viewFromHash,
+    type ListingSection,
+    type ListingView,
+  } from "$lib/property-listing";
   import { sectionPoints } from "$lib/property-map";
 
   interface Props {
@@ -193,6 +213,17 @@
   let stickyTops = $state<(number | undefined)[]>([]);
   /** Section id → the listing id on the centre line. */
   let activeIds = $state<Record<string, string>>({});
+
+  const views = $derived(listingViews(sections));
+  /** The view, once hydrated; undefined on the server, where `:target` rules. */
+  let current = $state<ListingView | undefined>();
+  onMount(() => {
+    current = viewFromHash(location.hash) ?? "all";
+  });
+  /** A fragment that names no view leaves the view alone. */
+  function onhashchange() {
+    current = viewFromHash(location.hash) ?? current;
+  }
 
   /** The scrollport's declared usable top, read rather than typed — app.css
    *  declares it as `--usable-top` and applies it as `scroll-padding-top`. */
@@ -296,16 +327,41 @@
   }
 </script>
 
-<div class={passedClasses}>
+<svelte:window {onhashchange} />
+
+<div class={passedClasses} data-listing data-view={current}>
   {#if sections.length === 0}
     <p class="t-body-1 {GUTTERS} py-20 text-primary">
       No properties are listed at the moment. Please check back soon.
     </p>
   {/if}
 
+  {#if views.length}
+    <!-- Colours are app.css's, keyed to `:target` and `data-view`. aria-current
+         only once hydrated: without script the server cannot know the view. -->
+    <div role="group" aria-label="Show listings" class="{GUTTERS} flex flex-wrap gap-2.5 pt-10">
+      {#each views as view (view.id)}
+        <a
+          href="#{view.id}"
+          data-view-tab={view.id}
+          aria-current={current === view.id ? "true" : undefined}
+          class="{brandButtonBase} {brandButtonPadding(false)}">{view.label}</a
+        >
+      {/each}
+    </div>
+    {#each views as view (view.id)}
+      <span id={view.id} hidden data-view-target></span>
+    {/each}
+  {/if}
+
   {#each sections as section, i (section.id)}
     {@const last = i === sections.length - 1}
-    <section aria-labelledby="listing-{section.id}" class={i > 0 ? "bg-light" : ""}>
+    <section
+      aria-labelledby="listing-{section.id}"
+      data-view-section={section.past ? undefined : section.id}
+      data-past={section.past || undefined}
+      class={i > 0 ? "bg-light" : ""}
+    >
       <div bind:this={dividerEls[i]} class={i > 0 ? "bg-light lg:sticky lg:top-0 lg:z-10" : ""}>
         <div
           class="h-10 {i > 0 ? 'lg:h-[100px]' : ''} {i === 1
@@ -323,7 +379,7 @@
         </div>
       </div>
 
-      {#if section.sold}
+      {#if section.past}
         <ul
           class="{GUTTERS} grid gap-5 pt-10 sm:grid-cols-2 lg:grid-cols-3 {last
             ? 'pb-[100px]'

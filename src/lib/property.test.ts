@@ -3,9 +3,12 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import {
+  LISTING_STATES,
   PROPERTY_CATEGORIES,
   PROPERTY_STATUSES,
-  isSold,
+  isArchived,
+  isListed,
+  isPastProject,
   mapsUrl,
   propertyFacts,
   propertyHighlights,
@@ -33,15 +36,40 @@ describe("the property vocabulary", () => {
       ...PROPERTY_STATUSES,
     ]);
   });
+
+  it("matches the model's listing_state options, with no default", () => {
+    expect(model.json.Main.listing_state.config.options).toEqual([...LISTING_STATES]);
+    // A default would type the field as always filled while the 22 documents
+    // that predate it come back null.
+    expect(model.json.Main.listing_state.config.default_value).toBeUndefined();
+  });
+});
+
+describe("listing state", () => {
+  const state = (p: ReturnType<typeof propertyFixture>) =>
+    isArchived(p) ? "archived" : isPastProject(p) ? "past" : isListed(p) ? "listed" : "none";
+
+  it("reads an empty state and Listed as listed, whatever the status but Sold", () => {
+    expect(state(propertyFixture({ listing_state: null }))).toBe("listed");
+    expect(state(propertyFixture({ listing_state: "Listed" }))).toBe("listed");
+    expect(state(propertyFixture({ status: "Under Contract" }))).toBe("listed");
+  });
+
+  it("makes a Sold listing a past project without it being marked", () => {
+    expect(state(propertyFixture({ status: "Sold" }))).toBe("past");
+    expect(state(propertyFixture({ status: "Sold", listing_state: "Listed" }))).toBe("past");
+    expect(state(propertyFixture({ listing_state: "Past project" }))).toBe("past");
+  });
+
+  it("lets Archived win over everything, Sold included", () => {
+    expect(state(propertyFixture({ listing_state: "Archived" }))).toBe("archived");
+    const soldArchived = propertyFixture({ status: "Sold", listing_state: "Archived" });
+    expect(isPastProject(soldArchived)).toBe(false);
+    expect(isListed(soldArchived)).toBe(false);
+  });
 });
 
 describe("status", () => {
-  it("treats only Sold as sold", () => {
-    expect(isSold(propertyFixture({ status: "Sold" }))).toBe(true);
-    expect(isSold(propertyFixture({ status: "Under Contract" }))).toBe(false);
-    expect(isSold(propertyFixture({ status: "Available" }))).toBe(false);
-  });
-
   it("labels Under Contract and Sold, and leaves Available unmarked", () => {
     expect(statusLabel(propertyFixture({ status: "Sold" }))).toBe("Sold");
     expect(statusLabel(propertyFixture({ status: "Under Contract" }))).toBe("Under Contract");
@@ -70,6 +98,11 @@ describe("propertyFacts", () => {
       { label: "Land", value: "2.09 acres" },
       { label: "Zoning", value: "C-3, City of Boerne" },
     ]);
+  });
+
+  it("drops the three deal rows with pricing off, for a past project", () => {
+    const labels = propertyFacts(propertyFixture(), { pricing: false }).map((f) => f.label);
+    expect(labels).toEqual(["Building size", "Office", "Warehouse", "Land", "Zoning"]);
   });
 
   it("returns nothing for a listing with an empty Details tab", () => {

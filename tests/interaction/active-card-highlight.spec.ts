@@ -2,6 +2,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Browser, type Locator, type Page } from "@playwright/test";
 
 import { hydrated } from "./hydrated";
+import { OFF_WHITE, SAND } from "./palette";
 import { placedPin } from "./placed-markers";
 
 // THE GARNET CARD FOLLOWS THE CENTRE LINE (operator, 2026-09-23: "please
@@ -59,10 +60,10 @@ const NEW_BRAUNFELS = "ih-35-new-braunfels";
 const MAP = "[data-property-map]";
 
 /** Brand tokens as COMPUTED colours (app.css `@theme`). Never a class name: a
- *  guard that greps `bg-primary` passes a token rename by measuring nothing. */
+ *  guard that greps `bg-primary` passes a token rename by measuring nothing.
+ *  OFF_WHITE (--color-background) and SAND (--color-light) come from
+ *  ./palette, which scripts/spec-palette.test.ts holds to app.css. */
 const GARNET = "rgb(101, 35, 35)"; // --color-primary
-const OFF_WHITE = "rgb(242, 239, 233)"; // --color-background
-const SAND = "rgb(232, 225, 209)"; // --color-light
 const DARK = "rgb(61, 7, 7)"; // --color-dark
 
 const WIDE = 1440;
@@ -325,11 +326,11 @@ async function serverFeaturesFirstCards(page: Page, route: string) {
   for (const chunk of active) {
     expect(featuredIn(chunk), "one garnet card, and it is the first").toEqual([idsIn(chunk)[0]]);
   }
-  // Sold is not watched and nothing in it is garnet.
-  const sold = chunks[labels.indexOf("sold")];
-  if (sold !== undefined) {
-    expect(idsIn(sold)).toEqual([]);
-    expect(sold).not.toMatch(/<article class="[^"]*\bbg-primary\b/);
+  // Past Projects is not watched and nothing in it is garnet.
+  const past = chunks[labels.indexOf("past")];
+  if (past !== undefined) {
+    expect(idsIn(past)).toEqual([]);
+    expect(past).not.toMatch(/<article class="[^"]*\bbg-primary\b/);
   }
   return labels;
 }
@@ -339,7 +340,7 @@ test.describe("the server still features the first card, and that is the whole n
     page,
   }) => {
     test.skip(PREVIEW, NO_FIXTURE);
-    expect(await serverFeaturesFirstCards(page, FIXTURE)).toEqual(["land", "improved", "sold"]);
+    expect(await serverFeaturesFirstCards(page, FIXTURE)).toEqual(["land", "improved", "past"]);
   });
 });
 
@@ -421,6 +422,49 @@ test.describe("the garnet card is the listing on the centre line", () => {
           )
           .toEqual([0, 0]);
         expect(await garnetIds(land), "and nothing else is garnet").toEqual([id]);
+      }
+    } finally {
+      await context.close();
+    }
+  });
+
+  // P2/P4's pin-to-card connection: the garnet card's pin is the marked one,
+  // larger than the rest (size, not motion — the harness runs reduced motion).
+  test("and its pin is the marked one: 1.5x the others, in garnet", async ({ browser }) => {
+    const { context, page } = await at(browser, WIDE);
+    try {
+      await page.goto(FIXTURE);
+      await hydrated(page);
+      const land = sectionOf(page, "land");
+      const map = land.locator(MAP).first();
+      await expect(map).toHaveAttribute("data-map-ready", "", { timeout: 25_000 });
+      for (const id of [CASTROVILLE, NEW_BRAUNFELS]) {
+        await centre(page, id);
+        await expect(cardOf(land, id)).toHaveCSS("background-color", GARNET, {
+          timeout: MOVE_TIMEOUT,
+        });
+        await expect
+          .poll(
+            () =>
+              map.evaluate((el) =>
+                [...el.querySelectorAll<HTMLElement>("[data-map-active]")].map(
+                  (p) => p.dataset.mapPin ?? p.dataset.mapHomePin,
+                ),
+              ),
+            { timeout: MOVE_TIMEOUT },
+          )
+          .toEqual([id]);
+        const read = await map.evaluate((el) => {
+          const w = (p: Element) => p.querySelector("svg")!.getBoundingClientRect().width;
+          const active = el.querySelector("[data-map-pin][data-map-active]")!;
+          const other = el.querySelector("[data-map-pin]:not([data-map-active])")!;
+          return {
+            ratio: Math.round((w(active) / w(other)) * 100) / 100,
+            fill: getComputedStyle(active.querySelector("path")!).fill,
+          };
+        });
+        expect(read.ratio, "ACTIVE_PIN_SCALE").toBe(1.5);
+        expect(read.fill, "still garnet, well over 3:1 on the map ground").toBe(GARNET);
       }
     } finally {
       await context.close();

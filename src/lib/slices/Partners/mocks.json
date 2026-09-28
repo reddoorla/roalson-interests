@@ -58,20 +58,6 @@
                   "type": "Text",
                   "value": "Partner"
                 }
-              ],
-              [
-                "bio",
-                {
-                  "__TYPE__": "StructuredTextContent",
-                  "value": [
-                    {
-                      "type": "paragraph",
-                      "content": {
-                        "text": "Simulator copy, not a biography. The partners' bios are written in Prismic, and neither has one yet, so this paragraph stands in for one: PROFILE appears on a card only when its bio is filled, and this is what it opens."
-                      }
-                    }
-                  ]
-                }
               ]
             ]
           },

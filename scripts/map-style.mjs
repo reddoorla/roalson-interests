@@ -124,7 +124,7 @@ export const ATTRIBUTION =
  * else.
  */
 export const PALETTE = {
-  ground: "#f2efe9", // --color-background, the page's own off-white
+  ground: "#f3f1ef", // --color-background, the page's own off-white
   garnet: "#652323", // --color-primary
   darkGarnet: "#3d0707", // --color-dark
   secondary: "#646059", // --color-secondary (AA-safe text grey)
@@ -377,7 +377,7 @@ export const HALO_ADDED = new Set([
  * over the `ne2_shaded` source. The widest section fit on this site is z6.948
  * (see the comment at src/lib/property-map.ts:28), so it does render there
  * today — a grey-brown hillshade under a sand palette, and a whole second
- * source's worth of PNG fetches. Dropping it leaves that land flat `#f2efe9`,
+ * source's worth of PNG fetches. Dropping it leaves that land flat `#f3f1ef`,
  * which is the right call for a tinted map and the cheaper one.
  *
  * The four `poi_*` layers are coffee shops, chemists and bus stops. A property

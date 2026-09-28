@@ -3,6 +3,7 @@ import { expect, test, type Browser, type Locator, type Page } from "@playwright
 import { expectRing, GARNET } from "./expect-ring";
 import { FEATURED_DISSOLVE, FEATURED_DWELL, FEATURED_KEN_BURNS } from "./featured-dwell";
 import { HYDRATION_TIMEOUT } from "./hydrated";
+import { SAND } from "./palette";
 
 // The homepage's featured band (src/lib/slices/FeaturedProperties) is the
 // headless carousel's first consumer, and makes promises jsdom cannot check:
@@ -150,8 +151,9 @@ const revealed = (card: Locator) =>
  *
  *  Only sound for a card that is BELOW THE FOLD at load, which every band on
  *  /dev/home and /dev/a11y-fixtures is (measured: the fixtures page's launch
- *  band sits at y=16119 of a 900 viewport). A card already on screen is hidden
- *  and revealed inside one frame and this would race it. */
+ *  band sits at y=16093 of a 1455 x 900 viewport, re-measured 2026-09-28 with
+ *  the revised hero; it read 16119 when first written). A card already on
+ *  screen is hidden and revealed inside one frame and this would race it. */
 const hiddenByScript = (card: Locator) =>
   expect(card).toHaveAttribute("data-reveal", "", { timeout: HYDRATION_TIMEOUT });
 
@@ -340,21 +342,29 @@ test.describe("where the comp draws it", () => {
     }
   });
 
-  test("the card starts on the site's column line — the hero's h1 — at every lg width", async ({
+  // The line is read off the FOOTER's headline, which sits in the site's grid
+  // (`[397fr_847fr] gap-9`, the same gutters) at `lg:col-start-2`. It was the
+  // hero's H1 until the revised hero went one column (2026-09-28) and moved
+  // that H1 to the gutter — the anchor had to move, the line did not.
+  test("the card starts on the site's column line — the footer headline's — at every lg width", async ({
     page,
   }) => {
     for (const width of [1440, 1280, 1100, 1920]) {
       await page.setViewportSize(viewportFor(width));
       await page.goto(HOME);
-      const h1 = page.locator('[data-slice-type="home_hero"] h1');
+      const line = page.locator("footer h2");
+      await expect(line).toHaveCount(1);
       // Auto-retrying: the first read after a viewport change can be the old layout.
       await expect
         .poll(
           async () => {
-            const [a, b] = await Promise.all([h1.boundingBox(), page.locator(CARD).boundingBox()]);
+            const [a, b] = await Promise.all([
+              line.boundingBox(),
+              page.locator(CARD).boundingBox(),
+            ]);
             return Math.abs(a!.x - b!.x);
           },
-          { message: `card vs h1 left edge at ${width}` },
+          { message: `card vs the footer headline's left edge at ${width}` },
         )
         .toBeLessThanOrEqual(1);
       // …and the map's column is the rest of the band, flush against the card.
@@ -375,7 +385,7 @@ test.describe("where the comp draws it", () => {
       expect(g.map.background, `${width}: what the visitor sees before tiles`).toBe(
         "rgb(61, 7, 7)",
       );
-      expect(g.map.background, `${width}: sand over the dark band`).not.toBe("rgb(232, 225, 209)");
+      expect(g.map.background, `${width}: sand over the dark band`).not.toBe(SAND);
     }
   });
 
@@ -562,7 +572,9 @@ test.describe("rotation", () => {
         // rather than quietly. It read: "at 1440x900 the 512x827 map is
         // already intersecting at scrollY 0, so its parse and its WebGL
         // context land inside this very dwell". Measured at this exact
-        // viewport: the band's map slot top is y=1007 against a 900 viewport,
+        // viewport: the band's map slot top is y=1007 against a 900 viewport
+        // (921 since the revised one-column hero, 2026-09-28 — still wholly
+        // below the fold, and the lazy gate wants half the box, not a pixel),
         // `data-map-ready` is false after 4s, and there is no canvas and no
         // attribution control. This test never scrolls, so MapLibre cannot
         // boot inside it at all. The same PR's journal retracted the belief;
@@ -912,11 +924,13 @@ test.describe("rotation", () => {
       // AND THE AUDIT WAITS FOR THE MAP, which is the whole of this case's
       // 2026-09-22 correction. What stood here asserted that MapLibre "never
       // boots" on this band because the map slot's top is y=1007 against a 900
-      // viewport — true at REST, and false three lines after the scroll this
-      // very test performs. Measured at 1455x900 right after
-      // `scrollIntoViewIfNeeded()`: scrollY 922, slot top 85, slot height 831,
-      // 815px of it on screen. PropertyMap's lazy gate wants half of
-      // `min(831, 900)` = 415.5px. It opens every time. Whether MapLibre then
+      // viewport (921 since the revised hero, 2026-09-28) — true at REST, and
+      // false three lines after the scroll this very test performs. Measured
+      // at 1455x900 right after `scrollIntoViewIfNeeded()`: scrollY 922, slot
+      // top 85, slot height 831, 815px of it on screen — and, re-measured on
+      // 2026-09-28 with the revised hero, scrollY 834, slot top 87, slot height
+      // 826.4, 813px on screen. PropertyMap's lazy gate wants half of
+      // `min(826.4, 900)` = 413.2px. It opens every time. Whether MapLibre then
       // finished before `analyze()` ran was a RACE, and the audit asserted on
       // the losing side of it: the listing links go `sr-only` at
       // `data-map-ready`, and axe does not measure contrast on visually hidden
@@ -980,7 +994,9 @@ test.describe("rotation", () => {
       // /dev/properties alike. Fixed in PropertyMap.svelte by naming
       // `.maplibregl-ctrl` too, (0,3,0); the chip now computes
       // `rgb(232, 225, 209)` and axe reads the OpenStreetMap credit at
-      // **8.86:1**, against the 8.87 that component predicted.
+      // **8.86:1**, against the 8.87 that component predicted. (That was the
+      // sand of the time; since 2026-09-28 the chip is `rgb(234, 231, 228)`
+      // and the pair is 9.38:1 by app.css's table.)
       const contrast = results.passes.find((p) => p.id === "color-contrast");
       const credit = contrast?.nodes.filter((n) => n.html.includes("openstreetmap.org")) ?? [];
       expect(
@@ -2344,7 +2360,7 @@ test.describe("the portfolio button", () => {
       await settledForAudit(page, card);
 
       const learn = card.getByRole("link", { name: /Learn more/ });
-      const portfolio = card.getByRole("link", { name: "Our portfolio" });
+      const portfolio = card.getByRole("link", { name: "Properties", exact: true });
       // Read after the scroll, not before: every assertion below is one box
       // against another, so the frame they share only has to be the same one.
       const [c, l, p] = await Promise.all([
@@ -2598,7 +2614,7 @@ test.describe("the other states", () => {
       // this band draws of its own, server-rendered like everything else here,
       // so a visitor without the bundle still has a way to all of them (#47).
       // It is a plain <a> in the markup: nothing about it waits on hydration.
-      const portfolio = card.getByRole("link", { name: "Our portfolio" });
+      const portfolio = card.getByRole("link", { name: "Properties", exact: true });
       await expect(portfolio).toBeVisible();
       await expect(portfolio).toHaveAttribute("href", "/properties");
       // The map's own links go to Google Maps by design (#13), and they are

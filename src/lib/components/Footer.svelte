@@ -160,8 +160,11 @@
               {line}
             {/each}
           </h2>
-          <!-- Wraps: the row is 286px as built (281 in the comp), and a 320px
-               phone's column is 280. -->
+          <!-- Wraps: a 320px phone's column is 280. The row was 286 as built
+               with CONTACT US | OUR PORTFOLIO (281 in the comp); it is 256 as
+               PROPERTIES | CONTACT US (117 + 20 + 119; the revised comp's
+               7091:771 draws 116 + 20 + 117), so today it fits — the wrap is
+               for the next label that does not. -->
           <div class="mt-10 flex flex-wrap gap-5">
             {#each cta.links as link, i (i)}
               <BrandButton href={link.href}>{link.label}</BrandButton>

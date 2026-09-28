@@ -2,6 +2,7 @@ import { expect, test, type Browser, type Locator, type Page } from "@playwright
 import sharp from "sharp";
 import { expectRing, GARNET, OFF_WHITE } from "./expect-ring";
 import { carouselHydrated } from "./hydrated";
+import { DARK_RGB, GARNET_RGB, OFF_WHITE_RGB, SAND, SAND_RGB } from "./palette";
 
 // The headless carousel ($lib/carousel.svelte.ts) makes four promises jsdom
 // cannot check, and each of them was wrong at least once while it was built:
@@ -540,7 +541,7 @@ test("the focus ring follows the card the carousel sits on — arrows and slide 
     await adopted(sandCard);
     // The grounds are what the names say, as painted…
     await expect(garnetCard).toHaveCSS("background-color", GARNET);
-    await expect(sandCard).toHaveCSS("background-color", "rgb(232, 225, 209)");
+    await expect(sandCard).toHaveCSS("background-color", SAND);
     // …and neither tone sets a ring of its own, so these four are app.css's
     // `--focus-ring`, resolved from the nearest ground. Before main's #23 the
     // link on the garnet card measured rgb(101, 35, 35): garnet on garnet, 1:1.
@@ -576,8 +577,8 @@ async function paintedAt(page: Page, x: number, y: number): Promise<Rgb> {
 }
 
 for (const [name, selector, ground, fill] of [
-  ["garnet tone on the sand card", AUTO, [232, 225, 209], [61, 7, 7]],
-  ["cream tone on the garnet card", MANUAL, [101, 35, 35], [242, 239, 233]],
+  ["garnet tone on the sand card", AUTO, SAND_RGB, DARK_RGB],
+  ["cream tone on the garnet card", MANUAL, GARNET_RGB, OFF_WHITE_RGB],
 ] as [string, string, Rgb, Rgb][]) {
   test(`the bar as painted — ${name} — is 3:1 at both of its edges`, async ({ page }) => {
     // Reduced motion (the default here) is the still state: fill = 1/3.

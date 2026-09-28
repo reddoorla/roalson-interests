@@ -45,8 +45,8 @@
            theme-contrast.test.ts measured none of it. (Spelled that way on
            purpose: Tailwind's source scan reads comments, and the three
            utilities written out whole here shipped as three dead rules.)
-           `text-error` is 5.64:1
-           on the page's off-white, 6.47 on white, 4.97 on sand. Square and
+           `text-error` is 5.74:1
+           on the page's off-white, 6.47 on white, 5.25 on sand. Square and
            1px, like Field and the comp's buttons; no fill, so it stands on
            whichever light ground the form does. -->
       <h2 id="form-error-summary-title" class="t-h6 text-error">

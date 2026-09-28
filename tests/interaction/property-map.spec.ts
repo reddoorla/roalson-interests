@@ -1,6 +1,10 @@
+import { readFileSync } from "node:fs";
+
 import { expect, test, type Browser, type Page } from "@playwright/test";
 
+import { cameraProbeInstalled, watchCamera } from "./camera-probe";
 import { hydrated } from "./hydrated";
+import { SAND } from "./palette";
 
 // THE PER-SECTION MAP (#13), in the only place its promises can be checked.
 //
@@ -80,7 +84,8 @@ test.describe("the no-JS state is the content, not a blank box", () => {
     const listing = await (await page.request.get(PROPERTIES)).text();
     const links = listing.match(/data-map-link=""/g) ?? [];
     // The fixture portfolio: 4 land + 2 improved active listings with pins.
-    // Sold gets no map at all, which is the next assertion.
+    // Past Projects gets no map at all, which is the next assertion, and the
+    // archived land listing gets no pin (a leak reads 7).
     expect(links.length, `${PROPERTIES} server-renders a link per pin`).toBe(6);
     expect(listing).toContain("https://www.google.com/maps/search/?api=1&amp;query=");
 
@@ -88,11 +93,11 @@ test.describe("the no-JS state is the content, not a blank box", () => {
     expect((home.match(/data-map-link=""/g) ?? []).length).toBe(3);
   });
 
-  test("the Sold section gets no map, as the comp says", async ({ page }) => {
+  test("the Past Projects section gets no map, as the comp says of Sold", async ({ page }) => {
     await page.goto(PROPERTIES);
-    const sold = page.locator('section[aria-labelledby="listing-sold"]');
-    await expect(sold).toHaveCount(1);
-    await expect(sold.locator(MAP)).toHaveCount(0);
+    const past = page.locator('section[aria-labelledby="listing-past"]');
+    await expect(past).toHaveCount(1);
+    await expect(past.locator(MAP)).toHaveCount(0);
   });
 
   // WHAT THIS CASE ASSERTED UNTIL #122, and why it no longer can. It read
@@ -177,7 +182,10 @@ test.describe("where the comp draws it", () => {
       // the map's height against itself and passed for the wrong reason.
       const list = await rect(page, "section ul:not([data-map-list])");
       expect(list.h, "the list is taller than the map").toBeGreaterThan(map.h + 200);
-      expect(await page.locator(`${MAP} [data-map-expand]`).count(), "no expand at 1440").toBe(0);
+      // M1: expand on every map, 1440 included (it used to be phone-only).
+      expect(await page.locator(`${MAP} [data-map-expand]`).count(), "expand at 1440").toBe(
+        await page.locator(MAP).count(),
+      );
     } finally {
       await context.close();
     }
@@ -305,36 +313,299 @@ test.describe("the expand affordance", () => {
     }
   });
 
-  test("grows the map in place and comes back, and says so while it does", async ({ browser }) => {
+  // M1 (operator call 2026-09-28): expanded is one full-window overlay at every
+  // width, above the nav, with the page held still behind it.
+  for (const viewport of [
+    { width: 390, height: 844 },
+    { width: 1440, height: 900 },
+  ]) {
+    test(`at ${viewport.width} it fills the window over the nav, holds the page, traps focus, and Escape comes back`, async ({
+      browser,
+    }) => {
+      const { context, page } = await at(browser, viewport.width, viewport.height);
+      try {
+        await page.goto(PROPERTIES);
+        await hydrated(page);
+        const map = page.locator(MAP).first();
+        await map.scrollIntoViewIfNeeded();
+        const before = await rect(page, MAP);
+        const card = await rect(page, "article");
+        const y0 = await page.evaluate(() => window.scrollY);
+        const button = map.locator("[data-map-expand]");
+
+        await button.click();
+        await expect(button).toHaveAttribute("aria-expanded", "true");
+        await expect(button).toHaveAttribute("aria-label", /Collapse/);
+        await expect
+          .poll(() =>
+            map.evaluate((el) => {
+              const r = el.getBoundingClientRect();
+              // The window, as a fixed box sees it: app.css keeps
+              // `scrollbar-gutter: stable` on html, so a classic scrollbar's
+              // 15px stays reserved under the scroll lock.
+              const probe = document.body.appendChild(document.createElement("div"));
+              probe.style.cssText = "position:fixed;inset:0";
+              const w = probe.getBoundingClientRect();
+              probe.remove();
+              return [r.left, r.top, r.width - w.width, r.height - w.height];
+            }),
+          )
+          .toEqual([0, 0, 0, 0]);
+        expect(
+          await map.evaluate((el) => el.contains(document.elementFromPoint(innerWidth / 2, 10))),
+          "the map, not the nav, is on top",
+        ).toBe(true);
+        const still = await rect(page, "article");
+        expect(still.top, "the spacer holds the slot: the first card did not move").toBeCloseTo(
+          card.top,
+          1,
+        );
+
+        for (let i = 0; i < 10; i++) {
+          await page.keyboard.press("Tab");
+          expect(
+            await map.evaluate((el) => el.contains(document.activeElement)),
+            `Tab ${i + 1} stays in the map`,
+          ).toBe(true);
+        }
+        await page.keyboard.press("End");
+        await page.waitForTimeout(300);
+        expect(await page.evaluate(() => window.scrollY), "the page behind is held").toBe(y0);
+
+        await page.keyboard.press("Escape");
+        await expect(button).toHaveAttribute("aria-expanded", "false");
+        await expect.poll(() => button.evaluate((el) => el === document.activeElement)).toBe(true);
+        await expect.poll(async () => (await rect(page, MAP)).h).toBe(before.h);
+      } finally {
+        await context.close();
+      }
+    });
+  }
+});
+
+// M1 + P3: + above − above expand, bottom-right, on every map at both widths.
+test.describe("the control column", () => {
+  for (const [route, where] of [
+    [PROPERTIES, "Properties"],
+    [HOME, "the homepage band"],
+  ] as const)
+    for (const viewport of [
+      { width: 390, height: 844 },
+      { width: 1440, height: 900 },
+    ])
+      test(`${where} at ${viewport.width}: garnet boxes 10 from the right, 44px targets that hit-test to themselves`, async ({
+        browser,
+      }) => {
+        const { context, page } = await at(browser, viewport.width, viewport.height);
+        try {
+          await page.goto(route);
+          await hydrated(page);
+          await page.locator(MAP).first().scrollIntoViewIfNeeded();
+          await drawn(page);
+          await page.locator(`${MAP} [data-map-control="expand"]`).first().scrollIntoViewIfNeeded();
+          const read = await page
+            .locator(MAP)
+            .first()
+            .evaluate((map) => {
+              const m = map.getBoundingClientRect();
+              return [...map.querySelectorAll("[data-map-control]")].map((b) => {
+                const t = b.getBoundingClientRect();
+                const span = b.querySelector("span")!;
+                const p = span.getBoundingClientRect();
+                const hit = document.elementFromPoint(t.left + t.width / 2, t.top + t.height / 2);
+                return {
+                  which: b.getAttribute("data-map-control"),
+                  target: t.width >= 44 && t.height >= 44,
+                  right: Math.round((m.right - p.right) * 10) / 10,
+                  bottom: Math.round((m.bottom - p.bottom) * 10) / 10,
+                  hits: !!hit && b.contains(hit),
+                  bg: getComputedStyle(span).backgroundColor,
+                };
+              });
+            });
+          expect(read.map((r) => r.which)).toEqual(["zoom-in", "zoom-out", "expand"]);
+          expect(
+            read.map((r) => r.bottom),
+            "stacked 44 apart from the comp's 10",
+          ).toEqual([98, 54, 10]);
+          for (const r of read) {
+            expect(r.right, `${r.which} 10 from the right`).toBe(10);
+            expect(r.target, `${r.which} 44 x 44`).toBe(true);
+            expect(r.hits, `${r.which} is what a press there hits`).toBe(true);
+            expect(r.bg, `${r.which} garnet`).toBe(GARNET);
+          }
+        } finally {
+          await context.close();
+        }
+      });
+
+  test("+ zooms one whole level and − comes back, and the page does not move", async ({
+    browser,
+  }) => {
+    const { context, page } = await at(browser, 1440);
+    try {
+      await watchCamera(page);
+      await page.goto(PROPERTIES);
+      await hydrated(page);
+      const map = page.locator(MAP).first();
+      await map.scrollIntoViewIfNeeded();
+      await drawn(page);
+      expect(await cameraProbeInstalled(page)).toBe(true);
+      const zoom = () =>
+        map.evaluate((el) => {
+          const m = (
+            window.__camera.maps as unknown as {
+              getContainer(): HTMLElement;
+              getZoom(): number;
+            }[]
+          ).find((x) => el.contains(x.getContainer()))!;
+          return m.getZoom();
+        });
+      const z0 = await zoom();
+      const y0 = await page.evaluate(() => window.scrollY);
+      await map.locator('[data-map-control="zoom-in"]').click();
+      await expect.poll(zoom).toBeCloseTo(z0 + 1, 2);
+      await map.locator('[data-map-control="zoom-out"]').click();
+      await expect.poll(zoom).toBeCloseTo(z0, 2);
+      expect(await page.evaluate(() => window.scrollY)).toBe(y0);
+    } finally {
+      await context.close();
+    }
+  });
+
+  // #154. Measured on the real engine: Shift+arrows used to turn it.
+  test("the keyboard cannot rotate the map; a plain arrow still pans it — the control", async ({
+    browser,
+  }) => {
+    const { context, page } = await at(browser, 1440);
+    try {
+      await watchCamera(page);
+      await page.goto(PROPERTIES);
+      await hydrated(page);
+      const map = page.locator(MAP).first();
+      await map.scrollIntoViewIfNeeded();
+      await drawn(page);
+      const read = () =>
+        map.evaluate((el) => {
+          const m = (
+            window.__camera.maps as unknown as {
+              getContainer(): HTMLElement;
+              getBearing(): number;
+              getCenter(): { lng: number };
+            }[]
+          ).find((x) => el.contains(x.getContainer()))!;
+          return { bearing: m.getBearing(), lng: m.getCenter().lng };
+        });
+      await map.locator("canvas").focus();
+      const start = await read();
+      for (let i = 0; i < 3; i++) await page.keyboard.press("Shift+ArrowLeft");
+      await page.waitForTimeout(600);
+      expect((await read()).bearing, "no rotation").toBe(0);
+      await page.keyboard.press("ArrowLeft");
+      await expect.poll(async () => (await read()).lng).not.toBeCloseTo(start.lng, 5);
+    } finally {
+      await context.close();
+    }
+  });
+
+  // The band's `cream` ground made the floor ring off-white on the off-white
+  // map, and the root's overflow clipped it. The ring is on the painted box now.
+  test("the band's focused expand shows a garnet ring, at least 3:1 on the map ground", async ({
+    browser,
+  }) => {
+    const { context, page } = await at(browser, 390, 844);
+    try {
+      await page.goto(HOME);
+      await hydrated(page);
+      await page.locator(MAP).first().scrollIntoViewIfNeeded();
+      const expand = page.locator(`${MAP} [data-map-expand]`).first();
+      await expect(expand).toBeVisible();
+      await page.keyboard.press("Tab");
+      await expect
+        .poll(() =>
+          expand.evaluate((el) => {
+            (el as HTMLElement).focus();
+            const cs = getComputedStyle(el.querySelector("span")!);
+            return {
+              showing: el.matches(":focus-visible"),
+              color: cs.outlineColor,
+              style: cs.outlineStyle,
+              width: cs.outlineWidth,
+            };
+          }),
+        )
+        .toEqual({ showing: true, color: GARNET, style: "solid", width: "2px" });
+      const ground = /MAP_HOME_GROUND = "(#[0-9a-f]{6})"/i.exec(
+        readFileSync("src/lib/map-home.ts", "utf-8"),
+      )![1]!;
+      expect(contrast(GARNET, ground), `garnet on ${ground}`).toBeGreaterThanOrEqual(3);
+    } finally {
+      await context.close();
+    }
+  });
+
+  // D4: a pin pressed in the expanded /properties map closes it onto the card.
+  test("a pin pressed in the expanded Properties map closes it and leaves the page on the card", async ({
+    browser,
+  }) => {
     const { context, page } = await at(browser, 390, 844);
     try {
       await page.goto(PROPERTIES);
       await hydrated(page);
-      const button = page.locator(`${MAP} [data-map-expand]`).first();
-      await expect(button).toHaveAttribute("aria-expanded", "false");
-      expect((await rect(page, MAP)).h).toBe(200);
-
+      const map = page.locator(MAP).first();
+      await map.scrollIntoViewIfNeeded();
+      await drawn(page);
+      const button = map.locator("[data-map-expand]");
       await button.click();
       await expect(button).toHaveAttribute("aria-expanded", "true");
-      await expect(button).toHaveAttribute("aria-label", /Collapse/);
-      await expect
-        .poll(async () => (await rect(page, MAP)).h, { message: "the map grew" })
-        .toBeGreaterThan(400);
-
-      await button.click();
+      const pin = map.locator("[data-map-pin]").first();
+      const id = (await pin.getAttribute("data-map-pin"))!;
+      await pin.click();
       await expect(button).toHaveAttribute("aria-expanded", "false");
-      await expect.poll(async () => (await rect(page, MAP)).h).toBe(200);
+      const centred = () =>
+        page.evaluate((id) => {
+          const r = document.querySelector(`[data-centre-id="${id}"]`)!.getBoundingClientRect();
+          return r.top < innerHeight && r.bottom > 0;
+        }, id);
+      await expect.poll(centred, { message: `${id}'s card is on screen` }).toBe(true);
+      const y = await page.evaluate(() => window.scrollY);
+      await page.waitForTimeout(500);
+      expect(
+        await page.evaluate(() => window.scrollY),
+        "focus going back did not scroll away",
+      ).toBe(y);
+      expect(await centred()).toBe(true);
     } finally {
       await context.close();
     }
   });
 });
 
+/** WCAG contrast of two colours, `rgb(r, g, b)` or `#rrggbb`. */
+function contrast(a: string, b: string) {
+  const rgb = (c: string) =>
+    c.startsWith("#")
+      ? [1, 3, 5].map((i) => parseInt(c.slice(i, i + 2), 16))
+      : c.match(/\d+/g)!.slice(0, 3).map(Number);
+  const lum = (c: string) => {
+    const [r, g, b2] = rgb(c).map((v) => {
+      const s = v / 255;
+      return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * r! + 0.7152 * g! + 0.0722 * b2!;
+  };
+  const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x);
+  return (hi! + 0.05) / (lo! + 0.05);
+}
+
 test.describe("the engine, and what it costs", () => {
   test("is not in the first-paint path, and arrives when the box is", async ({ browser }) => {
-    // A short window so the homepage band is well clear of the fold — the
+    // A short window so the homepage band is clear of the fold — the
     // non-vacuity guard below is the point: if the map were on screen,
-    // "not loaded yet" would be meaningless.
+    // "not loaded yet" would be meaningless. Measured at 390 x 640 on
+    // /dev/home: the map slot's top is y=921 with the revised one-column hero
+    // (2026-09-28; the band is 393 tall under the 528px photo), 281px below
+    // the fold. It was 1149 under the old two-column band.
     const { context, page } = await at(browser, 390, 640);
     try {
       await page.goto(HOME);
@@ -367,13 +638,26 @@ test.describe("the engine, and what it costs", () => {
 
       const before = {
         ...(await weigh()),
-        top: await page.evaluate(
-          () => document.querySelector("[data-map-slot]")!.getBoundingClientRect().top,
-        ),
+        ...(await page.evaluate(() => ({
+          top: document.querySelector("[data-map-slot]")!.getBoundingClientRect().top,
+          fold: window.innerHeight,
+        }))),
       };
       // Non-vacuity: if the map were on screen, "not loaded yet" would be
-      // meaningless.
-      expect(before.top, "the band is below the fold").toBeGreaterThan(640 + 300);
+      // meaningless. NOT ONE PIXEL of the slot may be on screen at rest, which
+      // is stricter than what the lazy gate needs to stay shut (half of the
+      // box, or of the window if that is smaller — PropertyMap.svelte), and
+      // does not depend on that fraction.
+      //
+      // This read `640 + 300` until 2026-09-28. The 300 was the observer's
+      // first `rootMargin: "300px 0px"` LEAD, which the half-visible gate
+      // replaced inside the same PR that wrote this test (#107; the conflict
+      // it caused is issue #103), so the margin guarded a mechanism that never
+      // shipped — and when the revised hero put the slot at 921, it failed a
+      // correct page by 19px.
+      expect(before.top, `the band is below the fold (${before.fold})`).toBeGreaterThan(
+        before.fold,
+      );
       expect(before.named, "no maplibre chunk before it is needed (dev-only read)").toBe(false);
 
       await page.locator("[data-map-slot]").scrollIntoViewIfNeeded();
@@ -498,11 +782,20 @@ test.describe("the engine, and what it costs", () => {
           return !!found && (found === el || el.contains(found) || found.contains(el));
         };
         const attrib = document.querySelector(".maplibregl-ctrl-attrib");
-        const expand = document.querySelector("[data-map-expand]");
-        return { attrib: attrib ? hit(attrib) : null, expand: expand ? hit(expand) : null };
+        const close = document.querySelector("[data-map-sheet] button");
+        return {
+          attrib: attrib ? hit(attrib) : null,
+          close: close ? hit(close) : null,
+          controls: [
+            ...document
+              .querySelector("[data-property-map]")!
+              .querySelectorAll("[data-map-control]"),
+          ].map(hit),
+        };
       });
       expect(onTop.attrib, "the OpenStreetMap credit is still hit-testable").toBe(true);
-      expect(onTop.expand, "and so is the expand control").toBe(true);
+      expect(onTop.close, "and so is the sheet's ×, clear of the control column").toBe(true);
+      expect(onTop.controls, "and so is every control").toEqual([true, true, true]);
     } finally {
       await context.close();
     }
@@ -636,8 +929,8 @@ test.describe("the engine, and what it costs", () => {
           wide: true,
           tall: true,
           background: GARNET,
-          // Sand on garnet: 8.87:1, the pair app.css's table already measures.
-          color: "rgb(232, 225, 209)",
+          // Sand on garnet: 9.38:1, the pair app.css's table already measures.
+          color: SAND,
         });
     } finally {
       await context.close();

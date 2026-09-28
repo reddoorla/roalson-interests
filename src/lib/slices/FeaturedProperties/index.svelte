@@ -72,14 +72,17 @@
   // The slot itself still has no fill, which is true of the comp's frame too.
   // See $lib/components/PropertyMap.svelte and the 2026-09-22 journal entry.
   //
-  // THE CARD'S LEFT EDGE IS THE SITE'S COLUMN LINE, not the comp's 512. Every
-  // other band puts its right column at x=513 (1440) through the gutters and
-  // `[397fr_847fr] gap-9`; the comp draws this one at 512 as a bare 512 : 928
+  // THE CARD'S LEFT EDGE IS THE SITE'S COLUMN LINE, not the comp's 512. The
+  // two-column bands put their right column at x=513 (1440) through the gutters
+  // and `[397fr_847fr] gap-9`; the comp draws this one at 512 as a bare 512 : 928
   // ratio. The two are 1px apart at 1440 (513 against 512 — the pixel critic
   // ruling C3 accepts, and why the card measures 927 × 541.41 for the comp's
   // 928 × 542) and drift from there: 6.83px at 1280, where the ratio gives
   // 455.11 and the site's line is 461.94. The column below is the site's
-  // arithmetic, so the H1 above and this card share one edge at every width.
+  // arithmetic, so this card shares one edge with the Partners headline below
+  // it and the footer's at every width. (It shared it with the hero's H1 until
+  // the revised hero went one column, 2026-09-28: that H1 stands on the
+  // gutter, x=80, now.)
   //
   // mocks.json CANNOT SHOW THIS BAND IN THE SLICE SIMULATOR, and that is not a
   // bug to chase. Slice Machine writes a content relationship as a bare
@@ -539,7 +542,7 @@
 {#if slides.length === 0}
   <!-- THE EMPTY STATE IS NO BAND: a dark 827px box around an empty card is a
        broken page, and every listing is still one link away (the hero's and
-       the footer's "Our portfolio"). What is left is a hidden marker carrying
+       the footer's "Properties"). What is left is a hidden marker carrying
        the counts, so "the editor picked nothing showable" and "the API sent the
        picks bare" (`unembedded`, see $lib/featured-properties) can be told
        apart from View Source instead of guessed at. -->
@@ -587,6 +590,22 @@
          i.e. 1.15 and 1.39 viewports — only 131px of headroom at 1440, not two
          and a half screens of it.
 
+         THOSE NUMBERS ARE HISTORY NOW. Both include the action's 24px of
+         travel: 1031 is the band's top, 1007, plus 24, and 1173 is 1149 + 24,
+         which matches a reading taken without the 200px map that #107 put
+         first in this band below `lg` (with the old hero, re-measured
+         2026-09-28, the card read 1373 there). Since the revised one-column hero (2026-09-28) the band —
+         and, from `lg`, the card — starts at y = 921 with the seeded copy, and
+         at 947 on the live document until it is re-seeded (its old heading
+         sets three lines); below `lg` the card sits 200 lower, at 1121 (1067).
+         At 1440 × 900 that is 21px of headroom (47), and the first-paint hazard
+         above is still off screen — `featured-properties.spec.ts` holds that
+         at 1440 × 900 and 390 × 844. That check reads the card's box with any
+         travel applied, and still cannot be fooled by the 24px: a card already
+         in view is shown the moment the observer first reports it, so it reads
+         at its layout position (measured with the hero's `lg:pb` cut to 40,
+         2026-09-28: the check failed at 896 against 900).
+
          WHAT THAT MEANS, SAID PLAINLY: on a tall viewport the card is ALREADY
          IN VIEW on load, so the observer fires immediately, `hide()` and
          `show()` collapse into one style recalc, and THE REVEAL SIMPLY DOES
@@ -600,6 +619,17 @@
          If the band ever moves up the page, or the reveal has to play at 1080,
          this goes back to the action's default travel with a server-rendered
          marker and a `failSafe`.
+
+         THAT TRIGGER HAS FIRED, AND THE CALL IS STILL OPEN. The revised hero
+         moved the band up 86px at 1440 (1007 → 921; 60 on the live document
+         until it is re-seeded). Measured at load on /dev/home, 2026-09-28, in
+         viewports that include a 15px scrollbar: the reveal still plays at
+         1455 × 900, and no longer plays at 1455 × 960 or 1551 × 960, where it
+         did before; at 1695 × 1050 and 1935 × 1080 it was already absent
+         (1007 < 1050). From `lg` the card now reveals only in a window
+         shorter than 921px (947 on the live document), against 1007 before.
+         Nothing here changed with it — switching to the marker is the
+         operator's product call on #105, not a side effect of a copy change.
 
          `use:animateIn` and not a local IntersectionObserver: one-shot on
          first intersection at threshold 0 is already what the action does, and
@@ -851,7 +881,7 @@
          1455 × 900 and 375 × 200 at 390 × 844. The guard "measuring" it read
          the slot, which is transparent whatever the child does, so it passed
          throughout. The ground is the child's to draw, so the child is told
-         which one: off-white on #3d0707, 14.85:1. -->
+         which one: off-white on #3d0707, 15.13:1. -->
     <div data-map-slot class="max-lg:order-first lg:col-start-1 lg:row-start-1">
       <!-- THE CAMERA FOLLOWS THE ACTIVE SLIDE, AND THAT IS THE WHOLE GATE.
            WCAG 2.2.2 is live on this band: it autoplays, so a camera that
@@ -889,11 +919,16 @@
            z12.5387 and ~9s later the camera had flown back to z12 twice with
            no further input. `carousel.turnedBy` is the only thing that knows,
            because the carousel is what turned it. -->
+      <!-- `onengage` ANSWERS #150's OPEN QUESTION the client's way (M1,
+           operator call 2026-09-28): pressing +, − or expand on a running
+           slideshow pauses it, and the unlocked map then acts. Collapsing does
+           not resume it; only Play does. `interactive` stays the one switch. -->
       <PropertyMap
         points={mapPoints}
         active={slides[carousel.index]?.id ?? null}
         activeBy={carousel.turnedBy}
         interactive={carousel.paused || !carousel.eligible}
+        onengage={carousel.pause}
         label={heading}
         tone="cream"
         class="h-50 w-full lg:h-full"

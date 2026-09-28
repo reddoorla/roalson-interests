@@ -49,8 +49,12 @@ export const HOME_POSTER_FIXTURE = {
  *  interacts. */
 export const HOME_VIMEO_FIXTURE = "1229048743";
 
-/** The `home_hero` slice, filled with the comp's own words (6802:1428,
- *  6806:51, 6802:1437, 6802:1441, 6802:1459). Pass `primary` to override.
+/** The `home_hero` slice, filled with the revised comp's own words
+ *  ('Homepage - REVISED' 7091:651, 7091:903, 7091:652): the headline broken
+ *  after "Commercial", the placeholder sentence Nicole drew under it, and
+ *  PROPERTIES before CONTACT US (the client, 2026-09-25: "Swap the positions
+ *  … our portfolio should always just be properties"). Pass `primary` to
+ *  override.
  *
  *  No poster and no Vimeo id by default: that IS the launch state (operator
  *  call 11 — the hero runs on the dark ground until a licensed photo exists).
@@ -73,19 +77,14 @@ export function homeHeroFixture(primary: Partial<HomeHeroPrimary> = {}): Content
       heading: [
         {
           type: "heading1",
-          text: "San Antonio's Commercial Real Estate Experts.\nSince 1983.",
+          text: "San Antonio's Commercial\nReal Estate Experts Since 1983.",
           spans: [],
         },
       ],
+      subheading: "A placeholder for a sentence to come.",
       buttons: [
+        { label: "Properties", link: { link_type: "Web", url: "/properties" } },
         { label: "Contact us", link: { link_type: "Web", url: "https:///contact" } },
-        { label: "Our portfolio", link: { link_type: "Web", url: "/properties" } },
-      ],
-      specialty_label: "Our specialty",
-      specialties: [
-        { text: "Consulting and brokerage" },
-        { text: "Acquisition and disposition properties" },
-        { text: "Buyer and tenant representation" },
       ],
       ...primary,
     },
@@ -176,33 +175,30 @@ export const PARTNER_PHOTO_FIXTURE = {
   edit: { x: 0, y: 0, zoom: 1, background: "transparent" },
 };
 
-/** A bio for the `?bio` state. It is about the FIXTURE on purpose: these are
- *  real people, neither has given the site a bio, and an invented one is one
- *  seed script away from being published. Two paragraphs, so the space
- *  between them can be measured. */
-export const PARTNER_BIO_FIXTURE = [
-  {
-    type: "paragraph",
-    text: "Fixture copy, not a biography. The partners' bios are written in Prismic, and neither has one yet, so this paragraph stands in for one: PROFILE appears on a card only when its bio is filled, and this is what it opens.",
-    spans: [],
-  },
-  {
-    type: "paragraph",
-    text: "A second paragraph, so the space between two of them can be measured. It says nothing about anyone.",
-    spans: [],
-  },
-];
+/** PROFILE's target for the `?profile` state: a published Person document
+ *  link, as the API delivers one. */
+export const PARTNER_PROFILE_FIXTURE = {
+  link_type: "Document",
+  id: "fixture-person-matt",
+  type: "person",
+  uid: "matt-howard",
+  lang: "en-us",
+  tags: [],
+  slug: "matt-howard",
+  isBroken: false,
+};
 
-/** One partner row. Bare by default — no photo, no bio, no contact link —
- *  which is every partner's launch state: the card is text only, PROFILE does
- *  not render, and CONTACT falls back to /contact (operator call 12). */
+/** One partner row. Bare by default — no photo, no profile, no email, no
+ *  contact link: the card is text only, PROFILE does not render, and CONTACT
+ *  falls back to /contact. */
 export function partnerFixture(row: Partial<PartnerRow> = {}): PartnerRow {
   return {
     name: "Matt Howard",
     role: "Partner",
     photo: {},
+    profile: { link_type: "Any" },
+    email: null,
     contact_link: { link_type: "Any" },
-    bio: [],
     ...row,
   } as unknown as PartnerRow;
 }
@@ -250,17 +246,19 @@ export function partnersFixture(primary: Partial<PartnersPrimary> = {}): Content
 }
 
 /** The partner cards' other states, as /dev/home's query string asks for them:
- *  `bio` gives the FIRST partner a bio (so one card has PROFILE and one does
- *  not, side by side), `photos` gives both a headshot. Neither is the default
- *  because neither is the launch state. */
+ *  `profile` links the FIRST partner's Person page (so one card has PROFILE and
+ *  one does not, side by side), `photos` gives both a headshot. */
 export function partnersFixtureState(state: {
-  bio?: boolean;
+  profile?: boolean;
   photos?: boolean;
 }): Content.PartnersSlice {
   const photo = state.photos ? { photo: PARTNER_PHOTO_FIXTURE } : {};
   return partnersFixture({
     partners: [
-      partnerFixture({ ...photo, ...(state.bio ? { bio: PARTNER_BIO_FIXTURE } : {}) } as never),
+      partnerFixture({
+        ...photo,
+        ...(state.profile ? { profile: PARTNER_PROFILE_FIXTURE } : {}),
+      } as never),
       partnerFixture({ name: "Bart Wilson", ...photo } as never),
     ],
   });
@@ -322,6 +320,7 @@ export function featuredPickFixture(
       data: {
         title: uid,
         status: "Available",
+        listing_state: null,
         size_label: null,
         feature_image: {},
         highlights: [],
@@ -416,7 +415,7 @@ export function featuredPropertiesFixture(
     primary: {
       heading: "Featured Properties",
       properties: featuredPicks(),
-      portfolio_label: "Our portfolio",
+      portfolio_label: "Properties",
       portfolio_link: { link_type: "Web", url: "/properties" },
       ...primary,
     },

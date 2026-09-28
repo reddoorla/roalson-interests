@@ -23,6 +23,18 @@ describe("loadProperty", () => {
     expect(data.property.uid).toBe("25331-ih-10-west");
   });
 
+  it("404s an archived listing, which has no page anywhere", async () => {
+    const client = clientThat(async () => propertyFixture({ listing_state: "Archived" }));
+    await expect(loadProperty(client, "25331-ih-10-west", url)).rejects.toMatchObject({
+      status: 404,
+    });
+  });
+
+  it("keeps a past project's page, noindexed", async () => {
+    const client = clientThat(async () => propertyFixture({ listing_state: "Past project" }));
+    expect(await loadProperty(client, "25331-ih-10-west", url)).toMatchObject({ noindex: true });
+  });
+
   it("turns a Prismic miss into a 404", async () => {
     const client = clientThat(async () => {
       throw new NotFoundError("No documents were returned", "https://x", undefined);

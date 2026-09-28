@@ -33,13 +33,13 @@ afterEach(() => {
 const CTA = {
   heading: ["We look forward", "to serving you."],
   links: [
+    { label: "Properties", href: "/properties" },
     { label: "Contact us", href: "/contact" },
-    { label: "Our portfolio", href: "/properties" },
   ],
 };
 const NAV = [
   { label: "Home", href: "/" },
-  { label: "Our Properties", href: "/properties" },
+  { label: "Properties", href: "/properties" },
   { label: "Contact Us", href: "/contact" },
 ];
 /** Deliberately mixed: the site's own document and one on another origin. Both
@@ -82,14 +82,16 @@ describe("Footer — the closing call to action", () => {
     expect(heading.textContent).not.toContain("\u2028");
   });
 
-  it("puts CONTACT US before OUR PORTFOLIO, as the comp does", () => {
+  // The component draws the config's order; the site's order itself —
+  // PROPERTIES first — is pinned on the real config in site-config.test.ts.
+  it("renders the CTA buttons in config order, right under the headline", () => {
     const { getByRole } = render(Footer, { cta: CTA });
     const buttons = [
       ...getByRole("heading", { level: 2 }).nextElementSibling!.querySelectorAll("a"),
     ];
     expect(buttons.map((a) => [a.textContent?.trim(), a.getAttribute("href")])).toEqual([
+      ["Properties", "/properties"],
       ["Contact us", "/contact"],
-      ["Our portfolio", "/properties"],
     ]);
   });
 
@@ -108,7 +110,7 @@ describe("Footer — the list of pages", () => {
     const links = within(nav).getAllByRole("link");
     expect(links.map((a) => [a.textContent?.trim(), a.getAttribute("href")])).toEqual([
       ["Home", "/"],
-      ["Our Properties", "/properties"],
+      ["Properties", "/properties"],
       ["Contact Us", "/contact"],
     ]);
     expect(within(nav).getAllByRole("listitem")).toHaveLength(3);
@@ -119,7 +121,7 @@ describe("Footer — the list of pages", () => {
     const current = within(getByRole("navigation", { name: "Footer" }))
       .getAllByRole("link")
       .filter((a) => a.getAttribute("aria-current") === "page");
-    expect(current.map((a) => a.textContent?.trim())).toEqual(["Our Properties"]);
+    expect(current.map((a) => a.textContent?.trim())).toEqual(["Properties"]);
   });
 
   it("renders no empty landmark when there is nothing to list", () => {

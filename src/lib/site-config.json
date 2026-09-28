@@ -10,7 +10,7 @@
         "href": "/"
       },
       {
-        "label": "Our Properties",
+        "label": "Properties",
         "href": "/properties"
       },
       {
@@ -28,18 +28,18 @@
       "heading": ["We look forward", "to serving you."],
       "links": [
         {
-          "label": "Contact us",
-          "href": "/contact"
+          "label": "Properties",
+          "href": "/properties"
         },
         {
-          "label": "Our portfolio",
-          "href": "/properties"
+          "label": "Contact us",
+          "href": "/contact"
         }
       ]
     },
     "nav": [
       {
-        "label": "Our portfolio",
+        "label": "Properties",
         "href": "/properties"
       },
       {

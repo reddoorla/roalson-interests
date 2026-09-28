@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { hydrated } from "./hydrated";
+import { OFF_WHITE, SAND } from "./palette";
 
 // The bar makes promises jsdom cannot check (see Nav.svelte) — three here, and
 // a fourth about the homepage alone, at the foot of this file:
@@ -19,12 +20,11 @@ import { hydrated } from "./hydrated";
 const DARK = "/dev/properties";
 const LIGHT = "/dev/property";
 
-const OFF_WHITE = "rgb(242, 239, 233)";
 const GARNET = "rgb(101, 35, 35)";
-/** #e8e1d1 — sand. The floating bar's controls were DUST (#b2ac9f) until
- *  the operator moved every button's light colour to the tan on 2026-09-22;
- *  on garnet that took them from 5.11:1 to 8.87:1. See BrandButton. */
-const SAND = "rgb(232, 225, 209)";
+// SAND (./palette) is what the floating bar's controls are drawn in. They were
+// DUST (#b2ac9f) until the operator moved every button's light colour to the
+// tan on 2026-09-22; on garnet that took them from 5.11:1 to 8.87:1, and the
+// less yellow sand of 2026-09-28 to 9.38:1. See BrandButton.
 const TRANSPARENT = "rgba(0, 0, 0, 0)";
 
 const bar = 'nav[aria-label="Primary"]';
@@ -104,7 +104,7 @@ test("with scripting off, the floating bar stays on its dark band and the links 
     await expect(page.locator(menuTrigger), "the list below already is the menu").toBeHidden();
 
     const links = page.locator(`${bar} noscript a`);
-    await expect(links).toHaveText(["Our Properties", "Contact Us"]);
+    await expect(links).toHaveText(["Properties", "Contact Us"]);
     await expect(links.first()).toBeVisible();
     await expect(links.first()).toHaveCSS("color", SAND);
     // At this width the CTA is in the bar and already is the second link…
@@ -335,7 +335,7 @@ test("the open menu: named, focused, locked, clean under axe, and closed by Esca
   await expect(page.getByLabel("Close menu")).toBeFocused();
   await expect(page.locator("body")).toHaveCSS("overflow", "hidden");
 
-  await expect(menu.locator("ul a")).toHaveText(["Home", "Our Properties", "Contact Us"]);
+  await expect(menu.locator("ul a")).toHaveText(["Home", "Properties", "Contact Us"]);
   // The fixture is not a real destination, so nothing is current here…
   await expect(menu.locator('[aria-current="page"]')).toHaveCount(0);
 
@@ -371,7 +371,7 @@ test("the menu marks the page you are on", async ({ page }) => {
   await adopted(page);
   await page.getByLabel("Open menu").click();
   const current = page.getByRole("dialog", { name: "Menu" }).locator('[aria-current="page"]');
-  await expect(current).toHaveText(["Our Properties"]);
+  await expect(current).toHaveText(["Properties"]);
 });
 
 // ---------------------------------------------------------------------------

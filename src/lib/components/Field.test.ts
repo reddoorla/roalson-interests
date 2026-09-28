@@ -109,9 +109,9 @@ describe("Field styling", () => {
     // WCAG 1.4.11 wants 3:1 for a control's boundary. The template's first
     // border was its `--color-light`, 1.20:1 on white: invisible boxes, and a
     // visitor hunting for where to type. This palette has the same trap twice
-    // over — sand (`border-light`) is 1.14:1 on the off-white page and dust
-    // 1.97:1 — so the border's token is MEASURED here against app.css rather
-    // than named: garnet is 10.07 / 11.55 / 8.87:1.
+    // over — sand (`border-light`) is 1.09:1 on the off-white page and dust
+    // 2.01:1 — so the border's token is MEASURED here against app.css rather
+    // than named: garnet is 10.25 / 11.55 / 9.38:1.
     const { getByLabelText } = render(Field, { name: "a", label: "A" });
     const cls = getByLabelText("A").getAttribute("class") ?? "";
     const resting = cls.split(/\s+/).filter((c) => !c.includes(":"));

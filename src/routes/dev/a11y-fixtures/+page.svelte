@@ -21,7 +21,9 @@
   import CtaBanner from "$lib/slices/CtaBanner/index.svelte";
   import HomeHero from "$lib/slices/HomeHero/index.svelte";
   import Partners from "$lib/slices/Partners/index.svelte";
-  import { partnersFixtureState } from "$lib/home-fixture";
+  import { PARTNER_PHOTO_FIXTURE, partnersFixtureState } from "$lib/home-fixture";
+  import PersonProfile from "$lib/components/PersonProfile.svelte";
+  import { personFixture } from "$lib/person-fixture";
   import PropertyDetail from "$lib/components/PropertyDetail.svelte";
   import PageMasthead from "$lib/components/PageMasthead.svelte";
   import PropertyListing from "$lib/components/PropertyListing.svelte";
@@ -434,13 +436,13 @@
        /properties/<uid>), so this page carries two; axe has no rule against
        that, and the gate is here for the component's contrast, names and
        table semantics. Under Contract + the fixture's NEW flag render both
-       garnet badges; Sold uses the same markup. -->
+       garnet badges; the Past project tag uses the same markup. -->
   <PropertyDetail property={propertyFixture({ status: "Under Contract" })} />
 
   <!-- The listing page: its masthead in BOTH states (two more h1s on this page,
        see above) and every card variant — garnet featured with the cream
        button, flat with the garnet button, Under Contract + New badges on both
-       grounds, and the unlinked Sold grid on sand.
+       grounds, the view tabs, and the unlinked Past Projects grid on sand.
 
        The photo state first, on a drawn near-white ground (#15). axe cannot
        measure text over an image — it files colour-contrast as `incomplete`,
@@ -456,8 +458,9 @@
        afternoon. `off` renders exactly what the server renders and never
        imports the engine, so what is audited here is the state that matters
        for this gate anyway: the list of listings, its accessible name, the
-       garnet-on-sand of its links, and — on the 200px instance — the expand
-       affordance's name, its 44 x 44 target and its contrast. The pins, the
+       garnet-on-sand of its links, and — on both instances since M1 — the
+       expand affordance's name, its 44 x 44 target and its contrast (+ and −
+       need a drawn map, so they are not here). The pins, the
        sheet, the focused chip and the attribution are measured in a real
        browser by tests/interaction/property-map.spec.ts instead, and the
        geometry could not be measured here anyway (`max-w-3xl` squeezes every
@@ -477,8 +480,8 @@
        that exist to be audited.
 
        Two boxes because the frame is chosen by the container's HEIGHT: 200 is
-       the comp's phone map and draws the expand button, 595 is its 1440 panel
-       and must not. -->
+       the comp's phone map, 595 its 1440 panel. Both draw the expand button
+       (M1). -->
   <PropertyMap
     points={sectionPoints(groupListings(propertyListingFixture())[0].properties)}
     label="Land"
@@ -497,7 +500,9 @@
   <PropertyListing sections={groupListings(propertyListingFixture())} />
 
   <!-- The top of the homepage (one more h1 on this page, see above): the sand
-       headline, dust list and cream buttons on the garnet band. Poster-less,
+       headline, the sentence under it and the cream buttons on the garnet
+       band (the dust specialty list went with the revised one-column hero,
+       2026-09-28). Poster-less,
        which is the launch state — and the hero carries no text, so a poster
        would add nothing for axe to measure. The band's ground is a gradient,
        which axe reports as "needs review" rather than measuring; the pairs on
@@ -519,7 +524,7 @@
 
   <!-- The homepage's featured band, twice: the comp's three listings (a
        carousel — garnet arrows and bar on the sand card, and the garnet
-       "Our portfolio" button at the card's foot) and launch day's ONE (a plain
+       "Properties" button at the card's foot) and launch day's ONE (a plain
        card: no region, no arrows, no bar — under its own heading,
        because two landmarks may not share a name on one page). This gate runs
        under reduced motion, so the Pause control is never in what axe sees
@@ -557,13 +562,15 @@
   <FeaturedProperties slice={featuredLaunchFixture({ heading: "Featured Property" })} />
 
   <!-- The homepage's "Our Legacy" band in its FULLEST state, not its launch
-       one: a headshot on both cards and a bio on the first, so axe sees the
-       <details>/<summary> PROFILE, both 24px link targets and the photo's empty
-       alt beside a partner with neither. The bio is closed here, as it is on
-       arrival; tests/interaction/partners.spec.ts audits it open, and requires
-       that axe MEASURED every text node rather than leaving the 12px links as
-       "needs review". -->
-  <Partners slice={partnersFixtureState({ bio: true, photos: true })} />
+       one: a headshot on both cards and a PROFILE on the first, so axe sees
+       all three 24px link targets and the photo's empty alt.
+       tests/interaction/partners.spec.ts requires that axe MEASURED every text
+       node rather than leaving the 12px links as "needs review". -->
+  <Partners slice={partnersFixtureState({ profile: true, photos: true })} />
+
+  <!-- A partner's profile page, /team/<uid>: placeholder chip, headshot,
+       bio and the contact list. -->
+  <PersonProfile person={personFixture({ photo: PARTNER_PHOTO_FIXTURE } as never)} />
 
   <!-- The homepage's photo band, FILLED — a drawing with an alt, so axe has an
        image to hold to `image-alt`; empty (the launch state) it is a gradient

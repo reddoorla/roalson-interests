@@ -25,6 +25,25 @@ describe("PropertyCard", () => {
     expect(queryAllByRole("link")).toEqual([]);
   });
 
+  it("shows a past project as photo, address and bullets only — no badges, size or link", () => {
+    const { container, getByRole, queryAllByRole, queryByRole, queryByText } = render(
+      PropertyCard,
+      {
+        props: {
+          property: propertyFixture({ listing_state: "Past project", is_new: true }),
+          variant: "cream",
+          layout: "column",
+        },
+      },
+    );
+    expect(container.querySelector("img")).not.toBeNull();
+    expect(getByRole("heading", { level: 3 }).textContent).toBe("25331 IH 10 West");
+    expect(container.querySelectorAll("ul.list-disc li")).toHaveLength(2);
+    expect(queryAllByRole("link")).toEqual([]);
+    expect(queryByRole("list", { name: "Listing status" })).toBeNull();
+    expect(queryByText("Up to 16,700 SF")).toBeNull();
+  });
+
   it("is the garnet card when featured and the flat card otherwise, button tone to match", () => {
     const featured = render(PropertyCard, {
       props: { property: propertyFixture(), variant: "featured" },

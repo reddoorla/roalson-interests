@@ -21,7 +21,7 @@
 // AND THE LAST CASE IS THE ONE THAT MATTERS MOST. A digest check proves the
 // bytes are the bytes the generator wrote; it cannot prove those bytes are a
 // MAP. A render whose every tile request failed still fires `idle`, still
-// screenshots, and still commits — as a flat #f2efe9 rectangle with a perfectly
+// screenshots, and still commits — as a flat #f3f1ef rectangle with a perfectly
 // valid digest. So the committed file is decoded and its ink counted here, and
 // the pass needs a number only a drawn map produces. An error matcher could
 // only ever have denied.
@@ -68,6 +68,39 @@ describe("the raster is a picture of the style beside it", () => {
     };
     expect(background.paint["background-color"]).toBe(MAP_HOME_GROUND);
     expect(manifest.ground).toBe(MAP_HOME_GROUND);
+  });
+
+  // THE ONE CASE HERE THAT OPENS THE PICTURE. Every other guard on the ground
+  // compares the MANIFEST to the style and to the constant, and a manifest is
+  // text: when the ground moved (#f2efe9 -> #f3f1ef, 2026-09-28), hand-editing
+  // its styleDigest, ground and the two paintedShares re-measured against the
+  // new ground (0.3155 / 0.4088) left every case in this file green on a
+  // picture of the OLD colour — the digests still matched, because the webp
+  // had not changed either. What only a re-render produces is a picture whose
+  // commonest pixel IS the new ground: the ground is over 40% of both frames.
+  // Two levels, because the encode moves a flat colour — `#f2efe9` came back
+  // as `#f3efea`, one level off — and the old picture read against the new
+  // ground is five.
+  it.each(frames)("%s is, mostly, the ground it says it was rendered on", async (_key, frame) => {
+    const raw = await sharp(join(ROOT, "static", frame.file))
+      .removeAlpha()
+      .raw()
+      .toBuffer();
+    const counts = new Map<number, number>();
+    for (let i = 0; i < raw.length; i += 3) {
+      const rgb = (raw[i] << 16) | (raw[i + 1] << 8) | raw[i + 2];
+      counts.set(rgb, (counts.get(rgb) ?? 0) + 1);
+    }
+    const [mode] = [...counts].reduce((a, b) => (b[1] > a[1] ? b : a));
+    const got = [mode >> 16, (mode >> 8) & 0xff, mode & 0xff];
+    const want = [1, 3, 5].map((i) => parseInt(MAP_HOME_GROUND.slice(i, i + 2), 16));
+    const off = Math.max(...got.map((c, i) => Math.abs(c - want[i])));
+    expect(
+      off,
+      `static/${frame.file}'s commonest colour is #${mode.toString(16).padStart(6, "0")}, ` +
+        `${off} levels from MAP_HOME_GROUND ${MAP_HOME_GROUND} — it is a picture of another ` +
+        "ground. Re-run `pnpm map:home`.",
+    ).toBeLessThanOrEqual(2);
   });
 });
 
@@ -121,8 +154,8 @@ describe("and the file is a MAP, which no digest can say", () => {
       .toBuffer();
     const ink = inkStats(raw, frame.raster, MAP_HOME_GROUND);
     // A blank render scores a handful of colours and ~0% painted. The floors
-    // are far under what a real render produces (full 15964 / 20.5%, compact
-    // 10001 / 26.0%), because this catches "no tiles arrived", not bad
+    // are far under what a real render produces (full 16627 / 21.9%, compact
+    // 10731 / 27.7%), because this catches "no tiles arrived", not bad
     // cartography.
     expect(
       ink.distinctColours,

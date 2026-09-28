@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { HYDRATION_TIMEOUT } from "./hydrated";
+import { OFF_WHITE, SAND } from "./palette";
 
 // The footer makes promises jsdom cannot check (see Footer.svelte): where its
 // blocks sit against the comp, that the order flips on a phone, what ground it
@@ -19,9 +20,6 @@ import { HYDRATION_TIMEOUT } from "./hydrated";
 const LISTING = "/dev/properties";
 const FADE = "/dev/footer";
 const LIGHT = "/dev/property";
-
-const SAND = "rgb(232, 225, 209)";
-const OFF_WHITE = "rgb(242, 239, 233)";
 
 /** Half the leading the ramp trims off `t-h1` (80 line, 44 cap box). The comp
  *  measures from the CAP box, CSS from the line box. */
@@ -236,7 +234,7 @@ test("with scripting off the footer is whole, and --footer-h is simply unset", a
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto(LIGHT, { waitUntil: "domcontentloaded" });
     const footer = page.locator("footer");
-    await expect(footer.locator("#footer-nav a")).toHaveText(["Our portfolio", "Contact us"]);
+    await expect(footer.locator("#footer-nav a")).toHaveText(["Properties", "Contact us"]);
     await expect(footer.locator("address")).toContainText("San Antonio, TX 78258");
     await expect(footer.getByRole("heading", { level: 2 })).toBeVisible();
     // A reader of the property must fall back to 0 — nothing ever wrote it.

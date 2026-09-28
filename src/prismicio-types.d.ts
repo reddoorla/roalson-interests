@@ -264,6 +264,154 @@ export type PageMediaDocument<Lang extends string = string> =
   >;
 
 /**
+ * Content for Person documents
+ */
+interface PersonDocumentData {
+  /**
+   * Name field in *Person*
+   *
+   * - **Field Type**: Text
+   * - **Placeholder**: e.g. Matt Howard
+   * - **API ID Path**: person.name
+   * - **Tab**: Main
+   * - **Documentation**: https://prismic.io/docs/fields/text
+   */
+  name: prismic.KeyTextField;
+
+  /**
+   * Designations after the name (optional) field in *Person*
+   *
+   * - **Field Type**: Text
+   * - **Placeholder**: e.g. CCIM
+   * - **API ID Path**: person.credentials
+   * - **Tab**: Main
+   * - **Documentation**: https://prismic.io/docs/fields/text
+   */
+  credentials: prismic.KeyTextField;
+
+  /**
+   * Title field in *Person*
+   *
+   * - **Field Type**: Text
+   * - **Placeholder**: e.g. Partner
+   * - **API ID Path**: person.role
+   * - **Tab**: Main
+   * - **Documentation**: https://prismic.io/docs/fields/text
+   */
+  role: prismic.KeyTextField;
+
+  /**
+   * Headshot (square crop) field in *Person*
+   *
+   * - **Field Type**: Image
+   * - **Placeholder**: *None*
+   * - **API ID Path**: person.photo
+   * - **Tab**: Main
+   * - **Documentation**: https://prismic.io/docs/fields/image
+   */
+  photo: prismic.ImageField<never>;
+
+  /**
+   * Email (optional — shown as a link) field in *Person*
+   *
+   * - **Field Type**: Text
+   * - **Placeholder**: e.g. mhoward@roalson.com
+   * - **API ID Path**: person.email
+   * - **Tab**: Main
+   * - **Documentation**: https://prismic.io/docs/fields/text
+   */
+  email: prismic.KeyTextField;
+
+  /**
+   * Phone (optional — ten digits, shown as a link) field in *Person*
+   *
+   * - **Field Type**: Text
+   * - **Placeholder**: e.g. (210) 496-5800
+   * - **API ID Path**: person.phone
+   * - **Tab**: Main
+   * - **Documentation**: https://prismic.io/docs/fields/text
+   */
+  phone: prismic.KeyTextField;
+
+  /**
+   * Texas real estate license number (optional) field in *Person*
+   *
+   * - **Field Type**: Text
+   * - **Placeholder**: e.g. 603462
+   * - **API ID Path**: person.license
+   * - **Tab**: Main
+   * - **Documentation**: https://prismic.io/docs/fields/text
+   */
+  license: prismic.KeyTextField;
+
+  /**
+   * Biography field in *Person*
+   *
+   * - **Field Type**: Rich Text
+   * - **Placeholder**: Paragraphs; a Heading 2 and a bulleted list for affiliations or education
+   * - **API ID Path**: person.bio
+   * - **Tab**: Main
+   * - **Documentation**: https://prismic.io/docs/fields/rich-text
+   */
+  bio: prismic.RichTextField;
+
+  /**
+   * Placeholder biography — marks the page as a placeholder and keeps it out of search field in *Person*
+   *
+   * - **Field Type**: Boolean
+   * - **Placeholder**: *None*
+   * - **Default Value**: false
+   * - **API ID Path**: person.bio_is_placeholder
+   * - **Tab**: Main
+   * - **Documentation**: https://prismic.io/docs/fields/boolean
+   */
+  bio_is_placeholder: prismic.BooleanField; /**
+   * Meta Title field in *Person*
+   *
+   * - **Field Type**: Text
+   * - **Placeholder**: Leave empty to use the name
+   * - **API ID Path**: person.meta_title
+   * - **Tab**: SEO & Metadata
+   * - **Documentation**: https://prismic.io/docs/fields/text
+   */
+  meta_title: prismic.KeyTextField;
+
+  /**
+   * Meta Description field in *Person*
+   *
+   * - **Field Type**: Text
+   * - **Placeholder**: Leave empty to use the name and title
+   * - **API ID Path**: person.meta_description
+   * - **Tab**: SEO & Metadata
+   * - **Documentation**: https://prismic.io/docs/fields/text
+   */
+  meta_description: prismic.KeyTextField;
+
+  /**
+   * Meta Image field in *Person*
+   *
+   * - **Field Type**: Image
+   * - **Placeholder**: *None*
+   * - **API ID Path**: person.meta_image
+   * - **Tab**: SEO & Metadata
+   * - **Documentation**: https://prismic.io/docs/fields/image
+   */
+  meta_image: prismic.ImageField<never>;
+}
+
+/**
+ * Person document from Prismic
+ *
+ * - **API ID**: `person`
+ * - **Repeatable**: `true`
+ * - **Documentation**: https://prismic.io/docs/content-modeling
+ *
+ * @typeParam Lang - Language API ID of the document.
+ */
+export type PersonDocument<Lang extends string = string> =
+  prismic.PrismicDocumentWithUID<Simplify<PersonDocumentData>, "person", Lang>;
+
+/**
  * Item in *Property → Highlights*
  */
 export interface PropertyDocumentDataHighlightsItem {
@@ -271,7 +419,7 @@ export interface PropertyDocumentDataHighlightsItem {
    * Highlight field in *Property → Highlights*
    *
    * - **Field Type**: Text
-   * - **Placeholder**: One short line — the first two show on the card
+   * - **Placeholder**: One short line each; every line shows on the card. On a past project, this is where its notes go.
    * - **API ID Path**: property.highlights[].text
    * - **Documentation**: https://prismic.io/docs/fields/text
    */
@@ -349,7 +497,7 @@ interface PropertyDocumentData {
    * Status field in *Property*
    *
    * - **Field Type**: Select
-   * - **Placeholder**: Sold listings move to the Sold section and leave search results
+   * - **Placeholder**: Sold listings move to Past Projects and leave search results
    * - **Default Value**: Available
    * - **API ID Path**: property.status
    * - **Tab**: Main
@@ -359,6 +507,17 @@ interface PropertyDocumentData {
     "Available" | "Under Contract" | "Sold",
     "filled"
   >;
+
+  /**
+   * Show on the site as field in *Property*
+   *
+   * - **Field Type**: Select
+   * - **Placeholder**: Past project: moves to Past Projects at the bottom of Properties, with photo, address and bullets only (no price, no package, no link). Archived: hidden everywhere on the site.
+   * - **API ID Path**: property.listing_state
+   * - **Tab**: Main
+   * - **Documentation**: https://prismic.io/docs/fields/select
+   */
+  listing_state: prismic.SelectField<"Listed" | "Past project" | "Archived">;
 
   /**
    * New listing field in *Property*
@@ -595,7 +754,11 @@ export type PropertyDocument<Lang extends string = string> =
   >;
 
 export type AllDocumentTypes =
-  FormRepliesDocument | PageDocument | PageMediaDocument | PropertyDocument;
+  | FormRepliesDocument
+  | PageDocument
+  | PageMediaDocument
+  | PersonDocument
+  | PropertyDocument;
 
 /**
  * Item in *Accordion → Default → Primary → items*
@@ -768,7 +931,7 @@ export interface FeaturedPropertiesSliceDefaultPrimaryPropertiesItem {
    * Listing field in *FeaturedProperties → Default → Primary → Featured listings — shown in this order*
    *
    * - **Field Type**: Content Relationship
-   * - **Placeholder**: Pick a listing — only listings with a feature image are shown; sold ones are skipped
+   * - **Placeholder**: Pick a listing — only listings with a feature image are shown; past projects and archived listings are skipped
    * - **API ID Path**: featured_properties.default.primary.properties[].property
    * - **Documentation**: https://prismic.io/docs/fields/content-relationship
    */
@@ -779,6 +942,7 @@ export interface FeaturedPropertiesSliceDefaultPrimaryPropertiesItem {
         fields: [
           "title",
           "status",
+          "listing_state",
           "size_label",
           "feature_image",
           { id: "highlights"; fields: ["text"] },
@@ -816,17 +980,17 @@ export interface FeaturedPropertiesSliceDefaultPrimary {
   >;
 
   /**
-   * Portfolio button — label. With no label or no link the button is not shown field in *FeaturedProperties → Default → Primary*
+   * Properties button — label. With no label or no link the button is not shown field in *FeaturedProperties → Default → Primary*
    *
    * - **Field Type**: Text
-   * - **Placeholder**: Our portfolio
+   * - **Placeholder**: Properties
    * - **API ID Path**: featured_properties.default.primary.portfolio_label
    * - **Documentation**: https://prismic.io/docs/fields/text
    */
   portfolio_label: prismic.KeyTextField;
 
   /**
-   * Portfolio button — link. A page on this site can be typed as a path, e.g. /properties field in *FeaturedProperties → Default → Primary*
+   * Properties button — link. A page on this site can be typed as a path, e.g. /properties field in *FeaturedProperties → Default → Primary*
    *
    * - **Field Type**: Link
    * - **Placeholder**: /properties
@@ -961,43 +1125,28 @@ type HeroSliceVariation = HeroSliceDefault;
 export type HeroSlice = prismic.SharedSlice<"hero", HeroSliceVariation>;
 
 /**
- * Item in *HomeHero → Default → Primary → Buttons (the first two are shown)*
+ * Item in *HomeHero → Default → Primary → Buttons (the first two are shown; Properties first, then Contact us)*
  */
 export interface HomeHeroSliceDefaultPrimaryButtonsItem {
   /**
-   * Label field in *HomeHero → Default → Primary → Buttons (the first two are shown)*
+   * Label field in *HomeHero → Default → Primary → Buttons (the first two are shown; Properties first, then Contact us)*
    *
    * - **Field Type**: Text
-   * - **Placeholder**: e.g. Contact us
+   * - **Placeholder**: e.g. Properties
    * - **API ID Path**: home_hero.default.primary.buttons[].label
    * - **Documentation**: https://prismic.io/docs/fields/text
    */
   label: prismic.KeyTextField;
 
   /**
-   * Link — a page on this site can be typed as a path, e.g. /contact field in *HomeHero → Default → Primary → Buttons (the first two are shown)*
+   * Link — a page on this site can be typed as a path, e.g. /properties field in *HomeHero → Default → Primary → Buttons (the first two are shown; Properties first, then Contact us)*
    *
    * - **Field Type**: Link
-   * - **Placeholder**: /contact
+   * - **Placeholder**: /properties
    * - **API ID Path**: home_hero.default.primary.buttons[].link
    * - **Documentation**: https://prismic.io/docs/fields/link
    */
   link: prismic.LinkField<string, string, unknown, prismic.FieldState, never>;
-}
-
-/**
- * Item in *HomeHero → Default → Primary → Specialties*
- */
-export interface HomeHeroSliceDefaultPrimarySpecialtiesItem {
-  /**
-   * Specialty field in *HomeHero → Default → Primary → Specialties*
-   *
-   * - **Field Type**: Text
-   * - **Placeholder**: e.g. Consulting and brokerage
-   * - **API ID Path**: home_hero.default.primary.specialties[].text
-   * - **Documentation**: https://prismic.io/docs/fields/text
-   */
-  text: prismic.KeyTextField;
 }
 
 /**
@@ -1028,14 +1177,24 @@ export interface HomeHeroSliceDefaultPrimary {
    * Headline — Shift+Enter for a line break field in *HomeHero → Default → Primary*
    *
    * - **Field Type**: Rich Text
-   * - **Placeholder**: San Antonio's Commercial Real Estate Experts. Since 1983.
+   * - **Placeholder**: San Antonio's Commercial Real Estate Experts Since 1983.
    * - **API ID Path**: home_hero.default.primary.heading
    * - **Documentation**: https://prismic.io/docs/fields/rich-text
    */
   heading: prismic.RichTextField;
 
   /**
-   * Buttons (the first two are shown) field in *HomeHero → Default → Primary*
+   * Subheading — one sentence under the headline field in *HomeHero → Default → Primary*
+   *
+   * - **Field Type**: Text
+   * - **Placeholder**: A placeholder for a sentence to come.
+   * - **API ID Path**: home_hero.default.primary.subheading
+   * - **Documentation**: https://prismic.io/docs/fields/text
+   */
+  subheading: prismic.KeyTextField;
+
+  /**
+   * Buttons (the first two are shown; Properties first, then Contact us) field in *HomeHero → Default → Primary*
    *
    * - **Field Type**: Group
    * - **Placeholder**: *None*
@@ -1043,28 +1202,6 @@ export interface HomeHeroSliceDefaultPrimary {
    * - **Documentation**: https://prismic.io/docs/fields/repeatable-group
    */
   buttons: prismic.GroupField<Simplify<HomeHeroSliceDefaultPrimaryButtonsItem>>;
-
-  /**
-   * List label field in *HomeHero → Default → Primary*
-   *
-   * - **Field Type**: Text
-   * - **Placeholder**: Our specialty
-   * - **API ID Path**: home_hero.default.primary.specialty_label
-   * - **Documentation**: https://prismic.io/docs/fields/text
-   */
-  specialty_label: prismic.KeyTextField;
-
-  /**
-   * Specialties field in *HomeHero → Default → Primary*
-   *
-   * - **Field Type**: Group
-   * - **Placeholder**: *None*
-   * - **API ID Path**: home_hero.default.primary.specialties[]
-   * - **Documentation**: https://prismic.io/docs/fields/repeatable-group
-   */
-  specialties: prismic.GroupField<
-    Simplify<HomeHeroSliceDefaultPrimarySpecialtiesItem>
-  >;
 }
 
 /**
@@ -1089,7 +1226,7 @@ type HomeHeroSliceVariation = HomeHeroSliceDefault;
  * HomeHero Shared Slice
  *
  * - **API ID**: `home_hero`
- * - **Description**: The top of the homepage: a pinned 528px hero, the RI cutout, and the garnet band with the headline, two buttons and the specialty list
+ * - **Description**: The top of the homepage: a pinned 528px hero, the RI cutout, and the garnet band with the headline, a one-sentence subheading and two buttons
  * - **Documentation**: https://prismic.io/docs/slices
  */
 export type HomeHeroSlice = prismic.SharedSlice<
@@ -1274,7 +1411,7 @@ export interface PartnersSliceDefaultPrimaryButtonsItem {
    * Label field in *Partners → Default → Primary → Buttons under the body (optional — the design has none; the first two are shown)*
    *
    * - **Field Type**: Text
-   * - **Placeholder**: e.g. Our portfolio
+   * - **Placeholder**: e.g. Properties
    * - **API ID Path**: partners.default.primary.buttons[].label
    * - **Documentation**: https://prismic.io/docs/fields/text
    */
@@ -1326,7 +1463,27 @@ export interface PartnersSliceDefaultPrimaryPartnersItem {
   photo: prismic.ImageField<never>;
 
   /**
-   * CONTACT goes to — mailto:, tel: or a page. Left empty, it goes to /contact field in *Partners → Default → Primary → Partners*
+   * PROFILE goes to — this partner's Person page. Left empty, the card has no PROFILE field in *Partners → Default → Primary → Partners*
+   *
+   * - **Field Type**: Content Relationship
+   * - **Placeholder**: *None*
+   * - **API ID Path**: partners.default.primary.partners[].profile
+   * - **Documentation**: https://prismic.io/docs/fields/content-relationship
+   */
+  profile: prismic.ContentRelationshipField<"person">;
+
+  /**
+   * Email — CONTACT opens a message to it (unless a CONTACT link is set below) field in *Partners → Default → Primary → Partners*
+   *
+   * - **Field Type**: Text
+   * - **Placeholder**: e.g. mhoward@roalson.com
+   * - **API ID Path**: partners.default.primary.partners[].email
+   * - **Documentation**: https://prismic.io/docs/fields/text
+   */
+  email: prismic.KeyTextField;
+
+  /**
+   * CONTACT goes to (optional override) — mailto:, tel: or a page. Left empty, it opens the email above, else /contact field in *Partners → Default → Primary → Partners*
    *
    * - **Field Type**: Link
    * - **Placeholder**: /contact
@@ -1340,16 +1497,6 @@ export interface PartnersSliceDefaultPrimaryPartnersItem {
     prismic.FieldState,
     never
   >;
-
-  /**
-   * Bio — PROFILE appears on the card only when this is filled field in *Partners → Default → Primary → Partners*
-   *
-   * - **Field Type**: Rich Text
-   * - **Placeholder**: A few paragraphs about this partner
-   * - **API ID Path**: partners.default.primary.partners[].bio
-   * - **Documentation**: https://prismic.io/docs/fields/rich-text
-   */
-  bio: prismic.RichTextField;
 }
 
 /**
@@ -1413,7 +1560,7 @@ export interface PartnersSliceDefaultPrimary {
  * Default variation for Partners Slice
  *
  * - **API ID**: `default`
- * - **Description**: Partner cards (name, role, CONTACT, and PROFILE when there is a bio) beside a headline and body copy
+ * - **Description**: Partner cards (name, role, PROFILE when the row links a Person page, and CONTACT) beside a headline and body copy
  * - **Documentation**: https://prismic.io/docs/slices
  */
 export type PartnersSliceDefault = prismic.SharedSliceVariation<
@@ -1853,6 +2000,8 @@ declare module "@prismicio/client" {
       PageDocumentDataSlicesSlice,
       PageMediaDocument,
       PageMediaDocumentData,
+      PersonDocument,
+      PersonDocumentData,
       PropertyDocument,
       PropertyDocumentData,
       PropertyDocumentDataHighlightsItem,
@@ -1878,7 +2027,6 @@ declare module "@prismicio/client" {
       HeroSliceDefault,
       HomeHeroSlice,
       HomeHeroSliceDefaultPrimaryButtonsItem,
-      HomeHeroSliceDefaultPrimarySpecialtiesItem,
       HomeHeroSliceDefaultPrimary,
       HomeHeroSliceVariation,
       HomeHeroSliceDefault,

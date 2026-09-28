@@ -14,7 +14,7 @@
    * Before the tiles arrive — and forever, with scripting off — this component
    * is not a map. It is a list of links, and a list of links needs a ground it
    * is legible on. The first version hard-coded `bg-light text-primary`, which
-   * is right on the Properties page (sand panel on an off-white page, 8.87:1)
+   * is right on the Properties page (sand panel on an off-white page, 9.38:1)
    * and wrong on the homepage band, where it painted a full-bleed SAND
    * rectangle over the band's #3d0707 until MapLibre finished booting —
    * measured at 513 × 826.4 at 1455 × 900 and 375 × 200 at 390 × 844, i.e. the
@@ -26,8 +26,8 @@
    * So the caller says which ground it is placing the map on, the way
    * CarouselArrows and CarouselProgress already do. Measured, both ways round:
    *
-   *   garnet  sand ground, garnet text      8.87:1   — the Properties page
-   *   cream   #3d0707 ground, off-white     14.85:1  — the homepage band
+   *   garnet  sand ground, garnet text      9.38:1   — the Properties page
+   *   cream   #3d0707 ground, off-white     15.13:1  — the homepage band
    *
    * `cream` paints the band's own colour rather than going transparent: it is
    * the same pixel either way, and an explicit ground is what src/focus-floor
@@ -77,7 +77,7 @@
   // anywhere, and the Google capture it was drawn over has Google's own
   // cropped off. OpenStreetMap data is ODbL and attribution is a licence
   // condition, not a style choice, so MapLibre's AttributionControl stays —
-  // moved to bottom-left, out of the expand affordance's corner, and toned to
+  // moved to bottom-left, out of the control column's corner, and toned to
   // the brand. tests/interaction/property-map.spec.ts asserts the string
   // "OpenStreetMap" is really on the page rather than that no error appeared.
   //
@@ -91,17 +91,20 @@
   // it (Modal.test.ts: 37.5s for 18 assertions); that is issue #97, not this
   // file's to change.
   import Expand from "@lucide/svelte/icons/expand";
+  import Minus from "@lucide/svelte/icons/minus";
+  import Plus from "@lucide/svelte/icons/plus";
   import Shrink from "@lucide/svelte/icons/shrink";
   import { tick, untrack } from "svelte";
 
+  import { trapFocus } from "$lib/actions/trapFocus";
   import type { MapEngine } from "$lib/map-engine";
   import {
+    ACTIVE_PIN_SCALE,
     activeTarget,
     CAMERA_FLIGHT_MS,
     cameraMove,
     clusterDiameter,
     clusterPoints,
-    COMPACT_MAX_HEIGHT,
     expansionZoom,
     fitCamera,
     frameFor,
@@ -111,6 +114,9 @@
     MAP_HOME,
     MAP_HOME_FADE_MS,
     MAP_HOME_GROUND,
+    MAP_MAX_ZOOM,
+    MAP_MIN_ZOOM,
+    MAP_ZOOM_STEP_MS,
     mapStyleUrl,
     PIN_ASPECT,
     PIN_HOLE,
@@ -124,6 +130,7 @@
     type WheelRun,
   } from "$lib/property-map";
   import { reducedMotion } from "$lib/transitions";
+  import { lockBodyScroll } from "$lib/utils/scrollLock";
 
   interface Props {
     /** The section's pins, in the editor's order — `listingOrder`, which is
@@ -212,6 +219,11 @@
      * — see `applyInteractive`.
      */
     interactive?: boolean;
+    /** Called when one of the map's own controls (+, −, expand) is pressed
+     *  while `interactive` is false: the caller unlocks the map and the
+     *  control then acts. Absent, + and − do nothing on a locked map. The
+     *  homepage band passes `carousel.pause` (M1, operator call 2026-09-28). */
+    onengage?: () => void;
     class?: string;
   }
 
@@ -224,6 +236,7 @@
     activeBy = "visitor",
     onselect,
     interactive = true,
+    onengage,
     class: passedClasses = "",
   }: Props = $props();
 
@@ -541,8 +554,8 @@
    * leaves it without anyone keeping a second list. Measured on a production
    * build of /properties at 1440x900 (2026-09-23): scrollZoom, boxZoom,
    * dragPan, keyboard, doubleClickZoom and touchZoomRotate on; dragRotate and
-   * touchPitch off. No NavigationControl (+/− buttons) is added on either
-   * page, and this does not add one.
+   * touchPitch off. The +/− buttons are this component's own markup, not
+   * maplibre's NavigationControl, so they are not handlers and not in here.
    */
   let navigation: Navigation[] = [];
   /** What the live map was last set to — null until the first `applyInteractive`,
@@ -643,7 +656,12 @@
   }
 
   const measured = $derived(box.height > 0);
-  const compact = $derived(box.height < COMPACT_MAX_HEIGHT);
+  /** The control column's target and painted box — the split Nav.svelte and
+   *  Modal.svelte use. The ring is on the painted box (see the markup). */
+  const CONTROL_TARGET =
+    "group grid h-11 w-11 cursor-pointer place-items-end bg-transparent pr-[10px] pb-[10px] focus-visible:outline-none";
+  const CONTROL_PAINTED =
+    "grid h-[20.88px] w-[20.884px] place-items-center rounded-[2px] bg-primary text-light group-focus-visible:outline-2 group-focus-visible:outline-offset-2 group-focus-visible:outline-primary group-aria-disabled:opacity-40";
   const frame = $derived(MAP_FRAMES[frameFor(box)]);
 
   /**
@@ -816,10 +834,12 @@
       style: styleUrl,
       center: start ? [start.lng, start.lat] : [0, 0],
       zoom: start ? start.zoom : 1,
-      minZoom: 3,
-      maxZoom: 16,
+      minZoom: MAP_MIN_ZOOM,
+      maxZoom: MAP_MAX_ZOOM,
       // The comp's map is flat and north-up; nothing on this site reads a
-      // bearing, and a rotated map is a way to get lost on a 200px box.
+      // bearing, and a rotated map is a way to get lost on a 200px box. The
+      // keyboard's Shift+arrows and the two-finger twist are switched off
+      // below, once the instance exists (#154).
       dragRotate: false,
       pitchWithRotate: false,
       touchPitch: false,
@@ -858,11 +878,15 @@
       reduceMotion: $reducedMotion,
     });
     map = instance;
+    // #154. The handlers stay ENABLED — `touchZoomRotate.enable()` respects
+    // this flag — so the lock's `navigation` set is unchanged.
+    instance.keyboard.disableRotation();
+    instance.touchZoomRotate.disableRotation();
 
     instance.addControl(
       new maplibre.AttributionControl({ compact: false }),
-      // Bottom-LEFT: the expand affordance owns bottom-right at 390, and a
-      // licence notice may not be the thing a finger covers.
+      // Bottom-LEFT: the control column owns bottom-right, and a licence
+      // notice may not be the thing a finger covers.
       "bottom-left",
     );
 
@@ -1188,9 +1212,19 @@
       // would be a second mechanism racing the first. So this only reports the
       // press; on /properties the caller scrolls that card to the centre and
       // the centre rule does the rest.
-      if (onselect) {
+      const report = onselect;
+      if (report) {
         selected = null;
-        onselect(point.id);
+        // Pressed inside the expanded overlay: close it onto the card (D4).
+        // The report waits a tick so the scroll lock is off and the card is
+        // back in flow when the caller scrolls it into view.
+        if (expanded) {
+          collapsingForPin = true;
+          expanded = false;
+          void tick().then(() => report(point.id));
+          return;
+        }
+        report(point.id);
         return;
       }
       selected = point;
@@ -1204,12 +1238,66 @@
     });
   }
 
+  // The zoom a +/− press leaves from, and why it is not always `getZoom()`:
+  // over a flight of ours still in the air that is the arc's waypoint, so the
+  // step goes from where the flight was GOING (`chosenZoom`'s rule 2).
+  //
+  // A press is the visitor driving, like a wheel notch: `drivenAt` here, and
+  // `originalEvent` on the ease so `movestart` and `zoomend` read it as theirs.
+  // Known gap: a different listing asked for DURING the 300ms ease ends the
+  // suspension before `zoomend` records the zoom (no handler is active), so
+  // that one step is not carried — the `releaseDue` shape, left as is.
+  function zoomBy(delta: 1 | -1, e: MouseEvent) {
+    const instance = map;
+    if (!instance || !ready) return;
+    const z = instance.getZoom();
+    if (delta > 0 ? z >= MAP_MAX_ZOOM - 1e-6 : z <= MAP_MIN_ZOOM + 1e-6) return;
+    if (!interactive) {
+      if (!onengage) return;
+      onengage();
+    }
+    drivenAt = active;
+    const base = flying && commanded ? commanded : null;
+    if (base) endFlight();
+    shortfall = 0;
+    instance.easeTo(
+      {
+        ...(base ? { center: [base.lng, base.lat] as [number, number] } : {}),
+        zoom: Math.min(MAP_MAX_ZOOM, Math.max(MAP_MIN_ZOOM, (base?.zoom ?? z) + delta)),
+        duration: $reducedMotion ? 0 : MAP_ZOOM_STEP_MS,
+      },
+      { originalEvent: e },
+    );
+  }
+
+  function toggleExpanded() {
+    if (!expanded && !interactive) onengage?.();
+    expanded = !expanded;
+  }
+
+  // EXPANDED IS ONE FULL-WINDOW OVERLAY AT EVERY WIDTH (M1, operator call
+  // 2026-09-28), replacing the in-place growth to min(70dvh, 520px) below lg.
+  // The page behind does not scroll, and focus stays in the map until it
+  // collapses (Escape, or the button). The spacer holds the map's slot.
+  $effect(() => {
+    if (!expanded) return;
+    return lockBodyScroll();
+  });
+  /** A pin press closed the overlay (see `press`): focus must not be sent
+   *  back to the expand button, whose `focus()` would scroll the page away
+   *  from the card the caller is revealing. */
+  let collapsingForPin = false;
+  const restoreFocus = () => {
+    if (!collapsingForPin) return undefined;
+    collapsingForPin = false;
+    return document.body;
+  };
+
   // The container's box, which is the only thing that decides the frame: a
-  // 200px-tall map takes the comp's 22px pin and the expand affordance, a
-  // 595px one takes its 48px pin and neither. No viewport media query is
-  // consulted anywhere in this file, so the SAME rule covers the expanded
-  // state — expanding a phone map to 520px makes it a full frame, which is
-  // exactly what expanding it is for.
+  // 200px-tall map takes the comp's 22px pin, a 595px one its 48px pin. No
+  // viewport media query is consulted anywhere in this file, so the SAME rule
+  // covers the expanded state — a phone map grown to the window is a full
+  // frame, which is exactly what expanding it is for.
   $effect(() => {
     const el = boxEl;
     // Guarded the way Footer.svelte guards its own: jsdom ships no
@@ -1361,8 +1449,10 @@
     //
     // This started as 300px of LEAD (`rootMargin: "300px 0px"`), and what that
     // actually did took measuring rather than reading. The map IS below the
-    // fold on the homepage — at 1455x900 the hero is 1007 tall and the map
-    // slot's top is at y = 1007, so ZERO pixels of it are on screen at rest.
+    // fold on the homepage — at 1455x900 the hero was 1007 tall and the map
+    // slot's top at y = 1007 when this was measured (921 for both since the
+    // revised one-column hero of 2026-09-28, with the seeded copy), so ZERO
+    // pixels of it are on screen at rest.
     // 300px of lead expands the observer's root to 1200, which reaches a map
     // a whole viewport away: it fired at load, and 426 KB of parse plus a
     // WebGL context landed inside the featured carousel's first 4-second
@@ -1384,7 +1474,8 @@
     // is the better rule anyway: a visitor who never scrolls to the map now
     // pays nothing for it, which is what "lazy" was supposed to mean. The
     // price is that the map arrives a little later than it used to — at
-    // 1440x900 the homepage band needs about 520px of scroll rather than 107 —
+    // 1440x900 the homepage band needed about 520px of scroll rather than 107
+    // (434 rather than 21 since the revised hero, measured on /dev/home) —
     // and until then its box shows the list of listings, which is the same
     // content. See issue #103.
     const io = new IntersectionObserver(
@@ -1413,13 +1504,22 @@
      non-interactive-element interaction the compiler's a11y rules refuse. -->
 <svelte:window
   onkeydown={(e) => {
-    if (e.key === "Escape" && selected) selected = null;
+    if (e.key !== "Escape") return;
+    if (selected) selected = null;
+    else if (expanded) expanded = false;
   }}
 />
 
 {#if points.length > 0}
+  {#if expanded}
+    <div aria-hidden="true" data-map-spacer class={passedClasses}></div>
+  {/if}
   <div
     bind:this={boxEl}
+    use:trapFocus={{ enabled: expanded, restoreFocus }}
+    role={expanded ? "dialog" : undefined}
+    aria-modal={expanded ? "true" : undefined}
+    aria-label={expanded ? `${label} map` : undefined}
     data-property-map
     data-map-ready={ready ? "" : undefined}
     data-map-home={home ? "" : undefined}
@@ -1511,6 +1611,7 @@
             {#each layer.markers as marker (marker.id)}
               {@const at = `left:50%;top:50%;transform:translate(${marker.dx}px,${marker.dy}px)`}
               {#if marker.point}
+                {@const isActive = active !== null && marker.point.id === active}
                 <!-- A LINK, where the live marker is a button, and that is the
                      whole no-JS story: the sheet the live pin opens needs
                      script, and Google Maps does not. Same href, same target
@@ -1526,12 +1627,13 @@
                   rel="noopener noreferrer"
                   tabindex="-1"
                   aria-hidden="true"
+                  data-map-active={isActive ? "" : undefined}
                   style="{at} translate(-50%,-100%)"
-                  class="pointer-events-auto absolute"
+                  class="pointer-events-auto absolute {isActive ? 'z-[1]' : ''}"
                 >
                   <svg
-                    width={layer.pin}
-                    height={layer.pin * PIN_ASPECT}
+                    width={layer.pin * (isActive ? ACTIVE_PIN_SCALE : 1)}
+                    height={layer.pin * (isActive ? ACTIVE_PIN_SCALE : 1) * PIN_ASPECT}
                     viewBox={PIN_VIEWBOX}
                     aria-hidden="true"
                     focusable="false"
@@ -1603,6 +1705,7 @@
       <div aria-hidden="true" class="pointer-events-none absolute inset-0 z-[1] overflow-hidden">
         {#each clusters as cluster (cluster.id)}
           {@const count = cluster.points.length}
+          {@const isActive = count === 1 && active !== null && cluster.points[0]!.id === active}
           <!-- `data-map-pin` carries the LISTING'S OWN ID, not an empty marker.
                A pin is a drawing of one list item, and saying which one costs
                nothing, keeps `[data-map-pin]` matching as a presence selector
@@ -1622,16 +1725,20 @@
             disabled={!interactive}
             data-map-pin={count === 1 ? cluster.points[0]!.id : undefined}
             data-map-cluster={count > 1 ? count : undefined}
+            data-map-active={isActive ? "" : undefined}
             onclick={() => press(cluster)}
             class="absolute top-0 left-0 border-0 bg-transparent p-0
+              {isActive ? 'z-[1]' : ''}
               {interactive ? 'pointer-events-auto cursor-pointer' : 'pointer-events-none'}"
           >
             {#if count === 1}
               <!-- `np_pin-map_4984332` — see $lib/property-map for the five
-                   measured numbers and the tangent construction they imply. -->
+                   measured numbers and the tangent construction they imply.
+                   The ACTIVE listing's pin is ACTIVE_PIN_SCALE larger; the
+                   anchor is a percentage of the box, so its tip stays put. -->
               <svg
-                width={frame.pin}
-                height={frame.pin * PIN_ASPECT}
+                width={frame.pin * (isActive ? ACTIVE_PIN_SCALE : 1)}
+                height={frame.pin * (isActive ? ACTIVE_PIN_SCALE : 1) * PIN_ASPECT}
                 viewBox={PIN_VIEWBOX}
                 aria-hidden="true"
                 focusable="false"
@@ -1669,10 +1776,12 @@
            and neither costs a CSP change — a link navigation is not governed
            by one, which tests/interaction/property-map.spec.ts measures rather
            than asserts. -->
+      <!-- `right-[54px]`: the control column's 44px targets on their 10px
+           inset keep that strip, so the sheet's × is never under them. -->
       <div
         data-map-sheet
-        class="absolute inset-x-0 bottom-0 z-[2] flex items-start justify-between gap-4 bg-light/95
-          p-4 text-primary"
+        class="absolute bottom-0 left-0 right-[54px] z-[2] flex items-start justify-between gap-4
+          bg-light/95 p-4 text-primary"
       >
         <div class="min-w-0">
           <p class="t-h4 truncate">{selected.title}</p>
@@ -1703,54 +1812,79 @@
       </div>
     {/if}
 
-    {#if measured && (compact || expanded)}
-      <!-- `np_expand_2178917`. The comp draws it on BOTH 390 maps and on
-           neither 1440 map, 20.884 x 20.880 with a 2px radius in solid garnet,
-           its right and bottom edges exactly 10.0 from the map's, around a
-           12.884 x 12.880 off-white four-corner expand glyph.
-           ITS BEHAVIOUR IS UNWIRED IN FIGMA (`interactions: []`, a real
-           absence — the same read returns interactions for the hero buttons
-           and the carousel arrows), so see docs/workJournal.md for why this
-           grows the box in place rather than opening Modal.svelte or calling
-           requestFullscreen.
-           The PAINTED box is the comp's 20.88; the TARGET is 44 x 44 around
-           it (WCAG 2.5.8), the same split Nav.svelte and Modal.svelte use. -->
-      <button
-        type="button"
-        data-js-only
-        data-map-expand={expanded ? "collapse" : "expand"}
-        aria-expanded={expanded}
-        aria-label={expanded ? `Collapse the ${label} map` : `Enlarge the ${label} map`}
-        onclick={() => (expanded = !expanded)}
-        class="absolute right-0 bottom-0 z-[3] grid h-11 w-11 cursor-pointer place-items-end
-          bg-transparent pr-[10px] pb-[10px]"
-      >
-        <span
-          class="grid h-[20.88px] w-[20.884px] place-items-center rounded-[2px] bg-primary
-            text-light"
+    {#if measured}
+      <!-- THE CONTROL COLUMN, bottom-right on every map (M1, P3): + above −
+           above expand, each a 44 x 44 target (WCAG 2.5.8) around a painted
+           20.88px garnet box — `np_expand_2178917`'s size, 2px radius, 10px
+           from the map's right and bottom edges. The comp draws only the
+           expand box, and only at 390; the zoom pair and the 1440 column are
+           ours (no comp). The focus ring is on the PAINTED box, in garnet,
+           inside the map: on the target it was clipped by the root's
+           `overflow-hidden` and toned off-white by the band's `cream` ground,
+           ~1:1 on the map. `aria-disabled` at a zoom bound keeps focus on it. -->
+      <div data-map-controls class="absolute right-0 bottom-0 z-[3] flex flex-col">
+        {#if ready}
+          <button
+            type="button"
+            data-map-control="zoom-in"
+            aria-label="Zoom in on the {label} map"
+            aria-disabled={zoom >= MAP_MAX_ZOOM - 1e-6 ? "true" : undefined}
+            onclick={(e) => zoomBy(1, e)}
+            class={CONTROL_TARGET}
+          >
+            <span class={CONTROL_PAINTED}>
+              <Plus size={13} strokeWidth={2} aria-hidden="true" />
+            </span>
+          </button>
+          <button
+            type="button"
+            data-map-control="zoom-out"
+            aria-label="Zoom out of the {label} map"
+            aria-disabled={zoom <= MAP_MIN_ZOOM + 1e-6 ? "true" : undefined}
+            onclick={(e) => zoomBy(-1, e)}
+            class={CONTROL_TARGET}
+          >
+            <span class={CONTROL_PAINTED}>
+              <Minus size={13} strokeWidth={2} aria-hidden="true" />
+            </span>
+          </button>
+        {/if}
+        <button
+          type="button"
+          data-js-only
+          data-map-control="expand"
+          data-map-expand={expanded ? "collapse" : "expand"}
+          data-autofocus={expanded ? "" : undefined}
+          aria-expanded={expanded}
+          aria-label={expanded ? `Collapse the ${label} map` : `Enlarge the ${label} map`}
+          onclick={toggleExpanded}
+          class={CONTROL_TARGET}
         >
-          {#if expanded}
-            <Shrink size={13} strokeWidth={2} aria-hidden="true" />
-          {:else}
-            <Expand size={13} strokeWidth={2} aria-hidden="true" />
-          {/if}
-        </span>
-      </button>
+          <span class={CONTROL_PAINTED}>
+            {#if expanded}
+              <Shrink size={13} strokeWidth={2} aria-hidden="true" />
+            {:else}
+              <Expand size={13} strokeWidth={2} aria-hidden="true" />
+            {/if}
+          </span>
+        </button>
+      </div>
     {/if}
   </div>
 {/if}
 
 <style>
-  /* The expanded height, and the reason it is CSS rather than an inline style:
-     above `lg` the comp draws no expand affordance at all, so the expanded
-     height must simply not exist there — the panel goes back to the 595 its
-     caller sets, the measured box stops being compact, and the button
-     disappears with it. An inline height would have to be unwound by script on
-     a resize, and would beat the caller's class while it was there. */
-  @media (max-width: 63.9375rem) {
-    [data-expanded="true"] {
-      height: min(70dvh, 520px);
-    }
+  /* The overlay. Scoped CSS sits outside every layer, so it beats Tailwind's
+     `@layer utilities` (`h-50`, `lg:sticky`, `lg:top-…`, `mb-5`) on the root.
+     z-70 puts it over the nav (z-50) and the pinned dividers (`lg:z-10`); no
+     ancestor of either map sets a z-index or a transform. */
+  [data-expanded="true"] {
+    position: fixed;
+    inset: 0;
+    z-index: 70;
+    width: auto;
+    height: auto;
+    margin: 0;
   }
 
   /* The focused chip. The list is `sr-only` once the map is drawn, and an
@@ -1833,7 +1967,7 @@
 
   /* MapLibre's attribution, toned to the brand. It is a licence condition, so
      it is legible rather than hidden: sand ground, garnet text, and the
-     4.5:1 the palette already measures for that pair (8.87:1). */
+     4.5:1 the palette already measures for that pair (9.38:1). */
   /* OPAQUE, not 88%. Two reasons and they are the same reason. A translucent
      chip over map tiles has no fixed contrast — the ratio depends on whatever
      imagery happens to be under it — and axe says so: it answers
@@ -1842,7 +1976,7 @@
      contains an image node". That incomplete is what forced the whole map
      subtree out of the band's axe run, which in turn silenced axe over the
      OpenStreetMap credit this component argues is a LICENCE CONDITION. At
-     100% it is garnet on sand, 8.87:1, measurable and fixed.
+     100% it is garnet on sand, 9.38:1, measurable and fixed.
 
      AND IT TAKES THREE CLASSES TO SAY IT, which is the correction. The rule
      below read `[data-property-map] .maplibregl-ctrl-attrib` — specificity
@@ -1855,7 +1989,8 @@
      again ON A PRODUCTION BUILD, because a cascade order is exactly the kind of
      thing `vite dev` can flatter — `pnpm build && pnpm preview`, `/` and
      `/properties`, both `rgba(255, 255, 255, 0.5)` before and both
-     `rgb(232, 225, 209)` after. It was shipped, not a dev artefact. Every
+     `rgb(232, 225, 209)` after (the sand of the time; it has been
+     `rgb(234, 231, 228)` since 2026-09-28). It was shipped, not a dev artefact. Every
      consequence the comment above describes was therefore still live — axe
      answered `color-contrast` with `imgNode` incomplete for
      `.maplibregl-ctrl-attrib-inner` and both licence links, on a chip this file
@@ -1885,7 +2020,8 @@
      OpenStreetMap credit, which this component treats as an ODbL condition
      rather than a style choice, and it hid the expand control with it. Both
      now sit above the sheet; the credit's chip is opaque so it stays legible
-     over it. property-map.spec.ts hit-tests both with a sheet open. */
+     over it. property-map.spec.ts hit-tests both with a sheet open. (The
+     control column is z-3 too, and the sheet now stops 54px short of it.) */
   :global([data-property-map] .maplibregl-ctrl-bottom-left) {
     z-index: 3;
   }

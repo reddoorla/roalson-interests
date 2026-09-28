@@ -30,13 +30,14 @@
                 "config": {
                   "label": "Listing",
                   "select": "document",
-                  "placeholder": "Pick a listing — only listings with a feature image are shown; sold ones are skipped",
+                  "placeholder": "Pick a listing — only listings with a feature image are shown; past projects and archived listings are skipped",
                   "customtypes": [
                     {
                       "id": "property",
                       "fields": [
                         "title",
                         "status",
+                        "listing_state",
                         "size_label",
                         "feature_image",
                         {
@@ -55,14 +56,14 @@
         "portfolio_label": {
           "type": "Text",
           "config": {
-            "label": "Portfolio button — label. With no label or no link the button is not shown",
-            "placeholder": "Our portfolio"
+            "label": "Properties button — label. With no label or no link the button is not shown",
+            "placeholder": "Properties"
           }
         },
         "portfolio_link": {
           "type": "Link",
           "config": {
-            "label": "Portfolio button — link. A page on this site can be typed as a path, e.g. /properties",
+            "label": "Properties button — link. A page on this site can be typed as a path, e.g. /properties",
             "placeholder": "/properties",
             "allowTargetBlank": true
           }

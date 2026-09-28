@@ -40,7 +40,7 @@
 //
 // A RENDER THAT DREW NOTHING IS A FAILURE, NOT A BLANK PICTURE. A page whose
 // tile requests all failed still fires `idle` and still screenshots cleanly —
-// it just returns a flat #f2efe9 rectangle. So the pixels are counted before
+// it just returns a flat #f3f1ef rectangle. So the pixels are counted before
 // anything is written, and both counts go in the manifest for the offline test
 // to re-measure against the committed file. An error matcher could only deny;
 // this is the artifact a working render is the only way to produce.
@@ -77,17 +77,25 @@ export function digest(bytes) {
  * `distinctColours` is small for a blank fill and large for a drawn map;
  * `paintedShare` is the fraction of pixels far enough from the style's
  * background colour to be ink — a road, water, a landuse wash, a label.
- * Measured on the committed render: full 15964 colours / 20.5% painted,
- * compact 10001 / 26.0%. The floors are deliberately far under those; they
+ * Measured on the committed render: full 16627 colours / 21.9% painted,
+ * compact 10731 / 27.7% (on the ground `#f3f1ef`; the first render, on
+ * `#f2efe9`, read 15964 / 20.5% and 10001 / 26.0%). The floors are
+ * deliberately far under those; they
  * exist to catch "nothing drew", not to police cartography.
  *
  * `INK_TOLERANCE` IS NOT SLOP, it is what makes the number survive the encode.
  * Measured against an exact-equality version of this function on the same
- * files: webp at q82 perturbs even the flat ground, so NO pixel is still
- * exactly #f2efe9 and `paintedShare` read 100.0% on both frames — a statistic
- * that a blank render would have scored just as well on, i.e. a green that
- * proved nothing. Six levels of Chebyshev distance is under the encoder's
- * noise and far under any real ink.
+ * files: webp at q82 perturbs even the flat ground, so NO pixel was still
+ * exactly #f2efe9 (the ground of the time) and `paintedShare` read 100.0% on
+ * both frames — a statistic that a blank render would have scored just as well
+ * on, i.e. a green that proved nothing. Six levels of Chebyshev distance is
+ * under the encoder's noise and far under any real ink.
+ *
+ * That flat-ground half of it turned out to belong to the COLOUR, not to q82:
+ * `#f2efe9` comes back from the encode as `#f3efea`, while today's `#f3f1ef`
+ * survives it exactly on 56.3% of the full frame. The fringe does not — exact
+ * equality would still read 43.7% painted against the tolerant 21.9% — so the
+ * tolerance stays, for the reason it always had.
  */
 export const MIN_DISTINCT_COLOURS = 64;
 export const MIN_PAINTED_SHARE = 0.15;

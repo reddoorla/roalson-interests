@@ -231,9 +231,13 @@ export async function remoteSliceChoices(type, zone, headers, fetchImpl = fetch)
  *  release. A document with no `slices` key is unaffected, byte for byte: the
  *  22 live listings fingerprint identically before and after (measured).
  *
- *  A partner's headshot is still invisible to it: that photo goes in a row of
- *  the `partners` GROUP, so the primary's key list does not move. It rides on
- *  the same document as the two that do. */
+ *  A partner's headshot was still invisible to it — the photo goes in a row of
+ *  the `partners` GROUP — until 2026-09-28, when a partner row gained
+ *  `profile` and `email` and the same blindness would have left both
+ *  unpublished. So a slice's GROUP now appends each row's filled keys:
+ *  `partners/default(…)[partners:email,name,photo,profile,role|…]`. An unfilled
+ *  link inside a row (`{ link_type: "Any" }`, which the API delivers and a
+ *  payload omits) counts as unfilled. */
 export function contentSignature(data) {
   const filled = stripEmpty(data ?? {}) ?? {};
   // An empty array is UNFILLED here, though `stripEmpty` keeps one (where it is
@@ -251,10 +255,23 @@ export function contentSignature(data) {
     Object.keys(o)
       .filter((k) => !(Array.isArray(o[k]) && o[k].length === 0))
       .sort();
+  // Rich text is an array of blocks, each with a `type`; a group's rows have none.
+  const isGroup = (v) =>
+    Array.isArray(v) &&
+    v.every((row) => row && typeof row === "object" && typeof row.type !== "string");
+  const rowKeys = (row) =>
+    filledKeys(row).filter((k) => {
+      const v = row[k];
+      return !(v && typeof v === "object" && "link_type" in v && !("id" in v) && !("url" in v));
+    });
   const slices = Array.isArray(filled.slices)
     ? filled.slices.map((s) => {
         const primary = stripEmpty(s.primary ?? {}) ?? {};
-        return `${s.slice_type}/${s.variation ?? "default"}(${filledKeys(primary).join(",")})`;
+        const keys = filledKeys(primary);
+        const groups = keys
+          .filter((k) => isGroup(primary[k]))
+          .map((k) => `[${k}:${primary[k].map((row) => rowKeys(row).join(",")).join("|")}]`);
+        return `${s.slice_type}/${s.variation ?? "default"}(${keys.join(",")})${groups.join("")}`;
       })
     : [];
   const keys = filledKeys(filled).filter((k) => k !== "slices");

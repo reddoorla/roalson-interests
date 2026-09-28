@@ -21,17 +21,39 @@ export type PropertyStatus = (typeof PROPERTY_STATUSES)[number];
 /** Anything carrying these fields of a listing's `data` — a whole
  *  `PropertyDocument`, or the handful of fields a content relationship embeds
  *  (the homepage's featured band holds listings that way, and they are not
- *  documents). The three helpers below read one field each, so they ask for
- *  one field each rather than being re-derived wherever a listing arrives in
+ *  documents). The helpers below read one or two fields each, so they ask for
+ *  those fields rather than being re-derived wherever a listing arrives in
  *  another shape. */
 type WithPropertyData<K extends keyof PropertyDocument["data"]> = {
   data: Pick<PropertyDocument["data"], K>;
 };
 
-/** A sold listing keeps its page — links already shared keep working — but
- *  leaves the index and the sitemap, and its card goes unlinked. */
-export function isSold(property: WithPropertyData<"status">): boolean {
-  return property.data.status === "Sold";
+/** The `listing_state` Select's options, as the model declares. No default:
+ *  empty and "Listed" both mean listed, so the 22 documents that predate the
+ *  field need no migration. */
+export const LISTING_STATES = ["Listed", "Past project", "Archived"] as const;
+
+type WithListingState = WithPropertyData<"status" | "listing_state">;
+
+/** Hidden everywhere: no card, no pin, no featured slide, no sitemap entry, and
+ *  its page 404s. Wins over every other field. */
+export function isArchived(property: WithListingState): boolean {
+  return property.data.listing_state === "Archived";
+}
+
+/** A past project keeps its page — links already shared keep working — but
+ *  leaves the index and the sitemap, and its card goes unlinked, with no price,
+ *  size or package. A sold listing is one without being marked. */
+export function isPastProject(property: WithListingState): boolean {
+  return (
+    !isArchived(property) &&
+    (property.data.listing_state === "Past project" || property.data.status === "Sold")
+  );
+}
+
+/** On the market: shown in its category's section, linked, indexed. */
+export function isListed(property: WithListingState): boolean {
+  return !isArchived(property) && !isPastProject(property);
 }
 
 /** Status worth announcing. "Available" is the unmarked default, so it gets no
@@ -59,13 +81,18 @@ export interface PropertyFact {
 
 /** The Details tab as label/value rows, in reading order, filled fields only —
  *  an empty field is omitted rather than shown as a dash, because most
- *  listings fill fewer than half of these. */
-export function propertyFacts(property: PropertyDocument): PropertyFact[] {
+ *  listings fill fewer than half of these. `pricing: false` drops the three
+ *  deal rows, for a past project. */
+export function propertyFacts(
+  property: PropertyDocument,
+  { pricing = true }: { pricing?: boolean } = {},
+): PropertyFact[] {
   const d = property.data;
+  const deal = (value: string | null) => (pricing ? value : null);
   const rows: [string, string | null][] = [
-    ["Offered for", d.transaction_type ?? null],
-    ["Total price", d.total_price?.trim() || null],
-    ["Price", d.price_per_unit?.trim() || null],
+    ["Offered for", deal(d.transaction_type ?? null)],
+    ["Total price", deal(d.total_price?.trim() || null)],
+    ["Price", deal(d.price_per_unit?.trim() || null)],
     ["Building size", isFilled.number(d.size_total_sf) ? sf(d.size_total_sf) : null],
     ["Office", isFilled.number(d.size_office_sf) ? sf(d.size_office_sf) : null],
     ["Retail", isFilled.number(d.size_retail_sf) ? sf(d.size_retail_sf) : null],

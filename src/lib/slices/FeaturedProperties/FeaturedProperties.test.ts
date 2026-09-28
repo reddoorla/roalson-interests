@@ -32,6 +32,7 @@ const engine = vi.hoisted(() => {
       return this.enabled;
     },
     isActive: () => false,
+    disableRotation() {},
   });
   const maps: FakeMap[] = [];
   class FakeMap {
@@ -996,7 +997,7 @@ describe("FeaturedProperties slice", () => {
       const { getByRole } = render(FeaturedProperties, {
         props: { slice: featuredPropertiesFixture() },
       });
-      const link = getByRole("link", { name: "Our portfolio" });
+      const link = getByRole("link", { name: "Properties" });
       expect(link.getAttribute("href")).toBe("/properties");
     });
 
@@ -1008,7 +1009,7 @@ describe("FeaturedProperties slice", () => {
       // control inside one goes with it (#34).
       for (const slice of [featuredPropertiesFixture(), featuredLaunchFixture()]) {
         const { container, getByRole, unmount } = render(FeaturedProperties, { props: { slice } });
-        const link = getByRole("link", { name: "Our portfolio" });
+        const link = getByRole("link", { name: "Properties" });
         expect(link.closest("[data-featured-card]")).not.toBeNull();
         expect(link.closest("[data-featured-slide]")).toBeNull();
         expect(link.closest("[data-map-slot]")).toBeNull();
@@ -1031,7 +1032,7 @@ describe("FeaturedProperties slice", () => {
       const { getByRole } = render(FeaturedProperties, {
         props: { slice: featuredLaunchFixture() },
       });
-      const link = getByRole("link", { name: "Our portfolio" });
+      const link = getByRole("link", { name: "Properties" });
       for (
         let el: HTMLElement | null = link;
         el && el.dataset.sliceType !== "featured_properties";
@@ -1046,13 +1047,13 @@ describe("FeaturedProperties slice", () => {
 
     it("is drawn on the CARD's ground, so it wears the tone for a light one", () => {
       // The old one was `cream` because it sat on the band's dark ground. It is
-      // on the sand card now (8.87:1, theme-contrast.test.ts) — garnet, which
+      // on the sand card now (9.38:1, theme-contrast.test.ts) — garnet, which
       // is BrandButton's default and what the slide's LEARN MORE beside it
       // wears.
       const { getByRole } = render(FeaturedProperties, {
         props: { slice: featuredLaunchFixture() },
       });
-      const link = getByRole("link", { name: "Our portfolio" });
+      const link = getByRole("link", { name: "Properties" });
       expect(link.className).toContain("border-primary");
       expect(link.className).toContain("text-primary");
       expect(link.className).not.toContain("border-background");
@@ -1065,22 +1066,28 @@ describe("FeaturedProperties slice", () => {
         { portfolio_link: { link_type: "Any" } },
         { portfolio_link: { link_type: "Web", url: "" } },
       ]) {
-        const { queryByRole, unmount } = render(FeaturedProperties, {
+        const { container, queryByRole, unmount } = render(FeaturedProperties, {
           props: { slice: featuredPropertiesFixture(primary as never) },
         });
-        expect(queryByRole("link", { name: /portfolio/i }), JSON.stringify(primary)).toBeNull();
+        // By its slot, not only by its name: with the label blanked, a check
+        // for the name "Properties" alone would pass whatever was drawn.
+        expect(queryByRole("link", { name: "Properties" }), JSON.stringify(primary)).toBeNull();
+        expect(
+          container.querySelector("[data-featured-portfolio]"),
+          JSON.stringify(primary),
+        ).toBeNull();
         unmount();
       }
     });
 
     it("stays with the band in the one-slide state, and goes with it in the empty one", () => {
       const one = render(FeaturedProperties, { props: { slice: featuredLaunchFixture() } });
-      expect(one.getByRole("link", { name: "Our portfolio" })).toBeTruthy();
+      expect(one.getByRole("link", { name: "Properties" })).toBeTruthy();
       one.unmount();
       const none = render(FeaturedProperties, {
         props: { slice: featuredPropertiesFixture({ properties: [] }) },
       });
-      expect(none.queryByRole("link", { name: "Our portfolio" })).toBeNull();
+      expect(none.queryByRole("link", { name: "Properties" })).toBeNull();
     });
 
     it("leaves every OTHER link in the band a slide's own LEARN MORE", () => {
@@ -1194,6 +1201,39 @@ describe("FeaturedProperties slice", () => {
       expect(running(container), "premise: running again").toBe(true);
       expect(map.tools()).toEqual([]);
       expect(canvas.hasAttribute("tabindex")).toBe(false);
+    });
+
+    // M1 (operator call 2026-09-28): the map's own controls engage it. The
+    // expand press on a running slideshow is a pause; collapsing is not a Play.
+    it("pressing the map's expand on a running slideshow pauses it and unlocks the map", async () => {
+      vi.stubGlobal(
+        "ResizeObserver",
+        class {
+          constructor(public cb: ResizeObserverCallback) {}
+          observe() {
+            this.cb(
+              [{ contentRect: { width: 390, height: 200 } } as ResizeObserverEntry],
+              this as never,
+            );
+          }
+          unobserve() {}
+          disconnect() {}
+        },
+      );
+      const { container, getByRole, map } = await withMap();
+      expect(running(container), "premise: the slideshow is running").toBe(true);
+      const expand = container.querySelector<HTMLButtonElement>("[data-map-expand]")!;
+      expand.click();
+      await tick();
+      expect(getByRole("button", { name: "Play slides" }), "the press paused it").toBeTruthy();
+      expect(map.tools()).toEqual(PROPERTIES_SET);
+
+      container.querySelector<HTMLButtonElement>("[data-map-expand]")!.click();
+      await tick();
+      expect(
+        getByRole("button", { name: "Play slides" }),
+        "collapsing does not resume it; only Play does",
+      ).toBeTruthy();
     });
 
     it("focus entering the carousel is a pause, and unlocks it the same way", async () => {

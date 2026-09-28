@@ -2,6 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 import sharp from "sharp";
 
 import { hydrated } from "./hydrated";
+import { OFF_WHITE_HEX, OFF_WHITE_RGB, SAND_RGB } from "./palette";
 
 // THE GROUND PAST BOTH ENDS OF THE PAGE. A rubber-band overscroll on a Mac
 // pulls the scrolling contents away from the viewport and shows what is behind
@@ -87,10 +88,11 @@ import { hydrated } from "./hydrated";
 const DARK = [61, 7, 7];
 /** #652323 — PageMasthead's top gradient stop, `canvasTop: "primary"`. */
 const GARNET = [101, 35, 35];
-/** #e8e1d1 — sand: the footer's foot, and the ground past it. */
-const SAND = [232, 225, 209];
-/** #f2efe9 — the page ground. What BOTH ends used to show, and the defect. */
-const OFF_WHITE = [242, 239, 233];
+/** --color-light, sand: the footer's foot, and the ground past it. */
+const SAND = SAND_RGB;
+/** --color-background, the page ground. What BOTH ends used to show, and the
+ *  defect. */
+const OFF_WHITE = OFF_WHITE_RGB;
 
 const rgb = (c: number[]) => `rgb(${c.join(", ")})`;
 
@@ -283,7 +285,7 @@ test.describe("the ground ABOVE the top of the document", () => {
     expect(at.rootGround, "so the canvas is the page ground").toBe(rgb(OFF_WHITE));
     // theme-color, unlike the rule, still ships — a route that omitted the tag
     // would keep whatever the PREVIOUS route set across a client-side nav.
-    expect(at.themeColor, "and the tag is present anyway").toBe("#f2efe9");
+    expect(at.themeColor, "and the tag is present anyway").toBe(OFF_WHITE_HEX);
   });
 
   test("the two claiming routes do not agree — a hard-coded colour cannot pass", async ({
@@ -318,7 +320,7 @@ test.describe("the ground ABOVE the top of the document", () => {
   test("naming the canvas did not stop body painting the page ground", async ({ page }) => {
     // The risk in the fix: `body`'s background reaches the canvas only while
     // `html` has none. Giving `html` one takes body OUT of that propagation —
-    // which is the point — but body must then still paint #f2efe9 in its own
+    // which is the point — but body must then still paint the page ground in its own
     // box, or every page turns the colour of its first band.
     await open(page, "/dev/properties");
     const at = await measure(page);

@@ -59,7 +59,7 @@ export const CANVAS_TOP_HEX = {
 } as const satisfies Record<CanvasTop, string>;
 
 /** The page ground, for a route that claims nothing. Same guard. */
-export const CANVAS_TOP_DEFAULT_HEX = "#f2efe9";
+export const CANVAS_TOP_DEFAULT_HEX = "#f3f1ef";
 
 /**
  * The CSS text of the `:root` rule the layout puts in the document head, or
