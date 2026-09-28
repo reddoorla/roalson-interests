@@ -176,6 +176,32 @@ export function toPayload(entry, propertyIds = {}, assets = {}, personIds = {}) 
   return { type: TYPE, uid: entry.uid, title: entry.title, data };
 }
 
+/** The relationship preflight: every `$property` and `$person` uid in
+ *  `entries` must be published under the id this repo's state holds for it.
+ *  Throws naming the ones that are not, before any write. Exported so the
+ *  `$person` half has a test (#174: skipping it inside main() stayed green). */
+export async function refsLive(repo, ref, entries, listingIds, personIds, fetchImpl = fetch) {
+  const liveListings = await publishedByUid(repo, "property", ref, fetchImpl);
+  const dead = [...new Set(entries.flatMap((e) => propertyRefs(e.data)))].filter(
+    (uid) => !liveListings[uid] || liveListings[uid] !== listingIds[uid],
+  );
+  if (dead.length) {
+    throw new Error(
+      `preflight: these listings are not live under the id this repo holds for them: ${dead.join(", ")}`,
+    );
+  }
+  const livePeople = await publishedByUid(repo, "person", ref, fetchImpl);
+  const absent = [...new Set(entries.flatMap((e) => personRefs(e.data)))].filter(
+    (uid) => !livePeople[uid] || livePeople[uid] !== personIds[uid],
+  );
+  if (absent.length) {
+    throw new Error(
+      `preflight: these people are not live under the id this repo holds for them: ${absent.join(", ")} — ` +
+        "run people.mjs --apply and publish-release.mjs --yes first",
+    );
+  }
+}
+
 async function main(argv) {
   const apply = argv.includes("--apply");
   const only = argv.includes("--only") ? argv[argv.indexOf("--only") + 1] : null;
@@ -252,25 +278,7 @@ async function main(argv) {
   }
 
   const ref = await masterRef(repo);
-  const liveListings = await publishedByUid(repo, "property", ref);
-  const dead = [...new Set(entries.flatMap((e) => propertyRefs(e.data)))].filter(
-    (uid) => !liveListings[uid] || liveListings[uid] !== listingIds[uid],
-  );
-  if (dead.length) {
-    throw new Error(
-      `preflight: these listings are not live under the id this repo holds for them: ${dead.join(", ")}`,
-    );
-  }
-  const livePeople = await publishedByUid(repo, "person", ref);
-  const absent = [...new Set(entries.flatMap((e) => personRefs(e.data)))].filter(
-    (uid) => !livePeople[uid] || livePeople[uid] !== personIds[uid],
-  );
-  if (absent.length) {
-    throw new Error(
-      `preflight: these people are not live under the id this repo holds for them: ${absent.join(", ")} — ` +
-        "run people.mjs --apply and publish-release.mjs --yes first",
-    );
-  }
+  await refsLive(repo, ref, entries, listingIds, personIds);
   const published = await publishedByUid(repo, TYPE, ref);
   console.log(
     `preflight ok: ${wanted.length} slice model(s) match Prismic and are offered by "${TYPE}"; ` +

@@ -4,7 +4,7 @@ import { expect, test, type Browser, type Page } from "@playwright/test";
 
 import { cameraProbeInstalled, watchCamera } from "./camera-probe";
 import { hydrated } from "./hydrated";
-import { SAND } from "./palette";
+import { GARNET, SAND } from "./palette";
 
 // THE PER-SECTION MAP (#13), in the only place its promises can be checked.
 //
@@ -42,7 +42,6 @@ const PROPERTIES = "/dev/properties";
 const HOME = "/dev/home";
 
 const MAP = "[data-property-map]";
-const GARNET = "rgb(101, 35, 35)";
 
 /** Positive evidence the engine drew a frame: `data-map-ready` is set by
  *  MapLibre's own `load`, not by the import resolving. */
@@ -307,7 +306,7 @@ test.describe("the expand affordance", () => {
       expect(painted.h, "the comp's 20.880").toBeCloseTo(20.88, 1);
       expect(map.right - painted.right, "10.0 from the right edge").toBeCloseTo(10, 1);
       expect(map.bottom - painted.bottom, "10.0 from the bottom edge").toBeCloseTo(10, 1);
-      expect(painted.bg, "solid #652323").toBe(GARNET);
+      expect(painted.bg, "solid garnet").toBe(GARNET);
     } finally {
       await context.close();
     }
@@ -722,7 +721,7 @@ test.describe("the engine, and what it costs", () => {
           expect(pin.w, `${width}: pin box`).toBeCloseTo(size, 1);
           // The viewBox stops at the tip, so the element is 0.901019 S tall.
           expect(pin.h / pin.w, `${width}: pin aspect`).toBeCloseTo(0.901019, 3);
-          expect(pin.fill, `${width}: the comp's #652323`).toBe(GARNET);
+          expect(pin.fill, `${width}: the comp's garnet`).toBe(GARNET);
         }
         // The markers are a drawing of the list above them, so they are not a
         // second set of tab stops.

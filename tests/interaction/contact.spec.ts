@@ -1,7 +1,7 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
 import { HYDRATION_TIMEOUT } from "./hydrated";
-import { SAND } from "./palette";
+import { GARNET, SAND } from "./palette";
 
 // The contact page makes promises jsdom cannot check: that its two columns
 // stand on the site's one grid, that a field is the height and the border the
@@ -27,7 +27,6 @@ import { SAND } from "./palette";
 const ROUTE = "/contact";
 const FIXTURES = "/dev/a11y-fixtures";
 
-const GARNET = "rgb(101, 35, 35)";
 const ERROR = "rgb(185, 28, 28)";
 
 const bar = 'nav[aria-label="Primary"]';
@@ -260,7 +259,7 @@ test("a focused field gains a 2px garnet ring on its 1px border; an invalid one,
   await name.focus();
   await expect
     .poll(() => name.evaluate((el) => getComputedStyle(el).boxShadow))
-    .toMatch(/rgb\(101, 35, 35\) 0px 0px 0px 2px/);
+    .toContain(`${GARNET} 0px 0px 0px 2px`);
   await expect(name).toHaveCSS("border-top-width", "1px");
 
   // The fixtures page renders Field with an error; /contact has no per-field

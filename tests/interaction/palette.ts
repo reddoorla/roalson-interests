@@ -14,7 +14,8 @@
 //
 // So the values live here once. `scripts/spec-palette.test.ts` holds each one
 // to app.css's `@theme` block, and fails if any file under tests/ spells the
-// off-white or the sand itself, or still spells the pair they replaced.
+// off-white, the sand, the garnet or the dark garnet itself, or still spells the
+// pair they replaced.
 //
 // A plain module, because a spec cannot import another spec, and cannot import
 // from src/lib without dragging a `.svelte` entry into Playwright's loader.
@@ -49,9 +50,11 @@ export const SAND_RGB = channels(PALETTE_HEX.light);
 export const SAND = computed(SAND_RGB);
 
 /** --color-primary, garnet. */
+export const GARNET_HEX = PALETTE_HEX.primary;
 export const GARNET_RGB = channels(PALETTE_HEX.primary);
 export const GARNET = computed(GARNET_RGB);
 
 /** --color-dark, dark garnet. */
+export const DARK_HEX = PALETTE_HEX.dark;
 export const DARK_RGB = channels(PALETTE_HEX.dark);
 export const DARK = computed(DARK_RGB);

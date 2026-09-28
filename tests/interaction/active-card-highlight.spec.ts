@@ -2,7 +2,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Browser, type Locator, type Page } from "@playwright/test";
 
 import { hydrated } from "./hydrated";
-import { OFF_WHITE, SAND } from "./palette";
+import { DARK, GARNET, OFF_WHITE, SAND } from "./palette";
 import { placedPin } from "./placed-markers";
 
 // THE GARNET CARD FOLLOWS THE CENTRE LINE (operator, 2026-09-23: "please
@@ -59,12 +59,9 @@ const NEW_BRAUNFELS = "ih-35-new-braunfels";
 
 const MAP = "[data-property-map]";
 
-/** Brand tokens as COMPUTED colours (app.css `@theme`). Never a class name: a
- *  guard that greps `bg-primary` passes a token rename by measuring nothing.
- *  OFF_WHITE (--color-background) and SAND (--color-light) come from
- *  ./palette, which scripts/spec-palette.test.ts holds to app.css. */
-const GARNET = "rgb(101, 35, 35)"; // --color-primary
-const DARK = "rgb(61, 7, 7)"; // --color-dark
+// Brand tokens as COMPUTED colours (app.css `@theme`), from ./palette, which
+// scripts/spec-palette.test.ts holds to app.css. Never a class name: a guard
+// that greps `bg-primary` passes a token rename by measuring nothing.
 
 const WIDE = 1440;
 const PHONE = 390;

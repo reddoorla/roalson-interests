@@ -1,6 +1,7 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
 import sharp from "sharp";
 
+import { forceStyle, type StyleWrite } from "./force-style";
 import { hydrated } from "./hydrated";
 
 // THE MASTHEAD'S TWO DARKENING LAYERS, AS PAINTED (P1, 2026-09-28).
@@ -161,60 +162,21 @@ const read = (page: Page) =>
   );
 
 /** Hide the ink — and, for the white ground, the photo — and WAIT until the
- *  page wears it: "I wrote it" is not "it is applied" (canvas-ground.spec.ts
- *  learned that the intermittent way). Every write is `!important` with
- *  `transition: none` beside it, on the element AND each of its descendants,
- *  and the wait polls every one of them. Measured on the first run: with the
- *  write on the bar alone, the bar computed `hidden` at once but its CTA and
- *  menu button still computed `visible` a frame later (hidden by 100ms), and
- *  the screenshot caught the glyph — 1.00:1, sand over sand. That lag exists
- *  only under the harness's `reducedMotion: "reduce"`; with motion allowed the
- *  children hid in the same frame. The likeliest cause is app.css's reduce
- *  block, which gives EVERY element a 0.01ms transition-duration — and an
- *  element's transition-property defaults to `all`. */
+ *  page wears it, descendants included. Through ./force-style, because with
+ *  the write on the bar alone the first run's screenshot caught the menu glyph
+ *  (1.00:1, sand over sand): under the harness's `reduce` a child inherits
+ *  `hidden` through a transition of its own (#170). */
 async function strip(page: Page, ground: "white" | "photo") {
-  const writes: Write[] = [
+  const writes: StyleWrite[] = [
     [BAR, "visibility", "hidden"],
     [`${BAND} h1`, "visibility", "hidden"],
   ];
   if (ground === "white") {
     writes.push([`${BAND} img`, "visibility", "hidden"]);
-    writes.push([BAND, "background", "#fff"]);
+    writes.push([BAND, "background-image", "none"]);
+    writes.push([BAND, "background-color", "#fff", "rgb(255, 255, 255)"]);
   }
-  await apply(page, writes, "the ink or the photo never hid");
-}
-
-type Write = [selector: string, property: string, value: string];
-
-/** Make `writes`, then poll until every target computes them (see `strip`). */
-async function apply(page: Page, writes: Write[], message: string) {
-  const applied = (list: Write[]) =>
-    page.evaluate((list) => {
-      const targets = (sel: string, deep: boolean) => {
-        const el = document.querySelector(sel) as HTMLElement;
-        return deep ? [el, ...el.querySelectorAll<HTMLElement>("*")] : [el];
-      };
-      return list.every(([sel, prop, value]) =>
-        targets(sel, prop === "visibility").every((el) => {
-          const cs = getComputedStyle(el);
-          if (prop === "background") {
-            return cs.backgroundImage === "none" && cs.backgroundColor === "rgb(255, 255, 255)";
-          }
-          return cs.getPropertyValue(prop) === value;
-        }),
-      );
-    }, list);
-  await page.evaluate((list) => {
-    for (const [sel, prop, value] of list) {
-      const el = document.querySelector(sel) as HTMLElement;
-      const all = prop === "visibility" ? [el, ...el.querySelectorAll<HTMLElement>("*")] : [el];
-      for (const node of all) {
-        node.style.setProperty("transition", "none", "important");
-        node.style.setProperty(prop, value, "important");
-      }
-    }
-  }, writes);
-  await expect.poll(() => applied(writes), message).toBe(true);
+  await forceStyle(page, writes, "the ink or the photo never hid");
 }
 
 /** The band as pixels, with helpers in CSS px. */
@@ -296,7 +258,7 @@ async function measure(page: Page, ground: "white" | "photo", viewport: Viewport
   // differs from it.
   let photoShare = (_: Box) => NaN;
   if (ground === "photo") {
-    await apply(page, [[`${BAND} img`, "visibility", "hidden"]], "the photo never hid");
+    await forceStyle(page, [[`${BAND} img`, "visibility", "hidden"]], "the photo never hid");
     const bare = await shoot(page, seen.band);
     photoShare = (box) => {
       const drawn = shot.within(box);
