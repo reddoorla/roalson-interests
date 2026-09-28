@@ -28,12 +28,12 @@ export async function load({ fetch, cookies }) {
   // FIRST stop is garnet (`from-primary`), not the `to-dark` it ends on.
   //
   // WITH a photo that stops being the pixel you see. The gradient is still the
-  // band's own ground, but the photo covers it and `.masthead-shade` puts ~0.82
-  // black over the top of THAT, so the band's first row reads near-black while
-  // an overscroll above it still pulls garnet. The claim is a literal this
-  // route's source declares and nav-over.test.ts checks against the component's
-  // ground CLASS, so it cannot vary with CMS content — it stays "primary", and
-  // the seam is #91.
+  // band's own ground, but the photo covers it and `.masthead-shade` puts ~0.66
+  // black over the top of THAT (0.82 until 2026-09-28), so the band's first
+  // row reads as darkened photo while an overscroll above it still pulls
+  // garnet. The claim is a literal this route's source declares and
+  // nav-over.test.ts checks against the component's ground CLASS, so it cannot
+  // vary with CMS content — it stays "primary", and the seam is #91.
   return { ...listing, masthead, navOver: "dark" as const, canvasTop: "primary" as const };
 }
 
