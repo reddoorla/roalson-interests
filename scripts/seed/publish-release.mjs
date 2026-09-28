@@ -35,7 +35,11 @@ import {
 } from "./lib.mjs";
 
 /** `<name>.state.json` beside this script → the custom type it staged. */
-const STATE_TYPES = { "listings.state.json": "property", "pages.state.json": "page" };
+const STATE_TYPES = {
+  "listings.state.json": "property",
+  "pages.state.json": "page",
+  "people.state.json": "person",
+};
 
 export function stagedByType(dir = join(ROOT, "scripts/seed")) {
   const out = {};

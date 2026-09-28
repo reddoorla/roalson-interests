@@ -1,0 +1,56 @@
+[
+  {
+    "uid": "matt-howard",
+    "data": {
+      "name": "Matt Howard",
+      "role": "Partner",
+      "photo": { "$image": "partner-matt-howard.jpg" },
+      "email": "mhoward@roalson.com",
+      "phone": "(210) 496-5800",
+      "bio": [
+        {
+          "type": "paragraph",
+          "text": "Placeholder biography. Matt Howard's biography has not been supplied yet; this paragraph holds its place until his own words replace it.",
+          "spans": []
+        }
+      ],
+      "bio_is_placeholder": true
+    },
+    "source": {
+      "name": "MEASURED — the comp's partner card (6822:491)",
+      "role": "MEASURED — the comp's partner card (6822:491)",
+      "photo": "MEASURED — the headshot the home page's partner row already uses",
+      "email": "MEASURED — public on roalson.com/contact_us.htm and in the card wireframe 6745:48718",
+      "phone": "MEASURED — the office line, public on roalson.com/contact_us.htm; no direct or mobile number by decision D4",
+      "bio": "INFERRED — PLACEHOLDER by operator decision 2026-09-28: no biography exists anywhere, and this copy makes no claim about him",
+      "bio_is_placeholder": "INFERRED — true until the client supplies the bio; the page is noindexed and out of the sitemap while it is"
+    }
+  },
+  {
+    "uid": "bart-wilson",
+    "data": {
+      "name": "Bart Wilson",
+      "role": "Partner",
+      "photo": { "$image": "partner-bart-wilson.jpg" },
+      "email": "bwilson@roalson.com",
+      "phone": "(210) 496-5800",
+      "bio": [
+        {
+          "type": "paragraph",
+          "text": "Placeholder biography. Bart Wilson's biography has not been supplied yet; this paragraph holds its place until his own words replace it.",
+          "spans": []
+        }
+      ],
+      "bio_is_placeholder": true
+    },
+    "source": {
+      "name": "MEASURED — the comp's partner card (6822:505)",
+      "role": "MEASURED — the comp's partner card (6822:505)",
+      "photo": "MEASURED — the headshot the home page's partner row already uses; 140×177, soft at this size (#73)",
+      "email": "MEASURED — public on roalson.com/contact_us.htm and in the card wireframe 6745:48718",
+      "phone": "MEASURED — the office line, public on roalson.com/contact_us.htm; no direct or mobile number by decision D4",
+      "bio": "INFERRED — PLACEHOLDER by operator decision 2026-09-28: no biography exists anywhere, and this copy makes no claim about him",
+      "bio_is_placeholder": "INFERRED — true until the client supplies the bio; the page is noindexed and out of the sitemap while it is"
+    }
+  }
+]
