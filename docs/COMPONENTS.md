@@ -81,7 +81,7 @@ source. It is the fastest way to recognise what a thing does.
 | [`person-meta.ts`](../src/lib/person-meta.ts) | `personJsonLd`, `personMeta` | 3 |  |
 | [`person.ts`](../src/lib/person.ts) | `emailHref`, `phoneHref`, `isPlaceholderBio`, `personDisplayName` | 6 | A `person` document's contact fields as links |
 | [`prismicio.ts`](../src/lib/prismicio.ts) | `repositoryName`, `isPlaceholderRepo`, `linkResolver`, `createClient` | 7 |  |
-| [`property-fixture.ts`](../src/lib/property-fixture.ts) | `PROPERTIES_MASTHEAD_FIXTURE`, `propertyFixture`, `propertyListingFixture` | — |  |
+| [`property-fixture.ts`](../src/lib/property-fixture.ts) | `FIXTURE_PHOTO_PATH`, `withFixturePhoto`, `PROPERTIES_MASTHEAD_FIXTURE`, `propertyFixture`, `propertyListingFixture` | — |  |
 | [`property-listing-load.ts`](../src/lib/property-listing-load.ts) | `LISTING_TITLE`, `LISTING_DESCRIPTION`, `emptyListing`, `loadPropertyListing` | 3 |  |
 | [`property-listing.ts`](../src/lib/property-listing.ts) | `LISTING_SECTIONS`, `PAST_SECTION`, `LISTING_VIEWS`, `listingViews`, `viewFromHash`, `listingOrder`, `groupListings` | 13 |  |
 | [`property-load.ts`](../src/lib/property-load.ts) | `loadProperty` | 5 |  |

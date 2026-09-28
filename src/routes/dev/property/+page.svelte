@@ -16,7 +16,7 @@
   //                                   default because it is the common case.
   import { page } from "$app/state";
   import PropertyDetail from "$lib/components/PropertyDetail.svelte";
-  import { propertyFixture } from "$lib/property-fixture";
+  import { propertyFixture, withFixturePhoto } from "$lib/property-fixture";
 
   const params = $derived(page.url.searchParams);
   const status = $derived(params.get("status") ?? "Available");
@@ -24,9 +24,12 @@
 </script>
 
 <PropertyDetail
-  property={propertyFixture({
-    status: status as "Available" | "Under Contract" | "Sold",
-    listing_state: state as "Listed" | "Past project" | "Archived" | null,
-    ...(params.has("photo") ? {} : { feature_image: {} }),
-  })}
+  property={withFixturePhoto(
+    propertyFixture({
+      status: status as "Available" | "Under Contract" | "Sold",
+      listing_state: state as "Listed" | "Past project" | "Archived" | null,
+      ...(params.has("photo") ? {} : { feature_image: {} }),
+    }),
+    page.url.origin,
+  )}
 />
