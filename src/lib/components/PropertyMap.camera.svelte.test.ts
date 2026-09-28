@@ -3,7 +3,7 @@ import { render, cleanup } from "@testing-library/svelte";
 import { flushSync, tick } from "svelte";
 
 import PropertyMap from "./PropertyMap.svelte";
-import { CAMERA_FLIGHT_MS, type MapPoint } from "$lib/property-map";
+import { CAMERA_FLIGHT_MS, frameFor, MAP_HOME, type MapPoint } from "$lib/property-map";
 
 /**
  * THE COALESCING GUARD THAT CAN SEE ITS OWN SOURCE (#127, #128).
@@ -46,12 +46,60 @@ interface Command {
   kind: "fly" | "jump" | "ease";
   t: number;
   center: [number, number];
+  zoom?: number;
+  /** The event data the command was issued with — which maplibre copies onto
+   *  every event that move fires, its stop included. A case that stands for
+   *  maplibre ending a flight fires the flight's `zoomend` / `moveend` WITH
+   *  this, rather than naming a key it would have to know. */
+  data?: unknown;
 }
 
 const engine = vi.hoisted(() => {
+  /** One maplibre navigation handler, as far as this component uses it.
+   *  `active` is the fake's "a gesture is in progress", which `isActive()`
+   *  answers and `stop()` ends. */
+  interface FakeHandler {
+    enabled: boolean;
+    active: boolean;
+    enable(): void;
+    disable(): void;
+    isEnabled(): boolean;
+    isActive(): boolean;
+  }
+  const fakeHandler = (enabled: boolean): FakeHandler => ({
+    enabled,
+    active: false,
+    enable() {
+      this.enabled = true;
+    },
+    disable() {
+      this.enabled = false;
+    },
+    isEnabled() {
+      return this.enabled;
+    },
+    isActive() {
+      return this.active;
+    },
+  });
+
   const created: {
     handlers: Record<string, (e?: unknown) => void>;
     commands: Command[];
+    canvas: HTMLCanvasElement;
+    canvasContainer: HTMLDivElement;
+    /** What `getZoom()` answers; a case about the visitor's zoom sets it
+     *  before firing `zoomend`, which is maplibre's own order. A command
+     *  moves it to the command's zoom, as a landed flight or a jump does. */
+    zoomNow: number;
+    /** What `getCenter()` answers, moved by commands the same way — and by a
+     *  case, to stand for the visitor having panned. */
+    centerNow: { lng: number; lat: number };
+    /** maplibre's navigation handlers, in the state it builds them for the
+     *  options this component passes: `dragRotate` and `touchPitch` off. */
+    nav: Record<string, FakeHandler>;
+    /** How many times `map.stop()` was called. */
+    stops: number;
     removed: boolean;
   }[] = [];
 
@@ -60,13 +108,65 @@ const engine = vi.hoisted(() => {
     canvas = document.createElement("canvas");
     canvasContainer = document.createElement("div");
     record: (typeof created)[number];
-    scrollZoom = { enable() {}, disable() {}, isEnabled: () => false };
-    constructor() {
-      this.record = { handlers: this.handlers, commands: [], removed: false };
+    scrollZoom = fakeHandler(true);
+    boxZoom = fakeHandler(true);
+    dragRotate = fakeHandler(false);
+    dragPan = fakeHandler(true);
+    keyboard = fakeHandler(true);
+    doubleClickZoom = fakeHandler(true);
+    touchZoomRotate = fakeHandler(true);
+    touchPitch = fakeHandler(false);
+    constructor(options: { container?: HTMLElement }) {
+      // What maplibre's `_setupContainer` does for an interactive map: the
+      // canvas in a container in the host, tabbable, and the container
+      // carrying the class its grab cursor hangs off.
+      options.container?.appendChild(this.canvasContainer);
+      this.canvasContainer.appendChild(this.canvas);
+      this.canvasContainer.className = "maplibregl-canvas-container maplibregl-interactive";
+      this.canvas.setAttribute("tabindex", "0");
+      this.record = {
+        handlers: this.handlers,
+        commands: [],
+        canvas: this.canvas,
+        canvasContainer: this.canvasContainer,
+        zoomNow: 7,
+        centerNow: { lng: 0, lat: 0 },
+        nav: {
+          scrollZoom: this.scrollZoom,
+          boxZoom: this.boxZoom,
+          dragRotate: this.dragRotate,
+          dragPan: this.dragPan,
+          keyboard: this.keyboard,
+          doubleClickZoom: this.doubleClickZoom,
+          touchZoomRotate: this.touchZoomRotate,
+          touchPitch: this.touchPitch,
+        },
+        stops: 0,
+        removed: false,
+      };
       created.push(this.record);
     }
-    log(kind: Command["kind"], camera: { center?: [number, number] }) {
-      this.record.commands.push({ kind, t: Date.now(), center: camera.center ?? [0, 0] });
+    stop() {
+      this.record.stops += 1;
+      for (const h of Object.values(this.record.nav)) h.active = false;
+    }
+    getCenter() {
+      return this.record.centerNow;
+    }
+    log(
+      kind: Command["kind"],
+      camera: { center?: [number, number]; zoom?: number },
+      data?: unknown,
+    ) {
+      if (camera.center) this.record.centerNow = { lng: camera.center[0], lat: camera.center[1] };
+      if (camera.zoom !== undefined) this.record.zoomNow = camera.zoom;
+      this.record.commands.push({
+        kind,
+        t: Date.now(),
+        center: camera.center ?? [0, 0],
+        zoom: camera.zoom,
+        data,
+      });
     }
     getCanvasContainer() {
       return this.canvasContainer;
@@ -79,7 +179,7 @@ const engine = vi.hoisted(() => {
       return this.canvas;
     }
     getZoom() {
-      return 7;
+      return this.record.zoomNow;
     }
     getMaxZoom() {
       return 16;
@@ -87,14 +187,14 @@ const engine = vi.hoisted(() => {
     project() {
       return { x: 10, y: 20 };
     }
-    jumpTo(camera: { center?: [number, number] }) {
-      this.log("jump", camera);
+    jumpTo(camera: { center?: [number, number]; zoom?: number }, data?: unknown) {
+      this.log("jump", camera, data);
     }
-    easeTo(camera: { center?: [number, number] }) {
-      this.log("ease", camera);
+    easeTo(camera: { center?: [number, number]; zoom?: number }, data?: unknown) {
+      this.log("ease", camera, data);
     }
-    flyTo(camera: { center?: [number, number] }) {
-      this.log("fly", camera);
+    flyTo(camera: { center?: [number, number]; zoom?: number }, data?: unknown) {
+      this.log("fly", camera, data);
     }
     resize() {}
     remove() {
@@ -179,12 +279,22 @@ function stubObservers(box = { width: 397, height: 595 }) {
  * quarrel with but `vi.waitFor` does — and the fake clock starts after it, so
  * every `t` below is measured from a map that is already drawn.
  */
-async function booted(active: string) {
+async function booted(
+  active: string,
+  more: { interactive?: boolean; activeBy?: "visitor" | "auto" } = {},
+) {
   stubObservers();
-  const props: { points: MapPoint[]; label: string; active: string | null } = $state({
+  const props: {
+    points: MapPoint[];
+    label: string;
+    active: string | null;
+    interactive?: boolean;
+    activeBy?: "visitor" | "auto";
+  } = $state({
     points,
     label: "Land",
     active,
+    ...more,
   });
   const view = render(PropertyMap, { props });
   await vi.waitFor(() => expect(engine.created).toHaveLength(1));
@@ -222,7 +332,7 @@ async function booted(active: string) {
   // mean the one it asked for.
   elapse(CAMERA_FLIGHT_MS + 1);
   record.commands.length = 0;
-  return { props, record };
+  return { props, record, view };
 }
 
 /** The flights one map was issued, in order. */
@@ -435,5 +545,538 @@ describe("what the hold does NOT hold", () => {
     expect(record.removed).toBe(true);
     elapse(CAMERA_FLIGHT_MS * 3);
     expect(flights(record), "nothing was issued after the map was removed").toHaveLength(1);
+  });
+});
+
+describe("the visitor's zoom outlives the listing they chose it on", () => {
+  // The brief's requirement 2 for the operator's reversal, as a SEQUENCE,
+  // which is the only way it can be said: "the zoom survives the next card
+  // crossing" is a claim about the crossing after the one that ends the
+  // suspension, and about every one after that. Measured on a production
+  // build before `chosenZoom`: z12 -> z12.8979 by wheel, and the first
+  // crossing flew at z12.
+  it("lands every later listing at the zoom the wheel chose, and leaves MAP_HOME its own", async () => {
+    const { props, record } = await booted("a");
+
+    // The wheel, as maplibre reports it: our own listener sees the event on
+    // the canvas container (the suspension), then the zoom settles and
+    // `zoomend` fires with `getZoom()` already answering the new zoom.
+    record.canvasContainer.dispatchEvent(new WheelEvent("wheel", { cancelable: true }));
+    record.zoomNow = 13.25;
+    record.handlers.zoomend?.();
+    flushSync();
+    expect(record.commands, "the zoomed listing is left alone").toHaveLength(0);
+
+    for (const id of ["b", "c"]) {
+      props.active = id;
+      flushSync();
+      elapse(CAMERA_FLIGHT_MS + 1);
+    }
+    expect(
+      flights(record).map((f) => f.zoom),
+      "both crossings fly, and both at the visitor's zoom",
+    ).toEqual([13.25, 13.25]);
+
+    // Nothing active is a FRAME, not a distance from a listing: MAP_HOME keeps
+    // its own zoom, and the committed picture stays a true picture of it.
+    props.active = null;
+    flushSync();
+    const home = record.commands.at(-1)!;
+    expect(home.kind, "MAP_HOME is a jump").toBe("jump");
+    expect(home.zoom, "at MAP_HOME's zoom, not the visitor's").not.toBe(13.25);
+
+    // …and coming back into the list picks the visitor's zoom up again.
+    elapse(CAMERA_FLIGHT_MS + 1);
+    props.active = "d";
+    flushSync();
+    expect(flights(record).at(-1)?.zoom, "carried through MAP_HOME").toBe(13.25);
+    expect(flights(record), "three crossings, three flights").toHaveLength(3);
+  });
+
+  it("carries nothing when the visitor never zoomed — the control", async () => {
+    const { props, record } = await booted("a");
+    for (const id of ["b", "c"]) {
+      props.active = id;
+      flushSync();
+      elapse(CAMERA_FLIGHT_MS + 1);
+    }
+    expect(flights(record).map((f) => f.zoom)).toEqual([12, 12]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Where a carried zoom comes FROM (verification of #150, 2026-09-23)
+// ---------------------------------------------------------------------------
+//
+// The block above holds THAT a wheel's zoom is carried. These hold WHICH zoom:
+// three ways the number carried was not one the visitor chose on a listing,
+// each measured by the independent verifier on a production build of
+// /properties at 1440, and each a rule on `chosenZoom` now.
+//
+// The fake stands in for maplibre in maplibre's own order. A gesture's handler
+// is `active` from its first frame until just before its own `zoomend`, which
+// is followed in the same call by its `moveend`. A flight the camera issued
+// is stopped by a gesture going active, and that stop fires the FLIGHT's
+// `zoomend` and `moveend` carrying the event data the flight was issued with
+// (camera.ts `_afterEase(eventData)`); the cases read that data off the
+// command rather than naming a key, so they say only what maplibre does.
+describe("the zoom that is carried is one the visitor chose, on a listing", () => {
+  type Rec = (typeof engine.created)[number];
+  /** A wheel over the canvas, as the component's own listener sees it. */
+  const wheel = (record: Rec) =>
+    record.canvasContainer.dispatchEvent(new WheelEvent("wheel", { cancelable: true }));
+  /** A gesture's zoom settling at `z`: the handler goes idle, then `zoomend`
+   *  and `moveend`, untagged. */
+  const settle = (record: Rec, z: number, handler = "scrollZoom") => {
+    record.zoomNow = z;
+    record.nav[handler]!.active = false;
+    record.handlers.zoomend?.({});
+    record.handlers.moveend?.({});
+    flushSync();
+  };
+  /** maplibre stopping the camera's last flight at waypoint `at`, because a
+   *  gesture's handler just went active. */
+  const stopFlight = (record: Rec, at: number, handler = "scrollZoom") => {
+    const data = flights(record).at(-1)!.data;
+    record.nav[handler]!.active = true;
+    record.zoomNow = at;
+    record.handlers.zoomend?.(data);
+    record.handlers.moveend?.(data);
+    flushSync();
+  };
+
+  // 1. The major. The land map is drawn at load on MAP_HOME (z8.6) with
+  //    nothing active; five notches out over that overview recorded z7.7021,
+  //    and the first listing the visitor scrolled to flew at z7.7021 instead
+  //    of z12, as did every one after.
+  it("a zoom chosen on MAP_HOME is not carried to a listing — a frame is not a distance from one", async () => {
+    const { props, record } = await booted("a");
+    props.active = null;
+    flushSync();
+    const home = record.commands.at(-1)!;
+    expect(home.kind, "premise: nothing active is MAP_HOME, and a jump").toBe("jump");
+    expect(home.zoom, "premise: at MAP_HOME's own zoom").toBe(
+      MAP_HOME[frameFor({ width: 397, height: 595 })].camera.zoom,
+    );
+
+    wheel(record);
+    record.nav.scrollZoom!.active = true;
+    settle(record, 7.7021);
+    expect(record.commands, "the overview they zoomed is theirs to look at").toHaveLength(1);
+
+    props.active = "b";
+    flushSync();
+    expect(flights(record), "the crossing flies").toHaveLength(1);
+    expect(flights(record)[0]!.zoom, "at the listing's own zoom, not the overview's").toBe(12);
+
+    // THE CONTROL, on the same map a moment later: the same wheel on a
+    // LISTING is still carried, so the case above measures where the zoom
+    // was chosen and not a recorder that stopped recording.
+    elapse(CAMERA_FLIGHT_MS + 1);
+    wheel(record);
+    record.nav.scrollZoom!.active = true;
+    settle(record, 13.25);
+    props.active = "c";
+    flushSync();
+    expect(flights(record).at(-1)!.zoom, "a zoom chosen on a listing still is").toBe(13.25);
+  });
+
+  it("nor is one chosen under #122's picture, where the camera is MAP_HOME whatever is active", async () => {
+    stubObservers();
+    const props: { points: MapPoint[]; label: string; active: string | null } = $state({
+      points,
+      label: "Land",
+      active: "a",
+    });
+    const view = render(PropertyMap, { props });
+    await vi.waitFor(() => expect(engine.created).toHaveLength(1));
+    const record = engine.created[0]!;
+    record.handlers.load?.();
+    await tick();
+    await tick();
+    expect(
+      view.container.querySelector("[data-map-home-box]"),
+      "premise: the picture is up",
+    ).not.toBeNull();
+    expect(record.commands, "premise: and holds the camera at MAP_HOME").toHaveLength(0);
+    vi.useFakeTimers();
+
+    // Inside the fade the canvas is drawn and takes the wheel; the camera
+    // under the picture is MAP_HOME's, though "a" is active.
+    wheel(record);
+    record.nav.scrollZoom!.active = true;
+    settle(record, 9.4);
+    view.container
+      .querySelector("[data-map-canvas]")!
+      .dispatchEvent(Object.assign(new Event("transitionend"), { propertyName: "opacity" }));
+    flushSync();
+    expect(record.commands, "the view they zoomed is held past the hand-over").toHaveLength(0);
+
+    props.active = "b";
+    flushSync();
+    expect(flights(record), "the crossing flies").toHaveLength(1);
+    expect(flights(record)[0]!.zoom, "at the listing's zoom, not the picture's").toBe(12);
+  });
+
+  it("nor on the other frame's MAP_HOME, when the box changes frame under the picture", async () => {
+    // The one command the camera issues while the picture is up: the expand
+    // affordance takes a 200px box across COMPACT_MAX_HEIGHT, the picture
+    // repaints at the other frame, and the camera JUMPS to that frame's
+    // MAP_HOME to stay under it (#132). A listing is active throughout, and
+    // that camera is still not the listing's.
+    stubObservers({ width: 350, height: 200 });
+    let resize: (box: { width: number; height: number }) => void = () => {};
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        constructor(public cb: ResizeObserverCallback) {}
+        observe() {
+          resize = (box) => {
+            this.cb([{ contentRect: box } as ResizeObserverEntry], this as never);
+          };
+          resize({ width: 350, height: 200 });
+        }
+        unobserve() {}
+        disconnect() {}
+      },
+    );
+    const props: { points: MapPoint[]; label: string; active: string | null } = $state({
+      points,
+      label: "Land",
+      active: "a",
+    });
+    const view = render(PropertyMap, { props });
+    await vi.waitFor(() => expect(engine.created).toHaveLength(1));
+    const record = engine.created[0]!;
+    record.handlers.load?.();
+    await tick();
+    await tick();
+    resize({ width: 350, height: 520 });
+    await tick();
+    await tick();
+    expect(
+      view.container.querySelector("[data-map-home-box]"),
+      "premise: the picture is still up",
+    ).not.toBeNull();
+    expect(
+      record.commands.at(-1),
+      "premise: the camera jumped to the full frame's MAP_HOME",
+    ).toMatchObject({
+      kind: "jump",
+      zoom: MAP_HOME.full.camera.zoom,
+    });
+    vi.useFakeTimers();
+
+    wheel(record);
+    record.nav.scrollZoom!.active = true;
+    settle(record, 9.4);
+    const before = record.commands.length;
+    view.container
+      .querySelector("[data-map-canvas]")!
+      .dispatchEvent(Object.assign(new Event("transitionend"), { propertyName: "opacity" }));
+    flushSync();
+    expect(record.commands, "the view they zoomed is held past the hand-over").toHaveLength(before);
+
+    props.active = "b";
+    flushSync();
+    expect(flights(record), "the crossing flies").toHaveLength(1);
+    expect(flights(record)[0]!.zoom, "at the listing's zoom, not the picture's").toBe(12);
+  });
+
+  // 2. A wheel that stops the camera's own flight. maplibre ends the arc
+  //    where it stands and the wheel zooms FROM there: from z12 at rest, three
+  //    notches IN recorded 11.3963, so a visitor who zoomed in was carried
+  //    further OUT. Both orders maplibre can produce: the first notch after
+  //    400ms of quiet is held 40ms, so the component's own listener has
+  //    already seen the wheel when the stop comes; a later notch goes active
+  //    inside maplibre's handling of the event, so the stop comes first.
+  for (const order of ["the wheel's event, then the stop", "the stop, then the wheel's event"])
+    it(`a wheel that stops a flight carries the listing's zoom plus the wheel's, not the arc's (${order})`, async () => {
+      const { props, record } = await booted("a");
+      props.active = "b";
+      flushSync();
+      expect(flights(record), "premise: the crossing's flight").toHaveLength(1);
+      expect(flights(record)[0]!.zoom, "premise: at the frame's own zoom").toBe(12);
+      elapse(120);
+
+      if (order.startsWith("the wheel")) {
+        wheel(record);
+        stopFlight(record, 9.87);
+      } else {
+        stopFlight(record, 9.87);
+        wheel(record);
+      }
+      settle(record, 9.87 + 0.5387);
+      expect(record.commands, "the view stays where the visitor stopped it").toHaveLength(1);
+
+      elapse(CAMERA_FLIGHT_MS);
+      props.active = "c";
+      flushSync();
+      expect(flights(record), "the next crossing flies").toHaveLength(2);
+      expect(
+        flights(record)[1]!.zoom,
+        "three notches closer than the listing's 12, not than the arc's 9.87",
+      ).toBeCloseTo(12.5387, 9);
+
+      // …and the arc's gap belongs to THAT flight. At rest on the next
+      // listing a wheel's zoom is carried exactly as it ends, with nothing
+      // of the stopped arc left on it.
+      elapse(CAMERA_FLIGHT_MS + 1);
+      wheel(record);
+      record.nav.scrollZoom!.active = true;
+      settle(record, 13);
+      props.active = "d";
+      flushSync();
+      expect(flights(record).at(-1)!.zoom, "a new flight is a new baseline").toBe(13);
+    });
+
+  it("a drag that stops a flight carries nothing — the arc's zoom is never the visitor's", async () => {
+    // THE CONTROL for the pair above: `shortfall` alone never becomes a zoom.
+    // A pan changes no zoom and fires no `zoomend` of its own, so nothing the
+    // visitor chose is recorded, and the next listing is at the frame's 12.
+    const { props, record } = await booted("a");
+    props.active = "b";
+    flushSync();
+    elapse(120);
+    stopFlight(record, 9.87, "dragPan");
+    record.handlers.movestart?.({ originalEvent: new Event("mousemove") });
+    record.nav.dragPan!.active = false;
+    record.handlers.moveend?.({});
+    flushSync();
+    elapse(CAMERA_FLIGHT_MS);
+    props.active = "c";
+    flushSync();
+    expect(flights(record), "the next crossing flies").toHaveLength(2);
+    expect(flights(record)[1]!.zoom).toBe(12);
+  });
+
+  // 3. A crossing while the wheel's own ease is still running. The suspension
+  //    used to end on the ask, before the wheel's `zoomend`: 12.3457 at the
+  //    crossing, never recorded, and the flight went at 12.
+  it("a crossing mid-ease waits for the wheel to settle, then flies at the zoom it settled on", async () => {
+    const { props, record } = await booted("a");
+    wheel(record);
+    record.nav.scrollZoom!.active = true;
+    record.zoomNow = 12.3457;
+    props.active = "b";
+    flushSync();
+    expect(record.commands, "held while the visitor's zoom is still moving").toHaveLength(0);
+    // A `moveend` that is not the gesture's — a `resize()` inside the ease —
+    // ends nothing while the handler is still active.
+    record.handlers.moveend?.({});
+    flushSync();
+    expect(record.commands, "still held").toHaveLength(0);
+
+    settle(record, 12.5017);
+    expect(flights(record), "released by the wheel's own end").toHaveLength(1);
+    expect(flights(record)[0]!.zoom, "at the zoom the wheel settled on").toBe(12.5017);
+
+    elapse(CAMERA_FLIGHT_MS + 1);
+    props.active = "c";
+    flushSync();
+    expect(flights(record).at(-1)!.zoom, "and at the crossing after that").toBe(12.5017);
+  });
+
+  it("…and a visitor back on their listing before it settles has asked for nothing", async () => {
+    const { props, record } = await booted("a");
+    wheel(record);
+    record.nav.scrollZoom!.active = true;
+    record.zoomNow = 12.3457;
+    props.active = "b";
+    flushSync();
+    props.active = "a";
+    flushSync();
+    settle(record, 12.5017);
+    expect(record.commands, "the suspension on the listing they zoomed stands").toHaveLength(0);
+
+    props.active = "b";
+    flushSync();
+    expect(flights(record)).toHaveLength(1);
+    expect(flights(record)[0]!.zoom).toBe(12.5017);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// A map the page can lock: the homepage band's Pause and Play
+// ---------------------------------------------------------------------------
+//
+// Operator call, 2026-09-23: "map should get all navigation tools when the
+// slideshow is paused, and be uninteractable when the slideshow is running".
+// The band passes `interactive={carousel.paused || !carousel.eligible}`; these
+// cases hold what PropertyMap does with it, on one live map whose prop the test
+// flips — `rerender` would re-boot the map and every "after" would be about a
+// new one. What the band's own rule is, and what it does to a real maplibre map
+// in a real browser, are FeaturedProperties.test.ts's and
+// tests/interaction/property-map-band-lock.spec.ts's.
+describe("a map the page can lock (the homepage band's Pause and Play)", () => {
+  /** The navigation handlers that are on, by name. */
+  const on = (record: { nav: Record<string, { enabled: boolean }> }) =>
+    Object.entries(record.nav)
+      .filter(([, h]) => h.enabled)
+      .map(([name]) => name)
+      .sort();
+  /** Everything a locked map must not offer, read off the DOM. */
+  const surface = (view: { container: HTMLElement }, record: { canvas: HTMLCanvasElement }) => {
+    const pins = [...view.container.querySelectorAll<HTMLButtonElement>("[data-map-pin]")];
+    return {
+      tabindex: record.canvas.getAttribute("tabindex"),
+      name: record.canvas.getAttribute("aria-label"),
+      grab: record.canvas.parentElement!.classList.contains("maplibregl-interactive"),
+      pins: pins.map((p) => ({
+        disabled: p.disabled,
+        through: p.classList.contains("pointer-events-none"),
+      })),
+      locked: view.container.querySelector("[data-property-map]")!.hasAttribute("data-map-locked"),
+    };
+  };
+  /** What an always-interactive map has — `/properties` — for comparison. */
+  const PROPERTIES_SET = [
+    "boxZoom",
+    "doubleClickZoom",
+    "dragPan",
+    "keyboard",
+    "scrollZoom",
+    "touchZoomRotate",
+  ];
+
+  it("a map built locked offers nothing: no handler, no focus, no press, no hand", async () => {
+    const { record, view } = await booted("a", { interactive: false });
+    expect(on(record), "every navigation handler is off").toEqual([]);
+    const s = surface(view, record);
+    expect(s.tabindex, "the canvas takes no focus, not even from a click").toBeNull();
+    expect(s.name, "and does not call itself interactive").toBe("Land listings, map");
+    expect(s.grab, "no grab cursor").toBe(false);
+    expect(s.pins.length, "pins to check").toBeGreaterThan(0);
+    for (const pin of s.pins)
+      expect(pin, "every pin inert and see-through").toEqual({ disabled: true, through: true });
+    expect(s.locked).toBe(true);
+  });
+
+  it("the control: a map built interactive is exactly what /properties has", async () => {
+    const { record, view } = await booted("a");
+    expect(on(record)).toEqual(PROPERTIES_SET);
+    const s = surface(view, record);
+    expect(s.tabindex).toBe("0");
+    expect(s.name).toBe("Land listings, interactive map");
+    expect(s.grab).toBe(true);
+    for (const pin of s.pins) expect(pin).toEqual({ disabled: false, through: false });
+    expect(s.locked).toBe(false);
+  });
+
+  it("Pause hands over that same set, whole, and moves no camera", async () => {
+    const { props, record, view } = await booted("a", { interactive: false });
+    props.interactive = true;
+    flushSync();
+    expect(on(record), "all navigation tools means the /properties set").toEqual(PROPERTIES_SET);
+    expect(surface(view, record)).toMatchObject({
+      tabindex: "0",
+      name: "Land listings, interactive map",
+      grab: true,
+      locked: false,
+    });
+    expect(record.commands, "unlocking is not a reason to move").toHaveLength(0);
+    // …and Play takes the whole set back.
+    props.interactive = false;
+    flushSync();
+    expect(on(record)).toEqual([]);
+    expect(surface(view, record)).toMatchObject({ tabindex: null, grab: false, locked: true });
+  });
+
+  it("Play ends a drag in progress rather than stranding it", async () => {
+    const { props, record } = await booted("a", { interactive: true });
+    record.nav.dragPan!.active = true;
+    props.interactive = false;
+    flushSync();
+    expect(record.stops, "map.stop() ended the gesture").toBeGreaterThan(0);
+    expect(record.nav.dragPan!.active).toBe(false);
+    expect(record.nav.dragPan!.enabled).toBe(false);
+  });
+
+  it("Play leaves the page's own flight in the air to land, and issues no second one", async () => {
+    // The in-flight hold (#127/#128) on the band: a visitor's arrow press
+    // flies the camera, and Play pressed inside those 500ms must neither cut
+    // the arc (a `stop()` would leave it at a waypoint) nor re-issue it.
+    const { props, record } = await booted("a", { interactive: true, activeBy: "visitor" });
+    props.active = "b";
+    flushSync();
+    expect(flights(record), "the turn's flight").toHaveLength(1);
+    elapse(100);
+    props.interactive = false;
+    flushSync();
+    expect(record.stops, "the flight was not stopped").toBe(0);
+    elapse(CAMERA_FLIGHT_MS + 50);
+    expect(record.commands, "and nothing followed it once it landed").toHaveLength(1);
+  });
+
+  it("Play hands the camera back: to the slide on screen, and then the clock's turns", async () => {
+    // Paused, the visitor wheels and pans; the clock is the band's
+    // (`activeBy: "auto"`), whose turns a suspension outlives (#118).
+    const { props, record } = await booted("a", { interactive: true, activeBy: "auto" });
+    record.canvasContainer.dispatchEvent(new WheelEvent("wheel", { cancelable: true }));
+    record.handlers.movestart?.({ originalEvent: new Event("mousemove") });
+    record.centerNow = { lng: -99.5, lat: 30.1 };
+    flushSync();
+
+    props.interactive = false;
+    flushSync();
+    const back = record.commands.at(-1);
+    expect(back?.kind, "the map goes back to the listing the photo shows").toBe("fly");
+    expect(back!.center[0]).toBeCloseTo(points[0]!.lng, 6);
+    expect(back!.zoom, "at the frame's own zoom").toBe(12);
+
+    // And the clock's next turn is followed: the suspension ended at Play.
+    elapse(CAMERA_FLIGHT_MS + 1);
+    props.active = "b";
+    flushSync();
+    expect(flights(record).at(-1)!.center[0], "the clock's turn flew").toBeCloseTo(
+      points[1]!.lng,
+      6,
+    );
+  });
+
+  it("…where, left interactive, the same clock turn is held — the control", async () => {
+    const { props, record } = await booted("a", { interactive: true, activeBy: "auto" });
+    record.canvasContainer.dispatchEvent(new WheelEvent("wheel", { cancelable: true }));
+    flushSync();
+    props.active = "b";
+    flushSync();
+    expect(record.commands, "a suspension outlives the clock").toHaveLength(0);
+  });
+
+  it("Play forgets the visitor's zoom: the slideshow is framed its own way again", async () => {
+    // Paused: the wheel took the map to 13.25 and an arrow press carried it to
+    // the next listing (`chosenZoom`, the builder's carry).
+    const { props, record } = await booted("a", { interactive: true, activeBy: "visitor" });
+    record.canvasContainer.dispatchEvent(new WheelEvent("wheel", { cancelable: true }));
+    record.zoomNow = 13.25;
+    record.handlers.zoomend?.();
+    props.active = "b";
+    flushSync();
+    expect(flights(record).at(-1)!.zoom, "paused, the turn carries their zoom").toBe(13.25);
+    elapse(CAMERA_FLIGHT_MS + 1);
+
+    props.interactive = false;
+    props.activeBy = "auto";
+    flushSync();
+    expect(flights(record).at(-1)!.zoom, "Play puts the frame's zoom back").toBe(12);
+    elapse(CAMERA_FLIGHT_MS + 1);
+    props.active = "c";
+    flushSync();
+    expect(flights(record).at(-1)!.zoom, "and the clock flies at it").toBe(12);
+  });
+
+  it("Play closes the pin sheet, whose press is no longer possible", async () => {
+    const { props, record, view } = await booted("a", { interactive: true });
+    view.container.querySelector<HTMLButtonElement>("[data-map-pin]")!.click();
+    flushSync();
+    expect(view.container.querySelector("[data-map-sheet]"), "the sheet opened").not.toBeNull();
+    props.interactive = false;
+    flushSync();
+    expect(view.container.querySelector("[data-map-sheet]")).toBeNull();
+    // …and a locked pin opens nothing, however it is pressed.
+    view.container.querySelector<HTMLButtonElement>("[data-map-pin]")!.click();
+    flushSync();
+    expect(view.container.querySelector("[data-map-sheet]")).toBeNull();
+    void record;
   });
 });

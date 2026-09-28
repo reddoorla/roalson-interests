@@ -36,11 +36,68 @@ const engine = vi.hoisted(() => {
     jumps: unknown[];
     eases: unknown[];
     flights: unknown[];
-    /** Every `scrollZoom.enable()` / `.disable()`, in order. The in-page map
-     *  is constructed with scroll-zoom OFF and only `expanded` turns it on. */
+    /** Every `scrollZoom.enable()` / `.disable()`, in order. Since the
+     *  operator's reversal there should be NONE: the in-page map is
+     *  constructed with scroll-zoom on and nothing takes it away again. This
+     *  stays a log rather than becoming a boolean precisely so the case below
+     *  can assert the list is EMPTY — "nobody touched it" is a different claim
+     *  from "it ended up on", and re-introducing the `expanded` effect would
+     *  satisfy the second. */
     scrollZoomCalls: ("enable" | "disable")[];
+    /** What `getZoom()` answers. 7 unless a case says otherwise — a case
+     *  about the visitor's zoom sets it before firing `zoomend`, which is
+     *  exactly the order maplibre reports a finished zoom in. */
+    zoomNow: number;
+    /** The fake's own `scrollZoom`, so a case can switch it off as maplibre
+     *  would be switched off. */
+    scrollZoom: { enable(): void; disable(): void; isEnabled(): boolean; isActive(): boolean };
+    /** Every OTHER maplibre navigation handler, in the state maplibre builds
+     *  it for the options this component passes (on unless the option says
+     *  `false`). `active` is the fake's own "a gesture is in progress" — what
+     *  `isActive()` answers — so a case can hold one mid-drag. */
+    nav: Record<string, FakeHandler>;
+    /** How many times `map.stop()` was called — what ends a gesture. */
+    stops: number;
+    /** What `getCenter()` answers; a case about a visitor's pan moves it. */
+    centerNow: { lng: number; lat: number };
     removed: boolean;
   }[] = [];
+
+  interface FakeHandler {
+    enabled: boolean;
+    active: boolean;
+    enable(): void;
+    disable(): void;
+    isEnabled(): boolean;
+    isActive(): boolean;
+  }
+  const fakeHandler = (enabled: boolean): FakeHandler => ({
+    enabled,
+    active: false,
+    enable() {
+      this.enabled = true;
+    },
+    disable() {
+      this.enabled = false;
+    },
+    isEnabled() {
+      return this.enabled;
+    },
+    isActive() {
+      return this.active;
+    },
+  });
+  /** maplibre's navigation handlers other than `scrollZoom`, which the fake
+   *  keeps separately because it logs every call to it. */
+  const NAV = [
+    "boxZoom",
+    "dragRotate",
+    "dragPan",
+    "keyboard",
+    "doubleClickZoom",
+    "touchZoomRotate",
+    "touchPitch",
+  ] as const;
 
   class FakeMap {
     handlers: Record<string, (e?: unknown) => void> = {};
@@ -58,9 +115,33 @@ const engine = vi.hoisted(() => {
         this.record.scrollZoomCalls.push("disable");
       },
       isEnabled: () => this.scrollZoomEnabled,
+      isActive: () => false,
     };
+    boxZoom: FakeHandler;
+    dragRotate: FakeHandler;
+    dragPan: FakeHandler;
+    keyboard: FakeHandler;
+    doubleClickZoom: FakeHandler;
+    touchZoomRotate: FakeHandler;
+    touchPitch: FakeHandler;
     constructor(options: Record<string, unknown>) {
+      // WHERE maplibre PUTS THEM: the canvas inside its container, the
+      // container inside the host it was given. A detached container would let
+      // a case dispatch a wheel "on the map" that never passed through the
+      // component's root — which is where the wheel latch listens.
+      (options.container as HTMLElement | undefined)?.appendChild(this.canvasContainer);
+      this.canvasContainer.appendChild(this.canvas);
       this.scrollZoomEnabled = options.scrollZoom !== false;
+      const nav = Object.fromEntries(
+        NAV.map((name) => [name, fakeHandler(options[name] !== false)]),
+      ) as Record<(typeof NAV)[number], FakeHandler>;
+      this.boxZoom = nav.boxZoom;
+      this.dragRotate = nav.dragRotate;
+      this.dragPan = nav.dragPan;
+      this.keyboard = nav.keyboard;
+      this.doubleClickZoom = nav.doubleClickZoom;
+      this.touchZoomRotate = nav.touchZoomRotate;
+      this.touchPitch = nav.touchPitch;
       this.record = {
         options,
         handlers: this.handlers,
@@ -71,12 +152,24 @@ const engine = vi.hoisted(() => {
         eases: [],
         flights: [],
         scrollZoomCalls: [],
+        zoomNow: 7,
+        scrollZoom: this.scrollZoom,
+        nav,
+        stops: 0,
+        centerNow: { lng: 0, lat: 0 },
         removed: false,
       };
       created.push(this.record);
     }
     getCanvasContainer() {
       return this.canvasContainer;
+    }
+    getCenter() {
+      return this.record.centerNow;
+    }
+    stop() {
+      this.record.stops += 1;
+      for (const h of Object.values(this.record.nav)) h.active = false;
     }
     on(name: string, fn: (e?: unknown) => void) {
       this.handlers[name] = fn;
@@ -88,7 +181,7 @@ const engine = vi.hoisted(() => {
       return this.canvas;
     }
     getZoom() {
-      return 7;
+      return this.record.zoomNow;
     }
     getMaxZoom() {
       return 16;
@@ -823,32 +916,319 @@ describe("the camera the page drives", () => {
     expect(record.flights).toHaveLength(1);
   });
 
-  it("builds the in-page map with scroll-zoom OFF", async () => {
+  it("builds the in-page map with scroll-zoom ON", async () => {
     const { record } = await booted({ active: "b" });
-    // The pinned box may not take the page's wheel. This is the map's STARTING
-    // state; what holds it from then on is the effect the next case drives —
-    // mutating this option to `true` on its own left the browser test green.
-    expect(record.options.scrollZoom).toBe(false);
+    // THE REVERSAL, at the only place it is now expressed. The wheel over this
+    // box zooms the map; the page's scroll is what it costs, and that trade is
+    // the operator's (see the journal entry for this change). What this case
+    // can say is only that the option is what it claims — that the wheel
+    // really reaches maplibre is a browser claim and is measured in
+    // tests/interaction/property-map-scroll-zoom.spec.ts against a production
+    // build.
+    expect(record.options.scrollZoom).toBe(true);
   });
 
-  it("gives scroll-zoom back while expanded, and takes it away again", async () => {
+  it("never takes the wheel away again — expanding and collapsing do not touch it", async () => {
     // A COMPACT box (200 < COMPACT_MAX_HEIGHT's 300), because the expand
     // affordance is only rendered on one — `{#if measured && (compact ||
-    // expanded)}`. Booted at 397x595 there is no button, and a version of this
-    // case that guarded the clicks with `if (expand)` asserted NOTHING while
-    // passing. That is the shape this file exists to catch.
+    // expanded)}`. Booted at 397x595 there is no button, and a version of the
+    // case this replaces that guarded its clicks with `if (expand)` asserted
+    // NOTHING while passing. That is the shape this file exists to catch.
     const { view, record } = await booted({ active: "b" }, { width: 350, height: 200 });
     const expand = view.container.querySelector<HTMLButtonElement>("[data-map-expand]");
     expect(expand, "a compact box draws the expand affordance").not.toBeNull();
-    expect(record.scrollZoomCalls.at(-1), "off while the box is in the page").toBe("disable");
 
     expand!.click();
     await tick();
-    expect(record.scrollZoomCalls.at(-1), "on once expanded").toBe("enable");
-
     view.container.querySelector<HTMLButtonElement>("[data-map-expand]")!.click();
     await tick();
-    expect(record.scrollZoomCalls.at(-1), "and off again on collapse").toBe("disable");
+
+    // EMPTY, not "ends enabled". Restoring the `$effect` this PR deleted would
+    // leave the map enabled at rest and still pass an "is it on" assertion —
+    // it disabled on collapse, and a visitor who opened and closed the box
+    // would silently lose the wheel. The log is what can tell those apart.
+    expect(
+      record.scrollZoomCalls,
+      "nothing enables or disables scroll-zoom after the constructor",
+    ).toEqual([]);
+  });
+
+  // THE LISTENER THAT WAS INERT AND IS NOW LOAD-BEARING (the operator's
+  // reversal). MapLibre leaves a wheel zoom's `movestart` untagged — no
+  // `originalEvent` — so the `wheel` listener on the canvas container is the
+  // ONLY thing that can tell the camera a visitor just zoomed, and while the
+  // in-page map declined the wheel it could not fire anywhere a camera runs.
+  //
+  // WHY THE PAIR BELOW DRIVES `activeBy: "auto"` AND NOT THE PROPERTIES PAGE'S
+  // "visitor". A wheel suspends the camera until THE VISITOR asks for a
+  // different listing (see `drivenAt`), and on /properties the scroll that
+  // crosses to the next card IS the visitor asking — so there the suspension
+  // is over by the time the next flight is decided and the camera flies. What
+  // survives that crossing is the ZOOM, not the suspension, and the cases
+  // after this pair hold that. `"auto"` is the homepage band's clock, which is
+  // where the suspension itself has to HOLD. A first version of this pair used
+  // "visitor" and went red on the component being right.
+  it("counts a wheel over the canvas as the visitor driving the map", async () => {
+    const { view, record } = await booted({ active: "a", activeBy: "auto" });
+    record.canvasContainer.dispatchEvent(new WheelEvent("wheel", { cancelable: true }));
+    await tick();
+    const before = record.flights.length;
+    await view.rerender({ points, label: "Land", active: "b", activeBy: "auto" });
+    await tick();
+    expect(record.flights.length, "the clock does not move a map the visitor zoomed").toBe(before);
+  });
+
+  it("and without the wheel the same turn flies — the control for the case above", async () => {
+    // Positive evidence that the pair above measures the WHEEL and not a
+    // component that never flies for `activeBy: "auto"` at all.
+    const { view, record } = await booted({ active: "a", activeBy: "auto" });
+    const before = record.flights.length;
+    await view.rerender({ points, label: "Land", active: "b", activeBy: "auto" });
+    await tick();
+    expect(record.flights.length, "nothing is suspended, so the camera moves").toBe(before + 1);
+  });
+
+  // THE VISITOR'S ZOOM SURVIVES THE CROSSING (the brief's requirement 2, and
+  // the half of the reversal that is not about the wheel at all). Measured on
+  // a production build before `chosenZoom` existed: the wheel took the land
+  // map from z12 to z12.8979, the next card crossing flew at z12, and the zoom
+  // was gone. The flight going is right — the crossing is the visitor asking
+  // for somewhere else. It was going at the frame's zoom instead of theirs.
+  //
+  // `zoomNow` then `zoomend` is maplibre's own order: `getZoom()` already
+  // answers the finished zoom when `zoomend` fires.
+  it("flies to the next listing at the zoom the visitor chose with the wheel", async () => {
+    const { view, record } = await booted({ active: "a" });
+    record.canvasContainer.dispatchEvent(new WheelEvent("wheel", { cancelable: true }));
+    record.zoomNow = 13.25;
+    record.handlers.zoomend?.();
+    await tick();
+    expect(record.flights, "suspended on the listing they zoomed on").toHaveLength(0);
+
+    await view.rerender({ points, label: "Land", active: "b" });
+    await tick();
+    expect(record.flights, "the crossing ends the suspension, so it flies").toHaveLength(1);
+    const flight = record.flights[0] as { center: number[]; zoom: number };
+    expect(flight.center[0], "to the next listing").toBeCloseTo(points[1]!.lng, 6);
+    expect(flight.zoom, "at THEIR zoom, not the frame's 12").toBe(13.25);
+
+    // That it STAYS theirs at the crossing after this one needs a second
+    // `active` change, and `rerender` cannot give one here: it re-runs the boot
+    // effect, whose cleanup destroys the map, so a second crossing lands on a
+    // map that no longer exists (measured: `not-ready`, and a vacuous count).
+    // PropertyMap.camera.svelte.test.ts holds props in `$state` and says it.
+  });
+
+  it("does not take a zoom the camera ended as the visitor's", async () => {
+    // THE CONTROL FOR THE CASE ABOVE, and the half that keeps `chosenZoom`
+    // from being "whatever zoom the map last stopped at". A `zoomend` with no
+    // suspension outstanding is one this component caused — its own flight
+    // landing, or one a gesture cut short (maplibre stops the flight, and
+    // fires its `zoomend` at the waypoint, before our listeners have seen the
+    // gesture). Carrying THAT would mean a drag that interrupted an arc left
+    // every later listing at the arc's mid-air zoom.
+    const { view, record } = await booted({ active: "a" });
+    record.zoomNow = 9.4;
+    record.handlers.zoomend?.();
+    await tick();
+    await view.rerender({ points, label: "Land", active: "b" });
+    await tick();
+    expect(record.flights).toHaveLength(1);
+    expect((record.flights[0] as { zoom: number }).zoom, "the frame's own zoom").toBe(12);
+  });
+
+  // THE PRE-FRAME WHEEL (`forwardWheel`'s `ready` gate). Before maplibre's
+  // `load` the box shows the list, or #122's picture, and the canvas host is
+  // `pointer-events-none opacity-0` — yet the maplibre instance already
+  // exists. A wheel forwarded then would zoom a map nobody can see and take
+  // the page's scroll for nothing visible. After `load` a wheel that lands on
+  // an overlay must reach the canvas container, where maplibre listens.
+  it("leaves the wheel to the page until the map is drawn, then hands it to maplibre", async () => {
+    stubResizeTo(397, 595);
+    stubIntersecting({ mapHeight: 595, visible: 595 });
+    const view = render(PropertyMap, { props: { points, label: "Land", active: "a" } });
+    await vi.waitFor(() => expect(engine.created).toHaveLength(1));
+    const record = engine.created[0]!;
+    const root = view.container.querySelector<HTMLElement>("[data-property-map]")!;
+    let reached = 0;
+    record.canvasContainer.addEventListener("wheel", () => reached++);
+
+    const early = new WheelEvent("wheel", { deltaY: 120, bubbles: true, cancelable: true });
+    root.dispatchEvent(early);
+    expect(early.defaultPrevented, "before the first frame the page keeps its scroll").toBe(false);
+    expect(reached, "and nothing is sent to a map nobody can see").toBe(0);
+
+    record.handlers.load?.();
+    await tick();
+    await tick();
+    // A NEW SCROLL, and it has to be one: a wheel a millisecond after `early`
+    // at the same point is the same run, and a run that began before the map
+    // could take it stays the page's (`wheelRun`, and the cases below). The
+    // pointer has moved 50px, which is how a visitor starts a new one.
+    const late = new WheelEvent("wheel", {
+      deltaY: 120,
+      clientX: 50,
+      bubbles: true,
+      cancelable: true,
+    });
+    root.dispatchEvent(late);
+    expect(late.defaultPrevented, "once drawn, a wheel over the map is the map's").toBe(true);
+    expect(reached, "and it reaches the container maplibre listens on").toBe(1);
+
+    // And only while maplibre would take it: with scroll-zoom off the tiles
+    // hand the wheel back to the page, so a marker must too.
+    record.scrollZoom.disable();
+    const off = new WheelEvent("wheel", {
+      deltaY: 120,
+      clientX: 100,
+      bubbles: true,
+      cancelable: true,
+    });
+    root.dispatchEvent(off);
+    expect(off.defaultPrevented, "scroll-zoom off: the page keeps its scroll").toBe(false);
+    expect(reached, "and nothing is sent to a map that would ignore it").toBe(1);
+    view.unmount();
+  });
+
+  // THE WHEEL STAYS WITH WHAT THE SCROLL STARTED ON (operator call,
+  // 2026-09-23). `wheelRun` is unit-tested on its own in property-map.test.ts;
+  // what these measure is the WIRING — that every wheel on the page is filed,
+  // and that a wheel whose run is the page's never reaches the container
+  // maplibre listens on, whichever element inside the map it lands on.
+  //
+  // jsdom stamps `Event.timeStamp` from `Date.now()`, so a faked clock is the
+  // quiet's clock here, exactly as the browser's event time is there.
+  describe("the wheel stays with the scroll it started in", () => {
+    /** A booted, drawn map; `reached` counts wheels maplibre's container
+     *  saw, `outside` is page content beside the map. */
+    async function wheelable() {
+      const { view, record } = await booted({ active: "a" });
+      const root = view.container.querySelector<HTMLElement>("[data-property-map]")!;
+      const outside = document.createElement("div");
+      document.body.appendChild(outside);
+      const seen = { reached: 0 };
+      record.canvasContainer.addEventListener("wheel", () => seen.reached++);
+      vi.useFakeTimers();
+      vi.setSystemTime(10_000);
+      const wheel = (on: Element, x = 300, y = 400) => {
+        const e = new WheelEvent("wheel", {
+          deltaY: 120,
+          clientX: x,
+          clientY: y,
+          bubbles: true,
+          cancelable: true,
+        });
+        on.dispatchEvent(e);
+        return e;
+      };
+      return { view, record, root, outside, seen, wheel };
+    }
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it("gives a scroll that began on the page to the page, when the map arrives under it", async () => {
+      const { record, root, outside, seen, wheel } = await wheelable();
+      // Three notches on the page, then the map is under the same still
+      // pointer for three more, 130ms apart — one scroll.
+      for (let i = 0; i < 3; i++) {
+        wheel(outside);
+        vi.advanceTimersByTime(130);
+      }
+      const onMap = [wheel(record.canvasContainer)];
+      vi.advanceTimersByTime(130);
+      onMap.push(wheel(root));
+      vi.advanceTimersByTime(130);
+      const marker = root.querySelector("[data-map-pin]")!;
+      expect(marker, "a marker to land on").not.toBeNull();
+      onMap.push(wheel(marker));
+      expect(seen.reached, "maplibre saw none of the page's scroll").toBe(0);
+      expect(
+        onMap.map((e) => e.defaultPrevented),
+        "and nothing took it from the page — tiles, the root itself, a marker",
+      ).toEqual([false, false, false]);
+    });
+
+    it("gives the map a scroll that begins on it after the quiet — the control", async () => {
+      const { record, outside, seen, wheel } = await wheelable();
+      wheel(outside);
+      vi.advanceTimersByTime(501);
+      const e = wheel(record.canvasContainer);
+      expect(seen.reached, "a new scroll, begun on the map, is the map's").toBe(1);
+      void e;
+    });
+
+    it("and one that begins on it when the pointer really moves, without waiting", async () => {
+      const { record, outside, seen, wheel } = await wheelable();
+      wheel(outside, 300, 400);
+      vi.advanceTimersByTime(130);
+      wheel(record.canvasContainer, 300, 405);
+      expect(seen.reached, "5px is inside the slop: still the page's scroll").toBe(0);
+      vi.advanceTimersByTime(130);
+      wheel(record.canvasContainer, 300, 420);
+      expect(seen.reached, "20px from where it began: the visitor moved onto the map").toBe(1);
+    });
+
+    // THE RACE THE BROWSER RUNS, measured on a production build: over the
+    // page, Chromium sends a wheel uncancellable and scrolls at once, and the
+    // DOM target is hit-tested after the scroll has begun — so the FIRST notch
+    // of a page scroll can arrive on the map that just slid under the pointer
+    // (6 of 8 runs at 1440x900, pointer at y 405). An uncancellable wheel is
+    // the page's: it must not begin a map run, nor reach maplibre, which would
+    // zoom the map under a scroll it cannot stop.
+    it("an uncancellable wheel is the page's, even when it lands on the map", async () => {
+      const { record, seen } = await wheelable();
+      const late = new WheelEvent("wheel", {
+        deltaY: 120,
+        clientX: 300,
+        clientY: 400,
+        bubbles: true,
+        cancelable: false,
+      });
+      record.canvasContainer.dispatchEvent(late);
+      expect(seen.reached, "maplibre never saw it").toBe(0);
+      vi.advanceTimersByTime(130);
+      const next = new WheelEvent("wheel", {
+        deltaY: 120,
+        clientX: 300,
+        clientY: 400,
+        bubbles: true,
+        cancelable: true,
+      });
+      record.canvasContainer.dispatchEvent(next);
+      expect(seen.reached, "and the scroll it began stays the page's").toBe(0);
+      expect(next.defaultPrevented).toBe(false);
+    });
+
+    it("and inside a scroll that IS the map's, an uncancellable wheel still never reaches it", async () => {
+      // The other half of the same rule. maplibre cannot prevent a wheel that
+      // is not cancelable, so delivering one only zooms the map under a page
+      // that is scrolling anyway — whoever the scroll belongs to.
+      const { record, seen, wheel } = await wheelable();
+      wheel(record.canvasContainer);
+      expect(seen.reached, "premise: a scroll begun on the map reaches it").toBe(1);
+      vi.advanceTimersByTime(130);
+      record.canvasContainer.dispatchEvent(
+        new WheelEvent("wheel", {
+          deltaY: 120,
+          clientX: 300,
+          clientY: 400,
+          bubbles: true,
+          cancelable: false,
+        }),
+      );
+      expect(seen.reached, "the uncancellable one did not").toBe(1);
+    });
+
+    it("keeps a scroll that began on the map the map's, whatever it passes over", async () => {
+      const { record, root, seen, wheel } = await wheelable();
+      wheel(record.canvasContainer);
+      vi.advanceTimersByTime(130);
+      const onMarker = wheel(root.querySelector("[data-map-pin]")!);
+      expect(seen.reached, "the tiles' notch and the marker's, re-sent").toBe(2);
+      expect(onMarker.defaultPrevented, "and the marker's was taken from the page").toBe(true);
+    });
   });
 
   it("does not fly for an active id it has no pin for", async () => {
