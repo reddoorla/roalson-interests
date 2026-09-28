@@ -102,7 +102,7 @@ const bareSpot = (page: Page) =>
           const hit = document.elementFromPoint(x, y);
           if (
             hit &&
-            !hit.closest("[data-map-pin],[data-map-cluster],[data-map-expand],.maplibregl-ctrl") &&
+            !hit.closest("[data-map-pin],[data-map-cluster],[data-map-control],.maplibregl-ctrl") &&
             el.contains(hit)
           )
             return { x, y };
@@ -705,7 +705,7 @@ test.describe("a drag holds the view against a box change the real portfolio can
   // box change only the 4-point fixture produces.
   //
   // The EXPAND affordance is a box change the real data does produce, on every
-  // phone: it takes the map from 200px to min(70dvh, 520px), which changes both
+  // phone: it takes the map from 200px to the window (M1), which changes both
   // the height the fit is bound by AND the frame (compact -> full, different
   // padding). Below `lg` the centre rule does not run at all, so `active` is
   // null and the camera on screen IS the fit-them-all one.
@@ -874,7 +874,10 @@ test.describe("the band's auto-advance keeps its hands off the visitor's view", 
     );
 
     // PLAY: the map is the slideshow's picture again, framed its way, and the
-    // clock's next turn is followed.
+    // clock's next turn is followed. Collapsed first: since M1 the expanded map
+    // is a full-window overlay, and Play is under it.
+    await expand.click();
+    await expect(expand).toHaveAttribute("data-map-expand", "expand");
     await page.getByRole("button", { name: "Play slides" }).click();
     await page.mouse.move(2, 2);
     await expect
@@ -930,7 +933,11 @@ test.describe("the band's auto-advance keeps its hands off the visitor's view", 
       before + 0.1,
     );
 
+    // Collapsed first: the arrow is under the full-window overlay (M1).
+    await expand.click();
+    await expect(expand).toHaveAttribute("data-map-expand", "expand");
     await page.mouse.move(2, 2);
+    await page.waitForTimeout(600);
     const held = await mapCentre(page);
     await resetCamera(page);
     await page.getByRole("button", { name: "Next slide" }).click();

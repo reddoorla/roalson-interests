@@ -427,6 +427,49 @@ test.describe("the garnet card is the listing on the centre line", () => {
     }
   });
 
+  // P2/P4's pin-to-card connection: the garnet card's pin is the marked one,
+  // larger than the rest (size, not motion — the harness runs reduced motion).
+  test("and its pin is the marked one: 1.5x the others, in garnet", async ({ browser }) => {
+    const { context, page } = await at(browser, WIDE);
+    try {
+      await page.goto(FIXTURE);
+      await hydrated(page);
+      const land = sectionOf(page, "land");
+      const map = land.locator(MAP).first();
+      await expect(map).toHaveAttribute("data-map-ready", "", { timeout: 25_000 });
+      for (const id of [CASTROVILLE, NEW_BRAUNFELS]) {
+        await centre(page, id);
+        await expect(cardOf(land, id)).toHaveCSS("background-color", GARNET, {
+          timeout: MOVE_TIMEOUT,
+        });
+        await expect
+          .poll(
+            () =>
+              map.evaluate((el) =>
+                [...el.querySelectorAll<HTMLElement>("[data-map-active]")].map(
+                  (p) => p.dataset.mapPin ?? p.dataset.mapHomePin,
+                ),
+              ),
+            { timeout: MOVE_TIMEOUT },
+          )
+          .toEqual([id]);
+        const read = await map.evaluate((el) => {
+          const w = (p: Element) => p.querySelector("svg")!.getBoundingClientRect().width;
+          const active = el.querySelector("[data-map-pin][data-map-active]")!;
+          const other = el.querySelector("[data-map-pin]:not([data-map-active])")!;
+          return {
+            ratio: Math.round((w(active) / w(other)) * 100) / 100,
+            fill: getComputedStyle(active.querySelector("path")!).fill,
+          };
+        });
+        expect(read.ratio, "ACTIVE_PIN_SCALE").toBe(1.5);
+        expect(read.fill, "still garnet, well over 3:1 on the map ground").toBe(GARNET);
+      }
+    } finally {
+      await context.close();
+    }
+  });
+
   test("the whole card re-tones: ground, photo box, badge and LEARN MORE", async ({ browser }) => {
     const { context, page } = await at(browser, WIDE);
     try {
