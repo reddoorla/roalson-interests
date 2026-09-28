@@ -25,7 +25,7 @@
   // ONE slice, not two, because of how the comp moves: only the hero is sticky,
   // and `position: sticky` is bounded by its PARENT. Sharing a <section> with
   // the band gives the hero exactly the band's height to stay pinned for (393px
-  // at 1440 and at 390 with the seeded copy; 478 and 644 before the revision)
+  // at 1440 and at 390 with the seeded copy; 479 and 621 before the revision)
   // while the band — and the cutout riding on it — slides up over it. As
   // sibling slices in <main> the hero would pin for the whole page and every
   // later band would need an opaque ground forever.

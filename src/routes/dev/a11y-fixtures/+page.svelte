@@ -497,7 +497,9 @@
   <PropertyListing sections={groupListings(propertyListingFixture())} />
 
   <!-- The top of the homepage (one more h1 on this page, see above): the sand
-       headline, dust list and cream buttons on the garnet band. Poster-less,
+       headline, the sentence under it and the cream buttons on the garnet
+       band (the dust specialty list went with the revised one-column hero,
+       2026-09-28). Poster-less,
        which is the launch state — and the hero carries no text, so a poster
        would add nothing for axe to measure. The band's ground is a gradient,
        which axe reports as "needs review" rather than measuring; the pairs on

@@ -590,6 +590,22 @@
          i.e. 1.15 and 1.39 viewports — only 131px of headroom at 1440, not two
          and a half screens of it.
 
+         THOSE NUMBERS ARE HISTORY NOW. Both include the action's 24px of
+         travel: 1031 is the band's top, 1007, plus 24, and 1173 is 1149 + 24,
+         which matches a reading taken without the 200px map that #107 put
+         first in this band below `lg` (with the old hero, re-measured
+         2026-09-28, the card read 1373 there). Since the revised one-column hero (2026-09-28) the band —
+         and, from `lg`, the card — starts at y = 921 with the seeded copy, and
+         at 947 on the live document until it is re-seeded (its old heading
+         sets three lines); below `lg` the card sits 200 lower, at 1121 (1067).
+         At 1440 × 900 that is 21px of headroom (47), and the first-paint hazard
+         above is still off screen — `featured-properties.spec.ts` holds that
+         at 1440 × 900 and 390 × 844. That check reads the card's box with any
+         travel applied, and still cannot be fooled by the 24px: a card already
+         in view is shown the moment the observer first reports it, so it reads
+         at its layout position (measured with the hero's `lg:pb` cut to 40,
+         2026-09-28: the check failed at 896 against 900).
+
          WHAT THAT MEANS, SAID PLAINLY: on a tall viewport the card is ALREADY
          IN VIEW on load, so the observer fires immediately, `hide()` and
          `show()` collapse into one style recalc, and THE REVEAL SIMPLY DOES
@@ -603,6 +619,17 @@
          If the band ever moves up the page, or the reveal has to play at 1080,
          this goes back to the action's default travel with a server-rendered
          marker and a `failSafe`.
+
+         THAT TRIGGER HAS FIRED, AND THE CALL IS STILL OPEN. The revised hero
+         moved the band up 86px at 1440 (1007 → 921; 60 on the live document
+         until it is re-seeded). Measured at load on /dev/home, 2026-09-28, in
+         viewports that include a 15px scrollbar: the reveal still plays at
+         1455 × 900, and no longer plays at 1455 × 960 or 1551 × 960, where it
+         did before; at 1695 × 1050 and 1935 × 1080 it was already absent
+         (1007 < 1050). From `lg` the card now reveals only in a window
+         shorter than 921px (947 on the live document), against 1007 before.
+         Nothing here changed with it — switching to the marker is the
+         operator's product call on #105, not a side effect of a copy change.
 
          `use:animateIn` and not a local IntersectionObserver: one-shot on
          first intersection at threshold 0 is already what the action does, and

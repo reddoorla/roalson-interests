@@ -150,8 +150,9 @@ const revealed = (card: Locator) =>
  *
  *  Only sound for a card that is BELOW THE FOLD at load, which every band on
  *  /dev/home and /dev/a11y-fixtures is (measured: the fixtures page's launch
- *  band sits at y=16119 of a 900 viewport). A card already on screen is hidden
- *  and revealed inside one frame and this would race it. */
+ *  band sits at y=16093 of a 1455 x 900 viewport, re-measured 2026-09-28 with
+ *  the revised hero; it read 16119 when first written). A card already on
+ *  screen is hidden and revealed inside one frame and this would race it. */
 const hiddenByScript = (card: Locator) =>
   expect(card).toHaveAttribute("data-reveal", "", { timeout: HYDRATION_TIMEOUT });
 
@@ -570,7 +571,9 @@ test.describe("rotation", () => {
         // rather than quietly. It read: "at 1440x900 the 512x827 map is
         // already intersecting at scrollY 0, so its parse and its WebGL
         // context land inside this very dwell". Measured at this exact
-        // viewport: the band's map slot top is y=1007 against a 900 viewport,
+        // viewport: the band's map slot top is y=1007 against a 900 viewport
+        // (921 since the revised one-column hero, 2026-09-28 — still wholly
+        // below the fold, and the lazy gate wants half the box, not a pixel),
         // `data-map-ready` is false after 4s, and there is no canvas and no
         // attribution control. This test never scrolls, so MapLibre cannot
         // boot inside it at all. The same PR's journal retracted the belief;
@@ -920,11 +923,13 @@ test.describe("rotation", () => {
       // AND THE AUDIT WAITS FOR THE MAP, which is the whole of this case's
       // 2026-09-22 correction. What stood here asserted that MapLibre "never
       // boots" on this band because the map slot's top is y=1007 against a 900
-      // viewport — true at REST, and false three lines after the scroll this
-      // very test performs. Measured at 1455x900 right after
-      // `scrollIntoViewIfNeeded()`: scrollY 922, slot top 85, slot height 831,
-      // 815px of it on screen. PropertyMap's lazy gate wants half of
-      // `min(831, 900)` = 415.5px. It opens every time. Whether MapLibre then
+      // viewport (921 since the revised hero, 2026-09-28) — true at REST, and
+      // false three lines after the scroll this very test performs. Measured
+      // at 1455x900 right after `scrollIntoViewIfNeeded()`: scrollY 922, slot
+      // top 85, slot height 831, 815px of it on screen — and, re-measured on
+      // 2026-09-28 with the revised hero, scrollY 834, slot top 87, slot height
+      // 826.4, 813px on screen. PropertyMap's lazy gate wants half of
+      // `min(826.4, 900)` = 413.2px. It opens every time. Whether MapLibre then
       // finished before `analyze()` ran was a RACE, and the audit asserted on
       // the losing side of it: the listing links go `sr-only` at
       // `data-map-ready`, and axe does not measure contrast on visually hidden

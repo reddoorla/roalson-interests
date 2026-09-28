@@ -154,19 +154,21 @@
             <p id="{uid}-eyebrow" class="t-h5 text-primary">{eyebrow}</p>
           {/if}
           {#if partners.length > 0}
-            <!-- The rule is the comp's 0.5px garnet stroke (6820:120), drawn
-                 for the reason HomeHero gives: Chromium snaps a 0.5px BORDER
-                 up to a whole pixel, and a 1px box scaled to half paints what
-                 Figma paints — AT 2x AND ABOVE. Measured by pixel row: at 1x
-                 it is one full device row of solid garnet, indistinguishable
-                 from a 1px border and heavier than Figma's own 1x render (a
-                 50% blend, 172,137,134). HomeHero's rule is the same technique
-                 and the same caveat. `-mb-px` gives its one pixel back, so like the
-                 comp's zero-height line it takes no room and the 30 under it
-                 stays 30. It is the column's width — the comp's 374 in a 371
-                 column is 3px of drift from the band above.
+            <!-- The rule is the comp's 0.5px garnet stroke (6820:120), and it
+                 is not a border: Chromium snaps a 0.5px BORDER up to a whole
+                 pixel (measured on HomeHero's specialty rules, at 1x and an
+                 emulated 2x, before the revised hero dropped that list on
+                 2026-09-28 — this is the site's only half-pixel rule now),
+                 and a 1px box scaled to half paints what Figma paints — AT 2x
+                 AND ABOVE. Measured by pixel row: at 1x it is one full device
+                 row of solid garnet, indistinguishable from a 1px border and
+                 heavier than Figma's own 1x render (a 50% blend, 172,137,134).
+                 `-mb-px` gives its one pixel back, so like the comp's
+                 zero-height line it takes no room and the 30 under it stays
+                 30. It is the column's width — the comp's 374 in a 371 column
+                 is 3px of drift from the band above.
 
-                 An ELEMENT, where HomeHero's is a `before:` on its list — and
+                 An ELEMENT, where HomeHero's was a `before:` on its list — and
                  not for taste. axe's color-contrast refuses to measure text
                  when an ANCESTOR carries a pseudo-element a quarter of the
                  text's own area, and a 371 × 1 rule is nearly half of a
