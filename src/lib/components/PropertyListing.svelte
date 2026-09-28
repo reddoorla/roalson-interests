@@ -35,9 +35,10 @@
   // THE MAP IS IN (#13). It is ONE component per active section at both
   // widths, not two: the comp draws a 397 x 595 panel in column 1 at 1440 and
   // a 350 x 200 box above the cards at 390, and those are the same map in a
-  // different box. The box is what PropertyMap measures to decide its pin size
-  // and whether to draw the expand affordance, so the switch is CSS here and
-  // nothing in this file consults a breakpoint twice.
+  // different box. The box is what PropertyMap measures to decide its frame
+  // (pin size, padding, opening picture), so the switch is CSS here and
+  // nothing in this file consults a breakpoint twice. (Since 2026-09-28 every
+  // map draws expand and +/− at every width; the box no longer decides that.)
   //
   // TOP-ALIGNED, NEVER STRETCHED. The comp holds the panel at 595 beside a
   // 5-card list 1457.48 tall, so a fixed `lg:h-(--map-height)` (595, see
@@ -116,12 +117,21 @@
   //
   //    The offset moves both ends of the travel and not its length: a larger
   //    `top` pins EARLIER in the scroll and lets go earlier, by the same
-  //    amount. 2's fixture numbers were measured at the old 100. On the real
-  //    portfolio at 1440x900 (production build) the land map now pins at
-  //    scrollY 363.52 and lets go at 4863.38 (was 416.02 and 4915.88), and the
-  //    improved map at 5634.39 and 6508.02 (was 5641.48 and 6515.11).
-  //    Every scrollY in 2 and 4 was measured BEFORE the view tabs, whose row
-  //    moves everything under it down; the offsets and travel lengths are not.
+  //    amount. 2's fixture numbers were measured at the old 100, before the
+  //    view tabs. On the real portfolio at 1440x900 (production build) the
+  //    land map then pinned at scrollY 363.52 and let go at 4863.38 (416.02
+  //    and 4915.88 at the old offset), and the improved map at 5634.39 and
+  //    6508.02 (was 5641.48 and 6515.11).
+  //
+  //    RE-MEASURED WITH THE VIEW TABS IN (2026-09-28, 1440x900). Their row
+  //    moves everything under it down 80px (40 of padding, a 40px row). On the
+  //    real portfolio (production build) the land map pins at scrollY 443.52
+  //    and lets go at 4963.38, the improved map at 5734.39 and 6608.02; on the
+  //    fixture (dev server: /dev/* 404s on a build) the grid top is 556.02 and
+  //    the map is stuck from 443.52 to 900.91. The offsets did not move, and
+  //    neither did the fixture's or the improved section's travel (457.39,
+  //    873.63). The land section's is 4519.86, 20px more than 2 says: its card
+  //    column is 20px taller than it was, and the tab row is not inside it.
   //
   // WHICH LISTING IS ACTIVE HAS ONE ANSWER: the card crossing the middle of
   // the screen. Pressing a pin does NOT set it — the press scrolls that card
