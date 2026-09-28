@@ -758,6 +758,8 @@ treat the inventory as the measurement and the brief as context.
 
 ## 2026-09-17 — Stage A approved, and the type ramp exists as a test rather than a table (`feat/type-foundation`)
 
+> Superseded in part by 2026-09-28 — Roalson's 2026-09-25 meeting notes, built: one-column hero, less yellow grounds, lighter masthead, map controls, view tabs, Past Projects, partner pages.
+
 Four operator calls closed Stage A, and the first of them retires a question
 that has been open since the RFP.
 
@@ -942,6 +944,8 @@ its state in the URL, Stage A decision 2), and it has an issue (#11) so the laun
 sweep sees it. `listing_brokers` stays unmodelled, as the inventory records.
 
 ## 2026-09-20 — The listing page: three stacked sections, a featured card, pinned dividers, and two mechanisms filed rather than guessed (`feat/properties-listing`)
+
+> Superseded in part by 2026-09-28 — Roalson's 2026-09-25 meeting notes, built: one-column hero, less yellow grounds, lighter masthead, map controls, view tabs, Past Projects, partner pages.
 
 Second Stage B batch, straight after #12 merged: `/properties`, the page the
 detail page's "All properties" link had been 404ing against (#11).
@@ -1547,6 +1551,8 @@ fixed on its own branch before the branch that tripped over it went anywhere.
 
 ## 2026-09-21 — The footer: layout chrome and not a slice, one office module with the client's ZIP, and a height published for a band that does not exist yet (`feat/footer`)
 
+> Superseded in part by 2026-09-28 — Roalson's 2026-09-25 meeting notes, built: one-column hero, less yellow grounds, lighter masthead, map controls, view tabs, Past Projects, partner pages.
+
 The footer was the last piece of template chrome on the site: a centred rights
 line and nothing else. It is now the comp's closing band on every page — the
 headline with its two buttons, the wordmark, a list of pages, the office, the
@@ -1767,6 +1773,8 @@ lived in three journal entries and no issue.
 in 78 files, 30 Playwright tests.
 
 ## 2026-09-21 — The top of the homepage: a hero that pins because it shares a box with the band that covers it, a cutout that is only distinguishable from a wrong one while it moves, and a 0.5px rule Chromium would not draw as a border (`feat/home-hero`)
+
+> Superseded in part by 2026-09-28 — Roalson's 2026-09-25 meeting notes, built: one-column hero, less yellow grounds, lighter masthead, map controls, view tabs, Past Projects, partner pages.
 
 First homepage batch, and the first slice anyone has added to this repo since
 the template's nine: `home_hero`, the home route's new shape, `$lib/cms-href`,
@@ -3078,6 +3086,8 @@ spec alone, straight after: 14 of 14 in 28s. CI is the clean-machine run.
 
 ## 2026-09-21 — The "Our Legacy" band: partner cards from the CMS, a PROFILE that needs no script, and a batch finished by a second agent (`feat/home-legacy-partners-2`)
 
+> Superseded in part by 2026-09-28 — Roalson's 2026-09-25 meeting notes, built: one-column hero, less yellow grounds, lighter masthead, map controls, view tabs, Past Projects, partner pages.
+
 This batch was built by two sessions. The first wrote the `partners` slice and its
 browser spec, and was killed by the machine-wide usage limit with one spec edit
 uncommitted and no handoff written. The second — this entry's author — started from
@@ -3338,6 +3348,8 @@ font stylesheet on every audit), #53 (half-pixel rules at 1x, both bands), #54
 (cards uncapped below `lg`; the 1280 difference).
 
 ## 2026-09-21 — The publisher said the home page was live. It was not. (`feat/seed-home-bands`)
+
+> Superseded in part by 2026-09-28 — Roalson's 2026-09-25 meeting notes, built: one-column hero, less yellow grounds, lighter masthead, map controls, view tabs, Past Projects, partner pages.
 
 > Corrects the 2026-09-21 entry "22 listings staged, released and live", whose
 > closing claim — "its pass is not the 202: it polls the public API until every
@@ -4540,6 +4552,8 @@ isolation and neither reads the seed data. Recorded rather than glossed, because
 
 ## 2026-09-21 — The favicon, decided by rendering it at 16px rather than by reasoning about it (`feat/favicon`, #4)
 
+> Superseded in part by 2026-09-28 — Roalson's 2026-09-25 meeting notes, built: one-column hero, less yellow grounds, lighter masthead, map controls, view tabs, Past Projects, partner pages.
+
 Closes #4. Every browser tab on this site showed the SvelteKit skeleton icon —
 `static/favicon.png`, 128×128 8-bit grey, sha256 `5146ed79…`, byte-identical to
 `reddoor-starter`'s and dated 2023-12-14. The blocker #4 recorded is gone: the
@@ -5138,6 +5152,8 @@ than left in a comment; the eight canvas-ground tests pass inside that same run.
 
 ## 2026-09-21 — The "Our portfolio" button, put back on the operator's call — and the placement that fixed its alignment reintroduced the defect it was removed for (`feat/portfolio-button`, PR #90)
 
+> Superseded in part by 2026-09-28 — Roalson's 2026-09-25 meeting notes, built: one-column hero, less yellow grounds, lighter masthead, map controls, view tabs, Past Projects, partner pages.
+
 Corrects, in part, **2026-09-21 — The featured band: the carousel's first
 consumer**, whose "After review" section removed this button and both its CMS
 fields. That removal's reasoning is not retracted here; the operator reviewed it
@@ -5267,6 +5283,8 @@ svelte-check 0 errors over 4622 files, build green, axe 0 violations across 5
 routes, 1012 unit tests in 99 files, 133 of 134 Playwright.
 
 ## 2026-09-21 — The Properties masthead takes a photo, and a scrim sized for the photo we do NOT have yet (#15, `aa6e40b`)
+
+> Superseded in part by 2026-09-28 — Roalson's 2026-09-25 meeting notes, built: one-column hero, less yellow grounds, lighter masthead, map controls, view tabs, Past Projects, partner pages.
 
 The band had been the brand's garnet-to-dark gradient since #11, for two
 reasons that both went away at once: the comp's file was unlicensed Unsplash
@@ -6152,6 +6170,8 @@ is measured.
 > account of `.canvas-top` was believed at the time and is wrong.
 
 ## 2026-09-22 — The per-section map, on MapLibre + OpenFreeMap, for one CSP host (#13, `feat/property-map`)
+
+> Superseded in part by 2026-09-28 — Roalson's 2026-09-25 meeting notes, built: one-column hero, less yellow grounds, lighter masthead, map controls, view tabs, Past Projects, partner pages.
 
 The map the comp draws beside every active listing section has been open since
 the build started, not for want of code but for want of a provider decision.
@@ -8184,6 +8204,8 @@ and then never lifts for either).
 
 > Superseded in part by 2026-09-23 — Two maps on screen at once, and a raster fetched twice: #130's own verification, answered.
 
+> Superseded in part by 2026-09-28 — Roalson's 2026-09-25 meeting notes, built: one-column hero, less yellow grounds, lighter masthead, map controls, view tabs, Past Projects, partner pages.
+
 The map's first state was a list of listing titles, held for as long as
 **426.4 KB** of maplibre-gl takes to download, parse and execute — and not one
 tile is requested until it has. Construct-to-`load` is only 85–140 ms with the
@@ -9075,6 +9097,8 @@ session; CI is the authority.
 
 ## 2026-09-23 — A visitor's turn animates now: the comp's instant arrows overruled, a drift no clock could draw, and a hand-over that painted the wrong words (`feat/manual-turns-animate`)
 
+> Superseded in part by 2026-09-28 — Roalson's 2026-09-25 meeting notes, built: one-column hero, less yellow grounds, lighter masthead, map controls, view tabs, Past Projects, partner pages.
+
 The operator: _"for the home slideshow, animations don't fire if I manually
 page through, they should."_ **This reverses a decision, not a bug.** The comp
 wires the band's arrows `ON_CLICK → CHANGE_TO` with no transition, the build read
@@ -9813,6 +9837,8 @@ corrections they carried are all made in this entry, where they belong:
 - The full `pnpm verify` was not run; it runs on the re-combined tree.
 
 ## 2026-09-23 — The wheel over the map zooms it again, on the operator's call: the trap that buys, measured, and a zoom that outlives its card (`feat/map-scroll-zoom`)
+
+> Superseded in part by 2026-09-28 — Roalson's 2026-09-25 meeting notes, built: one-column hero, less yellow grounds, lighter masthead, map controls, view tabs, Past Projects, partner pages.
 
 **This reverses a decision that shipped yesterday**, and says so first. The
 2026-09-22 entry "The pinned map was taking the page's scroll…" turned
