@@ -22,30 +22,41 @@
   // both layers below are sized against a pure-white photo pixel, the worst
   // case any photograph can present. Their stops are in app.css beside the
   // palette (measured values live there), and PageMasthead.test.ts parses them
-  // back out and recomputes the ratio rather than trusting this comment:
+  // back out and recomputes the ratio rather than trusting this comment — with
+  // a FLOOR (legible) and a CEILING (no darker than legible needs):
   //
   //   `.masthead-scrim`  the band's own gradient. The H1's line box runs
   //                      66.5%→86.5% of the band at BOTH breakpoints (44px of
   //                      80px line-height above a 72px pad in 400; 25 of 48
   //                      above 44 in 240 — the same two numbers), so the scrim
-  //                      is >= 0.60 black from 66% down. White then clears
-  //                      5.74:1 on pure white, and measures 6.20:1 / 6.84:1 on
-  //                      the real photo. WCAG 1.4.3 asks 3:1 of this text
-  //                      (66px and 38px are both large text); it gets AA for
-  //                      normal text with room to spare.
+  //                      is >= 0.44 black from 66% down. White then clears
+  //                      3.25:1 on pure white — WCAG 1.4.3's 3:1, which is
+  //                      what it asks of text this large (66px and 38px are
+  //                      both large text).
   //
   //   `.masthead-shade`  the bar's. The nav floats over this band in its
   //                      reverse tone (`navOver: "dark"`), and its CONTACT US
   //                      label is `t-h6` — 12px, so SMALL text needing 4.5:1 —
-  //                      in dust. Dust is a MID tone (L 0.415): a half-hearted
-  //                      scrim moves a bright sky TOWARD it and makes things
-  //                      worse, not better. Measured, 0.30 black took dust
-  //                      from 2.19:1 to 1.04:1. The choice is therefore binary
-  //                      — dark enough or not at all — and this is dark
-  //                      enough: 0.78 through the bar's height puts dust at
-  //                      5.12:1 on pure white, 5.19:1 on the photo. That is
-  //                      the /properties half of #45; the homepage's stays
-  //                      open, and a third bar tone would buy the picture back.
+  //                      in the BrandButton `light` tone, SAND since #96
+  //                      (2026-09-22). 0.62 through the bar's height puts sand
+  //                      at 4.77:1 on pure white (5.05:1 with the lighter
+  //                      #eae7e4).
+  //
+  // WHAT CHANGED, 2026-09-28. The client read this band as "too dark" and
+  // "not multiplying" (Discord, 2026-09-24). It was 0.82 black over the bar and
+  // 0.60–0.67 under the title, and where the two layers part (0.10 at y≈176 at
+  // 1440) the centred crop showed near-white sky — a light band between two
+  // dark ones. The shade was sized for DUST, a mid tone that no bar control has
+  // worn since #96 and that needed 0.78, and the title was held to 4.5:1 by
+  // choice. Sized for sand and for large text, the bar is 0.66→0.62 and the
+  // title's line box 0.44–0.48. "Multiply" is not in the comp — no layer in the
+  // Figma file uses it, and black at partial opacity already IS a multiply by
+  // grey.
+  //
+  // THE CROP is the comp's too: `object-[50%_70%]`. It offsets the photo 401px
+  // into 578px of overflow at 1440 (69.4%), which puts the skyline under the
+  // title rather than the sky. It is tuned to THIS photograph; Prismic stores
+  // no focal point, so a replacement photo keeps the same framing.
   import type { ImageField } from "@prismicio/client";
   import HeroBackgroundImage from "$lib/components/HeroBackgroundImage.svelte";
 
@@ -83,7 +94,11 @@
     lg:pb-[72px] xl:px-20 {hasPhoto ? 'relative ' : ''}{passedClasses}"
 >
   {#if hasPhoto}
-    <HeroBackgroundImage image={image as ImageField} {preload} />
+    <HeroBackgroundImage
+      image={image as ImageField}
+      {preload}
+      class="absolute bottom-0 left-0 h-full w-full object-cover object-[50%_70%]"
+    />
     <!-- Decorative, and named here rather than in the CSS: both layers are
          `aria-hidden` boxes that exist only to darken pixels. The shade's box is
          tall enough that the floating bar sits in its darkest 45%: 80/176 and
