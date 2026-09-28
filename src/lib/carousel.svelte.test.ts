@@ -649,7 +649,7 @@ describe("createCarousel, headless", () => {
   // WHO TURNED IT (#118 review, MAJOR 2). A consumer watching `index` sees the
   // same number change whether a visitor pressed an arrow or the clock ran
   // out, and the homepage band's map needs the difference: a gesture suspends
-  // its camera until the VISITOR asks for a different listing, and a 4000ms
+  // its camera until the VISITOR asks for a different listing, and a dwell
   // timer is not a visitor.
   describe("who turned the slide", () => {
     it("names the visitor for an arrow, a key, a swipe or a goTo", () => {
@@ -830,6 +830,87 @@ describe("createCarousel, headless", () => {
     expect(carousel.index).toBe(0);
     await advance(FRAME);
     expect(carousel.index).toBe(1);
+  });
+
+  // `pauseOnHover` (operator call, 2026-09-23, for the homepage band). The
+  // default is pinned twice already — "pauses while hovered" in markup and the
+  // hover leg of the case above — so these two say what `false` changes, and
+  // that it changes NOTHING else.
+  it("pauseOnHover: false — a resting pointer does not stop the clock; focus, Pause and a hidden tab still do", async () => {
+    vi.useFakeTimers();
+    const carousel = mount({ count: 3, autoplay: DWELL, pauseOnHover: false });
+    const region = carousel.region as Record<string, (e?: unknown) => void>;
+
+    await advance(DWELL * 0.25);
+    region.onpointerenter();
+    expect(carousel.rotating, "rotating with the pointer on it").toBe(true);
+    expect(carousel.paused, "and nobody paused it").toBe(false);
+    expect(carousel.status["aria-live"], "so the live region stays quiet").toBe("off");
+    // The pointer never leaves. The turn comes exactly when the dwell ends —
+    // a clock stopped by the hover for even one frame would be one frame late.
+    await advance(DWELL * 0.75 - FRAME);
+    expect(carousel.index).toBe(0);
+    await advance(FRAME);
+    expect(carousel.index).toBe(1);
+    // …and again: more than one whole dwell under a resting pointer.
+    await advance(DWELL);
+    expect(carousel.index).toBe(2);
+
+    // Every other pause is untouched, with the pointer still resting on it.
+    await advance(DWELL * 0.25);
+    carousel.pause();
+    await advance(7.3 * DWELL);
+    expect([carousel.index, carousel.rotating]).toEqual([2, false]);
+    expect(carousel.progress).toBeCloseTo(0.25, 10);
+    carousel.play();
+    expect(carousel.rotating, "Play resumes it under the pointer").toBe(true);
+
+    await advance(DWELL * 0.25);
+    (carousel.region.onfocusin as unknown as (e: FocusEvent) => void)(new FocusEvent("focusin"));
+    expect(carousel.paused, "focus entering is still a pause (APG)").toBe(true);
+    await advance(7.3 * DWELL);
+    expect(carousel.progress).toBeCloseTo(0.5, 10);
+    carousel.play();
+
+    await advance(DWELL * 0.25);
+    setVisibility("hidden");
+    await advance(7.3 * DWELL);
+    expect(carousel.progress).toBeCloseTo(0.75, 10);
+    setVisibility("visible");
+    await advance(DWELL * 0.25);
+    expect(carousel.index, "0.75 + 0.25 of a dwell across three pauses").toBe(0);
+  });
+
+  it("pauseOnHover is read live, and a pointer already resting counts the moment it is true", async () => {
+    vi.useFakeTimers();
+    let hoverPauses = $state(false);
+    const carousel = mount({ count: 3, autoplay: DWELL, pauseOnHover: () => hoverPauses });
+    const region = carousel.region as Record<string, (e?: unknown) => void>;
+
+    region.onpointerenter();
+    await advance(DWELL * 0.5);
+    expect(carousel.progress).toBeCloseTo(0.5, 10);
+
+    // Switched on under a pointer that entered while it was off: paused now,
+    // not at the next pointerenter.
+    hoverPauses = true;
+    flushSync();
+    expect(carousel.rotating).toBe(false);
+    await advance(3 * DWELL);
+    expect(carousel.index).toBe(0);
+    expect(carousel.progress).toBeCloseTo(0.5, 10);
+
+    // Leaving resumes it, as it always has.
+    region.onpointerleave();
+    await advance(DWELL * 0.5 - FRAME);
+    expect(carousel.index).toBe(0);
+    await advance(FRAME);
+    expect(carousel.index).toBe(1);
+
+    // And the default, stated here too: omitted is a hover pause.
+    const byDefault = mount({ count: 3, autoplay: DWELL });
+    (byDefault.region as Record<string, () => void>).onpointerenter();
+    expect(byDefault.rotating, "omitted, a resting pointer pauses").toBe(false);
   });
 
   it("holds the bar at 0 through `settle`, so a loop costs count × (dwell + settle)", async () => {

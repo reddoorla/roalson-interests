@@ -69,10 +69,26 @@ export interface CarouselOptions {
   /** Wrap past the ends (default). When false the arrows go `aria-disabled` at
    *  the bounds and autoplay parks on the last slide. */
   loop?: MaybeGetter<boolean>;
-  /** Dwell per slide in ms; 0 (default) means no autoplay. Pauses on hover and
-   *  on a hidden tab; focus entering the carousel stops it until Play is
-   *  pressed (APG); never runs under prefers-reduced-motion. */
+  /** Dwell per slide in ms; 0 (default) means no autoplay. Pauses on hover
+   *  (see `pauseOnHover`) and on a hidden tab; focus entering the carousel
+   *  stops it until Play is pressed (APG); never runs under
+   *  prefers-reduced-motion. */
   autoplay?: MaybeGetter<number>;
+  /** A pointer resting on the carousel pauses the clock until it leaves —
+   *  true by default, as APG recommends and as Slider does. False lets the
+   *  clock run under the pointer; nothing else changes: focus entering still
+   *  stops it until Play (APG, and what a keyboard user needs), a hidden tab
+   *  still pauses it, and the Pause control is still WCAG 2.2.2's mechanism.
+   *
+   *  WHY A CONSUMER WOULD TURN IT OFF (the homepage band, operator call
+   *  2026-09-23): the pointer travelling to the Pause button crosses the
+   *  carousel, so hover has stopped the clock BEFORE the press. Measured on
+   *  a production build of `/` at 1440: the bar stopped 804–919ms before
+   *  Pause was pressed, so the press appeared to do nothing; and Play, pressed
+   *  with the pointer still on it, flipped its label on release and then
+   *  moved nothing until the pointer left the band. Off, a press is the only
+   *  thing that stops the clock and Play is the only thing that starts it. */
+  pauseOnHover?: MaybeGetter<boolean>;
   /** ms the consumer's own slide transition takes (a 500ms dissolve, say).
    *  After every change the dwell waits this long before it starts counting,
    *  ON THE SAME CLOCK, so the bar sits at 0 through the dissolve and one loop
@@ -124,6 +140,7 @@ export function createCarousel(options: CarouselOptions) {
   const dwell = $derived(Math.max(0, read(options.autoplay, 0) || 0));
   const settle = $derived(Math.max(0, read(options.settle, 0) || 0));
   const enabled = $derived(read(options.enabled, true));
+  const hoverPauses = $derived(read(options.pauseOnHover, true));
 
   const atStart = $derived(!loop && index === 0);
   const atEnd = $derived(!loop && index === last);
@@ -133,9 +150,11 @@ export function createCarousel(options: CarouselOptions) {
   const eligible = $derived(enabled && dwell > 0 && last > 0 && !reduced);
   // `hydrated` first: on the server, and in a browser that never runs script,
   // there is no clock — so nothing may claim to be rotating (the live region
-  // would ship muted for a carousel that will never move).
+  // would ship muted for a carousel that will never move). `hovered` is still
+  // tracked where hover does not pause, so switching `pauseOnHover` back on
+  // under a resting pointer pauses at once rather than at the next pointerenter.
   const rotating = $derived(
-    hydrated && eligible && !userPaused && !hovered && !pageHidden && !atEnd,
+    hydrated && eligible && !userPaused && !(hoverPauses && hovered) && !pageHidden && !atEnd,
   );
 
   const progress = $derived(!eligible ? 0 : atEnd ? 1 : clamp01(elapsed / dwell));
@@ -156,7 +175,7 @@ export function createCarousel(options: CarouselOptions) {
    * `index` sees the same number change either way, and at least one of them
    * needs the difference: the homepage band's map suspends its camera when the
    * visitor drives it and lifts the suspension when the visitor asks to be
-   * somewhere else — and a 4000ms clock is not a visitor. See PropertyMap's
+   * somewhere else — and the band's own clock is not a visitor. See PropertyMap's
    * `activeBy`.
    *
    * It says who made the LAST turn, not whether one is happening now, so a

@@ -165,9 +165,14 @@ describe("CarouselProgress", () => {
     //
     // Written with an explicit Pause because jsdom's `click` dispatches no
     // focus: in a browser, pressing an arrow focuses it and focus entering is
-    // itself the pause (APG), which is the state this reproduces. A turn with
-    // the clock still RUNNING — a swipe, which focuses nothing — does dissolve,
-    // and ends on its own settle; that is the case above.
+    // itself the pause (APG), which is the state this reproduces.
+    //
+    // This comment used to go on: "A turn with the clock still RUNNING — a
+    // swipe, which focuses nothing — does dissolve, and ends on its own
+    // settle; that is the case above." The case above is a CLOCK turn, and
+    // what a visitor's turn with the clock running actually drew was a FULL
+    // bar fading out over a dwell nobody had counted. It no longer dissolves
+    // at all (2026-09-23) — see the next case.
     vi.useFakeTimers();
     const SETTLE = 32 * FRAME;
     const { container, getByLabelText } = render(CarouselFixture, {
@@ -184,6 +189,37 @@ describe("CarouselProgress", () => {
     expect(fill(container).dataset.carouselFill).toBe("timed");
     expect(fill(container).className.split(/\s+/)).toContain("opacity-100");
     expect(scale(container)).toBe(0);
+  });
+
+  it("a VISITOR's turn never hands over — not even with the clock running over its settle", async () => {
+    // THE CASE THE ONE ABOVE USED TO WAVE THROUGH. `rotating && settling` is
+    // also true after a visitor's turn the moment the clock runs again over
+    // the settle that turn parked: an arrow and then Play, or a swipe, whose
+    // pointer stops the clock and leaves with the finger. Measured on the
+    // featured band (2026-09-23): 41 frames at 887px in `handover` after a
+    // manual turn and Play — a full bar for a dwell abandoned part-way, which
+    // is not what the clock last said. jsdom's click focuses nothing, so the
+    // clock keeps running through this turn: exactly that state.
+    vi.useFakeTimers();
+    const SETTLE = 32 * FRAME;
+    const { container, getByLabelText } = render(CarouselFixture, {
+      props: { count: 3, autoplay: DWELL, settle: SETTLE },
+    });
+    await advance(DWELL / 2);
+    expect(scale(container), "part-way through the first dwell").toBeGreaterThan(0.3);
+
+    await fireEvent.click(getByLabelText("Next slide"));
+    // Every frame of the settle: empty, opaque, never the handover.
+    for (let t = 0; t < SETTLE; t += FRAME) {
+      expect(fill(container).dataset.carouselFill, `${t}ms into the settle`).toBe("timed");
+      expect(scale(container), `${t}ms into the settle`).toBe(0);
+      expect(fill(container).className.split(/\s+/)).toContain("opacity-100");
+      await advance(FRAME);
+    }
+    // …and the clock WAS running over it: the restarted dwell fills from 0.
+    await advance(DWELL / 4);
+    expect(scale(container)).toBeGreaterThan(0.1);
+    expect(scale(container)).toBeLessThan(0.5);
   });
 
   it("never dissolves in position mode, where there is no handover to draw", async () => {
