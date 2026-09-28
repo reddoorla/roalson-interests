@@ -24,7 +24,11 @@ import { hydrated } from "./hydrated";
 //    under `vite dev`.
 //  - OVER THE PHOTO AS DRAWN. Nothing is forced, so this is the stack as
 //    shipped, and a photo painted ABOVE the layers fails here (measured: 1.30:1
-//    for the CTA with `z-10` on the img). On /dev/properties the photo is a
+//    for the CTA with `z-10` on the img). A photo that never painted would
+//    PASS — the garnet ground under the layers clears every floor — so each
+//    case first proves the pixels under every ink are the photo's, by
+//    comparing them with the same band with the photo hidden
+//    (`assertPhotoPainted`). On /dev/properties the photo is a
 //    near-white drawing whose sky is pure white under the bar and the title
 //    (PROPERTIES_MASTHEAD_FIXTURE), so it is the worst case; on /properties it
 //    is whatever the CMS holds, and its numbers are the ones a visitor gets.
@@ -62,10 +66,27 @@ const BAR_CEILING = 0.7;
 const TITLE_CEILING = 0.55;
 const WINDOW_CEILING = 0.35;
 
+/** What the bar draws at each width: the menu trigger always, and the CTA,
+ *  whose wrapper in Nav.svelte is `hidden sm:block`, at 1440 but not at 390.
+ *  DECLARED per viewport, never inferred from a breakpoint. This spec used to
+ *  expect the CTA from a band 560px wide, the `--screen-sm` app.css declares —
+ *  but Tailwind v4 ignores `--screen-*`, so the shipped `sm:` is 40rem, 640px.
+ *  The band measures 15px narrower than the viewport (545 at 560, 624 at 639;
+ *  html has `scrollbar-gutter: stable`), so the guess expected a CTA the page
+ *  does not draw at viewports 575 to 639 — measured: no CTA through 639,
+ *  "Contact us" from 640, and the old check red at 600. A viewport added here
+ *  has to say what its bar shows. */
 const VIEWPORTS = [
-  { width: 1440, height: 900 },
-  { width: 390, height: 844 },
+  { width: 1440, height: 900, cta: true },
+  { width: 390, height: 844, cta: false },
 ];
+type Viewport = (typeof VIEWPORTS)[number];
+
+/** How much of what is under an ink must be the photo, for an as-drawn case
+ *  to count as having measured it. See `assertPhotoPainted`. */
+const PHOTO_SHARE_MIN = 0.5;
+/** A device pixel "differs" when some channel moved by more than this. */
+const PHOTO_DIFF_LEVELS = 8;
 
 /** WCAG 2.x relative luminance / contrast. */
 const luminance = ([r, g, b]: number[]) => {
@@ -89,15 +110,16 @@ const parseRgb = (css: string) => {
 type Box = { x: number; y: number; width: number; height: number };
 type Ink = { what: string; box: Box; color: number[] };
 
-async function at(browser: Browser, viewport: { width: number; height: number }) {
-  const context = await browser.newContext({ viewport });
+async function at(browser: Browser, { width, height }: Viewport) {
+  const context = await browser.newContext({ viewport: { width, height } });
   return { context, page: await context.newPage() };
 }
 
 /** Everything the measurement needs, read off the page BEFORE anything is
  *  hidden: the band, the bar's height, every visible control in the bar with
- *  its computed colour (the wordmark is a logo, exempt, and left out), the h1,
- *  and the photo. */
+ *  its computed colour (the wordmark is a logo, exempt, and left out) and
+ *  whether it is the menu trigger (the one control with `aria-expanded` once
+ *  script runs), the h1, and the photo. */
 const read = (page: Page) =>
   page.evaluate(
     ([barSel, bandSel]) => {
@@ -112,6 +134,7 @@ const read = (page: Page) =>
         .filter((el) => el.checkVisibility() && el.getBoundingClientRect().width > 0)
         .map((el) => ({
           what: el.getAttribute("aria-label") ?? el.textContent!.trim(),
+          trigger: el.matches("button[aria-expanded]"),
           box: box(el),
           color: getComputedStyle(el).color,
         }));
@@ -155,7 +178,7 @@ const read = (page: Page) =>
  *  block, which gives EVERY element a 0.01ms transition-duration — and an
  *  element's transition-property defaults to `all`. */
 async function strip(page: Page, ground: "white" | "photo") {
-  const writes: Array<[string, string, string]> = [
+  const writes: Write[] = [
     [BAR, "visibility", "hidden"],
     [`${BAND} h1`, "visibility", "hidden"],
   ];
@@ -163,7 +186,14 @@ async function strip(page: Page, ground: "white" | "photo") {
     writes.push([`${BAND} img`, "visibility", "hidden"]);
     writes.push([BAND, "background", "#fff"]);
   }
-  const applied = (list: typeof writes) =>
+  await apply(page, writes, "the ink or the photo never hid");
+}
+
+type Write = [selector: string, property: string, value: string];
+
+/** Make `writes`, then poll until every target computes them (see `strip`). */
+async function apply(page: Page, writes: Write[], message: string) {
+  const applied = (list: Write[]) =>
     page.evaluate((list) => {
       const targets = (sel: string, deep: boolean) => {
         const el = document.querySelector(sel) as HTMLElement;
@@ -189,7 +219,7 @@ async function strip(page: Page, ground: "white" | "photo") {
       }
     }
   }, writes);
-  await expect.poll(() => applied(writes), "the ink or the photo never hid").toBe(true);
+  await expect.poll(() => applied(writes), message).toBe(true);
 }
 
 /** The band as pixels, with helpers in CSS px. */
@@ -237,7 +267,7 @@ const worstUnder = (pixels: number[][], ink: Ink) => {
   return { ratio: contrast(ink.color, ground), ground };
 };
 
-async function measure(page: Page, ground: "white" | "photo") {
+async function measure(page: Page, ground: "white" | "photo", viewport: Viewport) {
   await hydrated(page);
   const seen = await read(page);
   expect(
@@ -245,25 +275,76 @@ async function measure(page: Page, ground: "white" | "photo") {
     "PageMasthead drew no darkening layers — is there a photo on this route? /properties " +
       "needs one in page_media.properties_masthead for this spec to measure anything.",
   ).toEqual({ shade: 1, scrim: 1 });
-  // Positive evidence of what is being measured: a bar with its controls (the
-  // CTA and the menu trigger from `sm`, the trigger alone below it) and a
-  // title in large type. A selector that stopped matching fails here rather
-  // than auditing nothing.
-  expect(seen.controls.length, JSON.stringify(seen.controls)).toBeGreaterThanOrEqual(
-    seen.band.width >= 560 ? 2 : 1,
-  );
+  // Positive evidence of what is being measured: a bar with exactly the
+  // controls VIEWPORTS says it draws at this width — the menu trigger always,
+  // the CTA where Nav draws it — and a title in large type. A selector
+  // that stopped matching fails here rather than auditing nothing.
+  const listed = JSON.stringify(seen.controls);
+  expect(
+    seen.controls.filter((c) => c.trigger).length,
+    `the menu trigger is in the bar at ${viewport.width}: ${listed}`,
+  ).toBe(1);
+  expect(
+    seen.controls.filter((c) => !c.trigger).length,
+    `the bar draws ${viewport.cta ? "its CTA" : "no CTA"} at ${viewport.width} (VIEWPORTS): ${listed}`,
+  ).toBe(viewport.cta ? 1 : 0);
   expect(seen.title.fontSize).toBeGreaterThanOrEqual(LARGE_TEXT_MIN_PX);
 
   await strip(page, ground);
   const shot = await shoot(page, seen.band);
   const inks: Ink[] = seen.controls.map((c) => ({ ...c, color: parseRgb(c.color) }));
   const title: Ink = { ...seen.title, color: parseRgb(seen.title.color) };
+
+  // Over the photo, the same band again with the photo hidden: what these
+  // pixels would be had the photo not painted (the garnet ground under the
+  // layers). `assertPhotoPainted` reads the share of each ink's box that
+  // differs from it.
+  let photoShare = (_: Box) => NaN;
+  if (ground === "photo") {
+    await apply(page, [[`${BAND} img`, "visibility", "hidden"]], "the photo never hid");
+    const bare = await shoot(page, seen.band);
+    photoShare = (box) => {
+      const drawn = shot.within(box);
+      const without = bare.within(box);
+      const moved = drawn.filter((p, i) =>
+        p.some((c, k) => Math.abs(c - without[i][k]) > PHOTO_DIFF_LEVELS),
+      );
+      return moved.length / drawn.length;
+    };
+  }
   return {
     seen,
-    bar: inks.map((ink) => ({ ink, ...worstUnder(shot.within(ink.box), ink) })),
-    title: { ink: title, ...worstUnder(shot.within(title.box), title) },
+    bar: inks.map((ink) => ({
+      ink,
+      ...worstUnder(shot.within(ink.box), ink),
+      photo: photoShare(ink.box),
+    })),
+    title: {
+      ink: title,
+      ...worstUnder(shot.within(title.box), title),
+      photo: photoShare(title.box),
+    },
     darkening: shot.darkening,
   };
+}
+
+/** The as-drawn cases' positive evidence that they measured a PHOTO. Loaded,
+ *  decoded and not broken still is not painted — and with no photo pixels the
+ *  ground under the layers is the band's garnet gradient, which clears every
+ *  floor. So a case goes green only if most of what is under each ink differs
+ *  from the same band with the photo hidden. Measured 2026-09-28: 100% under
+ *  every ink on both routes at both widths; with `opacity-0` on the masthead
+ *  img (loaded, decoded, never visible) 0% under the first ink checked, red in
+ *  all four cases — which the spec before this check passed. */
+function assertPhotoPainted(m: Awaited<ReturnType<typeof measure>>, where: string) {
+  for (const { ink, photo } of [...m.bar, m.title]) {
+    expect(
+      photo,
+      `${where}: only ${(photo * 100).toFixed(0)}% of the pixels under ${ink.what} differ from ` +
+        `the band with its photo hidden — the photo has not painted, so this measured the ` +
+        `garnet ground, not the photo.`,
+    ).toBeGreaterThanOrEqual(PHOTO_SHARE_MIN);
+  }
 }
 
 function assertFloors(m: Awaited<ReturnType<typeof measure>>, where: string) {
@@ -332,7 +413,7 @@ for (const route of [FIXTURE, LIVE]) {
         const { context, page } = await at(browser, viewport);
         try {
           await page.goto(route);
-          const m = await measure(page, "white");
+          const m = await measure(page, "white", viewport);
           // The comp's crop, as COMPUTED — which proves Tailwind emitted the
           // arbitrary `object-[50%_70%]` into the CSS this server ships, a
           // thing the unit test's class-list check cannot see.
@@ -370,26 +451,40 @@ for (const route of [FIXTURE, LIVE]) {
         const { context, page } = await at(browser, viewport);
         try {
           await page.goto(route);
-          // Decoded, not merely `complete` — a broken image is complete too.
-          // The CMS photo comes over the network, hence the longer wait.
+          // Loaded and not broken (`naturalWidth`: a broken image is
+          // `complete` too), then decoded — the img is `decoding="async"`, so
+          // decode can trail load. Neither proves the photo PAINTED; that is
+          // `assertPhotoPainted`'s job. The CMS photo comes over the network,
+          // hence the longer wait.
           await expect
             .poll(
               () =>
-                page
-                  .locator(`${BAND} img`)
-                  .evaluate((i: HTMLImageElement) => i.complete && i.naturalWidth > 0),
-              { message: `${photo} never loaded`, timeout: 30_000 },
+                page.locator(`${BAND} img`).evaluate(async (i: HTMLImageElement) => {
+                  if (!i.complete || i.naturalWidth === 0) return false;
+                  try {
+                    await i.decode();
+                    return true;
+                  } catch {
+                    return false;
+                  }
+                }),
+              { message: `${photo} never loaded and decoded`, timeout: 30_000 },
             )
             .toBe(true);
-          const m = await measure(page, "photo");
+          const m = await measure(page, "photo", viewport);
           const where = `${route} at ${viewport.width}, ${photo}`;
+          assertPhotoPainted(m, where);
           assertFloors(m, where);
           test.info().annotations.push({
             type: "measured",
             description:
               `${where}: ` +
-              m.bar.map((b) => `${b.ink.what} ${b.ratio.toFixed(2)}:1`).join(", ") +
-              `, h1 ${m.title.ratio.toFixed(2)}:1`,
+              [...m.bar, m.title]
+                .map(
+                  (b) =>
+                    `${b.ink.what} ${b.ratio.toFixed(2)}:1 (photo ${(b.photo * 100).toFixed(0)}%)`,
+                )
+                .join(", "),
           });
         } finally {
           await context.close();
