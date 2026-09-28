@@ -4,6 +4,7 @@ import { flushSync, tick } from "svelte";
 
 import PropertyMap from "./PropertyMap.svelte";
 import {
+  ACTIVE_PIN_SCALE,
   CAMERA_FLIGHT_MS,
   DEFAULT_MAP_STYLE_URL,
   frameFor,
@@ -35,6 +36,8 @@ const engine = vi.hoisted(() => {
     canvasContainer: HTMLDivElement;
     jumps: unknown[];
     eases: unknown[];
+    /** The event data each `easeTo` carried, index-aligned with `eases`. */
+    easeData: unknown[];
     flights: unknown[];
     /** Every `scrollZoom.enable()` / `.disable()`, in order. Since the
      *  operator's reversal there should be NONE: the in-page map is
@@ -66,14 +69,21 @@ const engine = vi.hoisted(() => {
   interface FakeHandler {
     enabled: boolean;
     active: boolean;
+    /** Whether `disableRotation()` was called (#154). */
+    rotationDisabled: boolean;
     enable(): void;
     disable(): void;
     isEnabled(): boolean;
     isActive(): boolean;
+    disableRotation(): void;
   }
   const fakeHandler = (enabled: boolean): FakeHandler => ({
     enabled,
     active: false,
+    rotationDisabled: false,
+    disableRotation() {
+      this.rotationDisabled = true;
+    },
     enable() {
       this.enabled = true;
     },
@@ -150,6 +160,7 @@ const engine = vi.hoisted(() => {
         canvasContainer: this.canvasContainer,
         jumps: [],
         eases: [],
+        easeData: [],
         flights: [],
         scrollZoomCalls: [],
         zoomNow: 7,
@@ -192,8 +203,9 @@ const engine = vi.hoisted(() => {
     jumpTo(camera: unknown) {
       this.record.jumps.push(camera);
     }
-    easeTo(camera: unknown) {
+    easeTo(camera: unknown, data?: unknown) {
       this.record.eases.push(camera);
+      this.record.easeData.push(data);
     }
     flyTo(camera: unknown) {
       this.record.flights.push(camera);
@@ -469,6 +481,20 @@ describe("when the engine is asked for", () => {
     expect(options.touchPitch).toBe(false);
   });
 
+  // #154. What this can see is that maplibre was ASKED — the keyboard's
+  // Shift+arrows and the two-finger twist — while both handlers stay enabled
+  // (the lock's set is unchanged). property-map.spec.ts turns a real map.
+  it("asks maplibre to disable keyboard and touch rotation, leaving both handlers on", async () => {
+    stubIntersecting();
+    render(PropertyMap, { props: { points, label: "Land" } });
+    await vi.waitFor(() => expect(engine.created).toHaveLength(1));
+    const { nav } = engine.created[0]!;
+    expect(nav.keyboard!.rotationDisabled).toBe(true);
+    expect(nav.touchZoomRotate!.rotationDisabled).toBe(true);
+    expect(nav.keyboard!.enabled).toBe(true);
+    expect(nav.touchZoomRotate!.enabled).toBe(true);
+  });
+
   it("tears the map down when the component goes", async () => {
     stubIntersecting();
     const { unmount } = render(PropertyMap, { props: { points, label: "Land" } });
@@ -479,20 +505,19 @@ describe("when the engine is asked for", () => {
 });
 
 describe("the expand affordance", () => {
-  // The comp draws it on both 390 maps and on neither 1440 map. The rule here
-  // is the CONTAINER's height, never a viewport query — which is also what
-  // makes it correct for the expanded state.
-  it("is drawn on a 200px box and not on a 595px one", async () => {
-    stubResizeTo(350, 200);
-    const short = render(PropertyMap, { props: { points, label: "Land", engine: "off" } });
-    await tick();
-    expect(short.container.querySelector("[data-map-expand]")).not.toBeNull();
-    short.unmount();
-
-    stubResizeTo(397, 595);
-    const tall = render(PropertyMap, { props: { points, label: "Land", engine: "off" } });
-    await tick();
-    expect(tall.container.querySelector("[data-map-expand]")).toBeNull();
+  // M1: "on all maps … no matter the device". It was drawn only on a compact
+  // (200px) box; it is now drawn on every measured one.
+  it("is drawn on every measured box, 200 and 595", async () => {
+    for (const [w, h] of [
+      [350, 200],
+      [397, 595],
+    ] as const) {
+      stubResizeTo(w, h);
+      const view = render(PropertyMap, { props: { points, label: "Land", engine: "off" } });
+      await tick();
+      expect(view.container.querySelector("[data-map-expand]"), `${w}x${h}`).not.toBeNull();
+      view.unmount();
+    }
   });
 
   // Nothing is measured on the server, so nothing is drawn there either: the
@@ -550,6 +575,139 @@ describe("the expand affordance", () => {
     expect(painted).toContain("h-[20.88px]");
     expect(painted).toContain("w-[20.884px]");
     expect(painted).toContain("bg-primary");
+  });
+
+  describe("expanded: one full-window overlay (M1)", () => {
+    const open = async (props: Record<string, unknown> = {}) => {
+      stubResizeTo(350, 200);
+      const view = render(PropertyMap, {
+        props: { points, label: "Land", engine: "off", class: "mb-5 h-50", ...props },
+      });
+      await tick();
+      view.container.querySelector<HTMLButtonElement>("[data-map-expand]")!.click();
+      await tick();
+      return view;
+    };
+
+    it("holds the slot with a spacer, is a modal dialog, and locks the page's scroll", async () => {
+      const view = await open();
+      const root = view.container.querySelector("[data-property-map]")!;
+      const spacer = view.container.querySelector("[data-map-spacer]");
+      expect(spacer, "the spacer holds the map's slot").not.toBeNull();
+      expect(spacer!.className, "with the caller's own classes").toBe("mb-5 h-50");
+      expect(spacer!.getAttribute("aria-hidden")).toBe("true");
+      expect(root.getAttribute("role")).toBe("dialog");
+      expect(root.getAttribute("aria-modal")).toBe("true");
+      expect(root.getAttribute("aria-label")).toBe("Land map");
+      expect(document.body.style.overflow).toBe("hidden");
+
+      view.container.querySelector<HTMLButtonElement>("[data-map-expand]")!.click();
+      await tick();
+      expect(view.container.querySelector("[data-map-spacer]")).toBeNull();
+      expect(root.hasAttribute("role")).toBe(false);
+      expect(document.body.style.overflow, "released on collapse").toBe("");
+    });
+
+    it("releases the scroll lock when it unmounts expanded", async () => {
+      const view = await open();
+      expect(document.body.style.overflow).toBe("hidden");
+      view.unmount();
+      expect(document.body.style.overflow).toBe("");
+    });
+
+    it("Escape closes the pin sheet first, then collapses", async () => {
+      const { view } = await booted({}, { width: 350, height: 200 });
+      view.container.querySelector<HTMLButtonElement>("[data-map-expand]")!.click();
+      await tick();
+      view.container.querySelector<HTMLButtonElement>("[data-map-pin]")!.click();
+      await tick();
+      const root = view.container.querySelector("[data-property-map]")!;
+      expect(view.container.querySelector("[data-map-sheet]"), "premise: a sheet").not.toBeNull();
+
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+      await tick();
+      expect(view.container.querySelector("[data-map-sheet]")).toBeNull();
+      expect(root.getAttribute("data-expanded"), "the first Escape is the sheet's").toBe("true");
+
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" }));
+      await tick();
+      expect(root.hasAttribute("data-expanded")).toBe(false);
+      expect(document.body.style.overflow).toBe("");
+    });
+
+    // D4: a pin pressed in the expanded /properties map closes the overlay
+    // onto the card, and reports the press only once it has closed.
+    it("a pin pressed while expanded collapses it, then reports the listing", async () => {
+      const seen: string[] = [];
+      const { view } = await booted(
+        { onselect: (id: string) => seen.push(id) },
+        { width: 350, height: 200 },
+      );
+      const root = view.container.querySelector("[data-property-map]")!;
+      view.container.querySelector<HTMLButtonElement>("[data-map-expand]")!.click();
+      await tick();
+      expect(root.getAttribute("data-expanded"), "premise: expanded").toBe("true");
+      view.container.querySelector<HTMLButtonElement>('[data-map-pin="b"]')!.click();
+      expect(seen, "not while the page is still locked").toEqual([]);
+      await tick();
+      await tick();
+      expect(root.hasAttribute("data-expanded")).toBe(false);
+      expect(document.body.style.overflow).toBe("");
+      expect(seen).toEqual(["b"]);
+    });
+  });
+});
+
+describe("the zoom buttons (P3)", () => {
+  it("appear only once the map has drawn, named after the section", async () => {
+    stubResizeTo(397, 595);
+    const off = render(PropertyMap, { props: { points, label: "Land", engine: "off" } });
+    await tick();
+    expect(off.container.querySelector("[data-map-control='zoom-in']")).toBeNull();
+    expect(off.container.querySelector("[data-map-expand]"), "the control").not.toBeNull();
+    off.unmount();
+
+    const { view } = await booted({});
+    const names = [...view.container.querySelectorAll("[data-map-control]")].map((b) =>
+      b.getAttribute("aria-label"),
+    );
+    expect(names, "+ above − above expand").toEqual([
+      "Zoom in on the Land map",
+      "Zoom out of the Land map",
+      "Enlarge the Land map",
+    ]);
+  });
+});
+
+describe("the active listing's pin (P2/P4)", () => {
+  const svgWidth = (el: Element | null) => Number(el!.querySelector("svg")!.getAttribute("width"));
+
+  it("is marked and drawn ACTIVE_PIN_SCALE larger than the rest, live", async () => {
+    const { view } = await booted({ active: "a" });
+    const a = view.container.querySelector("[data-map-pin='a']");
+    const b = view.container.querySelector("[data-map-pin='b']");
+    expect(a!.hasAttribute("data-map-active")).toBe(true);
+    expect(b!.hasAttribute("data-map-active")).toBe(false);
+    expect(svgWidth(a)).toBe(svgWidth(b) * ACTIVE_PIN_SCALE);
+    expect(view.container.querySelectorAll("[data-map-active]")).toHaveLength(1);
+  });
+
+  it("marks nothing when nothing is active — the control", async () => {
+    const { view } = await booted({ active: null });
+    expect(view.container.querySelectorAll("[data-map-pin]").length).toBeGreaterThan(0);
+    expect(view.container.querySelector("[data-map-active]")).toBeNull();
+  });
+
+  it("is marked the same way on the server's picture", async () => {
+    const { container } = render(PropertyMap, {
+      props: { points, label: "Land", engine: "off", active: "a" },
+    });
+    await tick();
+    const pins = [...container.querySelectorAll("[data-map-home-pin='a']")];
+    expect(pins.length, "premise: 'a' is in the picture").toBeGreaterThan(0);
+    for (const pin of pins) expect(pin.hasAttribute("data-map-active")).toBe(true);
+    const others = container.querySelectorAll("[data-map-home-pin]:not([data-map-home-pin='a'])");
+    for (const pin of others) expect(pin.hasAttribute("data-map-active")).toBe(false);
   });
 });
 
@@ -736,9 +894,9 @@ describe("the camera the page drives", () => {
   //
   // What still moves it is a box change that crosses `COMPACT_MAX_HEIGHT`,
   // because MAP_HOME's two frames are two cameras (z8.0 compact, z8.6 full).
-  // That is also the box change the real site produces — the expand affordance
-  // below `lg`, 200 -> min(70dvh, 520px) — so these two cases now drive the
-  // only resize that has ever mattered on production data.
+  // That is also the box change the real site produces — the expand affordance,
+  // 200 -> the window — so these two cases now drive the only resize that has
+  // ever mattered on production data.
   it("re-frames on a box change that crosses the frame threshold", async () => {
     const resize = stubResizableTo(350, 200);
     stubIntersecting({ mapHeight: 200, visible: 200 });
@@ -929,11 +1087,11 @@ describe("the camera the page drives", () => {
   });
 
   it("never takes the wheel away again — expanding and collapsing do not touch it", async () => {
-    // A COMPACT box (200 < COMPACT_MAX_HEIGHT's 300), because the expand
-    // affordance is only rendered on one — `{#if measured && (compact ||
-    // expanded)}`. Booted at 397x595 there is no button, and a version of the
-    // case this replaces that guarded its clicks with `if (expand)` asserted
-    // NOTHING while passing. That is the shape this file exists to catch.
+    // A COMPACT box (200 < COMPACT_MAX_HEIGHT's 300): when this was written
+    // the expand affordance was rendered only on one (it is on every measured
+    // box since M1). A version of the case this replaces that guarded its
+    // clicks with `if (expand)` asserted NOTHING while passing. That is the
+    // shape this file exists to catch.
     const { view, record } = await booted({ active: "b" }, { width: 350, height: 200 });
     const expand = view.container.querySelector<HTMLButtonElement>("[data-map-expand]");
     expect(expand, "a compact box draws the expand affordance").not.toBeNull();

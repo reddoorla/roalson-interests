@@ -734,7 +734,7 @@ const bareSpot = (section: Locator) =>
         const hit = document.elementFromPoint(x, y);
         if (
           hit &&
-          !hit.closest("[data-map-pin],[data-map-cluster],[data-map-expand],.maplibregl-ctrl")
+          !hit.closest("[data-map-pin],[data-map-cluster],[data-map-control],.maplibregl-ctrl")
         )
           return { x, y };
       }

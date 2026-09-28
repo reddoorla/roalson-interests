@@ -577,8 +577,11 @@ test.describe("the rule is the visitor's pause, not the clock's", () => {
   });
 });
 
-test.describe("the expand control below lg belongs to the map, not the carousel", () => {
-  test("pressing it while the slideshow runs does not pause it, so the map stays a picture", async ({
+// M1 (operator call 2026-09-28) answers #150's open question the client's way:
+// the map's own controls engage it. This case used to hold the opposite (the
+// expand press left the slideshow running and the enlarged map a picture).
+test.describe("the map's own controls engage it", () => {
+  test("pressing expand while the slideshow runs pauses it; + then zooms; collapsing does not resume", async ({
     browser,
   }) => {
     test.setTimeout(180_000);
@@ -592,19 +595,23 @@ test.describe("the expand control below lg belongs to the map, not the carousel"
     try {
       await bandUp(page, { width: 390, height: 844 });
       await park(page, 200);
+      expect(await running(page), "premise: the slideshow is running").toBe(true);
       const expand = page.locator("[data-map-expand]").first();
       await expand.tap();
       await expect(expand).toHaveAttribute("data-map-expand", "collapse");
-      expect(
-        await expand.evaluate((el) => !!el.closest("[aria-roledescription='carousel']")),
-        "the control is outside the carousel's region",
-      ).toBe(false);
-      expect(await running(page), "so pressing it is not focus entering the carousel").toBe(true);
-      expect(await tools(page), "and the enlarged map is still a picture").toEqual([]);
-      // Pause is what unlocks it, enlarged or not.
-      await page.getByRole("button", { name: "Pause slides" }).tap();
-      await expect(page.getByRole("button", { name: "Play slides" })).toBeVisible();
-      expect(await tools(page)).toEqual(ALL_TOOLS);
+      await expect(page.getByRole("button", { name: "Play slides" })).toBeAttached();
+      expect(await tools(page), "the enlarged map is a map").toEqual(ALL_TOOLS);
+
+      const z0 = await zoomAtRest(page);
+      await page.locator('[data-map-control="zoom-in"]').first().tap();
+      await expect.poll(() => zoomAtRest(page)).toBeCloseTo(z0 + 1, 2);
+
+      await expand.tap();
+      await expect(expand).toHaveAttribute("data-map-expand", "expand");
+      await expect(
+        page.getByRole("button", { name: "Play slides" }),
+        "collapsing is not Play",
+      ).toBeVisible();
     } finally {
       await context.close();
     }
