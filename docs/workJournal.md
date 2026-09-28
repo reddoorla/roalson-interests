@@ -9811,6 +9811,7 @@ corrections they carried are all made in this entry, where they belong:
 - `featured-properties.spec.ts` on dev: 34/34 (load 6–9).
 - `node scripts/capability-index.mjs`: no change.
 - The full `pnpm verify` was not run; it runs on the re-combined tree.
+
 ## 2026-09-23 — The wheel over the map zooms it again, on the operator's call: the trap that buys, measured, and a zoom that outlives its card (`feat/map-scroll-zoom`)
 
 **This reverses a decision that shipped yesterday**, and says so first. The
