@@ -3,6 +3,9 @@
   import { cappedWidths } from "@reddoorla/maintenance/images";
   import Img from "@zerodevx/svelte-img";
   import { onMount } from "svelte";
+  import { ARROW_SHAPE, ARROW_TONES } from "$lib/components/CarouselArrows.svelte";
+  import PlayPauseGlyph from "$lib/components/PlayPauseGlyph.svelte";
+  import { VimeoBackground } from "$lib/utils/vimeoBackground.svelte";
   import { viewport } from "$stores/viewport.svelte";
 
   // The player.js SDK type lives on window (src/global.d.ts) — derive the
@@ -30,6 +33,18 @@
   let videoReady: boolean = $state(false);
   let iframeElement: HTMLIFrameElement | undefined = $state();
 
+  // WCAG 2.2.2 (#81): the embed loops, so it needs a pause control. The
+  // controller the hero and VimeoBanner use supplies it: `watch` latches
+  // `offered` on the first real heartbeat, `toggle` posts pause/play AND
+  // holds the iframe hidden. The SDK below still owns the quality reveal.
+  const video = new VimeoBackground();
+  $effect(() => {
+    const el = iframeElement;
+    if (!el) return;
+    return video.watch(el);
+  });
+  const controllable = $derived(Boolean(videoSrc) && !videoError && video.offered);
+
   const coverStyle = $derived(
     ((viewport.height * percentHeight) / 100) * 16 > viewport.width * 9
       ? `height: ${percentHeight}lvh; min-width: 100%`
@@ -42,9 +57,9 @@
   // page content paint first instead of competing with the video stream for
   // bandwidth. Autoplay still starts a beat later — imperceptible on fast
   // connections. Under prefers-reduced-motion the video is never created at
-  // all: a background video is pure motion with no pause control, so the
-  // poster is the accessible rendering. Both defer paths are cancelled on
-  // destroy so a late idle period can't touch state after unmount.
+  // all: a background video is pure motion, so the poster is the accessible
+  // rendering. Both defer paths are cancelled on destroy so a late idle
+  // period can't touch state after unmount.
   onMount(() => {
     if (!vimeoId) return;
     if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
@@ -182,7 +197,8 @@
         bind:this={iframeElement}
         title="background video"
         src={videoSrc}
-        class="aspect-video absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 contrast-[1.15] -z-10 border-0 transition-opacity duration-700 {videoReady
+        class="aspect-video absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 contrast-[1.15] -z-10 border-0 transition-opacity duration-700 {videoReady &&
+        !video.paused
           ? 'opacity-100'
           : 'opacity-0'}"
         style="width: max(100%, 1000px)"
@@ -199,7 +215,31 @@
     {/if}
   </div>
   {@render children?.()}
+  {#if !backdrop}{@render control("absolute")}{/if}
 </section>
+<!-- A backdrop is `fixed -z-10`, under the page, so its control cannot sit
+     inside it and still take a click: it is seated beside it instead. -->
+{#if backdrop}{@render control("fixed")}{/if}
+
+{#snippet control(position: "absolute" | "fixed")}
+  <!-- Placement on a wrapper: ARROW_SHAPE opens with `relative`, which beats
+       `absolute` in Tailwind's emission order (see HeroBackgroundVideo). -->
+  {#if vimeoId}
+    <div data-screen-media-controls class="{position} right-5 bottom-5 z-10 flex">
+      {#if controllable}
+        <button
+          type="button"
+          data-screen-media-toggle
+          aria-label={video.paused ? "Play the background video" : "Pause the background video"}
+          onclick={() => video.toggle()}
+          class="{ARROW_SHAPE} {ARROW_TONES.cream} bg-dark/70"
+        >
+          <PlayPauseGlyph paused={video.paused} />
+        </button>
+      {/if}
+    </div>
+  {/if}
+{/snippet}
 
 <style>
   .bg-darken-gradient {

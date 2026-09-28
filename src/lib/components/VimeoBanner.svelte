@@ -10,18 +10,22 @@
   // markup with them (2026-09-21). VimeoBanner.test.ts was NOT edited in that
   // move: its seven cases are the evidence the lift changed no behaviour.
   //
-  // This banner still ships no pause control; issue filed. Its embed never
-  // starts in the one place the site renders it (the a11y fixtures page, where
-  // nothing engages), so it is a latent gap rather than a live one.
+  // WCAG 2.2.2: the embed loops, so it carries the hero's pause control (#81),
+  // the same button on the same controller. See HeroBackgroundVideo for why
+  // the placement sits on a wrapper and not on the button.
+  import { ARROW_SHAPE, ARROW_TONES } from "$lib/components/CarouselArrows.svelte";
   import Img from "$lib/components/Img.svelte";
+  import PlayPauseGlyph from "$lib/components/PlayPauseGlyph.svelte";
   import { backgroundEmbedSrc, VimeoBackground } from "$lib/utils/vimeoBackground.svelte";
 
   interface Props {
     vimeoId: string;
     poster: unknown; // ?as=run import
     alt: string;
+    /** Names the clip: "Pause the {label}" / "Play the {label}". */
+    label?: string;
   }
-  let { vimeoId, poster, alt }: Props = $props();
+  let { vimeoId, poster, alt, label = "background video" }: Props = $props();
 
   const video = new VimeoBackground();
   const src = $derived(backgroundEmbedSrc(vimeoId));
@@ -73,4 +77,21 @@
       ></iframe>
     </div>
   {/if}
+
+  <!-- The control's seat: bottom-right, over the video, and never
+       `aria-hidden`. The button appears only once a heartbeat has arrived, so
+       reduced motion and a blocked player render none. -->
+  <div data-vimeo-banner-controls class="absolute right-5 bottom-5 z-10 flex">
+    {#if video.controllable}
+      <button
+        type="button"
+        data-vimeo-banner-toggle
+        aria-label={video.paused ? `Play the ${label}` : `Pause the ${label}`}
+        onclick={() => video.toggle()}
+        class="{ARROW_SHAPE} {ARROW_TONES.cream} bg-dark/70"
+      >
+        <PlayPauseGlyph paused={video.paused} />
+      </button>
+    {/if}
+  </div>
 </section>

@@ -235,3 +235,56 @@ describe("VimeoBanner", () => {
     expect(wrapper.className).toContain("opacity-0");
   });
 });
+
+// WCAG 2.2.2 (#81). The embed is `loop=1`, so a pause mechanism is required.
+describe("VimeoBanner pause control", () => {
+  const toggle = (c: HTMLElement) =>
+    c.querySelector<HTMLButtonElement>("[data-vimeo-banner-toggle]");
+
+  it("offers none until the video has proved it moves", async () => {
+    const { container } = render(VimeoBanner, props);
+    await engageAndIntersect();
+    expect(toggle(container)).toBeNull();
+
+    window.dispatchEvent(vimeoMessage("playProgress", { source: sourceOf(container) }));
+    await tick();
+    expect(toggle(container)).toBeTruthy();
+  });
+
+  it("pauses on press: posts `pause` AND hides the video, then offers Play", async () => {
+    const { container } = render(VimeoBanner, props);
+    await engageAndIntersect();
+    window.dispatchEvent(vimeoMessage("playProgress", { source: sourceOf(container) }));
+    await tick();
+
+    const iframe = container.querySelector("iframe")!;
+    const posted: string[] = [];
+    Object.defineProperty(iframe, "contentWindow", {
+      configurable: true,
+      value: { postMessage: (data: string) => posted.push(data) },
+    });
+
+    const button = toggle(container)!;
+    expect(button.getAttribute("aria-label")).toBe("Pause the background video");
+    button.click();
+    await tick();
+    expect(posted.map((p) => JSON.parse(p).method)).toContain("pause");
+    expect(iframe.parentElement!.className).toContain("opacity-0");
+    expect(toggle(container)!.getAttribute("aria-label")).toBe("Play the background video");
+  });
+
+  // The hero's defect: placement on the button loses to ARROW_SHAPE's
+  // `relative` in Tailwind's emission order. The seat holds it instead.
+  it("seats the button in a positioned wrapper, not on the button itself", async () => {
+    const { container } = render(VimeoBanner, props);
+    await engageAndIntersect();
+    window.dispatchEvent(vimeoMessage("playProgress", { source: sourceOf(container) }));
+    await tick();
+    const button = toggle(container)!;
+    const seat = button.parentElement!;
+    expect(seat.hasAttribute("data-vimeo-banner-controls")).toBe(true);
+    const tokens = (el: Element) => el.className.split(/\s+/);
+    expect(tokens(seat)).toContain("absolute");
+    expect(tokens(button).filter((t) => /^(?:absolute|bottom-|right-)/.test(t))).toEqual([]);
+  });
+});

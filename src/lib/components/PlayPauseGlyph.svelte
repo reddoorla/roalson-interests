@@ -1,7 +1,7 @@
 <script lang="ts">
   // The pause / play glyph for every WCAG 2.2.2 control on this site — the
-  // carousel's (CarouselArrows) and the homepage hero's video
-  // (HeroBackgroundVideo). The comp draws neither, so these two paths were
+  // carousel's (CarouselArrows) and each background video's
+  // (HeroBackgroundVideo, VimeoBanner, ScreenWidthMedia). The comp draws neither, so these two paths were
   // drawn for the job in the carousel arrow's own box and weight: a 25 box,
   // bars 14 tall like the arrowhead and as thick as its 2.083 shaft, and a
   // triangle on the same 14.
