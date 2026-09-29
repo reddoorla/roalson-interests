@@ -72,6 +72,9 @@ const LARGE_TEXT_MIN_PX = 24;
 /** PageMasthead.test.ts's ceilings — see there for the reasoning. */
 const TITLE_CEILING = 0.55;
 const WINDOW_CEILING = 0.35;
+/** How far down the band the photo window runs: app.css's "Nothing above
+ *  36%". Held to WINDOW_CEILING there, not to zero — zero is the top strip's. */
+const PHOTO_TO = 0.36;
 /** "Undarkened", read off an 8-bit screenshot: one level of 255 of slack. */
 const UNDARKENED = 1 / 255;
 
@@ -363,12 +366,19 @@ function assertCeilings(m: Awaited<ReturnType<typeof measure>>, where: string) {
     )
     .toBeLessThanOrEqual(TITLE_CEILING);
 
-  const window = Math.min(...rows(band.y, title.box.y).map((y) => m.darkening(y).lightest));
+  // The window: from under that strip to PHOTO_TO of the band, the photo
+  // shows. Not "somewhere above the h1" — the strip above is held at zero, so
+  // that could only ever pass (a flat 0.44 haze from 31% of the band was green
+  // on it).
+  const span = rows(band.y + barHeight, band.y + PHOTO_TO * band.height);
+  // `Math.max()` of no rows is -Infinity, which clears any ceiling.
+  expect(span.length, `${where}: the photo window holds no rows`).toBeGreaterThan(0);
+  const window = Math.max(...span.map((y) => m.darkening(y).darkest));
   expect
     .soft(
       window,
-      `${where}: above the h1 the scrim never drops below ${window.toFixed(3)} black; the ` +
-        `photo has to show somewhere there (<= ${WINDOW_CEILING}).`,
+      `${where}: between the band's first ${barHeight}px and ${PHOTO_TO * 100}% of it the scrim ` +
+        `reaches ${window.toFixed(3)} black; the photo has to show there (<= ${WINDOW_CEILING}).`,
     )
     .toBeLessThanOrEqual(WINDOW_CEILING);
 }
@@ -394,12 +404,21 @@ for (const route of [FIXTURE, LIVE]) {
       // The server's answer, which is the only one a visitor without script
       // gets and the first paint for everyone else: the bar is pinned and
       // solid in the markup, not re-toned by an effect.
+      //
+      // `load`, not `domcontentloaded`: `barState` is one read, and all of it
+      // but `floating` is the stylesheet's. `vite dev` inlines the CSS in a
+      // <style>; a production build LINKS it (two sheets on /properties), so
+      // on a preview server a read at DOMContentLoaded raced them and got an
+      // unstyled page: a `static` bar, a transparent ground, a link-blue CTA.
+      // Measured 2026-09-29: 18/40 reads at a reviewer's load, 4/60 here at
+      // 2-5; with the sheets held back 1.5s, `static` 30/30 at
+      // DOMContentLoaded and `fixed` 30/30 at `load`, which waits for them.
       test(`${viewport.width}, scripting off: the server's bar is already the solid one`, async ({
         browser,
       }) => {
         const { context, page } = await at(browser, viewport, false);
         try {
-          await page.goto(route, { waitUntil: "domcontentloaded" });
+          await page.goto(route);
           expect(
             await page.evaluate(() => document.documentElement.hasAttribute("data-hydrated")),
             "positive evidence script is off: the root layout never mounted",

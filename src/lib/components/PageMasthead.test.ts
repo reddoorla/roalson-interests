@@ -325,8 +325,6 @@ describe("PageMasthead", () => {
       Math.min(...rows(y0, y1).map((y) => contrast(ink, overWhite(darkening(b, y)))));
     const darkest = (b: Breakpoint, y0: number, y1: number) =>
       Math.max(...rows(y0, y1).map((y) => darkening(b, y)));
-    const lightest = (b: Breakpoint, y0: number, y1: number) =>
-      Math.min(...rows(y0, y1).map((y) => darkening(b, y)));
 
     // ── THE INK, out of the file that paints it ────────────────────────────
 
@@ -381,6 +379,12 @@ describe("PageMasthead", () => {
     /** Above the title the photo has to SHOW — the comp draws no overlay there
      *  at all. */
     const WINDOW_CEILING = 0.35;
+    /** How far down the band that window runs: app.css's "Nothing above 36%:
+     *  the top of the band is the photo itself." Held to WINDOW_CEILING there,
+     *  not to zero, which is the top strip's rule. A number here, never the
+     *  scrim's first stop read back — read back, a scrim that started higher
+     *  would carry the window up with it and pass. */
+    const PHOTO_TO = 0.36;
 
     it.each(breakpoints)(
       "clears 3:1 (large text) under the h1 at $name, over the brightest pixel any photo can hold",
@@ -414,13 +418,20 @@ describe("PageMasthead", () => {
       ).toBeLessThanOrEqual(TITLE_CEILING);
     });
 
+    // From under the top strip (held at zero by the next test) down to
+    // PHOTO_TO. It used to ask only that the scrim reach the ceiling SOMEWHERE
+    // above the h1, scanning from row 0 — which the next test forces to zero,
+    // so it could not fail on its own: a flat 0.44 haze from 31% of the band
+    // left it green at both widths. Held everywhere across this span, it also
+    // implies that older claim, since the span is above the h1 at both widths.
     it.each(breakpoints)("lets the photo show above the h1 at $name", (b) => {
-      const { top } = lineBox(b);
-      const clearest = lightest(b, 0, top);
+      const [from, to] = [b.bar, PHOTO_TO * b.height];
+      const haze = darkest(b, from, to);
       expect(
-        clearest,
-        `Above the h1 (y ${top}) the scrim never drops below ${clearest.toFixed(3)} black; it ` +
-          `must reach ${WINDOW_CEILING} somewhere, or the band reads as one grey haze. Start ` +
+        haze,
+        `Between the band's top strip (y ${from}) and ${PHOTO_TO * 100}% of it ` +
+          `(y ${to.toFixed(1)}) the scrim reaches ${haze.toFixed(3)} black; it must stay ` +
+          `within ${WINDOW_CEILING} there, or the band reads as one grey haze. Start ` +
           `.masthead-scrim later.`,
       ).toBeLessThanOrEqual(WINDOW_CEILING);
     });
@@ -463,6 +474,18 @@ describe("PageMasthead", () => {
         return [top / b.height, bottom / b.height].map((v) => Number(v.toFixed(3)));
       });
       expect(span[0]).toEqual(span[1]);
+      // The photo window runs from under the top strip to PHOTO_TO, and both
+      // ends are above the h1: an empty or inverted span would scan no rows,
+      // and `Math.max()` of nothing is -Infinity — green on anything.
+      expect(
+        breakpoints.map((b) =>
+          [b.bar, PHOTO_TO * b.height, lineBox(b).top].map((v) => Number(v.toFixed(3))),
+        ),
+        "[top strip, window end, h1 line box top] — each below the last",
+      ).toEqual([
+        [80, 144, 266],
+        [70, 86.4, 159.5],
+      ]);
     });
   });
 });
