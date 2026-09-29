@@ -100,9 +100,11 @@
   --font-heading: "Atkinson Hyperlegible Next", ui-sans-serif, system-ui, sans-serif;
   --font-body: "Atkinson Hyperlegible Next", ui-sans-serif, system-ui, sans-serif;
 
-  --transition-in-expo: cubic-bezier(0.95, 0.05, 0.795, 0.035);
-  --transition-out-expo: cubic-bezier(0.19, 1, 0.22, 1);
-  --transition-fast-slow: cubic-bezier(0.5, 0, 0, 1);
+  /* Easings are `--ease-*`, the one namespace v4 builds `ease-*` from. This
+     was `--transition-fast-slow`, a v3 name: `ease-fast-slow` compiled to
+     nothing, and `--transition-in-expo` / `-out-expo` sat beside it read by
+     nothing at all (#183). animateIn reads this one with var(). */
+  --ease-fast-slow: cubic-bezier(0.5, 0, 0, 1);
 
   --height-screen-75: 75vh;
   --height-screen-50: 50vh;

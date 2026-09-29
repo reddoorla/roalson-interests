@@ -81,8 +81,8 @@ function applyHidden(node: HTMLElement, cfg: ResolvedConfig) {
   node.style.opacity = "0";
   node.style.transform = `translateY(${cfg.translateY})`;
   node.style.transition =
-    `opacity ${cfg.duration}ms var(--transition-fast-slow), ` +
-    `transform ${cfg.duration}ms var(--transition-fast-slow)`;
+    `opacity ${cfg.duration}ms var(--ease-fast-slow), ` +
+    `transform ${cfg.duration}ms var(--ease-fast-slow)`;
 }
 
 function reveal(node: HTMLElement) {
