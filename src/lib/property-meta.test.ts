@@ -37,6 +37,22 @@ describe("propertyMeta", () => {
 });
 
 describe("propertyDescription", () => {
+  it("does not add a stop after one inside a closing quote or bracket", () => {
+    const description = propertyDescription(
+      propertyFixture({
+        size_label: "Up to 2 acres",
+        highlights: [
+          { text: 'One block from the project called "300 Main."' },
+          { text: "Near the River Walk (the #1 attraction!)" },
+          { text: "Called \u201cThe Pearl.\u201d" },
+        ],
+      }),
+    );
+    expect(description).toBe(
+      'Up to 2 acres. One block from the project called "300 Main." Near the River Walk (the #1 attraction!) Called \u201cThe Pearl.\u201d',
+    );
+  });
+
   it("is undefined when there is nothing specific to say", () => {
     expect(
       propertyDescription(propertyFixture({ size_label: null, highlights: [] })),
