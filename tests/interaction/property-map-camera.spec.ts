@@ -14,6 +14,7 @@ import {
 } from "./camera-probe";
 import { nextTurn } from "./band-turn";
 import { hydrated } from "./hydrated";
+import { scrollMapToBoot } from "./map-boot";
 import { placedMarkers, placedPin } from "./placed-markers";
 import { gapsPerMap, travelOf } from "./scroll-travel";
 
@@ -48,9 +49,14 @@ const CASTROVILLE = "hwy-90-castroville";
 const NEW_BRAUNFELS = "ih-35-new-braunfels";
 
 /** Positive evidence the engine drew a frame: `data-map-ready` is set by
- *  MapLibre's own `load`, not by the import resolving. */
-const drawn = (page: Page, nth = 0) =>
-  expect(page.locator(MAP).nth(nth)).toHaveAttribute("data-map-ready", "", { timeout: 25_000 });
+ *  MapLibre's own `load`, not by the import resolving. The map is scrolled just
+ *  far enough to boot first, where it cannot at rest (./map-boot). */
+async function drawn(page: Page, nth = 0) {
+  await scrollMapToBoot(page.locator(MAP).nth(nth));
+  await expect(page.locator(MAP).nth(nth)).toHaveAttribute("data-map-ready", "", {
+    timeout: 25_000,
+  });
+}
 
 /**
  * A context at one viewport, under the FLEET'S OWN reduced-motion emulation.
@@ -969,10 +975,13 @@ test.describe("with scripting off", () => {
       ),
       "no map has booted, because nothing ran",
     ).not.toContain(true);
+    // The bar was the second witness until 2026-09-29 (the server's `absolute`,
+    // never mount's `fixed`), but the listing's bar is solid now and ships
+    // pinned. What only a mounted root layout writes is `html[data-hydrated]`.
     expect(
-      await page.$$eval("nav[aria-label='Primary']", (els) => getComputedStyle(els[0]!).position),
-      "and the bar is still the server's `absolute`, never mount's `fixed`",
-    ).toBe("absolute");
+      await page.$$eval("html", (els) => els[0]!.hasAttribute("data-hydrated")),
+      "and the root layout never mounted",
+    ).toBe(false);
 
     const r = await page.$$eval("section[aria-labelledby^='listing-']", (secs) => {
       const read = (sec: Element) => {
