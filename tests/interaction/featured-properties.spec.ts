@@ -2,6 +2,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Browser, type Locator, type Page } from "@playwright/test";
 import { expectRing, GARNET } from "./expect-ring";
 import { FEATURED_DISSOLVE, FEATURED_DWELL, FEATURED_KEN_BURNS } from "./featured-dwell";
+import { measuresGutter, viewportFor } from "./gutter";
 import { HYDRATION_TIMEOUT } from "./hydrated";
 import { DARK, SAND } from "./palette";
 
@@ -22,10 +23,11 @@ import { DARK, SAND } from "./palette";
 //  4. ONE listing is a card and NONE is no band at all.
 //
 // House rules, paid for in nav.spec.ts and footer.spec.ts: no x derived from
-// the window (headless Chromium lays this site out 15px narrower than its
-// viewport) — every position is relative to the card or to another element;
-// sizes read after a viewport change are auto-retrying; nothing is pressed
-// before script has provably adopted the carousel.
+// the window (the page lays out a scrollbar gutter narrower than its viewport:
+// 15px here, 0 under an overlay scrollbar) — every position is relative to the
+// card or to another element; sizes read after a viewport change are
+// auto-retrying; nothing is pressed before script has provably adopted the
+// carousel.
 //
 // The shared config forces `reducedMotion: "reduce"`, under which this band
 // never rotates and draws no Pause. Every test about rotation opens its OWN
@@ -51,18 +53,13 @@ const TURN_CEILING = DWELL + DISSOLVE + 6000;
  *  measures from the CAP box, CSS from the line box. */
 const H4_TRIM = 8.1;
 
-/** Headless Chromium keeps `scrollbar-gutter: stable`'s 15px and hides the
- *  scrollbar that would fill it, so the page lays out 15px NARROWER than the
- *  viewport — and than `clientWidth`, which still reports the viewport. Every
- *  width in this file is the layout width the comp is drawn at; this is the
- *  one place that turns it into the viewport that produces it. Asked for 1440
- *  directly, the card measures 916.8 where the comp says 927, and four
- *  assertions here read as defects in the band. */
-const GUTTER = 15;
-const viewportFor = (layoutWidth: number, height = 900) => ({
-  width: layoutWidth + GUTTER,
-  height,
-});
+/** Every width in this file is the layout width the comp is drawn at, and
+ *  `viewportFor` (./gutter.ts) turns it into the viewport that produces it.
+ *  Asked for 1440 directly under a classic 15px scrollbar, the card measures
+ *  916.8 where the comp says 927, and four assertions here read as defects in
+ *  the band. The gutter was a typed 15 until an overlay scrollbar made it 0
+ *  (#124); it is measured now. */
+measuresGutter();
 
 async function moving(browser: Browser, viewport = viewportFor(1440)) {
   const context = await browser.newContext({ reducedMotion: "no-preference", viewport });
@@ -98,6 +95,44 @@ const holdClock = async (page: Page) => {
 };
 
 const status = (page: Page) => page.locator(`${CARD} [aria-live]`);
+
+/** THE MAP BOOTS BEFORE THE CLOCK IS TIMED (#117). The band's map sits below
+ *  the fold and boots once half of it is on screen, and the first press on
+ *  the card scrolls it there — Playwright scrolls before it clicks — so a
+ *  426 KB parse and a WebGL context start with that press. Measured at 4x CPU
+ *  throttle, the engine's first request goes out 8-37ms AFTER the pointerdown:
+ *  not ahead of the press, as #117 first read it, but inside whatever the case
+ *  times next. Scroll to it, and wait for the canvas to be up and the picture
+ *  under it gone (the axe case below has the long form), before timing
+ *  anything. */
+async function mapBooted(page: Page) {
+  await page.locator(BAND).scrollIntoViewIfNeeded();
+  await expect(
+    page.locator(`${BAND} [data-property-map]`),
+    "the band's map never finished booting",
+  ).toHaveAttribute("data-map-ready", "", { timeout: 40_000 });
+  await expect(page.locator(`${BAND} [data-map-home-box]`)).toHaveCount(0, { timeout: 10_000 });
+}
+
+/** Presses Pause EARLY in a dwell: after a clock turn, once the handover is
+ *  over and the bar is counting again. It used to poll the bar past 0.6 and
+ *  then press, which left what remained of the dwell — 2.2 to 3.2s, at
+ *  expect.poll's 1s steps — for the press to land in, and on a starved runner
+ *  the clock turned first (#117). A quiet one lands it ~100ms after the read,
+ *  so this is margin against load, not a fix to the band: pressed here, the
+ *  bar held at 0.03-0.13 across 8 runs, 7.0-7.7s of dwell to spare. */
+async function pauseEarlyInADwell(page: Page) {
+  const before = await status(page).textContent();
+  await expect(status(page), "the clock turned").not.toHaveText(before!, {
+    timeout: TURN_CEILING,
+  });
+  await expect.poll(() => timedFill(page), { intervals: [50] }).toBeGreaterThan(0);
+  // A real mouse press — Chromium focuses on mousedown, which is itself a
+  // pause; the control must not toggle straight back to playing.
+  await page.getByRole("button", { name: "Pause slides" }).click();
+  await expect(page.getByRole("button", { name: "Play slides" })).toBeVisible();
+  await pointerAway(page);
+}
 
 const barScale = (page: Page) =>
   page
@@ -189,7 +224,25 @@ const contrastOf = (results: { passes: AxeRule[]; incomplete: AxeRule[] }) => ({
   unmeasured: results.incomplete.find((r) => r.id === "color-contrast")?.nodes ?? [],
 });
 
-type AxeRule = { id: string; nodes: { html: string; any?: { data?: unknown }[] }[] };
+type AxeRule = {
+  id: string;
+  nodes: { html: string; target: unknown[]; any?: { data?: unknown }[] }[];
+};
+
+/** How many of the elements matching `selector` axe PASSED for `rule` — read
+ *  off each node's own target, because axe abbreviates a long `html`
+ *  mid-attribute (`data-map-home-cluste...="2"`), so a substring can miss. */
+const passedOn = (page: Page, results: { passes: AxeRule[] }, rule: string, selector: string) =>
+  page.evaluate(
+    ({ targets, selector }) =>
+      targets.filter((t) => document.querySelector(t)?.matches(selector)).length,
+    {
+      targets: (results.passes.find((r) => r.id === rule)?.nodes ?? []).map((n) =>
+        String(n.target[0]),
+      ),
+      selector,
+    },
+  );
 
 /** Which slides are on stage, by title — read off `inert`, the thing that
  *  actually takes a slide out of the tab order. */
@@ -203,10 +256,11 @@ const onStage = (page: Page) =>
     );
 
 /** What the in-page clock recorded: every change of the live region, stamped
- *  with `performance.now()`, plus the first reading of the bar (and when) so a
- *  partly-run dwell can be told from a whole one. */
+ *  with `performance.now()` and with the bar as it stood at that instant (its
+ *  scaleX and its `data-carousel-fill`), plus the first reading of the bar
+ *  (and when) so a partly-run dwell can be told from a whole one. */
 interface Timed {
-  __turns: { t: number; text: string }[];
+  __turns: { t: number; text: string; bar: number; fill: string }[];
   __start: { t: number; p: number } | null;
 }
 
@@ -232,8 +286,14 @@ const stampTurns = (page: Page) =>
       if (!region?.hasAttribute("data-carousel-ready") || !live || !Number.isFinite(scale(region)))
         return requestAnimationFrame(arm);
       w.__start = { t: performance.now(), p: scale(region) };
+      const fill = region.querySelector<HTMLElement>("[data-carousel-progress] > div");
       new MutationObserver(() => {
-        w.__turns.push({ t: performance.now(), text: live.textContent ?? "" });
+        w.__turns.push({
+          t: performance.now(),
+          text: live.textContent ?? "",
+          bar: scale(region),
+          fill: fill?.dataset.carouselFill ?? "",
+        });
       }).observe(live, { childList: true, characterData: true, subtree: true });
     };
     requestAnimationFrame(arm);
@@ -286,9 +346,11 @@ const geometry = (page: Page) =>
           width: slot.firstElementChild!.getBoundingClientRect().width,
         },
         // Positive means content wider than the box, which is the defect.
-        // It reads -15 here even when nothing overflows: `clientWidth` reports
-        // the viewport while the page lays out inside the reserved gutter.
+        // It reads minus the gutter even when nothing overflows: `clientWidth`
+        // reports the viewport while the page lays out inside the gutter.
         overflowX: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        // The width the page is laid out in: `viewportFor`'s premise.
+        layout: document.documentElement.getBoundingClientRect().width,
       };
     },
     { CARD, BAND },
@@ -305,6 +367,7 @@ test.describe("where the comp draws it", () => {
       await holdClock(page);
       const g = await geometry(page);
 
+      expect(g.layout, "premise: the page is laid out at the comp's 1440").toBe(1440);
       expect(g.photo.width / g.photo.height).toBeCloseTo(928 / 542, 2);
       expect(g.photo.width).toBeCloseTo(g.card.width, 0);
       // THE regression for the grid-row shorthand: with the chrome auto-placed
@@ -527,17 +590,6 @@ test.describe("rotation", () => {
 
       await expect(status(page)).toHaveText("Slide 2 of 3", { timeout: TURN_CEILING });
       expect(await onStage(page)).toEqual(["101 W. Commerce Street"]);
-      // DECIDED, THEN REVERSED, AND THEN THE REVERSAL WAS WRONG TOO. The comp
-      // cross-fades a FULL bar into an empty one, so through the handover the
-      // fill holds at 1 and only its opacity moves. The first attempt at this
-      // kept the old snap to 0 underneath the fade, which meant fading a box
-      // with no width — nothing on screen at all. `scaleX` is still drawn by
-      // carousel state and by nothing else (no transition on the transform),
-      // so there is still exactly one clock and a pause still freezes the bar
-      // where it stands. The fade itself is measured in "the bar dissolves
-      // across the handover" below; here the point is only that the number was
-      // not EASED into place.
-      expect(await barScale(page), "the fill holds full through the handover").toBe(1);
 
       // …and it loops.
       await expect(status(page)).toHaveText("Slide 3 of 3", { timeout: TURN_CEILING });
@@ -554,6 +606,26 @@ test.describe("rotation", () => {
       // 4000 dwell's, measured when it was the band's; the lesson is not.)
       const turns = await page.evaluate(() => (window as unknown as Timed).__turns);
       expect(turns.length, "stamped at least two turns").toBeGreaterThanOrEqual(2);
+
+      // DECIDED, THEN REVERSED, AND THEN THE REVERSAL WAS WRONG TOO. The comp
+      // cross-fades a FULL bar into an empty one, so through the handover the
+      // fill holds at 1 and only its opacity moves. The first attempt at this
+      // kept the old snap to 0 underneath the fade, which meant fading a box
+      // with no width — nothing on screen at all. `scaleX` is still drawn by
+      // carousel state and by nothing else (no transition on the transform),
+      // so there is still exactly one clock and a pause still freezes the bar
+      // where it stands. The fade itself is measured frame by frame in "the
+      // bar dissolves across the handover" below; here the point is only that
+      // the number was not EASED into place.
+      //
+      // READ AT THE TURN, IN THE PAGE (#117). This was `barScale` after
+      // `toHaveText` resolved: two round trips racing a 500ms window, and on a
+      // loaded machine it read the NEXT dwell filling (0.00215, 0.01865,
+      // 0.0052), with the in-page case below green in the same runs.
+      for (const [i, turn] of turns.entries()) {
+        expect(turn.fill, `turn ${i + 1} (${turn.text}) hands the bar over`).toBe("handover");
+        expect(turn.bar, `turn ${i + 1}: the fill holds full through the handover`).toBe(1);
+      }
       // The FIRST turn is only as long as the dwell that was left when we
       // started watching — `progress` is elapsed / dwell, so the bar's own
       // first reading says how much is gone (carousel.spec.ts's lesson: a bare
@@ -615,40 +687,39 @@ test.describe("rotation", () => {
   });
 
   test("Pause holds the slide AND the bar; Play starts them again", async ({ browser }) => {
-    test.setTimeout(40_000);
+    // 60s: the wait below is the rest of a dwell pressed EARLY in it, ~8s,
+    // after a map boot and a turn (#117). It was late in the dwell, to keep
+    // that wait short, and that is what left the press no room.
+    test.setTimeout(60_000);
     const { context, page } = await moving(browser);
     try {
       await page.goto(HOME);
       await adopted(page);
       await pointerAway(page);
-      // LATE in the dwell, so the wait below is short. It was a whole lap
-      // from wherever the bar stood (DWELL + DISSOLVE + 700) — 9.2s of nothing
-      // once the dwell doubled. The claim needs only the rest of THIS dwell.
-      await expect.poll(() => barScale(page), { timeout: TURN_CEILING }).toBeGreaterThan(0.6);
+      await mapBooted(page);
+      await pauseEarlyInADwell(page);
 
-      // A real mouse press — Chromium focuses on mousedown, which is itself a
-      // pause; the control must not toggle straight back to playing.
-      await page.getByRole("button", { name: "Pause slides" }).click();
-      const play = page.getByRole("button", { name: "Play slides" });
-      await expect(play).toBeVisible();
-      await pointerAway(page);
-
+      // WHAT IS HELD is read off the page once the press has landed, never
+      // assumed: this case is about Pause, not about which slide it fell on.
       const frozen = await barScale(page);
-      expect(frozen).toBeGreaterThan(0);
-      expect(frozen).toBeLessThan(1);
+      const held = await onStage(page);
+      const heldStatus = (await status(page).textContent())!;
+      expect(frozen, "premise: paused mid-dwell").toBeGreaterThan(0);
+      expect(frozen, "premise: paused mid-dwell").toBeLessThan(1);
       // Past the moment a clock still running WOULD have turned it: the part
       // of the dwell the bar says is left, and 700 of margin.
       await page.waitForTimeout((1 - frozen) * DWELL + 700);
       expect(await barScale(page)).toBe(frozen);
-      expect(await onStage(page)).toEqual(["25331 IH 10 West"]);
+      expect(await onStage(page)).toEqual(held);
+      await expect(status(page)).toHaveText(heldStatus);
       await expect(status(page)).toHaveAttribute("aria-live", "polite");
 
-      await play.click();
+      await page.getByRole("button", { name: "Play slides" }).click();
       await pointerAway(page);
       await expect(page.getByRole("button", { name: "Pause slides" })).toBeVisible();
       // Focus is still inside the carousel, so rotation restarts only because
       // Play was pressed — and it resumes from where the bar stood.
-      await expect(status(page)).toHaveText("Slide 2 of 3", { timeout: TURN_CEILING });
+      await expect(status(page)).not.toHaveText(heldStatus, { timeout: TURN_CEILING });
     } finally {
       await context.close();
     }
@@ -941,12 +1012,12 @@ test.describe("rotation", () => {
       // attribution control and cluster markers, on every run.
       //
       // THE COST, SAID OUT LOUD: this audits the BOOTED state, so the band's
-      // pre-boot state — the server-rendered link list every visitor sees for
-      // as long as 426 KB takes, and for good without WebGL — is not audited
-      // here any more. It never was deterministically; the old line reached it
-      // by winning a race. #125 tracks giving it a case of its own, and #122
-      // may change what that state even is. The two CLOCK cases in this block
-      // still start timing without waiting for this boot: #117.
+      // pre-boot state — what every visitor sees for as long as 426 KB takes,
+      // and for good without WebGL — is not audited here. It never was
+      // deterministically; the old line reached it by winning a race. It has
+      // its own cases now, just below (#125), and since #122 it is the picture
+      // of MAP_HOME rather than the link list. The CLOCK cases in this block
+      // boot the map before they time anything (#117).
       await expect(
         page.locator("[data-property-map]").first(),
         "the band's map never finished booting, so this audit has no map in it",
@@ -1034,6 +1105,102 @@ test.describe("rotation", () => {
       await expectRing(page, page.getByRole("button", { name: "Next slide" }), GARNET);
     } finally {
       await context.close();
+    }
+  });
+
+  test("before the engine: the band's map is its picture, and axe passes it — refused, not late", async ({
+    browser,
+  }) => {
+    // THE PRE-BOOT STATE, AUDITED ON PURPOSE (#125). The case above waits the
+    // boot OUT; this one takes it away, so there is no race in either
+    // direction: the engine's module is refused at the network, the lazy gate
+    // still opens on the scroll, and the import that follows fails. Since #122
+    // what a visitor has in that state is the committed picture of MAP_HOME
+    // with the listings' pins over it, and the list under it `sr-only` — not
+    // the visible list this issue was first written about (that state is the
+    // next case's).
+    test.setTimeout(60_000);
+    const { context, page } = await moving(browser);
+    try {
+      await page.route(/map-engine|maplibre/, (route) => route.abort());
+      const refused = page.waitForEvent("requestfailed", (r) => /map-engine/.test(r.url()));
+      await page.goto(HOME);
+      await adopted(page);
+      await settledForAudit(page, page.locator(CARD));
+      // Positive evidence the boot was ATTEMPTED and refused, rather than the
+      // gate simply never having opened.
+      await refused;
+      await page.getByRole("button", { name: "Pause slides" }).click();
+      await expect(page.getByRole("button", { name: "Play slides" })).toBeVisible();
+
+      const map = page.locator(`${BAND} [data-property-map]`);
+      await expect(map).not.toHaveAttribute("data-map-ready", "");
+      await expect(map.locator("[data-map-home-box]"), "the picture is drawn").toBeVisible();
+      const pins = map.locator('[data-map-home-frame="full"] [data-map-home-pin]');
+      expect(await pins.count(), "with the listings' pins on it").toBeGreaterThan(0);
+      for (const link of await map.locator("[data-map-link]").all())
+        await expect(link).toHaveClass(/\bsr-only\b/);
+
+      const results = await new AxeBuilder({ page }).include(BAND).analyze();
+      expect(results.violations.map((v) => `${v.id}: ${v.nodes.length}`)).toEqual([]);
+      const { measured, unmeasured } = contrastOf(results);
+      expect(
+        unmeasured.map((n) => n.html.slice(0, 60)),
+        "axe could not measure these",
+      ).toEqual([]);
+      expect(measured.length, "every text node in the card").toBeGreaterThanOrEqual(6);
+      // WHAT AXE LOOKED AT IN THE MAP, by name. The picture's text is the
+      // list, which is `sr-only`, so there is no contrast in it to measure;
+      // what can go wrong is the pins — links a pointer can press, hidden from
+      // the accessibility tree — and the list's names. The picture is hidden
+      // as ONE subtree, so axe reports its root and checks every pin in it.
+      expect(
+        await passedOn(page, results, "aria-hidden-focus", "[data-map-home-box]"),
+        "the hidden picture, pins and all, was checked for a tab stop",
+      ).toBe(1);
+      expect(
+        await passedOn(page, results, "link-name", "[data-map-link]"),
+        "every listing link was checked for a name",
+      ).toBe(await map.locator("[data-map-link]").count());
+    } finally {
+      await context.close();
+    }
+  });
+
+  test("…and where no listing is inside the opening frame, the LIST is the map — axe measures it on both grounds", async ({
+    page,
+  }) => {
+    // The other pre-boot state (#125): `homeFrames` is null, so no picture is
+    // drawn and the links are what a sighted visitor reads — on the band's
+    // #3d0707 as on a section's sand. /dev/home cannot reach it (every
+    // featured listing is inside MAP_HOME), so /dev/a11y-fixtures draws one
+    // box per ground with `engine="off"`: nothing to race at all.
+    await page.goto("/dev/a11y-fixtures");
+    for (const tone of ["garnet", "cream"]) {
+      const selector = `[data-property-map]:has([aria-label="Beyond the opening frame, ${tone} listings"])`;
+      const map = page.locator(selector);
+      await expect(map).toHaveCount(1);
+      await expect(map, `${tone}: no picture`).not.toHaveAttribute("data-map-home", "");
+      const link = map.locator("[data-map-link]");
+      await expect(link, `${tone}: the list is drawn`).toBeVisible();
+      await expect(link).not.toHaveClass(/\bsr-only\b/);
+
+      const results = await new AxeBuilder({ page }).include(selector).analyze();
+      expect(results.violations.map((v) => `${v.id}: ${v.nodes.length}`)).toEqual([]);
+      const { measured, unmeasured } = contrastOf(results);
+      expect(
+        unmeasured.map((n) => n.html.slice(0, 60)),
+        tone,
+      ).toEqual([]);
+      const links = await page.evaluate(
+        (targets) => targets.map((t) => !!document.querySelector(t)?.matches("[data-map-link]")),
+        measured.map((n) => String(n.target[0])),
+      );
+      const ratios = measured
+        .filter((_, i) => links[i])
+        .map((n) => (n.any?.[0]?.data as { contrastRatio?: number } | undefined)?.contrastRatio);
+      expect(ratios, `${tone}: axe measured the listing link`).toHaveLength(1);
+      expect(ratios[0], `${tone}: the link's ratio`).toBeGreaterThan(4.5);
     }
   });
 });
@@ -1824,19 +1991,15 @@ test.describe("motion", () => {
   });
 
   test("the drift FREEZES with the bar on pause — one clock, not two", async ({ browser }) => {
-    test.setTimeout(40_000);
+    // 60s for the Pause case's reason: pressed early in a dwell (#117).
+    test.setTimeout(60_000);
     const { context, page } = await moving(browser);
     try {
       await page.goto(HOME);
       await adopted(page);
       await pointerAway(page);
-      // Late in the dwell, for the Pause case's reason: the wait below is the
-      // rest of this dwell, not a whole lap.
-      await expect.poll(() => barScale(page), { timeout: TURN_CEILING }).toBeGreaterThan(0.6);
-
-      await page.getByRole("button", { name: "Pause slides" }).click();
-      await expect(page.getByRole("button", { name: "Play slides" })).toBeVisible();
-      await pointerAway(page);
+      await mapBooted(page);
+      await pauseEarlyInADwell(page);
 
       const frozenScale = await photoScale(page);
       const frozenBar = await barScale(page);

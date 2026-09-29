@@ -64,6 +64,9 @@
   } as unknown as ImageField;
   const runImport = { img: { src: pixel, w: 1920, h: 1080 }, sources: {} };
 
+  /** The two grounds a map is drawn on, for the list-state fixtures (#125). */
+  const BEYOND_HOME_TONES = ["garnet", "cream"] as const;
+
   const items = [
     {
       label: "What is this page?",
@@ -461,10 +464,13 @@
        host is a gate that goes red when somebody else's CDN has a bad
        afternoon. `off` renders exactly what the server renders and never
        imports the engine, so what is audited here is the state that matters
-       for this gate anyway: the list of listings, its accessible name, the
-       garnet-on-sand of its links, and — on both instances since M1 — the
-       expand affordance's name, its 44 x 44 target and its contrast (+ and −
-       need a drawn map, so they are not here). The pins, the
+       for this gate anyway: the list of listings, its accessible name, and —
+       on both instances since M1 — the expand affordance's name, its 44 x 44
+       target and its contrast (+ and − need a drawn map, so they are not
+       here). NOT the links' contrast, which this comment claimed until
+       2026-09-28: since #122 both boxes draw the picture of MAP_HOME, the list
+       under it is `sr-only`, and axe measures no contrast on it. The two
+       boxes after these two draw the list, for that reason (#125). The pins, the
        sheet, the focused chip and the attribution are measured in a real
        browser by tests/interaction/property-map.spec.ts instead, and the
        geometry could not be measured here anyway (`max-w-3xl` squeezes every
@@ -498,6 +504,28 @@
     engine="off"
     class="h-[595px]"
   />
+  <!-- The LIST's own state (#125): a section with no listing inside MAP_HOME
+       draws no picture, so its links are what a sighted visitor reads until
+       the engine lands, and for good without WebGL. One point in Houston, well
+       outside both frames, on each ground a map is drawn on: the Properties
+       sections' sand and the homepage band's #3d0707. -->
+  {#each BEYOND_HOME_TONES as tone (tone)}
+    <PropertyMap
+      points={sectionPoints([
+        propertyFixture(
+          {
+            title: "A listing beyond the opening frame",
+            location: { latitude: 29.7604, longitude: -95.3698 },
+          },
+          { id: `fixture-beyond-home-${tone}`, uid: `beyond-home-${tone}` },
+        ),
+      ])}
+      label="Beyond the opening frame, {tone}"
+      engine="off"
+      {tone}
+      class="h-50"
+    />
+  {/each}
 
   <PageMasthead title="Our Properties" image={PROPERTIES_MASTHEAD_FIXTURE} preload={false} />
   <PageMasthead title="Our Properties, no photo" preload={false} />
