@@ -1,8 +1,8 @@
-import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Browser, type Locator, type Page } from "@playwright/test";
 
 import { GARNET, OFF_WHITE } from "./expect-ring";
 import { hydrated, HYDRATION_TIMEOUT } from "./hydrated";
+import { axe } from "./axe";
 
 // THE PROPERTIES PAGE BELOW `lg`: EACH SECTION AN IN-CARD CAROUSEL (#14), and
 // the focus net under it (#34). jsdom has no layout, no `inert` and no cascade,
@@ -307,7 +307,7 @@ test.describe("at 390, hydrated", () => {
     try {
       await firstCarousel(page);
       const audit = async () => {
-        const results = await new AxeBuilder({ page })
+        const results = await axe(page)
           .include(LISTS)
           .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
           .analyze();
