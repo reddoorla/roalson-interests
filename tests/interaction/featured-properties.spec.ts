@@ -1707,8 +1707,8 @@ test.describe("motion", () => {
     //    for the whole 500ms (its `opacity-0` waits out `delay-500`), so any
     //    jump — to 1.03, or straight back to 1 — shows in a single frame: up
     //    to 27.8px of width on the 928 × 542 box. Since 2026-09-29 the hold
-    //    is the leaving transition's DELAY: back to 1 in 0s after the
-    //    settle, holding its start value until then. Asserted as ONE value
+    //    is the leaving transition's DELAY, until the photo's wrapper has
+    //    faded out and it rests at 1 (see the slice). Asserted as ONE value
     //    for every frame it is visible, and that value is where the drift had
     //    got to when the turn was drawn — no further than the drift's own
     //    rate allows past the frame before the press.

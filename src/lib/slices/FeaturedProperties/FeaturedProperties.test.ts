@@ -363,7 +363,7 @@ describe("FeaturedProperties slice", () => {
     /** The hand-over, which the dwell doubling did NOT change. */
     const DISSOLVE = CAMERA_FLIGHT_MS;
 
-    it("drifts only the photo, as ONE transition: to 1 + KEN_BURNS over DWELL, after the settle", () => {
+    it("drifts only the photo, as ONE transition: to 1 + KEN_BURNS over DWELL — the first slide from load", () => {
       const { container } = render(FeaturedProperties, {
         props: { slice: featuredPropertiesFixture() },
       });
@@ -414,7 +414,7 @@ describe("FeaturedProperties slice", () => {
 
     it("a photo that left RESTS once its own fade-out has ended — and a turn back starts it from 1", async () => {
       // Not on a timer: the leaving hold lasts until the wrapper's opacity
-      // transition ENDS, which is the photo stopping to show. jsdom runs no
+      // transition ENDS, which is when the photo stops showing. jsdom runs no
       // transitions, so the `transitionend` is dispatched by hand.
       vi.useFakeTimers();
       const { container, getByLabelText } = render(FeaturedProperties, {
