@@ -459,8 +459,9 @@ describe("the camera the page drives", () => {
   // tell a truthful source from a blind one: the field this replaces passed
   // every case below unchanged while being, in a browser, absent for any
   // scroll slower than its own 120ms debounce. The guard that watches the
-  // SOURCE is in PropertyMap.test.ts ("the hold belongs to the flight, not to
-  // the page"), where the component keeps the clock and a fake one drives it.
+  // SOURCE is in PropertyMap.camera.svelte.test.ts ("the hold belongs to the
+  // flight, not to the page"), where the component keeps the clock and a fake
+  // one drives it.
   describe("while a flight this map issued is still in the air", () => {
     it("refuses the flight — and names the reason, so nothing else can claim it", () => {
       expect(cameraMove({ ...baseline, flying: true })).toEqual({

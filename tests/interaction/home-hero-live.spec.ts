@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { gutter, measuresGutter, viewportFor } from "./gutter";
 import { hydrated } from "./hydrated";
 
 // THE REVISED HERO BAND ON THE ROUTE THE SITE SERVES (`/`), so it runs on a
@@ -29,6 +30,10 @@ import { hydrated } from "./hydrated";
 
 const HOME = "/";
 const band = '[data-slice-type="home_hero"] [data-nav-gate]';
+
+// The page lays out a scrollbar gutter narrower than its window, 15 or 0 by
+// system setting (#124), so it is measured rather than typed.
+measuresGutter();
 
 /** The webfont has ARRIVED, by name (partners.spec.ts has why): with the face
  *  blocked — a CSP that differs on the shipped path is exactly the case —
@@ -74,7 +79,7 @@ const setWidth = (page: Page, text: string) =>
 test("the band is one column on the gutter, with no specialty list, on the route the site serves", async ({
   page,
 }) => {
-  await page.setViewportSize({ width: 1455, height: 900 });
+  await page.setViewportSize(viewportFor(1440));
   await page.goto(HOME);
   await hydrated(page);
   await expect(page.locator(`${band} h1`)).toHaveCount(1);
@@ -119,7 +124,8 @@ test("on the served face the revised lines fit the column either side of the 104
   expect(forced.font).toContain("66px");
   expect(forced.font).toContain("Atkinson Hyperlegible Next");
   test.info().annotations.push({ type: "measured@1040", description: JSON.stringify(forced) });
-  expect(forced.column, "961 at a 1040 viewport").toBe(961);
+  // 961 under a classic scrollbar: the viewport, less the gutter, less 2 × 32.
+  expect(forced.column, "the column at a 1040 viewport").toBe(1040 - gutter() - 64);
   expect(forced.width, "line two fits with a margin").toBeLessThan(forced.column - 10);
   const first = await setWidth(page, "San Antonio's Commercial");
   expect(first.width).toBeLessThan(first.column);
@@ -132,7 +138,7 @@ test("on the served face the revised lines fit the column either side of the 104
   const flowed = await setWidth(page, "San Antonio's Commercial Real");
   test.info().annotations.push({ type: "measured@1024", description: JSON.stringify(flowed) });
   expect(flowed.font).toContain("66px");
-  expect(flowed.column, "945 at a 1024 viewport").toBe(945);
+  expect(flowed.column, "the column at a 1024 viewport").toBe(1024 - gutter() - 64);
   expect(flowed.width, "the flowed first line fits with a margin").toBeLessThan(flowed.column - 10);
   const rest = await setWidth(page, "Estate Experts Since 1983.");
   expect(rest.width).toBeLessThan(rest.column);

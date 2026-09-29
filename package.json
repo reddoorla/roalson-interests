@@ -6,7 +6,7 @@
     "verify": "pnpm lint && pnpm check && pnpm build && pnpm test:a11y && pnpm test",
     "dev": "concurrently \"pnpm:vite:dev\" \"pnpm:slicemachine\" --prefix-colors blue,magenta",
     "vite:dev": "vite dev --host",
-    "build": "vite build",
+    "build": "vite build && node scripts/publish-check.mjs",
     "preview": "vite preview",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",

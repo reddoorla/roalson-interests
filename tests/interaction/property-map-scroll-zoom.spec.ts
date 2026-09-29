@@ -144,7 +144,7 @@ async function settled(page: Page, from: number, timeout = 15_000) {
 async function cameraStill(page: Page) {
   const read = () =>
     page.evaluate(() => {
-      const m = window.__camera.maps[0]!;
+      const m = window.__camera.map(0);
       const c = m.getCenter();
       return `${c.lng.toFixed(7)},${c.lat.toFixed(7)},${m.getZoom().toFixed(5)}`;
     });
@@ -464,7 +464,7 @@ const recordZoomends = (page: Page) =>
   page.evaluate(() => {
     const w = window as unknown as { __zoomends: { t: number; zoom: number }[] };
     w.__zoomends = [];
-    const m = window.__camera.maps[0]!;
+    const m = window.__camera.map(0);
     m.on("zoomend", () =>
       w.__zoomends.push({ t: performance.now() - window.__camera.t0, zoom: m.getZoom() }),
     );
@@ -667,7 +667,7 @@ test.describe("the zoom carried is one the visitor chose, on a listing", () => {
       // ease was still running when it happened.
       const at = await page.evaluate(
         ({ current }) => {
-          const m = window.__camera.maps[0]!;
+          const m = window.__camera.map(0);
           const easing = m.scrollZoom.isActive();
           const zoom = m.getZoom();
           const all = [...document.querySelectorAll<HTMLElement>("[data-centre-id]")];
@@ -759,7 +759,7 @@ test.describe("the zoom carried is one the visitor chose, on a listing", () => {
       // ease was still running when it happened.
       const at = await page.evaluate(
         ({ current }) => {
-          const m = window.__camera.maps[0]! as (typeof window.__camera.maps)[number] & {
+          const m = window.__camera.map(0) as (typeof window.__camera.maps)[number] & {
             isZooming(): boolean;
           };
           const easing = m.isZooming();

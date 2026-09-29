@@ -131,7 +131,7 @@ Netlify/Prismic prompts. To stand one up by hand instead:
 | ------------------- | --------------------------------------------------------------- |
 | `pnpm verify`       | **Everything CI runs, in CI's order** — run this before pushing |
 | `pnpm dev`          | Start dev server + Slice Machine                                |
-| `pnpm build`        | Production build                                                |
+| `pnpm build`        | Production build, then the map's publish check (#120)           |
 | `pnpm preview`      | Preview production build                                        |
 | `pnpm check`        | Svelte type checking                                            |
 | `pnpm lint`         | Lint with ESLint + Prettier                                     |

@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { HYDRATION_TIMEOUT } from "./hydrated";
 
 // THE SCROLL REVEAL'S HIDDEN STATE BELONGS TO THE FIRST PAINT.
 //
@@ -26,21 +27,37 @@ import { expect, test, type Page } from "@playwright/test";
 const FIXTURE = "/dev/animate-in";
 
 /** Per-frame opacity of the first server-hidden reveal target, sampled from
- *  before the first script the page ships.
+ *  before the first script the page ships until a second AFTER the reveal is
+ *  over — so a flash after the hand-back would still be in the trace.
  *
  *  The element reference is captured once and held: animateIn REMOVES
  *  `data-reveal` the moment it reveals, so re-querying each frame would stop
- *  tracking exactly when the interesting part happens. */
+ *  tracking exactly when the interesting part happens.
+ *
+ *  IT STOPS ON THE REVEAL, NOT ON A CLOCK (#149). It used to sample for 4000ms
+ *  from the document's start, and the reveal is hydration plus a 2400ms fade:
+ *  measured at load 2, it reached opacity 1 at 3043, 3069 and 3587ms. A
+ *  hydration 0.4-1s slower — a busy machine, a cold compile — and the trace
+ *  ended mid-fade, and the poll below waited 10s for a sample that could no longer
+ *  be taken: "the reveal never completed", about a reveal that had. "Over" is
+ *  the positive artefact animateIn leaves: the marker gone AND every inline
+ *  style it wrote removed. */
 async function traceFirstRevealTarget(page: Page) {
   await page.addInitScript(() => {
-    const w = window as unknown as { __trace: number[] };
+    const w = window as unknown as { __trace: number[]; __traceDone: boolean };
     w.__trace = [];
-    let held: Element | null = null;
-    const t0 = performance.now();
+    w.__traceDone = false;
+    let held: HTMLElement | null = null;
+    let overAt: number | null = null;
     const tick = () => {
-      held ??= document.querySelector("[data-reveal]");
-      if (held) w.__trace.push(Number(getComputedStyle(held).opacity));
-      if (performance.now() - t0 < 4000) requestAnimationFrame(tick);
+      held ??= document.querySelector<HTMLElement>("[data-reveal]");
+      if (held) {
+        w.__trace.push(Number(getComputedStyle(held).opacity));
+        if (overAt === null && !held.hasAttribute("data-reveal") && !held.style.opacity)
+          overAt = performance.now();
+      }
+      if (overAt !== null && performance.now() - overAt >= 1000) w.__traceDone = true;
+      else requestAnimationFrame(tick);
     };
     requestAnimationFrame(tick);
   });
@@ -91,26 +108,36 @@ test("with scripting off, the same markup paints at full opacity", async ({ brow
 test("with scripting on, it is hidden on the first frame and never flashes", async ({
   browser,
 }) => {
+  // The wait below is a CEILING on positive evidence, and it is hydration's:
+  // a cold compile is 5-7s (hydrated.ts), then the fade is 2400ms and the
+  // tail 1000. The old 10s was under that sum.
+  test.setTimeout(45_000);
   const context = await browser.newContext({ reducedMotion: "no-preference" });
   try {
     const page = await context.newPage();
     await traceFirstRevealTarget(page);
     await page.goto(FIXTURE, { waitUntil: "load" });
 
+    // Frames and the last opacity ride along, so a timeout says which it was:
+    // a starved page (few frames) or a stuck reveal (many, still hidden).
     await expect
       .poll(
         () =>
           page.evaluate(() => {
-            const t = (window as unknown as { __trace: number[] }).__trace;
-            return t.length > 5 && t[t.length - 1] === 1;
+            const w = window as unknown as { __trace: number[]; __traceDone: boolean };
+            return { over: w.__traceDone, frames: w.__trace.length, last: w.__trace.at(-1) };
           }),
-        { timeout: 10_000, message: `${FIXTURE}: the reveal never completed` },
+        {
+          timeout: HYDRATION_TIMEOUT + 5_000,
+          message: `${FIXTURE}: the reveal never completed`,
+        },
       )
-      .toBe(true);
+      .toMatchObject({ over: true });
 
     const trace: number[] = await page.evaluate(
       () => (window as unknown as { __trace: number[] }).__trace,
     );
+    expect(trace.length, "sampled the reveal frame by frame").toBeGreaterThan(5);
 
     // Hidden from the very first frame the element exists in — this is the
     // assertion that the CSS hidden state is genuinely in force in the browser,
