@@ -2137,6 +2137,10 @@ test.describe("motion", () => {
       await page.goto(HOME);
       await adopted(page);
       await pointerAway(page);
+      // ON SCREEN: the card is below the fold at 1440 × 900 and hidden until
+      // its reveal, so scroll to it and let the reveal finish first.
+      await page.locator(BAND).scrollIntoViewIfNeeded();
+      await revealed(page.locator(CARD));
       await expect.poll(() => timedFill(page), { timeout: TURN_CEILING }).toBeGreaterThan(0.2);
 
       // Pressed and sampled IN THE PAGE (sampleAfterPress's reason): focus
