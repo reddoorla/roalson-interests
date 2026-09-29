@@ -23,7 +23,8 @@ import { placedPin, steadyMarkers } from "./placed-markers";
 //  3. CSS, NOT SCRIPT. Both hold with scripting off.
 //  4. A PIN PRESS STILL LANDS. Pressing a pin scrolls its card onto the
 //     centre line, it goes garnet, the camera puts its pin at the map's middle,
-//     and the card is level with the map's own centre.
+//     and the card's centre is the map's centre within 1px, under a pinned
+//     divider too (#155).
 //
 // ON /properties, not the fixture, so it runs on a production build:
 //
@@ -318,44 +319,63 @@ const garnetIds = (sec: Locator) =>
     GARNET,
   );
 
-test("1440x900: a pressed pin lands its card on the centre line, garnet, with the camera on it", async ({
-  browser,
-}) => {
-  test.setTimeout(120_000);
-  const { context, page } = await at(browser, 1440, 900);
-  try {
-    await page.goto(LIVE);
-    await hydrated(page);
-    const [first] = await sections(page);
-    const section = sectionOf(page, first!);
-    const map = section.locator(MAP);
-    await expect(map).toHaveAttribute("data-map-ready", "", { timeout: 45_000 });
+/** Where a pressed card landed against the map's centre and the window's. */
+const landing = (sec: Locator, id: string) =>
+  sec.evaluate((el, id) => {
+    const card = el.querySelector(`[data-centre-id="${id}"]`)!.getBoundingClientRect();
+    const m = el.querySelector("[data-property-map]")!.getBoundingClientRect();
+    const mapCentre = (m.top + m.bottom) / 2;
+    const cardCentre = (card.top + card.bottom) / 2;
+    return {
+      windowCentre: window.innerHeight / 2,
+      mapCentre,
+      cardTop: card.top,
+      cardBottom: card.bottom,
+      cardCentreBelowMapCentre: cardCentre - mapCentre,
+    };
+  }, id);
 
-    // Start with the MIDDLE card of the column on the centre line — the map is
-    // pinned there — and the highlight settled on it. By a card rather than by
-    // a scroll offset, because the line can fall in the 20px gap between two
-    // cards, and then nothing is garnet but the fallback.
-    const order = await section.evaluate((el) =>
-      [...el.querySelectorAll<HTMLElement>("[data-centre-id]")].map((li) => li.dataset.centreId!),
-    );
-    expect(order.length, "listings to press between").toBeGreaterThan(2);
-    const before = order[Math.floor(order.length / 2)]!;
-    await section
-      .locator(`[data-centre-id="${before}"]`)
-      .evaluate((li) => li.scrollIntoView({ block: "center", behavior: "instant" }));
-    expect(await onCentreLine(section), "the middle card is on the line").toBe(before);
-    await expect.poll(() => garnetIds(section), { timeout: MOVE_TIMEOUT }).toEqual([before]);
-    const pinned = await map.evaluate((el) => getComputedStyle(el).position);
-    expect(pinned, "the map is sticky here").toBe("sticky");
+/**
+ * Settle the section's MIDDLE card on the centre line, then press the pin of
+ * the listing furthest from it that a pointer can hit. Not the first or last
+ * card: centring one of those runs its map to an end of its travel, where it
+ * is no longer pinned on the window's middle, and #155's claim is about the
+ * pinned map. `zoomOut` presses − first, for a section whose neighbours are
+ * off a z12 one-listing camera; that is a gesture, so the camera then stays
+ * where the visitor put it and is not asserted.
+ */
+async function pressFar(page: Page, labelledBy: string, zoomOut: boolean) {
+  const section = sectionOf(page, labelledBy);
+  const map = section.locator(MAP);
+  await section.scrollIntoViewIfNeeded();
+  await expect(map).toHaveAttribute("data-map-ready", "", { timeout: 45_000 });
 
-    // The pin to press: a single pin (not a group), fully inside the window,
-    // that a real pointer would hit, for the listing FURTHEST down the column
-    // from the current one — so the press has to scroll the page.
-    const { box, markers } = await steadyMarkers(map, "the land map's markers");
+  // By a card rather than by a scroll offset, because the line can fall in
+  // the 20px gap between two cards, and then nothing is garnet but the
+  // fallback.
+  const order = await section.evaluate((el) =>
+    [...el.querySelectorAll<HTMLElement>("[data-centre-id]")].map((li) => li.dataset.centreId!),
+  );
+  expect(order.length, "listings to press between").toBeGreaterThan(2);
+  const before = order[Math.floor(order.length / 2)]!;
+  await section
+    .locator(`[data-centre-id="${before}"]`)
+    .evaluate((li) => li.scrollIntoView({ block: "center", behavior: "instant" }));
+  expect(await onCentreLine(section), "the middle card is on the line").toBe(before);
+  await expect.poll(() => garnetIds(section), { timeout: MOVE_TIMEOUT }).toEqual([before]);
+  const pinned = await map.evaluate((el) => getComputedStyle(el).position);
+  expect(pinned, "the map is sticky here").toBe("sticky");
+
+  // The pin to press: a single pin (not a group), fully inside the window,
+  // that a real pointer would hit, for the listing FURTHEST down the column
+  // from the current one — so the press has to scroll the page.
+  const pressable = async () => {
+    const { box, markers } = await steadyMarkers(map, `${labelledBy}'s markers`);
     const mapRect = await map.evaluate((el) => el.getBoundingClientRect().toJSON());
     const candidates = [];
     for (const m of markers) {
-      if (!m.id || m.id === before) continue;
+      const at = m.id ? order.indexOf(m.id) : -1;
+      if (!m.id || m.id === before || at < 1 || at > order.length - 2) continue;
       const x = mapRect.left + m.x + m.w / 2;
       const y = mapRect.top + m.y + m.h * 0.35;
       const hit = await page.evaluate(
@@ -367,33 +387,65 @@ test("1440x900: a pressed pin lands its card on the centre line, garnet, with th
         [x, y, m.id] as const,
       );
       if (hit && m.x >= 0 && m.y >= 0 && m.x + m.w <= box.w && m.y + m.h <= box.h)
-        candidates.push({
-          id: m.id,
-          x,
-          y,
-          far: Math.abs(order.indexOf(m.id) - order.indexOf(before)),
-        });
+        candidates.push({ id: m.id, x, y, far: Math.abs(at - order.indexOf(before)) });
     }
-    expect(candidates.length, "a single pin a pointer can press").toBeGreaterThan(0);
-    const target = candidates.sort((a, b) => b.far - a.far)[0]!;
-    expect(target.far, "and its card is not the one already on the line").toBeGreaterThan(0);
+    return candidates;
+  };
+  let candidates = await pressable();
+  for (let out = 0; zoomOut && candidates.length === 0 && out < 4; out++) {
+    await map.locator('[data-map-control="zoom-out"]').click();
+    candidates = await pressable();
+  }
+  expect(candidates.length, "a single pin a pointer can press").toBeGreaterThan(0);
+  const target = candidates.sort((a, b) => b.far - a.far)[0]!;
 
-    const y0 = await page.evaluate(() => window.scrollY);
-    await page.mouse.click(target.x, target.y);
+  const y0 = await page.evaluate(() => window.scrollY);
+  await page.mouse.click(target.x, target.y);
 
-    // THE CARD: garnet, alone, and on the window's centre line by an
-    // independent box test.
-    await expect
-      .poll(() => garnetIds(section), {
-        message: `pressing ${target.id}'s pin makes its card the garnet one`,
-        timeout: MOVE_TIMEOUT,
-      })
-      .toEqual([target.id]);
-    expect(await onCentreLine(section), "its card is the one on the centre line").toBe(target.id);
-    expect(
-      Math.abs((await page.evaluate(() => window.scrollY)) - y0),
-      "the press really scrolled the page",
-    ).toBeGreaterThan(100);
+  // THE CARD: garnet, alone, and on the window's centre line by an
+  // independent box test.
+  await expect
+    .poll(() => garnetIds(section), {
+      message: `pressing ${target.id}'s pin makes its card the garnet one`,
+      timeout: MOVE_TIMEOUT,
+    })
+    .toEqual([target.id]);
+  expect(await onCentreLine(section), "its card is the one on the centre line").toBe(target.id);
+  expect(
+    Math.abs((await page.evaluate(() => window.scrollY)) - y0),
+    "the press really scrolled the page",
+  ).toBeGreaterThan(100);
+  return { section, map, before, target };
+}
+
+/** #155: the pressed card's CENTRE on the pinned map's centre, within 1px.
+ *  It used to sit 50px low (72.91 under a pinned divider): `revealCard`
+ *  centres the card's scroll-margin box in the window less
+ *  `scroll-padding-top`, and only the card's `scroll-mb-(--sticky-top)`
+ *  makes that the window's middle. */
+async function expectLevel(section: Locator, from: string, to: string) {
+  const level = await landing(section, to);
+  console.log(`press ${JSON.stringify({ from, to, level })}`);
+  expect(
+    Math.abs(level.mapCentre - level.windowCentre),
+    `the map is pinned on the window's middle, so the press is #155's case`,
+  ).toBeLessThanOrEqual(PX);
+  expect(
+    Math.abs(level.cardCentreBelowMapCentre),
+    `${to}'s card centre against the map's: ${JSON.stringify(level)}`,
+  ).toBeLessThanOrEqual(PX);
+}
+
+test("1440x900: a pressed pin lands its card on the map's centre, garnet, with the camera on it", async ({
+  browser,
+}) => {
+  test.setTimeout(120_000);
+  const { context, page } = await at(browser, 1440, 900);
+  try {
+    await page.goto(LIVE);
+    await hydrated(page);
+    const [first] = await sections(page);
+    const { section, map, before, target } = await pressFar(page, first!, false);
 
     // THE CAMERA: the pressed listing's own pin tip at the map's middle, 4px
     // below it (the frame pads 52 top against 44 bottom).
@@ -410,27 +462,35 @@ test("1440x900: a pressed pin lands its card on the centre line, garnet, with th
       )
       .toEqual([0, 0]);
 
-    // AND THE MAP IS LEVEL WITH IT: the pressed card spans the line the map's
-    // own centre is on, which is the point of centring the map.
-    const level = await section.evaluate((el, id) => {
-      const card = el.querySelector(`[data-centre-id="${id}"]`)!.getBoundingClientRect();
-      const m = el.querySelector("[data-property-map]")!.getBoundingClientRect();
-      const mapCentre = (m.top + m.bottom) / 2;
-      return {
-        mapCentre,
-        cardTop: card.top,
-        cardBottom: card.bottom,
-        cardCentreBelowMapCentre: (card.top + card.bottom) / 2 - mapCentre,
-      };
-    }, target.id);
-    // Recorded, not asserted: where the card's CENTRE lands against the map's.
-    // `revealCard` centres the card in the scrollport less `scroll-padding-top`
-    // and its own scroll margin, so it sits a little below the map's centre.
-    console.log(`press ${JSON.stringify({ from: before, to: target.id, level })}`);
-    expect(level.cardTop, "the card starts above the map's centre").toBeLessThanOrEqual(
-      level.mapCentre,
+    // AND THE MAP IS LEVEL WITH IT, which is the point of centring the map.
+    await expectLevel(section, before, target.id);
+  } finally {
+    await context.close();
+  }
+});
+
+test("1440x900: under a pinned divider, a pressed pin lands its card on the map's centre too", async ({
+  browser,
+}) => {
+  test.setTimeout(120_000);
+  const { context, page } = await at(browser, 1440, 900);
+  try {
+    await page.goto(LIVE);
+    await hydrated(page);
+    const under: string[] = [];
+    for (const id of (await sections(page)).slice(1)) {
+      const pins = await sectionOf(page, id).evaluate(
+        (sec) =>
+          getComputedStyle(sec.firstElementChild as HTMLElement).position === "sticky" &&
+          getComputedStyle(sec.querySelector("[data-centre-id]")!).scrollMarginTop !== "0px",
+      );
+      if (pins) under.push(id);
+    }
+    expect(under.length, "a section whose divider pins and costs a scroll margin").toBeGreaterThan(
+      0,
     );
-    expect(level.cardBottom, "and ends below it").toBeGreaterThanOrEqual(level.mapCentre);
+    const { section, before, target } = await pressFar(page, under[0]!, true);
+    await expectLevel(section, before, target.id);
   } finally {
     await context.close();
   }

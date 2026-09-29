@@ -476,10 +476,18 @@
                    height, or its CSS-derived fallback), and `--usable-top` is
                    what `scroll-padding-top` already applied. In section 0,
                    where nothing pins, the two are equal and this is 0.
-                   `lg:` because none of it pins below that. -->
+                   `lg:` because none of it pins below that.
+
+                   AND A BOTTOM MARGIN OF `--sticky-top`, so a pin press lands
+                   the card on the map's centre (#155). `revealCard` centres
+                   the margin box in the window less `scroll-padding-top`:
+                   card centre = (U + H)/2 - (mb - mt)/2, which is H/2 — the
+                   centred map's middle — only when mb = mt + U = --sticky-top.
+                   Without it the card sat 50px low (72.91 under a pinned
+                   divider) at 1440x900. -->
               <li
                 data-centre-id={property.id}
-                class="lg:scroll-mt-[calc(var(--sticky-top)-var(--usable-top))]"
+                class="lg:scroll-mt-[calc(var(--sticky-top)-var(--usable-top))] lg:scroll-mb-[var(--sticky-top)]"
               >
                 <PropertyCard
                   {property}
