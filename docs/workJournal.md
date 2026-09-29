@@ -6973,6 +6973,8 @@ is not ours to fix without forking a layer we deliberately do not touch.
 
 ## 2026-09-22 — The map pins beside its cards, and its camera follows the one in the middle of the screen (#112, `feat/map-camera`)
 
+> Superseded in part by 2026-09-29 — The flaky specs, root-caused: eleven test issues and the mechanism behind each.
+
 The operator's ask, verbatim: _"the idea is the map is sticky and as different
 properties highlight we scroll around to them"_, and, asked what drives it,
 _"viewport center but clicking a property scrolls it into being the active
@@ -7316,6 +7318,8 @@ rather than that some pin is.
 
 > Superseded in part by 2026-09-22 — The camera coalesces, and the band's clock is not a visitor.
 > Superseded in part by 2026-09-23 — The wheel over the map zooms it again, on the operator's call: the trap that buys, measured, and a zoom that outlives its card.
+
+> Superseded in part by 2026-09-29 — The flaky specs, root-caused: eleven test issues and the mechanism behind each.
 
 The adversarial review of #118 measured three majors in a real browser. All
 three reproduced exactly, on the first try, at 1440×900 on `/dev/properties` —
@@ -7866,6 +7870,8 @@ enough not to be named after the thing it cannot observe, which is the
 casings were not darkened to 3:1 — that is the operator's palette and #119.
 
 ## 2026-09-22 — Two branches that were green apart: a control that had to stop asking the content what zoom it was at, and an opaque chip that was never opaque (#121)
+
+> Superseded in part by 2026-09-29 — The flaky specs, root-caused: eleven test issues and the mechanism behind each.
 
 `feat/map-camera` (#118) and `fix/map-palette-review` (#121) both edited
 `tests/interaction/map-palette.spec.ts` and conflicted. The hand-resolved merge
@@ -8635,6 +8641,8 @@ assumption that a re-render is comparable; it is better than that.
 ## 2026-09-23 — The camera's hold belongs to the flight, not to the page (#127, #128, #129, `fix/camera-wheel-gap`)
 
 > Superseded in part by 2026-09-23 — #130 and #137 compose in exactly one order, and nothing in the tree could tell which: this entry's boot is a map that flies at `load`, and after the merge with #122's placeholder it flies at the END of the cross-fade — so the hand-over is itself a flight that holds the next one, and every case in `PropertyMap.camera.svelte.test.ts` counts from after it.
+
+> Superseded in part by 2026-09-29 — The flaky specs, root-caused: eleven test issues and the mechanism behind each.
 
 `$lib/scroll-activity` is deleted. The camera's coalescing rule no longer asks
 "is the document moving"; it asks "is a flight I issued still in the air", which
@@ -11538,3 +11546,144 @@ script must be pasted into the environment's Setup script by hand (it has not
 yet run as one); a Roalson-scoped write token, then one people seed apply; the
 `--over-live` flag on any listings re-run; the design call on #182; the
 client's answer on #181; and the 19 branches.
+
+## 2026-09-29 — The flaky specs, root-caused: eleven test issues and the mechanism behind each (`claude/roalson-comments-review-45cstm`)
+
+This continues the entry above. Twelve open issues went to two investigators
+sharing one 4-CPU host: `sweep2/band` (#93, #117, #124, #125, #149) and
+`sweep2/camera` (#120, #135, #138, #139, #140, #144, #148), both off `e004402`.
+Eleven are about the tests; #120 is about what they never run against. Main
+(`0ae07f6`, #185) merged in at `0ddd9a8`, then both branches (`f96f94f`,
+`9105144`) and one orchestrator fix (`5d9facb`). Outside tests, this round
+touched a `/dev` fixture page, the `build` script and one docs row: no component.
+
+### Most of them were a window that closed on the clock
+
+**#149's reveal never failed; its trace ran out.** The sampler stopped 4000ms
+after document start, and the reveal (hydration plus a 2400ms fade) reached
+opacity 1 at 3043, 3069 and 3587ms at load ~2.2. At 10x page-CPU throttle the
+old spec was red 4 of 4 with the issue's message; its guess, too few frames, was
+not it. The trace now stops on the artefact `animateIn` leaves plus a 1000ms
+tail, and a timeout reports frames and the last opacity: 8 of 8 at 10x.
+
+**#138's sampler opened on its own first frame, not on the drive**, and closed a
+fixed `ms` later. With a 950ms in-page long task every second the old window
+read 2700px of a real 3000 (2 of 2), the new one 3000. The recorded red (300px
+against a floor of 500) came at load 60 on 8 cores and did not reproduce here.
+`scroll-travel.ts` now opens on a frame taken before the drive and closes once
+the page has held still for 600ms. That exposed a vacuous case: the prod
+pressed-pin case's swept `crossed` would now pass a press that teleported, which
+the old sampler caught only by reading 0. It asserts the glide first now.
+
+**#144's "travels, rather than arriving" counted frames** with the pin
+mid-flight. Forced to ~11fps it went red 2 of 12 on "12 frames sampled … 3",
+the issue's shape; the new case is 12 of 12. It times maplibre's `movestart` to
+`moveend` against `CAMERA_FLIGHT_MS`, which starvation can only lengthen: a
+`jumpTo` reds at 0.2ms. Pins moved only on `moveend` stay green, because the
+`clusters` effect also moves them on every zoom event. The dev pressed pin took
+prod's premises; its 1-in-16 red did not reproduce here (0 of 18 when starved).
+
+**#148 is moot in its reported shape**: at `6cfeba8` the case wheeled a running
+band, and it now pauses first. What remains is the expand's re-fit, two flights
+moving from 54 to 1156ms against a fixed 1200ms wait; forced shorter, the
+`before` read landed mid-flight (9.81, 11.69, 11.02). `cameraAtRest` (no
+motion or command for 700ms) replaces every fixed wait. Whether the original red
+was a clock turn or this settle needs `6cfeba8` checked out, not done here.
+
+### #117: two mechanisms, and the map boots after the press
+
+"Turns on its clock" read `barScale` after `toHaveText` resolved, two round trips
+racing a 500ms handover; a forced 500ms lag is red 2 of 2 (0.054175, 0.02915).
+`stampTurns`' MutationObserver now records the bar at each turn, in the page: 24
+of 24 turns stamped "handover" at 1. The 2026-09-23 manual-turns entry had
+already named this half.
+
+"Pause holds" and "drift FREEZES" polled the bar past 0.6, then pressed, leaving
+2.2 to 3.2s of dwell. **The belief was that the click's scroll boots the map
+inside that window; it boots after.** At 4x throttle the press landed 91 to
+110ms after the last read, and the engine's first request 8 to 37ms AFTER
+`pointerdown`. The race is press latency against the rest of the dwell. It never
+reproduced naturally (8 of 8 at load 25 to 38); a forced 3.3s lag was red 2 of
+2, once on #117's exact slide. The cases now boot the map first (option 1), press
+early in a dwell and read the held slide: 7.0 to 7.7s spare over 8 runs. **That
+is margin, not determinism**: a press over 7s late still loses.
+
+### The 0.01ms class again: #93, and the instance its sweep missed
+
+#93's assertion measured `.canvas-top`, which #98 (`517d230`) deleted. Its
+mechanism, a viewport change applied across frames, was wrong; it is #170's:
+under the harness's reduce, app.css's `0.01ms` rule makes a `100vh` height
+transition on resize, so it reads its old value until a frame ticks (900 twice
+after `innerHeight` said 844 on a bare page, 844 two frames later).
+
+That sweep checked mid-test resizes only. `listing-views.spec.ts`' `expectView`
+read each tab's background once after a click: transparent in the click's frame
+on 6 of 6 probes, garnet two frames later, and red once under two workers. It
+now polls; with the selected garnet removed from app.css, every case reds on
+`tab <id> selected under <id>`. Its hidden-section case lost the default 5s
+map-ready wait once on a cold dev server and has 25s now, like every other spec.
+Nobody has swept the class by mechanism: a computed-style read in the frame of
+the action that changed it.
+
+### #124, #125, #120, and three small ones
+
+**#124 is any overlay scrollbar, not a macOS setting**: Linux under
+`--enable-features=OverlayScrollbar` read `text.left` 436.890625 exactly.
+`gutter.ts` measures `innerWidth` less the root's box on a bare page, once per
+worker, and `gutter()` throws until it has. **Not `innerWidth - clientWidth`, as
+#124 proposed**: on /dev/home at a 1455 window `clientWidth` reads 1455 while
+html lays out at 1440, so on Linux, gutter 15, it measures 0. Why that page
+differs was not measured; the 2026-09-21 ground entry already knew `clientWidth`
+misses the gutter on CI. Under overlay the three specs are 48 of 48 (4 were
+red), and 15 typed back reds on the premise, "1440 — 1455".
+
+**#125 was reshaped by #122**, as it predicted: the pre-boot band is the
+MAP_HOME picture now. A new case refuses the engine at the network (the failed
+request proves the gate opened) and axe finds 0 violations and 0 contrast
+incompletes. The LIST state had no contrast check anywhere, though the fixtures
+page's comment claimed one; two fixture maps now draw it (9.37:1 and 15.13:1).
+
+**#120's reachable half is a build step.** `build` now runs
+`scripts/publish-check.mjs`: the map's three files at build/'s root,
+byte-identical to static/, and no base path in the built manifest. That is the
+`kit.paths.base` test the 2026-09-22 roads entry declined, acceptable now
+because it observes output, not config. No gate draws the shipped bundle yet.
+
+#135 was closed by #150's `resize()` adoption (8 production loads, all adopted
+there 300 to 2000ms after the patch); a lost adoption now fails by name. #139's
+in-motion count is the land map's alone: a built hole read 0 and 0 there, where
+the page-wide count said 3 and 2. #140's pointer names the camera test file.
+
+### Beliefs in earlier entries this round corrects
+
+The 2026-09-22 map-camera entry (#112) says the Pause click boots the map, and
+the #121 entry that the clock cases are owed a boot-first fix: neither clock red
+was the boot. The review-of-#118 entry took the gutter to be `innerWidth` less
+`clientWidth`, and a macOS setting. The 2026-09-23 camera-hold entry says a 100px
+notch "hides the interruption behind the card geometry"; on the old debounce it
+went red 3 of 3 at a 130ms gap, 2 of 3 at 100ms and 0 of 3 at 160 and 220ms. It
+is 300px because that reds 8 of 8, and a guard that sees a defect at only some
+gaps is flaky. Its "PropertyMap's row still says 15" said 34 then (65 now), and
+the camera test file is still uncounted.
+
+### Verification and honest accounting
+
+Each branch passed lint, `pnpm check` and its vitest files; the band's touched
+specs ran 96 passed, 6 skipped, 1 failed (listing-views), the camera's map specs
+64 of 64. One ×8 red, reveal-no-js's "Execution context was destroyed", fell
+while the investigator's own vitest rewrote `.svelte-kit/generated` under the dev
+server; retriggered it was 10 of 10, so that cause is likely, not proven.
+
+A full `pnpm verify` under `NODE_USE_ENV_PROXY=1` passed end to end on the merged branch: the build, the axe gate (0 violations across 5 routes), vitest (119 files, 1,601 tests) and Playwright (283 passed, 7 skipped, 0 failed, in 9.3 minutes).
+
+**Every flake but listing-views was reproduced only by forcing it** (a throttle,
+a long task, an injected lag), #144's pressed pin not even then: proof that a
+window exists and the fix closes it, not that CI fell through it. Four issues
+named a cause or a measure that proved wrong (#93, #117, #124, #149).
+
+Open for the operator: #120's other half, since drawing the shipped bundle needs
+a second webServer and `preview` project in `@reddoorla/maintenance`'s
+playwright-a11y config (a fleet change); and #144's prod "glided" premise, left
+at 3 distinct positions where it wanted 5. Scroll events fire once per frame, as
+rAF does, and the camera itself sees only main-thread frames, so no observer in
+the page could ask for more: close #144 on that, or keep it as the record.
