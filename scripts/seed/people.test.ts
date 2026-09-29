@@ -46,13 +46,13 @@ describe("the people data file", () => {
     );
     expect(imageRefs(band)).toEqual([]);
     expect(people.flatMap((p) => imageRefs(p.data))).toEqual([
-      "partner-matt-howard.jpg",
-      "partner-bart-wilson.jpg",
+      "Matt_Howard_Headshot_NO_GPS.png",
+      "partner-bart-wilson-headshot.png",
     ]);
   });
 
   it("stages the name as the document title and resolves the headshot to its asset id", () => {
-    const payload = toPayload(people[0], { "partner-matt-howard.jpg": { id: "A1" } });
+    const payload = toPayload(people[0], { "Matt_Howard_Headshot_NO_GPS.png": { id: "A1" } });
     expect(payload).toMatchObject({ type: "person", uid: "matt-howard", title: "Matt Howard" });
     expect(payload.data.photo).toEqual({ id: "A1" });
     expect(() => toPayload(people[0], {})).toThrow(/no asset in the media library/);

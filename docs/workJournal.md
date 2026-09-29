@@ -5867,6 +5867,7 @@ are the browser-level proof the swap actually reaches a pixel.
 ## 2026-09-22 — Four animations on the featured band, and two tests that passed a mutation (`feat/carousel-motion`)
 
 > Superseded in part by 2026-09-23 — A visitor's turn animates now: the comp's instant arrows overruled, a drift no clock could draw, and a hand-over that painted the wrong words.
+> Superseded in part by 2026-09-29 — Ken Burns is one CSS transition now: the compositor draws it, a hold that ends with the dissolve, and a Chromium start time the plan assumed wrong.
 
 Four things the operator asked for on the homepage's Properties carousel: the
 slide's text arrives as four staggered lines instead of one block, the photo
@@ -6555,6 +6556,8 @@ The layout gap is the comp's 20. Asserting 20 between the rects would have
 meant deleting the trim.
 
 ## 2026-09-22 — The bar's dissolve shipped, passed four new assertions, and was never once on screen (`fix/carousel-bar-dissolve`)
+
+> Superseded in part by 2026-09-29 — Ken Burns is one CSS transition now: the compositor draws it, a hold that ends with the dissolve, and a Chromium start time the plan assumed wrong.
 
 The adversarial review of #102 came back SHIP_WITH_FIXES with a critical
 finding, and it was right. **Animation C did not exist.**
@@ -9114,6 +9117,7 @@ session; CI is the authority.
 ## 2026-09-23 — A visitor's turn animates now: the comp's instant arrows overruled, a drift no clock could draw, and a hand-over that painted the wrong words (`feat/manual-turns-animate`)
 
 > Superseded in part by 2026-09-28 — Roalson's 2026-09-25 meeting notes, built: one-column hero, less yellow grounds, lighter masthead, map controls, view tabs, Past Projects, partner pages.
+> Superseded in part by 2026-09-29 — Ken Burns is one CSS transition now: the compositor draws it, a hold that ends with the dissolve, and a Chromium start time the plan assumed wrong.
 
 The operator: _"for the home slideshow, animations don't fire if I manually
 page through, they should."_ **This reverses a decision, not a bug.** The comp
@@ -11966,6 +11970,8 @@ one.
 
 ## 2026-09-29 — The partner bios are the client's words now, and a headshot that carried its own GPS fix (#159, `claude/roalson-comments-review-45cstm`)
 
+> Superseded in part by 2026-09-29 — Both partner headshots are the client's own, and Prismic serves an upload's original bytes, metadata and all.
+
 Erik posted both bios in #roalson-interests on 2026-09-29 (Matt at 15:29 UTC,
 Bart at 16:35) and a Dropbox link to a new headshot of Matt at 16:37. The bios
 went out as one Prismic release through the connector: two Person documents,
@@ -12078,3 +12084,132 @@ unstyled page is exactly a visible stacked list (#199).
 **Still on hold:** lightening the masthead scrim. Erik's note on the gradient's
 transparency came the same afternoon. The operator stopped that work because it
 may become a design change, so the scrim's stops are the 2026-09-28 ones.
+
+## 2026-09-29 — Ken Burns is one CSS transition now: the compositor draws it, a hold that ends with the dissolve, and a Chromium start time the plan assumed wrong (`claude/roalson-comments-review-45cstm`)
+
+The operator said the homepage band's Ken Burns "feels a little stuttery,
+maybe because it's too slow or not using gpu?", then, before any fix of that
+shape landed: "rather than that, can it be one clean transform scale with a
+transition? this seems overbuilt". The drift had been drawn by script: a rAF
+loop writing `transform: scale()` on the `<img>` every frame off the
+carousel's clock, with a `kick` run for visitor turns, a hidden-tab re-base, a
+per-slide park and a Play hand-over (`handedAt`). All of that is gone. The
+on-stage photo gets `transform: scale(1.03); transition: transform 8000ms
+linear <delay>`. Pause and Play act on that transition's own Animation
+(`getAnimations()` → `pause()`/`play()`). The slice's drift code went from 61
+lines of code to about 31.
+
+**The stutter was the main thread, and now it is not.** The probe injected
+80ms of main-thread spin every 200ms and screencast the photo, with a
+rAF-painted box as a main-thread frame counter; the signal is two captures
+with the same counter colour (no main-thread frame between them) but
+different photo pixels. On main (86c92e9), 0 such pairs in 42, 57 and 39
+captures: the photo only moved when script ran, so it held still through
+every spin. On the branch, 6/6, 13/13 and 8/8 such pairs changed the photo,
+and 10/10, 14/14 and 13/13 after the review fixes. The compositor keeps
+drawing it with the main thread blocked. No `will-change` was added, because
+nothing measured wanted it.
+
+**Belief corrected on contact: "a 0s transition delayed by the settle holds
+the outgoing photo through the dissolve".** Chromium starts a transition that
+REPLACES a running one at once, on the last frame's timeline time, while the
+dissolve's fresh transitions wait for the next frame. A minimal page
+reproduces it. On arrow presses the leaving transform started up to 283ms
+ahead idle and 767ms ahead at 4x CPU throttle, so a 500ms hold reset one
+photo at 486ms with the incoming photo still at 0.867 opacity, and a 1000ms
+hold reset one 263ms into the fade. The builder then held for a whole DWELL.
+
+**Review found that DWELL hold was a regression.** Two reviewers, then two
+refuters each. A photo brought back within 8s came back at the value it left
+with (~1.028–1.0299) and sat still for its whole visit; main drifted the same
+press 1.00 → 1.03. The reviewers measured Chromium shortening the return
+transition to 83.7, 17 and 0.36ms by the reversing rule; the fixer, on
+Chromium 151.0.7922.34, got the full 8000ms from the held 1.02994 instead,
+which is still a still photo. The reversing rule did apply to a photo brought
+back while it was still showing (5983.5ms, same rate, no step backward). The
+hold now ends at the wrapper's own opacity `transitionend`: the photo is
+marked resting and gets `scale(1); transition: none`, which cancels the hold
+and snaps it while hidden. In the measured case that landed 516.6ms after the
+turn, at opacity 0. A returning photo reads 1 through the settle and travels
+0.03.
+
+The first slide's drift had been delayed by the settle although the
+carousel's first dwell starts at hydration with none, so it reached only
+~1.028 by the first turn. The delay now applies only when a turn brought the
+photo on (`turned || i !== shown`). The flag alone was not enough: the
+`$effect` runs after the markup, so the first turned photo also got 0ms;
+mutating to the flag alone turns two tests red.
+
+**Dropped on purpose, as "overbuilt":** frame-exact sync with the bar (both
+wait the settle and run DWELL, so they agree to within frames, not by
+construction); the hidden-tab re-base (the bar stops while the tab is hidden,
+the drift runs on); and handing a visitor's drift to the clock on Play. #156
+is unchanged: a Play after the drift has finished leaves the photo at 1.03
+while the bar fills. Its guard, deleted by the builder with the hand-over
+tests, was restored after review: every frame from before Play to the clock's
+turn reads 1.03, and a Play that snaps it to 1 goes red on 501 frames.
+
+**Tests that measured the machine.** The clock and Pause guards allowed
+0.0006 of scale between the last sampled frame and the turn and needed more
+than 5 frames in the settle; at load 7.5–10.9 they went red 2 of 4 on
+unmodified code. They now check against the drift's own timeline, bound the
+value held at the turn by the drift's rate times the gap, and need 2 settle
+frames. 12/12 at load 6.2–13.4. The same shape remains in the #146 fill test,
+red on main too at load 7–9 (#202). A `pausedAtTurn` flag the builder wrote
+was dead state, found because removing its check left everything green.
+
+`pnpm verify` passed on the fix head (a11y 0 violations, 1662 unit tests, 328
+browser tests). WebKit and Firefox were not measured.
+
+## 2026-09-29 — Both partner headshots are the client's own, and Prismic serves an upload's original bytes, metadata and all (#73, `claude/roalson-comments-review-45cstm`)
+
+Erik sent Bart's headshot at 19:15 UTC, after the bios entry above was
+written. Both are studio shots on an off-white wall: Matt's 2416×2417, Bart's
+3351×3298. On the site each is cropped by the Person `photo` field to a
+612×612 square (Bart's `rect=26,0,3298,3298`, Matt's `rect=0,0,2416,2416`).
+Each went out as its own one-field release, checked by `diff_release` before
+publish.
+
+**Prismic serves the ORIGINAL bytes at the bare asset URL.** Measured on
+Bart's upload: `images.prismic.io/…png` with no query string answered the
+full 12,187,767-byte PNG with its XMP and EXIF intact. With
+`auto=format,compress`, or with the crop parameters the site uses, it
+answered a JPEG with no metadata at all. So anything embedded in an upload
+is public to anyone who strips the query string from an image URL on the
+page. That is why Matt's original was never uploaded: its XMP carried
+`exif:GPSLatitude`/`GPSLongitude` (12 m horizontal error), the camera model
+and the capture time. Bart's carried a camera make and model and a Photoshop
+date, and no location, so it went up as sent.
+
+**How each got there.**
+
+- Bart's, first attempt: `upload_asset` from Erik's Dropbox `dl=1` link
+  landed as `kind: "document"` on `roalson-interests.cdn.prismic.io`, with no
+  dimensions, because Dropbox answers `dl=1` with
+  `content-type: application/binary`. The `raw=1` form of the same link
+  answers `image/png`, and that upload landed as an image. The stray document
+  asset (`xTB3P7pPEe8KIkIm`) is unused in the media library and can only be
+  deleted from the dashboard.
+- Matt's: the connector only fetches a public URL. Two ways to host the
+  clean copy for it (a temp file host, and a draft Netlify deploy) were
+  refused by the session's permission checks, so the operator uploaded the
+  clean file by hand. The bytes Prismic serves were then checked:
+  pixel-identical to the clean copy, and no GPS, XMP or EXIF.
+
+**The hook build was stale again.** For Bart's publish the site still served
+the old photo at 19:45:59 UTC, with two hook builds already ready (created
+19:45:08 and 19:45:32); the new one was served at 19:46:20, after a third
+build. That makes three of four connector publishes today whose first builds
+went live with the old content. The live check reads the served HTML, never
+a deploy's state. Both photos are live on `/team/*` and `/`, and the old
+assets appear on neither.
+
+**The seed follows.** An earlier note in this session said updating the seed
+would mean committing a 12 MB PNG. That was wrong: `$image` filenames resolve
+against the media library by name (`scripts/seed/people.mjs`), so the seed
+now names `Matt_Howard_Headshot_NO_GPS.png` and
+`partner-bart-wilson-headshot.png`. Both are real assets in the library
+(`cFFHT_6MUPYzj2U1` and `kTmxa9BbS5HuG7uV`), checked with `search_assets`
+and the upload's reply. The seed's own dry run was not run, because it needs
+a Roalson-scoped token (#164). The old `partner-*.jpg` assets stay in the
+library, unused.

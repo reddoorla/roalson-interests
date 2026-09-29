@@ -248,11 +248,12 @@ describe("the home document's bands", () => {
       for (const field of shown)
         expect(person!.data[field], `${profile.$person}.${field}`).toBeTruthy();
     }
-    // Bart Wilson's file is 140×177 in a 153px box and renders soft — #73, not
-    // a defect of this seed, and the only file that exists of him.
     expect(
       rows.map(({ profile }) => people.find((p) => p.uid === profile.$person)!.data.photo),
-    ).toEqual([{ $image: "partner-matt-howard.jpg" }, { $image: "partner-bart-wilson.jpg" }]);
+    ).toEqual([
+      { $image: "Matt_Howard_Headshot_NO_GPS.png" },
+      { $image: "partner-bart-wilson-headshot.png" },
+    ]);
   });
 
   it("seeds the hero as the revised comp: one break after Commercial, the sentence, PROPERTIES first", () => {

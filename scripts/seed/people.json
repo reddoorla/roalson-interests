@@ -4,7 +4,7 @@
     "data": {
       "name": "Matt Howard",
       "role": "Partner",
-      "photo": { "$image": "partner-matt-howard.jpg" },
+      "photo": { "$image": "Matt_Howard_Headshot_NO_GPS.png" },
       "email": "mhoward@roalson.com",
       "phone": "(210) 496-5800",
       "bio": [
@@ -29,7 +29,7 @@
     "source": {
       "name": "MEASURED — the comp's partner card (6822:491)",
       "role": "MEASURED — the comp's partner card (6822:491)",
-      "photo": "MEASURED — the headshot the home page's partner row already uses",
+      "photo": "MEASURED — the client's studio headshot, sent by Erik on 2026-09-29 (2416×2417); uploaded as a metadata-stripped copy because the original carried GPS",
       "email": "MEASURED — public on roalson.com/contact_us.htm and in the card wireframe 6745:48718",
       "phone": "MEASURED — the office line, public on roalson.com/contact_us.htm; no direct or mobile number by decision D4",
       "bio": "MEASURED — the client's text, sent by Erik in #roalson-interests on 2026-09-29 and published to Prismic that day; curly apostrophes made straight and dashes spaced em dashes, as the site sets them",
@@ -41,7 +41,7 @@
     "data": {
       "name": "Bart Wilson",
       "role": "Partner",
-      "photo": { "$image": "partner-bart-wilson.jpg" },
+      "photo": { "$image": "partner-bart-wilson-headshot.png" },
       "email": "bwilson@roalson.com",
       "phone": "(210) 496-5800",
       "bio": [
@@ -71,7 +71,7 @@
     "source": {
       "name": "MEASURED — the comp's partner card (6822:505)",
       "role": "MEASURED — the comp's partner card (6822:505)",
-      "photo": "MEASURED — the headshot the home page's partner row already uses; 140×177, soft at this size (#73)",
+      "photo": "MEASURED — the client's studio headshot, sent by Erik on 2026-09-29 (3351×3298), replacing the 140×177 comp crop (#73)",
       "email": "MEASURED — public on roalson.com/contact_us.htm and in the card wireframe 6745:48718",
       "phone": "MEASURED — the office line, public on roalson.com/contact_us.htm; no direct or mobile number by decision D4",
       "bio": "MEASURED — the client's text, sent by Erik in #roalson-interests on 2026-09-29 and published to Prismic that day; curly apostrophes made straight and dashes spaced em dashes, as the site sets them",
