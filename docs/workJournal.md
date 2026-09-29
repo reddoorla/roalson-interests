@@ -11929,3 +11929,27 @@ description ended `…called "300 Main.".`, because `sentence()` in
 a closing quote or bracket now counts, and a new case covers straight and curly
 quotes and a bracket. Reverting the regex turns it red. Across the seed, that is
 the only string in the class.
+
+## 2026-09-29 — The a11y gate now scrolls: `@reddoorla/maintenance` ^0.96.0 → ^0.101.0 (#100)
+
+`@reddoorla/maintenance` 0.101.0 (published 2026-09-29 17:01 UTC) carries the
+shared-harness fix #100 asked for (reddoor-maintenance #950). Before axe runs,
+the generated a11y spec now scrolls each route from top to bottom in
+half-viewport steps, returns to the top and lets the reveals settle, so text a
+`use:animateIn` reveal holds at `opacity: 0` until it intersects is measured in
+its revealed state. The same release runs axe with `preload: false`, which stops
+the `connect-src` CSP violation on every run (#52).
+
+The bump had to be explicit. `^0.96.0` on a 0.x version is `>=0.96.0 <0.97.0`,
+so this site would never have reached 0.101 on its own.
+
+What to expect from CI: the gate now measures text it used to skip, so a red
+`audit --only a11y` on this PR would be a real contrast finding the old gate
+could not see, not a regression in the harness. #950's changeset lists what is
+still unmeasured after the scroll: CSS-keyframe reveals, reveals that hide
+again, `setTimeout` delays, inner scroll containers, and content mounted after
+the pass. The contrast checks that other session found missing for a
+`none`-hued `oklch` colour (reddoor-maintenance #916, #888) are not in this
+release. This repo's source has no such colour, and its own
+`src/tailwind-sources.test.ts` bans the default-palette utilities that carry
+one.
