@@ -11929,3 +11929,70 @@ description ended `…called "300 Main.".`, because `sentence()` in
 a closing quote or bracket now counts, and a new case covers straight and curly
 quotes and a bracket. Reverting the regex turns it red. Across the seed, that is
 the only string in the class.
+
+## 2026-09-29 — The a11y gate now scrolls: `@reddoorla/maintenance` ^0.96.0 → ^0.101.0 (#100)
+
+`@reddoorla/maintenance` 0.101.0 (published 2026-09-29 17:01 UTC) carries the
+shared-harness fix #100 asked for (reddoor-maintenance #950). Before axe runs,
+the generated a11y spec now scrolls each route from top to bottom in
+half-viewport steps, returns to the top and lets the reveals settle, so text a
+`use:animateIn` reveal holds at `opacity: 0` until it intersects is measured in
+its revealed state. The same release runs axe with `preload: false`, which stops
+the `connect-src` CSP violation on every run (#52).
+
+The bump had to be explicit. `^0.96.0` on a 0.x version is `>=0.96.0 <0.97.0`,
+so this site would never have reached 0.101 on its own.
+
+What to expect from CI: the gate now measures text it used to skip, so a red
+`audit --only a11y` on this PR would be a real contrast finding the old gate
+could not see, not a regression in the harness. #950's changeset lists what is
+still unmeasured after the scroll: CSS-keyframe reveals, reveals that hide
+again, `setTimeout` delays, inner scroll containers, and content mounted after
+the pass. The gate's check for a colour axe cannot parse at all (a
+`none`-hued `oklch`, reddoor-maintenance #916 and #888) is not in this release
+and follows in the next one. This repo's source has no such colour, and its own
+`src/tailwind-sources.test.ts` bans the default-palette utilities that carry
+one.
+
+## 2026-09-29 — The partner bios are the client's words now, and a headshot that carried its own GPS fix (#159, `claude/roalson-comments-review-45cstm`)
+
+Erik posted both bios in #roalson-interests on 2026-09-29 (Matt at 15:29 UTC,
+Bart at 16:35) and a Dropbox link to a new headshot of Matt at 16:37. The bios
+went out as one Prismic release through the connector: two Person documents,
+two fields each (`bio`, and `bio_is_placeholder` true → false). `diff_release`
+showed exactly those four deltas before the publish. The text was compared to
+the Discord messages programmatically, paragraph by paragraph: Matt 3 of 3
+identical, Bart 4 of 4 identical after four typographic changes. Two curly
+apostrophes became straight and two en dashes used as parenthetical dashes
+became spaced em dashes, which is how the rest of the site sets them (the seed
+had 0 curly apostrophes and 44 spaced em dashes). Matt's one unspaced
+`project—whether` was spaced to match. No word changed.
+
+A workflow stage was meant to stage this release and did not: its brief
+relayed the operator's Ken Burns message instead of the bios request, and the
+agent correctly refused to write to the CMS on a request that did not ask for
+it. The release was staged by hand from the same prepared payload.
+
+The publish fired three Netlify hook builds (19:13:05, 19:13:38, 19:14:03 UTC).
+The first two went live still rendering the placeholder bios; only the third
+carried the new text. That is the #180 staleness again, and the second time
+it has happened out of three connector publishes, so a publish is not done
+until the served HTML is read. Both /team pages now serve the bios with no
+placeholder chip. The `.netlify.app` host still answers every page with
+`x-robots-tag: noindex, nofollow` and an empty sitemap, which is the pre-launch
+header, not the placeholder flag.
+
+The seed now mirrors the published bios, and both /team pages are in the smoke
+routes and `reddoor.a11yRoutes`, the step #159 held back while the pages were
+placeholders. On a production build the gate reported 0 violations across 5
+package routes (it was 3), and both smoke routes passed.
+
+**Matt's headshot is not uploaded.** The file (2416×2417 PNG, a square studio
+crop on an off-white wall, about 2.2× the size #73 asks for) is usable, but
+its XMP carries `exif:GPSLatitude`/`GPSLongitude` with a 12 m horizontal
+error, the camera model and the capture time. A copy with identical pixels and
+no metadata was made, but the connector's `upload_asset` only fetches a public
+URL and the route to host the clean copy was refused, so it went to the
+operator. Uploading Erik's original would put that location in the asset
+library's origin file. #73 (Bart's 140×177 headshot) is unchanged by any of
+this.
