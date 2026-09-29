@@ -1,7 +1,7 @@
 // Headless carousel / slideshow state — index, loop, autoplay, pause and a
 // progress-bar value, all on ONE clock — for markup Slider.svelte's layout
 // cannot hold (controls INSIDE the slide's panel, a 2px progress bar, a list
-// that is only a carousel below `md`). It owns no markup and no layout: it
+// that is only a carousel below `lg`). It owns no markup and no layout: it
 // hands back state, commands, and attribute bags to spread, so the right ARIA
 // is the easy path.
 //
@@ -26,8 +26,20 @@
 // nothing here turns a slide while focus is inside one — arrow keys are taken
 // from the controls only, and focus landing in a slide stops the clock — but
 // an arrow button rendered INSIDE `slide(i)` would turn its own slide from
-// under itself, and the primitive cannot see that coming. Draw them inside
-// the panel with CSS; keep them beside the slides in the DOM (CarouselFixture).
+// under itself. Draw them inside the panel with CSS; keep them beside the
+// slides in the DOM (CarouselFixture, PropertyListing).
+//
+// AND THERE IS A NET UNDER THAT RULE (#34), for every way the focused element
+// can still go inert or unmount: a control inside a slide, consumer code
+// calling `next()` / `goTo()` while focus is in one, `enabled` switching on
+// while focus is in the second card of the list or later, Pause unmounting when
+// reduced motion comes on mid-session, and the arrows unmounting when
+// `enabled` switches off. The bags carry element refs (attachments), and
+// BEFORE the DOM applies any of those changes (`$effect.pre`) focus is moved
+// to the region — or, where a list is becoming a carousel with focus in one of
+// its cards, that card becomes the current slide and focus stays put. It is a
+// net, not a licence: a control inside a slide still throws focus back to the
+// region on every press.
 //
 // WHERE THE LOGIC CAME FROM. Slider.svelte, read in full and declined: its
 // controls are a row rendered AFTER the viewport, its index is private
@@ -49,6 +61,8 @@
 // then the bar is a decoration. Here a pause stops the loop, so the bar
 // freezes where it is and resumes from there; it cannot drift because there is
 // nothing for it to drift from.
+import { untrack } from "svelte";
+import { createAttachmentKey } from "svelte/attachments";
 import { useSwipe, type SwipeCustomEvent } from "svelte-gestures";
 import type { HTMLAttributes, HTMLButtonAttributes } from "svelte/elements";
 import { reducedMotion } from "$lib/transitions";
@@ -97,7 +111,9 @@ export interface CarouselOptions {
   settle?: MaybeGetter<number>;
   /** False turns the whole thing off — every attribute bag comes back empty
    *  and nothing rotates — for a list that is a carousel only at some widths
-   *  (issue #14: stacked cards from `md` up and without script). */
+   *  (issue #14: stacked cards from `lg` up and without script). `slide(i)`
+   *  still carries its element ref, which is how a list switched ON knows
+   *  which of its cards holds focus. */
   enabled?: MaybeGetter<boolean>;
 }
 
@@ -120,6 +136,15 @@ function slideHolding(target: EventTarget | null, region: EventTarget | null) {
   if (slide && region instanceof Node && !region.contains(slide)) return null;
   return slide;
 }
+
+/** The focus net's element refs (#34), as attachments a spread applies. One
+ *  key per bag, created once: Svelte re-attaches whenever the KEY or the
+ *  FUNCTION under it changes identity, so both are stable per element. */
+const REGION_REF = createAttachmentKey();
+const SLIDE_REF = createAttachmentKey();
+const CONTROL_REF = createAttachmentKey();
+
+type Ref = (node: HTMLElement) => () => void;
 
 export function createCarousel(options: CarouselOptions) {
   let raw = $state(0);
@@ -299,6 +324,87 @@ export function createCarousel(options: CarouselOptions) {
     return () => cancelAnimationFrame(frame);
   });
 
+  // ── the focus net (#34) ─────────────────────────────────────────────────
+
+  // Plain variables, not state: element refs are read by the net and drive
+  // nothing reactive.
+  let regionEl: HTMLElement | null = null;
+  let pauseEl: HTMLElement | null = null;
+  const slideEls: (HTMLElement | undefined)[] = [];
+  const slideRefs: Ref[] = [];
+  const arrowEls: HTMLElement[] = [];
+
+  const refRegion: Ref = (node) => {
+    regionEl = node;
+    return () => {
+      if (regionEl === node) regionEl = null;
+    };
+  };
+  const refSlide = (i: number): Ref =>
+    (slideRefs[i] ??= (node) => {
+      slideEls[i] = node;
+      return () => {
+        if (slideEls[i] === node) slideEls[i] = undefined;
+      };
+    });
+  const refPause: Ref = (node) => {
+    pauseEl = node;
+    return () => {
+      if (pauseEl === node) pauseEl = null;
+    };
+  };
+  const refArrow: Ref = (node) => {
+    arrowEls.push(node);
+    return () => {
+      const at = arrowEls.indexOf(node);
+      if (at !== -1) arrowEls.splice(at, 1);
+    };
+  };
+
+  /** Focus to the region itself, made focusable for the occasion and only for
+   *  as long as it holds focus. `preventScroll`: the page stays where it is. */
+  function rescue() {
+    const region = regionEl;
+    if (!region) return;
+    if (!region.hasAttribute("tabindex")) {
+      region.setAttribute("tabindex", "-1");
+      region.addEventListener("blur", () => region.removeAttribute("tabindex"), { once: true });
+    }
+    region.focus({ preventScroll: true });
+  }
+
+  // `$effect.pre`: it runs in the flush that changes the state and BEFORE the
+  // DOM does, while the element that holds focus is still focusable. After the
+  // DOM update it would be too late — the browser has already dropped focus on
+  // <body>, and nothing says where it was.
+  let wasEnabled = false;
+  $effect.pre(() => {
+    const on = enabled;
+    const current = index;
+    const pauseShown = eligible;
+    // CarouselArrows' own condition, and the one the arrow bags document.
+    const arrowsShown = on && count > 1;
+    untrack(() => {
+      const switchedOn = on && !wasEnabled;
+      wasEnabled = on;
+      const focused = document.activeElement;
+      if (!(focused instanceof HTMLElement) || focused === document.body) return;
+      const holder = slideEls.findIndex((el) => el?.contains(focused));
+      if (on && holder !== -1 && holder !== current) {
+        // A list becoming a carousel ADOPTS the card being read: it is the
+        // current slide, and nothing goes inert under the reader.
+        if (switchedOn) {
+          raw = holder;
+          by = "auto";
+          restart();
+        } else rescue();
+        return;
+      }
+      if (!pauseShown && pauseEl?.contains(focused)) return rescue();
+      if (!arrowsShown && arrowEls.some((el) => el.contains(focused))) rescue();
+    });
+  });
+
   // ── handlers ────────────────────────────────────────────────────────────
 
   // Every handler is declared ONCE, here, and the bags below only name them:
@@ -405,8 +511,9 @@ export function createCarousel(options: CarouselOptions) {
       return count;
     },
     /** Who turned the slide now showing: "visitor" (an arrow, a key, a swipe,
-     *  a `goTo`) or "auto" (the clock, the very first slide, and a list that
-     *  shrank under the index — nobody turned that one). See `by` and
+     *  a `goTo`) or "auto" (the clock, the very first slide, a list that
+     *  shrank under the index, and the card a list adopted as it became a
+     *  carousel with focus in it — nobody turned those). See `by` and
      *  `clamped`. */
     get turnedBy() {
       return clamped ? "auto" : by;
@@ -487,15 +594,18 @@ export function createCarousel(options: CarouselOptions) {
         onpointerleave,
         onfocusin,
         onkeydown,
+        [REGION_REF]: refRegion,
       };
     },
     /** Slide `i`. Off-stage slides leave the accessibility tree AND the tab
      *  order (`inert`), so a link in slide 3 is not reachable behind slide 1.
-     *  Put no carousel control inside it — see the header. */
+     *  Put no carousel control inside it — see the header. Switched off it is
+     *  empty of attributes but keeps its element ref (see `enabled`). */
     slide(i: number): HTMLAttributes<HTMLElement> {
-      if (!enabled) return EMPTY;
+      if (!enabled) return { [SLIDE_REF]: refSlide(i) };
       const active = i === index;
       return {
+        [SLIDE_REF]: refSlide(i),
         [SLIDE]: "",
         role: "group",
         "aria-roledescription": "slide",
@@ -527,16 +637,20 @@ export function createCarousel(options: CarouselOptions) {
         "aria-label": userPaused ? "Play slides" : "Pause slides",
         onpointerdown: onpausepointerdown,
         onclick: onpauseclick,
+        [CONTROL_REF]: refPause,
       };
     },
     /** `aria-disabled`, never `disabled`: the arrow at a bound keeps keyboard
-     *  focus instead of dumping it on <body>, and pressing it does nothing. */
+     *  focus instead of dumping it on <body>, and pressing it does nothing.
+     *  Render the arrows iff `enabled && count > 1`, as CarouselArrows does:
+     *  that is when the focus net expects them to go. */
     get prevButton(): HTMLButtonAttributes {
       return {
         type: "button",
         "aria-label": "Previous slide",
         "aria-disabled": atStart ? "true" : undefined,
         onclick: prev,
+        [CONTROL_REF]: refArrow,
       };
     },
     get nextButton(): HTMLButtonAttributes {
@@ -545,6 +659,7 @@ export function createCarousel(options: CarouselOptions) {
         "aria-label": "Next slide",
         "aria-disabled": atEnd ? "true" : undefined,
         onclick: next,
+        [CONTROL_REF]: refArrow,
       };
     },
   };

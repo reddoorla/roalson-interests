@@ -287,7 +287,7 @@
   bind:this={barEl}
   aria-label="Primary"
   data-floating={floating ? "" : undefined}
-  class="top-0 left-0 z-50 w-full transition-colors duration-300 {pinned
+  class="top-0 left-0 z-50 w-full pr-[var(--scroll-lock-gutter,0px)] transition-colors duration-300 {pinned
     ? 'fixed'
     : 'absolute'} {floating ? 'bg-transparent' : 'bg-background'}"
 >
@@ -419,13 +419,15 @@
 {#if isMenuOpen}
   <!-- The open trigger above unmounts while the menu is open, so the element
        trapFocus captured is detached by close time — `restoreFocus` hands it
-       the re-mounted trigger instead. -->
+       the re-mounted trigger instead. The lock releases the scrollbar strip
+       so this covers it (#172); the `--scroll-lock-gutter` pad, here and on
+       the bar, keeps both bars' contents where they were. -->
   <div
     role="dialog"
     aria-modal="true"
     aria-label="Menu"
     id={MENU_ID}
-    class="fixed inset-0 z-[60] flex h-dvh flex-col overflow-y-auto bg-gradient-to-b from-primary to-dark text-light"
+    class="fixed inset-0 z-[60] flex h-dvh flex-col overflow-y-auto bg-gradient-to-b from-primary to-dark pr-[var(--scroll-lock-gutter,0px)] text-light"
     transition:fade={{ duration: 200 }}
     use:trapFocus={{ onEscape: closeMenu, restoreFocus: () => openButtonEl }}
   >

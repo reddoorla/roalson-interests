@@ -100,8 +100,12 @@ describe("PropertyListing", () => {
     // `querySelector("ul")` measured that one and said the cards had lost
     // their column.
     const cards = land!.querySelector<HTMLElement>("ul:not([data-map-list])")!;
-    expect(cards.className).toMatch(/\blg:col-start-2\b/);
-    expect(cards.parentElement!.className).toMatch(/lg:grid-cols-\[397fr_847fr\]/);
+    // The grid item is the list's carousel wrapper (#14), a plain <div> here:
+    // with no script and from `lg` there is no carousel, only the column.
+    const column = cards.parentElement!;
+    expect(column.hasAttribute("data-listing-carousel")).toBe(true);
+    expect(column.className).toMatch(/\blg:col-start-2\b/);
+    expect(column.parentElement!.className).toMatch(/lg:grid-cols-\[397fr_847fr\]/);
   });
 
   it("puts a map in column 1 of every active section and none in Past Projects (#13)", () => {
@@ -464,6 +468,196 @@ describe("PropertyListing", () => {
     const { getByText, queryAllByRole } = render(PropertyListing, { props: { sections: [] } });
     expect(getByText(/No properties are listed/)).not.toBeNull();
     expect(queryAllByRole("region")).toEqual([]);
+  });
+});
+
+describe("PropertyListing below lg: each section a carousel (#14)", () => {
+  afterEach(() => vi.unstubAllGlobals());
+
+  /** A window below `lg`, and the switch to rotate it past the breakpoint. The
+   *  component asks for `(width < 64rem)` by name; anything else is false —
+   *  notably `prefers-reduced-motion` and centreWatch's `min-width`. */
+  function phone() {
+    const QUERY = "(width < 64rem)";
+    let below = true;
+    const listeners = new Set<(e: { matches: boolean }) => void>();
+    vi.stubGlobal("matchMedia", (media: string) => ({
+      get matches() {
+        return media === QUERY ? below : false;
+      },
+      media,
+      onchange: null,
+      addEventListener: (_: string, cb: (e: { matches: boolean }) => void) => {
+        if (media === QUERY) listeners.add(cb);
+      },
+      removeEventListener: (_: string, cb: (e: { matches: boolean }) => void) =>
+        listeners.delete(cb),
+      addListener: () => {},
+      removeListener: () => {},
+      dispatchEvent: () => false,
+    }));
+    return {
+      async set(value: boolean) {
+        below = value;
+        for (const cb of [...listeners]) cb({ matches: value });
+        await tick();
+      },
+    };
+  }
+
+  const carousels = (container: HTMLElement) => [
+    ...container.querySelectorAll<HTMLElement>('[aria-roledescription="carousel"]'),
+  ];
+  /** The one slide in the accessibility tree, as its listing id. Throws on
+   *  none or two, so "slide 2 is on stage" cannot pass on a carousel exposing
+   *  both. */
+  const onStage = (carousel: HTMLElement) => {
+    const shown = [...carousel.querySelectorAll<HTMLElement>('[aria-roledescription="slide"]')]
+      .filter((s) => s.getAttribute("aria-hidden") === null)
+      .map((s) => s.dataset.centreId ?? s.querySelector("h3")!.textContent!.trim());
+    if (shown.length !== 1) throw new Error(`${shown.length} slides exposed, expected 1`);
+    return shown[0];
+  };
+
+  it("is a named carousel per section once hydrated, one card exposed, the rest inert and invisible", async () => {
+    phone();
+    const groups = sections();
+    const { container } = render(PropertyListing, { props: { sections: groups } });
+    await tick();
+
+    const all = carousels(container);
+    expect(all.map((c) => c.getAttribute("aria-label"))).toEqual([
+      "Land listings",
+      "Improved Projects listings",
+      "Past Projects listings",
+    ]);
+    all.forEach((carousel, i) => {
+      const slides = [...carousel.querySelectorAll<HTMLElement>('[aria-roledescription="slide"]')];
+      expect(slides, `section ${i}: one slide per listing`).toHaveLength(
+        groups[i]!.properties.length,
+      );
+      expect(slides.map((s) => s.tagName)).toEqual(slides.map(() => "LI"));
+      expect(slides[0]!.getAttribute("aria-label")).toBe(`1 of ${slides.length}`);
+      const off = slides.slice(1);
+      expect(off.every((s) => s.hasAttribute("inert") && /\binvisible\b/.test(s.className))).toBe(
+        true,
+      );
+      expect(/\binvisible\b/.test(slides[0]!.className)).toBe(false);
+      // The list stops being one: its items are slides and controls now.
+      expect(carousel.querySelector("ul")!.getAttribute("role")).toBe("none");
+      expect(
+        [...carousel.querySelectorAll("button")].map((b) => b.getAttribute("aria-label")),
+      ).toEqual(["Previous slide", "Next slide"]);
+      expect(carousel.querySelector("[data-carousel-progress]")).not.toBeNull();
+      expect(carousel.querySelector("[aria-live]")!.textContent).toBe(
+        `Slide 1 of ${slides.length}`,
+      );
+    });
+  });
+
+  it("keeps the controls OUT of the slides, between the photo and the text", async () => {
+    phone();
+    const { container } = render(PropertyListing, { props: { sections: sections() } });
+    await tick();
+    for (const carousel of carousels(container)) {
+      for (const control of carousel.querySelectorAll("button, [data-carousel-progress]")) {
+        expect(control.closest('[aria-roledescription="slide"]')).toBeNull();
+      }
+      // Grid rows, by class: the photo is row 1, bar 2, arrows 3, text 4.
+      const [bar, arrows] = [...carousel.querySelectorAll("ul > li[role='none']")];
+      expect(bar!.className).toMatch(/\brow-start-2\b/);
+      expect(arrows!.className).toMatch(/\brow-start-3\b/);
+      const card = carousel.querySelector("article")!;
+      expect(card.className).toMatch(/\bgrid-rows-subgrid\b/);
+      expect(card.firstElementChild!.className).toMatch(/\brow-start-1\b/);
+      expect(card.lastElementChild!.className).toMatch(/\brow-start-4\b/);
+    }
+  });
+
+  it("draws the comp's tones: the first section's first card garnet, and no other", async () => {
+    phone();
+    const { container } = render(PropertyListing, { props: { sections: sections() } });
+    await tick();
+    const garnet = carousels(container).map((c) =>
+      [...c.querySelectorAll("article")].map((a) => /\bbg-primary\b/.test(a.className)),
+    );
+    expect(garnet[0]).toEqual([true, false, false, false]);
+    expect(garnet[1]!.some(Boolean), "Improved is `regular scroll`: no garnet card").toBe(false);
+    expect(garnet[2]!.some(Boolean)).toBe(false);
+  });
+
+  it("turns with its arrows, counts in the bar and the live region, and wraps", async () => {
+    phone();
+    const groups = sections();
+    const { container } = render(PropertyListing, { props: { sections: groups } });
+    await tick();
+    const [land] = carousels(container);
+    const ids = groups[0]!.properties.map((p) => p.id);
+    const next = within(land!).getByRole("button", { name: "Next slide" });
+    const bar = () =>
+      land!.querySelector<HTMLElement>("[data-carousel-fill]")!.getAttribute("style");
+
+    expect(onStage(land!)).toBe(ids[0]);
+    expect(bar()).toContain("scaleX(0.25)");
+    next.click();
+    await tick();
+    expect(onStage(land!)).toBe(ids[1]);
+    expect(bar()).toContain("scaleX(0.5)");
+    expect(land!.querySelector("[aria-live]")!.textContent).toBe("Slide 2 of 4");
+
+    within(land!).getByRole("button", { name: "Previous slide" }).click();
+    within(land!).getByRole("button", { name: "Previous slide" }).click();
+    await tick();
+    expect(onStage(land!), "back past the first is the last").toBe(ids[3]);
+  });
+
+  it("puts the arrows in the card on stage's tone, with a ring that shows on it", async () => {
+    phone();
+    const { container } = render(PropertyListing, { props: { sections: sections() } });
+    await tick();
+    const [land] = carousels(container);
+    const next = within(land!).getByRole("button", { name: "Next slide" });
+    const row = next.closest("li")!;
+
+    expect(next.className, "cream on the garnet card").toMatch(/\bborder-background\b/);
+    expect(row.className).toMatch(/\[--focus-ring:var\(--color-background\)\]/);
+    next.click();
+    await tick();
+    expect(next.className, "garnet on the sand card").toMatch(/\bborder-primary\b/);
+    expect(row.className).not.toMatch(/--focus-ring/);
+  });
+
+  it("is the stacked list again from lg, and a carousel again below it", async () => {
+    const media = phone();
+    const { container } = render(PropertyListing, { props: { sections: sections() } });
+    await tick();
+    expect(carousels(container)).toHaveLength(3);
+
+    await media.set(false);
+    const lists = [...container.querySelectorAll<HTMLElement>("[data-listing-carousel]")];
+    expect(lists).toHaveLength(3);
+    expect(carousels(container)).toHaveLength(0);
+    for (const list of lists) {
+      expect(
+        list.querySelector("[inert], [aria-roledescription], ul[role], .invisible"),
+      ).toBeNull();
+      expect(list.querySelectorAll("button")).toHaveLength(0);
+      expect(
+        [...list.querySelectorAll("article")].every((a) => /^flex flex-col\b/.test(a.className)),
+      ).toBe(true);
+    }
+
+    await media.set(true);
+    expect(carousels(container)).toHaveLength(3);
+  });
+
+  it("is never a carousel for one listing", async () => {
+    phone();
+    const one = sections().map((s) => ({ ...s, properties: s.properties.slice(0, 1) }));
+    const { container } = render(PropertyListing, { props: { sections: one } });
+    await tick();
+    expect(carousels(container)).toHaveLength(0);
+    expect(container.querySelectorAll("[data-listing-carousel] button")).toHaveLength(0);
   });
 });
 

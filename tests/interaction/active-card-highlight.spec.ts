@@ -1,9 +1,9 @@
-import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Browser, type Locator, type Page } from "@playwright/test";
 
 import { hydrated } from "./hydrated";
 import { DARK, GARNET, OFF_WHITE, SAND } from "./palette";
 import { placedPin } from "./placed-markers";
+import { axe } from "./axe";
 
 // THE GARNET CARD FOLLOWS THE CENTRE LINE (operator, 2026-09-23: "please
 // change the highlighted box as we scroll").
@@ -115,6 +115,17 @@ const onCentreLine = (sec: Locator) =>
       if (box.top <= mid && box.bottom >= mid) return li.dataset.centreId ?? null;
     }
     return null;
+  });
+
+/** The card a phone's carousel has on stage (#14), if the middle of the
+ *  window crosses it — every slide shares one box there, so `onCentreLine`
+ *  would answer the first of them whichever is showing. */
+const onStageOnCentreLine = (sec: Locator) =>
+  sec.evaluate((el) => {
+    const mid = window.innerHeight / 2;
+    const li = el.querySelector<HTMLElement>("li[data-centre-id]:not([aria-hidden])");
+    const box = li?.getBoundingClientRect();
+    return box && box.top <= mid && box.bottom >= mid ? li!.dataset.centreId! : null;
   });
 
 /** The listings whose card is drawn garnet, by computed background. */
@@ -596,13 +607,18 @@ test.describe("below lg the highlight does not travel, because nothing there fol
       const ids = await cardIds(land);
       expect(await garnetIds(land)).toEqual([ids[0]]);
 
-      // Scroll every later card across the middle. At `lg` each of these
-      // moves the highlight; here none may.
+      // Put every later card across the middle. At `lg` each of these moves
+      // the highlight; here none may. Since #14 the phone's section is a
+      // carousel, every card in the one box, so "scroll card N across the
+      // middle" is "turn to card N and centre the box".
+      const carousel = land.locator('[aria-roledescription="carousel"]');
+      await expect(carousel).toHaveAttribute("data-carousel-ready", "");
       for (const id of ids.slice(1)) {
+        await carousel.getByRole("button", { name: "Next slide" }).click();
         await centre(page, id);
-        // Positive evidence the scroll really put that card on the line —
-        // otherwise this passes by never having asked the question.
-        expect(await onCentreLine(land), `${id} crossed the middle`).toBe(id);
+        // Positive evidence the card is on stage AND on the line — otherwise
+        // this passes by never having asked the question.
+        expect(await onStageOnCentreLine(land), `${id} crossed the middle`).toBe(id);
         expect(await garnetIds(land), "the phone keeps card 0").toEqual([ids[0]]);
       }
     } finally {
@@ -657,11 +673,8 @@ async function auditMovedCard(page: Page, id: string) {
     timeout: MOVE_TIMEOUT,
   });
   const tags = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
-  const moved = await new AxeBuilder({ page })
-    .include(`[data-centre-id="${id}"]`)
-    .withTags(tags)
-    .analyze();
-  const column = await new AxeBuilder({ page })
+  const moved = await axe(page).include(`[data-centre-id="${id}"]`).withTags(tags).analyze();
+  const column = await axe(page)
     .include('section[aria-labelledby="listing-land"] ul:not([data-map-list])')
     .withTags(tags)
     .analyze();

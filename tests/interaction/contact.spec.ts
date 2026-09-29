@@ -1,7 +1,7 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
-import AxeBuilder from "@axe-core/playwright";
 import { HYDRATION_TIMEOUT } from "./hydrated";
 import { GARNET, SAND } from "./palette";
+import { axe } from "./axe";
 
 // The contact page makes promises jsdom cannot check: that its two columns
 // stand on the site's one grid, that a field is the height and the border the
@@ -560,7 +560,7 @@ for (const state of ["at rest", "after a failed send", "after the confirmation"]
     await expect(page.locator("main")).toHaveCount(1);
     await expect(page.locator("h1")).toHaveCount(1);
 
-    const results = await new AxeBuilder({ page })
+    const results = await axe(page)
       .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
       .analyze();
     // A rule that THROWS is not a pass (tests/a11y/fixtures.spec.ts).

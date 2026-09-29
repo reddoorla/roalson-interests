@@ -9,7 +9,7 @@
       "name": "Default",
       "docURL": "...",
       "version": "initial",
-      "description": "Partner cards (name, role, PROFILE when the row links a Person page, and CONTACT) beside a headline and body copy",
+      "description": "Partner cards — each one a partner's Person page, which holds the name, role, headshot and email — beside a headline and body copy",
       "imageUrl": "",
       "primary": {
         "eyebrow": {
@@ -66,50 +66,23 @@
             "label": "Partners",
             "repeat": true,
             "fields": {
-              "name": {
-                "type": "Text",
-                "config": {
-                  "label": "Name",
-                  "placeholder": "e.g. Matt Howard"
-                }
-              },
-              "role": {
-                "type": "Text",
-                "config": {
-                  "label": "Role",
-                  "placeholder": "Partner"
-                }
-              },
-              "photo": {
-                "type": "Image",
-                "config": {
-                  "label": "Headshot (square crop) — left empty, the card is text only",
-                  "constraint": {
-                    "width": 612,
-                    "height": 612
-                  },
-                  "thumbnails": []
-                }
-              },
               "profile": {
                 "type": "Link",
                 "config": {
-                  "label": "PROFILE goes to — this partner's Person page. Left empty, the card has no PROFILE",
+                  "label": "Partner — their Person page, which supplies the card's name, title, headshot and email. A card whose Person is unpublished is not shown",
                   "select": "document",
-                  "customtypes": ["person"]
-                }
-              },
-              "email": {
-                "type": "Text",
-                "config": {
-                  "label": "Email — CONTACT opens a message to it (unless a CONTACT link is set below)",
-                  "placeholder": "e.g. mhoward@roalson.com"
+                  "customtypes": [
+                    {
+                      "id": "person",
+                      "fields": ["name", "role", "photo", "email"]
+                    }
+                  ]
                 }
               },
               "contact_link": {
                 "type": "Link",
                 "config": {
-                  "label": "CONTACT goes to (optional override) — mailto:, tel: or a page. Left empty, it opens the email above, else /contact",
+                  "label": "CONTACT goes to (optional override) — mailto:, tel: or a page. Left empty, it mails the Person's email, else /contact",
                   "placeholder": "/contact",
                   "allowTargetBlank": false
                 }

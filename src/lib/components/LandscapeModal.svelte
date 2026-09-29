@@ -12,7 +12,7 @@
   // layout no longer mounts this.
   //
   // This comment lives inside the <script> on purpose: docs/COMPONENTS.md is
-  // generated, and scripts/capability-index.mjs reads a module's first sentence
+  // generated, and scripts/capability-index.mjs reads a module's first paragraph
   // from here. An HTML comment above the tag is invisible to it.
   import { onMount } from "svelte";
   import { fade } from "$lib/transitions";

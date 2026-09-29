@@ -10,7 +10,14 @@ import {
   sliceIds,
   toPayload,
 } from "./pages.mjs";
-import { canonical, contentSignature, remoteSliceChoices, sliceOutOfSync } from "./lib.mjs";
+import {
+  canonical,
+  canonicalContent,
+  contentSignature,
+  isLegacySignature,
+  remoteSliceChoices,
+  sliceOutOfSync,
+} from "./lib.mjs";
 import { notYetLive } from "./publish-release.mjs";
 
 type Slice = { slice_type: string; variation: string; primary: Record<string, unknown> };
@@ -182,11 +189,11 @@ describe("the home document's bands", () => {
     expect(order.filter((s) => s === "photo_band")).toHaveLength(1);
   });
 
-  it("names the four photographs the media library holds, in document order", () => {
+  it("names the two photographs the media library holds, in document order", () => {
+    // The partners' headshots are their Person documents' (people.json) since
+    // #179 — the home document no longer carries a copy of either.
     expect(imageRefs(home.data)).toEqual([
       "home-hero-poster-suburban-to-country.jpg",
-      "partner-matt-howard.jpg",
-      "partner-bart-wilson.jpg",
       "home-photo-band-san-antonio-skyline.jpg",
     ]);
   });
@@ -214,30 +221,44 @@ describe("the home document's bands", () => {
     expect(band.items).toEqual([]);
   });
 
-  it("gives each partner a name, a role, the client's own headshot, a PROFILE and an email", () => {
+  it("links each partner's Person and nothing else — the card reads the Person (#179)", () => {
     const partners = (home.data.slices ?? []).find((s) => s.slice_type === "partners");
-    const rows = partners?.primary.partners as Record<
-      string,
-      { $image?: string; $person?: string }
-    >[];
-    expect(rows.map((r) => r.name)).toEqual(["Matt Howard", "Bart Wilson"]);
-    for (const row of rows)
-      expect(Object.keys(row).sort()).toEqual(["email", "name", "photo", "profile", "role"]);
+    const rows = partners?.primary.partners as Record<string, { $person?: string }>[];
+    for (const row of rows) expect(Object.keys(row)).toEqual(["profile"]);
     expect(rows.map((r) => r.profile?.$person)).toEqual(["matt-howard", "bart-wilson"]);
-    expect(rows.map((r) => r.email)).toEqual(["mhoward@roalson.com", "bwilson@roalson.com"]);
+  });
+
+  it("seeds each linked Person with everything its card shows", () => {
+    // The row no longer carries a name, role, headshot or email of its own, so
+    // a Person without one is a card without one. The model embeds exactly
+    // these four on the relationship.
+    const model = models.partners.variations[0].primary!.partners.config!.fields!
+      .profile as unknown as { config: { customtypes: { id: string; fields: string[] }[] } };
+    const shown = model.config.customtypes.find((t) => t.id === "person")!.fields;
+    expect(shown).toEqual(["name", "role", "photo", "email"]);
+    const people = read("scripts/seed/people.json") as {
+      uid: string;
+      data: Record<string, unknown>;
+    }[];
+    const partners = (home.data.slices ?? []).find((s) => s.slice_type === "partners");
+    const rows = partners?.primary.partners as { profile: { $person: string } }[];
+    for (const { profile } of rows) {
+      const person = people.find((p) => p.uid === profile.$person);
+      expect(person, profile.$person).toBeDefined();
+      for (const field of shown)
+        expect(person!.data[field], `${profile.$person}.${field}`).toBeTruthy();
+    }
     // Bart Wilson's file is 140×177 in a 153px box and renders soft — #73, not
     // a defect of this seed, and the only file that exists of him.
-    expect(rows.map((r) => r.photo?.$image)).toEqual([
-      "partner-matt-howard.jpg",
-      "partner-bart-wilson.jpg",
-    ]);
+    expect(
+      rows.map(({ profile }) => people.find((p) => p.uid === profile.$person)!.data.photo),
+    ).toEqual([{ $image: "partner-matt-howard.jpg" }, { $image: "partner-bart-wilson.jpg" }]);
   });
 
   it("seeds the hero as the revised comp: one break after Commercial, the sentence, PROPERTIES first", () => {
-    // 'Homepage - REVISED' 7091:631. The publisher's content signature records
-    // which fields are FILLED, not what they say, so a swapped pair or an old
-    // label would stage and publish as "live" (see the signature's own tests
-    // below). This is the value-level pin, on the file the seed stages.
+    // 'Homepage - REVISED' 7091:631. The value-level pin on the file the seed
+    // stages. (Written when the publisher's signature saw only which fields
+    // were filled; since #79 it sees values too — see its tests below.)
     const hero = (home.data.slices ?? []).find((s) => s.slice_type === "home_hero")!;
     const heading = hero.primary.heading as { type: string; text: string }[];
     expect(heading).toHaveLength(1);
@@ -457,58 +478,62 @@ describe("the content signature — what makes a publish's pass positive evidenc
     slices: [{ slice_type: "home_hero", variation: "default", primary: {} }],
   };
 
+  // #79. The signature used to enumerate levels — top-level scalars, then slice
+  // primary keys, then slice group row keys — and saw no VALUE inside a Group:
+  // `accesssibility` → `accessibility` in a listing's highlights read as live.
+  it("changes when one character inside a Group changes", () => {
+    const listing = (text: string) => ({
+      title: "13810 Lookout Road",
+      highlights: [{ text }, { text: "Located in a growing corridor" }],
+    });
+    expect(contentSignature(listing("Excellent accessibility to IH 35"))).not.toBe(
+      contentSignature(listing("Excellent accesssibility to IH 35")),
+    );
+    const band = (name: string) => ({
+      slices: [{ slice_type: "partners", primary: { partners: [{ name, role: "Partner" }] } }],
+    });
+    expect(contentSignature(band("Matt Howard"))).not.toBe(contentSignature(band("Matt Haward")));
+  });
+
+  it("changes when a group's rows are reordered — the hero's buttons swapping", () => {
+    const a = { label: "Properties" };
+    const b = { label: "Contact us" };
+    expect(contentSignature({ buttons: [a, b] })).not.toBe(contentSignature({ buttons: [b, a] }));
+  });
+
+  it("sees a word changed inside rich text, and a link's target", () => {
+    expect(
+      contentSignature({ ...home, title: [{ type: "heading1", text: "Somewhere else" }] }),
+    ).not.toBe(contentSignature(home));
+    const link = (url: string) => ({ cta: { link_type: "Web", url } });
+    expect(contentSignature(link("/contact"))).not.toBe(contentSignature(link("/properties")));
+  });
+
   it("changes when a slice is added, which is the case the uid check could not see", () => {
     const withBands = {
       ...home,
       slices: [...home.slices, { slice_type: "partners", variation: "default", primary: {} }],
     };
     expect(contentSignature(withBands)).not.toBe(contentSignature(home));
-    expect(JSON.parse(contentSignature(withBands)).slices).toEqual([
-      "home_hero/default()",
-      "partners/default()",
-    ]);
   });
 
   it("changes when a slice's primary gains a field — which is what a photograph arriving looks like", () => {
-    // The 2026-09-21 defect, one step along: `photo_band` went from an empty
-    // primary to one holding an image, and a signature that read a slice as
-    // type + variation alone did not move. The publisher's pass IS this
-    // string, so it would have reported the page live and left the photograph
-    // unpublished in the migration release.
     const filled = {
       ...home,
       slices: [{ slice_type: "home_hero", variation: "default", primary: { poster: { id: "A" } } }],
     };
     expect(contentSignature(filled)).not.toBe(contentSignature(home));
-    expect(JSON.parse(contentSignature(filled)).slices).toEqual(["home_hero/default(poster)"]);
-    expect(JSON.parse(contentSignature(home)).slices).toEqual(["home_hero/default()"]);
   });
 
-  it("reads a slice's unfilled group the same whether the API returns [] or the payload omits it", () => {
-    // Measured on the live `home` document: the delivered `partners` band
-    // carries `buttons: []` for a group the comp draws none of, and the
-    // payload that staged it has no `buttons` key at all. Without the
-    // empty-array filter inside the slice, those two never agree and the
-    // publisher can never pass.
-    const sent = {
-      slices: [{ slice_type: "partners", variation: "default", primary: { a: "A" } }],
-    };
-    const delivered = {
-      slices: [
-        {
-          slice_type: "partners",
-          variation: "default",
-          primary: { a: "A", buttons: [], heading: [], eyebrow: null },
-        },
-      ],
-    };
-    expect(contentSignature(delivered)).toBe(contentSignature(sent));
-  });
-
-  it("leaves a document with no slices where it was, byte for byte — the 22 live listings", () => {
-    expect(contentSignature({ title: "T", size_label: "S", tracts: [] })).toBe(
-      '{"slices":[],"keys":["size_label","title"],"scalars":["size_label=S","title=T"]}',
-    );
+  it("changes when a group row gains a field — a partner's PROFILE arriving", () => {
+    const row = { name: "Matt Howard", photo: { id: "P" } };
+    const band = (partners: object[]) => ({
+      ...home,
+      slices: [{ slice_type: "partners", variation: "default", primary: { partners } }],
+    });
+    expect(
+      contentSignature(band([{ ...row, profile: { link_type: "Document", id: "M" } }])),
+    ).not.toBe(contentSignature(band([row])));
   });
 
   it("changes when the slices are reordered, or a scalar is edited", () => {
@@ -520,61 +545,109 @@ describe("the content signature — what makes a publish's pass positive evidenc
     expect(contentSignature({ ...home, meta_title: "U" })).not.toBe(contentSignature(home));
   });
 
-  // The two sides are a payload and a delivered document. They disagree about
-  // an unfilled field unless both are normalised: the API returns every Group
-  // the model declares, unfilled ones as [], and a payload omits them.
   it("reads an unfilled field the same whether it is absent or empty", () => {
-    expect(contentSignature({ ...home, tracts: [], note: "", extra: null })).toBe(
+    expect(contentSignature({ ...home, tracts: [], note: "", extra: null, image: {} })).toBe(
       contentSignature(home),
     );
   });
 
-  it("changes when a group row gains a field — a partner's PROFILE arriving", () => {
-    // 2026-09-28: the partner rows gained `profile` and `email`, and a key list
-    // that stopped at the primary would have read the home page as live.
-    const row = { name: "Matt Howard", photo: { id: "P" } };
-    const band = (partners: object[]) => ({
-      ...home,
-      slices: [{ slice_type: "partners", variation: "default", primary: { partners } }],
-    });
-    const before = contentSignature(band([row]));
-    const after = contentSignature(band([{ ...row, profile: { link_type: "Document", id: "M" } }]));
-    expect(after).not.toBe(before);
-    expect(JSON.parse(after).slices).toEqual([
-      "partners/default(partners)[partners:name,photo,profile]",
-    ]);
-  });
-
-  it("reads a row's unfilled link the same whether the API delivers { link_type } or the payload omits it", () => {
-    const sent = { slices: [{ slice_type: "partners", primary: { partners: [{ name: "M" }] } }] };
-    const delivered = {
+  // The two sides, as this repository's live documents and the seed payloads
+  // that staged them (both trimmed from a 2026-09-29 read of the public API,
+  // where all 22 listings, both people and `home` fingerprint equal). Every
+  // difference below is one the API adds and a payload cannot send.
+  it("reads a delivered document the same as the payload that staged it", () => {
+    const sent = {
+      title: "402 W. Nueva Street",
+      is_new: true,
+      acres: 2.696,
+      feature_image: { id: "oSIn6g8cuLoc5Zue" },
+      package_pdf: { link_type: "Media", id: "i7TXmhPMSryJiJuM" },
+      location: { latitude: 29.4231304, longitude: -98.5008086 },
+      highlights: [{ text: "Site is adjacent to the UTSA Downtown Campus" }],
       slices: [
         {
           slice_type: "partners",
+          variation: "default",
           primary: {
-            partners: [{ name: "M", contact_link: { link_type: "Any" }, email: null, bio: [] }],
+            body: [{ type: "paragraph", text: "Formed in 1983.", spans: [] }],
+            partners: [{ name: "Matt Howard", profile: { link_type: "Document", id: "M" } }],
+            cta: { link_type: "Web", url: "/contact" },
           },
+          items: [],
+        },
+      ],
+    };
+    const delivered = {
+      title: "402 W. Nueva Street",
+      is_new: true,
+      acres: 2.696,
+      listing_state: null,
+      feature_image: {
+        dimensions: { width: 4032, height: 3024 },
+        alt: "The lot at 402 W. Nueva Street",
+        copyright: null,
+        url: "https://images.prismic.io/roalson-interests/oSIn6g8cuLoc5Zue_402.jpg?auto=format,compress",
+        id: "oSIn6g8cuLoc5Zue",
+        edit: { x: 0, y: 0, zoom: 1, background: "#ffffff" },
+      },
+      package_pdf: {
+        link_type: "Media",
+        key: "3af0bbd7-6e8c-4ced-824d-dc9bf9fadc74",
+        kind: "file",
+        id: "i7TXmhPMSryJiJuM",
+        url: "https://roalson-interests.cdn.prismic.io/roalson-interests/i7TXmhPMSryJiJuM_402.pdf",
+        name: "402-w-nueva-street-package.pdf",
+        size: "5843693",
+      },
+      location: { latitude: 29.4231304, longitude: -98.5008086 },
+      highlights: [{ text: "Site is adjacent to the UTSA Downtown Campus" }],
+      tracts: [],
+      meta_image: {},
+      slices: [
+        {
+          variation: "default",
+          version: "initial",
+          items: [],
+          primary: {
+            body: [{ type: "paragraph", text: "Formed in 1983.", spans: [], direction: "ltr" }],
+            buttons: [],
+            partners: [
+              {
+                name: "Matt Howard",
+                profile: {
+                  id: "M",
+                  type: "person",
+                  uid: "matt-howard",
+                  slug: "matt-howard",
+                  link_type: "Document",
+                  key: "2a1a3f1e-e2d6-4d58-b12c-98a09d525d79",
+                  isBroken: false,
+                },
+                contact_link: { link_type: "Any" },
+              },
+            ],
+            cta: { link_type: "Web", key: "caa1a267-5986-414a-9216-976146773c00", url: "/contact" },
+          },
+          id: "partners$51f05696-e23f-452a-b16e-c95309dc7463",
+          slice_type: "partners",
+          slice_label: null,
         },
       ],
     };
     expect(contentSignature(delivered)).toBe(contentSignature(sent));
+    expect(canonicalContent(delivered)).toEqual(canonicalContent(sent));
+    // …and the same comparison still sees the one character that matters.
+    const typo = structuredClone(delivered);
+    typo.highlights[0].text = "Site is adjacent to the UTSA Downtown Campus.";
+    expect(contentSignature(typo)).not.toBe(contentSignature(sent));
   });
 
-  it("does not read rich text as a group", () => {
-    const withBody = {
-      slices: [
-        {
-          slice_type: "partners",
-          primary: { body: [{ type: "paragraph", text: "x", spans: [] }] },
-        },
-      ],
-    };
-    expect(JSON.parse(contentSignature(withBody)).slices).toEqual(["partners/default(body)"]);
-  });
-
-  it("says what it cannot see: a word changed inside rich text", () => {
-    const edited = { ...home, title: [{ type: "heading1", text: "Somewhere else" }] };
-    expect(contentSignature(edited)).toBe(contentSignature(home));
+  it("is a hash, and tells a pre-#79 signature from one of its own", () => {
+    expect(contentSignature(home)).toMatch(/^sha256:[0-9a-f]{64}$/);
+    expect(isLegacySignature(contentSignature(home))).toBe(false);
+    // The committed state files still hold the old enumeration's strings.
+    const legacy = read("scripts/seed/listings.state.json").documents["101-w-commerce-street"];
+    expect(isLegacySignature(legacy.signature)).toBe(true);
   });
 });
 

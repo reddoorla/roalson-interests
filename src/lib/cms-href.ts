@@ -112,3 +112,21 @@ export function cmsHref(
   if (typeof resolved !== "string" || resolved.trim() === "") return null;
   return sitePath(resolved, options.siteHosts);
 }
+
+/** A fetched document with `url` filled on every document link inside it —
+ *  fields, groups, slices, rich-text spans — through `cmsHref`, as Prismic's
+ *  routes resolver would if the client had one (#10). `PrismicLink` and
+ *  `PrismicRichText` read `url` alone and take no resolver, so without this a
+ *  CMS link to a page rendered an `<a>` with no href. A broken link (its
+ *  target unpublished or deleted) is left without one: that page would 404. */
+export function withDocumentLinks<T>(value: T, linkResolver: LinkResolverFunction): T {
+  if (Array.isArray(value)) return value.map((v) => withDocumentLinks(v, linkResolver)) as T;
+  if (!value || typeof value !== "object") return value;
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(value)) out[k] = withDocumentLinks(v, linkResolver);
+  if (out.link_type === "Document" && !out.isBroken && !out.url) {
+    const href = cmsHref(out as unknown as LinkField, { linkResolver });
+    if (href) out.url = href;
+  }
+  return out as T;
+}

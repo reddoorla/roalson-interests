@@ -3,11 +3,9 @@
    * The comp's per-section property map (#13), with its ground tones EXPORTED
    * from this module script as `MAP_TONES`.
    *
-   * (That first sentence is this file's whole row in docs/COMPONENTS.md:
-   * scripts/capability-index.mjs keeps the FIRST sentence of the FIRST comment
-   * and cannot see a `<script module>` export, so the name is in it or
-   * nowhere — the same workaround BrandButton uses. The component's own
-   * description is the comment on the instance script below.)
+   * (That paragraph is this file's row in docs/COMPONENTS.md, which reads
+   * `<script module>` exports into its surface column since #59. The
+   * component's own description is the comment on the instance script below.)
    *
    * THE BOX'S OWN GROUND, AND WHY IT IS A PROP.
    *
@@ -87,9 +85,7 @@
   // imports this component and asserts nothing: 50.2s through the barrel,
   // 5.5s through these two paths — and PropertyMap.test.ts's fifteen cases now
   // run in 4.6s total. Nothing else changes: same components, same props.
-  // Modal.svelte and Accordion.svelte still take the barrel and still pay for
-  // it (Modal.test.ts: 37.5s for 18 assertions); that is issue #97, not this
-  // file's to change.
+  // src/lucide-imports.test.ts holds every lucide import to this form (#97).
   import Expand from "@lucide/svelte/icons/expand";
   import Minus from "@lucide/svelte/icons/minus";
   import Plus from "@lucide/svelte/icons/plus";

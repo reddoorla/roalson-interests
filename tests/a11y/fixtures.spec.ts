@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import AxeBuilder from "@axe-core/playwright";
+import { axe } from "../interaction/axe";
 
 const pages = [
   { path: "/dev/a11y-fixtures", name: "a11y fixtures" },
@@ -22,7 +22,7 @@ for (const { path, name } of pages) {
     // it; axe's duplicate-landmark rules are `best-practice`, outside the tags
     // below (reddoorla/reddoor-starter#158).
     await expect(page.locator("main")).toHaveCount(1);
-    const results = await new AxeBuilder({ page })
+    const results = await axe(page)
       .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
       .analyze();
 

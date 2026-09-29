@@ -169,7 +169,7 @@ export const PALETTE = {
   buildingOutline: "#cfc6b1",
   boundaryMinor: "#c3bcac",
   boundaryMajor: "#8e8676",
-  pathLabel: "#8a8378",
+  pathLabel: "#6f6a60",
 };
 
 const P = PALETTE;

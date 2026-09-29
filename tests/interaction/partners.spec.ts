@@ -1,21 +1,22 @@
 import { expect, test, type Page } from "@playwright/test";
-import AxeBuilder from "@axe-core/playwright";
+import sharp from "sharp";
 import { expectRing, GARNET, OFF_WHITE } from "./expect-ring";
 import { hydrated } from "./hydrated";
-import { SAND } from "./palette";
+import { GARNET_RGB, OFF_WHITE_RGB, SAND, type Rgb } from "./palette";
+import { axe } from "./axe";
 
 // The "Our Legacy" band makes promises jsdom cannot check (see
 // src/lib/slices/Partners/index.svelte):
 //
-//  1. PROFILE is a plain link to the partner's page, in the SERVER'S html, and
-//     is not there at all for a partner without one;
+//  1. each card is its Person document — name, PROFILE and all — in the
+//     SERVER'S html, and a partner whose Person is unpublished has no card;
 //  2. the blocks sit where the comp has them at 1440 and at 390, the cards come
 //     first on a phone, and the text stands on the site's right-hand column;
 //  3. every text link is a 24px target although its glyphs are 8px tall.
 //
 // /dev/home is the home route's own markup over fixture data, through the real
-// layout; `?profile` links the FIRST partner's Person page and `?photos` gives
-// both a generated headshot. `/` answers 404 until the Prismic repo has a
+// layout; `?photos` gives both Persons a generated headshot and `?unpublished`
+// unpublishes the second. `/` answers 404 until the Prismic repo has a
 // `home` document and /dev/* 404s on a production build — so NONE of this is
 // verified on a production build (#28).
 //
@@ -27,8 +28,8 @@ import { SAND } from "./palette";
 // Everything after a resize auto-retries. The tests that need script wait for
 // positive evidence of it.
 const LAUNCH = "/dev/home";
-const PROFILE = "/dev/home?profile";
-const FULL = "/dev/home?profile&photos";
+const UNPUBLISHED = "/dev/home?unpublished";
+const FULL = "/dev/home?photos";
 
 const band = '[data-slice-type="partners"]';
 
@@ -118,7 +119,6 @@ const geometry = (page: Page) =>
       eyebrow: box(section.querySelector("p"))!,
       list: box(list)!,
       rule: box(section.querySelector("[data-partners-rule]"))!,
-      rulePaint: getComputedStyle(section.querySelector("[data-partners-rule]")!).backgroundColor,
       headline: box(section.querySelector("h2"))!,
       body: box(section.querySelector("[data-partners-body]"))!,
       cards: [...section.querySelectorAll("[data-partner]")].map((li) => {
@@ -144,26 +144,31 @@ const near = (actual: number, expected: number, what: string, tolerance = 0.5) =
     tolerance,
   );
 
-test("the server's HTML holds PROFILE as a link to the partner's page — and no PROFILE without one", async ({
+test("the server's HTML draws each card from its Person, PROFILE and all — and none for an unpublished one", async ({
   page,
 }) => {
   const sectionOf = (html: string) =>
     /<section[^>]*data-slice-type="partners"[\s\S]*?<\/section>/.exec(html)?.[0] ?? "";
-
-  const withProfile = sectionOf(await (await page.request.get(PROFILE)).text());
-  expect(withProfile, "the band is server-rendered").toContain("Matt Howard");
-  expect(withProfile.match(/href="\/team\/matt-howard"/g)?.length, "one card has a profile").toBe(
-    1,
-  );
-  expect(withProfile).not.toContain("<details");
-  // Both partners' CONTACT, the second card's with no PROFILE beside it.
-  expect(withProfile.match(/href="\/contact"/g)?.length).toBe(2);
+  const cardsIn = (html: string) => html.match(/data-partner=""/g)?.length ?? 0;
 
   const launch = sectionOf(await (await page.request.get(LAUNCH)).text());
+  expect(launch, "the band is server-rendered").toContain("Matt Howard");
   expect(launch).toContain("Bart Wilson");
-  expect(launch).not.toContain("data-partner-profile");
-  expect(launch.toLowerCase()).not.toContain("profile");
+  expect(cardsIn(launch)).toBe(2);
+  expect(launch.match(/href="\/team\/matt-howard"/g)?.length, "each card has a profile").toBe(1);
+  expect(launch.match(/href="\/team\/bart-wilson"/g)?.length).toBe(1);
+  expect(launch).not.toContain("<details");
+  // Both partners' CONTACT: neither Person has an email in this state.
   expect(launch.match(/href="\/contact"/g)?.length).toBe(2);
+
+  // #179: the row has no name of its own any more, so an unpublished Person
+  // is no card at all — not a card without its PROFILE.
+  const unpublished = sectionOf(await (await page.request.get(UNPUBLISHED)).text());
+  expect(unpublished).toContain("Matt Howard");
+  expect(unpublished).not.toContain("Bart Wilson");
+  expect(unpublished).not.toContain("/team/bart-wilson");
+  expect(cardsIn(unpublished)).toBe(1);
+  expect(unpublished).toMatch(/data-partners-linked="1"[^>]*data-partners-shown="1"/);
 });
 
 test("at 1440 the band keeps the comp's rhythm and its text stands on the site's column", async ({
@@ -182,8 +187,7 @@ test("at 1440 the band keeps the comp's rhythm and its text stands on the site's
   near(eyebrowTop, 80, "eyebrow cap top");
   near(g.eyebrow.left, 80, "eyebrow left");
   near(g.rule.top - eyebrowTop, 40, "rule under the eyebrow");
-  expect(g.rulePaint, "the rule is garnet").toBe(GARNET);
-  near(g.rule.height, 0.5, "a half-pixel stroke, not a border snapped up to 1", 0.01);
+  // Its paint and weight are the pixel-row test's, at 1x and 2x.
   near(g.rule.width, 371, "the rule is the column's width");
   near(g.list.top, g.rule.top, "…and takes no room: the list starts where it does");
   near(g.list.width, 371, "left column width (6802:1474)");
@@ -262,6 +266,91 @@ test("at 390 the cards come first, the links share a line, and they wrap below i
   expect(narrow.contact.bottom, "still inside the panel").toBeLessThanOrEqual(narrow.panel.bottom);
 });
 
+// #54: the comp draws the card 350 at 390 and 371 at 1440, and nothing
+// between. Capped from `lg` only, the column ran the whole width from 640 to
+// 1023 — 704 at 768, 959 at 1023 — small text at the left of a wide sand slab.
+for (const width of [768, 1000] as const) {
+  test(`at ${width} the cards and the rule keep the comp's 371, on the gutter`, async ({
+    page,
+  }) => {
+    await page.goto(FULL);
+    await layOutAt(page, width);
+    const g = await geometry(page);
+    near(g.list.width, 371, "the card column");
+    near(g.rule.width, 371, "the rule");
+    expect(g.cards.length).toBe(2);
+    for (const c of g.cards) {
+      near(c.card.width, 371, "card width");
+      near(c.card.left, 32, "on the `sm` gutter");
+      near(c.photo!.width, 153, "headshot width");
+    }
+    // Still one column below `lg`: the text is under the cards.
+    expect(g.headline.top).toBeGreaterThan(g.list.bottom);
+  });
+}
+
+/** Device-pixel rows through the rule, 3 above it to 3 below, at one x well
+ *  inside it — decoded from a screenshot, which is what the display shows. */
+async function ruleRows(page: Page): Promise<Rgb[]> {
+  const rule = page.locator(`${band} [data-partners-rule]`);
+  await rule.scrollIntoViewIfNeeded();
+  const box = (await rule.boundingBox())!;
+  const top = Math.floor(box.y) - 3;
+  const png = await page.screenshot({
+    clip: { x: Math.round(box.x + box.width / 2), y: top, width: 1, height: 7 },
+  });
+  const { data, info } = await sharp(png).raw().toBuffer({ resolveWithObject: true });
+  const rows: Rgb[] = [];
+  for (let y = 0; y < info.height; y++) {
+    const i = y * info.width * info.channels;
+    rows.push([data[i], data[i + 1], data[i + 2]]);
+  }
+  return rows;
+}
+
+const close = (a: Rgb, b: Rgb, tolerance = 3) => a.every((v, i) => Math.abs(v - b[i]) <= tolerance);
+
+// #53, measured by PIXEL ROW, because the layout box says nothing about paint:
+// a 1px box scaled to half reads 0.5 tall at every density, and at 1x it
+// painted one full device row of solid garnet (101,35,35), a plain 1px line.
+// The comp's own 1x render is a half-alpha blend. So: at 1x one device row of
+// garnet at 50% over the off-white; at 2x one device row of solid garnet,
+// which is 0.5 CSS px. Every other row is the ground.
+for (const dpr of [1, 2] as const) {
+  test(`at ${dpr}x the rule is one device row of ${dpr === 1 ? "the 50% blend" : "solid garnet"}`, async ({
+    browser,
+  }) => {
+    // Motion ALLOWED, not the harness's `reduce`: under `reduce` the old
+    // scaled box painted the 50% blend at 1x too (172,138,137, measured), and
+    // this test passed with the fix reverted. With motion allowed — every
+    // visitor who has not asked for less — it is the solid row #53 reported.
+    const context = await browser.newContext({
+      viewport: { width: 1440, height: 900 },
+      deviceScaleFactor: dpr,
+      reducedMotion: "no-preference",
+    });
+    try {
+      const page = await context.newPage();
+      await page.goto(LAUNCH);
+      await layOutAt(page, 1440);
+      const rows = await ruleRows(page);
+      const blend = GARNET_RGB.map((v, i) => Math.round((v + OFF_WHITE_RGB[i]) / 2)) as Rgb;
+      const painted = rows.filter((row) => !close(row, OFF_WHITE_RGB, 1));
+      expect(
+        { rows: rows.length, painted },
+        `rows through the rule at ${dpr}x: ${JSON.stringify(rows)}`,
+      ).toEqual({ rows: 7 * dpr, painted: [expect.anything()] });
+      const [line] = painted;
+      expect(
+        close(line, dpr === 1 ? blend : GARNET_RGB),
+        `the rule's row ${JSON.stringify(line)} against ${JSON.stringify(dpr === 1 ? blend : GARNET_RGB)}`,
+      ).toBe(true);
+    } finally {
+      await context.close();
+    }
+  });
+}
+
 // Found by the fidelity reviewer's width sweep, with every test green: a fixed
 // 153px photo square beside a panel that had grown (the name or the links
 // wrapping) left a notch of band ground under the photo — 48.9px at 1100 and at
@@ -295,12 +384,12 @@ test("with no headshot — the launch state — the panel is the whole card, at 
   near(g.height, 556, "band height is unchanged");
   for (const c of g.cards) {
     expect(c.photo, "no photo box").toBeNull();
-    expect(c.profile, "no PROFILE").toBeNull();
     near(c.panel.width, c.card.width, "panel spans the card");
     near(c.card.width, 371, "card width");
     near(c.card.height, 153, "card height");
     near(c.links.top - c.card.top, 105, "links row top");
-    near(c.contact.left, c.name.left, "CONTACT on the text edge");
+    near(c.profile!.left, c.name.left, "PROFILE on the text edge");
+    near(c.contact.top, c.profile!.top, "CONTACT beside it");
   }
 });
 
@@ -311,7 +400,7 @@ test("every text link is a 24px target, and the padded zone really takes the poi
   await layOutAt(page, 1440);
 
   const targets = page.locator(`${band} [data-partner-links] > a`);
-  await expect(targets).toHaveCount(3);
+  await expect(targets).toHaveCount(4);
   for (const target of await targets.all()) {
     await target.scrollIntoViewIfNeeded();
     const hit = await target.evaluate((el) => {
@@ -338,7 +427,7 @@ test("every text link is a 24px target, and the padded zone really takes the poi
 
 test("PROFILE and CONTACT take the garnet ring of the sand panel they sit on", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto(PROFILE);
+  await page.goto(LAUNCH);
   await adopted(page);
   const card = page.locator(`${band} [data-partner]`).first();
   await expectRing(page, card.locator("[data-partner-profile]"), GARNET);
@@ -351,7 +440,7 @@ test("the band passes axe", async ({ page }) => {
   await adopted(page);
 
   const audit = async () => {
-    const results = await new AxeBuilder({ page })
+    const results = await axe(page)
       .include(band)
       .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa", "best-practice"])
       .analyze();
@@ -377,12 +466,12 @@ test("the band passes axe", async ({ page }) => {
     return measured.map((node) => node.html);
   };
 
-  // Eyebrow, 2 names, 2 roles, PROFILE, 2 CONTACTs, headline, 2 body
+  // Eyebrow, 2 names, 2 roles, 2 PROFILEs, 2 CONTACTs, headline, 2 body
   // paragraphs. The links are counted by name — they are the ones that went
   // missing.
   const measured = await audit();
-  expect(measured.length, "every text node in the band").toBe(11);
-  expect(measured.filter((html) => /<span class="t-h5/.test(html)).length, "the three links").toBe(
-    3,
+  expect(measured.length, "every text node in the band").toBe(12);
+  expect(measured.filter((html) => /<span class="t-h5/.test(html)).length, "the four links").toBe(
+    4,
   );
 });

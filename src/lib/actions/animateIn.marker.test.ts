@@ -29,8 +29,11 @@ class FakeIntersectionObserver {
     return [];
   }
   enter() {
+    this.report(true);
+  }
+  report(isIntersecting: boolean) {
     this.cb(
-      [{ isIntersecting: true } as IntersectionObserverEntry],
+      [{ isIntersecting } as IntersectionObserverEntry],
       this as unknown as IntersectionObserver,
     );
   }
@@ -147,6 +150,27 @@ describe("animateIn — content can never be stranded invisible", () => {
       vi.advanceTimersByTime(2500);
       expect(el.hasAttribute("data-reveal")).toBe(false);
       expect(el.style.opacity).toBe("1");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("stands the fail-safe down on the observer's first report, so below-fold content waits (#105)", () => {
+    // A live observer reports once after `observe()` whether or not the
+    // element is in view. The featured card ships `data-reveal` and sits below
+    // the fold at 1440 x 900: a timer that ran until the reveal would reveal
+    // it unseen for anyone slower to scroll than `failSafe`.
+    vi.useFakeTimers();
+    try {
+      const el = element();
+      animateIn(el, { failSafe: 2500 });
+      FakeIntersectionObserver.instances[0]!.report(false);
+      vi.advanceTimersByTime(60_000);
+      expect(el.style.opacity, "the reader has not arrived").toBe("0");
+      expect(el.hasAttribute("data-reveal")).toBe(true);
+      FakeIntersectionObserver.instances[0]!.enter();
+      expect(el.style.opacity).toBe("1");
+      expect(el.hasAttribute("data-reveal")).toBe(false);
     } finally {
       vi.useRealTimers();
     }

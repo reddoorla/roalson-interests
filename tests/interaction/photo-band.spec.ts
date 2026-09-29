@@ -1,8 +1,8 @@
 import { expect, test, type Page } from "@playwright/test";
-import AxeBuilder from "@axe-core/playwright";
 
 import { HYDRATION_TIMEOUT } from "./hydrated";
 import { DARK, GARNET, OFF_WHITE } from "./palette";
+import { axe } from "./axe";
 
 // The homepage's photo band makes promises jsdom cannot check (see
 // src/lib/slices/PhotoBand/index.svelte and the `[data-pinned-band]` block in
@@ -420,7 +420,7 @@ test.describe("under prefers-reduced-motion: reduce (what the shared config forc
     page,
   }) => {
     await open(page, 1440, 900, `${HOME}?photo`);
-    const results = await new AxeBuilder({ page })
+    const results = await axe(page)
       .include(BAND)
       .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
       .analyze();

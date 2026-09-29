@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
-import AxeBuilder from "@axe-core/playwright";
 import { HYDRATION_TIMEOUT } from "./hydrated";
 import { OFF_WHITE, SAND } from "./palette";
+import { axe } from "./axe";
 
 // The footer makes promises jsdom cannot check (see Footer.svelte): where its
 // blocks sit against the comp, that the order flips on a phone, what ground it
@@ -300,7 +300,7 @@ test("the footer has no axe violations, and its contrast was actually measured",
 }) => {
   await page.goto(LISTING);
   await hydrated(page);
-  const results = await new AxeBuilder({ page })
+  const results = await axe(page)
     .include("footer")
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
     .analyze();

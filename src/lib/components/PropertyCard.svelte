@@ -23,6 +23,15 @@
   // 15px gap; 20px between blocks. Every block renders only when its field is
   // filled — and no photo is the common case (three real photos for 22
   // listings), so a photo-less row card gives the panel the full width.
+  //
+  // AS A CAROUSEL SLIDE (`inCarousel`, #14 below `lg`) the card is laid out by
+  // its carousel, not by itself: the article is a SUBGRID of the carousel's
+  // grid, the photo takes the first row (the left column from `md`) and the
+  // panel the last, and the rows between belong to the carousel's bar and
+  // arrows, which are its siblings in the DOM and not its children — a
+  // control inside a slide goes inert with it (#34). The photo box is drawn
+  // even without a photo, so every slide has the same anatomy and the arrows
+  // do not jump between a card with a photo and one without.
   import { asLink, isFilled } from "@prismicio/client";
   import { PrismicImage } from "@prismicio/svelte";
   import { cappedWidths } from "@reddoorla/maintenance/images";
@@ -42,10 +51,19 @@
      *  "column": photo above, as in the Past Projects grid. Below md every card is a
      *  column; the 390 comp stacks them. */
     layout?: "row" | "column";
+    /** One slide of PropertyListing's carousel: see the header. `layout` is
+     *  the carousel's then — a column below `md`, a row from it. */
+    inCarousel?: boolean;
     class?: string;
   }
 
-  let { property, variant = "cream", layout = "row", class: passedClasses = "" }: Props = $props();
+  let {
+    property,
+    variant = "cream",
+    layout = "row",
+    inCarousel = false,
+    class: passedClasses = "",
+  }: Props = $props();
 
   const featured = $derived(variant === "featured");
   const TONES = {
@@ -69,26 +87,44 @@
   const highlights = $derived(propertyHighlights(property));
   const hasPhoto = $derived(isFilled.image(data.feature_image));
   const href = $derived(asLink(property, { linkResolver }));
+
+  // The carousel's placements: rows 1 and 4 of its [photo][bar][arrows][text]
+  // below `md`; from `md` the photo spans column 1 and the text is row 3 of
+  // column 2. `md:aspect-auto` with the image absolute, so the photo is as
+  // tall as the panel beside it and its own pixels size nothing.
+  const frame = $derived(
+    inCarousel
+      ? "col-span-full row-span-full grid grid-cols-subgrid grid-rows-subgrid"
+      : `flex flex-col ${layout === "row" ? "md:flex-row" : ""}`,
+  );
+  const photoBox = $derived(
+    inCarousel
+      ? "relative row-start-1 aspect-[423.5/267.5] overflow-hidden md:col-start-1 md:row-span-full md:aspect-auto"
+      : `aspect-[423.5/267.5] shrink-0 overflow-hidden ${layout === "row" ? "md:w-1/2" : ""}`,
+  );
+  const panel = $derived(
+    `flex min-w-0 flex-1 flex-col gap-5 px-5 pt-5 pb-10${
+      inCarousel ? " row-start-4 md:col-start-2 md:row-start-3" : ""
+    }`,
+  );
 </script>
 
-<article class="flex flex-col {layout === 'row' ? 'md:flex-row' : ''} {tone.card} {passedClasses}">
-  {#if hasPhoto}
-    <div
-      class="aspect-[423.5/267.5] shrink-0 overflow-hidden {layout === 'row'
-        ? 'md:w-1/2'
-        : ''} {tone.photo}"
-    >
-      <PrismicImage
-        field={data.feature_image}
-        fallbackAlt=""
-        widths={cappedWidths(data.feature_image)}
-        sizes="(min-width: 1024px) 30vw, (min-width: 768px) 50vw, 100vw"
-        class="size-full object-cover"
-      />
+<article class="{frame} {tone.card} {passedClasses}">
+  {#if hasPhoto || inCarousel}
+    <div class="{photoBox} {tone.photo}">
+      {#if hasPhoto}
+        <PrismicImage
+          field={data.feature_image}
+          fallbackAlt=""
+          widths={cappedWidths(data.feature_image)}
+          sizes="(min-width: 1024px) 30vw, (min-width: 768px) 50vw, 100vw"
+          class={inCarousel ? "absolute inset-0 size-full object-cover" : "size-full object-cover"}
+        />
+      {/if}
     </div>
   {/if}
 
-  <div class="flex min-w-0 flex-1 flex-col gap-5 px-5 pt-5 pb-10">
+  <div class={panel}>
     {#if !past && (status || data.is_new)}
       <ul class="flex flex-wrap items-center gap-2.5" aria-label="Listing status">
         {#if status}

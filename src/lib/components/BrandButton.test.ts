@@ -136,12 +136,12 @@ describe("BrandButton's exported classes", () => {
   });
 
   it("are findable: docs/COMPONENTS.md's row for this file names every one of them", () => {
-    // The index is what a session reads before writing a button, and its
-    // extractor cannot see a `<script module>` export: a .svelte row is the
-    // props plus the FIRST SENTENCE of the leading comment. These names were
-    // first written as that comment's second sentence, the row never changed,
-    // and an issue was drafted describing them as indexed. So the exports are
-    // read from the source here, not listed, and each must be in the row.
+    // The index is what a session reads before writing a button. Until #59 its
+    // extractor could not see a `<script module>` export and kept only the
+    // FIRST SENTENCE of the leading comment; these names were first written as
+    // that comment's second sentence, the row never changed, and an issue was
+    // drafted describing them as indexed. So the exports are read from the
+    // source here, not listed, and each must be in the row.
     // (Its freshness is scripts/capability-index.test.ts's. cwd-relative
     // because under jsdom `import.meta.url` is not a file: URL.)
     const source = readFileSync(

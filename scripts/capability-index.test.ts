@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, mkdtempSync, writeFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   SOURCES,
@@ -8,6 +9,8 @@ import {
   listModules,
   surfaceOf,
   summaryOf,
+  testFilesFor,
+  testCountFor,
   buildIndex,
   renderIndex,
 } from "./capability-index.mjs";
@@ -129,15 +132,83 @@ describe("surfaceOf", () => {
     const src = `export const trapFocus = () => {};\nexport function helper() {}\n`;
     expect(surfaceOf(src, "x.ts")).toEqual(["trapFocus", "helper"]);
   });
+
+  it("reads a component's <script module> exports, in either attribute order (#59)", () => {
+    // BrandButton exports its classes so a <button> can wear them, and the
+    // index could not see them: a caller looking for "the button classes" found
+    // a component that takes `href`.
+    const a = `<script module lang="ts">
+  export const buttonBase = "x";
+  export function tone() {}
+</script>
+<script lang="ts">
+  let { href } = $props();
+</script>`;
+    expect(surfaceOf(a, "X.svelte")).toEqual(["buttonBase", "tone", "href"]);
+    const b = `<script lang="ts" module>\n  export const MAP_TONES = {};\n</script>`;
+    expect(surfaceOf(b, "X.svelte")).toEqual(["MAP_TONES"]);
+    // The real rows: every `export const` in BrandButton's module script.
+    const row = readFileSync(join(ROOT, OUT), "utf8")
+      .split("\n")
+      .find((l) => l.startsWith("| [`BrandButton.svelte`]"))!;
+    const surface = row.split(" | ")[1];
+    for (const name of ["brandButtonBase", "BRAND_BUTTON_TONES", "brandButtonPadding"])
+      expect(surface).toContain(`\`${name}\``);
+  });
+});
+
+describe("testCountFor", () => {
+  it("sums every co-located suite a module has, split by concern or not (#46)", () => {
+    // Nav.premount.test.ts held 10 of Nav's tests and the row said 33, not 43.
+    const dir = mkdtempSync(join(tmpdir(), "capability-index-"));
+    try {
+      const put = (name: string, body = "") => writeFileSync(join(dir, name), body);
+      const its = (n: number) => Array.from({ length: n }, () => `it("x", () => {});`).join("\n");
+      put("Nav.svelte");
+      put("Nav.test.ts", its(3));
+      put("Nav.premount.test.ts", its(2));
+      put("Nav.drawer.svelte.test.ts", its(1));
+      put("Navigation.svelte");
+      put("Navigation.test.ts", its(7)); // a longer name, not a Nav suite
+      put("carousel.ts");
+      put("carousel.svelte.ts");
+      put("carousel.svelte.test.ts", its(4)); // the longest stem owns it
+      expect(testFilesFor("Nav.svelte", dir)).toEqual([
+        "./Nav.drawer.svelte.test.ts",
+        "./Nav.premount.test.ts",
+        "./Nav.test.ts",
+      ]);
+      expect(testCountFor("Nav.svelte", dir)).toBe(6);
+      expect(testCountFor("Navigation.svelte", dir)).toBe(7);
+      expect(testCountFor("carousel.svelte.ts", dir)).toBe(4);
+      expect(testCountFor("carousel.ts", dir)).toBe(0);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("finds Nav's split suite in this repo", () => {
+    expect(testFilesFor("src/lib/components/Nav.svelte")).toEqual([
+      "src/lib/components/Nav.premount.test.ts",
+      "src/lib/components/Nav.test.ts",
+    ]);
+  });
 });
 
 describe("summaryOf", () => {
-  it("takes the module's own first sentence, never inventing one", () => {
+  it("takes the module's own first paragraph, never inventing one", () => {
+    // A paragraph, not a sentence (#59): a second sentence naming exports was
+    // dropped from the row while an issue described it as indexed.
     expect(summaryOf("// Focus management for overlays. More text here.\nexport {};")).toBe(
-      "Focus management for overlays",
+      "Focus management for overlays. More text here",
     );
-    expect(summaryOf(`<script lang="ts">\n  // Progressive wrapper. Details.\n</script>`)).toBe(
-      "Progressive wrapper",
+    expect(
+      summaryOf(
+        `<script lang="ts">\n  // Progressive wrapper.\n  // Details.\n  //\n  // Aside.\n</script>`,
+      ),
+    ).toBe("Progressive wrapper. Details");
+    expect(summaryOf("/**\n * Lead. Second.\n *\n * Later paragraph.\n */\nexport {};")).toBe(
+      "Lead. Second",
     );
   });
 

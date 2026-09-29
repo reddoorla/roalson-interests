@@ -67,8 +67,8 @@ describe("animateIn — viewport mode", () => {
 
     expect(el.style.opacity).toBe("0");
     expect(el.style.transform).toBe("translateY(50%)");
-    expect(el.style.transition).toContain("opacity 2400ms var(--transition-fast-slow)");
-    expect(el.style.transition).toContain("transform 2400ms var(--transition-fast-slow)");
+    expect(el.style.transition).toContain("opacity 2400ms var(--ease-fast-slow)");
+    expect(el.style.transition).toContain("transform 2400ms var(--ease-fast-slow)");
   });
 
   it("reveals on intersection and disconnects the observer", () => {
@@ -301,8 +301,8 @@ describe("animateIn — options overrides", () => {
 
     animateIn(el, { duration: 1200 });
 
-    expect(el.style.transition).toContain("opacity 1200ms var(--transition-fast-slow)");
-    expect(el.style.transition).toContain("transform 1200ms var(--transition-fast-slow)");
+    expect(el.style.transition).toContain("opacity 1200ms var(--ease-fast-slow)");
+    expect(el.style.transition).toContain("transform 1200ms var(--ease-fast-slow)");
   });
 
   it("applies a custom translateY on the hidden transform", () => {
