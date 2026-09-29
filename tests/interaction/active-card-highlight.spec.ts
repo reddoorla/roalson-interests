@@ -1,9 +1,9 @@
-import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Browser, type Locator, type Page } from "@playwright/test";
 
 import { hydrated } from "./hydrated";
 import { DARK, GARNET, OFF_WHITE, SAND } from "./palette";
 import { placedPin } from "./placed-markers";
+import { axe } from "./axe";
 
 // THE GARNET CARD FOLLOWS THE CENTRE LINE (operator, 2026-09-23: "please
 // change the highlighted box as we scroll").
@@ -657,11 +657,8 @@ async function auditMovedCard(page: Page, id: string) {
     timeout: MOVE_TIMEOUT,
   });
   const tags = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
-  const moved = await new AxeBuilder({ page })
-    .include(`[data-centre-id="${id}"]`)
-    .withTags(tags)
-    .analyze();
-  const column = await new AxeBuilder({ page })
+  const moved = await axe(page).include(`[data-centre-id="${id}"]`).withTags(tags).analyze();
+  const column = await axe(page)
     .include('section[aria-labelledby="listing-land"] ul:not([data-map-list])')
     .withTags(tags)
     .analyze();

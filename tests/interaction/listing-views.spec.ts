@@ -1,7 +1,7 @@
-import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Browser, type Page } from "@playwright/test";
 
 import { hydrated } from "./hydrated";
+import { axe } from "./axe";
 
 // THE PROPERTIES VIEW TABS (P5, client meeting 2026-09-25: "land / improved
 // projects / all"). The tabs are fragment links and app.css filters by
@@ -165,7 +165,7 @@ test.describe("hydrated", () => {
     for (const view of ["land", "improved", "all"] as const) {
       await tabOf(page, view).click();
       await expectView(page, view);
-      const result = await new AxeBuilder({ page })
+      const result = await axe(page)
         .include("[data-listing]")
         .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
         .analyze();

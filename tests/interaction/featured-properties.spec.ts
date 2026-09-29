@@ -1,4 +1,3 @@
-import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Browser, type Locator, type Page } from "@playwright/test";
 import { expectRing, GARNET } from "./expect-ring";
 import {
@@ -10,6 +9,7 @@ import {
 import { measuresGutter, viewportFor } from "./gutter";
 import { HYDRATION_TIMEOUT } from "./hydrated";
 import { DARK, SAND } from "./palette";
+import { axe } from "./axe";
 
 // The homepage's featured band (src/lib/slices/FeaturedProperties) is the
 // headless carousel's first consumer, and makes promises jsdom cannot check:
@@ -1046,7 +1046,7 @@ test.describe("rotation", () => {
         "the picture never handed over, so the canvas is still mid-fade",
       ).toHaveCount(0, { timeout: 10_000 });
 
-      const results = await new AxeBuilder({ page }).include(BAND).analyze();
+      const results = await axe(page).include(BAND).analyze();
       expect(results.violations.map((v) => `${v.id}: ${v.nodes.length}`)).toEqual([]);
       // Positive evidence that axe looked at the controls at all.
       expect(results.passes.map((p) => p.id)).toContain("button-name");
@@ -1150,7 +1150,7 @@ test.describe("rotation", () => {
       for (const link of await map.locator("[data-map-link]").all())
         await expect(link).toHaveClass(/\bsr-only\b/);
 
-      const results = await new AxeBuilder({ page }).include(BAND).analyze();
+      const results = await axe(page).include(BAND).analyze();
       expect(results.violations.map((v) => `${v.id}: ${v.nodes.length}`)).toEqual([]);
       const { measured, unmeasured } = contrastOf(results);
       expect(
@@ -1194,7 +1194,7 @@ test.describe("rotation", () => {
       await expect(link, `${tone}: the list is drawn`).toBeVisible();
       await expect(link).not.toHaveClass(/\bsr-only\b/);
 
-      const results = await new AxeBuilder({ page }).include(selector).analyze();
+      const results = await axe(page).include(selector).analyze();
       expect(results.violations.map((v) => `${v.id}: ${v.nodes.length}`)).toEqual([]);
       const { measured, unmeasured } = contrastOf(results);
       expect(
@@ -1847,7 +1847,7 @@ test.describe("motion", () => {
       await pointerAway(page);
 
       const audit = async (title: string, when: string) => {
-        const results = await new AxeBuilder({ page }).include(CARD).analyze();
+        const results = await axe(page).include(CARD).analyze();
         expect(
           results.violations.map((v) => `${v.id}: ${v.nodes.length}`),
           `${when}: violations`,
@@ -2846,7 +2846,7 @@ test.describe("the portfolio button", () => {
       // An element painted over text does not move it — it makes its contrast
       // unknowable, which axe answers with an INCOMPLETE rather than a ratio.
       await card.evaluate((el) => el.setAttribute("data-narrow-scope", ""));
-      const results = await new AxeBuilder({ page }).include("[data-narrow-scope]").analyze();
+      const results = await axe(page).include("[data-narrow-scope]").analyze();
       const { measured, unmeasured } = contrastOf(results as never);
       expect(
         unmeasured.map((n) => n.html.slice(0, 60)),
@@ -2895,7 +2895,7 @@ test.describe("the portfolio button", () => {
       // moves whenever an editor adds a listing. The map's own contrast is
       // covered on /dev/a11y-fixtures, where it is mounted with `engine="off"`
       // so the gate never waits on a tile host.
-      const results = await new AxeBuilder({ page })
+      const results = await axe(page)
         .include(BAND)
         .exclude(`${BAND} [data-property-map]`)
         .analyze();

@@ -1,4 +1,3 @@
-import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Browser, type Page } from "@playwright/test";
 
 import { nextTurn } from "./band-turn";
@@ -13,6 +12,7 @@ import {
   watchCamera,
 } from "./camera-probe";
 import { carouselHydrated, hydrated } from "./hydrated";
+import { axe } from "./axe";
 
 // THE HOMEPAGE BAND'S MAP IS A PICTURE WHILE THE SLIDESHOW RUNS, AND A MAP
 // WHILE IT IS STOPPED. Operator call, 2026-09-23: "map should get all
@@ -249,7 +249,7 @@ test.describe("while the slideshow runs, the band's map is a picture the page go
 
     // The locked map passes axe — measured, not assumed, since its canvas lost
     // its tabindex and changed its name.
-    const results = await new AxeBuilder({ page }).include(MAP).analyze();
+    const results = await axe(page).include(MAP).analyze();
     expect(results.violations.map((v) => `${v.id}: ${v.nodes.length}`)).toEqual([]);
     expect(results.passes.length, "axe looked at the map").toBeGreaterThan(0);
   });

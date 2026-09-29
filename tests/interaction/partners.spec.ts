@@ -1,9 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
-import AxeBuilder from "@axe-core/playwright";
 import sharp from "sharp";
 import { expectRing, GARNET, OFF_WHITE } from "./expect-ring";
 import { hydrated } from "./hydrated";
 import { GARNET_RGB, OFF_WHITE_RGB, SAND, type Rgb } from "./palette";
+import { axe } from "./axe";
 
 // The "Our Legacy" band makes promises jsdom cannot check (see
 // src/lib/slices/Partners/index.svelte):
@@ -440,7 +440,7 @@ test("the band passes axe", async ({ page }) => {
   await adopted(page);
 
   const audit = async () => {
-    const results = await new AxeBuilder({ page })
+    const results = await axe(page)
       .include(band)
       .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa", "best-practice"])
       .analyze();

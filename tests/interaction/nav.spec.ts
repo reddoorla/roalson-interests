@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
-import AxeBuilder from "@axe-core/playwright";
 import { hydrated } from "./hydrated";
 import { GARNET, OFF_WHITE, SAND } from "./palette";
+import { axe } from "./axe";
 
 // The bar makes promises jsdom cannot check (see Nav.svelte) — three here, and
 // a fourth about the homepage alone, at the foot of this file:
@@ -347,7 +347,7 @@ test("the open menu: named, focused, locked, clean under axe, and closed by Esca
   expect(triggerBox!.width, measured).toBe(44);
   expect(triggerBox!.y + triggerBox!.height / 2, measured).toBe(40);
 
-  const results = await new AxeBuilder({ page })
+  const results = await axe(page)
     .include("#nav-menu")
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
     .analyze();
