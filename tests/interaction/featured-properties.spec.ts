@@ -2,6 +2,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Browser, type Locator, type Page } from "@playwright/test";
 import { expectRing, GARNET } from "./expect-ring";
 import { FEATURED_DISSOLVE, FEATURED_DWELL, FEATURED_KEN_BURNS } from "./featured-dwell";
+import { measuresGutter, viewportFor } from "./gutter";
 import { HYDRATION_TIMEOUT } from "./hydrated";
 import { DARK, SAND } from "./palette";
 
@@ -22,10 +23,11 @@ import { DARK, SAND } from "./palette";
 //  4. ONE listing is a card and NONE is no band at all.
 //
 // House rules, paid for in nav.spec.ts and footer.spec.ts: no x derived from
-// the window (headless Chromium lays this site out 15px narrower than its
-// viewport) — every position is relative to the card or to another element;
-// sizes read after a viewport change are auto-retrying; nothing is pressed
-// before script has provably adopted the carousel.
+// the window (the page lays out a scrollbar gutter narrower than its viewport:
+// 15px here, 0 under an overlay scrollbar) — every position is relative to the
+// card or to another element; sizes read after a viewport change are
+// auto-retrying; nothing is pressed before script has provably adopted the
+// carousel.
 //
 // The shared config forces `reducedMotion: "reduce"`, under which this band
 // never rotates and draws no Pause. Every test about rotation opens its OWN
@@ -51,18 +53,13 @@ const TURN_CEILING = DWELL + DISSOLVE + 6000;
  *  measures from the CAP box, CSS from the line box. */
 const H4_TRIM = 8.1;
 
-/** Headless Chromium keeps `scrollbar-gutter: stable`'s 15px and hides the
- *  scrollbar that would fill it, so the page lays out 15px NARROWER than the
- *  viewport — and than `clientWidth`, which still reports the viewport. Every
- *  width in this file is the layout width the comp is drawn at; this is the
- *  one place that turns it into the viewport that produces it. Asked for 1440
- *  directly, the card measures 916.8 where the comp says 927, and four
- *  assertions here read as defects in the band. */
-const GUTTER = 15;
-const viewportFor = (layoutWidth: number, height = 900) => ({
-  width: layoutWidth + GUTTER,
-  height,
-});
+/** Every width in this file is the layout width the comp is drawn at, and
+ *  `viewportFor` (./gutter.ts) turns it into the viewport that produces it.
+ *  Asked for 1440 directly under a classic 15px scrollbar, the card measures
+ *  916.8 where the comp says 927, and four assertions here read as defects in
+ *  the band. The gutter was a typed 15 until an overlay scrollbar made it 0
+ *  (#124); it is measured now. */
+measuresGutter();
 
 async function moving(browser: Browser, viewport = viewportFor(1440)) {
   const context = await browser.newContext({ reducedMotion: "no-preference", viewport });
@@ -286,9 +283,11 @@ const geometry = (page: Page) =>
           width: slot.firstElementChild!.getBoundingClientRect().width,
         },
         // Positive means content wider than the box, which is the defect.
-        // It reads -15 here even when nothing overflows: `clientWidth` reports
-        // the viewport while the page lays out inside the reserved gutter.
+        // It reads minus the gutter even when nothing overflows: `clientWidth`
+        // reports the viewport while the page lays out inside the gutter.
         overflowX: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        // The width the page is laid out in: `viewportFor`'s premise.
+        layout: document.documentElement.getBoundingClientRect().width,
       };
     },
     { CARD, BAND },
@@ -305,6 +304,7 @@ test.describe("where the comp draws it", () => {
       await holdClock(page);
       const g = await geometry(page);
 
+      expect(g.layout, "premise: the page is laid out at the comp's 1440").toBe(1440);
       expect(g.photo.width / g.photo.height).toBeCloseTo(928 / 542, 2);
       expect(g.photo.width).toBeCloseTo(g.card.width, 0);
       // THE regression for the grid-row shorthand: with the chrome auto-placed

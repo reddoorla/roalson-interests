@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { measuresGutter, viewportFor } from "./gutter";
 import { hydrated } from "./hydrated";
 import { DARK, OFF_WHITE } from "./palette";
 
@@ -204,10 +205,10 @@ test.describe("with motion allowed, the hero pins", () => {
 const H1_TRIM = 18;
 const H2_TRIM = 11.5;
 
-/** Headless Chromium keeps `scrollbar-gutter: stable`'s 15px, so the page lays
- *  out 15px narrower than the viewport; this is the viewport that produces a
- *  given LAYOUT width (featured-properties.spec.ts has the long form). */
-const viewportFor = (layout: number, height = 900) => ({ width: layout + 15, height });
+/** `viewportFor` (./gutter.ts) is the viewport that produces a given LAYOUT
+ *  width: the page lays out a scrollbar gutter narrower than its window, and
+ *  that gutter is 15 or 0 by system setting (#124), so it is measured. */
+measuresGutter();
 
 /** The webfont has ARRIVED, by name — every width below is the webfont's, and
  *  `display=swap` sets the fallback until then (partners.spec.ts has the
