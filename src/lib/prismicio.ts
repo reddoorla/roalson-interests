@@ -19,10 +19,11 @@ export const isPlaceholderRepo = repositoryName === "your-prismic-repo-name";
  * breaks a repo that has not yet published one of the named types (observed
  * live 2026-07-28). Without routes, `getAllByType` on an absent type resolves
  * to an empty list instead of erroring. The cost is that the API no longer
- * fills `doc.url`/`link.url` for content-relationship fields; nothing in the
- * starter reads those today (web-type links carry their own URL), and
- * `linkResolver` below is the local replacement to pass to `asLink` when a
- * consumer does need one.
+ * fills `doc.url`/`link.url` for documents and document links. `linkResolver`
+ * below is the local replacement, and three places MUST use it (#10): the
+ * preview endpoint, the page/person loaders (`withDocumentLinks`, for
+ * `PrismicLink` and rich-text links, which read `url` alone), and every
+ * `asLink`/`cmsHref` call.
  */
 export const linkResolver: prismic.LinkResolverFunction = (doc) => {
   if (doc.type === "page" && doc.uid) {

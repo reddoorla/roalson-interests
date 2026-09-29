@@ -2,7 +2,9 @@ import { error } from "@sveltejs/kit";
 import { NotFoundError, RepositoryNotFoundError } from "@prismicio/client";
 
 import type { PageDocument } from "../prismicio-types";
+import { withDocumentLinks } from "$lib/cms-href";
 import { pageMeta } from "$lib/page-meta";
+import { linkResolver } from "$lib/prismicio";
 
 /** The minimal client surface the loader needs — method syntax keeps the real
  *  `createClient()` return type assignable, and lets tests pass a stub. */
@@ -32,11 +34,12 @@ export async function orNotFound<T>(lookup: Promise<T>): Promise<T> {
   }
 }
 
-/** Load one `page` document and the layout's head payload for it.
+/** Load one `page` document and the layout's head payload for it, its
+ *  document links resolved (see withDocumentLinks).
  *
  *  (The route loaders answer 404 themselves on the placeholder repo before
  *  calling this, so an unconfigured clone still builds.) */
 export async function loadPage(client: PageClient, uid: string) {
-  const page = await orNotFound(client.getByUID("page", uid));
+  const page = withDocumentLinks(await orNotFound(client.getByUID("page", uid)), linkResolver);
   return { page, ...pageMeta(page) };
 }

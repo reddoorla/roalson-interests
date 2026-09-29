@@ -13,6 +13,7 @@
 // hence the state file, written after EVERY success, not at the end.
 //
 // ASSETS ARE NOT DRAFTS. An upload lands in the media library immediately.
+import { createHash } from "node:crypto";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -218,83 +219,84 @@ export async function remoteSliceChoices(type, zone, headers, fetchImpl = fetch)
   throw new Error(`custom type ${type} has no slice zone named ${JSON.stringify(zone)}`);
 }
 
-/** A fingerprint of a document's CONTENT, computable from both sides: the
+/** A document's `data` in one canonical form, computable from both sides: the
  *  payload a seed script sends, and the document the public API delivers.
+ *
+ *  EVERY value, at every depth — group rows, slice primaries, rich-text words,
+ *  link targets — in order. What it drops is only what the two sides
+ *  disagree about while the content is the same, each measured against this
+ *  repository's live documents on 2026-09-29, not reasoned about:
+ *
+ *  - unfilled: `null`, `""`, `{}` and `[]` (the API returns every field the
+ *    model declares, unfilled Groups as `[]` and unfilled links as
+ *    `{ link_type: "Any" }`; a payload omits them);
+ *  - a slice's `id`, `version` and `slice_label` (the API's, never sent);
+ *  - an image's `url`, `dimensions`, `alt`, `copyright` and `edit`: a payload
+ *    sends the asset `{ id }` and Prismic writes the rest off the asset;
+ *  - a Document or Media link's metadata (`uid`, `slug`, `data`, `url`,
+ *    `size`, `isBroken`…): a payload sends `{ link_type, id }`;
+ *  - a link's instance `key`, and a text block's default `direction: "ltr"`,
+ *    which the connector writes and a seed does not.
+ *
+ *  So an image's alt text and crop are not compared — no payload can say
+ *  them — and everything a payload CAN say is. */
+export function canonicalContent(value) {
+  if (Array.isArray(value)) {
+    const out = value.map(canonicalContent).filter((v) => v !== undefined);
+    return out.length ? out : undefined;
+  }
+  if (value && typeof value === "object") {
+    let v = value;
+    if (typeof v.slice_type === "string") {
+      const { slice_type, variation = "default", primary, items } = v;
+      v = { slice_type, variation, primary, items };
+    } else if (typeof v.link_type === "string") {
+      if (v.id) v = { link_type: v.link_type, id: v.id };
+      else {
+        const { key: _key, ...rest } = v;
+        v = rest.url ? rest : {};
+      }
+    } else if (v.dimensions && v.id) {
+      v = { type: v.type, id: v.id, linkTo: v.linkTo };
+    } else if (typeof v.type === "string" && v.direction === "ltr") {
+      const { direction: _direction, ...rest } = v;
+      v = rest;
+    }
+    const out = {};
+    for (const k of Object.keys(v).sort()) {
+      const c = canonicalContent(v[k]);
+      if (c !== undefined) out[k] = c;
+    }
+    return Object.keys(out).length ? out : undefined;
+  }
+  return value === null || value === undefined || value === "" ? undefined : value;
+}
+
+/** A fingerprint of a document's CONTENT: a hash of `canonicalContent`.
  *
  *  It exists because "the uid is listed" is not "what I staged is live". A
  *  re-staged document keeps its uid, so a publisher that checks uids reports
  *  success while the new version sits unpublished in the migration release —
- *  which is exactly what happened to the `home` page on 2026-09-21, twice: the
- *  three-band version was staged, the publisher said "everything staged is
- *  already live", and the single-band version stayed on the site.
+ *  which is exactly what happened to the `home` page on 2026-09-21, twice.
  *
- *  WHAT IT PROVES, exactly: the document's filled top-level fields, the value
- *  of every top-level SCALAR one (Text, Number, Select, Boolean), the ordered
- *  list of its slices by type and variation, and PER SLICE the names of the
- *  fields its `primary` fills. WHAT IT DOES NOT: any value inside a slice, the
- *  contents of rich text, groups, links or images — those count as present or
- *  absent only. A change confined to a paragraph's words will not show here.
+ *  It replaced an ENUMERATION of the levels someone had thought of (#79): the
+ *  top-level scalars, then each slice's primary keys, then each slice group's
+ *  row keys. Each level was added after the one below it bit, and none could
+ *  see a VALUE inside a Group — `Headquarters in nearby.` →
+ *  `Headquarters nearby.` in a listing's highlights read as already live on
+ *  2026-09-21. A hash of everything has no level left to add.
  *
- *  The per-slice key list was added on 2026-09-21 for the same reason the
- *  signature exists at all, one step along. Photographs went into the `home`
- *  page's `photo_band.image`, `home_hero.poster` and the partner rows; the
- *  signature saw a slice by type and variation ONLY, so it did not move, and
- *  the publisher — whose pass is this string — would have read "everything
- *  staged is live" and left four photographs unpublished in the migration
- *  release. A document with no `slices` key is unaffected, byte for byte: the
- *  22 live listings fingerprint identically before and after (measured).
- *
- *  A partner's headshot was still invisible to it — the photo goes in a row of
- *  the `partners` GROUP — until 2026-09-28, when a partner row gained
- *  `profile` and `email` and the same blindness would have left both
- *  unpublished. So a slice's GROUP now appends each row's filled keys:
- *  `partners/default(…)[partners:email,name,photo,profile,role|…]`. An unfilled
- *  link inside a row (`{ link_type: "Any" }`, which the API delivers and a
- *  payload omits) counts as unfilled. */
+ *  A signature recorded in the old JSON form (it starts with `{`) is not this
+ *  one: `isLegacySignature` tells the publisher to call it unverified. */
 export function contentSignature(data) {
-  const filled = stripEmpty(data ?? {}) ?? {};
-  // An empty array is UNFILLED here, though `stripEmpty` keeps one (where it is
-  // used, on a payload, `[]` is a valid unfilled rich text and the distinction
-  // matters). The two sides disagree about it otherwise: the public API returns
-  // every Group the model declares, unfilled ones as `[]`, and a payload simply
-  // omits them. Measured before this line existed: 2 of 22 live listings
-  // fingerprinted the same as what staged them; the other 20 differed by the
-  // one key `tracts`, which only Scenic Loop and one other actually fill.
-  //
-  // The same disagreement is inside a slice, and measured there too: the live
-  // `partners` band's primary carries `buttons: []` for the group its model
-  // declares and the comp draws none of, and the payload omits the key.
-  const filledKeys = (o) =>
-    Object.keys(o)
-      .filter((k) => !(Array.isArray(o[k]) && o[k].length === 0))
-      .sort();
-  // Rich text is an array of blocks, each with a `type`; a group's rows have none.
-  const isGroup = (v) =>
-    Array.isArray(v) &&
-    v.every((row) => row && typeof row === "object" && typeof row.type !== "string");
-  const rowKeys = (row) =>
-    filledKeys(row).filter((k) => {
-      const v = row[k];
-      return !(v && typeof v === "object" && "link_type" in v && !("id" in v) && !("url" in v));
-    });
-  const slices = Array.isArray(filled.slices)
-    ? filled.slices.map((s) => {
-        const primary = stripEmpty(s.primary ?? {}) ?? {};
-        const keys = filledKeys(primary);
-        const groups = keys
-          .filter((k) => isGroup(primary[k]))
-          .map((k) => `[${k}:${primary[k].map((row) => rowKeys(row).join(",")).join("|")}]`);
-        return `${s.slice_type}/${s.variation ?? "default"}(${keys.join(",")})${groups.join("")}`;
-      })
-    : [];
-  const keys = filledKeys(filled).filter((k) => k !== "slices");
-  const scalar = (v) => ["string", "number", "boolean"].includes(typeof v);
-  return JSON.stringify({
-    slices,
-    keys,
-    scalars: keys.filter((k) => scalar(filled[k])).map((k) => `${k}=${filled[k]}`),
-  });
+  const json = JSON.stringify(canonicalContent(data ?? {}) ?? {});
+  return `sha256:${createHash("sha256").update(json).digest("hex")}`;
 }
+
+/** A signature recorded before #79, by the key-list enumeration that could not
+ *  see a value inside a Group. It can never match `contentSignature`. */
+export const isLegacySignature = (signature) =>
+  typeof signature === "string" && !signature.startsWith("sha256:");
 
 /** Published documents of one type, as `{ uid: document }`. */
 export async function publishedDocs(repo, type, ref, fetchImpl = fetch) {

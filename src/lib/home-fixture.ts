@@ -372,7 +372,7 @@ const featuredPicks = (): FeaturedPick[] => [
         text: "The property is one block from the San Antonio River Walk, across the street from Main Plaza and the San Fernando Cathedral.",
       },
       {
-        text: "The property is also one block away from the new apartment project called, “300 Main.”",
+        text: 'The property is also one block away from the new apartment project called "300 Main."',
       },
     ],
     location: { latitude: 29.4246, longitude: -98.4946 },
@@ -434,8 +434,8 @@ export function featuredLaunchFixture(
   const data = (pick: FeaturedPick) =>
     (pick.property as unknown as { data: FeaturedListingData }).data;
   data(picks[0]).highlights = [
-    { text: "Office Bldg: 975 - 10,000SF" },
-    { text: "Retail Bldg: 1200 - 6700SF" },
+    { text: "Office Bldg: 975 - 10,000 SF" },
+    { text: "Retail Bldg: 1,200 - 6,700 SF" },
     ...data(picks[0]).highlights,
     { text: "Good access to the IH 10 and Ralph Fair intersection" },
   ] as FeaturedListingData["highlights"];
