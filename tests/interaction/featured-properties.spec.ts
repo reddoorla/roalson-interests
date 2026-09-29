@@ -96,6 +96,44 @@ const holdClock = async (page: Page) => {
 
 const status = (page: Page) => page.locator(`${CARD} [aria-live]`);
 
+/** THE MAP BOOTS BEFORE THE CLOCK IS TIMED (#117). The band's map sits below
+ *  the fold and boots once half of it is on screen, and the first press on
+ *  the card scrolls it there — Playwright scrolls before it clicks — so a
+ *  426 KB parse and a WebGL context start with that press. Measured at 4x CPU
+ *  throttle, the engine's first request goes out 8-37ms AFTER the pointerdown:
+ *  not ahead of the press, as #117 first read it, but inside whatever the case
+ *  times next. Scroll to it, and wait for the canvas to be up and the picture
+ *  under it gone (the axe case below has the long form), before timing
+ *  anything. */
+async function mapBooted(page: Page) {
+  await page.locator(BAND).scrollIntoViewIfNeeded();
+  await expect(
+    page.locator(`${BAND} [data-property-map]`),
+    "the band's map never finished booting",
+  ).toHaveAttribute("data-map-ready", "", { timeout: 40_000 });
+  await expect(page.locator(`${BAND} [data-map-home-box]`)).toHaveCount(0, { timeout: 10_000 });
+}
+
+/** Presses Pause EARLY in a dwell: after a clock turn, once the handover is
+ *  over and the bar is counting again. It used to poll the bar past 0.6 and
+ *  then press, which left what remained of the dwell — 2.2 to 3.2s, at
+ *  expect.poll's 1s steps — for the press to land in, and on a starved runner
+ *  the clock turned first (#117). A quiet one lands it ~100ms after the read,
+ *  so this is margin against load, not a fix to the band: pressed here, the
+ *  bar held at 0.03-0.13 across 8 runs, 7.0-7.7s of dwell to spare. */
+async function pauseEarlyInADwell(page: Page) {
+  const before = await status(page).textContent();
+  await expect(status(page), "the clock turned").not.toHaveText(before!, {
+    timeout: TURN_CEILING,
+  });
+  await expect.poll(() => timedFill(page), { intervals: [50] }).toBeGreaterThan(0);
+  // A real mouse press — Chromium focuses on mousedown, which is itself a
+  // pause; the control must not toggle straight back to playing.
+  await page.getByRole("button", { name: "Pause slides" }).click();
+  await expect(page.getByRole("button", { name: "Play slides" })).toBeVisible();
+  await pointerAway(page);
+}
+
 const barScale = (page: Page) =>
   page
     .locator(`${CARD} [data-carousel-progress] > div`)
@@ -200,10 +238,11 @@ const onStage = (page: Page) =>
     );
 
 /** What the in-page clock recorded: every change of the live region, stamped
- *  with `performance.now()`, plus the first reading of the bar (and when) so a
- *  partly-run dwell can be told from a whole one. */
+ *  with `performance.now()` and with the bar as it stood at that instant (its
+ *  scaleX and its `data-carousel-fill`), plus the first reading of the bar
+ *  (and when) so a partly-run dwell can be told from a whole one. */
 interface Timed {
-  __turns: { t: number; text: string }[];
+  __turns: { t: number; text: string; bar: number; fill: string }[];
   __start: { t: number; p: number } | null;
 }
 
@@ -229,8 +268,14 @@ const stampTurns = (page: Page) =>
       if (!region?.hasAttribute("data-carousel-ready") || !live || !Number.isFinite(scale(region)))
         return requestAnimationFrame(arm);
       w.__start = { t: performance.now(), p: scale(region) };
+      const fill = region.querySelector<HTMLElement>("[data-carousel-progress] > div");
       new MutationObserver(() => {
-        w.__turns.push({ t: performance.now(), text: live.textContent ?? "" });
+        w.__turns.push({
+          t: performance.now(),
+          text: live.textContent ?? "",
+          bar: scale(region),
+          fill: fill?.dataset.carouselFill ?? "",
+        });
       }).observe(live, { childList: true, characterData: true, subtree: true });
     };
     requestAnimationFrame(arm);
@@ -527,17 +572,6 @@ test.describe("rotation", () => {
 
       await expect(status(page)).toHaveText("Slide 2 of 3", { timeout: TURN_CEILING });
       expect(await onStage(page)).toEqual(["101 W. Commerce Street"]);
-      // DECIDED, THEN REVERSED, AND THEN THE REVERSAL WAS WRONG TOO. The comp
-      // cross-fades a FULL bar into an empty one, so through the handover the
-      // fill holds at 1 and only its opacity moves. The first attempt at this
-      // kept the old snap to 0 underneath the fade, which meant fading a box
-      // with no width — nothing on screen at all. `scaleX` is still drawn by
-      // carousel state and by nothing else (no transition on the transform),
-      // so there is still exactly one clock and a pause still freezes the bar
-      // where it stands. The fade itself is measured in "the bar dissolves
-      // across the handover" below; here the point is only that the number was
-      // not EASED into place.
-      expect(await barScale(page), "the fill holds full through the handover").toBe(1);
 
       // …and it loops.
       await expect(status(page)).toHaveText("Slide 3 of 3", { timeout: TURN_CEILING });
@@ -554,6 +588,26 @@ test.describe("rotation", () => {
       // 4000 dwell's, measured when it was the band's; the lesson is not.)
       const turns = await page.evaluate(() => (window as unknown as Timed).__turns);
       expect(turns.length, "stamped at least two turns").toBeGreaterThanOrEqual(2);
+
+      // DECIDED, THEN REVERSED, AND THEN THE REVERSAL WAS WRONG TOO. The comp
+      // cross-fades a FULL bar into an empty one, so through the handover the
+      // fill holds at 1 and only its opacity moves. The first attempt at this
+      // kept the old snap to 0 underneath the fade, which meant fading a box
+      // with no width — nothing on screen at all. `scaleX` is still drawn by
+      // carousel state and by nothing else (no transition on the transform),
+      // so there is still exactly one clock and a pause still freezes the bar
+      // where it stands. The fade itself is measured frame by frame in "the
+      // bar dissolves across the handover" below; here the point is only that
+      // the number was not EASED into place.
+      //
+      // READ AT THE TURN, IN THE PAGE (#117). This was `barScale` after
+      // `toHaveText` resolved: two round trips racing a 500ms window, and on a
+      // loaded machine it read the NEXT dwell filling (0.00215, 0.01865,
+      // 0.0052), with the in-page case below green in the same runs.
+      for (const [i, turn] of turns.entries()) {
+        expect(turn.fill, `turn ${i + 1} (${turn.text}) hands the bar over`).toBe("handover");
+        expect(turn.bar, `turn ${i + 1}: the fill holds full through the handover`).toBe(1);
+      }
       // The FIRST turn is only as long as the dwell that was left when we
       // started watching — `progress` is elapsed / dwell, so the bar's own
       // first reading says how much is gone (carousel.spec.ts's lesson: a bare
@@ -615,40 +669,39 @@ test.describe("rotation", () => {
   });
 
   test("Pause holds the slide AND the bar; Play starts them again", async ({ browser }) => {
-    test.setTimeout(40_000);
+    // 60s: the wait below is the rest of a dwell pressed EARLY in it, ~8s,
+    // after a map boot and a turn (#117). It was late in the dwell, to keep
+    // that wait short, and that is what left the press no room.
+    test.setTimeout(60_000);
     const { context, page } = await moving(browser);
     try {
       await page.goto(HOME);
       await adopted(page);
       await pointerAway(page);
-      // LATE in the dwell, so the wait below is short. It was a whole lap
-      // from wherever the bar stood (DWELL + DISSOLVE + 700) — 9.2s of nothing
-      // once the dwell doubled. The claim needs only the rest of THIS dwell.
-      await expect.poll(() => barScale(page), { timeout: TURN_CEILING }).toBeGreaterThan(0.6);
+      await mapBooted(page);
+      await pauseEarlyInADwell(page);
 
-      // A real mouse press — Chromium focuses on mousedown, which is itself a
-      // pause; the control must not toggle straight back to playing.
-      await page.getByRole("button", { name: "Pause slides" }).click();
-      const play = page.getByRole("button", { name: "Play slides" });
-      await expect(play).toBeVisible();
-      await pointerAway(page);
-
+      // WHAT IS HELD is read off the page once the press has landed, never
+      // assumed: this case is about Pause, not about which slide it fell on.
       const frozen = await barScale(page);
-      expect(frozen).toBeGreaterThan(0);
-      expect(frozen).toBeLessThan(1);
+      const held = await onStage(page);
+      const heldStatus = (await status(page).textContent())!;
+      expect(frozen, "premise: paused mid-dwell").toBeGreaterThan(0);
+      expect(frozen, "premise: paused mid-dwell").toBeLessThan(1);
       // Past the moment a clock still running WOULD have turned it: the part
       // of the dwell the bar says is left, and 700 of margin.
       await page.waitForTimeout((1 - frozen) * DWELL + 700);
       expect(await barScale(page)).toBe(frozen);
-      expect(await onStage(page)).toEqual(["25331 IH 10 West"]);
+      expect(await onStage(page)).toEqual(held);
+      await expect(status(page)).toHaveText(heldStatus);
       await expect(status(page)).toHaveAttribute("aria-live", "polite");
 
-      await play.click();
+      await page.getByRole("button", { name: "Play slides" }).click();
       await pointerAway(page);
       await expect(page.getByRole("button", { name: "Pause slides" })).toBeVisible();
       // Focus is still inside the carousel, so rotation restarts only because
       // Play was pressed — and it resumes from where the bar stood.
-      await expect(status(page)).toHaveText("Slide 2 of 3", { timeout: TURN_CEILING });
+      await expect(status(page)).not.toHaveText(heldStatus, { timeout: TURN_CEILING });
     } finally {
       await context.close();
     }
@@ -1824,19 +1877,15 @@ test.describe("motion", () => {
   });
 
   test("the drift FREEZES with the bar on pause — one clock, not two", async ({ browser }) => {
-    test.setTimeout(40_000);
+    // 60s for the Pause case's reason: pressed early in a dwell (#117).
+    test.setTimeout(60_000);
     const { context, page } = await moving(browser);
     try {
       await page.goto(HOME);
       await adopted(page);
       await pointerAway(page);
-      // Late in the dwell, for the Pause case's reason: the wait below is the
-      // rest of this dwell, not a whole lap.
-      await expect.poll(() => barScale(page), { timeout: TURN_CEILING }).toBeGreaterThan(0.6);
-
-      await page.getByRole("button", { name: "Pause slides" }).click();
-      await expect(page.getByRole("button", { name: "Play slides" })).toBeVisible();
-      await pointerAway(page);
+      await mapBooted(page);
+      await pauseEarlyInADwell(page);
 
       const frozenScale = await photoScale(page);
       const frozenBar = await barScale(page);
