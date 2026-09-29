@@ -101,6 +101,8 @@
     cameraMove,
     clusterDiameter,
     clusterPoints,
+    DIMMED_CLUSTER_OPACITY,
+    DIMMED_PIN_OPACITY,
     expansionZoom,
     fitCamera,
     frameFor,
@@ -114,6 +116,7 @@
     MAP_MIN_ZOOM,
     MAP_ZOOM_STEP_MS,
     mapStyleUrl,
+    markerDimmed,
     PIN_ASPECT,
     PIN_HOLE,
     PIN_PATH,
@@ -277,6 +280,26 @@
   let zoom = $state(0);
   let clusterEls = $state<Record<string, HTMLElement | undefined>>({});
   let selected: MapPoint | null = $state(null);
+  /**
+   * The listing whose link in the map's list has focus, or null.
+   *
+   * The pins are `tabindex="-1"`, so the keyboard reaches a listing through
+   * its link — which comes back as the chip on the map's top-left. That
+   * listing's marker is drawn at full opacity for as long as the chip is up,
+   * the keyboard's half of "a pin under hover goes to full opacity": a
+   * dimmed marker is what the chip is naming, and it must not look disabled
+   * while it is being named. See `markerDimmed`.
+   */
+  let heldLink: string | null = $state(null);
+  /** The dimmed opacity for a marker of `count` listings, or undefined when it
+   *  is drawn at full. `--map-dim` is written from the constants, so the value
+   *  the stylesheet applies and the value the contrast guard measures are one. */
+  const dimFor = (ids: readonly string[]) =>
+    markerDimmed(ids, active, points, heldLink)
+      ? ids.length === 1
+        ? DIMMED_PIN_OPACITY
+        : DIMMED_CLUSTER_OPACITY
+      : undefined;
   /**
    * THE LISTING THAT WAS ACTIVE WHEN THE VISITOR LAST DROVE THE MAP, or
    * `undefined` if they never have. `null` is a real value here — it is what
@@ -1572,6 +1595,10 @@
             href={point.mapsUrl}
             target="_blank"
             rel="noopener noreferrer"
+            onfocus={() => (heldLink = point.id)}
+            onblur={() => {
+              if (heldLink === point.id) heldLink = null;
+            }}
             class={drawn ? "sr-only" : "t-body-2 underline underline-offset-2"}
           >
             {point.title}<span class="sr-only"> — open in Google Maps</span>
@@ -1631,6 +1658,7 @@
           >
             {#each layer.markers as marker (marker.id)}
               {@const at = `left:50%;top:50%;transform:translate(${marker.dx}px,${marker.dy}px)`}
+              {@const dim = dimFor(marker.ids)}
               {#if marker.point}
                 {@const isActive = active !== null && marker.point.id === active}
                 <!-- A LINK, where the live marker is a button, and that is the
@@ -1649,8 +1677,11 @@
                   tabindex="-1"
                   aria-hidden="true"
                   data-map-active={isActive ? "" : undefined}
+                  data-map-dimmed={dim === undefined ? undefined : ""}
                   style="{at} translate(-50%,-100%)"
-                  class="pointer-events-auto absolute {isActive ? 'z-[1]' : ''}"
+                  style:--map-dim={dim}
+                  class="pointer-events-auto absolute transition-opacity motion-reduce:transition-none
+                    {isActive ? 'z-[1]' : ''}"
                 >
                   <svg
                     width={layer.pin * (isActive ? ACTIVE_PIN_SCALE : 1)}
@@ -1675,11 +1706,13 @@
                      camera in on its members, and there is no camera yet. -->
                 <span
                   data-map-home-cluster={marker.count}
+                  data-map-dimmed={dim === undefined ? undefined : ""}
                   style="{at} translate(-50%,-50%);width:{d}px;height:{d}px;font-size:{Math.round(
                     d * 0.42,
                   )}px"
+                  style:--map-dim={dim}
                   class="absolute grid place-items-center rounded-full bg-primary font-semibold
-                    text-light tabular-nums"
+                    text-light tabular-nums transition-opacity motion-reduce:transition-none"
                 >
                   {marker.count}
                 </span>
@@ -1727,6 +1760,7 @@
         {#each clusters as cluster (cluster.id)}
           {@const count = cluster.points.length}
           {@const isActive = count === 1 && active !== null && cluster.points[0]!.id === active}
+          {@const dim = dimFor(cluster.points.map((p) => p.id))}
           <!-- `data-map-pin` carries the LISTING'S OWN ID, not an empty marker.
                A pin is a drawing of one list item, and saying which one costs
                nothing, keeps `[data-map-pin]` matching as a presence selector
@@ -1747,8 +1781,11 @@
             data-map-pin={count === 1 ? cluster.points[0]!.id : undefined}
             data-map-cluster={count > 1 ? count : undefined}
             data-map-active={isActive ? "" : undefined}
+            data-map-dimmed={dim === undefined ? undefined : ""}
+            style:--map-dim={dim}
             onclick={() => press(cluster)}
-            class="absolute top-0 left-0 border-0 bg-transparent p-0
+            class="absolute top-0 left-0 border-0 bg-transparent p-0 transition-opacity
+              motion-reduce:transition-none
               {isActive ? 'z-[1]' : ''}
               {interactive ? 'pointer-events-auto cursor-pointer' : 'pointer-events-none'}"
           >
@@ -1965,6 +2002,28 @@
       display: block;
       background-image: var(--map-home-full);
     }
+  }
+
+  /* THE ACTIVE LISTING, FEATURED (operator, 2026-09-29). Every marker that is
+     not the active listing's — live or in the picture, pin or cluster — is
+     drawn at `--map-dim`, which the markup writes from DIMMED_PIN_OPACITY or
+     DIMMED_CLUSTER_OPACITY only while this map HAS an active listing
+     (`markerDimmed`); with none, no marker carries the attribute and all of
+     them stay at 1. The measurement behind both numbers is on the constants.
+     A marker under the pointer or with keyboard focus goes back to 1: a
+     control that looks disabled while it is being pointed at is lying, and
+     `opacity` would dim the focus ring drawn on the element with it.
+     The change animates on the SAME clock as the garnet card it follows —
+     `transition-opacity` is Tailwind's default duration and easing, exactly
+     what app.css's `transition-colors` on the card uses (150ms) — and not at
+     all under reduced motion (`motion-reduce:transition-none`, as on the
+     canvas host). The expanded overlay is this same box, so it needs nothing
+     of its own. */
+  [data-map-dimmed] {
+    opacity: var(--map-dim);
+  }
+  [data-map-dimmed]:is(:hover, :focus-visible) {
+    opacity: 1;
   }
 
   [data-map-ready] [data-map-link]:focus,

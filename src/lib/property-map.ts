@@ -273,6 +273,56 @@ export const MAP_ZOOM_STEP_MS = 300;
  *  under reduced motion; the fill stays garnet (>= 3:1 on the map ground). */
 export const ACTIVE_PIN_SCALE = 1.5;
 
+/**
+ * EVERY OTHER MARKER, WHILE A MAP HAS AN ACTIVE LISTING, is drawn at reduced
+ * opacity so the active one is featured (operator, 2026-09-29: "whatever the
+ * active pin is should stay full opacity and the rest should be slightly
+ * reduced opacity so it's featured"). A map with NO active listing dims
+ * nothing — dimming everything would feature nothing. See `markerDimmed`.
+ *
+ * MEASURED, NOT PICKED. A pin is an interactive graphic, so its garnet must
+ * keep 3:1 (WCAG 1.4.11) against the map it sits on once composited at this
+ * opacity. The darkest AREA the tinted style paints is water `#a8b4b8`, and
+ * 0.67 is the lowest two-decimal opacity at which garnet over water still
+ * measures >= 3:1 with every channel of both colours one 8-bit step against it
+ * (3.0820:1 nominal, 3.0018:1 at that worst; 0.66 is 3.0328 / 2.9540). The
+ * road casings and boundaries are hairlines, not grounds, and are recorded
+ * with the table in src/lib/map-marker-contrast.test.ts, which re-derives
+ * this value from static/map-style.json.
+ */
+export const DIMMED_PIN_OPACITY = 0.67;
+
+/** The same, for a CLUSTER: its count is TEXT, sand on its own garnet disc at
+ *  11-12.5px, so it needs 4.5:1 (WCAG 1.4.3) after both are composited over
+ *  the lightest ground a disc can sit on (a minor road's `#ffffff`). 0.74 is
+ *  the lowest two-decimal opacity that holds it by the same rule (4.7102:1,
+ *  4.6004:1 at the worst rounding); at the pin's 0.67 the count would be
+ *  3.8984:1. */
+export const DIMMED_CLUSTER_OPACITY = 0.74;
+
+/**
+ * Whether a marker standing for the listings `ids` is drawn DIMMED.
+ *
+ * Only when `active` names a listing THIS map draws (`points`): an id the map
+ * has no pin for — a slide with no location, another section's listing — is
+ * no active pin at all, and every marker stays at full opacity. The marker
+ * that HOLDS the active listing is never dimmed, whether it is its own pin or
+ * a cluster it has been grouped into (#115: at a listing's camera the active
+ * one is often inside a cluster, with no pin of its own). Nor is the marker
+ * holding `held` — the listing whose link in the map's list has keyboard
+ * focus, which is the keyboard's way to a pin (the pins themselves are
+ * `tabindex="-1"`).
+ */
+export function markerDimmed(
+  ids: readonly string[],
+  active: string | null,
+  points: readonly Pick<MapPoint, "id">[],
+  held: string | null = null,
+): boolean {
+  if (active === null || !points.some((p) => p.id === active)) return false;
+  return !ids.includes(active) && (held === null || !ids.includes(held));
+}
+
 // ---------------------------------------------------------------------------
 // MAP_HOME — the frame the map OPENS on, and the frame the raster is of (#122)
 // ---------------------------------------------------------------------------
@@ -299,6 +349,10 @@ export type { HomeCamera, HomeFrame } from "./map-home";
 export interface HomeMarker {
   /** `MapCluster.id` — the member ids, sorted. */
   id: string;
+  /** The member ids themselves, in `points` order — what `markerDimmed`
+   *  asks, so a placeholder cluster holding the active listing is featured
+   *  exactly as the live one is. */
+  ids: string[];
   /** How many listings this marker stands for. */
   count: number;
   /** The listing, when this marker is one listing's own pin. */
@@ -321,6 +375,7 @@ export function homeMarkers(points: readonly MapPoint[], frame: MapFrame): HomeM
   const cy = projectY(camera.lat, camera.zoom);
   return clusterPoints(points, camera.zoom, clusterRadius).map((cluster) => ({
     id: cluster.id,
+    ids: cluster.points.map((p) => p.id),
     count: cluster.points.length,
     point: cluster.points.length === 1 ? cluster.points[0]! : null,
     dx: projectX(cluster.lng, camera.zoom) - cx,

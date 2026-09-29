@@ -10,6 +10,8 @@ import {
   clusterSignature,
   COMPACT_MAX_HEIGHT,
   DEFAULT_MAP_STYLE_URL,
+  DIMMED_CLUSTER_OPACITY,
+  DIMMED_PIN_OPACITY,
   expansionZoom,
   fitCamera,
   frameFor,
@@ -20,6 +22,7 @@ import {
   MAP_HOME,
   MAP_TILE_HOST,
   mapStyleUrl,
+  markerDimmed,
   PIN_ASPECT,
   PIN_HOLE,
   PIN_PATH,
@@ -1015,6 +1018,20 @@ describe("the placeholder's markers", () => {
     }
   });
 
+  it("names every member, so a cluster holding the active listing can be featured", () => {
+    for (const frame of ["full", "compact"] as const) {
+      const live = clusterPoints(all, MAP_HOME[frame].camera.zoom, MAP_FRAMES[frame].clusterRadius);
+      const drawn = homeMarkers(all, frame);
+      expect(drawn.map((m) => m.ids)).toEqual(live.map((c) => c.points.map((p) => p.id)));
+      // Non-vacuity: the real portfolio does group at MAP_HOME.
+      expect(
+        drawn.some((m) => m.ids.length > 1),
+        `${frame}: a cluster to name`,
+      ).toBe(true);
+      for (const m of drawn) expect(m.ids).toHaveLength(m.count);
+    }
+  });
+
   it("puts the centre listing within a pixel of the box's centre", () => {
     // A listing at MAP_HOME's exact coordinate must land at dx = dy = 0, which
     // is the one offset that can be checked without re-deriving Mercator.
@@ -1022,6 +1039,41 @@ describe("the placeholder's markers", () => {
     const [marker] = homeMarkers([centre], "full");
     expect(marker!.dx).toBeCloseTo(0, 9);
     expect(marker!.dy).toBeCloseTo(0, 9);
+  });
+});
+
+describe("which markers are dimmed so the active one is featured (2026-09-29)", () => {
+  const on = [{ id: "a" }, { id: "b" }, { id: "c" }];
+
+  it("dims every marker that does not hold the active listing, and never the one that does", () => {
+    expect(markerDimmed(["a"], "a", on)).toBe(false);
+    expect(markerDimmed(["b"], "a", on)).toBe(true);
+    // A cluster holding the active listing counts as the active one (#115).
+    expect(markerDimmed(["b", "a"], "a", on)).toBe(false);
+    expect(markerDimmed(["b", "c"], "a", on)).toBe(true);
+  });
+
+  it("dims nothing when nothing is active, or when the active id is not on this map", () => {
+    for (const ids of [["a"], ["b"], ["b", "c"]]) {
+      expect(markerDimmed(ids, null, on), `${ids} with nothing active`).toBe(false);
+      expect(markerDimmed(ids, "elsewhere", on), `${ids} with another map's listing`).toBe(false);
+    }
+  });
+
+  it("does not dim the marker whose link holds keyboard focus", () => {
+    expect(markerDimmed(["b"], "a", on, "b")).toBe(false);
+    expect(markerDimmed(["b", "c"], "a", on, "c")).toBe(false);
+    // …and only that one.
+    expect(markerDimmed(["c"], "a", on, "b")).toBe(true);
+  });
+
+  it("dims to values inside the operator's 'slightly', the cluster never below the pin", () => {
+    // The measurement that chose them is src/lib/map-marker-contrast.test.ts.
+    for (const v of [DIMMED_PIN_OPACITY, DIMMED_CLUSTER_OPACITY]) {
+      expect(v).toBeGreaterThanOrEqual(0.55);
+      expect(v).toBeLessThanOrEqual(0.8);
+    }
+    expect(DIMMED_CLUSTER_OPACITY).toBeGreaterThanOrEqual(DIMMED_PIN_OPACITY);
   });
 });
 
