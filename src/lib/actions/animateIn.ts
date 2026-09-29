@@ -67,7 +67,10 @@ function applyHidden(node: HTMLElement, cfg: ResolvedConfig) {
   // attribute FROM THE SERVER is already hidden at first paint and this call
   // re-writes byte-identical values instead of yanking a painted element out
   // from under the reader. Without it content paints in final position, sits
-  // there, and vanishes at hydration — which reads as the page breaking.
+  // there, and at hydration FADES OUT and slides away over `duration` — the
+  // transition is written in the same block, so it runs on the hide too — and,
+  // above the fold, fades straight back in. That reads as the page breaking
+  // (measured, #101).
   //
   // Only true for the DEFAULT travel, which is what the CSS rule hard-codes
   // (src/reveal-hidden-state.test.ts asserts the two agree). A call site
@@ -78,8 +81,8 @@ function applyHidden(node: HTMLElement, cfg: ResolvedConfig) {
   node.style.opacity = "0";
   node.style.transform = `translateY(${cfg.translateY})`;
   node.style.transition =
-    `opacity ${cfg.duration}ms var(--transition-fast-slow), ` +
-    `transform ${cfg.duration}ms var(--transition-fast-slow)`;
+    `opacity ${cfg.duration}ms var(--ease-fast-slow), ` +
+    `transform ${cfg.duration}ms var(--ease-fast-slow)`;
 }
 
 function reveal(node: HTMLElement) {

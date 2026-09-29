@@ -1,5 +1,6 @@
 import { test, expect, type Page, type ConsoleMessage } from "@playwright/test";
 import { smokeRoutes } from "./routes";
+import { HYDRATION_TIMEOUT } from "../interaction/hydrated";
 
 // Console messages we don't care about. Add patterns here only after seeing them
 // in CI and confirming they aren't actionable. Patterns are matched against both
@@ -50,10 +51,11 @@ for (const route of smokeRoutes) {
     });
     expect(response?.status(), `HTTP status for ${route.path}`).toBe(expectedStatus);
     if (route.hydrationMarker) {
+      // The marker waits on hydration, so it gets the cold-compile budget.
       await expect(
         page.locator(route.hydrationMarker),
         `hydration marker "${route.hydrationMarker}" on ${route.path}`,
-      ).toBeVisible();
+      ).toBeVisible({ timeout: HYDRATION_TIMEOUT });
     }
     expect(errors, `console errors on ${route.path}`).toEqual([]);
   });

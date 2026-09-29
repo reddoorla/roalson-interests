@@ -2,6 +2,7 @@
   import { PrismicPreview } from "@prismicio/svelte/kit";
   import { page } from "$app/state";
   import { afterNavigate, beforeNavigate } from "$app/navigation";
+  import { onMount } from "svelte";
   import { repositoryName } from "$lib/prismicio";
   import "../app.css";
   import Seo from "$lib/components/Seo.svelte";
@@ -37,6 +38,13 @@
   // instantly instead of gliding under app.css's smooth-scroll. See the util.
   beforeNavigate(disableSmoothScroll);
   afterNavigate(restoreSmoothScroll);
+
+  // Evidence that script has taken the page over, for tests/smoke/routes.ts
+  // (#57): only a mounted root layout writes it, so it is absent with scripting
+  // off, with the bundle missing, and before hydration. Nothing styles from it.
+  onMount(() => {
+    document.documentElement.dataset.hydrated = "";
+  });
 </script>
 
 <!-- Single head source for the whole app. Static routes feed their title

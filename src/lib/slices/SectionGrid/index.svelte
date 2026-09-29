@@ -51,7 +51,7 @@
   {#if mode === "tiles"}
     <div class="grid grid-cols-2 gap-6 md:grid-cols-3">
       {#each items as item (item)}
-        <PrismicLink field={item.item_link} class="flex items-center justify-center bg-surface p-8">
+        <PrismicLink field={item.item_link} class="flex items-center justify-center p-8">
           <!-- Logo tile: capped at 4rem tall, so it never needs a wide candidate. -->
           <PrismicImage
             field={item.item_media}
