@@ -3,11 +3,9 @@
    * The comp's per-section property map (#13), with its ground tones EXPORTED
    * from this module script as `MAP_TONES`.
    *
-   * (That first sentence is this file's whole row in docs/COMPONENTS.md:
-   * scripts/capability-index.mjs keeps the FIRST sentence of the FIRST comment
-   * and cannot see a `<script module>` export, so the name is in it or
-   * nowhere — the same workaround BrandButton uses. The component's own
-   * description is the comment on the instance script below.)
+   * (That paragraph is this file's row in docs/COMPONENTS.md, which reads
+   * `<script module>` exports into its surface column since #59. The
+   * component's own description is the comment on the instance script below.)
    *
    * THE BOX'S OWN GROUND, AND WHY IT IS A PROP.
    *

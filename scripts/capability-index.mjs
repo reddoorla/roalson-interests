@@ -66,36 +66,54 @@ export function listModules(root = ROOT, sources = SOURCES, exclude = EXCLUDE) {
   return [...out].sort();
 }
 
+/** `export`ed names in a script. `indented` for one inside a <script> tag. */
+function exportsOf(source, names, indented = false) {
+  const at = indented ? "^\\s*" : "^";
+  for (const m of source.matchAll(
+    new RegExp(
+      `${at}export\\s+(?:async\\s+)?(?:function|const|let|class)\\s+([a-zA-Z_$][\\w$]*)`,
+      "gm",
+    ),
+  ))
+    names.add(m[1]);
+  for (const m of source.matchAll(new RegExp(`${at}export\\s+\\{([^}]*)\\}`, "gm")))
+    for (const p of m[1].matchAll(/([a-zA-Z_$][\w$]*)/g)) names.add(p[1]);
+}
+
 /**
  * The prop/export surface — what a caller can actually reach.
  *
  * Svelte 5 components declare props two ways and this repo uses both: a named
  * `interface Props`/`interface XProps` block, or a bare `$props()` destructure.
  * Reading only one of them would silently under-report half the library, which
- * is the failure this whole file exists to prevent.
+ * is the failure this whole file exists to prevent. A component's
+ * `<script module>` exports are surface too — BrandButton's classes, for a
+ * caller that must render a different element — and were invisible until #59.
  */
 export function surfaceOf(source, file) {
   const names = new Set();
   if (extname(file) === ".svelte") {
+    for (const m of source.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/g))
+      if (/\bmodule\b/.test(m[1])) exportsOf(m[2], names, true);
     for (const m of source.matchAll(/interface\s+\w*Props\b[^{]*\{([\s\S]*?)\n\s*\}/g))
       for (const p of m[1].matchAll(/^\s*(?:\/\*[\s\S]*?\*\/\s*)?([a-zA-Z_$][\w$]*)\??\s*:/gm))
         names.add(p[1]);
     for (const m of source.matchAll(/let\s*\{([^}]*)\}\s*(?::[^=]*)?=\s*\$props\(\)/g))
       for (const p of m[1].matchAll(/(?:^|,)\s*([a-zA-Z_$][\w$]*)/g)) names.add(p[1]);
   } else {
-    for (const m of source.matchAll(
-      /^export\s+(?:async\s+)?(?:function|const|let|class)\s+([a-zA-Z_$][\w$]*)/gm,
-    ))
-      names.add(m[1]);
-    for (const m of source.matchAll(/^export\s+\{([^}]*)\}/gm))
-      for (const p of m[1].matchAll(/([a-zA-Z_$][\w$]*)/g)) names.add(p[1]);
+    exportsOf(source, names);
   }
   names.delete("class");
   return [...names];
 }
 
 /**
- * The module's own first sentence, where it left one. Never invented.
+ * The module's own first paragraph, where it left one. Never invented.
+ *
+ * A paragraph, not a sentence (#59): BrandButton named its exports in the
+ * comment's second sentence and the row never carried them, while a drafted
+ * issue described them as indexed. Where the author broke the comment is the
+ * author's own statement of what the summary is.
  *
  * Falls back to the first PROP docblock, which is not a nicety: Slider.svelte
  * has no leading comment at all and documents itself entirely on its props —
@@ -110,25 +128,49 @@ export function summaryOf(source) {
   const run = /^((?:\s*\/\/.*\n)+)/.exec(body);
   const prop = /interface\s+\w*Props\b[^{]*\{[\s\S]*?\/\*\*([\s\S]*?)\*\//.exec(body);
   const raw = block ? block[1] : run ? run[1].replace(/^\s*\/\/ ?/gm, "") : prop ? prop[1] : "";
-  const text = raw
-    .replace(/^\s*\*ipsum?/gm, "")
-    .replace(/^\s*\* ?/gm, "")
-    .replace(/\s+/g, " ")
-    .trim();
-  if (!text) return "";
-  const stop = text.search(/\.(\s|$)/);
-  return (stop === -1 ? text : text.slice(0, stop)).trim();
+  const paragraph =
+    raw
+      .replace(/^\s*\*ipsum?/gm, "")
+      .replace(/^\s*\* ?/gm, "")
+      .split(/\n\s*\n/)
+      .find((p) => p.trim()) ?? "";
+  return paragraph.replace(/\s+/g, " ").trim().replace(/\.$/, "");
 }
 
-/** How many `it(`/`test(` a co-located suite runs — the battle-testedness. */
+const stemOf = (file) => basename(file, extname(file));
+
+/**
+ * Every co-located suite for a module: `<stem>.test.ts`, and any
+ * `<stem>.<concern>.test.ts` split out of it (Nav.premount, animateIn.marker,
+ * PropertyMap.camera.svelte). Only the first exact name used to count, so Nav
+ * read 33 with 43 behind it (#46). A suite belongs to the LONGEST sibling
+ * module stem it extends: `carousel.svelte.test.ts` is `carousel.svelte.ts`'s,
+ * never a `carousel.ts`'s.
+ */
+export function testFilesFor(rel, root = ROOT) {
+  const dir = dirname(rel);
+  const stem = stemOf(rel);
+  const siblings = readdirSync(join(root, dir));
+  const stems = siblings.filter(isSource).map(stemOf);
+  const owner = (base) =>
+    stems
+      .filter((s) => base === s || base.startsWith(`${s}.`))
+      .sort((a, b) => b.length - a.length)[0];
+  return siblings
+    .filter((f) => {
+      const base = /^(.*)\.(test|spec)\.[jt]s$/.exec(f)?.[1];
+      return base !== undefined && owner(base) === stem;
+    })
+    .sort()
+    .map((f) => `${dir}/${f}`);
+}
+
+/** How many `it(`/`test(` a module's co-located suites run — the battle-testedness. */
 export function testCountFor(rel, root = ROOT) {
-  const dir = join(root, dirname(rel));
-  const stem = basename(rel, extname(rel));
-  for (const cand of [`${stem}.test.ts`, `${stem}.test.js`, `${stem}.spec.ts`]) {
-    const p = join(dir, cand);
-    if (existsSync(p)) return (readFileSync(p, "utf8").match(/^\s*(it|test)\(/gm) ?? []).length;
-  }
-  return 0;
+  return testFilesFor(rel, root).reduce(
+    (n, f) => n + (readFileSync(join(root, f), "utf8").match(/^\s*(it|test)\(/gm) ?? []).length,
+    0,
+  );
 }
 
 export function buildIndex(root = ROOT, sources = SOURCES, exclude = EXCLUDE) {
@@ -187,7 +229,7 @@ export function renderIndex(entries, root = ROOT) {
     return `| [\`${e.name}\`](../${e.rel}) | ${surface} | ${tests} | ${summary} |`;
   });
   return `${header(root)}
-| module | surface | tests | its own first line |
+| module | surface | tests | its own first paragraph |
 | --- | --- | --- | --- |
 ${rows.join("\n")}
 

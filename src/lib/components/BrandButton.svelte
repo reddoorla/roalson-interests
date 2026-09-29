@@ -3,10 +3,11 @@
   // classes EXPORTED from this module script — `brandButtonBase`,
   // `BRAND_BUTTON_TONES`, `brandButtonPadding` — so a caller that must render a
   // different element, a form's submit `<button>`, can still wear it.
-  // (That sentence is this file's whole row in docs/COMPONENTS.md:
-  // scripts/capability-index.mjs keeps the FIRST sentence of this comment and
-  // cannot see a `<script module>` export, so the names are in it or nowhere.
-  // They were first written as the second sentence, and were nowhere.)
+  //
+  // (That paragraph is this file's row in docs/COMPONENTS.md, and the exports
+  // are in its surface column. Until #59 the index kept only a comment's FIRST
+  // sentence and could not see a `<script module>` export; the names were
+  // first written as a second sentence, and were nowhere.)
   //
   // Named, as Figma names it, for the BUTTON's tone, so it is the one for LIGHT
   // grounds: garnet outline and text; hover fills garnet with SAND text
