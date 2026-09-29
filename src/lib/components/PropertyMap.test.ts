@@ -33,6 +33,8 @@ const engine = vi.hoisted(() => {
     options: Record<string, unknown>;
     handlers: Record<string, (e?: unknown) => void>;
     controls: { control: unknown; position: string }[];
+    /** Every control `removeControl` was called with, in order. */
+    removedControls: unknown[];
     canvas: HTMLCanvasElement;
     canvasContainer: HTMLDivElement;
     jumps: unknown[];
@@ -157,6 +159,7 @@ const engine = vi.hoisted(() => {
         options,
         handlers: this.handlers,
         controls: [],
+        removedControls: [],
         canvas: this.canvas,
         canvasContainer: this.canvasContainer,
         jumps: [],
@@ -188,6 +191,9 @@ const engine = vi.hoisted(() => {
     }
     addControl(control: unknown, position: string) {
       this.record.controls.push({ control, position });
+    }
+    removeControl(control: unknown) {
+      this.record.removedControls.push(control);
     }
     getCanvas() {
       return this.canvas;
@@ -452,6 +458,7 @@ describe("when the engine is asked for", () => {
   // no attribution and this departs from it on purpose, so the control being
   // added is asserted rather than assumed.
   it("always adds an attribution control, clear of the expand affordance", async () => {
+    stubResizeTo(397, 595);
     stubIntersecting();
     render(PropertyMap, { props: { points, label: "Land" } });
     await vi.waitFor(() => expect(engine.created).toHaveLength(1));
@@ -459,6 +466,48 @@ describe("when the engine is asked for", () => {
     expect(added, "an attribution control is added").toBeTruthy();
     expect(added!.position).toBe("bottom-left");
     expect(engine.created[0]!.options.attributionControl).toBe(false);
+    // A full frame keeps the whole chip, as it always has.
+    expect((added!.control as { options: unknown }).options).toEqual({ compact: false });
+  });
+
+  // Operator, 2026-09-29: a compact map's credit is maplibre's collapsed (i).
+  // `compact` is read once, at construction, so the frame changing — a phone
+  // map expanded to the window and collapsed again, a /properties map
+  // crossing `lg` — has to swap the control, and a resize INSIDE a frame must
+  // not. What this cannot see is that the (i) is really collapsed and opens
+  // onto the text: that is a DOM claim about maplibre, and
+  // tests/interaction/property-map.spec.ts presses it.
+  it("collapses the credit on a compact frame, and swaps it only when the frame changes", async () => {
+    const resize = stubResizableTo(350, 200);
+    stubIntersecting({ mapHeight: 200, visible: 200 });
+    render(PropertyMap, { props: { points, label: "Land" } });
+    await vi.waitFor(() => expect(engine.created).toHaveLength(1));
+    const record = engine.created[0]!;
+    const kinds = () =>
+      record.controls.map(({ control, position }) => ({
+        compact: (control as { options: { compact: boolean } }).options.compact,
+        position,
+      }));
+    expect(kinds(), "a 200 box is compact").toEqual([{ compact: true, position: "bottom-left" }]);
+
+    resize({ width: 700, height: 200 });
+    await tick();
+    expect(kinds(), "wider, still compact: nothing swapped").toHaveLength(1);
+    expect(record.removedControls).toEqual([]);
+
+    resize({ width: 390, height: 844 });
+    await tick();
+    expect(kinds().at(-1), "the window is a full frame").toEqual({
+      compact: false,
+      position: "bottom-left",
+    });
+    expect(record.removedControls, "and the (i) went").toEqual([record.controls[0]!.control]);
+
+    resize({ width: 350, height: 200 });
+    await tick();
+    expect(kinds().at(-1), "back to compact").toEqual({ compact: true, position: "bottom-left" });
+    expect(record.removedControls.at(-1), "and the chip went").toBe(record.controls[1]!.control);
+    expect(record.controls, "one credit per frame change, never two at once").toHaveLength(3);
   });
 
   // MapLibre names its canvas "Map" and gives it role="region", so two maps on
@@ -677,6 +726,44 @@ describe("the zoom buttons (P3)", () => {
       "Zoom out of the Land map",
       "Enlarge the Land map",
     ]);
+  });
+
+  // Operator, 2026-09-29, option two: "happy not to have the zoom buttons on
+  // mobile since we've thumbs". A compact frame carries expand alone; the
+  // frame it expands to carries all three again (WCAG 2.5.1 wants a
+  // single-pointer zoom-out, and a pinch is two pointers).
+  it("are not drawn on a compact frame, and come back on the full frame it expands to", async () => {
+    const resize = stubResizableTo(350, 200);
+    stubIntersecting({ mapHeight: 200, visible: 200 });
+    const view = render(PropertyMap, { props: { points, label: "Land" } });
+    await vi.waitFor(() => expect(engine.created).toHaveLength(1));
+    engine.created[0]!.handlers.load?.();
+    await tick();
+    const which = () =>
+      [...view.container.querySelectorAll("[data-map-control]")].map((b) =>
+        b.getAttribute("data-map-control"),
+      );
+    // Positive evidence it is drawn and ready — the canvas-only state has no
+    // zoom buttons either, and would pass the next line for that reason.
+    expect(
+      view.container.querySelector("[data-map-ready]"),
+      "premise: the map drew",
+    ).not.toBeNull();
+    expect(which(), "compact: expand alone").toEqual(["expand"]);
+
+    view.container.querySelector<HTMLButtonElement>("[data-map-expand]")!.click();
+    resize({ width: 390, height: 844 });
+    await tick();
+    expect(which(), "expanded to the window: + above − above expand").toEqual([
+      "zoom-in",
+      "zoom-out",
+      "expand",
+    ]);
+
+    view.container.querySelector<HTMLButtonElement>("[data-map-expand]")!.click();
+    resize({ width: 350, height: 200 });
+    await tick();
+    expect(which(), "collapsed: expand alone again").toEqual(["expand"]);
   });
 });
 

@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 
 import { expect, test, type Browser, type Page } from "@playwright/test";
 
-import { cameraProbeInstalled, watchCamera } from "./camera-probe";
+import { cameraAtRest, cameraProbeInstalled, watchCamera } from "./camera-probe";
 import { hydrated } from "./hydrated";
 import { GARNET, SAND } from "./palette";
 
@@ -42,6 +42,8 @@ const PROPERTIES = "/dev/properties";
 const HOME = "/dev/home";
 
 const MAP = "[data-property-map]";
+/** The credit's OpenStreetMap link — the licence line itself. */
+const OSM = 'a[href="https://www.openstreetmap.org/copyright"]';
 
 /** Positive evidence the engine drew a frame: `data-map-ready` is set by
  *  MapLibre's own `load`, not by the import resolving. */
@@ -378,17 +380,21 @@ test.describe("the expand affordance", () => {
   }
 });
 
-// M1 + P3: + above − above expand, bottom-right, on every map at both widths.
+// M1 + P3, and option two (operator call 2026-09-29, "happy not to have the
+// zoom buttons on mobile since we've thumbs"): + above − above expand on a
+// FULL frame, expand alone on a COMPACT one, bottom-right either way. The
+// frame is the map's own height (`frameFor`), so at 390 both the Properties
+// map and the band's are compact (200 tall) and at 1440 both are full.
 test.describe("the control column", () => {
   for (const [route, where] of [
     [PROPERTIES, "Properties"],
     [HOME, "the homepage band"],
   ] as const)
-    for (const viewport of [
-      { width: 390, height: 844 },
-      { width: 1440, height: 900 },
+    for (const { viewport, column } of [
+      { viewport: { width: 390, height: 844 }, column: ["expand"] },
+      { viewport: { width: 1440, height: 900 }, column: ["zoom-in", "zoom-out", "expand"] },
     ])
-      test(`${where} at ${viewport.width}: garnet boxes 10 from the right, 44px targets that hit-test to themselves`, async ({
+      test(`${where} at ${viewport.width}: ${column.join(", ")} — garnet boxes 10 from the right, 44px targets that hit-test to themselves`, async ({
         browser,
       }) => {
         const { context, page } = await at(browser, viewport.width, viewport.height);
@@ -396,6 +402,8 @@ test.describe("the control column", () => {
           await page.goto(route);
           await hydrated(page);
           await page.locator(MAP).first().scrollIntoViewIfNeeded();
+          // Drawn FIRST: + and − wait for `ready` on every frame, so a map
+          // that had not drawn would show expand alone for the wrong reason.
           await drawn(page);
           await page.locator(`${MAP} [data-map-control="expand"]`).first().scrollIntoViewIfNeeded();
           const read = await page
@@ -418,11 +426,14 @@ test.describe("the control column", () => {
                 };
               });
             });
-          expect(read.map((r) => r.which)).toEqual(["zoom-in", "zoom-out", "expand"]);
+          expect(read.map((r) => r.which)).toEqual(column);
+          // Expand is at the comp's 10 on both frames: with + and − gone the
+          // column is shorter, and its bottom-anchored last button is where it
+          // was — nothing jumps when a map changes frame.
           expect(
             read.map((r) => r.bottom),
             "stacked 44 apart from the comp's 10",
-          ).toEqual([98, 54, 10]);
+          ).toEqual([98, 54, 10].slice(-column.length));
           for (const r of read) {
             expect(r.right, `${r.which} 10 from the right`).toBe(10);
             expect(r.target, `${r.which} 44 x 44`).toBe(true);
@@ -433,6 +444,64 @@ test.describe("the control column", () => {
           await context.close();
         }
       });
+
+  // WCAG 2.5.1: a pinch is two pointers and a double-tap only zooms IN, so
+  // the one-pointer way out of a zoom on a phone is expand, then −. The
+  // expanded overlay is the window — a full frame — so it has all three.
+  for (const [route, where] of [
+    [PROPERTIES, "Properties"],
+    [HOME, "the homepage band"],
+  ] as const)
+    test(`${where} at 390, expanded: + and − come back and − zooms out; collapsed, they go`, async ({
+      browser,
+    }) => {
+      const { context, page } = await at(browser, 390, 844);
+      try {
+        await watchCamera(page);
+        await page.goto(route);
+        await hydrated(page);
+        const map = page.locator(MAP).first();
+        await map.scrollIntoViewIfNeeded();
+        await drawn(page);
+        expect(await cameraProbeInstalled(page)).toBe(true);
+        const column = () =>
+          map.evaluate((el) =>
+            [...el.querySelectorAll("[data-map-control]")].map((b) =>
+              b.getAttribute("data-map-control"),
+            ),
+          );
+        const zoom = () =>
+          map.evaluate((el) => {
+            const m = (
+              window.__camera.maps as unknown as {
+                getContainer(): HTMLElement;
+                getZoom(): number;
+              }[]
+            ).find((x) => el.contains(x.getContainer()))!;
+            return m.getZoom();
+          });
+        expect(await column(), "inline, compact: expand alone").toEqual(["expand"]);
+
+        await map.locator("[data-map-expand]").click();
+        await expect(map).toHaveAttribute("data-expanded", "true");
+        await expect
+          .poll(column, { message: "expanded: the whole column" })
+          .toEqual(["zoom-in", "zoom-out", "expand"]);
+        // At rest first: expanding changes the frame, and the camera re-homes
+        // to the full frame's MAP_HOME (or flies to the band's slide) — a
+        // read inside that move is not the zoom − steps from.
+        await cameraAtRest(page);
+        const z0 = await zoom();
+        await map.locator('[data-map-control="zoom-out"]').click();
+        await expect.poll(zoom, { message: "one press, one level out" }).toBeCloseTo(z0 - 1, 2);
+
+        await page.keyboard.press("Escape");
+        await expect(map).not.toHaveAttribute("data-expanded", "true");
+        await expect.poll(column, { message: "collapsed: expand alone again" }).toEqual(["expand"]);
+      } finally {
+        await context.close();
+      }
+    });
 
   test("+ zooms one whole level and − comes back, and the page does not move", async ({
     browser,
@@ -593,6 +662,149 @@ function contrast(a: string, b: string) {
   return (hi! + 0.05) / (lo! + 0.05);
 }
 
+// THE CREDIT, BY FRAME (operator call 2026-09-29, option two: "plus the (i)
+// credit"). A full frame keeps the whole chip; a compact one gets MapLibre's
+// own collapsed (i), which opens onto the same line. Both boxes are the no-pin
+// zones plan guard 2i walks in src/lib/property-map.test.ts, so the geometry
+// asserted here is that guard's transcription, held to the rendered page.
+//
+// 768 IS THE CASE MAPLIBRE'S OWN RULE GETS WRONG. Its `compact` reading is "the
+// container is 640 or narrower", and a 768 window's compact map is 689 wide: a
+// control built `compact: false` there loses the compact classes on the next
+// `resize` and shows the whole chip on a 200px map. So the frame decides the
+// option at construction, and this width is what can tell.
+test.describe("the credit", () => {
+  for (const [route, where] of [
+    [PROPERTIES, "Properties"],
+    [HOME, "the homepage band"],
+  ] as const) {
+    test(`${where} at 1440: the whole chip, OpenStreetMap on it with no press, inside guard 2i's box`, async ({
+      browser,
+    }) => {
+      const { context, page } = await at(browser, 1440);
+      try {
+        await page.goto(route);
+        await hydrated(page);
+        const map = page.locator(MAP).first();
+        await map.scrollIntoViewIfNeeded();
+        await drawn(page);
+        await expect(map.locator(OSM), "no press needed on a full frame").toBeVisible();
+        await expect(map.locator(".maplibregl-ctrl-attrib summary")).toBeHidden();
+        const chip = await map.evaluate((el) => {
+          const m = el.getBoundingClientRect();
+          const c = el.querySelector(".maplibregl-ctrl-attrib")!;
+          const r = c.getBoundingClientRect();
+          return {
+            compact: c.classList.contains("maplibregl-compact"),
+            left: r.left - m.left,
+            bottom: m.bottom - r.bottom,
+            w: r.width,
+            h: r.height,
+          };
+        });
+        expect(chip.compact, "the whole chip").toBe(false);
+        expect(chip.left, "flush left").toBeCloseTo(0, 1);
+        expect(chip.bottom, "flush bottom").toBeCloseTo(0, 1);
+        // Guard 2i's full-frame chip is 224 x 18, measured here in Chromium.
+        // The width is the credit's TEXT, so it is a font's: if this goes red
+        // on a machine that sets it wider, widen the guard's box to match.
+        expect(chip.w, "no wider than guard 2i's chip").toBeLessThanOrEqual(224.5);
+        expect(chip.h, "no taller than guard 2i's chip").toBeLessThanOrEqual(18.5);
+      } finally {
+        await context.close();
+      }
+    });
+
+    for (const width of [320, 390, 768])
+      test(`${where} at ${width}: the (i), 24 x 24 at 10 from two edges; a press or Enter opens it onto OpenStreetMap`, async ({
+        browser,
+      }) => {
+        const { context, page } = await at(browser, width, 844);
+        try {
+          await page.goto(route);
+          await hydrated(page);
+          const map = page.locator(MAP).first();
+          await map.scrollIntoViewIfNeeded();
+          await drawn(page);
+          const summary = map.locator(".maplibregl-ctrl-attrib summary");
+          // Visible first, so the hidden line below is COLLAPSED and not a
+          // credit that never arrived.
+          await expect(summary, "the (i) is drawn").toBeVisible();
+          await expect(map.locator(OSM), "collapsed at rest: no line").toBeHidden();
+          const geometry = () =>
+            map.evaluate((el) => {
+              const m = el.getBoundingClientRect();
+              const c = el.querySelector(".maplibregl-ctrl-attrib")!;
+              const r = c.getBoundingClientRect();
+              const s = c.querySelector("summary")!.getBoundingClientRect();
+              const hit = document.elementFromPoint(s.left + s.width / 2, s.top + s.height / 2);
+              return {
+                compact: c.classList.contains("maplibregl-compact"),
+                left: r.left - m.left,
+                bottom: m.bottom - r.bottom,
+                right: r.right - m.left,
+                w: r.width,
+                h: r.height,
+                target: [s.width, s.height],
+                hits: !!hit && c.querySelector("summary")!.contains(hit),
+                strip: m.width - 54,
+              };
+            });
+          const rest = await geometry();
+          expect(rest.compact).toBe(true);
+          // Guard 2i's compact credit, exactly: 24 x 24, 10 from the left and
+          // the bottom — and a 24 x 24 target, WCAG 2.5.8's minimum.
+          expect([rest.left, rest.bottom, rest.w, rest.h]).toEqual([10, 10, 24, 24]);
+          expect(rest.target, "a 24 x 24 target").toEqual([24, 24]);
+          expect(rest.hits, "the (i) is what a press there hits").toBe(true);
+
+          await summary.click();
+          await expect(map.locator(OSM), "a press opens it onto the licence line").toBeVisible();
+          await expect(map.locator(".maplibregl-ctrl-attrib")).toContainText(
+            "OpenStreetMap contributors",
+          );
+          const open = await geometry();
+          // Open, it stays out of the control column's strip, so expand is
+          // never painted over the end of the line (at 320 it wraps instead).
+          expect(open.right, "clear of the control column").toBeLessThanOrEqual(open.strip);
+          expect(
+            await map.locator(OSM).evaluate((a) => {
+              const r = a.getBoundingClientRect();
+              const found = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+              return !!found && (found === a || a.contains(found));
+            }),
+            "the OpenStreetMap link is what a press on it hits",
+          ).toBe(true);
+          await summary.click();
+          await expect(map.locator(OSM), "a second press closes it").toBeHidden();
+
+          // The keyboard: a native <summary>, in the tab order, garnet ring.
+          await summary.focus();
+          await page.keyboard.press("Enter");
+          await expect(map.locator(OSM), "Enter opens it").toBeVisible();
+          // POLLED, because the site's reduced-motion reset gives every element
+          // a 0.01ms `transition: all` — the ring's width transitions from
+          // maplibre's `outline: none` (medium, 3px) to 2px, and a read in the
+          // same frame as the key press sees the 3px it started from.
+          await expect
+            .poll(
+              () =>
+                summary.evaluate((el) => {
+                  const cs = getComputedStyle(el);
+                  return { style: cs.outlineStyle, color: cs.outlineColor, width: cs.outlineWidth };
+                }),
+              { message: "the column's ring" },
+            )
+            .toEqual({ style: "solid", color: GARNET, width: "2px" });
+          await page.keyboard.press("Enter");
+          await expect(map.locator(OSM), "and Enter closes it").toBeHidden();
+        } finally {
+          await context.close();
+        }
+      });
+  }
+});
+
 test.describe("the engine, and what it costs", () => {
   test("is not in the first-paint path, and arrives when the box is", async ({ browser }) => {
     // A short window so the homepage band is clear of the fold — the
@@ -739,6 +951,10 @@ test.describe("the engine, and what it costs", () => {
       // The string itself. ODbL requires the credit, so the evidence has to be
       // that it is rendered — not that the control was constructed.
       await expect(attribution).toContainText("OpenStreetMap");
+      await expect(
+        attribution.locator(OSM),
+        "and it is on screen, not merely in the DOM",
+      ).toBeVisible();
       const tone = await attribution.evaluate((el) => {
         const r = el.getBoundingClientRect();
         const box = el.closest("[data-property-map]")!.getBoundingClientRect();
@@ -762,6 +978,9 @@ test.describe("the engine, and what it costs", () => {
       // the map, so the sheet is still the only detail there is — and its 390
       // map is the same 200px full-bleed box this case was written against
       // (measured 375 x 200, three single pins, no clusters, expand drawn).
+      // Since 2026-09-29 that box is a COMPACT frame, so its credit is the
+      // collapsed (i) and its column is expand alone — and the licence line
+      // is asserted after the (i) is pressed, over the open sheet.
       await page.setViewportSize({ width: 390, height: 844 });
       await page.goto(HOME);
       await hydrated(page);
@@ -790,7 +1009,20 @@ test.describe("the engine, and what it costs", () => {
       });
       expect(onTop.attrib, "the OpenStreetMap credit is still hit-testable").toBe(true);
       expect(onTop.close, "and so is the sheet's ×, clear of the control column").toBe(true);
-      expect(onTop.controls, "and so is every control").toEqual([true, true, true]);
+      expect(onTop.controls, "and so is every control").toEqual([true]);
+
+      const band = page.locator(MAP).first();
+      await expect(band.locator(OSM), "premise: collapsed, the line is not shown").toBeHidden();
+      await band.locator(".maplibregl-ctrl-attrib summary").click();
+      await expect(band.locator(OSM), "the (i) opens onto the licence line").toBeVisible();
+      expect(
+        await band.locator(OSM).evaluate((a) => {
+          const r = a.getBoundingClientRect();
+          const found = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+          return !!found && (found === a || a.contains(found));
+        }),
+        "and the OpenStreetMap link is what a press on it hits, sheet open",
+      ).toBe(true);
     } finally {
       await context.close();
     }
