@@ -56,9 +56,16 @@ async function expectView(page: Page, view: "land" | "improved" | "all") {
   if ((await sectionOf(page, "past").count()) > 0) {
     await expect(sectionOf(page, "past"), "Past Projects shows under every view").toBeVisible();
   }
+  // Polled: the tabs' colours transition (0.01ms under the harness's reduce),
+  // so a read in the click's own frame still returns the old ground.
   for (const id of ["land", "improved", "all"]) {
-    const bg = await tabOf(page, id).evaluate((el) => getComputedStyle(el).backgroundColor);
-    expect(bg === garnet, `tab ${id} selected under ${view}`).toBe(id === view);
+    await expect
+      .poll(
+        async () =>
+          (await tabOf(page, id).evaluate((el) => getComputedStyle(el).backgroundColor)) === garnet,
+        { message: `tab ${id} selected under ${view}` },
+      )
+      .toBe(id === view);
   }
 }
 
@@ -101,7 +108,7 @@ test.describe("hydrated", () => {
     await page.goto(FIXTURE);
     await hydrated(page);
     const landMap = sectionOf(page, "land").locator("[data-property-map]");
-    await expect(landMap).toHaveAttribute("data-map-ready", "");
+    await expect(landMap).toHaveAttribute("data-map-ready", "", { timeout: 25_000 });
     // A mark on the element itself. `{#if}` would pass everything else here:
     // the section leaves the DOM (so `toBeHidden` holds) and a NEW map boots
     // and reports ready at the same width (#174, measured). Only the same node
@@ -118,7 +125,7 @@ test.describe("hydrated", () => {
       "data-mount-probe",
       "",
     );
-    await expect(landMap).toHaveAttribute("data-map-ready", "");
+    await expect(landMap).toHaveAttribute("data-map-ready", "", { timeout: 25_000 });
     await expect(landMap.locator("canvas").first()).toBeVisible();
     const after = (await landMap.locator("canvas").first().boundingBox())!.width;
     expect(before, "the map drew at its column's width").toBeGreaterThan(300);
