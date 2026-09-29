@@ -40,6 +40,17 @@ import { GARNET, SAND } from "./palette";
 // so a provider outage names itself instead of taking the file down.
 const PROPERTIES = "/dev/properties";
 const HOME = "/dev/home";
+/** The live routes, for the cases that must also hold on a production build:
+ *  under `REDDOOR_GATE_SERVER=preview` every /dev/* route 404s (#120). The
+ *  control column, the credit and the licence line are measured here, since
+ *  nothing about them depends on the fixture's listings — both pages open
+ *  their first map on a section with pins (Land; the band's three picks).
+ *
+ *    pnpm exec playwright test tests/interaction/property-map.spec.ts
+ *    REDDOOR_GATE_SERVER=preview pnpm exec playwright test \
+ *      tests/interaction/property-map.spec.ts --grep "control column|credit|attribution" */
+const LIVE_PROPERTIES = "/properties";
+const LIVE_HOME = "/";
 
 const MAP = "[data-property-map]";
 /** The credit's OpenStreetMap link — the licence line itself. */
@@ -387,8 +398,8 @@ test.describe("the expand affordance", () => {
 // map and the band's are compact (200 tall) and at 1440 both are full.
 test.describe("the control column", () => {
   for (const [route, where] of [
-    [PROPERTIES, "Properties"],
-    [HOME, "the homepage band"],
+    [LIVE_PROPERTIES, "Properties"],
+    [LIVE_HOME, "the homepage band"],
   ] as const)
     for (const { viewport, column } of [
       { viewport: { width: 390, height: 844 }, column: ["expand"] },
@@ -449,8 +460,8 @@ test.describe("the control column", () => {
   // the one-pointer way out of a zoom on a phone is expand, then −. The
   // expanded overlay is the window — a full frame — so it has all three.
   for (const [route, where] of [
-    [PROPERTIES, "Properties"],
-    [HOME, "the homepage band"],
+    [LIVE_PROPERTIES, "Properties"],
+    [LIVE_HOME, "the homepage band"],
   ] as const)
     test(`${where} at 390, expanded: + and − come back and − zooms out; collapsed, they go`, async ({
       browser,
@@ -675,8 +686,8 @@ function contrast(a: string, b: string) {
 // option at construction, and this width is what can tell.
 test.describe("the credit", () => {
   for (const [route, where] of [
-    [PROPERTIES, "Properties"],
-    [HOME, "the homepage band"],
+    [LIVE_PROPERTIES, "Properties"],
+    [LIVE_HOME, "the homepage band"],
   ] as const) {
     test(`${where} at 1440: the whole chip, OpenStreetMap on it with no press, inside guard 2i's box`, async ({
       browser,
@@ -943,7 +954,7 @@ test.describe("the engine, and what it costs", () => {
   test("keeps OpenStreetMap's attribution, which the comp does not have", async ({ browser }) => {
     const { context, page } = await at(browser, 1440);
     try {
-      await page.goto(PROPERTIES);
+      await page.goto(LIVE_PROPERTIES);
       await hydrated(page);
       await page.locator(MAP).first().scrollIntoViewIfNeeded();
       await drawn(page);
@@ -980,9 +991,11 @@ test.describe("the engine, and what it costs", () => {
       // (measured 375 x 200, three single pins, no clusters, expand drawn).
       // Since 2026-09-29 that box is a COMPACT frame, so its credit is the
       // collapsed (i) and its column is expand alone — and the licence line
-      // is asserted after the (i) is pressed, over the open sheet.
+      // is asserted after the (i) is pressed, over the open sheet. And the
+      // case reads the LIVE routes since then, so it also runs on a production
+      // build; the pin it presses is whichever the live band draws first.
       await page.setViewportSize({ width: 390, height: 844 });
-      await page.goto(HOME);
+      await page.goto(LIVE_HOME);
       await hydrated(page);
       await page.locator(MAP).first().scrollIntoViewIfNeeded();
       await drawn(page);
