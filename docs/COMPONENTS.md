@@ -66,16 +66,18 @@ source. It is the fastest way to recognise what a thing does.
 | [`TurnstileWidget.svelte`](../src/lib/components/TurnstileWidget.svelte) | — | 6 |  |
 | [`VimeoBanner.svelte`](../src/lib/components/VimeoBanner.svelte) | `vimeoId`, `poster`, `alt`, `label` | 10 | Full-bleed background-video banner |
 | [`featured-properties.ts`](../src/lib/featured-properties.ts) | `featuredListings` | 9 | Which of the editor's picks the homepage's featured band can actually show |
-| [`home-fixture.ts`](../src/lib/home-fixture.ts) | `HOME_POSTER_FIXTURE`, `HOME_VIMEO_FIXTURE`, `homeHeroFixture`, `HOME_PHOTO_FIXTURE`, `photoBandFixture`, `PARTNER_PHOTO_FIXTURE`, `PARTNER_PROFILE_FIXTURE`, `partnerFixture`, `partnersFixture`, `partnersFixtureState`, `featuredPickFixture`, `featuredPropertiesFixture`, `featuredLaunchFixture`, `stageFeatured`, `homeFixture` | — | The homepage as fixture data — what /dev/home renders through the real layout, and what /dev/a11y-fixtures and the unit tests build on |
+| [`fetch-links.ts`](../src/lib/fetch-links.ts) | `fetchLinksOf`, `PAGE_FETCH_LINKS` | 2 | The page query's `fetchLinks`, read off this repo's slice models (#179) |
+| [`home-fixture.ts`](../src/lib/home-fixture.ts) | `HOME_POSTER_FIXTURE`, `HOME_VIMEO_FIXTURE`, `homeHeroFixture`, `HOME_PHOTO_FIXTURE`, `photoBandFixture`, `PARTNER_PHOTO_FIXTURE`, `partnerFixture`, `partnersFixture`, `partnersFixtureState`, `featuredPickFixture`, `featuredPropertiesFixture`, `featuredLaunchFixture`, `stageFeatured`, `homeFixture` | — | The homepage as fixture data — what /dev/home renders through the real layout, and what /dev/a11y-fixtures and the unit tests build on |
 | [`home-page.ts`](../src/lib/home-page.ts) | `splitHomeHero` | 5 | The home route's shape, as data |
 | [`index.ts`](../src/lib/index.ts) | — | — | place files you want to import through the `$lib` alias in this folder |
 | [`indexability.ts`](../src/lib/indexability.ts) | `MIRROR_ROBOTS_TAG`, `isNetlifyMirrorHost` | 6 | Which HOST a request arrived on decides whether it may be indexed (#140) |
 | [`map-engine.ts`](../src/lib/map-engine.ts) | — | — | The heavy half of the property map (#13), isolated so it can be a CHUNK |
 | [`map-home.ts`](../src/lib/map-home.ts) | `MAP_HOME`, `MAP_HOME_GROUND`, `MAP_HOME_FADE_MS` | — | MAP_HOME — the frame every property map OPENS on, and the frame the committed raster placeholder is a picture of (#122) |
 | [`office.ts`](../src/lib/office.ts) | `telHref`, `OFFICE`, `officeAddressLines`, `officePostalAddress`, `officeDirectionsUrl` | 8 | The firm's one office — the ONE place its address and numbers are written |
-| [`page-load.ts`](../src/lib/page-load.ts) | `orNotFound`, `loadPage` | 4 |  |
+| [`page-load.ts`](../src/lib/page-load.ts) | `orNotFound`, `loadPage` | 5 |  |
 | [`page-media-load.ts`](../src/lib/page-media-load.ts) | `loadPropertiesMasthead` | 5 | The `page_media` singleton: media for pages that have no Prismic document |
 | [`page-meta.ts`](../src/lib/page-meta.ts) | `pageMeta` | 2 |  |
+| [`partners.ts`](../src/lib/partners.ts) | `CONTACT_FALLBACK`, `partnerCards` | 5 | Which partner rows the homepage's "Our Legacy" band can draw, and what each card says (#179) |
 | [`person-fixture.ts`](../src/lib/person-fixture.ts) | `personFixture` | — |  |
 | [`person-load.ts`](../src/lib/person-load.ts) | `loadPerson` | 3 |  |
 | [`person-meta.ts`](../src/lib/person-meta.ts) | `personJsonLd`, `personMeta` | 3 |  |
@@ -105,4 +107,4 @@ source. It is the fastest way to recognise what a thing does.
 | [`vimeo.ts`](../src/lib/utils/vimeo.ts) | `checkVimeoVideo`, `parseVimeoId` | 11 | True when the Vimeo video exists and is embeddable (oEmbed responds 200) |
 | [`vimeoBackground.svelte.ts`](../src/lib/utils/vimeoBackground.svelte.ts) | `VIMEO_PLAYER_ORIGIN`, `backgroundEmbedSrc`, `VimeoBackground` | 5 | The gate, the heartbeat and the pause flag behind every chrome-less Vimeo background embed in this repo — lifted OUT of VimeoBanner.svelte so the homepage hero could have all three without taking VimeoBanner's markup with them |
 
-87 modules, 842 tests behind them.
+89 modules, 850 tests behind them.

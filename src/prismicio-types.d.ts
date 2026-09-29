@@ -1433,57 +1433,19 @@ export interface PartnersSliceDefaultPrimaryButtonsItem {
  */
 export interface PartnersSliceDefaultPrimaryPartnersItem {
   /**
-   * Name field in *Partners → Default → Primary → Partners*
-   *
-   * - **Field Type**: Text
-   * - **Placeholder**: e.g. Matt Howard
-   * - **API ID Path**: partners.default.primary.partners[].name
-   * - **Documentation**: https://prismic.io/docs/fields/text
-   */
-  name: prismic.KeyTextField;
-
-  /**
-   * Role field in *Partners → Default → Primary → Partners*
-   *
-   * - **Field Type**: Text
-   * - **Placeholder**: Partner
-   * - **API ID Path**: partners.default.primary.partners[].role
-   * - **Documentation**: https://prismic.io/docs/fields/text
-   */
-  role: prismic.KeyTextField;
-
-  /**
-   * Headshot (square crop) — left empty, the card is text only field in *Partners → Default → Primary → Partners*
-   *
-   * - **Field Type**: Image
-   * - **Placeholder**: *None*
-   * - **API ID Path**: partners.default.primary.partners[].photo
-   * - **Documentation**: https://prismic.io/docs/fields/image
-   */
-  photo: prismic.ImageField<never>;
-
-  /**
-   * PROFILE goes to — this partner's Person page. Left empty, the card has no PROFILE field in *Partners → Default → Primary → Partners*
+   * Partner — their Person page, which supplies the card's name, title, headshot and email. A card whose Person is unpublished is not shown field in *Partners → Default → Primary → Partners*
    *
    * - **Field Type**: Content Relationship
    * - **Placeholder**: *None*
    * - **API ID Path**: partners.default.primary.partners[].profile
    * - **Documentation**: https://prismic.io/docs/fields/content-relationship
    */
-  profile: prismic.ContentRelationshipField<"person">;
+  profile: ContentRelationshipFieldWithData<
+    [{ id: "person"; fields: ["name", "role", "photo", "email"] }]
+  >;
 
   /**
-   * Email — CONTACT opens a message to it (unless a CONTACT link is set below) field in *Partners → Default → Primary → Partners*
-   *
-   * - **Field Type**: Text
-   * - **Placeholder**: e.g. mhoward@roalson.com
-   * - **API ID Path**: partners.default.primary.partners[].email
-   * - **Documentation**: https://prismic.io/docs/fields/text
-   */
-  email: prismic.KeyTextField;
-
-  /**
-   * CONTACT goes to (optional override) — mailto:, tel: or a page. Left empty, it opens the email above, else /contact field in *Partners → Default → Primary → Partners*
+   * CONTACT goes to (optional override) — mailto:, tel: or a page. Left empty, it mails the Person's email, else /contact field in *Partners → Default → Primary → Partners*
    *
    * - **Field Type**: Link
    * - **Placeholder**: /contact
@@ -1560,7 +1522,7 @@ export interface PartnersSliceDefaultPrimary {
  * Default variation for Partners Slice
  *
  * - **API ID**: `default`
- * - **Description**: Partner cards (name, role, PROFILE when the row links a Person page, and CONTACT) beside a headline and body copy
+ * - **Description**: Partner cards — each one a partner's Person page, which holds the name, role, headshot and email — beside a headline and body copy
  * - **Documentation**: https://prismic.io/docs/slices
  */
 export type PartnersSliceDefault = prismic.SharedSliceVariation<

@@ -182,11 +182,11 @@ describe("the home document's bands", () => {
     expect(order.filter((s) => s === "photo_band")).toHaveLength(1);
   });
 
-  it("names the four photographs the media library holds, in document order", () => {
+  it("names the two photographs the media library holds, in document order", () => {
+    // The partners' headshots are their Person documents' (people.json) since
+    // #179 — the home document no longer carries a copy of either.
     expect(imageRefs(home.data)).toEqual([
       "home-hero-poster-suburban-to-country.jpg",
-      "partner-matt-howard.jpg",
-      "partner-bart-wilson.jpg",
       "home-photo-band-san-antonio-skyline.jpg",
     ]);
   });
@@ -214,23 +214,38 @@ describe("the home document's bands", () => {
     expect(band.items).toEqual([]);
   });
 
-  it("gives each partner a name, a role, the client's own headshot, a PROFILE and an email", () => {
+  it("links each partner's Person and nothing else — the card reads the Person (#179)", () => {
     const partners = (home.data.slices ?? []).find((s) => s.slice_type === "partners");
-    const rows = partners?.primary.partners as Record<
-      string,
-      { $image?: string; $person?: string }
-    >[];
-    expect(rows.map((r) => r.name)).toEqual(["Matt Howard", "Bart Wilson"]);
-    for (const row of rows)
-      expect(Object.keys(row).sort()).toEqual(["email", "name", "photo", "profile", "role"]);
+    const rows = partners?.primary.partners as Record<string, { $person?: string }>[];
+    for (const row of rows) expect(Object.keys(row)).toEqual(["profile"]);
     expect(rows.map((r) => r.profile?.$person)).toEqual(["matt-howard", "bart-wilson"]);
-    expect(rows.map((r) => r.email)).toEqual(["mhoward@roalson.com", "bwilson@roalson.com"]);
+  });
+
+  it("seeds each linked Person with everything its card shows", () => {
+    // The row no longer carries a name, role, headshot or email of its own, so
+    // a Person without one is a card without one. The model embeds exactly
+    // these four on the relationship.
+    const model = models.partners.variations[0].primary!.partners.config!.fields!
+      .profile as unknown as { config: { customtypes: { id: string; fields: string[] }[] } };
+    const shown = model.config.customtypes.find((t) => t.id === "person")!.fields;
+    expect(shown).toEqual(["name", "role", "photo", "email"]);
+    const people = read("scripts/seed/people.json") as {
+      uid: string;
+      data: Record<string, unknown>;
+    }[];
+    const partners = (home.data.slices ?? []).find((s) => s.slice_type === "partners");
+    const rows = partners?.primary.partners as { profile: { $person: string } }[];
+    for (const { profile } of rows) {
+      const person = people.find((p) => p.uid === profile.$person);
+      expect(person, profile.$person).toBeDefined();
+      for (const field of shown)
+        expect(person!.data[field], `${profile.$person}.${field}`).toBeTruthy();
+    }
     // Bart Wilson's file is 140×177 in a 153px box and renders soft — #73, not
     // a defect of this seed, and the only file that exists of him.
-    expect(rows.map((r) => r.photo?.$image)).toEqual([
-      "partner-matt-howard.jpg",
-      "partner-bart-wilson.jpg",
-    ]);
+    expect(
+      rows.map(({ profile }) => people.find((p) => p.uid === profile.$person)!.data.photo),
+    ).toEqual([{ $image: "partner-matt-howard.jpg" }, { $image: "partner-bart-wilson.jpg" }]);
   });
 
   it("seeds the hero as the revised comp: one break after Commercial, the sentence, PROPERTIES first", () => {

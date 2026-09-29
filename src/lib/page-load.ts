@@ -2,12 +2,13 @@ import { error } from "@sveltejs/kit";
 import { NotFoundError, RepositoryNotFoundError } from "@prismicio/client";
 
 import type { PageDocument } from "../prismicio-types";
+import { PAGE_FETCH_LINKS } from "$lib/fetch-links";
 import { pageMeta } from "$lib/page-meta";
 
 /** The minimal client surface the loader needs — method syntax keeps the real
  *  `createClient()` return type assignable, and lets tests pass a stub. */
 export type PageClient = {
-  getByUID(type: "page", uid: string): Promise<PageDocument>;
+  getByUID(type: "page", uid: string, params?: { fetchLinks?: string[] }): Promise<PageDocument>;
 };
 
 /** Await one Prismic lookup, turning ONLY a genuine miss into a 404.
@@ -32,11 +33,12 @@ export async function orNotFound<T>(lookup: Promise<T>): Promise<T> {
   }
 }
 
-/** Load one `page` document and the layout's head payload for it.
+/** Load one `page` document and the layout's head payload for it, with every
+ *  linked field its slices' models ask for embedded ($lib/fetch-links).
  *
  *  (The route loaders answer 404 themselves on the placeholder repo before
  *  calling this, so an unconfigured clone still builds.) */
 export async function loadPage(client: PageClient, uid: string) {
-  const page = await orNotFound(client.getByUID("page", uid));
+  const page = await orNotFound(client.getByUID("page", uid, { fetchLinks: PAGE_FETCH_LINKS }));
   return { page, ...pageMeta(page) };
 }

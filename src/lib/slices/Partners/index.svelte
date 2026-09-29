@@ -21,8 +21,8 @@
   //
   // WHAT THE COMP DRAWS AND THIS DOES NOT:
   // - Both headshots are placeholders (a fishing snapshot and a studio shot
-  //   of unknown licence — inventory §11, #3). None ships. `photo` is the field
-  //   a real one goes in; EMPTY — the launch state — the card has no photo box
+  //   of unknown licence — inventory §11, #3). None ships. The Person's
+  //   `photo` is the field a real one goes in; EMPTY, the card has no photo box
   //   at all and the sand panel takes the full card width, which is the call
   //   PropertyCard already made for a listing with no photo. The card keeps
   //   the comp's 153px height either way, so the band stays 556 tall at 1440.
@@ -30,11 +30,15 @@
   // - No buttons are drawn under the body. `buttons` is modelled because the
   //   batch asked for it, and renders nothing while it is empty.
   //
-  // PROFILE is a link to the partner's Person page, /team/<uid> (F4, operator
-  // 2026-09-28; it replaced a disclosure that opened a bio in place). It
-  // renders only when the row links a published Person. CONTACT opens a
-  // message to the row's email (decision D3); `contact_link` overrides it, and
-  // /contact is the fallback when neither is set.
+  // EACH CARD IS A PERSON DOCUMENT (#179): the row links the partner's
+  // `person` and the name, role, headshot and email are that document's, so
+  // they are edited in one place ($lib/partners says how they arrive). A row
+  // whose Person is unset, unpublished or arrived bare draws no card. PROFILE
+  // links the Person's page, /team/<uid> (F4, operator 2026-09-28). CONTACT
+  // opens a message to the Person's email (decision D3); the row's
+  // `contact_link` overrides it, and /contact is the fallback when neither is
+  // set. The slice simulator draws no cards: Slice Machine's mocks hold a
+  // relationship as a bare id, the same limit FeaturedProperties documents.
   //
   // Declined, having read them: `ArrowRight` — the buttons' 25px arrow; the
   // text links carry a different glyph, exported as TextLinkArrow.
@@ -45,7 +49,7 @@
   import RichTextBody from "$lib/components/RichTextBody.svelte";
   import TextLinkArrow from "$lib/components/TextLinkArrow.svelte";
   import { cmsHref } from "$lib/cms-href";
-  import { emailHref } from "$lib/person";
+  import { partnerCards } from "$lib/partners";
   import { linkResolver } from "$lib/prismicio";
   import { imgix, srcset } from "$lib/utils/image";
 
@@ -60,9 +64,6 @@
   // capped at the comp's 371 instead.
   const GUTTERS = "mx-auto max-w-[1440px] px-5 sm:px-8 xl:px-20";
 
-  /** Where CONTACT goes when the row has no link and no email. */
-  const CONTACT_FALLBACK = "/contact";
-
   /** The headshot box is 153 CSS px at every width: 1×, 2× and 3×. */
   const PHOTO_WIDTHS = [153, 306, 459];
 
@@ -71,29 +72,9 @@
   const heading = $derived(asText(primary.heading ?? []).trim());
   const body = $derived(isFilled.richText(primary.body) ? primary.body : undefined);
 
-  // A card needs a name. Everything else on it is optional.
-  const partners = $derived(
-    (primary.partners ?? []).flatMap((partner) => {
-      const name = partner.name?.trim() ?? "";
-      if (name === "") return [];
-      return [
-        {
-          name,
-          role: partner.role?.trim() ?? "",
-          photo: isFilled.image(partner.photo) ? partner.photo : undefined,
-          // `asLink` ignores `isBroken`: an unpublished Person would 404.
-          profile:
-            isFilled.contentRelationship(partner.profile) && !partner.profile.isBroken
-              ? cmsHref(partner.profile, { linkResolver })
-              : null,
-          contact:
-            cmsHref(partner.contact_link, { linkResolver }) ??
-            emailHref(partner.email) ??
-            CONTACT_FALLBACK,
-        },
-      ];
-    }),
-  );
+  // A card needs a live Person with a name. Everything else on it is optional.
+  const roster = $derived(partnerCards(primary.partners));
+  const partners = $derived(roster.cards);
 
   // The same contract as HomeHero's: a label AND somewhere to go, first two.
   const buttons = $derived(
@@ -122,9 +103,15 @@
   const LINK_TEXT = "t-h5 group-hover/link:underline group-focus-visible/link:underline";
 </script>
 
+<!-- The counts are for View Source: "no card because the Person is
+     unpublished" and "no card because the API sent it bare" look the same on
+     the page. -->
 <section
   data-slice-type={slice.slice_type}
   data-slice-variation={slice.variation}
+  data-partners-linked={roster.linked}
+  data-partners-shown={partners.length}
+  data-partners-unembedded={roster.unembedded}
   aria-labelledby={heading ? `${uid}-heading` : undefined}
   class="bg-background"
 >
@@ -135,7 +122,12 @@
          text's 353). -->
     <div class="flex flex-col gap-[60px] lg:grid lg:grid-cols-[397fr_847fr] lg:gap-9">
       {#if eyebrow || partners.length > 0}
-        <div class="lg:max-w-[371px]">
+        <!-- The comp's 371 cap from `sm` up (#54). The comp draws the card
+             350 at 390 and 371 at 1440 and nothing between; capped only from
+             `lg`, a tablet drew it 704 wide at 768 and 959 at 1023, small type
+             at the left of a wide sand slab. A phone's column is already
+             narrower than the cap. -->
+        <div class="sm:max-w-[371px]">
           {#if eyebrow}
             <!-- A <p>, not a heading (ruling G11a): the band's h2 is the
                  headline. Eyebrows take H5 (approved call 2 — the comp's Area
@@ -152,10 +144,11 @@
                  emulated 2x, before the revised hero dropped that list on
                  2026-09-28 — this is the site's only half-pixel rule now),
                  and a 1px box scaled to half paints what Figma paints — AT 2x
-                 AND ABOVE. Measured by pixel row: at 1x it is one full device
-                 row of solid garnet, indistinguishable from a 1px border and
-                 heavier than Figma's own 1x render (a 50% blend, 172,137,134).
-                 `-mb-px` gives its one pixel back, so like the comp's
+                 AND ABOVE. At 1x the scaled box is one full device row of
+                 solid garnet, heavier than Figma's own 1x render, which is a
+                 50% blend. So up to 1.5dppx the box is NOT scaled and paints
+                 garnet at half alpha instead: one device row of the blend
+                 (#53). `-mb-px` gives its one pixel back, so like the comp's
                  zero-height line it takes no room and the 30 under it stays
                  30. It is the column's width — the comp's 374 in a 371 column
                  is 3px of drift from the band above.
@@ -169,7 +162,9 @@
             <div
               data-partners-rule
               aria-hidden="true"
-              class="-mb-px h-px origin-top scale-y-50 bg-primary {eyebrow ? 'mt-8' : ''}"
+              class="-mb-px h-px origin-top scale-y-50 bg-primary
+                [@media(max-resolution:1.5dppx)]:scale-y-100
+                [@media(max-resolution:1.5dppx)]:bg-primary/50 {eyebrow ? 'mt-8' : ''}"
             ></div>
             <ul
               data-partners-list

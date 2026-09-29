@@ -597,12 +597,11 @@
   <FeaturedProperties slice={featuredPropertiesFixture()} />
   <FeaturedProperties slice={featuredLaunchFixture({ heading: "Featured Property" })} />
 
-  <!-- The homepage's "Our Legacy" band in its FULLEST state, not its launch
-       one: a headshot on both cards and a PROFILE on the first, so axe sees
-       all three 24px link targets and the photo's empty alt.
+  <!-- The homepage's "Our Legacy" band with a headshot on both cards, so axe
+       sees all four 24px link targets and the photo's empty alt.
        tests/interaction/partners.spec.ts requires that axe MEASURED every text
        node rather than leaving the 12px links as "needs review". -->
-  <Partners slice={partnersFixtureState({ profile: true, photos: true })} />
+  <Partners slice={partnersFixtureState({ photos: true })} />
 
   <!-- A partner's profile page, /team/<uid>: placeholder chip, headshot,
        bio and the contact list. -->

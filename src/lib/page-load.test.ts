@@ -21,6 +21,25 @@ describe("loadPage", () => {
     });
   });
 
+  it("asks for every linked field the slices embed, the partners' Persons included (#179)", async () => {
+    const calls: unknown[][] = [];
+    const client = {
+      getByUID: async (...args: unknown[]) => {
+        calls.push(args);
+        return doc;
+      },
+    } as unknown as PageClient;
+    await loadPage(client, "home");
+    expect(calls).toHaveLength(1);
+    const [type, uid, params] = calls[0] as [string, string, { fetchLinks: string[] }];
+    expect([type, uid]).toEqual(["page", "home"]);
+    expect(params.fetchLinks).toEqual(
+      expect.arrayContaining(["person.name", "person.role", "person.photo", "person.email"]),
+    );
+    // …and the featured band's, which a person-only list would have emptied.
+    expect(params.fetchLinks).toEqual(expect.arrayContaining(["property.feature_image"]));
+  });
+
   it("turns a Prismic miss into a 404", async () => {
     const client = clientThat(async () => {
       throw new NotFoundError("No documents were returned", "https://x", undefined);

@@ -13,7 +13,8 @@
 // (title, status, listing_state, size_label, feature_image, highlights.text,
 // location), so the page query that loads the `home` document brings each
 // listing's fields along inside the relationship, typed by the codegen — no
-// second query, no loader change, no `fetchLinks`.
+// second query. (Since #179 that query also names them in `fetchLinks`, built
+// from this same model: see $lib/fetch-links.)
 //
 // THAT EMBEDDING IS DOCUMENTED, NOT YET OBSERVED. No document in the live
 // repository holds this slice, so nothing here has seen the Content API answer
@@ -21,8 +22,8 @@
 // but bare, every one is dropped, and the band would vanish without a word —
 // so a bare pick is COUNTED, separately from an editorial drop, and the slice
 // prints the counts on its element. `unembedded > 0` on a published page means
-// "add `fetchLinks` to $lib/page-load" (the response shape is the same, and
-// nothing in here changes), not "the editor picked badly".
+// the query did not ask for the fields ($lib/fetch-links), not "the editor
+// picked badly".
 import { isFilled, type Content, type GeoPointField, type ImageField } from "@prismicio/client";
 
 import { cmsHref } from "$lib/cms-href";

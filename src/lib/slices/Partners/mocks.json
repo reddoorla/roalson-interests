@@ -44,19 +44,14 @@
             "key": "64346681-0b6c-4340-8e98-23844b37e36a",
             "value": [
               [
-                "name",
+                "profile",
                 {
-                  "__TYPE__": "FieldContent",
-                  "type": "Text",
-                  "value": "Matt Howard"
-                }
-              ],
-              [
-                "role",
-                {
-                  "__TYPE__": "FieldContent",
-                  "type": "Text",
-                  "value": "Partner"
+                  "key": "5cfa479b-b502-4029-b78e-b3897548f568",
+                  "__TYPE__": "LinkContent",
+                  "value": {
+                    "__TYPE__": "DocumentLink",
+                    "id": "arrAaRIAACoAQHGr"
+                  }
                 }
               ]
             ]
@@ -66,19 +61,14 @@
             "key": "63610d83-242a-4ed4-b159-6176b40e6cc1",
             "value": [
               [
-                "name",
+                "profile",
                 {
-                  "__TYPE__": "FieldContent",
-                  "type": "Text",
-                  "value": "Bart Wilson"
-                }
-              ],
-              [
-                "role",
-                {
-                  "__TYPE__": "FieldContent",
-                  "type": "Text",
-                  "value": "Partner"
+                  "key": "05d709e9-8a9e-4d68-aba1-7ed8728fe8d1",
+                  "__TYPE__": "LinkContent",
+                  "value": {
+                    "__TYPE__": "DocumentLink",
+                    "id": "arrAaxIAACwAQHGx"
+                  }
                 }
               ]
             ]
