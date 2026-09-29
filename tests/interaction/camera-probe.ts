@@ -1,4 +1,4 @@
-import type { Page } from "@playwright/test";
+import { expect, type Page } from "@playwright/test";
 
 /**
  * COUNTING THE CAMERA COMMANDS A REAL MAPLIBRE MAP IS ISSUED, from outside the
@@ -46,6 +46,13 @@ import type { Page } from "@playwright/test";
  * /dev/* routes 404 there (issue #120), so only specs written against real
  * routes can run that way.
  */
+/** `CAMERA_FLIGHT_MS` from $lib/property-map, repeated rather than imported: a
+ *  Playwright spec is transformed by Playwright and does not resolve `$lib`.
+ *  property-map.test.ts pins the source at 500 ("flies for as long as the
+ *  homepage band's own dissolve"), so a change there fails a unit test before
+ *  it can quietly weaken a floor that is built on it. */
+export const CAMERA_FLIGHT_MS = 500;
+
 export interface CameraCall {
   center?: [number, number];
   zoom?: number;
@@ -70,9 +77,9 @@ const BODY = `
   const p = NS.Map.prototype;
   p.__camera_probe = true;
   const t0 = performance.now();
-  window.__camera = { fly: [], ease: [], jump: [], movestart: [], maps: [], t0: t0 };
+  const maps = [];
+  window.__camera = { fly: [], ease: [], jump: [], movestart: [], maps: maps, t0: t0 };
   const see = (self) => {
-    const maps = window.__camera.maps;
     // ONE PLACE A MAP IS ADOPTED, reached from addControl AND from the first
     // camera command, and guarded by a flag of its own rather than by
     // membership of \`maps\`. Two things forced that:
@@ -90,7 +97,10 @@ const BODY = `
     //    never adopted at all on a production build: 0 maps after a 30s poll
     //    (verification of #150). PropertyMap calls \`resize()\` once its first
     //    frame is drawn (the camera effect's first box), long after the patch
-    //    has landed, so that is adopted too.
+    //    has landed, so that is adopted too. Measured on a production build,
+    //    8 loads of /properties at 390 and 1440: every map was adopted by
+    //    \`resize()\`, 300-2000ms after the patch landed — never by addControl
+    //    or a command. That is also what closed #135.
     if (!self.__camera_seen) {
       self.__camera_seen = true;
       maps.push(self);
@@ -102,6 +112,16 @@ const BODY = `
   const rec = (bucket) => (o, self) => window.__camera[bucket].push({
     center: o && o.center, zoom: o && o.zoom, t: performance.now() - t0, m: see(self),
   });
+  // THE ONE WAY A TEST REACHES A MAP, and it fails by NAME. A spec that read
+  // \`maps[0]\` off a probe that had adopted nothing threw "Cannot read
+  // properties of undefined (reading 'getZoom')" (#135) — a probe that arrived
+  // late has to read as that, not as a TypeError about something else.
+  window.__camera.map = (n) => {
+    if (maps[n]) return maps[n];
+    throw new Error(
+      "camera probe: no map " + n + " — it has adopted " + maps.length + ". A map is adopted " +
+      "by addControl, resize() or the first camera command seen after the probe landed (#135).");
+  };
   const of = p.flyTo, oe = p.easeTo, oj = p.jumpTo, oa = p.addControl, orz = p.resize;
   p.flyTo = function (o, ...r) { rec("fly")(o, this); return of.call(this, o, ...r); };
   p.easeTo = function (o, ...r) { rec("ease")(o, this); return oe.call(this, o, ...r); };
@@ -158,6 +178,58 @@ export async function watchCamera(page: Page) {
 export const cameraProbeInstalled = (page: Page) =>
   page.evaluate(() => typeof window.__camera === "object" && window.__camera !== null);
 
+/** Wait until the probe has adopted the nth map on the page, and fail naming
+ *  how many it has if it never does (#135). Installed is not adopted: a map
+ *  that booted before a production patch landed is in neither `maps` nor the
+ *  log until something adopts it. */
+export const adopted = (page: Page, nth = 0) =>
+  expect
+    .poll(() => page.evaluate(() => window.__camera?.maps?.length ?? 0), {
+      timeout: 30_000,
+      message: `the camera probe adopted map ${nth}`,
+    })
+    .toBeGreaterThan(nth);
+
+/**
+ * THE CAMERA AT REST: maplibre reports nothing moving, and neither the view nor
+ * the probe's log changed, across two reads `quietMs` apart.
+ *
+ * WHY NOT A FIXED WAIT. A camera value read after `waitForTimeout` is a read of
+ * whatever was in the air at that moment, and under load that is a flight: the
+ * expand affordance on the homepage band costs TWO (the frame change, then the
+ * re-ask when the first lands), 1100ms of motion unloaded against the 1200ms
+ * the arrow-press case used to wait (#148). A Van Wijk arc zooms OUT mid-flight,
+ * so a read inside it is a zoom below where it will land.
+ *
+ * `quietMs` defaults to a flight plus 200ms, so the component's own re-ask —
+ * issued when its flight timer fires, which can be a frame after maplibre's
+ * `moveend` — cannot fall between the two reads.
+ */
+export async function cameraAtRest(page: Page, nth = 0, quietMs = CAMERA_FLIGHT_MS + 200) {
+  const read = () =>
+    page.evaluate((n) => {
+      const m = window.__camera.map(n);
+      const c = m.getCenter();
+      const log = window.__camera;
+      return {
+        moving: m.isMoving(),
+        view: `${c.lng.toFixed(6)},${c.lat.toFixed(6)},${m.getZoom().toFixed(6)}`,
+        commands: log.fly.length + log.ease.length + log.jump.length,
+      };
+    }, nth);
+  await expect
+    .poll(
+      async () => {
+        const a = await read();
+        await page.waitForTimeout(quietMs);
+        const b = await read();
+        return !a.moving && !b.moving && a.view === b.view && a.commands === b.commands;
+      },
+      { timeout: 30_000, message: `map ${nth}'s camera came to rest` },
+    )
+    .toBe(true);
+}
+
 export const cameraLog = (page: Page) =>
   page.evaluate(() => {
     const c = window.__camera;
@@ -208,7 +280,7 @@ export const resetCamera = (page: Page) =>
 /** The live zoom of the nth booted map — the visitor's own zoom, read off
  *  MapLibre rather than inferred from pin spacing. */
 export const mapZoom = (page: Page, nth = 0) =>
-  page.evaluate((n) => window.__camera.maps[n].getZoom(), nth);
+  page.evaluate((n) => window.__camera.map(n).getZoom(), nth);
 
 /**
  * Drive the nth booted map to an explicit zoom, keeping its centre.
@@ -235,7 +307,7 @@ export const mapZoom = (page: Page, nth = 0) =>
  * rather than trusting that reasoning.
  */
 export const jumpToZoom = (page: Page, zoom: number, nth = 0) =>
-  page.evaluate(({ zoom: z, nth: n }) => window.__camera.maps[n].jumpTo({ zoom: z }), {
+  page.evaluate(({ zoom: z, nth: n }) => window.__camera.map(n).jumpTo({ zoom: z }), {
     zoom,
     nth,
   });
@@ -243,9 +315,24 @@ export const jumpToZoom = (page: Page, zoom: number, nth = 0) =>
 /** The live centre of the nth booted map. */
 export const mapCentre = (page: Page, nth = 0) =>
   page.evaluate((n) => {
-    const c = window.__camera.maps[n].getCenter();
+    const c = window.__camera.map(n).getCenter();
     return { lng: Number(c.lng.toFixed(5)), lat: Number(c.lat.toFixed(5)) };
   }, nth);
+
+/** What a spec reaches on an adopted maplibre map. */
+export interface CameraMap {
+  getZoom(): number;
+  getCenter(): { lng: number; lat: number };
+  getCanvas(): HTMLCanvasElement;
+  isMoving(): boolean;
+  /** Whether the wheel zooms this map — every in-page map since the
+   *  operator's reversal (2026-09-23), where it used to be only the
+   *  EXPANDED one. A test that asserts a zoom changed can say why. */
+  scrollZoom: { isEnabled(): boolean; isActive(): boolean };
+  jumpTo(options: { zoom?: number; center?: [number, number] }): unknown;
+  on(type: string, listener: (e?: unknown) => void): unknown;
+  off(type: string, listener: (e?: unknown) => void): unknown;
+}
 
 declare global {
   interface Window {
@@ -260,17 +347,9 @@ declare global {
        *  it "did the camera move while the page was moving" cannot be asked:
        *  the two are otherwise measured from different zeroes. */
       t0: number;
-      maps: {
-        getZoom(): number;
-        getCenter(): { lng: number; lat: number };
-        getCanvas(): HTMLCanvasElement;
-        /** Whether the wheel zooms this map — every in-page map since the
-         *  operator's reversal (2026-09-23), where it used to be only the
-         *  EXPANDED one. A test that asserts a zoom changed can say why. */
-        scrollZoom: { isEnabled(): boolean; isActive(): boolean };
-        jumpTo(options: { zoom?: number; center?: [number, number] }): unknown;
-        on(type: string, listener: (e?: unknown) => void): unknown;
-      }[];
+      maps: CameraMap[];
+      /** `maps[n]`, or an Error naming how many maps were adopted (#135). */
+      map(n: number): CameraMap;
     };
   }
 }

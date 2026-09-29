@@ -63,6 +63,8 @@ import { OFF_WHITE_HEX } from "./palette";
 // this gate would stay green. It could not have caught that before either
 // (it ran against dev, which serves `static/` directly), so nothing was lost
 // here; the difference is that the file no longer claims otherwise. #120.
+// Those two failures are now caught after every build instead, by
+// scripts/publish-check.mjs; what no gate does yet is DRAW the shipped bundle.
 //
 // WHAT reducedMotion MAKES VACUOUS HERE: nothing. The shared config forces
 // `contextOptions.reducedMotion: "reduce"` on every test and the axe runner

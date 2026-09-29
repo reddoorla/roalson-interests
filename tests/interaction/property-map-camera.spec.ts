@@ -1,10 +1,13 @@
 import { expect, test, type Browser, type Locator, type Page } from "@playwright/test";
 
 import {
+  adopted,
+  CAMERA_FLIGHT_MS,
   cameraLog,
   cameraMoves,
   cameraProbeInstalled,
   mapCentre,
+  mapNamed,
   mapZoom,
   resetCamera,
   watchCamera,
@@ -12,6 +15,7 @@ import {
 import { nextTurn } from "./band-turn";
 import { hydrated } from "./hydrated";
 import { placedMarkers, placedPin } from "./placed-markers";
+import { gapsPerMap, travelOf } from "./scroll-travel";
 
 // THE STICKY MAP AND ITS CAMERA (#13 follow-up), in the only place either can
 // be checked. Four claims, none of which jsdom can see:
@@ -439,11 +443,15 @@ test.describe("the flight, with the fleet's reduced-motion emulation lifted", ()
 
   test("travels, rather than arriving", async ({ page }) => {
     test.setTimeout(90_000);
+    await watchCamera(page);
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto(PROPERTIES);
     await hydrated(page);
     await drawn(page);
+    await adopted(page);
     const section = land(page);
+    const landMap = await mapNamed(page, "Land");
+    expect(landMap, "the land map is one of the booted maps").toBeGreaterThanOrEqual(0);
 
     // Positive evidence the override took. Without this the rest of the test
     // could go green under `reduce` by measuring a jump's two endpoints.
@@ -459,9 +467,22 @@ test.describe("the flight, with the fleet's reduced-motion emulation lifted", ()
     // Sample from INSIDE the page, on rAF. Sampling from the test races the
     // round trip: a first read 60ms after the trigger landed 1.5px from the
     // destination on a loaded machine, and the whole flight is 500ms.
-    const samples = await page.evaluate(
-      async ({ id, ms }) => {
+    //
+    // …and time the move by maplibre's own `movestart` and `moveend`, which
+    // is the part of this that does not depend on the frame rate (#144). A
+    // flight's `moveend` fires in the first frame at least `duration` after
+    // it began, so a starved machine can only make it LATER; a jump fires
+    // both inside the one call. Sampling runs until that `moveend` has been
+    // seen rather than for a fixed 900ms, which a starved machine can outrun.
+    const { samples, flight } = await page.evaluate(
+      async ({ id, n, cap }) => {
         const out: { x: number; y: number }[] = [];
+        const map = window.__camera.map(n);
+        const times: { start: number | null; end: number | null } = { start: null, end: null };
+        const onStart = () => void (times.start ??= performance.now());
+        const onEnd = () => void (times.start !== null && (times.end ??= performance.now()));
+        map.on("movestart", onStart);
+        map.on("moveend", onEnd);
         const read = () => {
           const el = document.querySelector<HTMLElement>(`[data-map-pin="${id}"]`);
           const m = el && /translate\(([-\d.]+)px,\s*([-\d.]+)px\)/.exec(el.style.transform);
@@ -470,18 +491,24 @@ test.describe("the flight, with the fleet's reduced-motion emulation lifted", ()
         document
           .querySelector(`[data-centre-id="${id}"]`)
           ?.scrollIntoView({ block: "center", behavior: "instant" });
-        const until = performance.now() + ms;
+        const until = performance.now() + cap;
         await new Promise<void>((resolve) => {
           const step = () => {
             read();
-            if (performance.now() < until) requestAnimationFrame(step);
+            const landed = times.end !== null && performance.now() > times.end + 100;
+            if (!landed && performance.now() < until) requestAnimationFrame(step);
             else resolve();
           };
           requestAnimationFrame(step);
         });
-        return out;
+        map.off("movestart", onStart);
+        map.off("moveend", onEnd);
+        return {
+          samples: out,
+          flight: times.start !== null && times.end !== null ? times.end - times.start : null,
+        };
       },
-      { id: NEW_BRAUNFELS, ms: 900 },
+      { id: NEW_BRAUNFELS, n: landMap, cap: 10_000 },
     );
 
     await page.waitForTimeout(800);
@@ -490,14 +517,28 @@ test.describe("the flight, with the fleet's reduced-motion emulation lifted", ()
     expect(end!.x).toBeCloseTo(box.w / 2, 0);
     expect(end!.y).toBeCloseTo(box.h / 2 + 4, 0);
 
-    // Travel, positively: at least four frames at neither end. A jump can only
-    // ever produce the start or the destination.
+    // Travel, positively, and said as two things rather than a frame count.
+    // It TOOK A FLIGHT'S TIME, by maplibre's clock — a jump spans 0 — and the
+    // pin was DRAWN IN THE MIDDLE at least once: a jump can only ever produce
+    // the start or the destination. This used to want more than three frames
+    // in the middle, and that is a count of the machine: at load 35-42 the
+    // 900ms window held 10 and 15 frames and 2 and 3 of them in the middle, on
+    // a flight nothing had changed (#144). One is what refutes a jump; the
+    // time is what says it travelled, at any frame rate.
     const between = samples.filter(
       (s) =>
         Math.hypot(s.x - start!.x, s.y - start!.y) > 8 &&
         Math.hypot(s.x - end!.x, s.y - end!.y) > 8,
     );
-    expect(between.length, `${samples.length} frames sampled`).toBeGreaterThan(3);
+    expect(flight, "maplibre reported the move ending (moveend)").not.toBeNull();
+    expect(
+      flight!,
+      `the camera's move lasted a whole ${CAMERA_FLIGHT_MS}ms flight, by maplibre's own clock`,
+    ).toBeGreaterThanOrEqual(CAMERA_FLIGHT_MS);
+    expect(
+      between.length,
+      `and the pin was drawn between its two ends (${samples.length} frames sampled)`,
+    ).toBeGreaterThan(0);
   });
 });
 
@@ -629,57 +670,46 @@ test.describe("a pressed pin, with the fleet's reduced-motion emulation lifted",
     expect(await onCentreLine(section)).toBeNull();
     await resetCamera(page);
 
-    // Sampled on rAF from INSIDE the page: a press-scroll is over in under a
-    // second and a round trip per sample would miss the middle of it.
-    const travel = await page.evaluate(async (id) => {
-      const out: number[] = [];
-      document.querySelector<HTMLElement>(`[data-map-pin="${id}"]`)!.click();
-      const until = performance.now() + 3000;
-      await new Promise<void>((resolve) => {
-        const step = () => {
-          out.push(Math.round(window.scrollY));
-          if (performance.now() < until) requestAnimationFrame(step);
-          else resolve();
-        };
-        requestAnimationFrame(step);
-      });
-      return out;
-    }, NEW_BRAUNFELS);
+    // Sampled on rAF from INSIDE the page, through the same sampler the
+    // production spec uses (./scroll-travel): a press-scroll is over in under
+    // a second and a round trip per sample would miss the middle of it.
+    const travel = await travelOf(
+      page,
+      () =>
+        page.evaluate(
+          (id) => document.querySelector<HTMLElement>(`[data-map-pin="${id}"]`)!.click(),
+          NEW_BRAUNFELS,
+        ),
+      { atLeast: 3000 },
+    );
 
     // The premise, measured: the page really made a long, multi-frame journey.
     // Without this the "one flight" below could be true because nothing moved.
-    const distance = travel[travel.length - 1]! - travel[0]!;
     expect(
-      distance,
-      `the press really scrolled the page (${travel.length} frames)`,
+      travel.distance,
+      `the press really scrolled the page (from ${travel.from}, ${travel.positions.length} frames)`,
     ).toBeGreaterThan(500);
+    // It glided rather than jumping, said as SHAPE and TIME — the production
+    // spec's premise, for the production spec's reason (#144). This wanted
+    // more than 10 distinct scroll positions, which is a count of the frames
+    // the main thread got while the compositor scrolled, not of the page.
     expect(
-      new Set(travel).size,
-      "and it glided rather than jumping — many distinct scroll positions",
-    ).toBeGreaterThan(10);
-
-    // It crossed other cards on the way. Counted from the sampled scroll
-    // positions against the cards' own boxes, so this is the page's geometry
-    // and not the component's opinion of it.
-    const crossed = await page.evaluate((ys) => {
-      const cards = [...document.querySelectorAll<HTMLElement>("[data-centre-id]")].map((li) => {
-        const b = li.getBoundingClientRect();
-        return {
-          id: li.dataset.centreId!,
-          top: b.top + window.scrollY,
-          bottom: b.bottom + window.scrollY,
-        };
-      });
-      const seen = new Set<string>();
-      for (const y of ys) {
-        const mid = y + window.innerHeight / 2;
-        for (const c of cards) if (c.top <= mid && c.bottom >= mid) seen.add(c.id);
-      }
-      return [...seen];
-    }, travel);
+      travel.between,
+      `and it glided rather than jumping — it occupied the middle ` +
+        `(${travel.positions.length} frames, ${new Set(travel.positions).size} distinct)`,
+    ).toBeGreaterThan(0);
     expect(
-      crossed.length,
-      `the scroll crossed several cards on its way (${crossed.join(", ")})`,
+      travel.movingFor,
+      "and the travel took time rather than landing in one frame",
+    ).toBeGreaterThan(32);
+    // It crossed other cards on the way: every card whose box meets the span
+    // the centre line SWEPT. This counted the cards a SAMPLED position landed
+    // on, and went red on main 1 time in 16 naming only the start and end
+    // cards (#144) — the prod spec had already stopped counting that way.
+    expect(
+      travel.crossed.length,
+      `the scroll crossed several cards on its way (${travel.crossed.length} swept, ` +
+        `${travel.sampled} of them under a sampled position: ${travel.crossed.join(", ")})`,
     ).toBeGreaterThan(2);
 
     // THE CLAIM CHANGED WITH #127/#128, and this is the same correction the
@@ -691,18 +721,21 @@ test.describe("a pressed pin, with the fleet's reduced-motion emulation lifted",
     // flights are at least a flight's length apart. Measured on a production
     // build, a press now costs three complete arcs (gaps 532ms and 648ms)
     // where it used to cost one.
+    //
+    // PER MAP, as the production spec has it (#139): two flights to different
+    // sections' maps are two cameras, and pooled, a flight to one inside the
+    // other's 500ms would read as an arc abandoned.
     const log = await cameraLog(page);
-    const times = [...log.fly, ...log.ease].map((c) => c.t).sort((a, b) => a - b);
-    const gaps = times.slice(1).map((t, i) => Math.round(t - times[i]!));
+    const gaps = gapsPerMap(log);
     const tally =
       `fly ${log.fly.length}, ease ${log.ease.length}, jump ${log.jump.length}; ` +
-      `gaps [${gaps.join(", ")}]`;
+      `gaps [${gaps.map((g) => `${g.m}:${g.gap}`).join(", ")}]`;
     expect(log.fly.length, `the camera followed the press at all (${tally})`).toBeGreaterThan(0);
-    for (const gap of gaps)
+    for (const { gap } of gaps)
       expect(
         gap,
-        `a second flight ${gap}ms into a 500ms arc — the smear this rule exists ` +
-          `to prevent (${tally})`,
+        `a second flight ${gap}ms into a ${CAMERA_FLIGHT_MS}ms arc — the smear this rule ` +
+          `exists to prevent (${tally})`,
       ).toBeGreaterThanOrEqual(450);
 
     // And it was the right one: the pressed card ends on the centre line and
