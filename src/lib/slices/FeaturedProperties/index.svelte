@@ -7,9 +7,9 @@
    *  A lap is now DWELL + DISSOLVE = 8500ms, where it was 4500.
    *
    *  EVERYTHING TIMED OFF THE DWELL FOLLOWS IT, with no second number to
-   *  keep in step: the bar fills over it (`progress` is elapsed / dwell); the
-   *  Ken Burns drift crosses KEN_BURNS over it; and a visitor's own run of
-   *  that drift (`kick`, below) lasts one dwell too. What does NOT follow it
+   *  keep in step: the bar fills over it (`progress` is elapsed / dwell), and
+   *  the Ken Burns drift's transition crosses KEN_BURNS over it, on a clock
+   *  turn and a visitor's turn alike (`zoom`, below). What does NOT follow it
    *  is the hand-over — DISSOLVE, the text cascade, the camera's flight —
    *  which is how long a turn takes to look finished, and the operator asked
    *  for longer on each listing, not for slower turns.
@@ -19,8 +19,8 @@
    *  reason (a Playwright spec cannot import a .svelte module). */
   export const DWELL = 8000;
 
-  /** How far the photo travels across its own dwell, drawn by script off the
-   *  clock or off a visitor's own run of it (see `zoom` below): 1.00 → 1.03.
+  /** How far the photo travels across its own dwell, as one CSS transition
+   *  (see `zoom` below): 1.00 → 1.03.
    *  On the 928 × 542 box that is 27.8px of extra width and 16.3px of height,
    *  13.9 / 8.1 of it clipped off each edge.
    *
@@ -94,7 +94,6 @@
   // on /dev/home and /dev/a11y-fixtures, which is where every gate reads it.
   import type { Content } from "@prismicio/client";
   import { cappedWidths } from "@reddoorla/maintenance/images";
-  import { untrack } from "svelte";
 
   import { animateIn } from "$lib/actions/animateIn";
   import BrandButton from "$lib/components/BrandButton.svelte";
@@ -162,8 +161,8 @@
    *  how long the hand-over takes to LOOK finished, and everything else a
    *  manual turn does is on it. The photo cross-fades for DISSOLVE; the map's
    *  camera flies for CAMERA_FLIGHT_MS, which is the same constant; and the
-   *  visitor's own run of the drift (`kick`, below) holds still for exactly
-   *  that long and starts moving on it. So the last word lands on the frame
+   *  photo's drift is delayed by exactly that long (`zoom`, below) and starts
+   *  moving on it. So the last word lands on the frame
    *  the photo is fully shown, the camera has landed and the drift begins —
    *  the same frame the clock's cascade lands on, where the bar starts to
    *  fill. Anything shorter would finish the words over a photo still fading
@@ -339,210 +338,65 @@
       : "translate-y-2 opacity-0",
   );
 
-  // KEN BURNS, DRAWN BY SCRIPT — no @keyframes and no CSS transition on the
-  // transform. app.css zeroes animation-duration to 0.01ms with iteration-count
-  // 1, so a `forwards` fill would SNAP to the end scale and HOLD it: a
-  // statically zoomed photo under reduced motion, which is not "no animation".
-  // A value script writes is instead simply NOT WRITTEN where the carousel is
-  // not `eligible` — which folds reduced motion in, because `eligible` does —
-  // so `zoom` returns undefined and the photo carries no transform at all.
-  // That holds for both of the clocks below; neither is consulted without it.
-  //
-  // ON THE <img>, NEVER ON ITS WRAPPER. The wrapper's `transition-duration` is
-  // the assertion that the comp's 0.5s dissolve is wired at all
-  // (featured-properties.spec.ts) and a second transitioned property there
-  // makes the computed value a two-item list.
+  // KEN BURNS IS ONE CSS TRANSITION on the <img>'s transform (operator call,
+  // 2026-09-29: "can it be one clean transform scale with a transition? this
+  // seems overbuilt"). It used to be drawn by script, a style written every
+  // frame off a rAF loop, so it stalled whenever the main thread was busy. A
+  // transition on `transform` runs on the compositor instead.
+  //  - ON STAGE: to 1 + KEN_BURNS over DWELL, linear, delayed by the settle so
+  //    it starts on a photo that has finished arriving. Every activation
+  //    starts it again, so a visitor's turn drifts exactly as a clock turn.
+  //  - LEAVING: back to 1 in 0s, after a whole DWELL. A transition holds its
+  //    start value through its delay, so the photo stays where it was while
+  //    it still shows under the incoming one, and is reset long after it is
+  //    hidden, before the clock can bring it back (a lap is DWELL plus the
+  //    dissolve); one a visitor brings back sooner carries on from there. NOT
+  //    the dissolve's own 500, nor twice it: Chromium starts a transition that
+  //    replaces a running one at once, on the last frame's time, where the
+  //    dissolve's fresh ones wait for the next frame. Measured on arrow
+  //    presses, that put this delay up to 283ms ahead idle and 766ms at 4x CPU
+  //    throttle, and at 500, then at 1000, reset a photo that still showed.
+  //  - NOT `eligible` (reduced motion, one listing) OR NOT HYDRATED: no style
+  //    at all. Under reduced motion app.css cuts every transition to 0.01ms,
+  //    which would SNAP a declared 1.03 and hold it; and a 1.03 in the
+  //    server's markup would be the photo's first style, with nothing for a
+  //    transition to start from.
+  // What the script did and this does not, on purpose ("overbuilt"): keep the
+  // photo on the bar's clock frame for frame (both wait the settle and run
+  // DWELL, so they agree to within frames, not by construction), stop for a
+  // hidden tab, hand a visitor's drift to the clock on Play, and park each
+  // photo at the value it left with until it is next shown. Never on the
+  // wrapper: its transition-duration is the comp's 0.5s dissolve.
+  const zoom = (i: number) => {
+    if (!carousel.hydrated || !carousel.eligible) return undefined;
+    const on = carousel.isActive(i);
+    return on
+      ? `transform: scale(${1 + KEN_BURNS}); transition: transform ${DWELL}ms linear ${carousel.settle}ms`
+      : `transform: scale(1); transition: transform 0ms linear ${DWELL}ms`;
+  };
 
-  /** A VISITOR'S TURN DRIFTS TOO — on a run of its own, because it cannot be
-   *  the carousel's clock, and that is the part worth writing down.
-   *
-   *  The drift used to be `progress` and nothing else: the dwell, drawn, on
-   *  the one clock the 2px bar draws. A visitor never saw any of it, because
-   *  every way a visitor turns this band is ITSELF A PAUSE. A mouse press
-   *  focuses the arrow (APG: rotation stops until Play), the pointer that
-   *  pressed is resting on the card (`hovered`), and a swiping finger arrives
-   *  as a pointer too. MEASURED on main at 1440, two real mouse presses 1.5s
-   *  apart: the photo sat at exactly scale(1) for the 5000ms after the second.
-   *  (The hover half of that stopped being true later the same day, when the
-   *  operator took the hover pause off this band — `pauseOnHover: false`. A
-   *  mouse press still focuses the arrow, so this run is still what a
-   *  Chromium visitor paging by hand sees; a swipe, which focuses nothing,
-   *  now restarts a clock that is RUNNING, and a turn the clock is running
-   *  through is handed to the clock on the spot — see "THE CLOCK TAKES THE
-   *  DRIFT OVER" below.)
-   *
-   *  RESTARTING THE DWELL on a manual turn — "normal carousel behaviour" —
-   *  would not have fixed that, which is why it was not done. The pointer
-   *  was still on the card, so the clock would still have been stopped for
-   *  exactly the person who pressed; and clearing the focus pause — the half
-   *  that still holds — is a change to the primitive's APG contract
-   *  (carousel.svelte.ts) for every consumer. The rotation stays stopped, as
-   *  the primitive says.
-   *
-   *  So a visitor's turn runs ONE DWELL'S WORTH OF DRIFT on the photo it
-   *  brought on stage, and turns nothing. It is `restart()`'s own shape —
-   *  elapsed from −settle, `clamp01(elapsed / DWELL)` — i.e. the curve the
-   *  clock would have drawn had it been running: still through the 500ms
-   *  dissolve, then 1.00 → 1.03 over DWELL (8000ms since 2026-09-23; it was
-   *  4000), then held at 1.03.
-   *
-   *  THE CLOCK TAKES THE DRIFT OVER the moment it runs on the slide — Play, or
-   *  a turn it was already running through — and from then on the photo
-   *  moves only with the bar: from wherever the run had got to, across the
-   *  travel that is left, landing on 1.03 on the frame the clock turns
-   *  (`handedAt + (1 − handedAt) × progress`). So the bar and the photo start
-   *  together after the settle, stop together on Pause, and end together.
-   *  This paragraph used to say the photo drew "the `max` of the two" and
-   *  that the clock "takes over from underneath"; it never did. The run is
-   *  AHEAD of a restarted clock by however long the visitor waited before
-   *  Play, so the max was the run until the run ended, and then the photo sat
-   *  at 1.03 while the bar went on filling.
-   *
-   *  THE ONE THING A HAND-OVER CANNOT DO IS GIVE TRAVEL BACK. A Play after the
-   *  run has ENDED (DISSOLVE + DWELL or more after the turn) finds the photo
-   *  at 1.03 already, so the resumed dwell holds it there: every way to draw
-   *  a drift from that point moves the photo backwards in full view, and
-   *  which of them to take is a design call, not a timing fix (#156).
-   *
-   *  WHAT KEEPS IT HONEST:
-   *   - reduced motion never starts it — the loop needs `eligible` — and
-   *     `zoom` writes no transform without `eligible` anyway;
-   *   - it ENDS: DISSOLVE + DWELL = 8.5s from the visitor's own press, then
-   *     still. It was 4.5s, UNDER WCAG 2.2.2's five seconds, until the dwell
-   *     doubled (2026-09-23), and that half of the argument is gone. What is
-   *     left is the other half: it is started by the user, which is not the
-   *     "starts automatically" that criterion governs, and it is 27.8px of
-   *     width over 8s. If it must end inside five seconds, this run needs a
-   *     span of its own — and then it no longer draws the clock's curve;
-   *   - a PAUSE AFTER THE TURN FREEZES IT where it stands, as it freezes the
-   *     bar. "Pause stops the bar and not the photo" is exactly the defect the
-   *     one-clock rule exists to prevent, so it is not reintroduced here.
-   *     `paused` turning true is the Pause button, or focus entering, which
-   *     APG treats as the same request. A pause that was ALREADY on when the
-   *     turn happened — the arrow's own focus, on the press that made it — is
-   *     not a request to stop the turn the visitor just asked for;
-   *   - a hidden tab re-bases the loop, as the primitive's clock stops for
-   *     one, so a tab brought back does not jump the photo by however long it
-   *     was away. */
-  let kick = $state<{ index: number } | null>(null);
-  /** ms into the visitor's run; negative through the dissolve — the
-   *  primitive's own `elapsed`, restarted by the same turn. */
-  let kickElapsed = $state(0);
-  let kickFrozen = $state(false);
-  /** Where the visitor's run stood when the clock took the slide over — 0 for
-   *  a slide the clock has had from its first frame, and 0 again at every
-   *  turn. */
-  let handedAt = $state(0);
-
-  /** The visitor's run, 0 → 1: 0 through the dissolve, then across DWELL. */
-  const run = $derived(Math.min(1, Math.max(0, kickElapsed / DWELL)));
-
-  /** The on-stage photo's drift, drawn by ONE clock at a time: the visitor's
-   *  run while it has the slide, the carousel's from the moment the clock
-   *  takes it over, scaled onto the travel the run left. (`kick.index` is
-   *  checked because the index moves a flush before the effect below
-   *  re-points `kick`.) */
-  const live = $derived(
-    kick !== null && kick.index === carousel.index
-      ? run
-      : handedAt + (1 - handedAt) * carousel.progress,
-  );
-
-  /** WHERE EACH PHOTO IS HELD WHILE IT IS OFF STAGE: at the drift it had when
-   *  it left, and at the end scale if it has never been on.
-   *
-   *  It used to be the end scale for every off-stage slide, and the reasoning
-   *  was sound for the only hand-over that existed: "at a CLOCK turn the
-   *  outgoing slide has just run its dwell out, so it is already there to
-   *  within a frame and nothing moves". A visitor's turn hands over at
-   *  whatever the drift had reached, and the outgoing photo is FULLY OPAQUE
-   *  for the whole 500ms (its `opacity-0` waits out `delay-500` while the
-   *  incoming one fades in over it), so an unconditional 1.03 would jump it in
-   *  full view: pressing at the top of a dwell is the worst case, 1.000 →
-   *  1.030 — 27.8px of width and 16.3px of height on the 928 × 542 box, in
-   *  one frame. PER SLIDE, not "the one that just left": two presses inside
-   *  500ms leave TWO outgoing photos showing, and the older would otherwise
-   *  jump under the newer.
-   *
-   *  The value parked is the one last DRAWN, which only an effect can know:
-   *  `step()` and `goTo()` both `restart()`, so `progress` is already 0 by the
-   *  time anything can read it. On a clock turn that is the last frame before
-   *  `elapsed >= dwell`, ~0.996 at 60Hz, so the old behaviour survives there
-   *  to ~0.0001 of scale. `$effect.pre`: written before the DOM is, or the
-   *  outgoing photo paints one frame at the wrong scale. */
-  let parked = $state<number[]>([]);
-
-  // Plain variables: a record of what was last drawn, not inputs to anything.
-  let shownIndex = carousel.index;
-  let shownDrift = 0;
-  let wasPaused = carousel.paused;
-  $effect.pre(() => {
+  // PAUSE FREEZES THE DRIFT AND PLAY RESUMES IT (WCAG 2.2.2), through the
+  // transition's own Animation: resumed, it has exactly the time it had left,
+  // which on a linear curve is the travel left. A TURN only records itself: an
+  // arrow press focuses the arrow, which the primitive counts as a pause, and
+  // that pause — on already, or landing in the same flush — must not freeze
+  // the drift the visitor's turn has just started. Until the next turn this
+  // runs again only when `paused` changes, so only a Pause AFTER the turn
+  // freezes it.
+  const photos: HTMLImageElement[] = $state([]);
+  let shown = carousel.index;
+  $effect(() => {
     const i = carousel.index;
     const paused = carousel.paused;
-    const clock = carousel.rotating;
-    const drift = live;
-    untrack(() => {
-      // BEFORE the turn is handled, so a pause and a turn landing in one flush
-      // (a script focusing the arrow and clicking it in one task) read as the
-      // arrow's own focus — already on when the turn happened — and not as a
-      // Pause pressed after it.
-      if (paused && !wasPaused) kickFrozen = true;
-      wasPaused = paused;
-      if (i === shownIndex) {
-        shownDrift = drift;
-      } else {
-        parked[shownIndex] = shownDrift;
-        shownIndex = i;
-        shownDrift = 0;
-        kick = carousel.turnedBy === "visitor" ? { index: i } : null;
-        kickElapsed = -carousel.settle;
-        kickFrozen = false;
-        handedAt = 0;
-      }
-      // THE CLOCK TAKES THE DRIFT OVER (see `kick`): AFTER the turn is
-      // handled, so a visitor's turn the clock runs straight through — a
-      // swipe, which focuses nothing — is handed over at once, at 0, and draws
-      // the clock's own curve. It moves nothing on the frame it happens:
-      // `progress` is 0 there, because the turn parked `elapsed` at −settle
-      // and this runs in the flush the clock starts, before its first frame.
-      if (clock && kick !== null) {
-        handedAt = run;
-        kick = null;
-      }
-    });
+    if (i !== shown) {
+      shown = i;
+      return;
+    }
+    // `?.()`: jsdom has no Web Animations.
+    for (const animation of photos[i]?.getAnimations?.() ?? [])
+      if (paused) animation.pause();
+      else animation.play();
   });
-
-  // The visitor's run. Torn down by a freeze, by the next turn (a new `kick`
-  // object), by the clock taking the drift over (`kick` → null) and by losing
-  // `eligible`; it stops itself at the end of the dwell.
-  $effect(() => {
-    if (kick === null || kickFrozen || !carousel.eligible) return;
-    let before = performance.now();
-    let frame = 0;
-    const tick = () => {
-      const now = performance.now();
-      // max(0): a frame can be stamped a hair before the effect's own sample.
-      const total = kickElapsed + Math.max(0, now - before);
-      before = now;
-      kickElapsed = Math.min(total, DWELL);
-      if (total < DWELL) frame = requestAnimationFrame(tick);
-    };
-    const rebase = () => (before = performance.now());
-    document.addEventListener("visibilitychange", rebase);
-    frame = requestAnimationFrame(tick);
-    return () => {
-      cancelAnimationFrame(frame);
-      document.removeEventListener("visibilitychange", rebase);
-    };
-  });
-
-  /** How far through KEN_BURNS slide `i` is. The incoming photo's own jump
-   *  back to 1 happens on the frame it becomes active, when its opacity is
-   *  still 0. */
-  const drift = (i: number) => (carousel.isActive(i) ? live : (parked[i] ?? 1));
-
-  const zoom = (i: number) =>
-    carousel.eligible ? `transform: scale(${(1 + KEN_BURNS * drift(i)).toFixed(5)})` : undefined;
 </script>
 
 {#if slides.length === 0}
@@ -702,6 +556,7 @@
                 loading="lazy"
                 decoding="async"
                 data-featured-photo
+                bind:this={photos[i]}
                 style={zoom(i)}
                 class="size-full object-cover"
               />

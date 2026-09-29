@@ -434,6 +434,61 @@ test.describe("motion on the shipped bundle", () => {
     }
   });
 
+  test("the photo's drift is ONE running CSS transition, and nothing writes it per frame", async ({
+    browser,
+  }) => {
+    // The operator's "stuttery" (2026-09-29), on the bundle that ships. The
+    // drift used to be a `scale()` written into the photo's style on every
+    // animation frame, so it stopped whenever the main thread did; it is one
+    // transition on `transform` now, which the compositor runs.
+    // featured-properties.spec.ts measures its curve, its hold and Pause on
+    // /dev/home; this is the production build's word that it is wired.
+    test.setTimeout(45_000);
+    const { context, page } = await moving(browser);
+    try {
+      await page.goto(HOME);
+      await adopted(page);
+      await page.mouse.move(2, 2);
+      // Mid-dwell on the clock: a turn, then a second into its dwell.
+      const was = (await status(page).textContent())!;
+      await expect(status(page), "the clock turned").not.toHaveText(was, {
+        timeout: FEATURED_DWELL + FEATURED_DISSOLVE + 6000,
+      });
+      await page.waitForTimeout(FEATURED_DISSOLVE + 1000);
+      const seen = await page.evaluate(async (card) => {
+        const photo = document
+          .querySelector(card)!
+          .querySelector("[data-featured-slide]:not([inert]) [data-featured-photo]")!;
+        const scale = () => Number(/matrix\(([^,]+),/.exec(getComputedStyle(photo).transform)![1]);
+        const animations = photo.getAnimations().map((a) => ({
+          kind: a.constructor.name,
+          property: (a as CSSTransition).transitionProperty,
+          state: a.playState,
+          duration: a.effect!.getTiming().duration,
+        }));
+        let writes = 0;
+        const observer = new MutationObserver((records) => (writes += records.length));
+        observer.observe(photo, { attributes: true, attributeFilter: ["style"] });
+        const from = scale();
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        observer.disconnect();
+        return { animations, writes, from, to: scale() };
+      }, CARD);
+      expect(seen.animations).toEqual([
+        {
+          kind: "CSSTransition",
+          property: "transform",
+          state: "running",
+          duration: FEATURED_DWELL,
+        },
+      ]);
+      expect(seen.to, `${seen.from} → ${seen.to} across 1s mid-dwell`).toBeGreaterThan(seen.from);
+      expect(seen.writes, "style writes on the photo across 1s mid-dwell").toBe(0);
+    } finally {
+      await context.close();
+    }
+  });
+
   test("1920 × 1080: the card is on screen at load, and its reveal still PLAYS (#105)", async ({
     browser,
   }) => {
