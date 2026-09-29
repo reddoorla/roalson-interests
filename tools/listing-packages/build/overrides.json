@@ -1,0 +1,23 @@
+{
+ "menger-springs-road": {
+  "eyebrow": "Commercial Development Sites",
+  "title": "Menger Springs",
+  "map_label": "Menger Springs"
+ },
+ "st-marys-at-martin-river-walk": {
+  "title": "San Antonio River Walk – Development Site",
+  "map_label": "St. Mary's at E. Martin"
+ },
+ "highway-77-at-general-cavazos-kingsville": {
+  "map_label": "Hwy 77 at General Cavazos"
+ },
+ "cascade-caverns-at-old-san-antonio-road": {
+  "map_label": "Cascade Caverns at Old San Antonio Rd"
+ },
+ "11714-perrin-beitel-road": {
+  "title": "11714 Perrin Beitel Road"
+ },
+ "402-w-nueva-street": {
+  "title": "402 W. Nueva Street"
+ }
+}

@@ -1,0 +1,178 @@
+[
+ {
+  "uid": "101-w-commerce-street",
+  "find": "339.522",
+  "replace": "339,522",
+  "where": "demographic_overview",
+  "why": "Period used as thousands separator in 5-mile 2025 population; the spec-page table prints 339,522"
+ },
+ {
+  "uid": "101-w-commerce-street",
+  "find": "334.363",
+  "replace": "334,363",
+  "where": "demographic_overview",
+  "why": "Period used as thousands separator in 5-mile 5-year population projection (a head count, same defect as 339.522 in the row above)"
+ },
+ {
+  "uid": "101-w-commerce-street",
+  "find": "called, “300 Main.”",
+  "replace": "called “300 Main.”",
+  "where": "comments",
+  "why": "Stray comma after 'called'"
+ },
+ {
+  "uid": "116-old-san-antonio-road",
+  "find": "(and Boerne in particular) continue to have",
+  "replace": "(and Boerne in particular) continues to have",
+  "where": "comments",
+  "why": "Subject-verb agreement: singular subject 'The Kendall County area'"
+ },
+ {
+  "uid": "11714-perrin-beitel-road",
+  "find": "McDonalds",
+  "replace": "McDonald’s",
+  "where": "rows",
+  "why": "Brand name is McDonald's (apostrophe missing); the package's own area map labels it McDonald's"
+ },
+ {
+  "uid": "402-w-nueva-street",
+  "find": "United State Federal Courthouse",
+  "replace": "United States Federal Courthouse",
+  "where": "comments",
+  "why": "Misspelling: 'United State' for 'United States' (the website already reads United States)"
+ },
+ {
+  "uid": "5001-walzem-road",
+  "find": "21.019",
+  "replace": "21,019",
+  "where": "demographic_overview",
+  "why": "Period used as thousands separator in 3-mile renter-occupied units; 21,540 + 21,019 = 42,559 households"
+ },
+ {
+  "uid": "cascade-caverns-at-old-san-antonio-road",
+  "find": "Cascade Cavern and Old San Antonio Road",
+  "replace": "Cascade Caverns and Old San Antonio Road",
+  "where": "title",
+  "why": "Road name is Cascade Caverns (as spelled elsewhere in the same package, on the survey and on the website); wording otherwise unchanged"
+ },
+ {
+  "uid": "cascade-caverns-at-old-san-antonio-road",
+  "find": "northeast corner of Cascade Cavern and",
+  "replace": "northeast corner of Cascade Caverns and",
+  "where": "rows",
+  "why": "Road name is Cascade Caverns (Location row)"
+ },
+ {
+  "uid": "cascade-caverns-at-old-san-antonio-road",
+  "find": "Old San Antonio Road and Cascade Cavern",
+  "replace": "Old San Antonio Road and Cascade Caverns",
+  "where": "rows",
+  "why": "Road name is Cascade Caverns (Utilities: Electricity and Water lines)"
+ },
+ {
+  "uid": "cascade-caverns-at-old-san-antonio-road",
+  "find": "100-year-flood plain",
+  "replace": "100-year flood plain",
+  "where": "rows",
+  "why": "Stray hyphen; every other package writes '100-year flood plain'"
+ },
+ {
+  "uid": "highway-77-at-general-cavazos-kingsville",
+  "find": "Christus Spon Hospital",
+  "replace": "Christus Spohn Hospital",
+  "where": "rows",
+  "why": "Misspelled hospital name (Christus Spohn Hospital Kleberg)"
+ },
+ {
+  "uid": "highway-77-at-general-cavazos-kingsville",
+  "find": "Chick-Fil-a",
+  "replace": "Chick-fil-A",
+  "where": "rows",
+  "why": "Brand spelling is Chick-fil-A"
+ },
+ {
+  "uid": "highway-77-at-general-cavazos-kingsville",
+  "find": "General Chavos Blvd",
+  "replace": "General Cavazos Blvd",
+  "where": "rows",
+  "why": "Misspelled street name in Traffic Count; spelled General Cavazos everywhere else in the package"
+ },
+ {
+  "uid": "ih-10-at-highway-46",
+  "find": "Starbuck’s",
+  "replace": "Starbucks",
+  "where": "comments",
+  "why": "Brand name is Starbucks (no apostrophe)"
+ },
+ {
+  "uid": "ih-10-at-highway-46",
+  "find": "commercial uses including, restaurants",
+  "replace": "commercial uses including restaurants",
+  "where": "rows",
+  "why": "Stray comma after 'including'"
+ },
+ {
+  "uid": "ih-10-at-highway-87-comfort",
+  "find": "11.558 vehicles",
+  "replace": "11,558 vehicles",
+  "where": "rows",
+  "why": "Period used as thousands separator; TxDOT's 2024 count at that Highway 87 station is 11,558"
+ },
+ {
+  "uid": "ih-10-at-highway-87-comfort",
+  "find": "including sewer, afford an opportunity",
+  "replace": "including sewer, affords an opportunity",
+  "where": "rows",
+  "why": "Subject-verb agreement: singular subject 'Access to utilities'"
+ },
+ {
+  "uid": "ih-10-at-scenic-loop",
+  "find": "2,79",
+  "replace": "2.79",
+  "where": "demographic_overview",
+  "why": "Comma used as decimal point in 7-mile average household size (3- and 5-mile values print 2.79 and 2.75)"
+ },
+ {
+  "uid": "ih-35-at-wonderworld-san-marcos",
+  "find": "PetsMart",
+  "replace": "PetSmart",
+  "where": "rows",
+  "why": "Brand spelling is PetSmart (the package's own aerial labels it PETSMART)"
+ },
+ {
+  "uid": "ih-35-at-wonderworld-san-marcos",
+  "find": "San Marcos Electric Utility provides water to the property.",
+  "replace": "San Marcos Electric Utility provides electricity to the property.",
+  "where": "rows",
+  "why": "Copy slip on the Electricity line: the electric utility is said to provide 'water' (water is covered on its own line)"
+ },
+ {
+  "uid": "loop-1604-at-dove-canyon",
+  "find": "WalMart",
+  "replace": "Walmart",
+  "where": "rows",
+  "why": "Brand spelling; the same package spells it Walmart in Area Development"
+ },
+ {
+  "uid": "loop-1604-at-highway-181",
+  "find": "11.565",
+  "replace": "11,565",
+  "where": "demographic_overview",
+  "why": "Period used as thousands separator in 7-mile 2025 households; owner 10,223 + renter 1,342 = 11,565"
+ },
+ {
+  "uid": "loop-1604-at-highway-181",
+  "find": "any 100-year flood plain on the property",
+  "replace": "any 100-year flood plain on the property.",
+  "where": "rows",
+  "why": "Missing closing period on the Flood Plain sentence"
+ },
+ {
+  "uid": "25331-ih-10-west",
+  "find": "176,539",
+  "replace": "$176,539",
+  "where": "demographic_overview",
+  "scope": "demographic_overview",
+  "why": "Missing dollar sign on the 3-mile Average Household Income; the other two radii and the spec page print $."
+ }
+]

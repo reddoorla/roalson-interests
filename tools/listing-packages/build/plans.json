@@ -1,0 +1,461 @@
+{
+ "101-w-commerce-street": {
+  "carry": [],
+  "cover": "build/assets/photos/main-and-commerce.jpg",
+  "cover_enhance": true,
+  "photos": [
+   "photos/101-w-commerce-street-p8-1.png",
+   "photos/101-w-commerce-street-p9-1.png",
+   "photos/101-w-commerce-street-p9-2.png"
+  ]
+ },
+ "116-old-san-antonio-road": {
+  "carry": [
+   {
+    "page": 7,
+    "title": "Survey",
+    "clip": [
+     67.0,
+     103.2,
+     726.6,
+     544.8
+    ],
+    "kind": "survey",
+    "cap": "",
+    "img": "exhibits/116-old-san-antonio-road-p7.png"
+   }
+  ],
+  "photos": []
+ },
+ "11714-perrin-beitel-road": {
+  "carry": [],
+  "photos": []
+ },
+ "13810-lookout-road": {
+  "carry": [
+   {
+    "page": 6,
+    "title": "Floor Plan",
+    "clip": [
+     78.5,
+     167.5,
+     718.8,
+     505.6
+    ],
+    "kind": "floor_plan",
+    "cap": "",
+    "img": "exhibits/13810-lookout-road-p6.png"
+   }
+  ],
+  "cover": "covers/13810-lookout-road-trim.png",
+  "cover_enhance": true,
+  "cover_pos": "82% 50%",
+  "photos": []
+ },
+ "25331-ih-10-west": {
+  "carry": [
+   {
+    "page": 8,
+    "title": "Office Building Detail",
+    "clip": [
+     57.6,
+     87.8,
+     552.2,
+     709.9
+    ],
+    "kind": "floor_plan",
+    "cap": "",
+    "img": "exhibits/25331-ih-10-west-p8.png"
+   },
+   {
+    "page": 9,
+    "title": "Retail Building Existing",
+    "clip": [
+     60.7,
+     94.1,
+     731.5,
+     532.7
+    ],
+    "kind": "floor_plan",
+    "cap": "",
+    "img": "exhibits/25331-ih-10-west-p9.png"
+   }
+  ],
+  "cover": "photos/25331-ih-10-west-p3-2.png",
+  "cover_enhance": true,
+  "photos": [
+   "photos/25331-ih-10-west-p3-1.png",
+   "photos/25331-ih-10-west-p4-1.png",
+   "photos/25331-ih-10-west-p4-2.png"
+  ]
+ },
+ "402-w-nueva-street": {
+  "carry": [],
+  "photos": []
+ },
+ "5001-walzem-road": {
+  "carry": [
+   {
+    "page": 7,
+    "title": "Site Plan",
+    "clip": [
+     67.5,
+     81.9,
+     540.8,
+     718.5
+    ],
+    "kind": "site_plan",
+    "cap": "",
+    "img": "exhibits/5001-walzem-road-p7.png"
+   }
+  ],
+  "photos": []
+ },
+ "5930-bandera-road": {
+  "carry": [
+   {
+    "page": 7,
+    "title": "Survey",
+    "clip": [
+     78.3,
+     113.6,
+     695.4,
+     525.5
+    ],
+    "kind": "survey",
+    "cap": "",
+    "img": "exhibits/5930-bandera-road-p7.png"
+   }
+  ],
+  "photos": []
+ },
+ "cascade-caverns-at-old-san-antonio-road": {
+  "carry": [
+   {
+    "page": 7,
+    "title": "Survey",
+    "clip": [
+     94.7,
+     83.1,
+     706.6,
+     547.1
+    ],
+    "kind": "survey",
+    "cap": "",
+    "img": "exhibits/cascade-caverns-at-old-san-antonio-road-p7.png"
+   }
+  ],
+  "photos": []
+ },
+ "highway-77-at-general-cavazos-kingsville": {
+  "carry": [
+   {
+    "page": 7,
+    "title": "Site Plan",
+    "clip": [
+     73.1,
+     111.9,
+     715.5,
+     547.2
+    ],
+    "kind": "site_plan",
+    "cap": "",
+    "img": "exhibits/highway-77-at-general-cavazos-kingsville-p7.png"
+   },
+   {
+    "page": 8,
+    "title": "Survey",
+    "clip": [
+     60.7,
+     108.8,
+     720.7,
+     546.2
+    ],
+    "kind": "survey",
+    "cap": "",
+    "img": "exhibits/highway-77-at-general-cavazos-kingsville-p8.png"
+   }
+  ],
+  "photos": []
+ },
+ "ih-10-at-fm-725-seguin": {
+  "carry": [
+   {
+    "page": 7,
+    "title": "Survey",
+    "clip": [
+     99.6,
+     69.8,
+     687.2,
+     548.5
+    ],
+    "kind": "survey",
+    "cap": "",
+    "img": "exhibits/ih-10-at-fm-725-seguin-p7.png"
+   }
+  ],
+  "photos": []
+ },
+ "ih-10-at-highway-46": {
+  "carry": [
+   {
+    "page": 7,
+    "title": "Survey",
+    "clip": [
+     59.9,
+     87.7,
+     731.9,
+     541.1
+    ],
+    "kind": "survey",
+    "cap": "",
+    "img": "exhibits/ih-10-at-highway-46-p7.png"
+   }
+  ],
+  "photos": []
+ },
+ "ih-10-at-highway-87-comfort": {
+  "carry": [
+   {
+    "page": 5,
+    "title": "Aerial Exhibit \u2014 Lots",
+    "kind": "aerial",
+    "cap": "Reproduced from the original listing package.",
+    "img": "exhibits/ih-10-at-highway-87-comfort-p5.png"
+   },
+   {
+    "page": 6,
+    "title": "Survey",
+    "clip": [
+     57.0,
+     76.7,
+     555.2,
+     718.1
+    ],
+    "kind": "survey",
+    "cap": "",
+    "img": "exhibits/ih-10-at-highway-87-comfort-p6.png"
+   }
+  ],
+  "photos": []
+ },
+ "ih-10-at-menger-springs": {
+  "carry": [
+   {
+    "page": 6,
+    "title": "Aerial Exhibit",
+    "clip": [
+     60.7,
+     97.9,
+     730.8,
+     542.4
+    ],
+    "kind": "aerial",
+    "cap": "Reproduced from the original listing package.",
+    "img": "exhibits/ih-10-at-menger-springs-p6.png"
+   },
+   {
+    "page": 7,
+    "title": "Survey",
+    "clip": [
+     60.9,
+     93.8,
+     547.5,
+     695.9
+    ],
+    "kind": "survey",
+    "cap": "",
+    "img": "exhibits/ih-10-at-menger-springs-p7.png"
+   },
+   {
+    "page": 8,
+    "title": "Survey",
+    "clip": [
+     61.2,
+     90.0,
+     558.7,
+     714.5
+    ],
+    "kind": "survey",
+    "cap": "",
+    "img": "exhibits/ih-10-at-menger-springs-p8.png"
+   }
+  ],
+  "photos": []
+ },
+ "ih-10-at-scenic-loop": {
+  "carry": [
+   {
+    "page": 7,
+    "title": "Site Plan Exhibit",
+    "clip": [
+     64.3,
+     105.3,
+     718.5,
+     541.4
+    ],
+    "kind": "site_plan",
+    "cap": "",
+    "img": "exhibits/ih-10-at-scenic-loop-p7.png"
+   }
+  ],
+  "photos": []
+ },
+ "ih-10-east-at-loop-1604": {
+  "carry": [
+   {
+    "page": 7,
+    "title": "Aerial Exhibit",
+    "clip": [
+     56.3,
+     80.7,
+     549.8,
+     719.7
+    ],
+    "kind": "aerial",
+    "cap": "Reproduced from the original listing package.",
+    "img": "exhibits/ih-10-east-at-loop-1604-p7.png"
+   }
+  ],
+  "photos": []
+ },
+ "ih-35-at-wonderworld-san-marcos": {
+  "carry": [
+   {
+    "page": 7,
+    "title": "Aerial Exhibit",
+    "clip": [
+     70.6,
+     101.4,
+     729.1,
+     526.2
+    ],
+    "kind": "aerial",
+    "cap": "Reproduced from the original listing package.",
+    "img": "exhibits/ih-35-at-wonderworld-san-marcos-p7.png"
+   },
+   {
+    "page": 8,
+    "title": "Survey",
+    "clip": [
+     55.7,
+     119.0,
+     734.2,
+     551.0
+    ],
+    "kind": "survey",
+    "cap": "",
+    "img": "exhibits/ih-35-at-wonderworld-san-marcos-p8.png"
+   }
+  ],
+  "photos": []
+ },
+ "loop-1604-at-dove-canyon": {
+  "carry": [
+   {
+    "page": 7,
+    "title": "Survey",
+    "clip": [
+     79.0,
+     118.9,
+     713.3,
+     542.3
+    ],
+    "kind": "survey",
+    "cap": "",
+    "img": "exhibits/loop-1604-at-dove-canyon-p7.png"
+   }
+  ],
+  "photos": []
+ },
+ "loop-1604-at-highway-181": {
+  "carry": [
+   {
+    "page": 6,
+    "title": "Site Plan Exhibit",
+    "clip": [
+     94.5,
+     77.9,
+     695.5,
+     542.4
+    ],
+    "kind": "site_plan",
+    "cap": "",
+    "img": "exhibits/loop-1604-at-highway-181-p6.png"
+   }
+  ],
+  "photos": []
+ },
+ "menger-springs-road": {
+  "carry": [
+   {
+    "page": 6,
+    "title": "Aerial Exhibit",
+    "clip": [
+     56.7,
+     89.3,
+     554.9,
+     709.1
+    ],
+    "kind": "aerial",
+    "cap": "Reproduced from the original listing package.",
+    "img": "exhibits/menger-springs-road-p6.png"
+   },
+   {
+    "page": 7,
+    "title": "Exhibit A",
+    "clip": [
+     95.3,
+     80.3,
+     695.7,
+     544.2
+    ],
+    "kind": "site_plan",
+    "cap": "",
+    "img": "exhibits/menger-springs-road-p7.png"
+   }
+  ],
+  "photos": []
+ },
+ "st-marys-at-martin-river-walk": {
+  "carry": [
+   {
+    "page": 7,
+    "title": "Survey",
+    "clip": [
+     61.6,
+     96.5,
+     730.0,
+     543.6
+    ],
+    "kind": "survey",
+    "cap": "",
+    "img": "exhibits/st-marys-at-martin-river-walk-p7.png"
+   }
+  ],
+  "photos": []
+ },
+ "urban-loop-road": {
+  "carry": [
+   {
+    "page": 8,
+    "title": "Floor Plan",
+    "clip": [
+     63.9,
+     81.6,
+     709.2,
+     544.4
+    ],
+    "kind": "floor_plan",
+    "cap": "",
+    "img": "exhibits/urban-loop-road-p8.png"
+   }
+  ],
+  "cover": "covers/urban-loop-road.png",
+  "cover_enhance": true,
+  "photos": [
+   "photos/urban-loop-road-p3-1.png",
+   "photos/urban-loop-road-p3-2.png"
+  ]
+ }
+}
