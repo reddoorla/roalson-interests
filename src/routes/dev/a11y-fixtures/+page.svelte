@@ -22,7 +22,7 @@
   import CtaBanner from "$lib/slices/CtaBanner/index.svelte";
   import HomeHero from "$lib/slices/HomeHero/index.svelte";
   import Partners from "$lib/slices/Partners/index.svelte";
-  import { PARTNER_PHOTO_FIXTURE, partnersFixtureState } from "$lib/home-fixture";
+  import { partnersFixtureState } from "$lib/home-fixture";
   import PersonProfile from "$lib/components/PersonProfile.svelte";
   import { personFixture } from "$lib/person-fixture";
   import PropertyDetail from "$lib/components/PropertyDetail.svelte";
@@ -34,6 +34,7 @@
   import { HOME_PHOTO_FIXTURE, photoBandFixture } from "$lib/home-fixture";
   import PhotoBand from "$lib/slices/PhotoBand/index.svelte";
   import {
+    FIXTURE_PHOTO_PATH,
     PROPERTIES_MASTHEAD_FIXTURE,
     propertyFixture,
     propertyListingFixture,
@@ -54,15 +55,18 @@
   let email = $state("");
   let message = $state("");
 
-  // Inline pixel so media fixtures stay hermetic — the axe run must not
-  // depend on external hosts (Prismic, Vimeo).
-  const pixel = "data:image/gif;base64,R0lGODlhAQABAAAAACw=";
+  // Every media fixture is the drawn listing photo on this page's own origin,
+  // so the axe run stays hermetic — no Prismic, no Vimeo — AND every <img>
+  // decodes (#184). It was a 1x1 data: GIF that decoded nowhere, and
+  // PrismicImage's `?width=` on it logged ERR_INVALID_URL. A bare path would
+  // not do either: PrismicImage builds its srcset with `new URL()`.
+  const photo = new URL(FIXTURE_PHOTO_PATH, page.url.origin).href;
   const heroImage = {
-    url: pixel,
+    url: photo,
     alt: "Placeholder hero image",
-    dimensions: { width: 1920, height: 1080 },
+    dimensions: { width: 1600, height: 1010 },
   } as unknown as ImageField;
-  const runImport = { img: { src: pixel, w: 1920, h: 1080 }, sources: {} };
+  const runImport = { img: { src: photo, w: 1600, h: 1010 }, sources: {} };
 
   /** The two grounds a map is drawn on, for the list-state fixtures (#125). */
   const BEYOND_HOME_TONES = ["garnet", "cream"] as const;
@@ -96,7 +100,7 @@
     },
   ] as unknown as RichTextField;
 
-  // Prismic slice fixtures. Images use the inline pixel (hermetic — no
+  // Prismic slice fixtures. Images use the fixture photo above (hermetic — no
   // external hosts). Headings are h2 (slice sections) / h3 (items) so the page
   // outline stays valid beneath the page <h1>.
   const heroSliceFixture = {
@@ -184,9 +188,9 @@
       name: "Dana Whitfield",
       role: "Director of Operations, Northgate",
       avatar: {
-        url: pixel,
+        url: photo,
         alt: null,
-        dimensions: { width: 400, height: 400 },
+        dimensions: { width: 1600, height: 1010 },
       },
     },
     items: [],
@@ -222,7 +226,17 @@
 
 <!-- A <div>, not a second <main>: the layout already renders the page's one
      main landmark (#main-content) around this. The template shipped a nested
-     <main> here, which gives assistive tech two "main" regions to choose from. -->
+     <main> here, which gives assistive tech two "main" regions to choose from.
+
+     TWO WRAPPERS (#87). Everything that is drawn inside a page's own column is
+     in this `max-w-3xl` one; everything that is full-bleed on the site — the
+     w-screen primitives and the homepage's bands — is in the second, at the
+     site's own width. Inside this one they were drawn at a width the site
+     never produces (the featured card 425.89 at 1440, against 927 on `/`),
+     and the two w-screen primitives, 100vw wide from a column starting at
+     x=336, scrolled the page 368px sideways. The property components below
+     stay in this column: their geometry is /dev/properties' and
+     /dev/property's, and what this page holds them to is axe. -->
 <div class="max-w-3xl mx-auto px-8 py-16 space-y-12">
   <header class="space-y-2">
     <h1 class="text-3xl font-bold">Accessibility fixtures</h1>
@@ -361,22 +375,6 @@
     <Img src={runImport} alt="Placeholder progressive image" />
   </section>
 
-  <section aria-labelledby="vimeo-banner-heading" class="space-y-4">
-    <h2 id="vimeo-banner-heading" class="text-xl font-semibold">Vimeo banner</h2>
-    <!-- No real video plays in CI: the iframe mounts only after genuine input,
-         so axe sees the poster-only state. -->
-    <VimeoBanner vimeoId="1" poster={runImport} alt="Placeholder banner reel" />
-  </section>
-
-  <section aria-labelledby="screen-width-media-heading" class="space-y-4">
-    <h2 id="screen-width-media-heading" class="text-xl font-semibold">Screen-width media</h2>
-    <!-- Poster-only (no vimeoId) so the fixture makes no external requests:
-         the video iframe needs a live player.vimeo.com src, so its a11y
-         attributes (tabindex="-1", aria-hidden) are asserted in
-         ScreenWidthMedia.test.ts instead. -->
-    <ScreenWidthMedia src={pixel} altText="Placeholder background" percentHeight={30} />
-  </section>
-
   <section aria-labelledby="slider-heading" class="space-y-4">
     <h2 id="slider-heading" class="text-xl font-semibold">Slider</h2>
     <Slider itemCount={3} label="Example slides">
@@ -473,8 +471,8 @@
        boxes after these two draw the list, for that reason (#125). The pins, the
        sheet, the focused chip and the attribution are measured in a real
        browser by tests/interaction/property-map.spec.ts instead, and the
-       geometry could not be measured here anyway (`max-w-3xl` squeezes every
-       band on this page, #87).
+       geometry could not be measured here anyway (`max-w-3xl` squeezes every band in
+       this column, #87).
 
        IT IS NOT THE ONLY THING KEEPING THE GATE OFF THE NETWORK, and the
        difference is worth writing down. PropertyListing and the two featured
@@ -534,6 +532,35 @@
       propertyListingFixture().map((p) => withFixturePhoto(p, page.url.origin)),
     )}
   />
+</div>
+
+<!-- Full-bleed, at the site's width (#87). A plain <div> and not <main>'s own
+     children, so the photo band at its end never pins (the pin is gated on
+     being <main>'s last child) and nothing here is a landmark of its own. -->
+<div class="pb-16">
+  <!-- Both primitives are `w-screen`, and 100vw counts the 15px scrollbar
+       gutter the page's own width does not: at x=0 they still scrolled the
+       page 15px sideways. Clipped here, on their own sections and nowhere
+       else. No page of this site draws either (they are the template's). -->
+  <section aria-labelledby="vimeo-banner-heading" class="space-y-4 overflow-x-clip">
+    <h2 id="vimeo-banner-heading" class="mx-auto max-w-3xl px-8 pt-12 text-xl font-semibold">
+      Vimeo banner
+    </h2>
+    <!-- No real video plays in CI: the iframe mounts only after genuine input,
+         so axe sees the poster-only state. -->
+    <VimeoBanner vimeoId="1" poster={runImport} alt="Placeholder banner reel" />
+  </section>
+
+  <section aria-labelledby="screen-width-media-heading" class="space-y-4 overflow-x-clip">
+    <h2 id="screen-width-media-heading" class="mx-auto max-w-3xl px-8 pt-12 text-xl font-semibold">
+      Screen-width media
+    </h2>
+    <!-- Poster-only (no vimeoId) so the fixture makes no external requests:
+         the video iframe needs a live player.vimeo.com src, so its a11y
+         attributes (tabindex="-1", aria-hidden) are asserted in
+         ScreenWidthMedia.test.ts instead. -->
+    <ScreenWidthMedia src={photo} altText="Placeholder background" percentHeight={30} />
+  </section>
 
   <!-- The top of the homepage (one more h1 on this page, see above): the sand
        headline, the sentence under it and the cream buttons on the garnet
@@ -543,7 +570,7 @@
        would add nothing for axe to measure. The band's ground is a gradient,
        which axe reports as "needs review" rather than measuring; the pairs on
        it are held by theme-contrast.test.ts at both ends (garnet and dark).
-       Full width, and the pin, are /dev/home's.
+       The pin is /dev/home's.
 
        WITH THE VIDEO FIELD FILLED (#29), which is the state the site ships. It
        is audited under this gate's forced reduced motion, and that is the
@@ -592,10 +619,19 @@
        `bgOverlap` the paragraph above is about. A `lg:` query could not see
        it — the viewport here says 1440 — so the button's placement is a
        container query on the CARD, and this page draws its narrow-card
-       layout: its own row under the text. -->
+       layout: its own row under the text.
+
+       SO THE LAUNCH BAND STAYS NARROW, ON PURPOSE, and it is the only thing
+       on this page that is (#87). The three-listing band is drawn at the
+       site's width; the launch band keeps the old 768 column, because the
+       site never draws a card under 640 in the two-column layout and
+       featured-properties.spec.ts's "a card too narrow for both buttons"
+       needs one to hold that container query to. -->
 
   <FeaturedProperties slice={featuredPropertiesFixture()} />
-  <FeaturedProperties slice={featuredLaunchFixture({ heading: "Featured Property" })} />
+  <div class="mx-auto max-w-3xl px-8">
+    <FeaturedProperties slice={featuredLaunchFixture({ heading: "Featured Property" })} />
+  </div>
 
   <!-- The homepage's "Our Legacy" band with a headshot on both cards, so axe
        sees all four 24px link targets and the photo's empty alt.
@@ -605,13 +641,17 @@
 
   <!-- A partner's profile page, /team/<uid>: placeholder chip, headshot,
        bio and the contact list. -->
-  <PersonProfile person={personFixture({ photo: PARTNER_PHOTO_FIXTURE } as never)} />
+  <PersonProfile
+    person={personFixture({
+      photo: { url: photo, alt: "", dimensions: { width: 1600, height: 1010 } },
+    } as never)}
+  />
 
   <!-- The homepage's photo band, FILLED — a drawing with an alt, so axe has an
        image to hold to `image-alt`; empty (the launch state) it is a gradient
        with nothing in it to audit. It never pins here: the pin is gated on
-       being the last thing in <main>, and this is inside the page's wrapper.
-       The pin is /dev/home's, and tests/interaction/photo-band.spec.ts's. -->
+       being the last thing in <main>, and this is inside a wrapper. The pin is
+       /dev/home's, and tests/interaction/photo-band.spec.ts's. -->
   <PhotoBand slice={photoBandFixture({ image: HOME_PHOTO_FIXTURE as never })} />
 </div>
 
