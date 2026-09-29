@@ -15,25 +15,36 @@ import PageMasthead from "$lib/components/PageMasthead.svelte";
  * That is a claim made in one file about markup in another, so nothing but
  * this test holds the two together:
  *
- *  - a route that opens on a dark band and does not say so gets the solid bar
- *    AND the layout's top padding — an off-white strip above its masthead;
  *  - a route that says so and opens on anything else gets a white wordmark on
- *    an off-white page, which is no wordmark at all.
+ *    an off-white page, which is no wordmark at all;
+ *  - a route that opens on a band built to run under the bar and does not say
+ *    so gets the solid bar AND the layout's top padding — an off-white strip
+ *    above a band drawn to start at y=0.
  *
  * "Opens on" is read from the page's markup: the first element or component
- * after the script block. Add a component to DARK_FIRST_BANDS when it is built
- * to run under the bar.
+ * after the script block. Two bands may run under the bar (DARK_FIRST_BANDS),
+ * and they differ in whether they MUST:
  *
- * HomeHero is the second, and the one this test cannot fully vouch for: its
- * band is CMS content, and a first tag says nothing about whether the band
- * renders. The home route answers that itself — it lifts the hero out of the
- * document's slices and renders <HomeHero> first and unconditionally, and with
- * no slice the component still paints its dark 528px ground (asserted in
- * HomeHero.test.ts and, in a browser, by tests/interaction/home-hero.spec.ts).
- * The last test below holds the "unconditionally": {#if} is not a tag, so a
- * band wrapped in one still reads as the first tag.
+ *  - HomeHero is built for nothing else (MUST_FLOAT). This test cannot fully
+ *    vouch for it: its band is CMS content, and a first tag says nothing about
+ *    whether the band renders. The home route answers that itself — it lifts
+ *    the hero out of the document's slices and renders <HomeHero> first and
+ *    unconditionally, and with no slice the component still paints its dark
+ *    528px ground (asserted in HomeHero.test.ts and, in a browser, by
+ *    tests/interaction/home-hero.spec.ts). The "unconditionally" test below
+ *    holds that: {#if} is not a tag, so a band wrapped in one still reads as
+ *    the first tag.
+ *  - PageMasthead MAY, and only with no photo. Over its garnet gradient
+ *    (/contact) the floating bar's sand is legible as it stands. Over a
+ *    photograph nothing darkens the top of the band any more — the layer that
+ *    did, `.masthead-shade`, went on 2026-09-29 with the client's "dark
+ *    cloud" — so a route that gives the masthead a photo (/properties) opens
+ *    under the SOLID bar and makes no claim.
  */
 const DARK_FIRST_BANDS = ["PageMasthead", "HomeHero"];
+const MUST_FLOAT = ["HomeHero"];
+/** How a band's first tag gives it a photograph, for the bands that take one. */
+const PHOTO_PROP: Record<string, RegExp> = { PageMasthead: /(?:^|\s)(?:image\s*=|\{image\})/ };
 
 const ROUTES = resolve(process.cwd(), "src/routes");
 
@@ -58,6 +69,22 @@ function firstTag(source: string): string | undefined {
   return /<([A-Za-z][\w.:-]*)/.exec(markup(source))?.[1];
 }
 
+/** That tag's attributes, as written — up to the `>` that closes it, stepping
+ *  over any `{…}` expression, whose own `>` would otherwise end it early. */
+function firstTagAttributes(source: string): string {
+  const text = markup(source);
+  const open = /<[A-Za-z][\w.:-]*/.exec(text);
+  if (!open) return "";
+  let depth = 0;
+  for (let i = open.index + open[0].length; i < text.length; i++) {
+    if (text[i] === "{") depth++;
+    else if (text[i] === "}") depth--;
+    else if (text[i] === ">" && depth === 0)
+      return text.slice(open.index + open[0].length, i).replace(/\/$/, "");
+  }
+  return "";
+}
+
 /** True when a Svelte block ({#if}, {#each}, {#await}…) opens before the first
  *  tag — i.e. the first band is conditional, whatever its name. */
 function firstTagIsConditional(source: string): boolean {
@@ -73,12 +100,18 @@ function claimsDark(page: string): boolean {
     .some((file) => /navOver:\s*"dark"/.test(readFileSync(file, "utf8")));
 }
 
-const all = pages(ROUTES).map((file) => ({
-  route: relative(ROUTES, dirname(file)) || "/",
-  first: firstTag(readFileSync(file, "utf8")),
-  conditional: firstTagIsConditional(readFileSync(file, "utf8")),
-  claims: claimsDark(file),
-}));
+const all = pages(ROUTES).map((file) => {
+  const source = readFileSync(file, "utf8");
+  const first = firstTag(source);
+  const photo = first && PHOTO_PROP[first];
+  return {
+    route: relative(ROUTES, dirname(file)) || "/",
+    first,
+    photo: Boolean(photo && photo.test(firstTagAttributes(source))),
+    conditional: firstTagIsConditional(source),
+    claims: claimsDark(file),
+  };
+});
 
 describe("navOver — the route's claim about its first band", () => {
   it("finds the pages, and at least one that opens on a dark band", () => {
@@ -88,8 +121,8 @@ describe("navOver — the route's claim about its first band", () => {
     );
   });
 
-  it("every route that opens on a dark band says so", () => {
-    const silent = all.filter((p) => p.first && DARK_FIRST_BANDS.includes(p.first) && !p.claims);
+  it("every route that opens on a band built to run under the bar says so", () => {
+    const silent = all.filter((p) => p.first && MUST_FLOAT.includes(p.first) && !p.claims);
     expect(silent.map((p) => p.route)).toEqual([]);
   });
 
@@ -105,6 +138,45 @@ describe("navOver — the route's claim about its first band", () => {
   it("every route that says so renders that band unconditionally", () => {
     const conditional = all.filter((p) => p.claims && p.conditional);
     expect(conditional.map((p) => `${p.route} opens on <${p.first}> inside a block`)).toEqual([]);
+  });
+
+  // The client's call of 2026-09-29, as a rule: no floating bar over a masthead
+  // PHOTOGRAPH. The prop is read off the first tag as written, so a photo
+  // passed from page data (`image={data.masthead}`) counts whether or not the
+  // CMS has one today — the claim is a literal and cannot wait to find out.
+  it("no route floats the bar over a masthead photograph", () => {
+    const over = all.filter((p) => p.claims && p.photo);
+    expect(over.map((p) => `${p.route} claims navOver over <${p.first}> with a photo`)).toEqual([]);
+  });
+
+  // Both answers the rule above allows are in use, so neither half of it is
+  // vacuous: the parse that finds the photo has found one, on the routes that
+  // must not claim, and a masthead with none still floats its bar.
+  it("PageMasthead opens both ways — floating on /contact, under the solid bar where it has a photo", () => {
+    const mastheads = all.filter((p) => p.first === "PageMasthead");
+    expect(mastheads.filter((p) => p.claims).map((p) => [p.route, p.photo])).toEqual([
+      ["contact", false],
+    ]);
+    expect(
+      mastheads
+        .filter((p) => !p.claims)
+        .map((p) => [p.route, p.photo])
+        .sort(),
+    ).toEqual([
+      ["[[preview=preview]]/properties", true],
+      ["dev/properties", true],
+    ]);
+  });
+
+  // What "no claim" buys a route: the layout pads <main> by the bar's height
+  // (70, 80 from lg) so its first band starts BELOW the solid bar — the
+  // masthead's photo on /properties — and drops the padding only for a claim.
+  it("the layout clears the bar for every route that does not say so, and only for those", () => {
+    const layout = markup(readFileSync(join(ROUTES, "+layout.svelte"), "utf8"));
+    const main = /<main\b[\s\S]*?>/.exec(layout)?.[0] ?? "";
+    expect(main).toContain(
+      `class="flex-1 {page.data.navOver === 'dark' ? '' : 'pt-[70px] lg:pt-20'}"`,
+    );
   });
 });
 
