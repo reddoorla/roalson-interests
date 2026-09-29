@@ -5,8 +5,8 @@ import { HYDRATION_TIMEOUT } from "./hydrated";
 //
 // animateIn can only hide its targets from JS at hydration, which is 150-850ms
 // after the browser has already painted them: content arrived in final
-// position, sat there, then dropped and vanished before floating back — a page
-// that looks like it is breaking. The fix is a CSS hidden state that
+// position, sat there, then slid down and faded out before floating back (it
+// fades, not blinks: #101) — a page that looks like it is breaking. The fix is a CSS hidden state that
 // server-rendered markup carries (`[data-reveal]`), so the element is hidden
 // BEFORE the first paint and animateIn's inline write is a no-op re-write.
 //

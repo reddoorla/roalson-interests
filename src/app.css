@@ -730,8 +730,9 @@ main > section.hero-band:first-child {
   /* The scroll reveal's hidden state, in CSS, so it exists at FIRST PAINT.
      `use:animateIn` can only hide its targets from JS at hydration, which is
      150-850ms after the browser has already painted them: content appeared in
-     final position, sat there, then dropped half its height and vanished
-     before floating back. That reads as a broken page load.
+     final position, sat there, then faded out over the reveal's duration as
+     it slid half its height down, before floating back (#101). That reads as
+     a broken page load.
 
      `[data-reveal]` is written by animateIn while an element is hidden and
      removed the moment it reveals; SERVER-RENDERED markup can carry it too,
