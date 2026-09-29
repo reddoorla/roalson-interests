@@ -2434,15 +2434,28 @@ test.describe("motion", () => {
       const pressed = frames.findIndex((f) => f.label === "Pause slides");
       expect(pressed, "sampled across the Play press").toBeGreaterThan(0);
       const before = frames.slice(0, pressed);
-      const after = frames.slice(pressed).filter((f) => !f.turned);
+      // THE CLOCK'S VALUE, which is not always the bar's scaleX since #146:
+      // through the settle Play runs down, the fill is `departing`, held out
+      // at the width the visitor's turn found it at, while the clock reads 0.
+      const after = frames
+        .slice(pressed)
+        .filter((f) => !f.turned)
+        .map((f) => (f.mode === "departing" ? { ...f, bar: 0 } : f));
       expect(
         before.every((f) => f.label === "Play slides"),
         "premise: stopped until Play",
       ).toBe(true);
       expect(
-        after.every((f) => f.label === "Pause slides" && f.mode === "timed"),
-        "premise: running, and COUNTING, from Play to the turn",
+        after.every(
+          (f) => f.label === "Pause slides" && (f.mode === "timed" || f.mode === "departing"),
+        ),
+        "premise: running from Play to the turn — the settle, then COUNTING",
       ).toBe(true);
+      const departing = after.filter((f) => f.mode === "departing");
+      expect(
+        after.slice(0, departing.length),
+        "premise: the settle comes first, then the count, never again",
+      ).toEqual(departing);
       expect(
         Math.max(...after.map((f) => f.bar)),
         "premise: the bar counted the dwell out",
