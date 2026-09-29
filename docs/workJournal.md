@@ -11948,8 +11948,8 @@ What to expect from CI: the gate now measures text it used to skip, so a red
 could not see, not a regression in the harness. #950's changeset lists what is
 still unmeasured after the scroll: CSS-keyframe reveals, reveals that hide
 again, `setTimeout` delays, inner scroll containers, and content mounted after
-the pass. The contrast checks that other session found missing for a
-`none`-hued `oklch` colour (reddoor-maintenance #916, #888) are not in this
-release. This repo's source has no such colour, and its own
+the pass. The gate's check for a colour axe cannot parse at all (a
+`none`-hued `oklch`, reddoor-maintenance #916 and #888) is not in this release
+and follows in the next one. This repo's source has no such colour, and its own
 `src/tailwind-sources.test.ts` bans the default-palette utilities that carry
 one.
