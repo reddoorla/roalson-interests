@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { LinkField } from "@prismicio/client";
 
-import { cmsHref, sitePath } from "./cms-href";
+import { cmsHref, sitePath, withDocumentLinks } from "./cms-href";
 import { linkResolver } from "./prismicio";
 
 const web = (url: string) => ({ link_type: "Web", url }) as unknown as LinkField;
@@ -148,5 +148,57 @@ describe("cmsHref — a Prismic Link field as an href", () => {
     ["undefined", undefined],
   ])("%s is null, so the caller renders no anchor", (_name, field) => {
     expect(cmsHref(field as unknown as LinkField, { linkResolver })).toBeNull();
+  });
+});
+
+describe("withDocumentLinks — a fetched document's links given the url the client cannot fill (#10)", () => {
+  const toProperty = { link_type: "Document", id: "p", type: "property", uid: "25331-ih-10-west" };
+  const toPerson = { link_type: "Document", id: "m", type: "person", uid: "matt-howard" };
+
+  it("fills every document link, at every depth: field, group row, slice, rich-text span", () => {
+    const doc = {
+      id: "home",
+      type: "page",
+      url: null,
+      data: {
+        cta: toProperty,
+        slices: [
+          {
+            slice_type: "cta_banner",
+            primary: {
+              buttonLink: toProperty,
+              heading: [
+                {
+                  type: "paragraph",
+                  text: "Meet Matt",
+                  spans: [{ start: 5, end: 9, type: "hyperlink", data: toPerson }],
+                },
+              ],
+              rows: [{ link: toPerson }],
+            },
+          },
+        ],
+      },
+    };
+    const out = withDocumentLinks(doc, linkResolver);
+    const primary = out.data.slices[0].primary;
+    expect(out.data.cta).toMatchObject({ url: "/properties/25331-ih-10-west" });
+    expect(primary.buttonLink).toMatchObject({ url: "/properties/25331-ih-10-west" });
+    expect(primary.heading[0].spans[0].data).toMatchObject({ url: "/team/matt-howard" });
+    expect(primary.rows[0].link).toMatchObject({ url: "/team/matt-howard" });
+    // The document itself is not a link, and the input is not mutated.
+    expect(out.url).toBeNull();
+    expect(doc.data.cta).not.toHaveProperty("url");
+  });
+
+  it("leaves a broken link, a web link and an unknown type as they were", () => {
+    const broken = { ...toProperty, isBroken: true };
+    const webLink = { link_type: "Web", url: "https://example.com" };
+    const unknown = { link_type: "Document", id: "f", type: "form_replies" };
+    expect(withDocumentLinks({ broken, webLink, unknown }, linkResolver)).toEqual({
+      broken,
+      webLink,
+      unknown,
+    });
   });
 });
