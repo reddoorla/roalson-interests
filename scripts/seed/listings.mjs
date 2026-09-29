@@ -12,7 +12,8 @@
 // PDF's `props/<dir>/` segment: the client's Google My Maps KML (coordinates)
 // and the client's own "Available Properties" table at roalson.com/prop.htm
 // (category headings, sizes, prices, zoning, the bullet copy). Copy is the
-// client's, verbatim, typos included.
+// client's, verbatim but for the typos and typography the operator ruled on
+// (#75, #74) — the `source` notes still say "verbatim" for those rows.
 //
 // This script stages. It does not make anything live: a staged document is a
 // draft in the migration release until someone releases it. Assets are the

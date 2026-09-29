@@ -22,7 +22,7 @@ source. It is the fastest way to recognise what a thing does.
 | [`trapFocus.ts`](../src/lib/actions/trapFocus.ts) | `trapFocus` | 24 | Focus management for modal overlays (WCAG 2.4.3 focus order + 2.1.2 no keyboard trap) |
 | [`canvas-top.ts`](../src/lib/canvas-top.ts) | `CANVAS_TOP_COLORS`, `CANVAS_TOP_HEX`, `CANVAS_TOP_DEFAULT_HEX`, `canvasTopRule`, `canvasTopStyleTag`, `canvasTopThemeColor` | 8 | The colour a route shows ABOVE the top of its own document — what a rubber-band overscroll at the top of the page pulls away to reveal — and, on Safari, the tint the browser puts on its own toolbar |
 | [`carousel.svelte.ts`](../src/lib/carousel.svelte.ts) | `createCarousel` | 60 | Headless carousel / slideshow state — index, loop, autoplay, pause and a progress-bar value, all on ONE clock — for markup Slider.svelte's layout cannot hold (controls INSIDE the slide's panel, a 2px progress bar, a list that is only a carousel below `md`) |
-| [`cms-href.ts`](../src/lib/cms-href.ts) | `SITE_HOSTS`, `sitePath`, `cmsHref` | 7 | A CMS Link field as the href a button should carry |
+| [`cms-href.ts`](../src/lib/cms-href.ts) | `SITE_HOSTS`, `sitePath`, `cmsHref`, `withDocumentLinks` | 9 | A CMS Link field as the href a button should carry |
 | [`Accordion.svelte`](../src/lib/components/Accordion.svelte) | `items`, `allowMultiple` | 4 |  |
 | [`AnimateInTriggered.svelte`](../src/lib/components/Animation/AnimateInTriggered.svelte) | `trigger`, `style`, `transitionDuration`, `children` | — |  |
 | [`AnimateOutTriggered.svelte`](../src/lib/components/Animation/AnimateOutTriggered.svelte) | `trigger`, `style`, `transitionDuration`, `children` | — |  |
@@ -66,14 +66,14 @@ source. It is the fastest way to recognise what a thing does.
 | [`TurnstileWidget.svelte`](../src/lib/components/TurnstileWidget.svelte) | — | 6 |  |
 | [`VimeoBanner.svelte`](../src/lib/components/VimeoBanner.svelte) | `vimeoId`, `poster`, `alt`, `label` | 10 | Full-bleed background-video banner |
 | [`featured-properties.ts`](../src/lib/featured-properties.ts) | `featuredListings` | 9 | Which of the editor's picks the homepage's featured band can actually show |
-| [`home-fixture.ts`](../src/lib/home-fixture.ts) | `HOME_POSTER_FIXTURE`, `HOME_VIMEO_FIXTURE`, `homeHeroFixture`, `HOME_PHOTO_FIXTURE`, `photoBandFixture`, `PARTNER_PHOTO_FIXTURE`, `PARTNER_PROFILE_FIXTURE`, `partnerFixture`, `partnersFixture`, `partnersFixtureState`, `featuredPickFixture`, `featuredPropertiesFixture`, `featuredLaunchFixture`, `stageFeatured`, `homeFixture` | — | The homepage as fixture data — what /dev/home renders through the real layout, and what /dev/a11y-fixtures and the unit tests build on |
+| [`home-fixture.ts`](../src/lib/home-fixture.ts) | `HOME_POSTER_FIXTURE`, `HOME_VIMEO_FIXTURE`, `homeHeroFixture`, `HOME_PHOTO_FIXTURE`, `photoBandFixture`, `PARTNER_PHOTO_FIXTURE`, `PARTNER_PROFILE_FIXTURE`, `partnerFixture`, `partnersFixture`, `partnersFixtureState`, `featuredPickFixture`, `featuredPropertiesFixture`, `featuredLaunchFixture`, `stageFeatured`, `homeFixture` | 1 | The homepage as fixture data — what /dev/home renders through the real layout, and what /dev/a11y-fixtures and the unit tests build on |
 | [`home-page.ts`](../src/lib/home-page.ts) | `splitHomeHero` | 5 | The home route's shape, as data |
 | [`index.ts`](../src/lib/index.ts) | — | — | place files you want to import through the `$lib` alias in this folder |
 | [`indexability.ts`](../src/lib/indexability.ts) | `MIRROR_ROBOTS_TAG`, `isNetlifyMirrorHost` | 6 | Which HOST a request arrived on decides whether it may be indexed (#140) |
 | [`map-engine.ts`](../src/lib/map-engine.ts) | — | — | The heavy half of the property map (#13), isolated so it can be a CHUNK |
 | [`map-home.ts`](../src/lib/map-home.ts) | `MAP_HOME`, `MAP_HOME_GROUND`, `MAP_HOME_FADE_MS` | — | MAP_HOME — the frame every property map OPENS on, and the frame the committed raster placeholder is a picture of (#122) |
 | [`office.ts`](../src/lib/office.ts) | `telHref`, `OFFICE`, `officeAddressLines`, `officePostalAddress`, `officeDirectionsUrl` | 8 | The firm's one office — the ONE place its address and numbers are written |
-| [`page-load.ts`](../src/lib/page-load.ts) | `orNotFound`, `loadPage` | 4 |  |
+| [`page-load.ts`](../src/lib/page-load.ts) | `orNotFound`, `loadPage` | 5 |  |
 | [`page-media-load.ts`](../src/lib/page-media-load.ts) | `loadPropertiesMasthead` | 5 | The `page_media` singleton: media for pages that have no Prismic document |
 | [`page-meta.ts`](../src/lib/page-meta.ts) | `pageMeta` | 2 |  |
 | [`person-fixture.ts`](../src/lib/person-fixture.ts) | `personFixture` | — |  |
@@ -105,4 +105,4 @@ source. It is the fastest way to recognise what a thing does.
 | [`vimeo.ts`](../src/lib/utils/vimeo.ts) | `checkVimeoVideo`, `parseVimeoId` | 11 | True when the Vimeo video exists and is embeddable (oEmbed responds 200) |
 | [`vimeoBackground.svelte.ts`](../src/lib/utils/vimeoBackground.svelte.ts) | `VIMEO_PLAYER_ORIGIN`, `backgroundEmbedSrc`, `VimeoBackground` | 5 | The gate, the heartbeat and the pause flag behind every chrome-less Vimeo background embed in this repo — lifted OUT of VimeoBanner.svelte so the homepage hero could have all three without taking VimeoBanner's markup with them |
 
-87 modules, 842 tests behind them.
+87 modules, 846 tests behind them.
