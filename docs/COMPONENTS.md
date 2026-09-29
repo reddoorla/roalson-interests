@@ -21,7 +21,7 @@ source. It is the fastest way to recognise what a thing does.
 | [`centreWatch.ts`](../src/lib/actions/centreWatch.ts) | `CENTRE_ID`, `CENTRE_BAND`, `centreWatch` | 9 | Which child of a list the viewport is looking AT — the one whose box crosses the horizontal line through the middle of the screen (#13 follow-up) |
 | [`trapFocus.ts`](../src/lib/actions/trapFocus.ts) | `trapFocus` | 24 | Focus management for modal overlays (WCAG 2.4.3 focus order + 2.1.2 no keyboard trap) |
 | [`canvas-top.ts`](../src/lib/canvas-top.ts) | `CANVAS_TOP_COLORS`, `CANVAS_TOP_HEX`, `CANVAS_TOP_DEFAULT_HEX`, `canvasTopRule`, `canvasTopStyleTag`, `canvasTopThemeColor` | 8 | The colour a route shows ABOVE the top of its own document — what a rubber-band overscroll at the top of the page pulls away to reveal — and, on Safari, the tint the browser puts on its own toolbar |
-| [`carousel.svelte.ts`](../src/lib/carousel.svelte.ts) | `createCarousel` | 60 | Headless carousel / slideshow state — index, loop, autoplay, pause and a progress-bar value, all on ONE clock — for markup Slider.svelte's layout cannot hold (controls INSIDE the slide's panel, a 2px progress bar, a list that is only a carousel below `md`) |
+| [`carousel.svelte.ts`](../src/lib/carousel.svelte.ts) | `createCarousel` | 65 | Headless carousel / slideshow state — index, loop, autoplay, pause and a progress-bar value, all on ONE clock — for markup Slider.svelte's layout cannot hold (controls INSIDE the slide's panel, a 2px progress bar, a list that is only a carousel below `lg`) |
 | [`cms-href.ts`](../src/lib/cms-href.ts) | `SITE_HOSTS`, `sitePath`, `cmsHref` | 7 | A CMS Link field as the href a button should carry |
 | [`Accordion.svelte`](../src/lib/components/Accordion.svelte) | `items`, `allowMultiple` | 4 |  |
 | [`AnimateInTriggered.svelte`](../src/lib/components/Animation/AnimateInTriggered.svelte) | `trigger`, `style`, `transitionDuration`, `children` | — |  |
@@ -44,15 +44,16 @@ source. It is the fastest way to recognise what a thing does.
 | [`HeroBackgroundVideo.svelte`](../src/lib/components/HeroBackgroundVideo.svelte) | `vimeoId`, `bandHeight`, `label` | 11 | The homepage hero's moving layer — the half HeroBackgroundImage paints still |
 | [`Img.svelte`](../src/lib/components/Img.svelte) | `src` | 5 | Progressive-loading wrapper around @zerodevx/svelte-img: the image renders blurred (`.progressive-img` in app.css) and sharpens once the underlying <img> finishes — or fails — loading |
 | [`LandscapeModal.svelte`](../src/lib/components/LandscapeModal.svelte) | — | 3 | Orientation lockout — a primitive the template deliberately does NOT mount (tests/smoke/landscape.spec.ts fails if it is re-mounted), because an undismissable landscape overlay fails WCAG 2.1 SC 1.3.4 (Orientation) |
+| [`ListingCarousel.svelte`](../src/lib/components/ListingCarousel.svelte) | `count`, `label`, `enabled`, `onready`, `children` | — | One section of the Properties listing as the 390 comp's in-card carousel (#14; `feature scroll` 6997:1607 and `regular scroll` 6997:1749): the `createCarousel` instance, the element that is its region, and its live region |
 | [`Modal.svelte`](../src/lib/components/Modal.svelte) | `open`, `onclose`, `label`, `labelledby`, `children` | 16 | Accessible name for the dialog |
 | [`Nav.svelte`](../src/lib/components/Nav.svelte) | `items`, `logo`, `cta`, `over`, `wordmark`, `currentPath` | 33 | The site's bar and its menu |
 | [`PageMasthead.svelte`](../src/lib/components/PageMasthead.svelte) | `title`, `image`, `preload` | 9 | The comp's `Masthead #1` as the Properties page wears it (6991:978 at 1440, 6992:2865 at 390): a 400px band — 240 on mobile — with the page's H1 sitting on the listing column's left edge, its baseline 72px above the band's bottom (44 on mobile, centred) |
 | [`PersonProfile.svelte`](../src/lib/components/PersonProfile.svelte) | `person` | 5 | A partner's profile page, /team/<uid> (F4, operator 2026-09-28) |
 | [`PlayPauseGlyph.svelte`](../src/lib/components/PlayPauseGlyph.svelte) | `paused` | — | The pause / play glyph for every WCAG 2.2.2 control on this site — the carousel's (CarouselArrows) and each background video's (HeroBackgroundVideo, VimeoBanner, ScreenWidthMedia) |
 | [`PreNavTransition.svelte`](../src/lib/components/PreNavTransition.svelte) | `duration`, `holdDuration` | 10 | ms the overlay fades in before the deferred navigation is issued |
-| [`PropertyCard.svelte`](../src/lib/components/PropertyCard.svelte) | `property`, `variant`, `layout` | 10 | The comp's `property` card, three tones |
+| [`PropertyCard.svelte`](../src/lib/components/PropertyCard.svelte) | `property`, `variant`, `layout`, `inCarousel` | 10 | The comp's `property` card, three tones |
 | [`PropertyDetail.svelte`](../src/lib/components/PropertyDetail.svelte) | `property` | 10 | The property page |
-| [`PropertyListing.svelte`](../src/lib/components/PropertyListing.svelte) | `sections` | 21 | The Properties page body: the comp's stacked sections (6903:1030 at 1440, 6992:2468 at 390), each a divider — a 2px garnet rule over an H3 label — and its listing |
+| [`PropertyListing.svelte`](../src/lib/components/PropertyListing.svelte) | `sections` | 28 | The Properties page body: the comp's stacked sections (6903:1030 at 1440, 6992:2468 at 390), each a divider — a 2px garnet rule over an H3 label — and its listing |
 | [`PropertyMap.svelte`](../src/lib/components/PropertyMap.svelte) | `points`, `label`, `engine`, `tone`, `active`, `activeBy`, `onselect`, `interactive`, `onengage` | 65 | The comp's per-section property map (#13), with its ground tones EXPORTED from this module script as `MAP_TONES` |
 | [`RichTextBody.svelte`](../src/lib/components/RichTextBody.svelte) | `field` | 4 |  |
 | [`RichTextHeading.svelte`](../src/lib/components/RichTextHeading.svelte) | `node`, `children` | — |  |
@@ -105,4 +106,4 @@ source. It is the fastest way to recognise what a thing does.
 | [`vimeo.ts`](../src/lib/utils/vimeo.ts) | `checkVimeoVideo`, `parseVimeoId` | 11 | True when the Vimeo video exists and is embeddable (oEmbed responds 200) |
 | [`vimeoBackground.svelte.ts`](../src/lib/utils/vimeoBackground.svelte.ts) | `VIMEO_PLAYER_ORIGIN`, `backgroundEmbedSrc`, `VimeoBackground` | 5 | The gate, the heartbeat and the pause flag behind every chrome-less Vimeo background embed in this repo — lifted OUT of VimeoBanner.svelte so the homepage hero could have all three without taking VimeoBanner's markup with them |
 
-87 modules, 842 tests behind them.
+88 modules, 854 tests behind them.
