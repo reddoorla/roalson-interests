@@ -9,7 +9,7 @@ def classify(p):
     if z=='X' and ('0.2' in sub or 'LEVEE' in sub): return 'x500'
     return None
 def flood_geojson(key,lat,lon,half_m):
-    p=os.path.join(CACHE,key+'.geojson')
+    p=os.path.join(CACHE,f'{key}@{lat:.6f},{lon:.6f},{half_m}.geojson')
     if os.path.exists(p): return json.load(open(p))
     dlat=half_m/111320; dlon=half_m/(111320*math.cos(math.radians(lat)))
     env=json.dumps({'xmin':lon-dlon,'ymin':lat-dlat,'xmax':lon+dlon,'ymax':lat+dlat,'spatialReference':{'wkid':4326}})

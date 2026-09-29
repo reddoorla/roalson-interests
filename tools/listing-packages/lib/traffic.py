@@ -9,7 +9,7 @@ def road_name(r):
         return f'{k} {n}'
     return r.title()
 def stations(key,lat,lon,radius_m):
-    p=os.path.join(CACHE,key+'.json')
+    p=os.path.join(CACHE,f'{key}@{lat:.6f},{lon:.6f},{radius_m}.json')
     if os.path.exists(p): return json.load(open(p))
     q=urllib.parse.urlencode({'geometry':f'{lon},{lat}','geometryType':'esriGeometryPoint','inSR':4326,'distance':radius_m,'units':'esriSRUnit_Meter',
         'outFields':'TRFC_STATN_ID,AADT_RPT_YEAR,AADT_RPT_QTY,ON_ROAD,LATITUDE,LONGITUDE,AADT_RPT_HIST_01_QTY','returnGeometry':'false','f':'json'})

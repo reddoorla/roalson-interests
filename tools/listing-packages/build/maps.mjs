@@ -1,5 +1,5 @@
 import { chromium } from 'playwright-core';
-import { readFileSync, existsSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -244,10 +244,13 @@ for (const d of dprs) {
 }
 for (const job of jobs) {
   job.dpr = job.dpr ?? 3;
-  if (!force && existsSync(job.out)) { console.log('skip', job.out); continue; }
+  const stamp = `${job.out}.job.json`;
+  const spec = JSON.stringify(job);
+  if (!force && existsSync(job.out) && existsSync(stamp) && readFileSync(stamp, 'utf8') === spec) { console.log('skip', job.out); continue; }
   const t = Date.now();
   try {
     const r = await render(pages[job.dpr], job);
+    writeFileSync(stamp, spec);
     console.log('ok', job.out, `z=${r.zoom.toFixed(2)}`, `${Date.now() - t}ms`);
   } catch (e) {
     console.error('FAIL', job.out, e.message);

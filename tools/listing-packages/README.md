@@ -18,6 +18,7 @@ public GIS services and prints with the pre-installed Chromium.
 | `geo/meta.json`           | TxDOT 2025 AADT stations near each site, FEMA NFHL zones and panel.                                                                              |
 | `geo/flood-verdicts.json` | Share of each site inside the floodway / 1% / 0.2% annual-chance zones, and the sentence printed on the flood exhibit.                           |
 | `build/plans.json`        | Per listing: cover source, the original pages carried over (surveys, plats, floor plans) and their crop, photos.                                 |
+| `review/`                 | Broker review notes (source of the Dropbox PDF) and both QA reports with fix status.                                                             |
 | `build/`                  | The renderer: `maps.mjs` (MapLibre maps), `pkg.py` (HTML), `flow.js` (spec/demographics pagination), `print.mjs`, `assemble.py`.                 |
 | `lib/`                    | Data fetchers: parcels, FEMA NFHL, TxDOT AADT, map job builder.                                                                                  |
 
@@ -37,20 +38,40 @@ public GIS services and prints with the pre-installed Chromium.
 
 ## Regenerating
 
-Needs Python 3 with `pymupdf pillow shapely qrcode markdown`, Node 22 with
-`playwright-core maplibre-gl@5 qrcode` (install into a scratch folder, not this
-workspace), the original PDFs in `originals/<uid>.pdf` (download from each
-property's `package_pdf` in Prismic), and Chromium trusting the egress proxy CA
-if run in a cloud container.
+Needs Python 3 with `pymupdf pillow shapely qrcode markdown numpy`, Node 22, and in `build/`
+a local `npm i playwright-core@1.56.1 maplibre-gl@5 qrcode` (gitignored). In a cloud container
+Chromium must also trust the egress proxy CA (`~/.pki/nssdb`, see issue #164).
 
-1. Edit `data/<uid>.json` (e.g. once the broker answers the review notes).
-2. `python3 build/pkg.py <uid>` → `node build/print.mjs <uid>` → `python3 build/assemble.py <uid>`.
-3. Maps only need re-rendering if the site geometry changes:
-   `python3 build/make_jobs.py [uid …]` writes `build/jobs-all.json`, then
-   `node build/maps.mjs build/jobs-all.json --force`.
-4. Title and map-label changes that are not typos live in `build/overrides.json`;
-   typo fixes live in `build/corrections.json` (a `scope` key limits one to a
-   single section).
+`build/all.sh` runs everything from a fresh checkout, in about 30 minutes:
+
+1. `fetch_originals.py`: every property's `package_pdf` from Prismic, into `originals/`.
+2. `extract.py`: covers, photos and carried-over exhibits from the originals, into `covers/`,
+   `photos/` and `exhibits/`. The recipe is the file name in `build/plans.json`:
+   `photos/<uid>-p<page>-<n>.png`, `covers/<uid>[-trim].png`, `exhibits/<uid>-p<page>.png`.
+   Anything under `build/assets/` is committed as is.
+3. `flood_verdicts.py`: the FEMA sentence for each site, into `geo/flood-verdicts.json`.
+4. `make_jobs.py`, then `maps.mjs`: every map, into `maps/<uid>/`. A map is skipped only when
+   its job spec matches the one stored beside it (`<map>.job.json`), so moving a pin re-renders
+   that site's maps. The map style is not part of the spec: after a style change, pass `--force`.
+   The TxDOT and FEMA caches in `geo/traffic/` and `geo/flood/` are keyed by the query point.
+5. `postfix.py`: patches the one no-data scan line in the USGS imagery at Seguin
+   (`build/postfix.json`). Re-measure it if that site's framing ever changes.
+6. `pkg.py`, `print.mjs`, `assemble.py`: `out/pdf/<website title>.pdf`, with the original TREC
+   IABS page appended.
+
+To change a listing, edit `data/<uid>.json`. Title and map-label changes that are not typos
+go in `build/overrides.json`. Typo fixes go in `build/corrections.json`; a `scope` key limits
+one to a single section.
+
+The documents for the people involved are made separately:
+
+- `review_pdf.py`: `review/review-notes.md` becomes `out/00 - Review Notes (read first).pdf`.
+- `showcase.py [facts-checked]`: `out/01 - Before and After.pdf`.
+- `upload.sh <file-request-url> <label> <dir> <files…>`: pushes files into a Dropbox file
+  request (the connector cannot upload binaries). Set `UPLOADER_EMAIL` first, then verify
+  every file's size afterwards.
+
+`review/` also holds both QA reports, with every finding marked fixed or open.
 
 ## Known limits
 

@@ -23,7 +23,7 @@ for (const ev of ['dragenter', 'dragover', 'drop']) await target.dispatchEvent(e
 await p.waitForTimeout(3000);
 const vis = [];
 for (const i of await p.$$('input[type=text], input[type=email], input:not([type])')) if (await i.isVisible()) vis.push(i);
-if (vis.length >= 2) { await vis[0].fill(who); await vis[1].fill('tucker@reddoorla.com'); }
+if (vis.length >= 2) { await vis[0].fill(who); await vis[1].fill(process.env.UPLOADER_EMAIL ?? ''); }
 console.log('CLICK upload', new Date().toISOString());
 await p.click('button:has-text("Upload")');
 const t0 = Date.now();

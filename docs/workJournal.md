@@ -11956,6 +11956,8 @@ one.
 
 ## 2026-09-29 — All 22 listing packages rebuilt in Erik's Claude Design template, with new maps, aerials, traffic and flood exhibits (`tools/listing-packages`, Dropbox)
 
+> Superseded in part by 2026-09-29 — The listing-package tool now rebuilds from a fresh clone; two uploaded packages had stale traffic distances.
+
 Erik shared the client-approved Claude Design template ("ListingPackage Dapper
 Dan", published as a public artifact) and asked for every current package in
 it. The originals exist only as Prismic assets (the `package_pdf` on each
@@ -12061,3 +12063,78 @@ packages) need the broker. The website's `package_pdf` links still point at the
 old PDFs; swapping them is a Prismic publish, pending Erik's and Roalson's
 sign-off. The QR code on each disclosure page targets
 `www.roalson.com/properties/<uid>`, which resolves only after cutover.
+
+## 2026-09-29 — The listing-package tool now rebuilds from a fresh clone; two uploaded packages had stale traffic distances (`tools/listing-packages`, Dropbox, reddoor-maintenance runbook)
+
+Asked what from the rebuild should outlive the session, the answer was: make the
+tool actually reproducible, commit what only existed in the container, file the
+open items, and write the cross-site lessons where other site sessions will read
+them. The first of those found two real defects.
+
+**The generator was never committed, and nothing said so.** The earlier entry
+says "the generator is committed here". It was not: commit 0acde11 carries no
+file under `tools/listing-packages/build/`, because the starter's root
+`.gitignore` ignores every directory named `build`. The next commit, 2e610ee,
+describes five new scripts in its message and contains exactly one file, a
+stray `lib/__pycache__/flood.cpython-311.pyc`. From inside the checkout both
+commits looked complete. A fresh clone running `build/all.sh` failed at once.
+`f118284` re-includes the folder with `!build/` in the tool's own `.gitignore`
+and anchors its other patterns with a leading `/`; the unanchored `photos/`
+had also been swallowing `build/assets/photos/main-and-commerce.jpg`, Erik's
+photo that exists nowhere else but Dropbox. The `.pyc` is untracked now and
+`__pycache__/` ignored.
+
+**Two uploaded packages printed traffic distances measured from the old pin.**
+With the renderer committed, the fresh clone rebuilt all 22 packages (exit 0).
+Page for page against the uploaded set, 18 match within rendering noise and
+two differ only in the framing of the imagery. The other two do not. At IH 10
+East at Loop 1604, station 15H122 printed 160 m that is 167 m from the site,
+and 15H120 460 m that is 514 m. At IH 10 at Menger Springs, the nearest three
+changed order: US 87 at 566 m (printed 578 m), then IH 10 at 770 m, which the
+upload listed after SH 46. Both sites were moved during QA (the IH 10 East pin
+~120 ft west, the Menger Springs geometry to Tract 2), and the TxDOT cache in
+`lib/traffic.py` was keyed by listing id alone, so every later build reused the
+answer from the old point. The FEMA cache in `lib/flood.py` had the same key: at
+Menger Springs its 0.26% 1%-annual-chance overlap is 0 from the new geometry.
+The printed flood sentence did not change, because that site prints the
+pin-only sentence. Both caches are now keyed by the query point and radius,
+checked by moving a point 78 m and watching the distance change (126 m against
+167 m) while the unmoved point still hits its file. `maps.mjs` had the third
+member of the class: it skipped any map whose file existed, so a moved pin kept
+its old maps unless someone remembered `--force`. It now stores each job's spec
+beside the map and skips only on an exact match, checked by rendering, re-running
+(skip), then moving the centre (re-render). The committed `geo/meta.json` and
+`geo/flood-verdicts.json` are now the fresh build's, and the two packages in
+Dropbox were replaced with the fresh builds (5,102,643 and 7,218,909 bytes,
+sizes checked through the connector).
+
+**Honest accounting.** Neither defect was findable by the QA that preceded it.
+The QA agents compared every page against the originals, whose counts are
+older and whose distances are different anyway, and the builder's own checks
+ran in the checkout where the cache and the ignored folder both lived. The only
+instrument that saw either was a clean clone running the pipeline end to end.
+
+**What else landed.** The broker review notes, both QA reports with the status
+of each finding, and the scripts that make the two Dropbox documents
+(`review_pdf.py`, `showcase.py`) and upload through a file request (`upload.sh`,
+`frbatch.mjs`, which now takes the uploader's email from `UPLOADER_EMAIL`) are
+committed under the tool. The tool's generated folders are in `.prettierignore`,
+because prettier reads only the root `.gitignore` and a local build left
+`out/review-notes.html` failing `pnpm lint`. In Dropbox the two documents for
+the broker were re-uploaded with corrected figures and renamed `00 - Review
+Notes (read first).pdf` and `01 - Before and After.pdf`.
+
+Open items are filed: #207 (the 13 broker decisions), #208 (point each
+`package_pdf` at its refreshed package after sign-off), #209 (QR codes 404
+until cutover), #210 (website data disagrees with the packages on nine
+properties), #211 (four sites shown by pin, to be outlined from their plats).
+#181 has a comment: the new public-domain USGS cover aerials can replace the
+three Google-credited listing images without asking the client for licensing
+confirmation, pending an operator call on the look. The cross-site lessons
+(public GIS endpoints and their traps, Dropbox uploads from a cloud session,
+the `build` ignore trap) are a runbook in reddoor-maintenance,
+`docs/runbooks/listing-packages-and-public-gis.md`, on its
+`claude/nifty-dirac-2zmegy` branch.
+
+**Not done.** The three temporary Dropbox file requests used for uploading are
+still open; the connector has no way to close them, so the operator has to.
