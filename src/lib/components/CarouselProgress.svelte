@@ -129,8 +129,7 @@
 
   /** What the fill showed when the visitor turned — a record of what was
    *  DRAWN, which only an effect can know: the turn has already restarted
-   *  the dwell, so `progress` reads 0 by then (the featured band's `parked`
-   *  drift, same reason). */
+   *  the dwell, so `progress` reads 0 by then. */
   let left = $state(0);
 
   const value = $derived(
