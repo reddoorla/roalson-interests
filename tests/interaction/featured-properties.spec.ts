@@ -1644,7 +1644,14 @@ test.describe("motion", () => {
       expect(await onStage(page)).toHaveLength(1);
       await expect(status(page)).toHaveText(`Slide ${now + 1} of 3`);
       await expect(page.getByRole("button", { name: "Play slides" })).toBeVisible();
-      expect(await barScale(page), "the bar has not moved: nothing is counting").toBe(0);
+      // The bar: nothing is counting. Since #146 the turn's fill is faded
+      // out and held there, at the width it had, rather than drawn at 0.
+      const fillEl = page.locator(`${CARD} [data-carousel-progress] > div`);
+      await expect(fillEl, "nothing is counting").toHaveAttribute(
+        "data-carousel-fill",
+        "departing",
+      );
+      await expect(fillEl, "the turn's fill is out").toHaveCSS("opacity", "0");
     } finally {
       await context.close();
     }
@@ -2106,6 +2113,89 @@ test.describe("motion", () => {
     }
   });
 
+  test("a VISITOR's turn fades the fill it found — on screen, then held out while stopped (#146)", async ({
+    browser,
+  }) => {
+    // THE VISITOR'S TWIN OF THE CASE ABOVE, and the reversal of a snap: at an
+    // arrow press the fill used to drop from whatever the dwell had counted
+    // to empty on the frame of the turn. It now keeps that width and fades
+    // out over the settle (operator 2026-09-23, "manual turns animate").
+    // PAINTED WIDTH IS READ ON EVERY FRAME for #102's reason: an opacity can
+    // ramp beautifully on a zero-width box.
+    test.setTimeout(40_000);
+    const { context, page } = await moving(browser);
+    try {
+      await page.goto(HOME);
+      await adopted(page);
+      await pointerAway(page);
+      await expect.poll(() => timedFill(page), { timeout: TURN_CEILING }).toBeGreaterThan(0.2);
+
+      // Pressed and sampled IN THE PAGE (sampleAfterPress's reason): focus
+      // and click in one task, which is the arrow's focus-pause and the turn
+      // in one flush — so the clock is stopped for everything after it.
+      const { before, frames } = await page.evaluate(async (card) => {
+        const region = document.querySelector(card)!;
+        const fill = region.querySelector<HTMLElement>("[data-carousel-progress] > div")!;
+        const read = () => ({
+          mode: fill.dataset.carouselFill ?? "",
+          width: fill.getBoundingClientRect().width,
+          opacity: Number(getComputedStyle(fill).opacity),
+          dur: getComputedStyle(fill).transitionDuration,
+        });
+        const before = await new Promise<ReturnType<typeof read>>((resolve) =>
+          requestAnimationFrame(() => resolve(read())),
+        );
+        const next = [...region.querySelectorAll("button")].find(
+          (b) => b.getAttribute("aria-label") === "Next slide",
+        )!;
+        next.focus();
+        next.click();
+        const t0 = performance.now();
+        const frames: (ReturnType<typeof read> & { t: number })[] = [];
+        await new Promise<void>((resolve) => {
+          const tick = () => {
+            frames.push({ t: performance.now() - t0, ...read() });
+            if (performance.now() - t0 >= 1500) resolve();
+            else requestAnimationFrame(tick);
+          };
+          requestAnimationFrame(tick);
+        });
+        return { before, frames };
+      }, CARD);
+      await expect(page.getByRole("button", { name: "Play slides" })).toBeVisible();
+
+      const track = (await page.locator(`${CARD} [data-carousel-progress]`).boundingBox())!.width;
+      expect(before.mode, "premise: pressed mid-dwell").toBe("timed");
+      expect(before.width, "premise: a part-filled bar").toBeGreaterThan(track * 0.15);
+      expect(before.width, "premise: a part-filled bar").toBeLessThan(track * 0.9);
+
+      // Every frame after the press: `departing`, at the width it was drawn
+      // at — neither 0 (the old snap) nor the track (a count nobody finished).
+      expect(frames.length).toBeGreaterThan(10);
+      for (const f of frames) {
+        expect(f.mode, `t=${f.t.toFixed(0)}ms`).toBe("departing");
+        expect(Math.abs(f.width - before.width), `t=${f.t.toFixed(0)}ms width`).toBeLessThan(0.5);
+      }
+      expect(new Set(frames.map((f) => f.dur))).toEqual(new Set([`${DISSOLVE / 1000}s`]));
+
+      // THE FADE IS ON SCREEN: many frames part-way, each painting the whole
+      // pre-turn width, and only ever going down. A snap fails the count.
+      const opacities = frames.map((f) => f.opacity);
+      const partial = frames.filter((f) => f.opacity > 0.02 && f.opacity < 0.98);
+      expect(partial.length, `opacities ${opacities.join(", ")}`).toBeGreaterThan(5);
+      for (let i = 1; i < opacities.length; i++)
+        expect(opacities[i], `frame ${i} of the fade`).toBeLessThanOrEqual(opacities[i - 1]);
+
+      // …and it ENDS, with no timer: held at 0 from the settle on, for as
+      // long as the clock stays stopped.
+      const held = frames.filter((f) => f.t > DISSOLVE + 300);
+      expect(held.length).toBeGreaterThan(5);
+      for (const f of held) expect(f.opacity, `t=${f.t.toFixed(0)}ms`).toBe(0);
+    } finally {
+      await context.close();
+    }
+  });
+
   test("Play after a VISITOR's turn: the bar restarts from empty — it is never drawn full", async ({
     browser,
   }) => {
@@ -2120,6 +2210,11 @@ test.describe("motion", () => {
     //
     // Real mouse presses, on purpose: the arrow's focus is the pause, and
     // Play is what lifts it — the path a visitor takes.
+    //
+    // Since #146 the turn FADES the fill it found (`departing`), so the
+    // frames after Play start with that fill still fading or already out, at
+    // its pre-turn width. They are held to their own rule below, and the
+    // "never shrinks" rule is read over the COUNTING frames only.
     test.setTimeout(40_000);
     const { context, page } = await moving(browser);
     try {
@@ -2134,7 +2229,13 @@ test.describe("motion", () => {
       // Every frame of the bar from here on, stamped in the page.
       await page.evaluate((card) => {
         const w = window as unknown as {
-          __bar: { t: number; mode: string; width: number; label: string | null }[];
+          __bar: {
+            t: number;
+            mode: string;
+            width: number;
+            opacity: number;
+            label: string | null;
+          }[];
         };
         w.__bar = [];
         const region = document.querySelector(card)!;
@@ -2144,6 +2245,7 @@ test.describe("motion", () => {
             t: performance.now(),
             mode: fill.dataset.carouselFill ?? "",
             width: fill.getBoundingClientRect().width,
+            opacity: Number(getComputedStyle(fill).opacity),
             label: region.querySelector("button")!.getAttribute("aria-label"),
           });
           requestAnimationFrame(tick);
@@ -2174,27 +2276,42 @@ test.describe("motion", () => {
         () =>
           (
             window as unknown as {
-              __bar: { t: number; mode: string; width: number; label: string | null }[];
+              __bar: {
+                t: number;
+                mode: string;
+                width: number;
+                opacity: number;
+                label: string | null;
+              }[];
             }
           ).__bar,
       );
+      const track = (await page.locator(`${CARD} [data-carousel-progress]`).boundingBox())!.width;
       const playing = frames.filter((f) => f.label === "Pause slides");
       expect(playing.length, "sampled the bar after Play").toBeGreaterThan(5);
       expect(
         playing.filter((f) => f.mode === "handover").length,
         "frames drawn as a handover after a visitor's turn",
       ).toBe(0);
-      // …and the fill NEVER SHRINKS from Play on: it starts empty and grows.
+      // The turn's own fade: one width throughout, the one it was drawn at,
+      // and an opacity that only goes down.
+      const departing = playing.filter((f) => f.mode === "departing");
+      expect(new Set(departing.map((f) => Math.round(f.width))).size).toBeLessThanOrEqual(1);
+      for (let i = 1; i < departing.length; i++)
+        expect(departing[i].opacity).toBeLessThanOrEqual(departing[i - 1].opacity);
+      // …and once COUNTING, the fill NEVER SHRINKS: it starts empty and grows.
       // A full bar fading out has to shrink to nothing when its handover
       // ends, so this reads the defect as geometry, not as a flag. (Not a
       // ceiling on the width: when the poll above returns is a matter of load,
       // and measured at load 27–87 it let the bar reach 318px first.)
-      const shrank = playing.filter((f, i) => i > 0 && f.width < playing[i - 1].width - 0.5);
+      const counting = playing.filter((f) => f.mode === "timed");
+      expect(counting.length, "sampled the restarted dwell").toBeGreaterThan(2);
+      expect(counting[0].width, "the restarted dwell starts empty").toBeLessThan(track * 0.1);
+      const shrank = counting.filter((f, i) => i > 0 && f.width < counting[i - 1].width - 0.5);
       expect(
         shrank.map((f) => `${f.width.toFixed(1)}px`),
         "the fill shrank after Play — something full was drawn first",
       ).toEqual([]);
-      const track = (await page.locator(`${CARD} [data-carousel-progress]`).boundingBox())!.width;
       const widest = Math.max(...playing.map((f) => f.width));
       expect(widest, `the fill reached ${widest}px of a ${track}px track`).toBeLessThan(
         track * 0.9,
