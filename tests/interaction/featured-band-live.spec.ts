@@ -434,6 +434,225 @@ test.describe("motion on the shipped bundle", () => {
     }
   });
 
+  test("the photo's drift is ONE running CSS transition, and nothing writes it per frame", async ({
+    browser,
+  }) => {
+    // The operator's "stuttery" (2026-09-29), on the bundle that ships. The
+    // drift used to be a `scale()` written into the photo's style on every
+    // animation frame, so it stopped whenever the main thread did; it is one
+    // transition on `transform` now, which the compositor runs.
+    // featured-properties.spec.ts measures its curve, its hold and Pause on
+    // /dev/home; this is the production build's word that it is wired.
+    test.setTimeout(45_000);
+    const { context, page } = await moving(browser);
+    try {
+      await page.goto(HOME);
+      await adopted(page);
+      await page.mouse.move(2, 2);
+      // Mid-dwell on the clock: a turn, then a second into its dwell.
+      const was = (await status(page).textContent())!;
+      await expect(status(page), "the clock turned").not.toHaveText(was, {
+        timeout: FEATURED_DWELL + FEATURED_DISSOLVE + 6000,
+      });
+      await page.waitForTimeout(FEATURED_DISSOLVE + 1000);
+      const seen = await page.evaluate(async (card) => {
+        const photo = document
+          .querySelector(card)!
+          .querySelector("[data-featured-slide]:not([inert]) [data-featured-photo]")!;
+        const scale = () => Number(/matrix\(([^,]+),/.exec(getComputedStyle(photo).transform)![1]);
+        const animations = photo.getAnimations().map((a) => ({
+          kind: a.constructor.name,
+          property: (a as CSSTransition).transitionProperty,
+          state: a.playState,
+          duration: a.effect!.getTiming().duration,
+        }));
+        let writes = 0;
+        const observer = new MutationObserver((records) => (writes += records.length));
+        observer.observe(photo, { attributes: true, attributeFilter: ["style"] });
+        const from = scale();
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        observer.disconnect();
+        return { animations, writes, from, to: scale() };
+      }, CARD);
+      expect(seen.animations).toEqual([
+        {
+          kind: "CSSTransition",
+          property: "transform",
+          state: "running",
+          duration: FEATURED_DWELL,
+        },
+      ]);
+      expect(seen.to, `${seen.from} → ${seen.to} across 1s mid-dwell`).toBeGreaterThan(seen.from);
+      expect(seen.writes, "style writes on the photo across 1s mid-dwell").toBe(0);
+    } finally {
+      await context.close();
+    }
+  });
+
+  test("a photo brought back after it stopped showing drifts again from 1.00 — a Previous, and a Next, Next that wraps", async ({
+    browser,
+  }) => {
+    // A photo that LEFT is held where it was while it still shows, and rests
+    // at 1 once its wrapper's fade-out has ended. So a photo brought back ~2s
+    // after a clock turn gets the drift a clock turn draws: still through
+    // the settle, then 1.00 → 1.03. On 3c7284e it was held for a whole DWELL
+    // instead and drifted on from there: from 1.02994 to 1.03 over a whole
+    // DWELL, a still photo for its visit (this case's red on that code).
+    test.setTimeout(150_000);
+    for (const wraps of [false, true]) {
+      const { context, page } = await moving(browser);
+      try {
+        await page.goto(HOME);
+        await adopted(page);
+        // Round to the photo the clock just sent away: back one, or on
+        // through every other listing (Next, Next on the live three).
+        const count = await page.locator(SLIDES).count();
+        const presses = wraps ? Array<string>(count - 1).fill("Next slide") : ["Previous slide"];
+        await page.mouse.move(2, 2);
+        await page.locator(BAND).scrollIntoViewIfNeeded();
+        await expect(page.locator(`${BAND} [data-property-map]`)).toHaveAttribute(
+          "data-map-ready",
+          "",
+          { timeout: 40_000 },
+        );
+        // IN THE PAGE, every frame: the next clock turn, 2s, the presses
+        // (400ms apart, so the ones between leave while they still show),
+        // then the photo brought back across its whole drift.
+        const run = await page.evaluate(
+          async ({ card, presses, until }) => {
+            const region = document.querySelector(card)!;
+            const live = region.querySelector("[aria-live]")!;
+            const slides = [...region.querySelectorAll("[data-featured-slide]")];
+            const photos = slides.map((s) =>
+              s.querySelector<HTMLElement>("[data-featured-photo]")!,
+            );
+            const onStage = () => slides.findIndex((s) => !s.hasAttribute("inert"));
+            const now = () => Number(document.timeline.currentTime);
+            const scaleOf = (el: Element) => {
+              const t = getComputedStyle(el).transform;
+              return t === "none" ? 1 : Number(/matrix\(([^,]+),/.exec(t)![1]);
+            };
+            const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+            const frames: { tl: number; on: number; scale: number[]; opacity: number[] }[] = [];
+            let back = -1;
+            let pressedAt: number | null = null;
+            let origin: number | null = null;
+            let timing: object | null = null;
+            const left = onStage();
+            await new Promise<void>((resolve) => {
+              const turned = new MutationObserver(() => {
+                turned.disconnect();
+                resolve();
+              });
+              turned.observe(live, { childList: true, characterData: true, subtree: true });
+            });
+            const finished = new Promise<void>((resolve) => {
+              const tick = () => {
+                frames.push({
+                  tl: now(),
+                  on: onStage(),
+                  scale: photos.map(scaleOf),
+                  opacity: photos.map((p) => Number(getComputedStyle(p.parentElement!).opacity)),
+                });
+                const drift = back < 0 ? undefined : photos[back].getAnimations()[0];
+                if (origin === null && drift?.startTime != null) {
+                  origin = Number(drift.startTime);
+                  const t = drift.effect!.getTiming();
+                  timing = { state: drift.playState, duration: t.duration, delay: t.delay };
+                }
+                // From the drift's start — or from the press, if none ever
+                // starts, so a photo left standing still fails and not hangs.
+                if (pressedAt !== null && now() - (origin ?? pressedAt) >= until) resolve();
+                else requestAnimationFrame(tick);
+              };
+              requestAnimationFrame(tick);
+            });
+            await wait(2000);
+            const pressTl = now();
+            for (const [k, label] of presses.entries()) {
+              if (k > 0) await wait(400);
+              const button = [...region.querySelectorAll("button")].find(
+                (b) => b.getAttribute("aria-label") === label,
+              )!;
+              button.focus();
+              button.click();
+            }
+            await new Promise(requestAnimationFrame);
+            back = onStage();
+            pressedAt = now();
+            await finished;
+            return {
+              left,
+              back,
+              pressTl,
+              pressedAt,
+              origin: origin as number | null,
+              timing,
+              frames,
+            };
+          },
+          { card: CARD, presses, until: FEATURED_DISSOLVE + FEATURED_DWELL + 100 },
+        );
+        const name = presses.join(", ");
+        const { left, back, pressTl, frames } = run;
+        expect(back, `${name}: brought back the photo the clock turned away`).toBe(left);
+        expect.soft(run.origin, `${name}: its drift started`).not.toBeNull();
+        const origin = run.origin ?? run.pressedAt;
+
+        // IT RESTED, IN THE DARK. Every photo off stage holds one value for
+        // as long as its wrapper shows at all…
+        const moved: string[] = [];
+        for (let p = 0; p < count; p++) {
+          let held: number | null = null;
+          for (const f of frames)
+            if (f.on === p || f.opacity[p] === 0) held = null;
+            else if ((held ??= f.scale[p]) !== f.scale[p])
+              moved.push(
+                `photo ${p}, ${f.tl - pressTl}ms from the press: ${f.scale[p]} from ${held}`,
+              );
+        }
+        expect.soft(moved, `${name}: a photo off stage moved while it showed`).toEqual([]);
+        // …and the one brought back was at 1, hidden, before the press.
+        expect
+          .soft(
+            frames.some(
+              (f) =>
+                f.tl < pressTl && f.on !== left && f.opacity[left] === 0 && f.scale[left] === 1,
+            ),
+            `${name}: rested at 1 before it was brought back`,
+          )
+          .toBe(true);
+
+        // BACK: still, at 1, through the settle…
+        expect.soft(run.timing, `${name}: its drift`).toEqual({
+          state: "running",
+          duration: FEATURED_DWELL,
+          delay: FEATURED_DISSOLVE,
+        });
+        const settle = frames.filter(
+          (f) => f.tl > pressTl && f.tl < origin + FEATURED_DISSOLVE - 20,
+        );
+        expect(settle.length, `${name}: sampled the settle`).toBeGreaterThan(0);
+        expect
+          .soft(
+            settle
+              .filter((f) => f.scale[back] > 1.0005)
+              .map((f) => `${f.tl - origin}: ${f.scale[back]}`),
+            `${name}: through the settle`,
+          )
+          .toEqual([]);
+        // …then the whole drift.
+        const drift = frames.filter((f) => f.tl >= origin).map((f) => f.scale[back]);
+        const travel = Math.max(...drift) - Math.min(...drift);
+        expect
+          .soft(travel, `${name}: travelled ${travel} over the dwell`)
+          .toBeGreaterThanOrEqual(0.025);
+      } finally {
+        await context.close();
+      }
+    }
+  });
+
   test("1920 × 1080: the card is on screen at load, and its reveal still PLAYS (#105)", async ({
     browser,
   }) => {
