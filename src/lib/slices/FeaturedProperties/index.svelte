@@ -393,12 +393,12 @@
   // wide at the end: upscaled, and softer through the whole drift, not only
   // at its end (mean |Laplacian| of the composited photo frozen at 1.03,
   // headless Chromium at 1440 × DPR 2: 6.66 from 1920, 8.35 from 2048, 9.67
-  // from 2560; 9.82 for a still, never-composited 1920). So `sizes` is the box times the end
-  // scale (none on a one-listing band, which never drifts), times how far an
-  // image wider than the box overflows it under object-cover: a 1717 × 866
-  // photo is drawn 1073.6 wide in a 927 box, and at DPR 1 it was fetched at
-  // 1024. Reduced motion cannot be known in the server's markup, so it pays
-  // the 6% too.
+  // from 2560; 9.82 for a still, never-composited 1920). So `sizes` is the
+  // box times the end scale (none on a one-listing band, which never
+  // drifts), times how far an image wider than the box overflows it under
+  // object-cover: a 1717 × 866 photo is drawn 1073.6 wide in a 927 box, and
+  // at DPR 1 it was fetched at 1024. Reduced motion cannot be known in the
+  // server's markup, so it pays the 6% too.
   //
   // 2048 BESIDE THE DEFAULTS because Chromium takes the smallest candidate at
   // least as dense as the screen: at 1440–1470 × DPR 2 the end frame needs
