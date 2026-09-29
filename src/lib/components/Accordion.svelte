@@ -1,6 +1,6 @@
 <script lang="ts">
   import { slide } from "$lib/transitions";
-  import { ChevronRight } from "@lucide/svelte";
+  import ChevronRight from "@lucide/svelte/icons/chevron-right";
   import { SvelteSet } from "svelte/reactivity";
 
   interface AccordionItem {

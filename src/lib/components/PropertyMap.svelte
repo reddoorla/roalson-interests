@@ -87,9 +87,7 @@
   // imports this component and asserts nothing: 50.2s through the barrel,
   // 5.5s through these two paths — and PropertyMap.test.ts's fifteen cases now
   // run in 4.6s total. Nothing else changes: same components, same props.
-  // Modal.svelte and Accordion.svelte still take the barrel and still pay for
-  // it (Modal.test.ts: 37.5s for 18 assertions); that is issue #97, not this
-  // file's to change.
+  // src/lucide-imports.test.ts holds every lucide import to this form (#97).
   import Expand from "@lucide/svelte/icons/expand";
   import Minus from "@lucide/svelte/icons/minus";
   import Plus from "@lucide/svelte/icons/plus";

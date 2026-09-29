@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { X } from "@lucide/svelte";
+  import X from "@lucide/svelte/icons/x";
   import { tick, type Snippet } from "svelte";
   import { lockBodyScroll } from "$lib/utils/scrollLock";
 
