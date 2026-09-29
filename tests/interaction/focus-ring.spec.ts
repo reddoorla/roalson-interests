@@ -41,16 +41,37 @@ async function expectCardRing(card: Locator, ground: string, color: string) {
 // set `--focus-ring` for its children; jsdom resolves no stylesheets, so the
 // cascade can only be checked here.
 const FIXTURE = "/dev/properties";
+/** The one route whose bar floats over PageMasthead (FIXTURE's did until
+ *  2026-09-29, when /properties took the solid bar from the top). */
+const FLOATING = "/contact";
 const bar = 'nav[aria-label="Primary"]';
+
+test("the floating bar's ring is off-white, and garnet once the bar takes its ground", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(FLOATING);
+  await hydrated(page);
+
+  // The floating bar has no ground of its own: it borrows the masthead's.
+  await expect(page.locator(bar)).toHaveAttribute("data-floating", "");
+  await expectRing(page, page.getByLabel("Open menu"), OFF_WHITE);
+
+  // Once the bar has taken its off-white ground, so has its ring.
+  await page.mouse.wheel(0, 600);
+  await expect(page.locator(bar)).not.toHaveAttribute("data-floating", "");
+  await expectRing(page, page.getByLabel("Open menu"), GARNET);
+});
 
 test("the ring is off-white on dark grounds and garnet on light ones", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await page.goto(FIXTURE);
   await hydrated(page);
 
-  // The floating bar has no ground of its own: it borrows the masthead's.
-  await expect(page.locator(bar)).toHaveAttribute("data-floating", "");
-  await expectRing(page, page.getByLabel("Open menu"), OFF_WHITE);
+  // The listing's bar is solid from the top: off-white ground, garnet ring.
+  await expect(page.locator(bar)).not.toHaveAttribute("data-floating", "");
+  await expect(page.locator(bar)).toHaveCSS("background-color", OFF_WHITE);
+  await expectRing(page, page.getByLabel("Open menu"), GARNET);
 
   // The garnet card: its LEARN MORE sits on bg-primary…
   const cards = page.locator("main article");
@@ -67,11 +88,6 @@ test("the ring is off-white on dark grounds and garnet on light ones", async ({ 
       .scrollIntoView({ block: "center", behavior: "instant" }),
   );
   await expectCardRing(cards.nth(1), GARNET, OFF_WHITE);
-
-  // Once the bar has taken its off-white ground, so has its ring.
-  await page.mouse.wheel(0, 600);
-  await expect(page.locator(bar)).not.toHaveAttribute("data-floating", "");
-  await expectRing(page, page.getByLabel("Open menu"), GARNET);
 });
 
 test("the ring is off-white inside the menu, which is a gradient with no bg-* at all", async ({

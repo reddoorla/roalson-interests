@@ -22,19 +22,16 @@ export async function load({ fetch, cookies }) {
   // prerender collision that would be.
   const masthead = client ? await loadPropertiesMasthead(client) : null;
 
-  // The page opens on PageMasthead, which runs under the bar as the comp draws
-  // it — so the bar floats over it in its reverse tone (see Nav.svelte).
-  // `canvasTop` is the top of that band: the masthead is a gradient and its
-  // FIRST stop is garnet (`from-primary`), not the `to-dark` it ends on.
-  //
-  // WITH a photo that stops being the pixel you see. The gradient is still the
-  // band's own ground, but the photo covers it and `.masthead-shade` puts ~0.66
-  // black over the top of THAT (0.82 until 2026-09-28), so the band's first
-  // row reads as darkened photo while an overscroll above it still pulls
-  // garnet. The claim is a literal this route's source declares and
-  // nav-over.test.ts checks against the component's ground CLASS, so it cannot
-  // vary with CMS content — it stays "primary", and the seam is #91.
-  return { ...listing, masthead, navOver: "dark" as const, canvasTop: "primary" as const };
+  // No `navOver`, and so no `canvasTop`: the page opens on PageMasthead but the
+  // bar does NOT float over it. It is the solid bar from the top — off-white
+  // ground, garnet wordmark and CONTACT US, as it is on every page once
+  // scrolled — and the layout pads <main> by its height, so the photo starts
+  // below it. The client's call (Discord, 2026-09-29, approved by the
+  // designer): "use the garnet and sand one … and remove the dark cloud all
+  // together". The cloud was `.masthead-shade`, which existed only to keep a
+  // floating bar's sand controls legible over the photo. With nothing above the
+  // document but the page ground, #91 (garnet above a darkened photo) is moot.
+  return { ...listing, masthead };
 }
 
 export function entries() {

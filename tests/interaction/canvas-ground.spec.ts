@@ -87,11 +87,14 @@ import {
 //    at 1425, so neither number sees the gutter. No width here is a literal
 //    compared to `clientWidth`; every sampled x comes from a real element rect.
 //
-// The routes are the /dev/* fixtures, as in photo-band.spec.ts: the real layout
-// over static data, no network, and the same three `canvasTop` states the
-// shipping routes have (`dark` → /, `primary` → /properties and /contact, and
-// none → a listing detail). The real routes were checked by hand on a
-// production build; see docs/workJournal.md for the head bytes.
+// The routes are the /dev/* fixtures, as in photo-band.spec.ts — the real
+// layout over static data, no network — and /contact, whose load touches no
+// CMS: the same three `canvasTop` states the shipping routes have (`dark` → /,
+// `primary` → /contact, and none → /properties and a listing detail). The
+// real routes were checked by hand on a production build; see
+// docs/workJournal.md for the head bytes. /properties claimed `primary` too
+// until 2026-09-29, when it took the solid bar from the top, and its fixture
+// was this file's garnet case.
 
 /** --color-dark — HomeHero's flat ground, the homepage's `canvasTop: "dark"`. */
 const DARK = DARK_RGB;
@@ -196,7 +199,7 @@ async function open(page: Page, url: string, width = 1455, height = 900) {
 test.describe("the ground ABOVE the top of the document", () => {
   const ROUTES = [
     { url: "/dev/home", claim: "dark", colour: DARK, theme: DARK_HEX },
-    { url: "/dev/properties", claim: "primary", colour: GARNET, theme: GARNET_HEX },
+    { url: "/contact", claim: "primary", colour: GARNET, theme: GARNET_HEX },
   ] as const;
 
   for (const route of ROUTES) {
@@ -255,19 +258,24 @@ test.describe("the ground ABOVE the top of the document", () => {
     });
   }
 
-  test("a route that claims nothing keeps the page ground, and says so out loud", async ({
-    page,
-  }) => {
-    await open(page, "/dev/property");
-    const at = await measure(page);
-    // Nothing is the answer, not an omission: $lib/canvas-top returns undefined
-    // and app.css's own fallback stands.
-    expect(at.canvasTopVar, "no --canvas-top is declared at all").toBe("");
-    expect(at.rootGround, "so the canvas is the page ground").toBe(rgb(OFF_WHITE));
-    // theme-color, unlike the rule, still ships — a route that omitted the tag
-    // would keep whatever the PREVIOUS route set across a client-side nav.
-    expect(at.themeColor, "and the tag is present anyway").toBe(OFF_WHITE_HEX);
-  });
+  // /dev/properties since 2026-09-29: the listing opens on its masthead photo
+  // BELOW the solid bar, so what is above its document is the page ground —
+  // which is what made #91 (garnet above a darkened photo) moot.
+  for (const url of ["/dev/property", "/dev/properties"]) {
+    test(`${url} claims nothing, so it keeps the page ground, and says so out loud`, async ({
+      page,
+    }) => {
+      await open(page, url);
+      const at = await measure(page);
+      // Nothing is the answer, not an omission: $lib/canvas-top returns undefined
+      // and app.css's own fallback stands.
+      expect(at.canvasTopVar, "no --canvas-top is declared at all").toBe("");
+      expect(at.rootGround, "so the canvas is the page ground").toBe(rgb(OFF_WHITE));
+      // theme-color, unlike the rule, still ships — a route that omitted the tag
+      // would keep whatever the PREVIOUS route set across a client-side nav.
+      expect(at.themeColor, "and the tag is present anyway").toBe(OFF_WHITE_HEX);
+    });
+  }
 
   test("the two claiming routes do not agree — a hard-coded colour cannot pass", async ({
     page,
@@ -277,10 +285,10 @@ test.describe("the ground ABOVE the top of the document", () => {
     // pass on whichever colour it was stuck at.
     await open(page, "/dev/home");
     const home = (await measure(page)).rootGround;
-    await open(page, "/dev/properties");
-    const properties = (await measure(page)).rootGround;
-    expect(home).not.toBe(properties);
-    expect([home, properties]).toEqual([rgb(DARK), rgb(GARNET)]);
+    await open(page, "/contact");
+    const contact = (await measure(page)).rootGround;
+    expect(home).not.toBe(contact);
+    expect([home, contact]).toEqual([rgb(DARK), rgb(GARNET)]);
   });
 
   test("with scripting off the colour is already right — it is the server's", async ({
@@ -303,7 +311,7 @@ test.describe("the ground ABOVE the top of the document", () => {
     // `html` has none. Giving `html` one takes body OUT of that propagation —
     // which is the point — but body must then still paint the page ground in its own
     // box, or every page turns the colour of its first band.
-    await open(page, "/dev/properties");
+    await open(page, "/contact");
     const at = await measure(page);
     expect(at.bodyGround, "body keeps a background of its own").toBe(rgb(OFF_WHITE));
     expect(at.bodyBox.top, "and its box starts at the document's top").toBe(0);
