@@ -1,0 +1,449 @@
+{
+  "uid": "ih-10-at-menger-springs",
+  "variant": "land",
+  "transaction": "For Sale",
+  "type_label": "Land",
+  "eyebrow": "IH 10 Commercial Development Sites",
+  "title": "IH 10 at Menger Springs",
+  "city": "Boerne, Texas",
+  "size_headline": "",
+  "rows": [
+    {
+      "label": "Location",
+      "text": "The property is comprised of two tracts along the southwest side of IH 10 at Menger Springs adjacent to the Methodist Healthcare facility in Boerne, Texas. It is just south of the IH 10 at Highway 46 interchange.",
+      "pairs": [
+        [
+          "Tract 1",
+          "SWS of IH 10 just north of Menger Springs"
+        ],
+        [
+          "Tract 2",
+          "SEC of IH 10 at Menger Springs"
+        ]
+      ]
+    },
+    {
+      "label": "Size",
+      "pairs": [
+        [
+          "Tract 1",
+          "3.8 acres"
+        ],
+        [
+          "Tract 2",
+          "6.4 acres"
+        ],
+        [
+          "Total",
+          "10.2 acres"
+        ]
+      ]
+    },
+    {
+      "label": "IH 10 Frontage",
+      "pairs": [
+        [
+          "Tract 1",
+          "Approximately 674 feet"
+        ],
+        [
+          "Tract 2",
+          "Approximately 540 feet"
+        ]
+      ]
+    },
+    {
+      "label": "Utilities",
+      "pairs": [
+        [
+          "Electricity",
+          "Available"
+        ],
+        [
+          "Sewer",
+          "Available"
+        ],
+        [
+          "Water",
+          "Available"
+        ],
+        [
+          "Gas",
+          "Available"
+        ]
+      ],
+      "note": "Prospective buyers should retain an independent engineer to verify the location, accessibility, and available capacity of all utilities."
+    },
+    {
+      "label": "Zoning",
+      "text": "C-3 on the 3.8 Acre Tract and C-4 on the 6.4 Acre Tract, Commercial, City of Boerne, Texas",
+      "note": "Prospective buyers should verify the zoning and permitted uses for the property with the appropriate governing authority."
+    },
+    {
+      "label": "Traffic",
+      "text": "2024 Texas Department of Transportation maps indicate 57,215 vehicles per day on I. H. 10 just southeast of the property."
+    },
+    {
+      "label": "Demographics",
+      "table": {
+        "columns": [
+          "2025 ESRI Estimates:",
+          "Population:",
+          "Average Household Income:"
+        ],
+        "rows": [
+          [
+            "3-mile radius",
+            "22,873",
+            "$146,958"
+          ],
+          [
+            "5-mile radius",
+            "34,924",
+            "$159,265"
+          ],
+          [
+            "7-mile radius",
+            "57,312",
+            "$168,465"
+          ]
+        ]
+      },
+      "note": "Source: U.S. Bureau of the Census, 2020 Census of Population and Housing. ESRI forecasts for 2025 and 2030."
+    },
+    {
+      "label": "Flood Plain",
+      "text": "The Federal Emergency Management Agency maps appear to indicate a small portion of 100-year flood plain on the south end of Tract 1 by Menger Creek."
+    },
+    {
+      "label": "Topography",
+      "text": "Tract 1 has a gentle slope from IH 10 to the southwest. Tract 2 slopes generally to the east to IH 10."
+    },
+    {
+      "label": "Easements",
+      "text": "Tract 1 has a 20’ utility easement along the northern and eastern boundaries. Tract 2 has utility and pedestrian easements. Refer to Survey."
+    },
+    {
+      "label": "Deed Restrictions",
+      "text": "Restrictions and covenants are in place to promote the overall quality of development in Menger Springs. Contact Broker."
+    },
+    {
+      "label": "Area Development",
+      "text": "The Menger Springs subdivision, Methodist medical office building and ambulatory surgery center and Morningside Ministries senior care are adjacent to the properties. Significant commercial development including H.E.B. and Home Depot are just north of the properties at the IH 10 and Highway 46 interchange."
+    },
+    {
+      "label": "Potential Use",
+      "text": "Retail, hospitality, office, healthcare, senior services and other commercial uses"
+    },
+    {
+      "label": "Investment",
+      "text": "Price:",
+      "pairs": [
+        [
+          "Tract 1",
+          "$24.00 per square foot; $3,972,672"
+        ],
+        [
+          "Tract 2",
+          "$16.00 per square foot; $4,460,541"
+        ],
+        [
+          "",
+          "Subdivides will be considered."
+        ]
+      ]
+    }
+  ],
+  "comments": [
+    "Exceptional growth within the City of Boerne is driving the need for retail, office and other commercial uses, as well as healthcare services.",
+    "Located at the entrance to Morningside Ministries and Methodist Healthcare, the tracts have excellent visibility and access to IH 10."
+  ],
+  "contact": {
+    "names": "Bart Wilson or Matt Howard",
+    "phone": "210-496-5800",
+    "fax": "(210) 496-5809",
+    "emails": [
+      "bwilson@roalson.com",
+      "mhoward@roalson.com"
+    ],
+    "web": "www.roalson.com"
+  },
+  "demographic_overview": {
+    "title": "IH 10 at Menger Springs",
+    "date": "October 27, 2025",
+    "columns": [
+      "3.0 Miles",
+      "5.0 Miles",
+      "7.0 Miles"
+    ],
+    "sections": [
+      {
+        "heading": "Population",
+        "rows": [
+          [
+            "2020 Census",
+            "19,695",
+            "29,230",
+            "47,634"
+          ],
+          [
+            "2025 Estimate",
+            "22,873",
+            "34,924",
+            "57,312"
+          ],
+          [
+            "5 Year Projection",
+            "27,846",
+            "42,101",
+            "67,975"
+          ]
+        ]
+      },
+      {
+        "heading": "Households",
+        "rows": [
+          [
+            "2020 Census",
+            "7,217",
+            "10,552",
+            "17,192"
+          ],
+          [
+            "2025 Estimate",
+            "8,597",
+            "12,912",
+            "21,238"
+          ],
+          [
+            "5 Year Projection",
+            "10,641",
+            "15,887",
+            "25,690"
+          ]
+        ]
+      },
+      {
+        "heading": "2025 Population by Race",
+        "rows": [
+          [
+            "White",
+            "73.9%",
+            "74.0%",
+            "72.4%"
+          ],
+          [
+            "Black",
+            "1.5%",
+            "1.4%",
+            "1.7%"
+          ],
+          [
+            "Asian or Pacific Islander",
+            "1.7%",
+            "1.8%",
+            "2.5%"
+          ],
+          [
+            "American Indian",
+            "0.7%",
+            "0.6%",
+            "0.6%"
+          ]
+        ]
+      },
+      {
+        "heading": "2025 Population by Ethnicity",
+        "rows": [
+          [
+            "Hispanic Origin",
+            "27.2%",
+            "26.6%",
+            "27.0%"
+          ]
+        ]
+      },
+      {
+        "heading": "2025 Total Housing Units",
+        "rows": [
+          [
+            "Owner-Occupied",
+            "5,953",
+            "9,658",
+            "17,026"
+          ],
+          [
+            "Renter-Occupied",
+            "2,644",
+            "3,254",
+            "4,212"
+          ],
+          [
+            "Average Household Size",
+            "2.58",
+            "2.65",
+            "2.66"
+          ]
+        ]
+      },
+      {
+        "heading": "2025 Household Income",
+        "rows": [
+          [
+            "Income $ 0 - $15,000",
+            "6.4%",
+            "5.6%",
+            "4.6%"
+          ],
+          [
+            "Income $ 15,000 - $24,999",
+            "4.9%",
+            "3.7%",
+            "2.8%"
+          ],
+          [
+            "Income $ 25,000 - $34,999",
+            "4.5%",
+            "4.3%",
+            "4.0%"
+          ],
+          [
+            "Income $ 35,000 - $49,999",
+            "11.5%",
+            "10.5%",
+            "8.8%"
+          ],
+          [
+            "Income $ 50,000 - $74,999",
+            "10.9%",
+            "10.2%",
+            "9.7%"
+          ],
+          [
+            "Income $ 75,000 - $99,999",
+            "11.6%",
+            "10.3%",
+            "10.1%"
+          ],
+          [
+            "Income $ 100,000 - $149,999",
+            "15.2%",
+            "16.7%",
+            "17.8%"
+          ],
+          [
+            "Income $ 150,000 - $199,999",
+            "10.8%",
+            "11.1%",
+            "12.0%"
+          ],
+          [
+            "Income $200,000 +",
+            "24.1%",
+            "27.7%",
+            "30.3%"
+          ],
+          [
+            "Average Household Income",
+            "$146,958",
+            "$159,265",
+            "$168,465"
+          ],
+          [
+            "Median Household Income",
+            "$99,920",
+            "$114,097",
+            "$128,309"
+          ],
+          [
+            "Per Capita Income",
+            "$55,653",
+            "$59,991",
+            "$62,233"
+          ]
+        ]
+      }
+    ],
+    "source": "Source: U.S. Bureau of the Census, 2020 Census of Population and Housing. ESRI forecasts for 2025 and 2030.",
+    "from_image": false
+  },
+  "pages": [
+    {
+      "page": 1,
+      "kind": "cover_spec",
+      "caption": ""
+    },
+    {
+      "page": 2,
+      "kind": "spec",
+      "caption": ""
+    },
+    {
+      "page": 3,
+      "kind": "location_map",
+      "caption": "Location Map",
+      "annotations": "regional road map (Boerne to San Antonio); site marked with yellow starburst on IH 10 just south of Boerne"
+    },
+    {
+      "page": 4,
+      "kind": "area_map",
+      "caption": "Area Map",
+      "annotations": "Boerne street map; the two tracts marked with numbered yellow dots 1 and 2 on the southwest side of IH 10 near Menger Springs / Creek Springs"
+    },
+    {
+      "page": 5,
+      "kind": "aerial",
+      "caption": "Aerial Map",
+      "annotations": "wide aerial; two yellow 'SITE' arrows; numbered legend 1. Home Depot, 2. HEB, 3. Super Walmart, 4. Sherwin Williams, 5. Methodist Healthcare; address box 'Roalson Interests, Inc. 18618 Tuscany Stone, Suite 200 San Antonio, TX 78258'; north arrow; STDB/esri credit"
+    },
+    {
+      "page": 6,
+      "kind": "aerial",
+      "caption": "Aerial Map",
+      "annotations": "close aerial; both tracts outlined in yellow along IH-10 with 'SITE' arrows; labels Morningside Ministries and Methodist Healthcare; north arrow"
+    },
+    {
+      "page": 7,
+      "kind": "survey",
+      "caption": "Survey",
+      "annotations": "survey excerpt for TRACT \"1\" B-2 (3.8 AC.) along IH 10 with 674' frontage dimension and 20' utility easements; adjoining area at north end marked 'SOLD 1.67 AC.'"
+    },
+    {
+      "page": 8,
+      "kind": "survey",
+      "caption": "Survey",
+      "annotations": "survey excerpt for TRACT \"2\" B-2 (±6.4 AC.) between IH 10 and Menger Springs road; 8' pedestrian & landscape easement, 15' and 25' utility easements; adjoining 'SCHNEIDER TRACT 1 2.968 Ac.' and a proposed 70' wide ingress-egress easement"
+    },
+    {
+      "page": 9,
+      "kind": "demographics",
+      "caption": ""
+    },
+    {
+      "page": 10,
+      "kind": "disclosure",
+      "caption": ""
+    },
+    {
+      "page": 11,
+      "kind": "iabs",
+      "caption": ""
+    }
+  ],
+  "qa_notes": [
+    "SIZE MISMATCH: PDF gives Tract 1 3.8 acres + Tract 2 6.4 acres = Total 10.2 acres; Prismic size_label is '10.24 acres' / acres 10.24.",
+    "PRICE MISMATCH: PDF Investment prices Tract 1 at $24.00/sf; $3,972,672 and Tract 2 at $16.00/sf; $4,460,541 ('Subdivides will be considered.'); Prismic total_price says 'Contact Broker'.",
+    "Price arithmetic: $3,972,672 / $24.00 = 165,528 sf = exactly 3.80 ac (consistent). $4,460,541 / $16.00 = 278,783.81 sf (6.40 ac) — not a whole square-foot count; 6.4 ac × 43,560 × $16 would be $4,460,544. Likely based on an unrounded survey area; broker may want to confirm.",
+    "ZONING MISMATCH: PDF 'C-3 on the 3.8 Acre Tract and C-4 on the 6.4 Acre Tract, Commercial, City of Boerne, Texas'; Prismic 'Tract 1: C-3 Tract 2: C-4 Kendall County' (Kendall County vs City of Boerne).",
+    "The Tract 1 survey page (p7) shows an adjoining 1.67 AC. portion at the north end marked 'SOLD'. Worth confirming the 674-foot Tract 1 IH 10 frontage still applies to the remaining 3.8 ac.",
+    "Cover has no property name (headline 'IH 10 COMMERCIAL DEVELOPMENT SITES / BOERNE, TEXAS'); title 'IH 10 at Menger Springs' taken from the Demographic Overview heading and Prismic title (match). No size line on the cover, so size_headline is empty.",
+    "Transaction: PDF never says For Sale or For Lease, but it prices the tracts (Investment/Price) and addresses 'prospective buyers'; 'For Sale' used.",
+    "Phone printed as '210-496-5800' (not the '(210) 496-5800' format used on the other packages and for the fax on this one). Kept verbatim.",
+    "Investment row: original has a 'Price:' lead-in followed by per-tract lines and a trailing sentence 'Subdivides will be considered.'; transcribed as text 'Price:' + pairs, with the trailing sentence as a pair with an empty label to keep its position.",
+    "'Subdivides will be considered.' — 'subdivides' used as a noun (i.e. subdivisions). Kept verbatim.",
+    "Location abbreviations 'SWS' (southwest side) and 'SEC' (southeast corner) kept verbatim.",
+    "Prismic highlight 'Quality commercial property fronting IH 10 by Methodist Healthcare and Morningside Ministries' does not appear verbatim in the PDF (closest is the second comment).",
+    "Aerial map p5 carries an outdated office address box ('18618 Tuscany Stone, Suite 200 San Antonio, TX 78258'); the disclosure page gives 17721 Rogers Ranch Pkwy., Suite 125, San Antonio, Texas 78258.",
+    "Spec-page Demographics table matches the Demographic Overview 2025 Estimate and Average Household Income values exactly."
+  ]
+}

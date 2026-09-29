@@ -1,0 +1,286 @@
+{
+  "uid": "ih-10-east-at-loop-1604",
+  "variant": "land",
+  "transaction": "For Sale",
+  "type_label": "Land",
+  "eyebrow": "Pad Site Opportunity",
+  "title": "IH 10 East and Loop 1604",
+  "city": "San Antonio, Texas",
+  "size_headline": "",
+  "rows": [
+    {
+      "label": "Location",
+      "text": "The property is located at the northwest corner of the intersection of IH 10 East and Loop 1604 in San Antonio, Texas."
+    },
+    {
+      "label": "Size",
+      "text": "1.34 +/- Acres"
+    },
+    {
+      "label": "Utilities",
+      "pairs": [
+        [
+          "Electric",
+          "Available"
+        ],
+        [
+          "Water",
+          "Available"
+        ],
+        [
+          "Sewer",
+          "Available"
+        ],
+        [
+          "Gas",
+          "Available"
+        ]
+      ],
+      "note": "Prospective buyers should retain an independent engineer to verify the location, accessibility, and available capacity of all utilities."
+    },
+    {
+      "label": "Zoning",
+      "text": "C-3, Commercial, City of San Antonio",
+      "note": "Prospective buyers should verify the zoning and permitted uses for this property with the appropriate governing authority."
+    },
+    {
+      "label": "Flood Plain",
+      "text": "The Federal Emergency Management Agency maps do not appear to indicate any floodplain on the site."
+    },
+    {
+      "label": "Deed Restrictions",
+      "text": "None"
+    },
+    {
+      "label": "Traffic Count",
+      "text": "Most recent (2024) Texas State Highway Department traffic count map indicates 40,955 vehicles per day on Loop 1604, just north of the property and 68,517 vehicles per day on IH 10, west of the property."
+    },
+    {
+      "label": "Demographics",
+      "table": {
+        "columns": [
+          "",
+          "1.0 Miles",
+          "3.0 Miles",
+          "5.0 Miles"
+        ],
+        "rows": [
+          [
+            "Population, 2026 Estimate",
+            "2,832",
+            "33,996",
+            "113,023"
+          ],
+          [
+            "Median Household Income",
+            "$88,714",
+            "$83,752",
+            "$77,245"
+          ]
+        ]
+      },
+      "note": "Source: U.S. Bureau of the Census, 2020 Census of Population and Housing. ESRI forecasts for 2026."
+    },
+    {
+      "label": "Potential Uses",
+      "text": "Convenience Store, Restaurant, Car Wash, Bank, and other commercial uses"
+    },
+    {
+      "label": "Pricing",
+      "text": "Contact Broker"
+    }
+  ],
+  "comments": [
+    "Excellent pad site opportunity across Loop 1604 from the new H.E.B.",
+    "Excellent visibility with great access in high population growth area",
+    "Cross access in place with development to the north"
+  ],
+  "contact": {
+    "names": "Bart Wilson or Matt Howard",
+    "phone": "(210) 496-5800",
+    "fax": "(210) 496-5809",
+    "emails": [
+      "bwilson@roalson.com",
+      "mhoward@roalson.com"
+    ],
+    "web": "www.roalson.com"
+  },
+  "demographic_overview": {
+    "title": "IH 10 at Loop 1604",
+    "date": "March 26, 2026",
+    "columns": [
+      "1.0 Miles",
+      "3.0 Miles",
+      "5.0 Miles"
+    ],
+    "sections": [
+      {
+        "heading": "Population",
+        "rows": [
+          [
+            "2026 Estimate",
+            "2,832",
+            "33,996",
+            "113,023"
+          ]
+        ]
+      },
+      {
+        "heading": "Households",
+        "rows": [
+          [
+            "Total Housing Units",
+            "830",
+            "11,299",
+            "38,743"
+          ]
+        ]
+      },
+      {
+        "heading": "2026 Population by Age",
+        "rows": [
+          [
+            "Median Age",
+            "26.0 years",
+            "32.8 years",
+            "34.4 years"
+          ]
+        ]
+      },
+      {
+        "heading": "2026 Total Housing Units",
+        "rows": [
+          [
+            "Owner-Occupied",
+            "83.0%",
+            "75.0%",
+            "69.0%"
+          ],
+          [
+            "Renter-Occupied",
+            "16.0%",
+            "21.0%",
+            "27.0%"
+          ],
+          [
+            "Median Home Value",
+            "$291,728",
+            "$233,570",
+            "$204,504"
+          ],
+          [
+            "Median Rent",
+            "$1,984",
+            "$1,805",
+            "$1,607"
+          ]
+        ]
+      },
+      {
+        "heading": "2026 Education & Employment",
+        "rows": [
+          [
+            "Bachelor’s Degree+",
+            "34.0%",
+            "31.0%",
+            "27.0%"
+          ],
+          [
+            "Labor Force Participation",
+            "45.0%",
+            "50.0%",
+            "51.0%"
+          ],
+          [
+            "Unemployment Rate",
+            "6.0%",
+            "5.5%",
+            "4.9%"
+          ]
+        ]
+      },
+      {
+        "heading": "",
+        "rows": [
+          [
+            "Median Household Income",
+            "$88,714",
+            "$83,752",
+            "$77,245"
+          ]
+        ]
+      }
+    ],
+    "source": "Source: U.S. Bureau of the Census, 2020 Census of Population and Housing. ESRI forecasts for 2026.",
+    "from_image": false
+  },
+  "pages": [
+    {
+      "page": 1,
+      "kind": "cover_spec",
+      "caption": ""
+    },
+    {
+      "page": 2,
+      "kind": "spec",
+      "caption": ""
+    },
+    {
+      "page": 3,
+      "kind": "location_map",
+      "caption": "Location Map",
+      "annotations": "Google My Maps screenshot of the San Antonio region; red pin at IH 10 East / Loop 1604 (east side of the metro); a Windows 'Activate Windows / Go to Settings to activate Windows' watermark is visible bottom-right"
+    },
+    {
+      "page": 4,
+      "kind": "area_map",
+      "caption": "Area Map",
+      "annotations": "Google My Maps screenshot; red pin at the northwest corner of IH 10 East and N Loop 1604 E by Weichold Rd; nearby POIs (The Arcadian, Excel Driver Services, McDonald's, M/I Homes Paloma Park, etc.); 'Activate Windows' watermark visible bottom-right"
+    },
+    {
+      "page": 5,
+      "kind": "aerial",
+      "caption": "Aerial Map",
+      "annotations": "third-party 'id.' aerial headed 'IH-10E and Loop 1604 - 1.34+/-Acres / Texas, AC +/-'; site outlined in red northwest of the IH 10 / Loop 1604 interchange; 'Boundary' legend; 0-2000 ft scale bar; 'Matt Howard / www.roalson.com' credit"
+    },
+    {
+      "page": 6,
+      "kind": "aerial",
+      "caption": "Aerial Map",
+      "annotations": "close 'id.' aerial with the same 'IH-10E and Loop 1604 - 1.34+/-Acres' header; site outlined in red on W Weichold Rd west of Anderson Loop, north of the I-10 Frontage Road; 0-400 ft scale bar"
+    },
+    {
+      "page": 7,
+      "kind": "aerial",
+      "caption": "",
+      "annotations": "Pape-Dawson Engineers exhibit, title block 'BILL MILLER 1604 & I-10 / SAN ANTONIO, TEXAS / AERIAL MAP' (sheet 1 of 1); site outlined in red and labelled SITE; development to the north drawn in yellow with cyan access route; labels LOOP 1604, HEB, IH-10 E"
+    },
+    {
+      "page": 8,
+      "kind": "demographics",
+      "caption": ""
+    },
+    {
+      "page": 9,
+      "kind": "disclosure",
+      "caption": ""
+    },
+    {
+      "page": 10,
+      "kind": "iabs",
+      "caption": ""
+    }
+  ],
+  "qa_notes": [
+    "SIZE MISMATCH: PDF says '1.34 +/- Acres' (spec page and the p5/p6 aerial headers '1.34+/-Acres'); Prismic size_label is '1.32 acres' / acres 1.32.",
+    "IMAGE DEFECT: the Location Map (p3) and Area Map (p4) are Google My Maps screenshots with a visible Windows 'Activate Windows / Go to Settings to activate Windows' watermark in the lower right. These should be re-captured before the package goes to buyers.",
+    "p7 is a Pape-Dawson exhibit titled 'BILL MILLER 1604 & I-10 ... AERIAL MAP' — the site appears to be (or have been) planned for a Bill Miller; confirm the exhibit is intended for the marketing package.",
+    "Demographic Overview uses a different, shorter ESRI format than the other packages (dated March 26, 2026, 2026 estimates only, no 2020 Census or 5-year projection, no race/ethnicity or income-bracket sections). Its final 'Median Household Income' row sits under no section heading; it is transcribed as a section with an empty heading.",
+    "Demographic Overview housing tenure does not total 100% (Owner-Occupied + Renter-Occupied = 99% / 96% / 96% at 1 / 3 / 5 miles) — presumably vacant units; values kept as printed.",
+    "Spec-page Demographics table (Population 2026 Estimate and Median Household Income at 1/3/5 miles) matches the Demographic Overview exactly.",
+    "Title: cover reads 'IH 10 EAST AND LOOP 1604'; Prismic title is 'IH 10 East at Loop 1604' ('and' vs 'at'); Demographic Overview heading is 'IH 10 at LOOP 1604'.",
+    "No Frontage, Topography or Easements rows in this package; Utilities has no introductory sentence.",
+    "Transaction: PDF never says For Sale or For Lease ('Pricing: Contact Broker'); 'For Sale' used per schema default. Prismic total_price 'Contact Broker' matches.",
+    "Zoning 'C-3, Commercial, City of San Antonio' matches Prismic 'C-3 Commercial, City of San Antonio' (punctuation only). Prismic highlights match the three PDF comments verbatim."
+  ]
+}

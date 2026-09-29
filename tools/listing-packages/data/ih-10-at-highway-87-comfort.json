@@ -1,0 +1,117 @@
+{
+  "uid": "ih-10-at-highway-87-comfort",
+  "variant": "land",
+  "transaction": "For Sale",
+  "type_label": "Land",
+  "eyebrow": "Strategic Commercial Property",
+  "title": "IH-10 at Highway 87",
+  "city": "Comfort, Texas",
+  "size_headline": "",
+  "rows": [
+    {"label": "Location", "text": "The property is located at the northeast quadrant of IH-10 and Highway 87 in Comfort, Texas."},
+    {"label": "Size", "table": {
+        "columns": ["", "Acres:"],
+        "rows": [["Lot 1 – Approximately", "3.917"],
+                 ["Lot 2 – Approximately", "6.22"],
+                 ["Lot 3 – Approximately", "34.69"],
+                 ["", "44.83 Acres"]]}},
+    {"label": "Frontage", "text": "There is substantial public road frontage on all parcels. See Survey."},
+    {"label": "Utilities",
+     "pairs": [["Electric", "Service is provided by Bandera Electric Cooperative."], ["Water", "KCWCID has an 8-inch main on the east side of Highway 87 in front of the property."], ["Sewer", "KCWCID sewer main is at the east corner of IH-10 and Highway 87 in front of Love’s Travel Center."]],
+     "note": "Prospective buyers should retain an independent engineer to verify the location, accessibility and capacity of all utilities."},
+    {"label": "Zoning", "text": "None. City of Comfort is unincorporated and has no zoning code.",
+     "note": "Prospective buyers should verify the zoning and permitted uses for this property with the appropriate governing authority."},
+    {"label": "Topography", "text": "Lot 3 has gentle southerly drainage. Lots 1 and 2 have more noticeable slope draining south to IH-10."},
+    {"label": "Flood Plain", "text": "According to Risk Meter Online flood maps, there does not appear to be any flood plain on the parcels."},
+    {"label": "Easements", "text": "The parcels have some utility easements and a private road easement. Contact Broker."},
+    {"label": "Deed Restrictions", "text": "Some restrictions benefiting the Love’s Travel Center are in place. Contact Broker."},
+    {"label": "Traffic Count", "text": "The 2024 Texas Department of Transportation traffic count maps indicate 11.558 vehicles per day on Highway 87 near the property, 26,476 vehicles per day on IH-10 West just east of Highway 87 and 18,268 vehicles per day on IH-10 just west of Highway 87."},
+    {"label": "Demographics", "table": {
+        "columns": ["2025 ESRI Estimates:", "Population", "Average Household Income"],
+        "rows": [["3-mile radius", "3,017", "$100,141"],
+                 ["5-mile radius", "4,246", "$108,515"],
+                 ["7-mile radius", "5,802", "$113,492"]]},
+     "note": "Source: U.S. Bureau of the Census, 2020 Census of Population and Housing. ESRI forecasts for 2025 and 2030."},
+    {"label": "Area Development", "text": "The property’s major intersection location includes two convenience stores and a Love’s Travel Center. A James Avery manufacturing facility is on the north border of Lot 3."},
+    {"label": "Potential Use", "text": "Excellent opportunity for commercial, restaurant and light industrial uses. Access to utilities, including sewer, afford an opportunity for a multifamily project or other uses."},
+    {"label": "Investment", "text": "Contact Broker."}
+  ],
+  "comments": [
+    "Great commercial corner!",
+    "The properties lie within the Kendall County Water Control and Improvement District No. 1 service area.",
+    "There is a house and small barn on Lot 3."
+  ],
+  "contact": {
+    "names": "Matt Howard or Bart Wilson",
+    "phone": "(210) 496-5800",
+    "fax": "(210) 496-5809",
+    "emails": ["mhoward@roalson.com", "bwilson@roalson.com"],
+    "web": "www.roalson.com"
+  },
+  "demographic_overview": {
+    "title": "Highway 87 – Comfort, TX",
+    "date": "December 3, 2025",
+    "columns": ["3.0 Miles", "5.0 Miles", "7.0 Miles"],
+    "sections": [
+      {"heading": "Population", "rows": [
+        ["2020 Census", "3,068", "4,269", "5,740"],
+        ["2025 Estimate", "3,017", "4,246", "5,802"],
+        ["5 Year Projection", "3,179", "4,473", "6,089"]]},
+      {"heading": "Households", "rows": [
+        ["2020 Census", "1,109", "1,565", "2,180"],
+        ["2025 Estimate", "1,141", "1,624", "2,282"],
+        ["5 Year Projection", "1,223", "1,743", "2,438"]]},
+      {"heading": "2025 Population by Race", "rows": [
+        ["White", "52.8%", "58.6%", "61.0%"],
+        ["Black", "0.5%", "0.6%", "0.6%"],
+        ["Asian or Pacific Islander", "0.3%", "0.5%", "0.7%"],
+        ["American Indian", "1.3%", "1.2%", "1.1%"]]},
+      {"heading": "2025 Population by Ethnicity", "rows": [
+        ["Hispanic Origin", "51.4%", "44.3%", "41.6%"]]},
+      {"heading": "2025 Total Housing Units", "rows": [
+        ["Owner-Occupied", "783", "1,175", "1,698"],
+        ["Renter-Occupied", "358", "449", "584"],
+        ["Average Household Size", "2.61", "2.57", "2.50"]]},
+      {"heading": "2025 Household Income", "rows": [
+        ["Income $ 0 - $14,999", "8.8%", "7.7%", "6.8%"],
+        ["Income $ 15,000 - $24,999", "2.5%", "4.4%", "4.6%"],
+        ["Income $ 25,000 - $34,999", "3.9%", "5.2%", "5.3%"],
+        ["Income $ 35,000 - $49,999", "15.8%", "15.1%", "15.2%"],
+        ["Income $ 50,000 - $74,999", "20.4%", "18.3%", "17.3%"],
+        ["Income $ 75,000 - $99,999", "13.5%", "11.4%", "10.3%"],
+        ["Income $ 100,000 - $149,999", "16.5%", "16.5%", "18.0%"],
+        ["Income $ 150,000 - $199,999", "11.0%", "11.8%", "11.5%"],
+        ["Income $200,000 +", "7.6%", "9.7%", "11.1%"],
+        ["Average Household Income", "$100,141", "$108,515", "$113,492"],
+        ["Median Household Income", "$71,747", "$73,265", "$76,633"],
+        ["Per Capita Income", "$39,394", "$43,521", "$45,843"]]}
+    ],
+    "source": "Source: U.S. Bureau of the Census, 2020 Census of Population and Housing. ESRI forecasts for 2025 and 2030.",
+    "from_image": false
+  },
+  "pages": [
+    {"page": 1, "kind": "cover_spec", "caption": ""},
+    {"page": 2, "kind": "spec", "caption": ""},
+    {"page": 3, "kind": "location_map", "caption": "Location Map", "annotations": "regional road map (Kerrville / Comfort / Boerne); site marked with yellow starburst at IH 10 and Hwy 87 in Comfort"},
+    {"page": 4, "kind": "aerial", "caption": "", "annotations": "aerial with no printed heading; site shaded yellow with 'Site' callout arrow; labels Comfort High School, Texas 87 and Interstate 10 shields, 'HEB Owned', James Avery (x2), Chevron, Love's Travel Stops, Exxon, DQ, Dollar General, The Buckhorn Golf Course, Farm Road 473 shield"},
+    {"page": 5, "kind": "aerial", "caption": "", "annotations": "close aerial with no printed heading; Lot 1, Lot 2 and Lot 3 shaded/outlined in yellow around the Love's Travel Stops; labels 'HEB Owned', Chicken Express, Chevron, Exxon, Interstate 10 and Texas 87 shields"},
+    {"page": 6, "kind": "survey", "caption": "Survey", "annotations": "survey with tracts outlined in yellow: 34.69 ACRES, 6.22 ACRES, 3.917 ACRES, LOVE'S TRAVEL CENTER; HIGHWAY 87 and IH-10 labelled; north arrow; hatched strip along the top edge labelled 'approximate location of LCRA TSC Transmission Line Easement'"},
+    {"page": 7, "kind": "demographics", "caption": ""},
+    {"page": 8, "kind": "disclosure", "caption": ""},
+    {"page": 9, "kind": "iabs", "caption": ""}
+  ],
+  "qa_notes": [
+    "Traffic Count typo: '11.558 vehicles per day on Highway 87' uses a period instead of a comma (presumably 11,558). Kept verbatim; broker should correct.",
+    "Transaction: the PDF never says For Sale or For Lease ('Investment: Contact Broker'); 'For Sale' used per schema default. Prismic transaction_type is null.",
+    "Size is a lot breakdown with an 'Acres:' column header, transcribed as a table (Lot 1 3.917 + Lot 2 6.22 + Lot 3 34.69 = 44.827, printed total 44.83 Acres — consistent). The survey (p6) labels the same three tracts 3.917 / 6.22 / 34.69 ACRES. Total matches Prismic size_label '44.83 acres' / acres 44.83.",
+    "No size line on the cover, so size_headline is empty. Cover title reads 'IH-10 AT HIGHWAY 87' (hyphenated); Prismic title is 'IH 10 at Highway 87, Comfort' (no hyphen, city appended).",
+    "Zoning MISMATCH: PDF says 'None. City of Comfort is unincorporated and has no zoning code.'; Prismic zoning says 'Outside City of Comfort'. (Also the PDF's phrase 'City of Comfort is unincorporated' is self-contradictory — Comfort is an unincorporated community, not a city.)",
+    "Variant 'land' chosen although Comments note 'There is a house and small barn on Lot 3' — the offering is marketed as commercial/development land, so the improvements are incidental.",
+    "Utilities lists only Electric, Water and Sewer (no Gas line).",
+    "Grammar: Potential Use 'Access to utilities, including sewer, afford an opportunity' (subject/verb agreement: 'affords'). Kept verbatim.",
+    "Prismic highlights ('Great commercial corner!', 'There is a house and small barn on Lot 3.') match two of the three PDF comments; the Kendall County WCID No. 1 comment is not in Prismic.",
+    "Contact order on this listing is Matt Howard first ('MATT HOWARD or BART WILSON'), with mhoward@ email listed first.",
+    "Demographic Overview is titled 'HIGHWAY 87 – COMFORT, TX' (not IH-10 at Highway 87) and dated December 3, 2025; spec-page demographics table matches its 2025 Estimate and Average Household Income values exactly.",
+    "Aerial pages 4 and 5 carry no printed heading; classified as aerial from the render."
+  ]
+}

@@ -1,0 +1,406 @@
+{
+  "uid": "ih-10-at-fm-725-seguin",
+  "variant": "land",
+  "transaction": "For Sale",
+  "type_label": "Land",
+  "eyebrow": "Commercial Development Site",
+  "title": "IH-10 at FM 725",
+  "city": "Seguin, Texas",
+  "size_headline": "",
+  "rows": [
+    {
+      "label": "Location",
+      "text": "The property is located at the southeast corner of IH-10 and FM 725."
+    },
+    {
+      "label": "Size",
+      "text": "3 Acres"
+    },
+    {
+      "label": "Frontage",
+      "pairs": [
+        [
+          "IH-10",
+          "Approximately 416.73 Ft."
+        ],
+        [
+          "FM 725",
+          "Approximately 314.58 Ft."
+        ]
+      ]
+    },
+    {
+      "label": "Utilities",
+      "pairs": [
+        [
+          "Electric",
+          "Guadalupe Valley Electric Cooperative indicates they provide service to the site."
+        ],
+        [
+          "Water",
+          "Green Valley Special Utility District indicates they provide service to the site."
+        ],
+        [
+          "Sewer",
+          "City of Seguin – 8” sewer line is directly adjacent to the site to the East."
+        ],
+        [
+          "Gas",
+          "Propane"
+        ]
+      ],
+      "note": "Prospective buyers should retain an independent engineer to verify the location, accessibility and capacity of all utilities."
+    },
+    {
+      "label": "Zoning",
+      "text": "Commercial; City of Seguin",
+      "note": "Prospective buyers should verify the zoning and permitted uses for this property with the appropriate governing authority."
+    },
+    {
+      "label": "Topography",
+      "text": "Property has a very gentle slope."
+    },
+    {
+      "label": "Flood Plain",
+      "text": "Federal Emergency Management Agency maps do not appear to indicate any 100-year flood plain on the site."
+    },
+    {
+      "label": "Easements",
+      "text": "Various Utility Easements. Contact Broker."
+    },
+    {
+      "label": "Deed Restrictions",
+      "text": "None of Record."
+    },
+    {
+      "label": "Traffic Count",
+      "text": "2024 Texas Department of Transportation traffic maps indicate 51,194 vehicles per day on I.H. 10, just east of FM 725 and 5,417 vehicles per day on FM 725 just south of I.H. 10."
+    },
+    {
+      "label": "Demographics",
+      "table": {
+        "columns": [
+          "",
+          "3.0 Miles",
+          "5.0 Miles",
+          "7.0 Miles"
+        ],
+        "rows": [
+          [
+            "Population, 2025 Estimate",
+            "7,215",
+            "35,022",
+            "57,053"
+          ],
+          [
+            "Population, 5 Year Projection",
+            "8,251",
+            "38,716",
+            "65,210"
+          ],
+          [
+            "Average Household Income",
+            "$100,258",
+            "$99,943",
+            "$104,799"
+          ]
+        ]
+      },
+      "note": "Source: U.S. Bureau of the Census, 2010 Census of Population and Housing. ESRI forecasts for 2025 and 2030."
+    },
+    {
+      "label": "Area Development",
+      "text": "There is a travel center at the northwest corner of the intersection."
+    },
+    {
+      "label": "Potential Uses",
+      "text": "The property’s strategic location and friendly development characteristics make it appealing for a variety of restaurant, retail, convenience store or commercial uses."
+    },
+    {
+      "label": "Investment",
+      "text": "Contact Broker"
+    }
+  ],
+  "comments": [
+    "Located on I.H. 10 coast to coast freeway with high traffic counts, excellent visibility, and easy access.",
+    "There is a small amount of environmental clean-up that needs to be done per the owner’s engineers. They are estimating the clean-up to be $15,000 to $25,000."
+  ],
+  "contact": {
+    "names": "Eldon Roalson, CCIM or Matt Howard",
+    "phone": "(210) 496-5800",
+    "fax": "(210) 496-5809",
+    "emails": [
+      "eldon@roalson.com",
+      "mhoward@roalson.com"
+    ],
+    "web": "www.roalson.com"
+  },
+  "demographic_overview": {
+    "title": "3089 IH 10 West in Seguin",
+    "date": "September 7, 2025",
+    "columns": [
+      "3.0 Miles",
+      "5.0 Miles",
+      "7.0 Miles"
+    ],
+    "sections": [
+      {
+        "heading": "Population",
+        "rows": [
+          [
+            "2020 Census",
+            "6,138",
+            "30,658",
+            "48,326"
+          ],
+          [
+            "2025 Estimate",
+            "7,215",
+            "35,022",
+            "57,053"
+          ],
+          [
+            "5 Year Projection",
+            "8,251",
+            "38,716",
+            "65,210"
+          ]
+        ]
+      },
+      {
+        "heading": "Households",
+        "rows": [
+          [
+            "2020 Census",
+            "2,207",
+            "11,029",
+            "17,670"
+          ],
+          [
+            "2025 Estimate",
+            "2,710",
+            "12,997",
+            "21,257"
+          ],
+          [
+            "5 Year Projection",
+            "3,173",
+            "14,368",
+            "24,462"
+          ]
+        ]
+      },
+      {
+        "heading": "2025 Population by Race",
+        "rows": [
+          [
+            "White",
+            "61.1%",
+            "56.4%",
+            "58.4%"
+          ],
+          [
+            "Black",
+            "4.5%",
+            "5.4%",
+            "4.7%"
+          ],
+          [
+            "Asian or Pacific Islander",
+            "0.5%",
+            "1.0%",
+            "1.2%"
+          ],
+          [
+            "American Indian",
+            "1.0%",
+            "0.8%",
+            "0.8%"
+          ]
+        ]
+      },
+      {
+        "heading": "2025 Population by Ethnicity",
+        "rows": [
+          [
+            "Hispanic Origin",
+            "44.5%",
+            "49.9%",
+            "47.2%"
+          ]
+        ]
+      },
+      {
+        "heading": "2025 Total Housing Units",
+        "rows": [
+          [
+            "Owner-Occupied",
+            "2,053",
+            "9,126",
+            "15,479"
+          ],
+          [
+            "Renter-Occupied",
+            "657",
+            "3,771",
+            "5,778"
+          ],
+          [
+            "Average Household Size",
+            "2.54",
+            "2.62",
+            "2.61"
+          ]
+        ]
+      },
+      {
+        "heading": "2025 Household Income",
+        "rows": [
+          [
+            "Income $ 0 - $15,000",
+            "11.1%",
+            "9.1%",
+            "8.8%"
+          ],
+          [
+            "Income $ 15,000 - $24,999",
+            "4.3%",
+            "6.7%",
+            "5.9%"
+          ],
+          [
+            "Income $ 25,000 - $34,999",
+            "6.9%",
+            "8.6%",
+            "7.1%"
+          ],
+          [
+            "Income $ 35,000 - $49,999",
+            "10.6%",
+            "9.6%",
+            "9.2%"
+          ],
+          [
+            "Income $ 50,000 - $74,999",
+            "18.9%",
+            "16.3%",
+            "16.7%"
+          ],
+          [
+            "Income $ 75,000 - $99,999",
+            "7.9%",
+            "10.2%",
+            "11.4%"
+          ],
+          [
+            "Income $ 100,000 - $149,999",
+            "19.6%",
+            "19.9%",
+            "20.8%"
+          ],
+          [
+            "Income $ 150,000 - $199,999",
+            "9.3%",
+            "8.9%",
+            "8.9%"
+          ],
+          [
+            "Income $200,000 +",
+            "11.5%",
+            "10.6%",
+            "12.0%"
+          ],
+          [
+            "Average Household Income",
+            "$100,258",
+            "$99,943",
+            "$104,799"
+          ],
+          [
+            "Median Household Income",
+            "$72,077",
+            "$74,287",
+            "$80,692"
+          ],
+          [
+            "Per Capita Income",
+            "$37,224",
+            "$37,161",
+            "$39,288"
+          ]
+        ]
+      }
+    ],
+    "source": "Source: U.S. Bureau of the Census, 2020 Census of Population and Housing. ESRI forecasts for 2025 and 2030.",
+    "from_image": false
+  },
+  "pages": [
+    {
+      "page": 1,
+      "kind": "cover_spec",
+      "caption": ""
+    },
+    {
+      "page": 2,
+      "kind": "spec",
+      "caption": ""
+    },
+    {
+      "page": 3,
+      "kind": "location_map",
+      "caption": "Location Map",
+      "annotations": "Older Microsoft MapPoint map from San Antonio east to Seguin; yellow pushpin on IH 10 just west of Seguin"
+    },
+    {
+      "page": 4,
+      "kind": "area_map",
+      "caption": "Area Map",
+      "annotations": "MapPoint street map of Seguin; yellow pushpin at IH 10 / FM 725 near Morrison Falls, west of town"
+    },
+    {
+      "page": 5,
+      "kind": "aerial",
+      "caption": "Aerial Map",
+      "annotations": "Wide Google aerial (Imagery ©2016, CAPCOG, DigitalGlobe, Texas Orthoimagery Program, USGS, USDA FSA); small site outlined in red at the southeast corner of IH 10 and FM 725; labels Love's Travel Stop, Crossroads Church, Lake Placid Boat Ramp, Seguin RV; scale bar 0-4000ft"
+    },
+    {
+      "page": 6,
+      "kind": "aerial",
+      "caption": "Aerial Map",
+      "annotations": "Close Google aerial (©2016); site outlined in red between the IH 10 frontage road and FM 725; Love's Travel Stop across the intersection to the northwest; labels Oak Creek Homes, Buy Texas RV, Seguin Marine, Wood Stove Center Seguin; scale bar 0-800ft"
+    },
+    {
+      "page": 7,
+      "kind": "survey",
+      "caption": "Survey",
+      "annotations": "Image-only page. Martinez Surveying and Mapping Co. survey plat, April 2015 (job 14-4-27A): '3.007 Acres' in the City of Seguin, Guadalupe County, out of the William Leach Survey, Abstract 28; bold dimensions 180.75 Ft. and 235.98 Ft. on Interstate Highway No. 10, 314.58 Ft. on F.M. Road No. 725, 382.28 Ft. and 382.25 Ft. on the rear lines; notes 'PROPERTY ADDRESS: 3089 IH 10, SEGUIN, TEXAS' and a Guadalupe Valley Electric Cooperative easement"
+    },
+    {
+      "page": 8,
+      "kind": "demographics",
+      "caption": ""
+    },
+    {
+      "page": 9,
+      "kind": "disclosure",
+      "caption": ""
+    },
+    {
+      "page": 10,
+      "kind": "iabs",
+      "caption": ""
+    }
+  ],
+  "qa_notes": [
+    "ENVIRONMENTAL DISCLOSURE: PDF comment 2 says environmental clean-up is needed per the owner's engineers, estimated at $15,000 to $25,000. Prismic highlights omit it and instead carry 'Seguin is a very business-friendly community.', which does not appear anywhere in the PDF. Broker should confirm the clean-up status and which comments are current.",
+    "DEMOGRAPHICS SOURCE CONTRADICTION: the spec-page table source line says '2010 Census of Population and Housing'; the Demographic Overview page says '2020 Census'. Kept as printed; the spec line is very likely a stale typo.",
+    "DEMOGRAPHIC OVERVIEW ARITHMETIC: 5.0-mile Owner-Occupied 9,126 + Renter-Occupied 3,771 = 12,897, but 2025 Households (5.0 mi) is 12,997 (100 off). 3.0- and 7.0-mile columns sum exactly. Also the 7.0-mile income distribution sums to 100.8% (others 99.9-100.1%). Values verified on a 250-dpi render and in the text layer; transcribed as printed.",
+    "ZONING: PDF 'Commercial; City of Seguin'; Prismic 'C, Commercial, City of Seguin' (Prismic adds a 'C' district code not printed in the PDF).",
+    "TITLE: PDF cover 'IH-10 AT FM 725' (hyphenated); Prismic 'IH 10 at FM 725, Seguin'. The Demographic Overview is titled with a street address, '3089 IH 10 West in Seguin'; the survey gives 'PROPERTY ADDRESS: 3089 IH 10, SEGUIN, TEXAS'. The address is not on the cover or spec pages.",
+    "SIZE: spec '3 Acres'; survey '3.007 Acres'; Prismic acres 3 (consistent). IH-10 frontage 416.73 Ft. = survey 180.75 + 235.98; FM 725 frontage 314.58 Ft. matches the survey.",
+    "TRANSACTION: the PDF never says 'For Sale' or 'For Lease' (cover 'COMMERCIAL DEVELOPMENT SITE'; Investment 'Contact Broker'); set to 'For Sale' by default. Prismic transaction_type is null; Prismic price 'Contact Broker' matches.",
+    "CONTACT: this package is 'ELDON ROALSON, CCIM OR MATT HOWARD' with eldon@roalson.com first - it does not list Bart Wilson, unlike the other listings in this batch. Confirm the contact line is current.",
+    "Aerial imagery and survey date from 2015-2016; traffic counts 2024; demographics September 7, 2025.",
+    "Page footer disclaimer on pp1-2 and the aerial pages misspells 'represetation'; template-wide, not transcribed."
+  ]
+}

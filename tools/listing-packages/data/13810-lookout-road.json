@@ -1,0 +1,51 @@
+{
+  "uid": "13810-lookout-road",
+  "variant": "existing",
+  "transaction": "For Lease",
+  "type_label": "Existing Property",
+  "eyebrow": "",
+  "title": "13810 Lookout Road, Suite B",
+  "city": "San Antonio, Texas",
+  "size_headline": "",
+  "rows": [
+    {"label": "Location", "text": "The property is located in northeast San Antonio near the intersection of Lookout Road and Judson Road."},
+    {"label": "Size", "text": "Office space is +/- 1,340 SF, Warehouse is +/- 2,890 SF\nTotal space is +/- 4,230 SF"},
+    {"label": "Building Features", "text": "CMU construction Office/Warehouse\nFenced Yard, 2 GL OH Doors"},
+    {"label": "Traffic Count", "text": "Most recent (2024) Texas State Highway Department traffic count map indicates 5,783 vehicles per day on Lookout Road, close to the property."},
+    {"label": "Pricing", "text": "$13.00/SF/YR NNN ($3.10/SF/YR Est)"}
+  ],
+  "comments": [
+    "Excellent accessibility to IH 35 and Loop 1604",
+    "Office area consists of three offices, wet bar/break area and large open office with counter"
+  ],
+  "contact": {
+    "names": "Bart Wilson or Matt Howard",
+    "phone": "(210) 496-5800",
+    "fax": "(210) 496-5809",
+    "emails": ["bwilson@roalson.com", "mhoward@roalson.com"],
+    "web": "www.roalson.com"
+  },
+  "demographic_overview": null,
+  "pages": [
+    {"page": 1, "kind": "cover_spec", "caption": "", "annotations": "cover photo of the tan CMU office/warehouse building with a grade-level overhead door"},
+    {"page": 2, "kind": "spec", "caption": ""},
+    {"page": 3, "kind": "location_map", "caption": "Location Map", "annotations": "Google map of San Antonio with a red pin in the northeast near Live Oak / Loop 1604"},
+    {"page": 4, "kind": "area_map", "caption": "Area Map", "annotations": "Google map with a red pin on Lookout Rd between Loop 1604 and IH 35 (near Monterrey Village, Walmart Supercenter, Sam's Club, IKEA, Costco); a stray duplicate map image hangs off the bottom edge of the page and a second hidden 'Area Map' label sits behind the page frame"},
+    {"page": 5, "kind": "aerial", "caption": "Aerial Map", "annotations": "landscape aerial; building/suite outlined in yellow on the south side of Lookout Rd, with Judson Rd overpass to the east; no scale bar"},
+    {"page": 6, "kind": "floor_plan", "caption": "Floor Plan", "annotations": "landscape line-drawing floor plan: large open warehouse bay on the left, office suite on the right with offices, restrooms and break area; fenced yard strip along the top; no dimensions or labels"},
+    {"page": 7, "kind": "disclosure", "caption": "Property Disclosure Statement", "annotations": "image-only page (no text layer); lease version reading 'any potential PURCHASER or TENANT'; broker box 'BROKER: ROALSON INTERESTS / 17721 ROGERS RANCH PKWY, STE. 125 / SAN ANTONIO, TEXAS 78258'"},
+    {"page": 8, "kind": "iabs", "caption": "Information About Brokerage Services"}
+  ],
+  "qa_notes": [
+    "Cover headline is 'FOR LEASE' above the address; captured as transaction 'For Lease' and eyebrow left '' to avoid printing it twice. Change eyebrow to 'For Lease' if the template wants the literal headline.",
+    "Title: PDF cover '13810 LOOKOUT ROAD, SUITE B'; Prismic title '13810 Lookout Road' (omits Suite B).",
+    "Price mismatch: PDF Pricing '$13.00/SF/YR NNN ($3.10/SF/YR Est)'; Prismic total_price 'Contact Broker' and price_per_unit null. Prismic transaction_type is null though the PDF is clearly For Lease.",
+    "Size: PDF office +/- 1,340 SF + warehouse +/- 2,890 SF = +/- 4,230 SF (adds up); Prismic size_label '4,230 SF' (match).",
+    "Zoning: the PDF has no zoning, utilities, flood plain or demographics rows; Prismic zoning is also null. No Demographic Overview page in this package (demographic_overview null).",
+    "Size and Building Features are each printed as two separate lines on the cover; kept as two lines joined with '\\n' rather than collapsed (collapsing Size would read '...2,890 SF Total space is...').",
+    "Traffic Count cites the 'Texas State Highway Department' (obsolete agency name; other packages say 'Texas Department of Transportation'); transcribed as printed.",
+    "'2 GL OH Doors' = two grade-level overhead doors (broker shorthand); transcribed as printed.",
+    "Page 7 (Property Disclosure Statement) is image-only with no text layer; its address prints 'ROGERS RANCH PKWY, STE. 125'.",
+    "Page 4 layout defect: a stray duplicate map image sits mostly off the bottom of the page (a sliver shows below the footer) and a second 'Area Map' label is hidden behind the frame."
+  ]
+}

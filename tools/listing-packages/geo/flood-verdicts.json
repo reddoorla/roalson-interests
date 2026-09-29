@@ -1,0 +1,108 @@
+{
+ "menger-springs-road": {
+  "hits": {},
+  "verdict": "Tract boundaries appear on the survey and exhibit pages; the zones mapped around the site pin are shown for comparison."
+ },
+ "ih-10-east-at-loop-1604": {
+  "hits": {},
+  "verdict": "Tract boundaries appear on the survey and exhibit pages; the zones mapped around the site pin are shown for comparison."
+ },
+ "101-w-commerce-street": {
+  "hits": {},
+  "verdict": "NFHL mapping shows no special flood hazard area on the property (Zone X, minimal flood hazard)."
+ },
+ "loop-1604-at-highway-181": {
+  "hits": {},
+  "verdict": "Tract boundaries appear on the survey and exhibit pages; the zones mapped around the site pin are shown for comparison."
+ },
+ "loop-1604-at-dove-canyon": {
+  "hits": {
+   "a100": 0.09728753321505532
+  },
+  "verdict": "NFHL mapping shows the property about 10% within the 1% annual chance (100-year) flood hazard area."
+ },
+ "cascade-caverns-at-old-san-antonio-road": {
+  "hits": {},
+  "verdict": "NFHL mapping shows no special flood hazard area on the property (Zone X, minimal flood hazard)."
+ },
+ "urban-loop-road": {
+  "hits": {},
+  "verdict": "NFHL mapping shows no special flood hazard area on the property (Zone X, minimal flood hazard)."
+ },
+ "11714-perrin-beitel-road": {
+  "hits": {
+   "a100": 0.009941032427433672
+  },
+  "verdict": "NFHL mapping shows a mapped flood hazard area along the edge of the property (under 3% of its area); the balance is Zone X."
+ },
+ "st-marys-at-martin-river-walk": {
+  "hits": {
+   "a100": 0.018627675366414645
+  },
+  "verdict": "NFHL mapping shows a mapped flood hazard area along the edge of the property (under 3% of its area); the balance is Zone X."
+ },
+ "highway-77-at-general-cavazos-kingsville": {
+  "hits": {},
+  "verdict": "NFHL mapping shows no special flood hazard area on the property (Zone X, minimal flood hazard)."
+ },
+ "ih-10-at-highway-46": {
+  "hits": {},
+  "verdict": "NFHL mapping shows no special flood hazard area on the property (Zone X, minimal flood hazard)."
+ },
+ "13810-lookout-road": {
+  "hits": {
+   "a100": 0.014374107468367214
+  },
+  "verdict": "NFHL mapping shows a mapped flood hazard area along the edge of the property (under 3% of its area); the balance is Zone X."
+ },
+ "5930-bandera-road": {
+  "hits": {},
+  "verdict": "NFHL mapping shows no special flood hazard area on the property (Zone X, minimal flood hazard)."
+ },
+ "ih-10-at-fm-725-seguin": {
+  "hits": {},
+  "verdict": "NFHL mapping shows no special flood hazard area on the property (Zone X, minimal flood hazard)."
+ },
+ "ih-10-at-menger-springs": {
+  "hits": {
+   "a100": 0.2606806650701877
+  },
+  "verdict": "Tract boundaries appear on the survey and exhibit pages; the zones mapped around the site pin are shown for comparison."
+ },
+ "402-w-nueva-street": {
+  "hits": {},
+  "verdict": "NFHL mapping shows no special flood hazard area on the property (Zone X, minimal flood hazard)."
+ },
+ "ih-35-at-wonderworld-san-marcos": {
+  "hits": {
+   "a100": 0.4716893337745394
+  },
+  "verdict": "NFHL mapping shows the property about 45% within the 1% annual chance (100-year) flood hazard area."
+ },
+ "ih-10-at-scenic-loop": {
+  "hits": {},
+  "verdict": "NFHL mapping shows no special flood hazard area on the property (Zone X, minimal flood hazard)."
+ },
+ "116-old-san-antonio-road": {
+  "hits": {},
+  "verdict": "NFHL mapping shows no special flood hazard area on the property (Zone X, minimal flood hazard)."
+ },
+ "5001-walzem-road": {
+  "hits": {
+   "a100": 0.06848998763693694,
+   "floodway": 0.053689581873554125,
+   "x500": 0.5336272486853741
+  },
+  "verdict": "NFHL mapping shows the property about 5% within the regulatory floodway; about 7% within the 1% annual chance (100-year) flood hazard area; about 55% within the 0.2% annual chance (500-year) area."
+ },
+ "25331-ih-10-west": {
+  "hits": {
+   "a100": 0.38785363380380494
+  },
+  "verdict": "NFHL mapping shows the property about 40% within the 1% annual chance (100-year) flood hazard area."
+ },
+ "ih-10-at-highway-87-comfort": {
+  "hits": {},
+  "verdict": "NFHL mapping shows no special flood hazard area on the property (Zone X, minimal flood hazard)."
+ }
+}

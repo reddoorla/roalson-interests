@@ -1,0 +1,113 @@
+{
+  "uid": "st-marys-at-martin-river-walk",
+  "variant": "land",
+  "transaction": "For Sale",
+  "type_label": "Land",
+  "eyebrow": "Rare Opportunity!",
+  "title": "San Antonio River Walk - Development Site",
+  "city": "San Antonio, Texas",
+  "size_headline": "",
+  "rows": [
+    {"label": "Location", "text": "The property is comprised of .681 acres. It is located in downtown San Antonio. The property fronts on E. Martin Street, St. Mary’s Street, E. Pecan Street, and finally, THE SAN ANTONIO RIVER!!!!"},
+    {"label": "Size", "text": ".681 +/- Acres (includes a closed restaurant building that is approximately 4,851 sf per Bexar County Appraisal District)"},
+    {"label": "Paved Frontage", "text": "Includes entire city block\n- 248 feet on E. Martin St.\n- 169 feet on N. St. Mary’s St.\n- 110 feet on Pecan St."},
+    {"label": "River Frontage", "text": "209 feet on the San Antonio River"},
+    {"label": "Utilities", "pairs": [["Electricity", "Available"], ["Sewer", "Available"], ["Water", "Available"], ["Gas", "Available"]],
+     "note": "Prospective buyers should retain an independent engineer to verify the location, accessibility, and available capacity of all utilities."},
+    {"label": "Zoning", "text": "Downtown District, San Antonio",
+     "note": "Prospective buyers should verify the zoning and permitted uses for this property with the appropriate governing authority."},
+    {"label": "Flood Plain", "text": "The survey appears to indicate that there may be a very small amount of Floodplain present along the river."},
+    {"label": "Topography", "text": "The property is level and buildable."},
+    {"label": "Easements", "text": "Contact Broker"},
+    {"label": "Deed Restrictions", "text": "None of Record."},
+    {"label": "Demographics", "table": {
+        "columns": ["2025 ESRI Estimates", "Population", "Average Household Income"],
+        "rows": [["1-mile radius", "15,992", "$74,510"],
+                 ["3-mile radius", "135,503", "$74,131"],
+                 ["5-mile radius", "338,931", "$78,609"]]},
+     "note": "Source: U.S. Bureau of the Census, 2020 Census of Population and Housing. ESRI forecasts for 2025 and 2030."},
+    {"label": "Area Development", "text": "Significant commercial development is surrounding the property."},
+    {"label": "Potential Uses", "text": "This property would suit a variety of commercial uses including hospitality and multifamily."},
+    {"label": "Investment", "text": "Contact Broker"}
+  ],
+  "comments": [
+    "The site is in the middle of the Central Business District; one block west of Travis Park, two blocks north of the Majestic Theatre, and 3 blocks west of the Tobin Center for the Performing Arts.",
+    "The site is one block away from the new apartment project “300 Main” that includes 354 class A apartments. Opening 2024.",
+    "Strategic location fronting #1 tourist attraction in Texas – The San Antonio River Walk"
+  ],
+  "contact": {
+    "names": "Bart Wilson or Matt Howard",
+    "phone": "(210) 496-5800",
+    "fax": "",
+    "emails": ["bwilson@roalson.com", "mhoward@roalson.com"],
+    "web": "www.roalson.com"
+  },
+  "demographic_overview": {
+    "title": "Riverwalk – N. St. Mary’s St. at E. Martin St.",
+    "date": "October 14, 2025",
+    "columns": ["1.0 Miles", "3.0 Miles", "5.0 Miles"],
+    "sections": [
+      {"heading": "Population", "rows": [
+        ["2020 Census", "14,341", "136,079", "349,296"],
+        ["2025 Estimate", "15,992", "135,503", "338,931"],
+        ["5 Year Projection", "18,109", "136,404", "333,539"]]},
+      {"heading": "Households", "rows": [
+        ["2020 Census", "5,755", "51,597", "126,167"],
+        ["2025 Estimate", "7,046", "54,430", "129,053"],
+        ["5 Year Projection", "8,804", "57,027", "130,978"]]},
+      {"heading": "2025 Population by Race", "rows": [
+        ["White", "49.2%", "41.1%", "40.7%"],
+        ["Black", "9.5%", "6.2%", "5.9%"],
+        ["Asian or Pacific Islander", "2.6%", "1.4%", "1.1%"],
+        ["American Indian", "1.2%", "1.6%", "1.6%"]]},
+      {"heading": "2025 Population by Ethnicity", "rows": [
+        ["Hispanic Origin", "56.1%", "74.9%", "77.4%"]]},
+      {"heading": "2025 Total Housing Units", "rows": [
+        ["Owner-Occupied", "954", "23,188", "66,220"],
+        ["Renter-Occupied", "6,092", "31,242", "62,833"],
+        ["Average Household Size", "1.54", "2.30", "2.51"]]},
+      {"heading": "2025 Household Income", "rows": [
+        ["Income $ 0 - $15,000", "16.8%", "17.1%", "15.1%"],
+        ["Income $ 15,000 - $24,999", "12.5%", "10.6%", "10.1%"],
+        ["Income $ 25,000 - $34,999", "10.1%", "10.7%", "11.0%"],
+        ["Income $ 35,000 - $49,999", "10.1%", "12.1%", "13.1%"],
+        ["Income $ 50,000 - $74,999", "14.0%", "16.1%", "17.5%"],
+        ["Income $ 75,000 - $99,999", "14.4%", "11.0%", "10.8%"],
+        ["Income $ 100,000 - $149,999", "11.3%", "12.2%", "11.8%"],
+        ["Income $ 150,000 - $199,999", "4.2%", "4.1%", "4.1%"],
+        ["Income $200,000 +", "6.7%", "6.0%", "6.4%"],
+        ["Average Household Income", "$74,510", "$74,131", "$78,609"],
+        ["Median Household Income", "$50,989", "$49,235", "$50,651"],
+        ["Per Capita Income", "$35,353", "$30,387", "$30,341"]]}
+    ],
+    "source": "Source: U.S. Bureau of the Census, 2020 Census of Population and Housing. ESRI forecasts for 2025 and 2030.",
+    "from_image": false
+  },
+  "pages": [
+    {"page": 1, "kind": "cover_spec", "caption": ""},
+    {"page": 2, "kind": "spec", "caption": ""},
+    {"page": 3, "kind": "location_map", "caption": "Location Map", "annotations": "Google My Maps regional map of the San Antonio area; red pin in downtown San Antonio"},
+    {"page": 4, "kind": "area_map", "caption": "Area Map", "annotations": "Google My Maps downtown street map; red pin with black 'Site' arrow near the Tobin Center / Greyhound, north of Hopscotch San Antonio and The Alamo; POIs include Pearl Brewery, San Antonio Museum of Art, Shops at Rivercenter, Tower of the Americas, Henry B. Gonzalez Convention Center, Alamodome"},
+    {"page": 5, "kind": "aerial", "caption": "Aerial Map", "annotations": "Wide aerial of downtown with red 'SITE' arrow to the site outlined in red at E. Pecan St; highway shields IH-10, IH-35, IH-37; 'THE PEARL' label; scale 0-4000ft; header 'Texas, AC +/-' (acreage blank); footer credit 'Matt Howard mhoward@roalson.com'"},
+    {"page": 6, "kind": "aerial", "caption": "Aerial Map", "annotations": "Close-up aerial with the block outlined in red between E Martin St, N St. Mary's St, E Pecan St and the river; 'San Antonio River' label; street labels Convent St, E Travis St, E Houston St, College St, W Crockett St, E Commerce St; scale 0-800ft; header 'Texas, AC +/-'; footer credit 'Matt Howard mhoward@roalson.com'"},
+    {"page": 7, "kind": "survey", "caption": "Survey", "annotations": "ALTA/NSPS Land Title Survey of Lots 1, 2 and 3, Block 13, New City Block 402, City of San Antonio, Bexar County (Vol. 6525, Pg. 2040 O.P.R.), Sinclair Land Surveying, Inc., dated February 8, 2023; 'AREA: 0.681 ACRES (29,683 SQUARE FEET)'; address 501 N. St. Marys St.; owner Brazos de Santos Partners, Ltd.; E. Martin St. line 258.66', N. St. Mary's St. 169.33', E. Pecan Street 110.00'; west line along the San Antonio River in seven courses with FEMA Zone 'AE' noted; one-story brick building on Lot 1"},
+    {"page": 8, "kind": "demographics", "caption": ""},
+    {"page": 9, "kind": "disclosure", "caption": ""},
+    {"page": 10, "kind": "iabs", "caption": ""}
+  ],
+  "qa_notes": [
+    "FRONTAGE vs SURVEY: Paved Frontage says '248 feet on E. Martin St.' but the survey (p7) dimensions the E. Martin St. line as N 89°55'04\" E 258.66' (F). St. Mary's (169 vs 169.33') and Pecan (110 vs 110.00') agree. The river-side courses on the survey total about 226.44' (72.17 + 41.81 + 13.89 + 19.39 + 23.59 + 38.52 + 17.07) vs '209 feet on the San Antonio River'. Broker should confirm 248 and 209.",
+    "STALE COPY: comment says the '300 Main' apartments are 'Opening 2024.' - already past as of the Oct 2025 demographics. Transcribed as printed.",
+    "VARIANT: classified 'land' because the package markets a 'Development Site' (Prismic category Land), but the Size row says it includes a closed restaurant building of approximately 4,851 sf (survey shows a one-story brick building on Lot 1).",
+    "TRANSACTION: the PDF never says 'For Sale'/'For Lease'; set to 'For Sale' (Investment: Contact Broker). Prismic transaction_type is null.",
+    "TITLE: cover reads 'RARE OPPORTUNITY!' (red) / 'SAN ANTONIO RIVER WALK - DEVELOPMENT SITE' / 'SAN ANTONIO, TEXAS' - no street address on the cover. Used eyebrow 'Rare Opportunity!' and title 'San Antonio River Walk - Development Site'. Prismic title is 'St. Mary's St. at E. Martin St. — River Walk'; demographic page reads 'RIVERWALK – N. ST. MARY’S ST. AT E. MARTIN ST.'; survey address is 501 N. St. Marys St.",
+    "ZONING: PDF 'Downtown District, San Antonio'; Prismic 'Downtown District, City of San Antonio' (same district, different wording).",
+    "SIZE: '.681 +/- Acres' (leading zero omitted as printed); survey 0.681 acres (29,683 sq ft); Prismic 0.681 acres (match). No acreage line on the cover.",
+    "PRICE: 'Contact Broker' in PDF and Prismic (match).",
+    "Prismic highlights paraphrase the PDF comments: 'three blocks west' (PDF '3 blocks west'), 'one block from' (PDF 'one block away from'), 'Opening 2024' without period, 'fronting the #1 ... — The San Antonio River Walk' (PDF 'fronting #1 ... – The San Antonio River Walk').",
+    "Frontage street names are inconsistent in the original ('E. Pecan Street' in Location vs 'Pecan St.' in Paved Frontage; 'St. Mary’s Street' vs 'N. St. Mary’s St.'). Location ends 'THE SAN ANTONIO RIVER!!!!' in caps with four exclamation marks. Kept as printed.",
+    "DISCLOSURE PAGE (p9) is an older version: it names 'Roalson Interests, Inc.' and the old address 'BUILDING 2, SUITE 206, 2338 NORTH LOOP 1604 W., SAN ANTONIO, TEXAS 78248', whereas the other packages use 17721 Rogers Ranch Pkwy., Suite 125, San Antonio, Texas 78258.",
+    "PDF link defect: the bwilson email hyperlink target is 'mailto:bwilson@roalson.com%20/' (trailing ' /' captured in the link); the printed text is correct.",
+    "Spec demographics table matches the Demographic Overview; Owner+Renter sums equal Households 2025 Estimate in all columns."
+  ]
+}

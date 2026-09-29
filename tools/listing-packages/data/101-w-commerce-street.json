@@ -1,0 +1,110 @@
+{
+  "uid": "101-w-commerce-street",
+  "variant": "existing",
+  "transaction": "For Sale",
+  "type_label": "Existing Property",
+  "eyebrow": "",
+  "title": "101 W. Commerce St.",
+  "city": "San Antonio, Texas",
+  "size_headline": "",
+  "rows": [
+    {"label": "Location", "text": "The property is located in the heart of Downtown San Antonio. The property sits on the northwest corner of W. Commerce and N. Main Avenue."},
+    {"label": "Size", "text": "Approximately 7,863 square foot two story building with additional basement space of approximately 1,248 square feet on .077 +/- acres of land"},
+    {"label": "Utilities", "pairs": [["Electricity", "Available"], ["Sewer", "Available"], ["Water", "Available"], ["Gas", "Available"]],
+     "note": "Prospective buyers should retain an independent engineer to verify the location, accessibility, and available capacity of all utilities."},
+    {"label": "Zoning", "text": "Downtown District, San Antonio",
+     "note": "Prospective buyers should verify the zoning and permitted uses for this property with the appropriate governing authority."},
+    {"label": "Flood Plain", "text": "The Federal Emergency Management Agency maps do not indicate any floodplain on the site."},
+    {"label": "Easements", "text": "None."},
+    {"label": "Deed Restrictions", "text": "None of Record."},
+    {"label": "Demographics", "table": {
+        "columns": ["2025 ESRI Estimates", "Population", "Average Household Income"],
+        "rows": [["1-mile radius", "15,168", "$73,964"],
+                 ["3-mile radius", "140,391", "$71,403"],
+                 ["5-mile radius", "339,522", "$77,351"]]},
+     "note": "Source: U.S. Bureau of the Census, 2020 Census of Population and Housing. ESRI forecasts for 2025 and 2030."},
+    {"label": "Potential Uses", "text": "This property would suit a variety of commercial uses including restaurant, bar, office, mixed use, and other commercial uses."},
+    {"label": "Investment", "text": "Contact Broker"}
+  ],
+  "comments": [
+    "The property is one block from the San Antonio River Walk, across the street from Main Plaza and the San Fernando Cathedral.",
+    "The property is also one block away from the new apartment project called, “300 Main.”"
+  ],
+  "contact": {
+    "names": "Matt Howard or Bart Wilson",
+    "phone": "(210) 496-5800",
+    "fax": "",
+    "emails": ["eldon@roalson.com", "mhoward@roalson.com"],
+    "web": "www.roalson.com"
+  },
+  "demographic_overview": {
+    "title": "W. Commerce at North Main Ave.",
+    "date": "October 29, 2025",
+    "columns": ["1.0 Miles", "3.0 Miles", "5.0 Miles"],
+    "sections": [
+      {"heading": "Population", "rows": [
+        ["2020 Census", "13,337", "141,578", "349,721"],
+        ["2025 Estimate", "15,168", "140,391", "339.522"],
+        ["5 Year Projection", "16,665", "141,022", "334.363"]]},
+      {"heading": "Households", "rows": [
+        ["2020 Census", "5,076", "53,195", "125,765"],
+        ["2025 Estimate", "6,160", "56,100", "128,801"],
+        ["5 Year Projection", "7,363", "58,639", "130,862"]]},
+      {"heading": "2025 Population by Race", "rows": [
+        ["White", "48.0%", "40.6%", "40.5%"],
+        ["Black", "9.4%", "5.9%", "5.8%"],
+        ["Asian or Pacific Islander", "2.2%", "1.3%", "1.1%"],
+        ["American Indian", "1.2%", "1.6%", "1.6%"]]},
+      {"heading": "2025 Population by Ethnicity", "rows": [
+        ["Hispanic Origin", "59.2%", "76.7%", "78.2%"]]},
+      {"heading": "2025 Total Housing Units", "rows": [
+        ["Owner-Occupied", "1,098", "24,265", "66,219"],
+        ["Renter-Occupied", "5,062", "31,835", "62,582"],
+        ["Average Household Size", "1.66", "2.33", "2.52"]]},
+      {"heading": "2025 Household Income", "rows": [
+        ["Income $ 0 - $15,000", "18.8%", "17.1%", "15.2%"],
+        ["Income $ 15,000 - $24,999", "12.4%", "10.9%", "10.2%"],
+        ["Income $ 25,000 - $34,999", "10.1%", "10.7%", "11.0%"],
+        ["Income $ 35,000 - $49,999", "10.6%", "12.4%", "14.2%"],
+        ["Income $ 50,000 - $74,999", "14.1%", "16.5%", "17.5%"],
+        ["Income $ 75,000 - $99,999", "13.1%", "11.1%", "10.9%"],
+        ["Income $ 100,000 - $149,999", "9.9%", "11.9%", "11.8%"],
+        ["Income $ 150,000 - $199,999", "3.3%", "4.1%", "4.0%"],
+        ["Income $200,000 +", "7.5%", "5.3%", "6.1%"],
+        ["Average Household Income", "$73,964", "$71,403", "$77,351"],
+        ["Median Household Income", "$46,077", "$48,466", "$50,231"],
+        ["Per Capita Income", "$33,183", "$28,988", "$29,696"]]}
+    ],
+    "source": "Source: U.S. Bureau of the Census, 2020 Census of Population and Housing. ESRI forecasts for 2025 and 2030.",
+    "from_image": false
+  },
+  "pages": [
+    {"page": 1, "kind": "cover_spec", "caption": ""},
+    {"page": 2, "kind": "spec", "caption": ""},
+    {"page": 3, "kind": "location_map", "caption": "Location Map"},
+    {"page": 4, "kind": "area_map", "caption": "Area Map"},
+    {"page": 5, "kind": "aerial", "caption": "Aerial Map", "annotations": "wide downtown aerial; red 'SITE' callout with arrow to the site; labels IH-10, IH-35, DOWNTOWN SAN ANTONIO; scale bar 0-2000ft; map-tool header reads 'Texas, AC +/-' (acreage blank); footer Matt Howard / mhoward@roalson.com"},
+    {"page": 6, "kind": "aerial", "caption": "Aerial Map", "annotations": "closer aerial; site outlined in red with 'SITE' callout arrow; labels Main Avenue, SAN ANTONIO RIVER, Commerce St., MAIN PLAZA; scale bar 0-400ft; header 'Texas, AC +/-'; footer Matt Howard / mhoward@roalson.com"},
+    {"page": 7, "kind": "aerial", "caption": "Aerial Map", "annotations": "close-up aerial of the building footprint at W Commerce St / N Main Ave, outlined in red with 'SITE' callout arrow; scale bar 0-80ft; header 'Texas, AC +/-'; footer Matt Howard / mhoward@roalson.com"},
+    {"page": 8, "kind": "photo_exterior", "caption": "Exterior", "annotations": "one street-level photo of the two-story brick building (Bill Miller Bar-B-Q lettering on facade) along the sidewalk"},
+    {"page": 9, "kind": "photo_interior", "caption": "Interior", "annotations": "two interior photos: upstairs open room with drop ceiling and wood floor; ground-floor dining room with green ceiling, stair and cowboy mural"},
+    {"page": 10, "kind": "demographics", "caption": "Demographic Overview"},
+    {"page": 11, "kind": "disclosure", "caption": "Property Disclosure Statement"},
+    {"page": 12, "kind": "iabs", "caption": "Information About Brokerage Services"}
+  ],
+  "qa_notes": [
+    "Transaction: the PDF never says 'For Sale' or 'For Lease'; set 'For Sale' from context ('Prospective buyers', 'Investment' row). Verify.",
+    "Price mismatch: PDF Investment row says 'Contact Broker'; Prismic total_price is '$2,950,000' with price_per_unit '$375.17 / SF' (= $2,950,000 / 7,863 SF). Confirm which is current before publishing either.",
+    "Size: PDF 'Approximately 7,863 square foot two story building' plus ~1,248 SF basement on .077 +/- acres; Prismic size_label '7,863 SF' (match; Prismic omits the basement and land area).",
+    "Zoning: PDF 'Downtown District, San Antonio' matches Prismic zoning.",
+    "Title: PDF cover prints '101 W. COMMERCE ST.'; Prismic title is '101 W. Commerce Street' (abbreviation differs only).",
+    "Contact email mismatch: contact line names MATT HOWARD OR BART WILSON but lists 'eldon@roalson.com/ mhoward@roalson.com'. Bart Wilson's address per the IABS page is bwilson@roalson.com; 'eldon@' looks like a stale address from an older template. Transcribed as printed.",
+    "Contact name order on this PDF is Matt Howard first, then Bart Wilson (reverse of the usual Bart Wilson or Matt Howard).",
+    "Demographic Overview typos: 5.0-mile Population '2025 Estimate' printed as '339.522' and '5 Year Projection' as '334.363' (period instead of comma). The spec-page table prints 339,522 correctly. Transcribed as printed.",
+    "Demographic Overview is titled 'W. COMMERCE AT NORTH MAIN AVE.' rather than the listing address; its column headers print with trailing colons ('1.0 Miles:'), dropped per schema convention.",
+    "Spec-page demographics (15,168 / 140,391 / 339,522; $73,964 / $71,403 / $77,351) match the Demographic Overview page values.",
+    "Comment 2 prints 'project called, “300 Main.”' (stray comma after 'called'); Prismic highlight reads 'called \"300 Main.\"' without the comma.",
+    "Aerial map pages carry the map tool's placeholder header 'Texas, AC +/-' with no acreage filled in.",
+    "Page footer disclaimer (every page) misspells 'represetation' (for 'representation'); template-wide, not transcribed."
+  ]
+}

@@ -1,0 +1,2190 @@
+{
+ "menger-springs-road": {
+  "site": [
+   29.7705116,
+   -98.7307834
+  ],
+  "traffic": [
+   {
+    "id": "131H19",
+    "year": 2025,
+    "qty": 14614,
+    "prev": 15742,
+    "road": "US 87",
+    "raw_road": "US0087",
+    "lat": 29.776684,
+    "lon": -98.725701,
+    "d": 845,
+    "label": "US 87"
+   },
+   {
+    "id": "131H20",
+    "year": 2025,
+    "qty": 57009,
+    "prev": 57215,
+    "road": "IH 10",
+    "raw_road": "IH0010",
+    "lat": 29.768834,
+    "lon": -98.721835,
+    "d": 885,
+    "label": "IH 10"
+   },
+   {
+    "id": "131H18",
+    "year": 2025,
+    "qty": 14001,
+    "prev": 18498,
+    "road": "SH 46",
+    "raw_road": "SH0046",
+    "lat": 29.7805,
+    "lon": -98.734998,
+    "d": 1184,
+    "label": "SH 46"
+   },
+   {
+    "id": "131H21",
+    "year": 2025,
+    "qty": 10340,
+    "prev": 11335,
+    "road": "SH 46",
+    "raw_road": "SH0046",
+    "lat": 29.779356,
+    "lon": -98.741431,
+    "d": 1424,
+    "label": "SH 46"
+   },
+   {
+    "id": "131H1005",
+    "year": 2025,
+    "qty": 49714,
+    "prev": 49557,
+    "road": "IH 10",
+    "raw_road": "IH0010",
+    "lat": 29.783987,
+    "lon": -98.743191,
+    "d": 1920,
+    "label": "IH 10"
+   },
+   {
+    "id": "131H1006",
+    "year": 2025,
+    "qty": 51699,
+    "prev": 51749,
+    "road": "IH 10",
+    "raw_road": "IH0010",
+    "lat": 29.761929,
+    "lon": -98.713322,
+    "d": 1939,
+    "label": "IH 10"
+   },
+   {
+    "id": "131T2",
+    "year": 2025,
+    "qty": 19351,
+    "prev": 23877,
+    "road": "US 87",
+    "raw_road": "US0087",
+    "lat": 29.788664,
+    "lon": -98.72917,
+    "d": 2027,
+    "label": "US 87"
+   }
+  ],
+  "flood_zones": [
+   [
+    "A",
+    null
+   ],
+   [
+    "AE",
+    "FLOODWAY"
+   ],
+   [
+    "AE",
+    null
+   ],
+   [
+    "X",
+    "0.2 PCT ANNUAL CHANCE FLOOD HAZARD"
+   ],
+   [
+    "X",
+    "AREA OF MINIMAL FLOOD HAZARD"
+   ]
+  ],
+  "dfirm": [
+   "48259C"
+  ],
+  "n_flood": 12
+ },
+ "ih-10-east-at-loop-1604": {
+  "site": [
+   29.4663,
+   -98.2941
+  ],
+  "traffic": [
+   {
+    "id": "15H122",
+    "year": 2025,
+    "qty": 41365,
+    "prev": 40955,
+    "road": "Loop 1604",
+    "raw_road": "SL1604",
+    "lat": 29.467336,
+    "lon": -98.292855,
+    "d": 160,
+    "label": "Loop 1604"
+   },
+   {
+    "id": "15H120",
+    "year": 2025,
+    "qty": 20632,
+    "prev": 22357,
+    "road": "Loop 1604",
+    "raw_road": "SL1604",
+    "lat": 29.462405,
+    "lon": -98.291261,
+    "d": 460,
+    "label": "Loop 1604"
+   },
+   {
+    "id": "15H121EBSR",
+    "year": 2025,
+    "qty": 10498,
+    "prev": 6890,
+    "road": "IH 10",
+    "raw_road": "IH0010",
+    "lat": 29.466253,
+    "lon": -98.287784,
+    "d": 559,
+    "label": "IH 10 Frontage Rd"
+   },
+   {
+    "id": "15H119",
+    "year": 2025,
+    "qty": 71258,
+    "prev": 68517,
+    "road": "IH 10",
+    "raw_road": "IH0010",
+    "lat": 29.461683,
+    "lon": -98.306139,
+    "d": 1313,
+    "label": "IH 10"
+   },
+   {
+    "id": "15H1009",
+    "year": 2025,
+    "qty": 64268,
+    "prev": null,
+    "road": "IH 10",
+    "raw_road": "IH0010",
+    "lat": 29.469311,
+    "lon": -98.279604,
+    "d": 1399,
+    "label": "IH 10"
+   },
+   {
+    "id": "15H116",
+    "year": 2025,
+    "qty": 15252,
+    "prev": 11371,
+    "road": "FM 1516",
+    "raw_road": "FM1516",
+    "lat": 29.46164,
+    "lon": -98.316286,
+    "d": 2258,
+    "label": "FM 1516"
+   }
+  ],
+  "flood_zones": [
+   [
+    "A",
+    null
+   ],
+   [
+    "AE",
+    null
+   ],
+   [
+    "X",
+    "0.2 PCT ANNUAL CHANCE FLOOD HAZARD"
+   ],
+   [
+    "X",
+    "1 PCT FUTURE CONDITIONS"
+   ],
+   [
+    "X",
+    "AREA OF MINIMAL FLOOD HAZARD"
+   ]
+  ],
+  "dfirm": [
+   "48029C"
+  ],
+  "n_flood": 12
+ },
+ "101-w-commerce-street": {
+  "site": [
+   29.425299174115988,
+   -98.49392184321334
+  ],
+  "traffic": [
+   {
+    "id": "15HP1017A",
+    "year": 2025,
+    "qty": 4392,
+    "prev": 5501,
+    "road": "Dolorosa",
+    "raw_road": "DOLOROSA",
+    "lat": 29.424087,
+    "lon": -98.49419,
+    "d": 137,
+    "label": "Dolorosa"
+   },
+   {
+    "id": "15HP1007",
+    "year": 2025,
+    "qty": 6592,
+    "prev": 5586,
+    "road": "Commerce",
+    "raw_road": "COMMERCE",
+    "lat": 29.424643,
+    "lon": -98.491973,
+    "d": 203,
+    "label": "Commerce"
+   },
+   {
+    "id": "15XK33A",
+    "year": 2025,
+    "qty": 4596,
+    "prev": 4503,
+    "road": "E Travis St",
+    "raw_road": "E TRAVIS ST",
+    "lat": 29.427509,
+    "lon": -98.49297,
+    "d": 263,
+    "label": "E Travis St"
+   },
+   {
+    "id": "15HP1011A",
+    "year": 2025,
+    "qty": 9165,
+    "prev": 9894,
+    "road": "Commerce",
+    "raw_road": "COMMERCE",
+    "lat": 29.423847,
+    "lon": -98.488297,
+    "d": 569,
+    "label": "Commerce"
+   },
+   {
+    "id": "15A3501",
+    "year": 2025,
+    "qty": 175000,
+    "prev": 175759,
+    "road": "IH 35",
+    "raw_road": "IH0035",
+    "lat": 29.425198,
+    "lon": -98.501337,
+    "d": 719,
+    "label": "IH 35"
+   },
+   {
+    "id": "15A3502",
+    "year": 2025,
+    "qty": 165490,
+    "prev": 173324,
+    "road": "IH 35",
+    "raw_road": "IH0035",
+    "lat": 29.435624,
+    "lon": -98.494718,
+    "d": 1152,
+    "label": "IH 35"
+   },
+   {
+    "id": "15A1001",
+    "year": 2025,
+    "qty": 184707,
+    "prev": 188359,
+    "road": "IH 10",
+    "raw_road": "IH0010",
+    "lat": 29.434197,
+    "lon": -98.502603,
+    "d": 1300,
+    "label": "IH 10"
+   }
+  ],
+  "flood_zones": [
+   [
+    "AE",
+    null
+   ],
+   [
+    "X",
+    "0.2 PCT ANNUAL CHANCE FLOOD HAZARD"
+   ],
+   [
+    "X",
+    "1 PCT FUTURE CONDITIONS"
+   ],
+   [
+    "X",
+    "AREA OF MINIMAL FLOOD HAZARD"
+   ]
+  ],
+  "dfirm": [
+   "48029C"
+  ],
+  "n_flood": 25
+ },
+ "loop-1604-at-highway-181": {
+  "site": [
+   29.2685057,
+   -98.306694
+  ],
+  "traffic": [
+   {
+    "id": "15H265",
+    "year": 2025,
+    "qty": 23338,
+    "prev": 23191,
+    "road": "US 181",
+    "raw_road": "US0181",
+    "lat": 29.269694,
+    "lon": -98.310722,
+    "d": 413,
+    "label": "US 181"
+   },
+   {
+    "id": "15H266",
+    "year": 2025,
+    "qty": 6593,
+    "prev": 7073,
+    "road": "Loop 1604",
+    "raw_road": "SL1604",
+    "lat": 29.270661,
+    "lon": -98.302605,
+    "d": 464,
+    "label": "Loop 1604"
+   },
+   {
+    "id": "15H267",
+    "year": 2025,
+    "qty": 7936,
+    "prev": 6186,
+    "road": "Loop 1604",
+    "raw_road": "SL1604",
+    "lat": 29.263927,
+    "lon": -98.312326,
+    "d": 748,
+    "label": "Loop 1604"
+   },
+   {
+    "id": "15SP160",
+    "year": 2025,
+    "qty": 25093,
+    "prev": 23888,
+    "road": "US 181",
+    "raw_road": "US0181",
+    "lat": 29.263643,
+    "lon": -98.298839,
+    "d": 935,
+    "label": "US 181"
+   },
+   {
+    "id": "15H268",
+    "year": 2025,
+    "qty": 6484,
+    "prev": 5107,
+    "road": "Loop 1604",
+    "raw_road": "SL1604",
+    "lat": 29.256973,
+    "lon": -98.324141,
+    "d": 2126,
+    "label": "Loop 1604"
+   }
+  ],
+  "flood_zones": [
+   [
+    "A",
+    null
+   ],
+   [
+    "AE",
+    null
+   ],
+   [
+    "X",
+    "1 PCT FUTURE CONDITIONS"
+   ],
+   [
+    "X",
+    "AREA OF MINIMAL FLOOD HAZARD"
+   ]
+  ],
+  "dfirm": [
+   "48029C"
+  ],
+  "n_flood": 9
+ },
+ "loop-1604-at-dove-canyon": {
+  "site": [
+   29.41844277339362,
+   -98.71136634301625
+  ],
+  "traffic": [
+   {
+    "id": "15H160401",
+    "year": 2025,
+    "qty": 36111,
+    "prev": 36705,
+    "road": "Loop 1604",
+    "raw_road": "SL1604",
+    "lat": 29.426688,
+    "lon": -98.711284,
+    "d": 918,
+    "label": "Loop 1604"
+   },
+   {
+    "id": "15HP1129",
+    "year": 2025,
+    "qty": 6400,
+    "prev": null,
+    "road": "Grosenbacher Rd",
+    "raw_road": "GROSENBACHER RD",
+    "lat": 29.41057233,
+    "lon": -98.72701735,
+    "d": 1752,
+    "label": "Grosenbacher Rd"
+   },
+   {
+    "id": "15H136",
+    "year": 2025,
+    "qty": 45996,
+    "prev": 45898,
+    "road": "FM 1957",
+    "raw_road": "FM1957",
+    "lat": 29.435371,
+    "lon": -98.712615,
+    "d": 1888,
+    "label": "FM 1957"
+   },
+   {
+    "id": "15D38",
+    "year": 2025,
+    "qty": 50452,
+    "prev": null,
+    "road": "FM 1957",
+    "raw_road": "FM1957",
+    "lat": 29.43322379,
+    "lon": -98.72140884,
+    "d": 1912,
+    "label": "FM 1957"
+   },
+   {
+    "id": "15H135",
+    "year": 2025,
+    "qty": 40316,
+    "prev": 40269,
+    "road": "FM 1957",
+    "raw_road": "FM1957",
+    "lat": 29.435671,
+    "lon": -98.708243,
+    "d": 1942,
+    "label": "FM 1957"
+   }
+  ],
+  "flood_zones": [
+   [
+    "AE",
+    null
+   ],
+   [
+    "X",
+    "1 PCT FUTURE CONDITIONS"
+   ],
+   [
+    "X",
+    "AREA OF MINIMAL FLOOD HAZARD"
+   ]
+  ],
+  "dfirm": [
+   "48029C"
+  ],
+  "n_flood": 8
+ },
+ "cascade-caverns-at-old-san-antonio-road": {
+  "site": [
+   29.757606362234213,
+   -98.70516004645292
+  ],
+  "traffic": [
+   {
+    "id": "131H1006",
+    "year": 2025,
+    "qty": 51699,
+    "prev": 51749,
+    "road": "IH 10",
+    "raw_road": "IH0010",
+    "lat": 29.761929,
+    "lon": -98.713322,
+    "d": 924,
+    "label": "IH 10"
+   },
+   {
+    "id": "131H20",
+    "year": 2025,
+    "qty": 57009,
+    "prev": 57215,
+    "road": "IH 10",
+    "raw_road": "IH0010",
+    "lat": 29.768834,
+    "lon": -98.721835,
+    "d": 2039,
+    "label": "IH 10"
+   }
+  ],
+  "flood_zones": [
+   [
+    "X",
+    "AREA OF MINIMAL FLOOD HAZARD"
+   ]
+  ],
+  "dfirm": [
+   "48259C"
+  ],
+  "n_flood": 0
+ },
+ "urban-loop-road": {
+  "site": [
+   29.420904405597632,
+   -98.50116232571678
+  ],
+  "traffic": [
+   {
+    "id": "15U638",
+    "year": 2025,
+    "qty": 3231,
+    "prev": 2237,
+    "road": "W Cesar E Chavez Blvd",
+    "raw_road": "W CESAR E CHAVEZ BLVD",
+    "lat": 29.422705,
+    "lon": -98.503459,
+    "d": 300,
+    "label": "W Cesar E Chavez Blvd"
+   },
+   {
+    "id": "15A3501",
+    "year": 2025,
+    "qty": 175000,
+    "prev": 175759,
+    "road": "IH 35",
+    "raw_road": "IH0035",
+    "lat": 29.425198,
+    "lon": -98.501337,
+    "d": 478,
+    "label": "IH 35"
+   },
+   {
+    "id": "15HP1091A",
+    "year": 2025,
+    "qty": 4266,
+    "prev": 9321,
+    "road": "W Commerce St",
+    "raw_road": "W COMMERCE ST",
+    "lat": 29.425229,
+    "lon": -98.497704,
+    "d": 587,
+    "label": "W Commerce St"
+   },
+   {
+    "id": "15HP1027",
+    "year": 2025,
+    "qty": 1811,
+    "prev": 1942,
+    "road": "S Main",
+    "raw_road": "S MAIN",
+    "lat": 29.419769,
+    "lon": -98.495195,
+    "d": 592,
+    "label": "S Main"
+   },
+   {
+    "id": "15A1001",
+    "year": 2025,
+    "qty": 184707,
+    "prev": 188359,
+    "road": "IH 10",
+    "raw_road": "IH0010",
+    "lat": 29.434197,
+    "lon": -98.502603,
+    "d": 1486,
+    "label": "IH 10"
+   },
+   {
+    "id": "15H164A",
+    "year": 2025,
+    "qty": 173262,
+    "prev": 170457,
+    "road": "IH 35",
+    "raw_road": "IH0035",
+    "lat": 29.408254,
+    "lon": -98.509372,
+    "d": 1618,
+    "label": "IH 35"
+   },
+   {
+    "id": "15A3502",
+    "year": 2025,
+    "qty": 165490,
+    "prev": 173324,
+    "road": "IH 35",
+    "raw_road": "IH0035",
+    "lat": 29.435624,
+    "lon": -98.494718,
+    "d": 1754,
+    "label": "IH 35"
+   }
+  ],
+  "flood_zones": [
+   [
+    "AE",
+    null
+   ],
+   [
+    "X",
+    "1 PCT FUTURE CONDITIONS"
+   ],
+   [
+    "X",
+    "AREA OF MINIMAL FLOOD HAZARD"
+   ]
+  ],
+  "dfirm": [
+   "48029C"
+  ],
+  "n_flood": 14
+ },
+ "11714-perrin-beitel-road": {
+  "site": [
+   29.546533563876007,
+   -98.40949690479796
+  ],
+  "traffic": [
+   {
+    "id": "15H91",
+    "year": 2025,
+    "qty": 18726,
+    "prev": 18988,
+    "road": "FM 2252",
+    "raw_road": "FM2252",
+    "lat": 29.543359,
+    "lon": -98.411036,
+    "d": 384,
+    "label": "FM 2252"
+   },
+   {
+    "id": "15H280",
+    "year": 2025,
+    "qty": 27681,
+    "prev": 24390,
+    "road": "FM 2252",
+    "raw_road": "FM2252",
+    "lat": 29.535267,
+    "lon": -98.41106199,
+    "d": 1263,
+    "label": "FM 2252"
+   },
+   {
+    "id": "15HP1008",
+    "year": 2025,
+    "qty": 24766,
+    "prev": 30915,
+    "road": "Wetmore",
+    "raw_road": "WETMORE",
+    "lat": 29.561922,
+    "lon": -98.421389,
+    "d": 2064,
+    "label": "Wetmore"
+   },
+   {
+    "id": "15H95SBSR",
+    "year": 2025,
+    "qty": 13029,
+    "prev": 11438,
+    "road": "IH 35",
+    "raw_road": "IH0035",
+    "lat": 29.528308,
+    "lon": -98.39301,
+    "d": 2582,
+    "label": "IH 35 Frontage Rd"
+   }
+  ],
+  "flood_zones": [
+   [
+    "AE",
+    null
+   ],
+   [
+    "X",
+    "AREA OF MINIMAL FLOOD HAZARD"
+   ]
+  ],
+  "dfirm": [
+   "48029C"
+  ],
+  "n_flood": 7
+ },
+ "st-marys-at-martin-river-walk": {
+  "site": [
+   29.428993635373043,
+   -98.4917537506211
+  ],
+  "traffic": [
+   {
+    "id": "15HP1058A",
+    "year": 2025,
+    "qty": 6017,
+    "prev": null,
+    "road": "St Mary'S",
+    "raw_road": "ST MARY'S",
+    "lat": 29.429597,
+    "lon": -98.491351,
+    "d": 78,
+    "label": "St Mary's"
+   },
+   {
+    "id": "15HP1043",
+    "year": 2025,
+    "qty": 4511,
+    "prev": 2832,
+    "road": "Soledad",
+    "raw_road": "SOLEDAD",
+    "lat": 29.428892,
+    "lon": -98.493314,
+    "d": 152,
+    "label": "Soledad"
+   },
+   {
+    "id": "15HP5588",
+    "year": 2025,
+    "qty": 5599,
+    "prev": 4227,
+    "road": "E Travis St",
+    "raw_road": "E TRAVIS ST",
+    "lat": 29.427554,
+    "lon": -98.48787,
+    "d": 409,
+    "label": "E Travis St"
+   },
+   {
+    "id": "15HP1007",
+    "year": 2025,
+    "qty": 6592,
+    "prev": 5586,
+    "road": "Commerce",
+    "raw_road": "COMMERCE",
+    "lat": 29.424643,
+    "lon": -98.491973,
+    "d": 485,
+    "label": "Commerce"
+   },
+   {
+    "id": "15A3502",
+    "year": 2025,
+    "qty": 165490,
+    "prev": 173324,
+    "road": "IH 35",
+    "raw_road": "IH0035",
+    "lat": 29.435624,
+    "lon": -98.494718,
+    "d": 792,
+    "label": "IH 35"
+   },
+   {
+    "id": "15A3501",
+    "year": 2025,
+    "qty": 175000,
+    "prev": 175759,
+    "road": "IH 35",
+    "raw_road": "IH0035",
+    "lat": 29.425198,
+    "lon": -98.501337,
+    "d": 1021,
+    "label": "IH 35"
+   },
+   {
+    "id": "15A1001",
+    "year": 2025,
+    "qty": 184707,
+    "prev": 188359,
+    "road": "IH 10",
+    "raw_road": "IH0010",
+    "lat": 29.434197,
+    "lon": -98.502603,
+    "d": 1201,
+    "label": "IH 10"
+   }
+  ],
+  "flood_zones": [
+   [
+    "AE",
+    null
+   ],
+   [
+    "X",
+    "0.2 PCT ANNUAL CHANCE FLOOD HAZARD"
+   ],
+   [
+    "X",
+    "1 PCT FUTURE CONDITIONS"
+   ],
+   [
+    "X",
+    "AREA OF MINIMAL FLOOD HAZARD"
+   ]
+  ],
+  "dfirm": [
+   "48029C"
+  ],
+  "n_flood": 21
+ },
+ "highway-77-at-general-cavazos-kingsville": {
+  "site": [
+   27.489690067814415,
+   -97.84893244316687
+  ],
+  "traffic": [
+   {
+    "id": "137H20A",
+    "year": 2025,
+    "qty": 14330,
+    "prev": 14622,
+    "road": "FM 1356",
+    "raw_road": "FM1356",
+    "lat": 27.49146,
+    "lon": -97.849064,
+    "d": 197,
+    "label": "FM 1356"
+   },
+   {
+    "id": "137A7701",
+    "year": 2025,
+    "qty": 19603,
+    "prev": 20318,
+    "road": "US 77",
+    "raw_road": "US 77",
+    "lat": 27.486027,
+    "lon": -97.849978,
+    "d": 421,
+    "label": "US 77"
+   },
+   {
+    "id": "137H21",
+    "year": 2025,
+    "qty": 7948,
+    "prev": 7168,
+    "road": "FM 1717",
+    "raw_road": "FM1717",
+    "lat": 27.490455,
+    "lon": -97.855789,
+    "d": 682,
+    "label": "FM 1717"
+   },
+   {
+    "id": "137H19",
+    "year": 2025,
+    "qty": 19914,
+    "prev": 20534,
+    "road": "US 77",
+    "raw_road": "US0077",
+    "lat": 27.496883,
+    "lon": -97.84361,
+    "d": 958,
+    "label": "US 77"
+   },
+   {
+    "id": "137T8",
+    "year": 2025,
+    "qty": 13043,
+    "prev": 12368,
+    "road": "FM 1717",
+    "raw_road": "FM1717",
+    "lat": 27.500145,
+    "lon": -97.85597,
+    "d": 1356,
+    "label": "FM 1717"
+   },
+   {
+    "id": "137T7",
+    "year": 2025,
+    "qty": 13973,
+    "prev": 14782,
+    "road": "Bus. US 77V",
+    "raw_road": "BU0077V",
+    "lat": 27.503442,
+    "lon": -97.855975,
+    "d": 1681,
+    "label": "Bus. US 77V"
+   },
+   {
+    "id": "137T4",
+    "year": 2025,
+    "qty": 18059,
+    "prev": 16104,
+    "road": "Bus. US 77V",
+    "raw_road": "BU0077V",
+    "lat": 27.508266,
+    "lon": -97.855988,
+    "d": 2182,
+    "label": "Bus. US 77V"
+   }
+  ],
+  "flood_zones": [
+   [
+    "AE",
+    "FLOODWAY"
+   ],
+   [
+    "AE",
+    null
+   ],
+   [
+    "X",
+    "0.2 PCT ANNUAL CHANCE FLOOD HAZARD"
+   ],
+   [
+    "X",
+    "AREA OF MINIMAL FLOOD HAZARD"
+   ]
+  ],
+  "dfirm": [
+   "48273C"
+  ],
+  "n_flood": 18
+ },
+ "ih-10-at-highway-46": {
+  "site": [
+   29.778098922635742,
+   -98.73880410124532
+  ],
+  "traffic": [
+   {
+    "id": "131H21",
+    "year": 2025,
+    "qty": 10340,
+    "prev": 11335,
+    "road": "SH 46",
+    "raw_road": "SH0046",
+    "lat": 29.779356,
+    "lon": -98.741431,
+    "d": 290,
+    "label": "SH 46"
+   },
+   {
+    "id": "131H18",
+    "year": 2025,
+    "qty": 14001,
+    "prev": 18498,
+    "road": "SH 46",
+    "raw_road": "SH0046",
+    "lat": 29.7805,
+    "lon": -98.734998,
+    "d": 455,
+    "label": "SH 46"
+   },
+   {
+    "id": "131H1005",
+    "year": 2025,
+    "qty": 49714,
+    "prev": 49557,
+    "road": "IH 10",
+    "raw_road": "IH0010",
+    "lat": 29.783987,
+    "lon": -98.743191,
+    "d": 781,
+    "label": "IH 10"
+   },
+   {
+    "id": "131H19",
+    "year": 2025,
+    "qty": 14614,
+    "prev": 15742,
+    "road": "US 87",
+    "raw_road": "US0087",
+    "lat": 29.776684,
+    "lon": -98.725701,
+    "d": 1276,
+    "label": "US 87"
+   },
+   {
+    "id": "131T2",
+    "year": 2025,
+    "qty": 19351,
+    "prev": 23877,
+    "road": "US 87",
+    "raw_road": "US0087",
+    "lat": 29.788664,
+    "lon": -98.72917,
+    "d": 1500,
+    "label": "US 87"
+   },
+   {
+    "id": "131H20",
+    "year": 2025,
+    "qty": 57009,
+    "prev": 57215,
+    "road": "IH 10",
+    "raw_road": "IH0010",
+    "lat": 29.768834,
+    "lon": -98.721835,
+    "d": 1937,
+    "label": "IH 10"
+   },
+   {
+    "id": "131T7",
+    "year": 2025,
+    "qty": 16129,
+    "prev": 16794,
+    "road": "US 87",
+    "raw_road": "US0087",
+    "lat": 29.795134,
+    "lon": -98.732394,
+    "d": 1995,
+    "label": "US 87"
+   }
+  ],
+  "flood_zones": [
+   [
+    "A",
+    null
+   ],
+   [
+    "AE",
+    "FLOODWAY"
+   ],
+   [
+    "AE",
+    null
+   ],
+   [
+    "X",
+    "0.2 PCT ANNUAL CHANCE FLOOD HAZARD"
+   ],
+   [
+    "X",
+    "AREA OF MINIMAL FLOOD HAZARD"
+   ]
+  ],
+  "dfirm": [
+   "48259C"
+  ],
+  "n_flood": 38
+ },
+ "13810-lookout-road": {
+  "site": [
+   29.56583546349534,
+   -98.36680003229696
+  ],
+  "traffic": [
+   {
+    "id": "15XD15",
+    "year": 2025,
+    "qty": 16606,
+    "prev": 17508,
+    "road": "Judson Rd",
+    "raw_road": "JUDSON RD",
+    "lat": 29.57728599,
+    "lon": -98.371999,
+    "d": 1370,
+    "label": "Judson Rd"
+   },
+   {
+    "id": "15H3503",
+    "year": 2025,
+    "qty": 182704,
+    "prev": 195316,
+    "road": "IH 35",
+    "raw_road": "IH0035",
+    "lat": 29.549403,
+    "lon": -98.36231,
+    "d": 1880,
+    "label": "IH 35"
+   },
+   {
+    "id": "15H29",
+    "year": 2025,
+    "qty": 26745,
+    "prev": 30675,
+    "road": "FM 2252",
+    "raw_road": "FM2252",
+    "lat": 29.566974,
+    "lon": -98.386573,
+    "d": 1919,
+    "label": "FM 2252"
+   },
+   {
+    "id": "15H30",
+    "year": 2025,
+    "qty": 21625,
+    "prev": 19480,
+    "road": "FM 2252",
+    "raw_road": "FM2252",
+    "lat": 29.586171,
+    "lon": -98.361298,
+    "d": 2326,
+    "label": "FM 2252"
+   }
+  ],
+  "flood_zones": [
+   [
+    "AE",
+    "FLOODWAY"
+   ],
+   [
+    "AE",
+    null
+   ],
+   [
+    "X",
+    "0.2 PCT ANNUAL CHANCE FLOOD HAZARD"
+   ],
+   [
+    "X",
+    "AREA OF MINIMAL FLOOD HAZARD"
+   ]
+  ],
+  "dfirm": [
+   "48029C"
+  ],
+  "n_flood": 11
+ },
+ "5930-bandera-road": {
+  "site": [
+   29.483115195633506,
+   -98.60328612138922
+  ],
+  "traffic": [
+   {
+    "id": "15H61",
+    "year": 2025,
+    "qty": 27336,
+    "prev": 28128,
+    "road": "Spur 421",
+    "raw_road": "SS0421",
+    "lat": 29.481519,
+    "lon": -98.597131,
+    "d": 622,
+    "label": "Spur 421"
+   },
+   {
+    "id": "15UH109",
+    "year": 2025,
+    "qty": 20857,
+    "prev": null,
+    "road": "Evers Rd",
+    "raw_road": "EVERS RD",
+    "lat": 29.486806,
+    "lon": -98.595322,
+    "d": 874,
+    "label": "Evers Rd"
+   },
+   {
+    "id": "15SP146",
+    "year": 2025,
+    "qty": 202067,
+    "prev": 210486,
+    "road": "IH 410",
+    "raw_road": "IH0410",
+    "lat": 29.476575,
+    "lon": -98.609005,
+    "d": 915,
+    "label": "IH 410"
+   },
+   {
+    "id": "15H339",
+    "year": 2025,
+    "qty": 40000,
+    "prev": null,
+    "road": "SH 16",
+    "raw_road": "SH0016",
+    "lat": 29.48901176,
+    "lon": -98.61004639,
+    "d": 927,
+    "label": "SH 16"
+   },
+   {
+    "id": "15UH110",
+    "year": 2025,
+    "qty": 15616,
+    "prev": null,
+    "road": "Evers Rd",
+    "raw_road": "EVERS RD",
+    "lat": 29.48413,
+    "lon": -98.591825,
+    "d": 1116,
+    "label": "Evers Rd"
+   },
+   {
+    "id": "15H50",
+    "year": 2025,
+    "qty": 49814,
+    "prev": 53406,
+    "road": "SH 16",
+    "raw_road": "SH0016",
+    "lat": 29.49548,
+    "lon": -98.618856,
+    "d": 2042,
+    "label": "SH 16"
+   },
+   {
+    "id": "15H41007",
+    "year": 2025,
+    "qty": 187186,
+    "prev": 194985,
+    "road": "IH 410",
+    "raw_road": "IH0410",
+    "lat": 29.488921,
+    "lon": -98.581489,
+    "d": 2209,
+    "label": "IH 410"
+   }
+  ],
+  "flood_zones": [
+   [
+    "AE",
+    "FLOODWAY"
+   ],
+   [
+    "AE",
+    null
+   ],
+   [
+    "X",
+    "0.2 PCT ANNUAL CHANCE FLOOD HAZARD"
+   ],
+   [
+    "X",
+    "1 PCT FUTURE CONDITIONS"
+   ],
+   [
+    "X",
+    "AREA OF MINIMAL FLOOD HAZARD"
+   ]
+  ],
+  "dfirm": [
+   "48029C"
+  ],
+  "n_flood": 72
+ },
+ "ih-10-at-fm-725-seguin": {
+  "site": [
+   29.56014286304708,
+   -98.03108124221077
+  ],
+  "traffic": [
+   {
+    "id": "95H78",
+    "year": 2025,
+    "qty": 5264,
+    "prev": 5417,
+    "road": "FM 725",
+    "raw_road": "FM0725",
+    "lat": 29.558113,
+    "lon": -98.030815,
+    "d": 227,
+    "label": "FM 725"
+   },
+   {
+    "id": "95H77",
+    "year": 2025,
+    "qty": 5971,
+    "prev": 6812,
+    "road": "US 90",
+    "raw_road": "US0090",
+    "lat": 29.554475,
+    "lon": -98.030502,
+    "d": 633,
+    "label": "US 90"
+   },
+   {
+    "id": "95H80",
+    "year": 2025,
+    "qty": 5884,
+    "prev": 6713,
+    "road": "US 90",
+    "raw_road": "US0090",
+    "lat": 29.555747,
+    "lon": -98.026612,
+    "d": 653,
+    "label": "US 90"
+   },
+   {
+    "id": "95H1003",
+    "year": 2025,
+    "qty": 54905,
+    "prev": 53306,
+    "road": "IH 10",
+    "raw_road": "IH0010",
+    "lat": 29.564893,
+    "lon": -98.026407,
+    "d": 696,
+    "label": "IH 10"
+   },
+   {
+    "id": "95H79",
+    "year": 2025,
+    "qty": 5861,
+    "prev": 6009,
+    "road": "FM 725",
+    "raw_road": "FM0725",
+    "lat": 29.554282,
+    "lon": -98.028417,
+    "d": 702,
+    "label": "FM 725"
+   },
+   {
+    "id": "95H1002",
+    "year": 2025,
+    "qty": 52730,
+    "prev": 51194,
+    "road": "IH 10",
+    "raw_road": "IH0010",
+    "lat": 29.556075,
+    "lon": -98.03686,
+    "d": 720,
+    "label": "IH 10"
+   },
+   {
+    "id": "95D25",
+    "year": 2025,
+    "qty": 8736,
+    "prev": null,
+    "road": "FM 725",
+    "raw_road": "FM0725",
+    "lat": 29.5675036,
+    "lon": -98.0359972,
+    "d": 948,
+    "label": "FM 725"
+   }
+  ],
+  "flood_zones": [
+   [
+    "A",
+    null
+   ],
+   [
+    "AE",
+    "FLOODWAY"
+   ],
+   [
+    "AE",
+    null
+   ],
+   [
+    "X",
+    "0.2 PCT ANNUAL CHANCE FLOOD HAZARD"
+   ],
+   [
+    "X",
+    "AREA OF MINIMAL FLOOD HAZARD"
+   ]
+  ],
+  "dfirm": [
+   "48187C"
+  ],
+  "n_flood": 40
+ },
+ "ih-10-at-menger-springs": {
+  "site": [
+   29.77232161719446,
+   -98.72871203762185
+  ],
+  "traffic": [
+   {
+    "id": "131H19",
+    "year": 2025,
+    "qty": 14614,
+    "prev": 15742,
+    "road": "US 87",
+    "raw_road": "US0087",
+    "lat": 29.776684,
+    "lon": -98.725701,
+    "d": 578,
+    "label": "US 87"
+   },
+   {
+    "id": "131H18",
+    "year": 2025,
+    "qty": 14001,
+    "prev": 18498,
+    "road": "SH 46",
+    "raw_road": "SH0046",
+    "lat": 29.7805,
+    "lon": -98.734998,
+    "d": 932,
+    "label": "SH 46"
+   },
+   {
+    "id": "131H20",
+    "year": 2025,
+    "qty": 57009,
+    "prev": 57215,
+    "road": "IH 10",
+    "raw_road": "IH0010",
+    "lat": 29.768834,
+    "lon": -98.721835,
+    "d": 944,
+    "label": "IH 10"
+   },
+   {
+    "id": "131H21",
+    "year": 2025,
+    "qty": 10340,
+    "prev": 11335,
+    "road": "SH 46",
+    "raw_road": "SH0046",
+    "lat": 29.779356,
+    "lon": -98.741431,
+    "d": 1282,
+    "label": "SH 46"
+   },
+   {
+    "id": "131T2",
+    "year": 2025,
+    "qty": 19351,
+    "prev": 23877,
+    "road": "US 87",
+    "raw_road": "US0087",
+    "lat": 29.788664,
+    "lon": -98.72917,
+    "d": 1719,
+    "label": "US 87"
+   },
+   {
+    "id": "131H1005",
+    "year": 2025,
+    "qty": 49714,
+    "prev": 49557,
+    "road": "IH 10",
+    "raw_road": "IH0010",
+    "lat": 29.783987,
+    "lon": -98.743191,
+    "d": 1735,
+    "label": "IH 10"
+   },
+   {
+    "id": "131H1006",
+    "year": 2025,
+    "qty": 51699,
+    "prev": 51749,
+    "road": "IH 10",
+    "raw_road": "IH0010",
+    "lat": 29.761929,
+    "lon": -98.713322,
+    "d": 2059,
+    "label": "IH 10"
+   }
+  ],
+  "flood_zones": [
+   [
+    "A",
+    null
+   ],
+   [
+    "AE",
+    "FLOODWAY"
+   ],
+   [
+    "AE",
+    null
+   ],
+   [
+    "X",
+    "0.2 PCT ANNUAL CHANCE FLOOD HAZARD"
+   ],
+   [
+    "X",
+    "AREA OF MINIMAL FLOOD HAZARD"
+   ]
+  ],
+  "dfirm": [
+   "48259C"
+  ],
+  "n_flood": 23
+ },
+ "402-w-nueva-street": {
+  "site": [
+   29.423065291889216,
+   -98.50052143424789
+  ],
+  "traffic": [
+   {
+    "id": "15A3501",
+    "year": 2025,
+    "qty": 175000,
+    "prev": 175759,
+    "road": "IH 35",
+    "raw_road": "IH0035",
+    "lat": 29.425198,
+    "lon": -98.501337,
+    "d": 250,
+    "label": "IH 35"
+   },
+   {
+    "id": "15U638",
+    "year": 2025,
+    "qty": 3231,
+    "prev": 2237,
+    "road": "W Cesar E Chavez Blvd",
+    "raw_road": "W CESAR E CHAVEZ BLVD",
+    "lat": 29.422705,
+    "lon": -98.503459,
+    "d": 288,
+    "label": "W Cesar E Chavez Blvd"
+   },
+   {
+    "id": "15HP1091A",
+    "year": 2025,
+    "qty": 4266,
+    "prev": 9321,
+    "road": "W Commerce St",
+    "raw_road": "W COMMERCE ST",
+    "lat": 29.425229,
+    "lon": -98.497704,
+    "d": 364,
+    "label": "W Commerce St"
+   },
+   {
+    "id": "15A1001",
+    "year": 2025,
+    "qty": 184707,
+    "prev": 188359,
+    "road": "IH 10",
+    "raw_road": "IH0010",
+    "lat": 29.434197,
+    "lon": -98.502603,
+    "d": 1256,
+    "label": "IH 10"
+   },
+   {
+    "id": "15A3502",
+    "year": 2025,
+    "qty": 165490,
+    "prev": 173324,
+    "road": "IH 35",
+    "raw_road": "IH0035",
+    "lat": 29.435624,
+    "lon": -98.494718,
+    "d": 1507,
+    "label": "IH 35"
+   },
+   {
+    "id": "15H164A",
+    "year": 2025,
+    "qty": 173262,
+    "prev": 170457,
+    "road": "IH 35",
+    "raw_road": "IH0035",
+    "lat": 29.408254,
+    "lon": -98.509372,
+    "d": 1859,
+    "label": "IH 35"
+   },
+   {
+    "id": "15S45",
+    "year": 2025,
+    "qty": 183725,
+    "prev": 183761,
+    "road": "IH 10",
+    "raw_road": "IH0010",
+    "lat": 29.439455,
+    "lon": -98.50609,
+    "d": 1903,
+    "label": "IH 10"
+   }
+  ],
+  "flood_zones": [
+   [
+    "AE",
+    null
+   ],
+   [
+    "X",
+    "1 PCT FUTURE CONDITIONS"
+   ],
+   [
+    "X",
+    "AREA OF MINIMAL FLOOD HAZARD"
+   ]
+  ],
+  "dfirm": [
+   "48029C"
+  ],
+  "n_flood": 14
+ },
+ "ih-35-at-wonderworld-san-marcos": {
+  "site": [
+   29.8570950400846,
+   -97.954273079187
+  ],
+  "traffic": [
+   {
+    "id": "106H19",
+    "year": 2025,
+    "qty": 122403,
+    "prev": 124391,
+    "road": "IH 35",
+    "raw_road": "IH0035",
+    "lat": 29.856092,
+    "lon": -97.954086,
+    "d": 113,
+    "label": "IH 35"
+   },
+   {
+    "id": "106H19B",
+    "year": 2025,
+    "qty": 34014,
+    "prev": 27653,
+    "road": "RM 12",
+    "raw_road": "RM0012",
+    "lat": 29.855694,
+    "lon": -97.951641,
+    "d": 298,
+    "label": "RM 12"
+   },
+   {
+    "id": "106H20A",
+    "year": 2025,
+    "qty": 29331,
+    "prev": 33968,
+    "road": "RM 12",
+    "raw_road": "RM0012",
+    "lat": 29.864292,
+    "lon": -97.961726,
+    "d": 1077,
+    "label": "RM 12"
+   },
+   {
+    "id": "106H3501",
+    "year": 2025,
+    "qty": 128234,
+    "prev": 131259,
+    "road": "IH 35",
+    "raw_road": "IH0035",
+    "lat": 29.863732,
+    "lon": -97.945395,
+    "d": 1132,
+    "label": "IH 35"
+   },
+   {
+    "id": "106D8A",
+    "year": 2025,
+    "qty": 20296,
+    "prev": 21396,
+    "road": "FM 2439",
+    "raw_road": "FM2439",
+    "lat": 29.862116,
+    "lon": -97.964741,
+    "d": 1155,
+    "label": "FM 2439"
+   },
+   {
+    "id": "106H18",
+    "year": 2025,
+    "qty": 27929,
+    "prev": 25656,
+    "road": "SH 123",
+    "raw_road": "SH0123",
+    "lat": 29.854076,
+    "lon": -97.939837,
+    "d": 1434,
+    "label": "SH 123"
+   },
+   {
+    "id": "106H18A",
+    "year": 2025,
+    "qty": 34324,
+    "prev": 31531,
+    "road": "SH 123",
+    "raw_road": "SH0123",
+    "lat": 29.866544,
+    "lon": -97.938705,
+    "d": 1835,
+    "label": "SH 123"
+   }
+  ],
+  "flood_zones": [
+   [
+    "A",
+    null
+   ],
+   [
+    "AE",
+    "ADMINISTRATIVE FLOODWAY"
+   ],
+   [
+    "AE",
+    null
+   ],
+   [
+    "X",
+    "0.2 PCT ANNUAL CHANCE FLOOD HAZARD"
+   ],
+   [
+    "X",
+    "AREA OF MINIMAL FLOOD HAZARD"
+   ]
+  ],
+  "dfirm": [
+   "48209C"
+  ],
+  "n_flood": 146
+ },
+ "ih-10-at-scenic-loop": {
+  "site": [
+   29.756119868940203,
+   -98.70387960049246
+  ],
+  "traffic": [
+   {
+    "id": "131H1006",
+    "year": 2025,
+    "qty": 51699,
+    "prev": 51749,
+    "road": "IH 10",
+    "raw_road": "IH0010",
+    "lat": 29.761929,
+    "lon": -98.713322,
+    "d": 1118,
+    "label": "IH 10"
+   },
+   {
+    "id": "131H20",
+    "year": 2025,
+    "qty": 57009,
+    "prev": 57215,
+    "road": "IH 10",
+    "raw_road": "IH0010",
+    "lat": 29.768834,
+    "lon": -98.721835,
+    "d": 2239,
+    "label": "IH 10"
+   }
+  ],
+  "flood_zones": [
+   [
+    "X",
+    "AREA OF MINIMAL FLOOD HAZARD"
+   ]
+  ],
+  "dfirm": [
+   "48259C"
+  ],
+  "n_flood": 0
+ },
+ "116-old-san-antonio-road": {
+  "site": [
+   29.767707819393664,
+   -98.71326344198827
+  ],
+  "traffic": [
+   {
+    "id": "131H1006",
+    "year": 2025,
+    "qty": 51699,
+    "prev": 51749,
+    "road": "IH 10",
+    "raw_road": "IH0010",
+    "lat": 29.761929,
+    "lon": -98.713322,
+    "d": 643,
+    "label": "IH 10"
+   },
+   {
+    "id": "131H20",
+    "year": 2025,
+    "qty": 57009,
+    "prev": 57215,
+    "road": "IH 10",
+    "raw_road": "IH0010",
+    "lat": 29.768834,
+    "lon": -98.721835,
+    "d": 838,
+    "label": "IH 10"
+   },
+   {
+    "id": "131H19",
+    "year": 2025,
+    "qty": 14614,
+    "prev": 15742,
+    "road": "US 87",
+    "raw_road": "US0087",
+    "lat": 29.776684,
+    "lon": -98.725701,
+    "d": 1563,
+    "label": "US 87"
+   },
+   {
+    "id": "131H15",
+    "year": 2025,
+    "qty": 12219,
+    "prev": 14141,
+    "road": "SH 46",
+    "raw_road": "SH0046",
+    "lat": 29.788462,
+    "lon": -98.717529,
+    "d": 2347,
+    "label": "SH 46"
+   },
+   {
+    "id": "131H18",
+    "year": 2025,
+    "qty": 14001,
+    "prev": 18498,
+    "road": "SH 46",
+    "raw_road": "SH0046",
+    "lat": 29.7805,
+    "lon": -98.734998,
+    "d": 2537,
+    "label": "SH 46"
+   },
+   {
+    "id": "131H14",
+    "year": 2025,
+    "qty": 24956,
+    "prev": 26373,
+    "road": "SH 46",
+    "raw_road": "SH0046",
+    "lat": 29.78802,
+    "lon": -98.700572,
+    "d": 2572,
+    "label": "SH 46"
+   }
+  ],
+  "flood_zones": [
+   [
+    "A",
+    null
+   ],
+   [
+    "AE",
+    "FLOODWAY"
+   ],
+   [
+    "AE",
+    null
+   ],
+   [
+    "X",
+    "0.2 PCT ANNUAL CHANCE FLOOD HAZARD"
+   ],
+   [
+    "X",
+    "AREA OF MINIMAL FLOOD HAZARD"
+   ]
+  ],
+  "dfirm": [
+   "48259C"
+  ],
+  "n_flood": 26
+ },
+ "5001-walzem-road": {
+  "site": [
+   29.510607563732755,
+   -98.39129816091999
+  ],
+  "traffic": [
+   {
+    "id": "15HP133",
+    "year": 2025,
+    "qty": 6638,
+    "prev": 9100,
+    "road": "Ray Bon",
+    "raw_road": "RAY BON",
+    "lat": 29.509709,
+    "lon": -98.387861,
+    "d": 348,
+    "label": "Ray Bon"
+   },
+   {
+    "id": "15H98",
+    "year": 2025,
+    "qty": 34246,
+    "prev": 32872,
+    "road": "FM 1976",
+    "raw_road": "FM1976",
+    "lat": 29.510302,
+    "lon": -98.395717,
+    "d": 429,
+    "label": "FM 1976"
+   },
+   {
+    "id": "15H97",
+    "year": 2025,
+    "qty": 128711,
+    "prev": 141049,
+    "road": "IH 35",
+    "raw_road": "IH0035",
+    "lat": 29.515505,
+    "lon": -98.396681,
+    "d": 754,
+    "label": "IH 35"
+   },
+   {
+    "id": "15H100",
+    "year": 2025,
+    "qty": 133684,
+    "prev": 140352,
+    "road": "IH 35",
+    "raw_road": "IH0035",
+    "lat": 29.50312,
+    "lon": -98.39925,
+    "d": 1135,
+    "label": "IH 35"
+   },
+   {
+    "id": "15H92",
+    "year": 2025,
+    "qty": 125594,
+    "prev": 133748,
+    "road": "IH 410",
+    "raw_road": "IH0410",
+    "lat": 29.515967,
+    "lon": -98.408768,
+    "d": 1795,
+    "label": "IH 410"
+   },
+   {
+    "id": "15H95",
+    "year": 2025,
+    "qty": 164993,
+    "prev": 184607,
+    "road": "IH 35",
+    "raw_road": "IH0035",
+    "lat": 29.527781,
+    "lon": -98.39279,
+    "d": 1917,
+    "label": "IH 35"
+   },
+   {
+    "id": "15H41013",
+    "year": 2025,
+    "qty": 133013,
+    "prev": 145660,
+    "road": "IH 410",
+    "raw_road": "IH0410",
+    "lat": 29.516015,
+    "lon": -98.41657,
+    "d": 2521,
+    "label": "IH 410"
+   }
+  ],
+  "flood_zones": [
+   [
+    "A",
+    null
+   ],
+   [
+    "AE",
+    "FLOODWAY"
+   ],
+   [
+    "AE",
+    null
+   ],
+   [
+    "X",
+    "0.2 PCT ANNUAL CHANCE FLOOD HAZARD"
+   ],
+   [
+    "X",
+    "1 PCT FUTURE CONDITIONS"
+   ],
+   [
+    "X",
+    "AREA OF MINIMAL FLOOD HAZARD"
+   ]
+  ],
+  "dfirm": [
+   "48029C"
+  ],
+  "n_flood": 49
+ },
+ "25331-ih-10-west": {
+  "site": [
+   29.677735018901632,
+   -98.63864494696679
+  ],
+  "traffic": [
+   {
+    "id": "15H3A",
+    "year": 2025,
+    "qty": 21615,
+    "prev": 23097,
+    "road": "FM 3351",
+    "raw_road": "FM3351",
+    "lat": 29.676793,
+    "lon": -98.635144,
+    "d": 354,
+    "label": "FM 3351"
+   },
+   {
+    "id": "15H4",
+    "year": 2025,
+    "qty": 74335,
+    "prev": 75631,
+    "road": "IH 10",
+    "raw_road": "IH0010",
+    "lat": 29.688466,
+    "lon": -98.644413,
+    "d": 1318,
+    "label": "IH 10"
+   }
+  ],
+  "flood_zones": [
+   [
+    "A",
+    null
+   ],
+   [
+    "AE",
+    null
+   ],
+   [
+    "X",
+    "0.2 PCT ANNUAL CHANCE FLOOD HAZARD"
+   ],
+   [
+    "X",
+    "1 PCT FUTURE CONDITIONS"
+   ],
+   [
+    "X",
+    "AREA OF MINIMAL FLOOD HAZARD"
+   ]
+  ],
+  "dfirm": [
+   "48029C"
+  ],
+  "n_flood": 31
+ },
+ "ih-10-at-highway-87-comfort": {
+  "site": [
+   29.983618967596932,
+   -98.9012723776925
+  ],
+  "traffic": [
+   {
+    "id": "131H32",
+    "year": 2025,
+    "qty": 10289,
+    "prev": 11558,
+    "road": "US 87",
+    "raw_road": "US0087",
+    "lat": 29.982753,
+    "lon": -98.903796,
+    "d": 262,
+    "label": "US 87"
+   },
+   {
+    "id": "131H30",
+    "year": 2025,
+    "qty": 6322,
+    "prev": 5540,
+    "road": "US 87",
+    "raw_road": "US0087",
+    "lat": 29.976127,
+    "lon": -98.904,
+    "d": 874,
+    "label": "US 87"
+   },
+   {
+    "id": "131H1001",
+    "year": 2025,
+    "qty": 30425,
+    "prev": 26476,
+    "road": "IH 10",
+    "raw_road": "IH0010",
+    "lat": 29.976579,
+    "lon": -98.896716,
+    "d": 898,
+    "label": "IH 10"
+   },
+   {
+    "id": "131H31",
+    "year": 2025,
+    "qty": 22331,
+    "prev": 18268,
+    "road": "IH 10",
+    "raw_road": "IH0010",
+    "lat": 29.983023,
+    "lon": -98.910982,
+    "d": 939,
+    "label": "IH 10"
+   },
+   {
+    "id": "131T10A",
+    "year": 2025,
+    "qty": 6790,
+    "prev": 5951,
+    "road": "US 87",
+    "raw_road": "US0087",
+    "lat": 29.971815,
+    "lon": -98.904016,
+    "d": 1340,
+    "label": "US 87"
+   },
+   {
+    "id": "131T14",
+    "year": 2025,
+    "qty": 8525,
+    "prev": 8028,
+    "road": "SH 27",
+    "raw_road": "SH0027",
+    "lat": 29.967884,
+    "lon": -98.906353,
+    "d": 1819,
+    "label": "SH 27"
+   },
+   {
+    "id": "131H27A",
+    "year": 2025,
+    "qty": 30425,
+    "prev": 26476,
+    "road": "IH 10",
+    "raw_road": "IH0010",
+    "lat": 29.965244,
+    "lon": -98.890536,
+    "d": 2293,
+    "label": "IH 10"
+   }
+  ],
+  "flood_zones": [
+   [
+    "A",
+    null
+   ],
+   [
+    "AE",
+    "FLOODWAY"
+   ],
+   [
+    "AE",
+    null
+   ],
+   [
+    "X",
+    "0.2 PCT ANNUAL CHANCE FLOOD HAZARD"
+   ],
+   [
+    "X",
+    "AREA OF MINIMAL FLOOD HAZARD"
+   ]
+  ],
+  "dfirm": [
+   "48259C"
+  ],
+  "n_flood": 68
+ }
+}

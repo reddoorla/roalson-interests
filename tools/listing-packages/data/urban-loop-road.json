@@ -1,0 +1,110 @@
+{
+  "uid": "urban-loop-road",
+  "variant": "existing",
+  "transaction": "For Sale or Lease",
+  "type_label": "Existing Property",
+  "eyebrow": "For Sale or Lease",
+  "title": "503 & 523 Urban Loop Road",
+  "city": "San Antonio, Texas",
+  "size_headline": "",
+  "rows": [
+    {"label": "Location", "text": "The property is located in downtown San Antonio. It fronts Urban Loop Road on the east and IH-35 (elevated) to the west."},
+    {"label": "Size", "text": "1.87 +/- Acres which includes a 16,853 +/- SF warehouse building"},
+    {"label": "Utilities", "pairs": [["Electricity", "Available"], ["Sewer", "Available"], ["Water", "Available"], ["Gas", "Available"]],
+     "note": "Prospective buyers should retain an independent engineer to verify the location, accessibility, and available capacity of all utilities."},
+    {"label": "Zoning", "text": "Downtown District, San Antonio",
+     "note": "Prospective buyers should verify the zoning and permitted uses for this property with the appropriate governing authority."},
+    {"label": "Demographics", "table": {
+        "columns": ["2025 ESRI Estimates", "Population", "Average Household Income"],
+        "rows": [["1-mile radius", "16,936", "$70,338"],
+                 ["3-mile radius", "141,081", "$67,021"],
+                 ["5-mile radius", "345,977", "$69,523"]]},
+     "note": "Source: U.S. Bureau of the Census, 2020 Census of Population and Housing. ESRI forecasts for 2024 and 2029."},
+    {"label": "Flood Plain", "text": "The Federal Emergency Management Agency maps do not appear to indicate any floodplain on the site."},
+    {"label": "Easements", "text": "Contact Broker"},
+    {"label": "Deed Restrictions", "text": "None"},
+    {"label": "Potential Use", "text": "This property would suit a variety of commercial or residential uses that are typical in downtown."},
+    {"label": "Investment", "text": "Contact Broker (For Sale or Lease)"}
+  ],
+  "comments": [
+    "This property is a redevelopment site.",
+    "The site is within one block of the UTSA Downtown Campus.",
+    "HEB Headquarters is located one and a half blocks to the east of the site."
+  ],
+  "contact": {
+    "names": "Bart Wilson or Matt Howard",
+    "phone": "(210) 496-5800",
+    "fax": "",
+    "emails": ["bwilson@roalson.com", "mhoward@roalson.com"],
+    "web": "www.roalson.com"
+  },
+  "demographic_overview": {
+    "title": "Urban Loop Road, San Antonio, TX",
+    "date": "October 20, 2025",
+    "columns": ["1.0 Miles", "3.0 Miles", "5.0 Miles"],
+    "sections": [
+      {"heading": "Population", "rows": [
+        ["2020 Census", "15,646", "142,165", "353,897"],
+        ["2025 Estimate", "17,479", "140,481", "343,061"],
+        ["5 Year Projection", "18,923", "140,801", "337,288"]]},
+      {"heading": "Households", "rows": [
+        ["2020 Census", "5,779", "53,154", "126,170"],
+        ["2025 Estimate", "6,899", "55,968", "129,103"],
+        ["5 Year Projection", "8,060", "58,387", "130,986"]]},
+      {"heading": "2025 Population by Race", "rows": [
+        ["White", "43.6%", "40.1%", "40.1%"],
+        ["Black", "7.8%", "4.7%", "5.2%"],
+        ["Asian or Pacific Islander", "1.9%", "1.1%", "1.0%"],
+        ["American Indian", "1.1%", "1.6%", "1.6%"]]},
+      {"heading": "2025 Population by Ethnicity", "rows": [
+        ["Hispanic Origin", "67.9%", "80.4%", "80.2%"]]},
+      {"heading": "2025 Total Housing Units", "rows": [
+        ["Owner-Occupied", "1,467", "25,291", "66,805"],
+        ["Renter-Occupied", "5,432", "30,667", "62,298"],
+        ["Average Household Size", "1.88", "2.37", "2.54"]]},
+      {"heading": "2025 Household Income", "rows": [
+        ["Income $ 0 - $15,000", "21.6%", "16.5%", "15.4%"],
+        ["Income $ 15,000 - $24,999", "12.7%", "11.3%", "10.4%"],
+        ["Income $ 25,000 - $34,999", "9.9%", "10.1%", "11.1%"],
+        ["Income $ 35,000 - $49,999", "10.6%", "12.8%", "13.5%"],
+        ["Income $ 50,000 - $74,999", "13.9%", "16.9%", "17.6%"],
+        ["Income $ 75,000 - $99,999", "11.5%", "11.4%", "11.1%"],
+        ["Income $ 100,000 - $149,999", "9.3%", "11.9%", "11.7%"],
+        ["Income $ 150,000 - $199,999", "3.8%", "4.0%", "3.9%"],
+        ["Income $200,000 +", "6.8%", "5.0%", "5.4%"],
+        ["Average Household Income", "$69,517", "$70,604", "$74,126"],
+        ["Median Household Income", "$41,827", "$48,986", "$49,476"],
+        ["Per Capita Income", "$28,872", "$28,185", "$28,274"]]}
+    ],
+    "source": "Source: U.S. Bureau of the Census, 2020 Census of Population and Housing. ESRI forecasts for 2025 and 2030.",
+    "from_image": false
+  },
+  "pages": [
+    {"page": 1, "kind": "cover_spec", "caption": "", "annotations": "Cover includes an exterior photo of the concrete tilt-wall warehouse with two roll-up doors and a paved lot"},
+    {"page": 2, "kind": "spec", "caption": ""},
+    {"page": 3, "kind": "photo_interior", "caption": "", "annotations": "Image-only page, no heading. Two interior photos of the open warehouse: concrete floor, green steel columns and bar-joist roof, white walls; lower photo shows a framed enclosure on the left"},
+    {"page": 4, "kind": "location_map", "caption": "Location Map", "annotations": "Google My Maps map of central San Antonio (Map data ©2023 Google); red pin just southwest of downtown"},
+    {"page": 5, "kind": "aerial", "caption": "Aerial Map", "annotations": "Wide aerial headed 'Urban Loop / Texas, 1.87 AC +/-'; red 'SITE' arrow to the parcel outlined in red beside IH-35/IH-10, 'DOWNTOWN SAN ANTONIO' label; scale 0-8000ft; footer credit 'Matt Howard mhoward@roalson.com'"},
+    {"page": 6, "kind": "aerial", "caption": "Aerial Map", "annotations": "Mid-range Google aerial (Imagery ©2023) headed 'Urban Loop / Texas, 1.87 AC +/-'; site outlined in red east of IH-35 with 'SITE' arrow; labels 'UTSA', 'Federal Courthouse', 'H-E-B Headquarters'; scale 0-800ft; footer credit 'Matt Howard mhoward@roalson.com'"},
+    {"page": 7, "kind": "aerial", "caption": "Aerial Map", "annotations": "Close-up aerial headed 'Urban Loop / Texas, 1.87 AC +/-'; parcel outlined in red between IH-35 (west) and Urban Loop (east), including the warehouse roof; red labels 'IH-35' and 'W. Cesar E. Chaveez Blvd.'; Holiday Inn San Antonio Downtown and Discovery World nearby; scale 0-400ft; footer credit 'Matt Howard www.roalson.com'"},
+    {"page": 8, "kind": "floor_plan", "caption": "Floor Plan", "annotations": "Image-only page. Architectural '1 FLOOR PLAN' drawing: tilt-wall building 159'-2\" overall (bays 25'-4\", 26'-5\", 31'-3\", 22'-5 1/2\", 26'-4\", 25'-8\") by 107'-6\"; open concrete floor with metal columns; two LOADING DOCK bays at the lower left; central VCT-tile office area with restrooms; concrete landing and steps at the entry"},
+    {"page": 9, "kind": "demographics", "caption": ""},
+    {"page": 10, "kind": "disclosure", "caption": ""},
+    {"page": 11, "kind": "iabs", "caption": ""}
+  ],
+  "qa_notes": [
+    "STALE SPEC DEMOGRAPHICS: the spec-page table is headed '2025 ESRI Estimates' but its source line says 'ESRI forecasts for 2024 and 2029', and none of its numbers match the October 20, 2025 Demographic Overview (spec 16,936 / 141,081 / 345,977 population and $70,338 / $67,021 / $69,523 income vs overview 17,479 / 140,481 / 343,061 and $69,517 / $70,604 / $74,126). Transcribed as printed; the spec table should be refreshed from the overview.",
+    "HEB DISTANCE MISMATCH: PDF comment says 'one and a half blocks to the east'; Prismic highlight says 'one and a half miles to the east'. On the p6 aerial the H-E-B Headquarters label sits roughly 0.3-0.4 mile southeast of the site, so neither wording is clearly right.",
+    "VARIANT: classified 'existing' (Existing Property) because the package is 'FOR SALE OR LEASE', includes a 16,853 +/- SF warehouse, exterior cover photo, interior photos and a floor plan. However the first comment calls it 'a redevelopment site' and Prismic files it under 'Land — SA Metro & Surrounding'. Confirm with broker which template to use.",
+    "TRANSACTION: 'For Sale or Lease' (cover and Investment row); Prismic transaction_type 'Sale or Lease' (match).",
+    "BUILDING SIZE: spec 16,853 +/- SF; the floor plan's overall dimensions (159'-2\" x 107'-6\") give about 17,110 SF gross. Small difference, likely a measurement-basis difference; flagging only.",
+    "SIZE: 1.87 +/- Acres; aerial headers '1.87 AC +/-'; Prismic 1.87 acres (match). No acreage line on the cover.",
+    "ZONING: PDF 'Downtown District, San Antonio'; Prismic 'Downtown District, City of San Antonio' (same district, different wording).",
+    "PRICE: 'Contact Broker (For Sale or Lease)'; Prismic 'Contact Broker' (match).",
+    "TITLE: '503 & 523 Urban Loop Road' matches Prismic title.",
+    "Prismic highlight 1 reads 'The property is a redevelopment site.'; PDF reads 'This property is a redevelopment site.'",
+    "Demographic Overview: 3.0-mile Owner-Occupied 25,291 + Renter-Occupied 30,667 = 55,958, but 2025 Households (3.0 mi) is 55,968 (10 off). Other columns sum exactly. Transcribed as printed.",
+    "Image typo on p7 aerial: road label reads 'W. Cesar E. Chaveez Blvd.' (should be Chavez) - baked into the image.",
+    "Unlike most packages, there is no Traffic Count, Topography or Area Development row."
+  ]
+}

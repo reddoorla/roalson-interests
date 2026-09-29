@@ -1,0 +1,109 @@
+{
+  "uid": "menger-springs-road",
+  "variant": "land",
+  "transaction": "For Sale",
+  "type_label": "Land",
+  "eyebrow": "",
+  "title": "Menger Springs Commercial Development Sites",
+  "city": "Boerne, Texas",
+  "size_headline": "",
+  "rows": [
+    {"label": "Location", "text": "The property is comprised of 6 lots in Menger Springs that sit just south and adjacent to the Methodist Healthcare facility in Boerne. It is just south of the IH 10 at Highway 46 interchange."},
+    {"label": "Size", "text": "13.36 +/- Acres"},
+    {"label": "Utilities", "pairs": [["Electricity", "Available"], ["Sewer", "Available"], ["Water", "Available"], ["Gas", "Available"]],
+     "note": "Prospective buyers should retain an independent engineer to verify the location, accessibility and available capacity of all utilities."},
+    {"label": "Zoning", "text": "C-1, Commercial, City of Boerne, Texas",
+     "note": "Prospective buyers should verify the zoning and permitted uses for this property with the appropriate governing authority."},
+    {"label": "Traffic", "text": "2024 Texas Department of Transportation maps indicate 57,215 vehicles per day on IH 10 just east of the property."},
+    {"label": "Demographics", "table": {
+        "columns": ["2025 ESRI Estimates", "Population", "Average Household Income"],
+        "rows": [["3-mile radius", "22,275", "$146,817"],
+                 ["5-mile radius", "34,919", "$159,269"],
+                 ["7-mile radius", "57,036", "$168,769"]]},
+     "note": "Source: U.S. Bureau of the Census, 2020 Census of Population and Housing. ESRI forecasts for 2025 and 2030."},
+    {"label": "Flood Plain", "text": "The Federal Emergency Management Agency maps appear to indicate that there isn’t any floodplain on this property."},
+    {"label": "Topography", "text": "The property generally slopes and drains from west to east/north."},
+    {"label": "Easements", "text": "Unknown"},
+    {"label": "Deed Restrictions", "text": "Restrictions and covenants are in place to promote the overall quality of development in Menger Springs. Contact Broker."},
+    {"label": "Area Development", "text": "The Menger Springs subdivision, Methodist medical office building and ambulatory surgery center and Morningside Ministries senior care are adjacent to the properties. Significant commercial development including H.E.B. and Home Depot are just north of the properties at the IH 10 and Highway 46 interchange."},
+    {"label": "Potential Use", "text": "Office, healthcare, and other commercial uses"},
+    {"label": "Investment", "text": "$2,618,827.20 or $4.50 per SF"}
+  ],
+  "comments": [
+    "Exceptional growth within the Boerne metro area is driving the need for retail, office and other commercial uses, as well as healthcare services.",
+    "The property is located along Menger Springs Road, adjacent to Methodist Healthcare with great access to IH 10."
+  ],
+  "contact": {
+    "names": "Bart Wilson or Matt Howard",
+    "phone": "(210) 496-5800",
+    "fax": "(210) 496-5809",
+    "emails": ["bwilson@roalson.com", "mhoward@roalson.com"],
+    "web": "www.roalson.com"
+  },
+  "demographic_overview": {
+    "title": "Menger Springs Road – Boerne, TX",
+    "date": "October 3, 2025",
+    "columns": ["3.0 Miles", "5.0 Miles", "7.0 Miles"],
+    "sections": [
+      {"heading": "Population", "rows": [
+        ["2020 Census", "19,695", "29,183", "47,461"],
+        ["2025 Estimate", "22,275", "34,919", "57,036"],
+        ["5 Year Projection", "27,184", "42,131", "67,675"]]},
+      {"heading": "Households", "rows": [
+        ["2020 Census", "7,049", "10,531", "17,113"],
+        ["2025 Estimate", "8,330", "12,914", "21,124"],
+        ["5 Year Projection", "10,340", "15,905", "25,563"]]},
+      {"heading": "2025 Population by Race", "rows": [
+        ["White", "73.7%", "74.0%", "72.3%"],
+        ["Black", "1.5%", "1.4%", "1.7%"],
+        ["Asian or Pacific Islander", "1.8%", "1.8%", "2.5%"],
+        ["American Indian", "0.7%", "0.6%", "0.6%"]]},
+      {"heading": "2025 Population by Ethnicity", "rows": [
+        ["Hispanic Origin", "27.4%", "26.7%", "27.2%"]]},
+      {"heading": "2025 Total Housing Units", "rows": [
+        ["Owner-Occupied", "5,737", "9,661", "16,919"],
+        ["Renter-Occupied", "2,593", "3,253", "4,205"],
+        ["Average Household Size", "2.59", "2.65", "2.66"]]},
+      {"heading": "2025 Household Income", "rows": [
+        ["Income $ 0 - $15,000", "6.5%", "5.6%", "4.6%"],
+        ["Income $ 15,000 - $24,999", "5.1%", "3.7%", "2.8%"],
+        ["Income $ 25,000 - $34,999", "4.5%", "4.4%", "4.0%"],
+        ["Income $ 35,000 - $49,999", "11.7%", "10.4%", "8.8%"],
+        ["Income $ 50,000 - $74,999", "10.9%", "10.2%", "9.7%"],
+        ["Income $ 75,000 - $99,999", "11.7%", "10.3%", "10.1%"],
+        ["Income $ 100,000 - $149,999", "14.8%", "16.7%", "17.5%"],
+        ["Income $ 150,000 - $199,999", "10.8%", "11.1%", "12.0%"],
+        ["Income $200,000 +", "24.1%", "27.6%", "30.5%"],
+        ["Average Household Income", "$146,817", "$159,269", "$168,769"],
+        ["Median Household Income", "$99,263", "$114,135", "$128,672"],
+        ["Per Capita Income", "$55,467", "$59,986", "$62,337"]]}
+    ],
+    "source": "Source: U.S. Bureau of the Census, 2020 Census of Population and Housing. ESRI forecasts for 2025 and 2030.",
+    "from_image": false
+  },
+  "pages": [
+    {"page": 1, "kind": "cover_spec", "caption": ""},
+    {"page": 2, "kind": "spec", "caption": ""},
+    {"page": 3, "kind": "location_map", "caption": "Location Map", "annotations": "Microsoft MapPoint road map (© 1988–2010) from Boerne south to San Antonio; yellow pushpin at IH 10 on the south side of Boerne"},
+    {"page": 4, "kind": "area_map", "caption": "Area Map", "annotations": "Microsoft MapPoint road map of Boerne; yellow pushpin just southwest of IH 10 near S Main St / Hwy 87, south of Hwy 46"},
+    {"page": 5, "kind": "aerial", "caption": "", "annotations": "Image-only page, no heading. Wide Google aerial with irregular site outlined in red south of IH 10, labels Morningside Ministries at Menger Springs, Methodist Boerne Emergency Center, H-E-B plus!, Whataburger, The Home Depot; legend 'Boundary'; scale 0-4000ft; footer credit 'MATT HOWARD mhoward@roalson.com'"},
+    {"page": 6, "kind": "aerial", "caption": "", "annotations": "Image-only page, no heading. Close-up Google aerial of the site outlined in red along Menger Springs Rd, south of Methodist Boerne Emergency Center, Schneider Engineering Ltd to the east, IH 10 frontage road to the north; scale 0-800ft; footer credit 'MATT HOWARD mhoward@roalson.com'"},
+    {"page": 7, "kind": "site_plan", "caption": "Exhibit A", "annotations": "Image-only page. Plat exhibit headed 'EXHIBIT A' with the property outlined in yellow highlighter: LOT 1 3.57 AC, LOT 2 1.12 AC, LOT 3 1.45 AC, LOT 4 1.57 AC, LOT 5 1.51 AC, LOT 6 1.65 AC, LOT 7 0.84 AC, each marked 'B-1', plus a 1.65 AC internal street; adjoining 'PROPOSED METHODIST TRACT (12.60 AC)', 'SCHNEIDER TRACT 1 2.968 Ac.', 'SCHNEIDER TRACT 2 2.504 Ac.', 'TRACT \"C\" PROPOSED OFFICE P.U.D. (±13 AC.)', 'EXIST. MENGER SPRINGS, UNIT-2'; Menger Springs road along the east edge"},
+    {"page": 8, "kind": "demographics", "caption": ""},
+    {"page": 9, "kind": "other", "caption": "Traffic Count Map", "annotations": "Image-only page. Esri 'Traffic Count Map' for 191 Menger Spgs, Boerne, Texas, 78006 (Lat 29.76999, Long -98.72963), rings 1, 3, 5 mile radii, dated February 10, 2017, source ©2016 Kalibrate Technologies; counts on IH 10 include 20,921, 21,715, 23,784, 43,963, 44,329, 53,302, 52,260, 39,000 and local counts 22,859, 16,6xx (partly hidden by pin), 16,780"},
+    {"page": 10, "kind": "disclosure", "caption": ""},
+    {"page": 11, "kind": "iabs", "caption": ""}
+  ],
+  "qa_notes": [
+    "LOT COUNT CONTRADICTION: Location says 'comprised of 6 lots', but Exhibit A (p7) shows seven lots (Lots 1-7: 3.57 + 1.12 + 1.45 + 1.57 + 1.51 + 1.65 + 0.84 = 11.71 AC) plus a 1.65 AC street, which together total the 13.36 acres. The $2,618,827.20 price (= 13.36 ac x 43,560 x $4.50) therefore includes the 1.65 ac street area. Broker should confirm lot count and priced acreage.",
+    "ZONING CONTRADICTION: spec says 'C-1, Commercial, City of Boerne, Texas'; every lot on Exhibit A is marked 'B-1'. Prismic zoning 'C-1, City of Boerne' matches the spec wording (minus 'Commercial').",
+    "TRAFFIC DATA AGE: spec cites 2024 TxDOT 57,215 vpd on IH 10, while the included Esri Traffic Count Map (p9) is dated February 10, 2017 (©2016 Kalibrate) and uses 1/3/5-mile rings vs the 3/5/7-mile demographics. The p9 page is stale relative to the rest of the package.",
+    "TITLE: cover headline is one line 'MENGER SPRINGS COMMERCIAL DEVELOPMENT SITES' with 'BOERNE, TEXAS' below; there is no separate tagline, so eyebrow is blank and the full line is the title. If the template needs an eyebrow, the natural split is eyebrow 'Commercial Development Sites' / title 'Menger Springs'. Prismic title is 'Menger Springs Road' and the demographic page says 'MENGER SPRINGS ROAD – BOERNE, TX'.",
+    "PRICE: $2,618,827.20 or $4.50 per SF; Prismic total_price '$2,618,827' (rounded) and '$4.50 / SF' (match).",
+    "SIZE: spec '13.36 +/- Acres'; Prismic 13.36 acres (match). Cover has no acreage line, so size_headline is blank.",
+    "TRANSACTION: the PDF never says 'For Sale'/'For Lease'; set to 'For Sale' from the Investment price. Prismic transaction_type is null.",
+    "Prismic highlight 1 ('...driving the need for retail, office, healthcare services, and other commercial uses') and highlight 2 ('Menger Springs Rd') are paraphrases of the PDF comments, not verbatim.",
+    "Spec demographics table (3/5/7-mile, 2025 ESRI Estimates) matches the Demographic Overview. Overview Owner+Renter sums equal Households 2025 Estimate in all three columns.",
+    "Map pages 3-4 are Microsoft MapPoint maps (© 1988–2010)."
+  ]
+}

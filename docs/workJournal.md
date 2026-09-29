@@ -11953,3 +11953,111 @@ the pass. The gate's check for a colour axe cannot parse at all (a
 and follows in the next one. This repo's source has no such colour, and its own
 `src/tailwind-sources.test.ts` bans the default-palette utilities that carry
 one.
+
+## 2026-09-29 — All 22 listing packages rebuilt in Erik's Claude Design template, with new maps, aerials, traffic and flood exhibits (`tools/listing-packages`, Dropbox)
+
+Erik shared the client-approved Claude Design template ("ListingPackage Dapper
+Dan", published as a public artifact) and asked for every current package in
+it. The originals exist only as Prismic assets (the `package_pdf` on each
+property), so the work pulled all 22 from the CDN, rebuilt them, and put both
+sets in Dropbox under `/Clients/Roalson Interests/Listing PDFs/2026-09 Listing
+Package Refresh/` with a review list for the broker. The generator is committed
+here as an offline tool so the packages can be re-issued once Roalson answers
+the review questions; nothing in it touches the site build.
+
+**The template is two templates.** The artifact is the 9-page existing-property
+variant. Erik's Dropbox test exports (`Listing PDFs/Test Files/`) show the full
+set: Land runs 11 pages, Existing Property 14, and the Land cover takes a
+garnet RI mark where Existing takes dust. The Claude Design project itself is
+not readable from a session, so the HTML replica was rebuilt from the
+artifact's bundled markup (its fonts, tokens and SVGs are in
+`build/assets/`) and checked against those exports page by page. Erik's one
+change request from the thread — the page-2 contact block also in the cover
+header — is in every cover.
+
+**Transcription, then a check that could fail.** Four agents transcribed every
+labelled field, table and comment verbatim into `data/<uid>.json`. A script then
+looked for each of the 2,033 values in the PDF's own text layer; all 2,033 were
+found. That check proves the values came from the PDF, not that nothing was
+left out, which is why the visual QA pass compared every new page with its
+original. The only edits to the broker's words are the 25 typos in
+`build/corrections.json` (e.g. "339.522" for 339,522, "Christus Spon"), plus the
+contact emails: two packages print `eldon@roalson.com` under Matt Howard's name,
+and the build now prints the named broker's own address. Titles that were not typos (11714 Perrin Beitel, 402 W. Nueva, Menger Springs, River Walk) moved to `build/overrides.json` so the transcription stays verbatim.
+
+**Maps: the site's own style, public-domain imagery, county parcels.** Location,
+area and traffic maps render with MapLibre in headless Chromium from
+`static/map-style.json`, so the print maps match the website's map. Aerials
+come from USGS NAIP Plus (0.3 m where HRO exists), which beat Esri's tile cache
+on the same block downtown and carries no licence strings; Google imagery from
+the old packages is not reused. Site outlines come from Texas StratMap parcels.
+The first pass, "the parcel under the Prismic pin", matched the listed acreage on
+only 2 of 22 (Cascade Caverns, 402 W. Nueva) — several
+KML pins sit on a neighbouring parcel (Comfort's on the Love's travel stop,
+Wonderworld's about 230 m away on the next lot). Matching by situs address, exact legal acreage, and then
+same-owner combinations (Brazos de Santos Partners and the Millers own most of
+the inventory) found 18. Each was checked against the broker's own hand-drawn
+outline before use: Scenic Loop's "2.09 ac" combination was wrong (the package
+now offers only Lot 3, 1.369 ac, and the website still says 2.09), and Tract 1
+at IH 10 / Menger Springs is a pin because the county polygon carries ~1.5 ac
+that is not for sale. Four sites are pins.
+
+**Two exhibits the old packages did not have.** TxDOT publishes 2025 AADT
+counts (the packages cite 2024); each package now has a traffic map of the
+nearest stations. FEMA's NFHL flood-zone polygons are intersected with the
+parcel outline to print one sentence per site. Most agree with the broker's
+flood line. Three do not: Wonderworld says "some floodplain along the
+frontage" and the map puts ~47% of the parcel in the 1% annual-chance area;
+5001 Walzem and 25331 IH 10 West say nothing about flood and sit ~12% and ~39%
+inside mapped hazard. Those are at the top of the review notes rather than
+dropped, because a buyer will find them anyway. Overlaps under 3% print as
+"along the edge" — they are usually parcel-to-FIRM misalignment, not flood.
+
+**The QA passes found what the builder's own spot checks did not.** Two agents
+compared every new page with its original (about 300 pages). Their HIGH
+findings, all fixed before upload:
+
+- **Every map's scale bar read twice the true distance.** `maps.mjs` used the
+  256-px tile constant (156543.03) and MapLibre zooms on 512-px tiles. It was
+  measured against a parcel of known width: the Hwy 46 tract is 654 ft across
+  and its "250 FT" bar spanned about 1,290 ft.
+- **The traffic maps labelled frontage-road stations as the freeway.** TxDOT
+  gives frontage stations an ID ending `NBSR`/`SBSR`/`EBSR`/`WBSR` on the same
+  road name. Deduplicating by road name and rounded position kept the nearer
+  one, which is usually the frontage road. At Wonderworld the map printed
+  "11,773 IH 35" at the site, while the mainline station in front carries
+  122,403.
+- **Two spec pages held only the contact box** (IH 10 East, Urban Loop).
+- **An empty-label pair collapsed the Dimensions grid on Cascade Caverns.**
+- **The IH 10 East pin sat about 120 ft onto the neighbouring tract.**
+
+MED fixes:
+
+- Aerials on the smallest lots are capped at z18. At z19.2, 0.3 m imagery was
+  visibly upsampled.
+- A no-data scan line in the USGS source imagery at Seguin was patched at its
+  measured position. A general dark-line detector was tried first and
+  abandoned: it matched scale-bar edges and legend rules on every map.
+- Lease packages now say "PURCHASER or TENANT", as the originals did.
+
+A final check found every one of the 3,040 transcribed values, labels and
+notes in the new PDFs' text.
+
+**Delivery was the hard part.** The Dropbox connector cannot upload binaries and
+the environment's `DROPBOX_ACCESS_TOKEN` is dead (401, and the maintenance repo
+already lists it as consumed by nothing). Uploads went through a Dropbox file
+request driven by Playwright: setting the hidden file input does nothing, a
+synthetic drop event works, and the page never shows a completion state a
+script can read, so the uploader waits by size and every file was verified by
+byte count through the connector afterwards. Dropbox prefixes the uploader's
+name, which became the "Original - " and "Roalson Interests - " labels. The
+three temporary file requests cannot be closed from the connector and need
+closing by hand.
+
+**What is not done.** The 13 decision items in `00 - Review Notes` (prices that
+differ from the website on four listings, Scenic Loop's acreage, Kingsville's
+zoning, stale lease terms at Walzem, Bill Miller site plans still in buyer
+packages) need the broker. The website's `package_pdf` links still point at the
+old PDFs; swapping them is a Prismic publish, pending Erik's and Roalson's
+sign-off. The QR code on each disclosure page targets
+`www.roalson.com/properties/<uid>`, which resolves only after cutover.

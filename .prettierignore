@@ -23,3 +23,8 @@ docs/COMPONENTS.md
 # single lines, so every regeneration would then show up as a whole-file diff
 # against a file nobody edited.
 static/map-style.json
+
+tools/listing-packages/data/*.json
+tools/listing-packages/geo/
+tools/listing-packages/build/*.json
+tools/listing-packages/build/assets/fonts.css

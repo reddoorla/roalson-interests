@@ -1,0 +1,111 @@
+{
+  "uid": "ih-10-at-highway-46",
+  "variant": "land",
+  "transaction": "For Sale",
+  "type_label": "Land",
+  "eyebrow": "Premium IH 10 Commercial Development Site",
+  "title": "IH 10 at Highway 46",
+  "city": "Boerne, Texas",
+  "size_headline": "",
+  "rows": [
+    {"label": "Location", "text": "The property is located on the southwest corner of IH 10 West at Highway 46 in Boerne, Texas."},
+    {"label": "Size", "text": "6.552 Acres"},
+    {"label": "Frontage", "text": "Approximately 255 feet on IH 10"},
+    {"label": "Utilities", "text": "All utilities are to the property line.",
+     "pairs": [["Electric", "Provided by the City of Boerne"], ["Water", "Provided by the City of Boerne"], ["Sewer", "Provided by the City of Boerne"], ["Gas", "Provided by the City of Boerne"]],
+     "note": "Prospective buyers should retain an independent engineer to verify the location, accessibility and available capacity of all utilities."},
+    {"label": "Zoning", "text": "C-4, Commercial, City of Boerne",
+     "note": "Prospective buyers should verify the zoning and permitted uses for this property with the appropriate governing authority."},
+    {"label": "Topography", "text": "The property is generally level."},
+    {"label": "Flood Plain", "text": "Federal Emergency Management Agency maps do not show any 100-year flood plain on the property."},
+    {"label": "Easements", "text": "There are various utility easements on the property."},
+    {"label": "Deed Restrictions", "text": "Contact Broker"},
+    {"label": "Traffic Count", "text": "Most recent (2024) Texas State Highway Department traffic count map indicates 49,557 vehicles per day on IH 10 north of the property."},
+    {"label": "Demographics", "table": {
+        "columns": ["", "3.0 Miles", "5.0 Miles", "7.0 Miles"],
+        "rows": [["Population, 2025 Estimate", "21,193", "32,579", "48,420"],
+                 ["Population, 5 Year Projection", "25,884", "39,605", "57,711"],
+                 ["Average Household Income", "$143,242", "$157,744", "$166,551"]]},
+     "note": "Source: U.S. Bureau of the Census, 2020 Census of Population and Housing. ESRI forecasts for 2025 and 2030."},
+    {"label": "Potential Uses", "text": "The I.H. 10 exposure, combined with Boerne residential growth and strong household income, creates development opportunities for a variety of commercial uses including, restaurants, banks, and a variety of neighborhood retail services."},
+    {"label": "Pricing", "text": "Contact Broker"}
+  ],
+  "comments": [
+    "Tremendous visibility and access at the northern entrance to Boerne",
+    "The property is at a signalized intersection with excellent traffic exposure.",
+    "Area retailers include HEB, Home Depot, Whataburger, Chili’s and Starbuck’s."
+  ],
+  "contact": {
+    "names": "Bart Wilson or Matt Howard",
+    "phone": "(210) 496-5800",
+    "fax": "(210) 496-5809",
+    "emails": ["bwilson@roalson.com", "mhoward@roalson.com"],
+    "web": "www.roalson.com"
+  },
+  "demographic_overview": {
+    "title": "IH 10 at Highway 46 in Boerne, TX",
+    "date": "September 22, 2025",
+    "columns": ["3.0 Miles", "5.0 Miles", "7.0 Miles"],
+    "sections": [
+      {"heading": "Population", "rows": [
+        ["2020 Census", "18,801", "27,727", "40,869"],
+        ["2025 Estimate", "21,193", "32,579", "48,420"],
+        ["5 Year Projection", "25,884", "39,605", "57,711"]]},
+      {"heading": "Households", "rows": [
+        ["2020 Census", "6,930", "10,145", "14,871"],
+        ["2025 Estimate", "8,022", "12,244", "18,097"],
+        ["5 Year Projection", "9,954", "15,201", "22,007"]]},
+      {"heading": "2025 Population by Race", "rows": [
+        ["White", "74.0%", "74.2%", "74.0%"],
+        ["Black", "1.5%", "1.4%", "1.5%"],
+        ["Asian or Pacific Islander", "1.7%", "1.7%", "2.0%"],
+        ["American Indian", "0.7%", "0.7%", "0.6%"]]},
+      {"heading": "2025 Population by Ethnicity", "rows": [
+        ["Hispanic Origin", "27.1%", "26.6%", "26.0%"]]},
+      {"heading": "2025 Total Housing Units", "rows": [
+        ["Owner-Occupied", "5,503", "9,059", "14,348"],
+        ["Renter-Occupied", "2,519", "3,185", "3,749"],
+        ["Average Household Size", "2.56", "2.60", "2.63"]]},
+      {"heading": "2025 Household Income", "rows": [
+        ["Income $ 0 - $15,000", "6.7%", "5.7%", "4.9%"],
+        ["Income $ 15,000 - $24,999", "5.2%", "3.7%", "3.1%"],
+        ["Income $ 25,000 - $34,999", "4.9%", "4.4%", "4.1%"],
+        ["Income $ 35,000 - $49,999", "11.8%", "10.4%", "9.6%"],
+        ["Income $ 50,000 - $74,999", "11.1%", "10.7%", "9.8%"],
+        ["Income $ 75,000 - $99,999", "12.0%", "10.8%", "10.0%"],
+        ["Income $ 100,000 - $149,999", "15.1%", "16.4%", "17.5%"],
+        ["Income $ 150,000 - $199,999", "9.9%", "10.8%", "11.1%"],
+        ["Income $200,000 +", "23.3%", "27.1%", "29.9%"],
+        ["Average Household Income", "$143,242", "$157,744", "$166,551"],
+        ["Median Household Income", "$95,659", "$111,645", "$122,286"],
+        ["Per Capita Income", "$54,542", "$59,658", "$62,281"]]}
+    ],
+    "source": "Source: U.S. Bureau of the Census, 2020 Census of Population and Housing. ESRI forecasts for 2025 and 2030.",
+    "from_image": false
+  },
+  "pages": [
+    {"page": 1, "kind": "cover_spec", "caption": ""},
+    {"page": 2, "kind": "spec", "caption": ""},
+    {"page": 3, "kind": "location_map", "caption": "Location Map", "annotations": "regional road map of San Antonio / Boerne area; site marked with yellow starburst at IH 10 and Hwy 46 in Boerne"},
+    {"page": 4, "kind": "area_map", "caption": "Area Map", "annotations": "street map of Boerne; site marked with yellow starburst at IH 10 and Hwy 46 (W Bandera Rd / State Highway 46 W)"},
+    {"page": 5, "kind": "aerial", "caption": "Aerial Map", "annotations": "wide aerial; yellow 'SITE' arrow pointing to the site on the west side of IH 10 at Bandera Rd; 'CITY OF BOERNE' label in yellow; north arrow"},
+    {"page": 6, "kind": "aerial", "caption": "Aerial Map", "annotations": "close aerial; site outlined in red between W Bandera Rd and Coughran Rd along the IH 10 frontage road; yellow 'SITE' arrow; neighbours labelled HOME DEPOT, WHATABURGER, CHILI'S, STARBUCK'S, US POST OFFICE; north arrow"},
+    {"page": 7, "kind": "survey", "caption": "Survey", "annotations": "boundary survey; 'AREA: 6.552 ACRES (285,419 SQUARE FEET)', address line '3 STATE HWY 46'; parent tract labelled '21.13 ACRES BALDUS T MILLER & JULIE D MILLER'; Coughran Road along south line"},
+    {"page": 8, "kind": "demographics", "caption": ""},
+    {"page": 9, "kind": "disclosure", "caption": ""},
+    {"page": 10, "kind": "iabs", "caption": ""}
+  ],
+  "qa_notes": [
+    "Transaction: the PDF never says For Sale or For Lease (pricing is 'Contact Broker'; disclaimers address 'prospective buyers'), so 'For Sale' was used per schema default. Prismic transaction_type is 'Lease' — MISMATCH; broker should confirm.",
+    "Cover prints no property name / cross streets (only 'BOERNE, TEXAS' and 'PREMIUM IH 10 COMMERCIAL DEVELOPMENT SITE'); title 'IH 10 at Highway 46' taken from the Demographic Overview heading ('IH 10 AT HIGHWAY 46 IN BOERNE, TX') and matches Prismic title.",
+    "No size line on the cover, so size_headline is empty. Spec Size 6.552 Acres matches Prismic size_label '6.552 acres' / acres 6.552 and the survey ('AREA: 6.552 ACRES (285,419 SQUARE FEET)').",
+    "Zoning: PDF 'C-4, Commercial, City of Boerne' vs Prismic 'C-4 Commercial, City of Boerne' (PDF has an extra comma after C-4; otherwise match).",
+    "Pricing: PDF 'Contact Broker' matches Prismic total_price 'Contact Broker'.",
+    "Prismic highlights do not appear anywhere in the PDF: 'Site has excellent frontage and visibility.' and 'At entrance to Regent Park, a new 900 lot master planned residential development'. The PDF comments are different (northern entrance to Boerne / signalized intersection / area retailers).",
+    "Typo: 'Starbuck’s' (brand is Starbucks) in Comments and on the p6 aerial label 'STARBUCK'S'. Kept verbatim.",
+    "Punctuation: Potential Uses has a stray comma in 'commercial uses including, restaurants, banks...'. Kept verbatim.",
+    "First comment 'Tremendous visibility and access at the northern entrance to Boerne' has no terminal period while the other two do. Kept verbatim.",
+    "Spec-page Demographics table (3/5/7 miles) matches the Demographic Overview page values exactly.",
+    "Footer boilerplate on pp. 1-2 and 8 reads 'warranty or represetation is made' (typo for 'representation'); the map pages' footer spells it correctly. Footer is template boilerplate, not transcribed."
+  ]
+}
