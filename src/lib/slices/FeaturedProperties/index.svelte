@@ -343,19 +343,22 @@
   // seems overbuilt"). It used to be drawn by script, a style written every
   // frame off a rAF loop, so it stalled whenever the main thread was busy. A
   // transition on `transform` runs on the compositor instead.
-  //  - ON STAGE: to 1 + KEN_BURNS over DWELL, linear, delayed by the settle so
-  //    it starts on a photo that has finished arriving. Every activation
-  //    starts it again, so a visitor's turn drifts exactly as a clock turn.
-  //  - LEAVING: back to 1 in 0s, after a whole DWELL. A transition holds its
-  //    start value through its delay, so the photo stays where it was while
-  //    it still shows under the incoming one, and is reset long after it is
-  //    hidden, before the clock can bring it back (a lap is DWELL plus the
-  //    dissolve); one a visitor brings back sooner carries on from there. NOT
-  //    the dissolve's own 500, nor twice it: Chromium starts a transition that
-  //    replaces a running one at once, on the last frame's time, where the
-  //    dissolve's fresh ones wait for the next frame. Measured on arrow
-  //    presses, that put this delay up to 283ms ahead idle and 766ms at 4x CPU
-  //    throttle, and at 500, then at 1000, reset a photo that still showed.
+  //  - ON STAGE: to 1 + KEN_BURNS over DWELL, linear. A photo a TURN brings
+  //    on waits out the settle, so it starts on a photo that has finished
+  //    arriving; the first slide has nothing to arrive and starts at once,
+  //    with the bar's first dwell. (`i !== shown` is the turn being drawn:
+  //    the effect below that records it runs after the markup.)
+  //  - LEAVING: held where it was while it still shows under the incoming
+  //    photo — a transition back to 1 in 0s after a whole DWELL holds its
+  //    start value through its delay — until its wrapper's fade-out ENDS.
+  //    Then it RESTS at 1 with no transition, hidden. So every activation
+  //    starts from 1, except a photo brought back while it still shows, which
+  //    carries on from its held value. NOT reset on a timer: Chromium starts a
+  //    transition that replaces a running one at once, on the last frame's
+  //    time, and the dissolve's fresh ones on the next frame (766ms later, at
+  //    worst, at 4x CPU throttle), so a reset at 500, then at 1000, fired in
+  //    view; at DWELL, a photo brought back sooner drifted on from its held
+  //    value — two seconds after a clock turn, 1.02994 to 1.03: a still photo.
   //  - NOT `eligible` (reduced motion, one listing) OR NOT HYDRATED: no style
   //    at all. Under reduced motion app.css cuts every transition to 0.01ms,
   //    which would SNAP a declared 1.03 and hold it; and a 1.03 in the
@@ -367,11 +370,17 @@
   // hidden tab, hand a visitor's drift to the clock on Play, and park each
   // photo at the value it left with until it is next shown. Never on the
   // wrapper: its transition-duration is the comp's 0.5s dissolve.
+  const resting: boolean[] = $state([]);
+  let shown = carousel.index;
+  let turned = false;
   const zoom = (i: number) => {
     if (!carousel.hydrated || !carousel.eligible) return undefined;
-    const on = carousel.isActive(i);
-    return on
-      ? `transform: scale(${1 + KEN_BURNS}); transition: transform ${DWELL}ms linear ${carousel.settle}ms`
+    if (carousel.isActive(i)) {
+      const delay = turned || i !== shown ? carousel.settle : 0;
+      return `transform: scale(${1 + KEN_BURNS}); transition: transform ${DWELL}ms linear ${delay}ms`;
+    }
+    return resting[i]
+      ? "transform: scale(1); transition: none"
       : `transform: scale(1); transition: transform 0ms linear ${DWELL}ms`;
   };
 
@@ -384,12 +393,13 @@
   // runs again only when `paused` changes, so only a Pause AFTER the turn
   // freezes it.
   const photos: HTMLImageElement[] = $state([]);
-  let shown = carousel.index;
   $effect(() => {
     const i = carousel.index;
     const paused = carousel.paused;
     if (i !== shown) {
       shown = i;
+      turned = true;
+      resting[i] = false;
       return;
     }
     // `?.()`: jsdom has no Web Animations.
@@ -545,6 +555,10 @@
             <div
               class="col-span-full row-start-1 aspect-[928/542] overflow-hidden bg-background
                 {active ? fade.photoIn : fade.photoOut}"
+              ontransitionend={(e) => {
+                if (e.target === e.currentTarget && e.propertyName === "opacity" && !active)
+                  resting[i] = true;
+              }}
             >
               <img
                 src={imgix(slide.image.url, { w: Math.min(1920, Math.max(...widths)) })}

@@ -341,12 +341,16 @@ describe("FeaturedProperties slice", () => {
     // leaves and freezes on Pause is featured-properties.spec.ts's, in
     // Chromium.
 
-    /** The photo on stage: to 1 + KEN_BURNS over DWELL, linear, after the
-     *  settle — which is the camera's flight, read from its own module. */
+    /** The photo a turn brings on: to 1 + KEN_BURNS over DWELL, linear,
+     *  after the settle — which is the camera's flight, read from its own
+     *  module. */
     const ON_STAGE = `transform: scale(${1 + KEN_BURNS}); transition: transform ${DWELL}ms linear ${CAMERA_FLIGHT_MS}ms;`;
-    /** Every other photo: back to 1 in 0s, after a whole DWELL — long after
-     *  it is hidden, before the clock can bring it back (see the slice). */
+    /** The first slide's: nothing to arrive, so no settle — as the bar. */
+    const FIRST = `transform: scale(${1 + KEN_BURNS}); transition: transform ${DWELL}ms linear 0ms;`;
+    /** A photo that left: held at its start value by a whole DWELL's delay… */
     const OFF_STAGE = `transform: scale(1); transition: transform 0ms linear ${DWELL}ms;`;
+    /** …until its wrapper's fade-out ENDS, and then at rest, hidden. */
+    const RESTING = "transform: scale(1); transition: none;";
     const photosOf = (container: HTMLElement) => [
       ...container.querySelectorAll<HTMLElement>("[data-featured-photo]"),
     ];
@@ -363,7 +367,7 @@ describe("FeaturedProperties slice", () => {
       const { container } = render(FeaturedProperties, {
         props: { slice: featuredPropertiesFixture() },
       });
-      expect(stylesOf(container)).toEqual([ON_STAGE, OFF_STAGE, OFF_STAGE]);
+      expect(stylesOf(container)).toEqual([FIRST, OFF_STAGE, OFF_STAGE]);
       // Never on the wrapper: its transition-duration is the comp's 0.5s
       // dissolve, and a second transitioned property there makes the computed
       // value a two-item list (two assertions in the interaction spec).
@@ -408,6 +412,43 @@ describe("FeaturedProperties slice", () => {
       observer.disconnect();
     });
 
+    it("a photo that left RESTS once its own fade-out has ended — and a turn back starts it from 1", async () => {
+      // Not on a timer: the leaving hold lasts until the wrapper's opacity
+      // transition ENDS, which is the photo stopping to show. jsdom runs no
+      // transitions, so the `transitionend` is dispatched by hand.
+      vi.useFakeTimers();
+      const { container, getByLabelText } = render(FeaturedProperties, {
+        props: { slice: featuredPropertiesFixture() },
+      });
+      const fadeEnd = async (i: number, property = "opacity", from?: Element) => {
+        const wrapper = photosOf(container)[i].parentElement!;
+        (from ?? wrapper).dispatchEvent(
+          new TransitionEvent("transitionend", { propertyName: property, bubbles: true }),
+        );
+        await tick();
+      };
+      await fireEvent.click(getByLabelText("Next slide"));
+      expect(stylesOf(container), "premise: turned").toEqual([OFF_STAGE, ON_STAGE, OFF_STAGE]);
+      await fadeEnd(0, "visibility");
+      await fadeEnd(0, "opacity", photosOf(container)[0]);
+      await fadeEnd(1);
+      expect(stylesOf(container), "only the wrapper's own opacity, off stage").toEqual([
+        OFF_STAGE,
+        ON_STAGE,
+        OFF_STAGE,
+      ]);
+      await fadeEnd(0);
+      expect(stylesOf(container), "its fade-out over").toEqual([RESTING, ON_STAGE, OFF_STAGE]);
+      await fireEvent.click(getByLabelText("Previous slide"));
+      expect(stylesOf(container), "back, from 1").toEqual([ON_STAGE, OFF_STAGE, OFF_STAGE]);
+      await fireEvent.click(getByLabelText("Next slide"));
+      expect(stylesOf(container), "and it leaves held again").toEqual([
+        OFF_STAGE,
+        ON_STAGE,
+        OFF_STAGE,
+      ]);
+    });
+
     /** A stand-in for each photo's transition — jsdom has no Web Animations —
      *  that records what the slice asks of it, as "pause 1" / "play 1". */
     function stubAnimations() {
@@ -436,11 +477,7 @@ describe("FeaturedProperties slice", () => {
         await fireEvent.click(getByLabelText("Pause slides"));
         await fireEvent.click(getByLabelText("Play slides"));
         expect(calls, "on the clock").toEqual(["pause 0", "play 0"]);
-        expect(stylesOf(container), "nothing re-declared").toEqual([
-          ON_STAGE,
-          OFF_STAGE,
-          OFF_STAGE,
-        ]);
+        expect(stylesOf(container), "nothing re-declared").toEqual([FIRST, OFF_STAGE, OFF_STAGE]);
 
         // A PAUSE ALREADY ON AT THE TURN IS NOT A REQUEST TO STOP IT. An arrow
         // press focuses the arrow (APG: a pause), and a script that focuses
