@@ -10923,6 +10923,7 @@ depends on where the map pins:
 ## 2026-09-28 — Roalson's 2026-09-25 meeting notes, built: one-column hero, less yellow grounds, lighter masthead, map controls, view tabs, Past Projects, partner pages (`claude/roalson-comments-review-45cstm`)
 
 > Superseded in part by 2026-09-28 — After #180: the content published through the connector, a hook build that prerendered the old page, and an issue sweep.
+> Superseded in part by 2026-09-29 — The triage batch: 23 issues closed across six clusters, and the defaults that did not survive measurement.
 
 The client's feedback came in three pieces. Erik relayed the first on Discord on
 2026-09-24: the /properties masthead looked too dark ("aren't multiplying?"), a
@@ -11687,3 +11688,195 @@ playwright-a11y config (a fleet change); and #144's prod "glided" premise, left
 at 3 distinct positions where it wanted 5. Scroll events fire once per frame, as
 rAF does, and the camera itself sees only main-thread frames, so no observer in
 the page could ask for more: close #144 on that, or keep it as the record.
+
+## 2026-09-29 — The triage batch: 23 issues closed across six clusters, and the defaults that did not survive measurement (`claude/roalson-comments-review-45cstm`)
+
+After #187 merged, every open issue triaged WE-CAN-DO on 2026-09-28 went out at
+once. That was six site clusters and one fleet fix, seven builders in separate
+worktrees off `25164ec`, all on a 4-CPU container. Load average ran 4 to 15 for
+the whole batch. Every builder was told to note it next to each timing, and to
+re-run a timing-sensitive red once before believing it. None of the reds they
+chased turned out to be load. The builders took 32 to 79 minutes each. Merging
+them conflicted in two places: `docs/COMPONENTS.md`, regenerated each time and
+never hand-merged, and two real overlaps. The CMS cluster's `withDocumentLinks`
+and the partners cluster's `fetchLinks` both rewrote `loadPage`, and both are
+kept. The carousel's re-indented `PropertyListing.svelte` met the map's #155
+bottom margin, which now sits on the carousel's `<li>`.
+
+The triage table's defaults were right more often than not. The useful record
+is where they were wrong, because each wrong one was caught by measuring before
+building.
+
+**#172: `100vw` does not cover the gutter.** The default was to size
+full-window overlays by `100vw` while the page is locked. In Chromium 151
+nothing paints into the strip `scrollbar-gutter: stable` reserves. That held
+whether the overlay was `inset: 0`, `width: 100vw`, `right: -15px` or a dialog
+backdrop. On the real expanded map, `100vw` passed a box check and left the
+whole strip showing the page ground. So a box assertion could never have caught
+this, and the new `overlay-gutter.spec.ts` counts sentinel-coloured pixels
+instead. The fix is in `lockBodyScroll`. It switches the html element to
+`scrollbar-gutter: auto` while locked, and pays the width back as body padding
+and as `--scroll-lock-gutter`, which the nav bar and menu overlay use.
+`scrollbar-gutter: stable` stays in app.css. The old gutter measurement inside
+`lockBodyScroll` read 0 on this site; it now measures the way `gutter.ts` does.
+All five cases were red before the fix.
+
+**#179: `fetchLinks` replaces the model's field list; it does not add to it.**
+The default was to add `fetchLinks` for the four person fields to the home
+query. Measured on the live `home` document, that emptied the featured band:
+every pick came back `data: {}`. A query's `fetchLinks` replaces every slice
+model's own embedding. `$lib/fetch-links` now builds the list from all slice
+models, and `loadPage` passes it on every page query. Partner cards now read
+name, role, photo and email from the Person document. The row is `profile` plus
+`contact_link`. A Person that is unset, unpublished or arrives bare leaves its
+card out, and the band counts which of those it was. The live rows and both
+Person documents agreed on all four fields before the fields were removed from
+the row model.
+
+**#182: the cheap camera shift moves the collision, it does not remove it.**
+Guard 2i started at a 350px map. Shifting `MAP_HOME.compact` about 48px east
+clears 398–485px phones but puts the Seguin pin under the − button on 360 and
+375 phones, and the guard could not see those widths. It now walks from 265 (a
+320px window less the gutters and a classic scrollbar). Clearing every width
+needs about 91px. On a throwaway branch that pushed the 6-listing Hill Country
+cluster to the left edge, moved the homepage band's three picks left of centre
+and dropped map-palette's water count to 55px against a floor of 200. So
+`MAP_HOME` is unchanged and #182 went to the operator with three options. The
+same walk found a sibling defect the guard never checked: at every compact width
+the downtown cluster of three sits under the attribution chip (#188).
+
+**#105: `failSafe` would have spoiled the reveal it rescues.** The default
+(server `data-reveal`, a 24px rule, `failSafe`) was right, but reading
+`animateIn.ts` showed the fail-safe ran until the reveal itself. Where the card
+starts below the fold, anyone who took more than 2.5s to scroll to it would
+have had it revealed off screen. The timer now stops at the observer's first
+report. The cost is the #43 class, commented there: scripting on, bundle
+missing, card hidden.
+
+**#87: the sideways scroll was not the wrapper.** The fixtures page travelled
+383px at 1440 because VimeoBanner and ScreenWidthMedia are `w-screen` inside
+the wrapper. Moving them out still overshot by the 15px gutter, so their
+sections clip. Travel is now 0 at 1440 and 390. The starter carries the same
+two components (reddoor-maintenance#947).
+
+**#53: the harness hid the defect.** Partners' half-pixel rule is a solid 1px
+garnet row at 1x (101,35,35), and the fix blends it (172,138,137). But under the
+suite's forced reduced motion, the old code already painted the blend at 1x. So
+the pixel test runs with motion allowed and is red when the fix is reverted.
+That is the CLAUDE.md "check what the shared harness forces" rule, met again.
+
+**#57: the old marker passed with no script at all.** On a production build
+with scripting off, `hydrationMarker: "footer"` passed 4/4. The root layout now
+sets `data-hydrated` on `<html>` in onMount, and every smoke route waits for
+`html[data-hydrated] footer`. That fails 4/4 with scripting off, with the bundle
+blocked, and with the onMount write removed.
+
+**#79: the old signature was blind to this batch's own edits.** After the #74
+typo fixes, the old content signature still reported 22 of 22 listings live. The
+deep canonical hash flags exactly the six edited listings. All 23 stored
+signatures are in the old format, so the publisher reports them unverified until
+they are re-staged, and that needs a Roalson-scoped token (#164).
+
+**#94 deviated from its default.** "Take the worklist from the migration
+release" is not possible. Nothing can read a migration release before it is
+published: the write token gets 403, and the connector's `list_releases` leaves
+migration releases out. `--yes` now always publishes. It takes the 202's item
+count plus every document published since as the worklist, and names the
+documents and exits non-zero on a document no state file records, or on a
+non-empty release with nothing pending. How Prismic answers a publish of an
+empty release is unmeasured.
+
+**Found on the way, fixed rather than filed:**
+
+- #10 still reproduced beyond previews. A CTA and a rich-text link to a document
+  rendered `href=""` because the client is routes-free. `withDocumentLinks`
+  fills them in `loadPage` and `loadPerson`.
+- #183's new `theme-utilities.test.ts` found `bg-surface` on SectionGrid's logo
+  tiles, a colour this repo never declared. The class is removed; whether the
+  tiles want a ground is #193.
+- #97 was measured as promised: `Modal.test.ts` took 27.89s through the lucide
+  barrel and 2.89s through the deep import.
+
+**#52 had two halves, and the issue named only one.** The fleet harness half is
+reddoor-maintenance's (preload off in the generated audit). But #52 was first
+seen in `partners.spec.ts`, and this repo's own specs built axe 16 times with the
+default preload. Each run posted one `connect-src` report for the Google Fonts
+sheet. `tests/interaction/axe.ts` is now the one builder, with
+`preload: false`. `axe-preload.spec.ts` runs the default builder on the same
+page as a control, so a quiet run is measured against one that reports.
+`scripts/spec-axe.test.ts` forbids `new AxeBuilder` elsewhere, and forbids a
+later `.options()`, which replaces the whole options object and would silently
+drop `preload: false`. The fleet builder met that trap first, the other way
+round: chaining `.options()` after `.withTags()` drops the WCAG filter, and it
+passed its first live run.
+
+**The rest took their defaults, with numbers.**
+
+- #155: `lg:scroll-mb-[var(--sticky-top)]` on the card lands a pressed pin's
+  card on the map's centre. At 1440×900 on a production build the offset went
+  from 50.24px to 0.24px, and from 72.94px to −0.06px under a pinned divider.
+  Tab traces are identical with and without it, because focus scrolls the
+  card's link, not the `<li>`.
+- #111: the footpath label went from 3.33:1 to 4.77:1, still lighter than the
+  road names (5.55:1). `map-home.test.ts` went red on the style digest, so
+  `pnpm map:home` re-ran; both pictures came back byte-identical.
+- #146: at a visitor's turn the bar keeps its width and fades over the 500ms
+  settle instead of snapping. 27 frames were part-way on dev, 7 on the
+  production build. The clock's hand-over is unchanged.
+- #54: partner cards are capped at 371px from `sm`. They were 704 and 936 wide
+  at 768 and 1000.
+- #184: every media fixture on /dev/a11y-fixtures now uses the fixture photo on
+  the page's own origin. That took the page from 2 console errors and 9
+  undecoded images to none. axe's contrast count moved from 206 passed / 10
+  incomplete to 208 / 9, and no ratio changed.
+- #14 and #34: below lg, once hydrated, each /properties section is the 390
+  comp's in-card carousel. It uses the shared `createCarousel`,
+  `CarouselArrows` and `CarouselProgress`; `Slider.svelte` was declined
+  because its controls sit outside the slides and it has no bar. Arrows change
+  cards with no transition and loop, as the comp draws them, with no autoplay.
+  The primitive now moves focus to the region before a focused slide goes inert,
+  for five paths that could strand it. The no-JS page, ≥lg and one-listing
+  sections keep the stacked list. At 1440 and 1024 every box on /dev/properties
+  matches main exactly. Only Land's first card is garnet on phones now (#162's
+  open question).
+- #76: the new equality test caught one drift before any edit: curly quotes in
+  the fixture where the seed has straight ones. The coordinates drift too, but
+  the test does not cover them yet (#191).
+- #80 is moot since #187 measured the gutter. `text.left` reads 433.55 with
+  either scrollbar type on Linux, and the old 1455 viewport under overlay
+  scrollbars reproduces the reported 436.89.
+
+**The fleet fix, and what review caught.** reddoor-maintenance's generated a11y
+spec now scrolls through the page before axe (#100), because axe drops text
+under `opacity: 0` from color-contrast. A fixture with two 2.32:1 reveals below
+the fold came back with 0 violations. Three independent reviewers then read it:
+correctness, fleet impact and test validity. Between them they found:
+
+- Svelte 5 intros with a `delay` run a placeholder animation first. The
+  one-time settle waited only on that, so a delayed fly-in was audited mid-fade
+  (1.87–2.74:1 on 18.9:1 text).
+- The pass's own result was thrown away.
+- The return to the top and the per-step height re-read were untested; removing
+  either left the suite green.
+- Lazy cross-origin iframes (Google Maps in beachfront-dentistry's footer) would
+  now be audited or not depending on timing.
+  All went back to the builder before merge. The builder's own suite was green
+  throughout; each of these was found by reading.
+
+**Still open from this batch, by design:**
+
+- #182 and #188: the operator's camera call.
+- #32's WebKit/Safari half: steps are in the issue; the Chromium touch
+  measurement is done.
+- #74's copy calls that are not typos: "Opening 2024", the Menger Springs and
+  Perrin-Beitel zoning, and H.E.B. against HEB.
+- #52 and #100: they close when the harness release reaches this repo.
+
+Filed: #188–#193, reddoor-maintenance#947–#949.
+
+**Honest accounting.** The builders ran as seven concurrent agents rather than
+through the workflow tool, whose concurrency cap is two on four CPUs. Whether
+that saved wall time was not measured. It did cost every timing measurement a
+load figure beside it. The one red that looked like load was the band's own
+change: a hand-over case assumed every frame after Play is `timed`, and #146
+makes the first ones `departing`. It is fixed in the branch.

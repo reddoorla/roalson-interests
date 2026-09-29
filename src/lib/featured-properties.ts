@@ -16,11 +16,11 @@
 // second query. (Since #179 that query also names them in `fetchLinks`, built
 // from this same model: see $lib/fetch-links.)
 //
-// THAT EMBEDDING IS DOCUMENTED, NOT YET OBSERVED. No document in the live
-// repository holds this slice, so nothing here has seen the Content API answer
-// with `data` on the relationship. If it does not, every pick arrives filled
-// but bare, every one is dropped, and the band would vanish without a word —
-// so a bare pick is COUNTED, separately from an editorial drop, and the slice
+// THAT EMBEDDING IS OBSERVED on the live `home` document (2026-09-29, #179): the
+// Content API answers with `data` on each relationship. It is also how the band
+// can vanish: a query whose `fetchLinks` names only other fields REPLACES this
+// model's list, every pick arrives filled but bare, and every one is dropped.
+// So a bare pick is COUNTED, separately from an editorial drop, and the slice
 // prints the counts on its element. `unembedded > 0` on a published page means
 // the query did not ask for the fields ($lib/fetch-links), not "the editor
 // picked badly".
