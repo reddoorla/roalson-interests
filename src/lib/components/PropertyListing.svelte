@@ -248,7 +248,15 @@
   $effect(() => {
     if (typeof window.matchMedia !== "function") return;
     const query = window.matchMedia(BELOW_LG);
-    const sync = () => (narrow = query.matches);
+    // Below `lg` the centre rule does not run (centreWatch), so a listing it
+    // reported up there is not what the carousel shows. It is forgotten on
+    // the way down: held, it kept the map featuring a card the page had
+    // stopped showing and dimming the marker of the one on stage (an iPad
+    // turned to portrait, 1180 -> 820). Back at `lg` the rule reports again.
+    const sync = () => {
+      narrow = query.matches;
+      if (narrow) activeIds = {};
+    };
     sync();
     query.addEventListener("change", sync);
     return () => query.removeEventListener("change", sync);
