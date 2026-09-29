@@ -509,9 +509,9 @@ function atOnce(markers: Fade[], changed: Changed[]) {
 /**
  * /properties with MapLibre's style held back, so the map never finishes
  * loading and the placeholder picture stays — where a visitor is while the
- * map loads, and for good where it cannot. Returns the land section's ids and
- * a card to move to whose own pin in the picture is dimmed now, so the move
- * is sure to change the picture.
+ * map loads, and for good where it cannot. Returns the land map and a card to
+ * move to whose own pin in the picture is dimmed now, so the move is sure to
+ * change the picture.
  */
 async function pictureOnly(page: Page) {
   await page.route("**/map-style.json", () => {
@@ -529,8 +529,9 @@ async function pictureOnly(page: Page) {
       message: "the picture features the first card",
     })
     .toBeGreaterThan(0);
-  // At rest before the move: a marker caught mid-fade REVERSES, and Chromium
-  // shortens a reversed transition to the part already run (4.96ms, seen).
+  // At rest before the move. A marker caught mid-fade REVERSES, and a reversed
+  // transition is shortened to the part already run — before this wait, this
+  // case once read a 4.96ms opacity fade where 150ms was due.
   await expect
     .poll(
       () =>

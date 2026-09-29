@@ -292,21 +292,21 @@ export const ACTIVE_PIN_SCALE = 1.5;
  * both colours one 8-bit step toward the other. The binding pair is a minor
  * road or path (`#ffffff`) beside water (`#a8b4b8`), which the style draws
  * together wherever a white bridge deck crosses a river: 0.81 is the lowest
- * two-decimal opacity that clears 3:1 there
- * (3.1706:1 nominal, 3.0886:1 at the worst rounding; 0.80 is 3.0773 /
- * 2.9979). A cluster's count is TEXT — sand on its own disc at 11-12.5px, so
- * 4.5:1 (WCAG 1.4.3) — and holds from 0.74 over one ground, 0.79 with the
- * count over water and its disc over a road, so the disc's 3:1 decides the
- * cluster too: 0.81 again.
+ * two-decimal opacity that clears 3:1 there (3.1706:1 nominal, 3.0886:1 at
+ * the worst rounding; 0.80 is 3.0773 / 2.9979). A cluster's count is TEXT —
+ * sand on its own disc at 11-12.5px, so 4.5:1 (WCAG 1.4.3) — and holds from
+ * 0.74 over one ground, 0.79 with the count over water and its disc over a
+ * road, so the disc's 3:1 decides the cluster too: 0.81 again.
  *
- * This value replaced 0.67 for pins and 0.74 for clusters, which were the
- * floors for the pin compared with the SAME ground it sits on — 2.25:1 beside
- * water over the background, 2.10:1 over a white road. The road casings and
- * boundaries are strokes under a pixel a side, not grounds: two stay under
- * 3:1 here (the motorway casing would need 0.84, a country boundary 0.94),
- * and are recorded, with the reason they do not choose this number, in
- * src/lib/map-marker-contrast.test.ts, which re-derives it from
- * static/map-style.json and asserts it is exactly the floor.
+ * This value replaced 0.67 for pins and 0.74 for clusters, the floors for a
+ * marker compared only with the ground it sits on. At 0.67 a pin over the
+ * background beside water is 2.25:1, over a white road 2.10:1.
+ *
+ * The road casings and boundaries are strokes under a pixel a side, not
+ * grounds: two stay under 3:1 here (the motorway casing would need 0.84, a
+ * country boundary 0.94), and are recorded, with the reason they do not choose
+ * this number, in src/lib/map-marker-contrast.test.ts, which re-derives it
+ * from static/map-style.json and asserts it is exactly the floor.
  */
 export const DIMMED_MARKER_OPACITY = 0.81;
 

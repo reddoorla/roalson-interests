@@ -26,9 +26,10 @@ import { DIMMED_MARKER_OPACITY } from "$lib/property-map";
  * pin is garnet over land, just outside it is water. This guard first shipped
  * comparing a pin over ground X with that same X only, which chose 0.67 for
  * pins and 0.74 for clusters — and garnet at 0.67 over the background, beside
- * water, is 2.25:1 (a production build rendered that pixel pair at the San
- * Antonio River, 2.26:1). So every marker is now measured over each ground X
- * BESIDE each ground Y, X = Y included: the "straddle" pairs.
+ * water, is 2.25:1 (the review that found it measured that pixel pair on a
+ * production build, at the San Antonio River: 2.26:1). So every marker is now
+ * measured over each ground X BESIDE each ground Y, X = Y included: the
+ * "straddle" pairs.
  *
  * NOTHING IS TYPED IN TWICE. The grounds come from static/map-style.json
  * (every paint layer, composited at its own opacity over the style's
