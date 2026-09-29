@@ -25,7 +25,9 @@
     "a11yRoutes": [
       "/",
       "/properties",
-      "/contact"
+      "/contact",
+      "/team/matt-howard",
+      "/team/bart-wilson"
     ]
   },
   "devDependencies": {

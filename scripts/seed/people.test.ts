@@ -30,9 +30,10 @@ describe("the people data file", () => {
     expect(unknown).toEqual([]);
   });
 
-  it("flags every biography as a placeholder, and seeds no mobile or license number (D4)", () => {
+  it("carries each partner's own biography, and seeds no mobile or license number (D4)", () => {
     for (const p of people) {
-      expect(p.data.bio_is_placeholder, p.uid).toBe(true);
+      expect(p.data.bio_is_placeholder, p.uid).toBe(false);
+      expect(JSON.stringify(p.data.bio), p.uid).not.toMatch(/placeholder/i);
       expect(p.data.license, p.uid).toBeUndefined();
       expect(p.data.phone, p.uid).toBe("(210) 496-5800");
     }

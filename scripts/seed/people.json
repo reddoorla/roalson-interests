@@ -10,11 +10,21 @@
       "bio": [
         {
           "type": "paragraph",
-          "text": "Placeholder biography. Matt Howard's biography has not been supplied yet; this paragraph holds its place until his own words replace it.",
+          "text": "Matt Howard is from El Paso and moved to San Antonio in 1998. Growing up with a father who was a real estate broker, Matt was immersed in the industry from an early age and made his first personal real estate investment in 1995. Matt serves as partner at Roalson Interests, where he brings a deep lifelong understanding of the business to his clients. Prior to joining Roalson, Matt spent a decade working with a local engineering firm. This unique background allowed him to work closely alongside top developers, engineers, and contractors, establishing a powerful network of relationships that he actively leverages today to guide clients through the complexities of the acquisition and disposition processes.",
+          "spans": []
+        },
+        {
+          "type": "paragraph",
+          "text": "Matt is known as a relationship-driven agent whose primary strength lies in land services, having successfully closed the sale of tens of thousands of acres across Central and South Texas. An excellent communicator with exceptional interpersonal skills, he is uniquely equipped to assist clients at every stage of a project — whether navigating raw land acquisitions, consulting with ground-up building development or tenant build-out of an existing lease space. Matt's business philosophy centers on long-term loyalty and trust, a commitment that has naturally turned many of his clients into lifelong friends.",
+          "spans": []
+        },
+        {
+          "type": "paragraph",
+          "text": "Matt is an avid outdoorsman who enjoys hunting, fishing, and snow skiing. He loves traveling and spending quality time with his family, including his wife Nicci and their two daughters.",
           "spans": []
         }
       ],
-      "bio_is_placeholder": true
+      "bio_is_placeholder": false
     },
     "source": {
       "name": "MEASURED — the comp's partner card (6822:491)",
@@ -22,8 +32,8 @@
       "photo": "MEASURED — the headshot the home page's partner row already uses",
       "email": "MEASURED — public on roalson.com/contact_us.htm and in the card wireframe 6745:48718",
       "phone": "MEASURED — the office line, public on roalson.com/contact_us.htm; no direct or mobile number by decision D4",
-      "bio": "INFERRED — PLACEHOLDER by operator decision 2026-09-28: no biography exists anywhere, and this copy makes no claim about him",
-      "bio_is_placeholder": "INFERRED — true until the client supplies the bio; the page is noindexed and out of the sitemap while it is"
+      "bio": "MEASURED — the client's text, sent by Erik in #roalson-interests on 2026-09-29 and published to Prismic that day; curly apostrophes made straight and dashes spaced em dashes, as the site sets them",
+      "bio_is_placeholder": "MEASURED — false since the client's bio was published on 2026-09-29"
     }
   },
   {
@@ -37,11 +47,26 @@
       "bio": [
         {
           "type": "paragraph",
-          "text": "Placeholder biography. Bart Wilson's biography has not been supplied yet; this paragraph holds its place until his own words replace it.",
+          "text": "Bart Wilson brings over three decades of commercial real estate expertise and market leadership to his role as partner at Roalson Interests. Throughout his career, Bart has successfully navigated complex transactions involving more than 6 million square feet of improved commercial space and over 800 acres of commercial land across Central and South Texas.",
+          "spans": []
+        },
+        {
+          "type": "paragraph",
+          "text": "Bart's comprehensive background includes serving as a founding partner at Primera Partners Real Estate Services, following formative years with Trammell Crow Company. His deep expertise in investment sales and medical office leasing makes him a trusted, strategic representative for buyers, sellers, tenants, and landlords alike. His practice is grounded in a strong analytical foundation — backed by a Master of Land Economics and Real Estate from Texas A&M University — and enriched by his active service on local civic boards and economic analysis panels that help shape San Antonio's commercial landscape.",
+          "spans": []
+        },
+        {
+          "type": "paragraph",
+          "text": "Known for his thorough market insight and commitment to client success, Bart takes a hands-on approach to every transaction, guiding clients seamlessly through complex acquisition, leasing, and disposition strategies.",
+          "spans": []
+        },
+        {
+          "type": "paragraph",
+          "text": "An avid outdoorsman, Bart enjoys hunting, fishing, and spending quality time with his wife Happy and their two children, Sophie and Sully.",
           "spans": []
         }
       ],
-      "bio_is_placeholder": true
+      "bio_is_placeholder": false
     },
     "source": {
       "name": "MEASURED — the comp's partner card (6822:505)",
@@ -49,8 +74,8 @@
       "photo": "MEASURED — the headshot the home page's partner row already uses; 140×177, soft at this size (#73)",
       "email": "MEASURED — public on roalson.com/contact_us.htm and in the card wireframe 6745:48718",
       "phone": "MEASURED — the office line, public on roalson.com/contact_us.htm; no direct or mobile number by decision D4",
-      "bio": "INFERRED — PLACEHOLDER by operator decision 2026-09-28: no biography exists anywhere, and this copy makes no claim about him",
-      "bio_is_placeholder": "INFERRED — true until the client supplies the bio; the page is noindexed and out of the sitemap while it is"
+      "bio": "MEASURED — the client's text, sent by Erik in #roalson-interests on 2026-09-29 and published to Prismic that day; curly apostrophes made straight and dashes spaced em dashes, as the site sets them",
+      "bio_is_placeholder": "MEASURED — false since the client's bio was published on 2026-09-29"
     }
   }
 ]

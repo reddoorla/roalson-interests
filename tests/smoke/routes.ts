@@ -97,5 +97,15 @@ export const smokeRoutes: SmokeRoute[] = [
           name: "property detail",
           hydrationMarker: HYDRATED,
         },
+        {
+          path: "/team/matt-howard",
+          name: "partner profile (Matt Howard)",
+          hydrationMarker: HYDRATED,
+        },
+        {
+          path: "/team/bart-wilson",
+          name: "partner profile (Bart Wilson)",
+          hydrationMarker: HYDRATED,
+        },
       ]),
 ];
