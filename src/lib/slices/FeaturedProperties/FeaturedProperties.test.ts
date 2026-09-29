@@ -192,7 +192,11 @@ describe("FeaturedProperties slice", () => {
       expect(images).toHaveLength(3);
       for (const img of images) {
         expect(img.getAttribute("loading")).toBe("lazy");
-        expect(img.getAttribute("sizes")).toBe("(min-width: 1024px) 65vw, 100vw");
+        // The box at the drift's end scale: see "fetched for the width it is
+        // drawn at" below.
+        expect(img.getAttribute("sizes")).toBe(
+          `(min-width: 1024px) ${+(65 * (1 + KEN_BURNS)).toFixed(2)}vw, ${+(100 * (1 + KEN_BURNS)).toFixed(2)}vw`,
+        );
         expect(img.className).toContain("object-cover");
         expect(img.parentElement!.className).toContain("aspect-[928/542]");
         // Intrinsic size on the element: the box is reserved before the bytes land.
@@ -341,16 +345,19 @@ describe("FeaturedProperties slice", () => {
     // leaves and freezes on Pause is featured-properties.spec.ts's, in
     // Chromium.
 
+    /** Every photo that can drift is on its own compositor layer, whichever
+     *  of the three states below it is in (see `LAYER` in the slice). */
+    const LAYER = "will-change: transform;";
     /** The photo a turn brings on: to 1 + KEN_BURNS over DWELL, linear,
      *  after the settle — which is the camera's flight, read from its own
      *  module. */
-    const ON_STAGE = `transform: scale(${1 + KEN_BURNS}); transition: transform ${DWELL}ms linear ${CAMERA_FLIGHT_MS}ms;`;
+    const ON_STAGE = `${LAYER} transform: scale(${1 + KEN_BURNS}); transition: transform ${DWELL}ms linear ${CAMERA_FLIGHT_MS}ms;`;
     /** The first slide's: nothing to arrive, so no settle — as the bar. */
-    const FIRST = `transform: scale(${1 + KEN_BURNS}); transition: transform ${DWELL}ms linear 0ms;`;
+    const FIRST = `${LAYER} transform: scale(${1 + KEN_BURNS}); transition: transform ${DWELL}ms linear 0ms;`;
     /** A photo that left: held at its start value by a whole DWELL's delay… */
-    const OFF_STAGE = `transform: scale(1); transition: transform 0ms linear ${DWELL}ms;`;
+    const OFF_STAGE = `${LAYER} transform: scale(1); transition: transform 0ms linear ${DWELL}ms;`;
     /** …until its wrapper's fade-out ENDS, and then at rest, hidden. */
-    const RESTING = "transform: scale(1); transition: none;";
+    const RESTING = `${LAYER} transform: scale(1); transition: none;`;
     const photosOf = (container: HTMLElement) => [
       ...container.querySelectorAll<HTMLElement>("[data-featured-photo]"),
     ];
@@ -520,7 +527,8 @@ describe("FeaturedProperties slice", () => {
 
     it("under reduced motion a turn adds no transform and no transition, however long it is watched", async () => {
       // app.css cuts every transition to 0.01ms under reduce, which would SNAP
-      // a declared 1.03 and hold it, so the style must not be written at all.
+      // a declared end scale and hold it, so the style must not be written at
+      // all — and with it goes the photo's `will-change`: nothing drifts.
       motion(true);
       vi.useFakeTimers();
       const { container, getByLabelText } = render(FeaturedProperties, {
@@ -536,6 +544,86 @@ describe("FeaturedProperties slice", () => {
           expect(photo.getAttribute("style"), `${watched}ms after the turn`).toBeNull();
       }
       expect(watched, "watched for longer than a drift").toBeGreaterThan(DISSOLVE + DWELL);
+    });
+
+    it("drifts the operator's 1.00 → 1.06", () => {
+      // "the ken burns still feels stuttery" … "being too slow may be the
+      // answer, let's speed it up" (operator, 2026-09-29, after #204). The
+      // amplitude, pinned once, as DWELL is: twice the 0.03 it was. That the
+      // browser specs time this same number is featured-dwell.test.ts's.
+      expect(KEN_BURNS).toBe(0.06);
+    });
+
+    describe("fetched for the width it is drawn at, at the end of its drift", () => {
+      /** A band whose three photos are Prismic images of these sizes. */
+      const withPhotos = (...sizes: [number, number][]) => {
+        const slice = featuredPropertiesFixture();
+        const picks = slice.primary.properties as unknown as {
+          property: { data: { feature_image: unknown } };
+        }[];
+        sizes.forEach(([width, height], i) => {
+          picks[i].property.data.feature_image = {
+            url: `https://images.prismic.io/roalson-interests/photo-${i}.jpg?auto=format,compress`,
+            alt: `Photo ${i}`,
+            dimensions: { width, height },
+            copyright: null,
+            id: `photo-${i}`,
+            edit: { x: 0, y: 0, zoom: 1, background: "#ffffff" },
+          };
+        });
+        return slice;
+      };
+      const imgs = (container: HTMLElement) => [
+        ...container.querySelectorAll<HTMLImageElement>("[data-featured-photo]"),
+      ];
+      const END = 1 + KEN_BURNS;
+      /** The comp's box, 928 × 542 — the wrapper's `aspect-[928/542]`. */
+      const BOX = 928 / 542;
+      const sizesFor = (scale: number) =>
+        `(min-width: 1024px) ${+(65 * scale).toFixed(2)}vw, ${+(100 * scale).toFixed(2)}vw`;
+      const widthsOf = (img: HTMLImageElement) =>
+        img
+          .getAttribute("srcset")!
+          .split(", ")
+          .map((c) => Number(/ (\d+)w$/.exec(c)![1]));
+
+      it("sizes is the box at the end scale, and more for a photo wider than the box", () => {
+        // The live band's three photos: 4:3 and 1.45:1 are narrower than the
+        // box, so object-cover draws them its width; 1717 × 866 is wider, so
+        // it is drawn at the box's HEIGHT and overflows it sideways — 1073.6
+        // wide in a 927 box at 1440, which `65vw` said nothing about.
+        const { container } = render(FeaturedProperties, {
+          props: { slice: withPhotos([4032, 3024], [1872, 1290], [1717, 866]) },
+        });
+        expect(imgs(container).map((img) => img.getAttribute("sizes"))).toEqual([
+          sizesFor(END),
+          sizesFor(END),
+          sizesFor((END * 1717) / 866 / BOX),
+        ]);
+      });
+
+      it("a one-listing card never drifts, so it asks for the box alone", () => {
+        const { container } = render(FeaturedProperties, {
+          props: { slice: featuredLaunchFixture() },
+        });
+        expect(imgs(container).map((img) => img.getAttribute("sizes"))).toEqual([sizesFor(1)]);
+      });
+
+      it("offers 2048 between 1920 and 2560, and never more than the source has", () => {
+        const { container } = render(FeaturedProperties, {
+          props: { slice: withPhotos([4032, 3024], [1872, 1290], [1717, 866]) },
+        });
+        const [big, mid, wide] = imgs(container);
+        expect(widthsOf(big)).toEqual([480, 768, 1024, 1440, 1920, 2048, 2560]);
+        expect(widthsOf(mid)).toEqual([480, 768, 1024, 1440, 1872]);
+        expect(widthsOf(wide)).toEqual([480, 768, 1024, 1440, 1717]);
+        // The `src` fallback is still at most 1920.
+        expect(imgs(container).map((img) => new URL(img.src).searchParams.get("w"))).toEqual([
+          "1920",
+          "1872",
+          "1717",
+        ]);
+      });
     });
 
     // ── the clock: the operator's 8000, and no hover pause (2026-09-23) ────
