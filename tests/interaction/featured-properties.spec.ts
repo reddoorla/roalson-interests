@@ -224,7 +224,25 @@ const contrastOf = (results: { passes: AxeRule[]; incomplete: AxeRule[] }) => ({
   unmeasured: results.incomplete.find((r) => r.id === "color-contrast")?.nodes ?? [],
 });
 
-type AxeRule = { id: string; nodes: { html: string; any?: { data?: unknown }[] }[] };
+type AxeRule = {
+  id: string;
+  nodes: { html: string; target: unknown[]; any?: { data?: unknown }[] }[];
+};
+
+/** How many of the elements matching `selector` axe PASSED for `rule` — read
+ *  off each node's own target, because axe abbreviates a long `html`
+ *  mid-attribute (`data-map-home-cluste...="2"`), so a substring can miss. */
+const passedOn = (page: Page, results: { passes: AxeRule[] }, rule: string, selector: string) =>
+  page.evaluate(
+    ({ targets, selector }) =>
+      targets.filter((t) => document.querySelector(t)?.matches(selector)).length,
+    {
+      targets: (results.passes.find((r) => r.id === rule)?.nodes ?? []).map((n) =>
+        String(n.target[0]),
+      ),
+      selector,
+    },
+  );
 
 /** Which slides are on stage, by title — read off `inert`, the thing that
  *  actually takes a slide out of the tab order. */
@@ -994,12 +1012,12 @@ test.describe("rotation", () => {
       // attribution control and cluster markers, on every run.
       //
       // THE COST, SAID OUT LOUD: this audits the BOOTED state, so the band's
-      // pre-boot state — the server-rendered link list every visitor sees for
-      // as long as 426 KB takes, and for good without WebGL — is not audited
-      // here any more. It never was deterministically; the old line reached it
-      // by winning a race. #125 tracks giving it a case of its own, and #122
-      // may change what that state even is. The two CLOCK cases in this block
-      // still start timing without waiting for this boot: #117.
+      // pre-boot state — what every visitor sees for as long as 426 KB takes,
+      // and for good without WebGL — is not audited here. It never was
+      // deterministically; the old line reached it by winning a race. It has
+      // its own cases now, just below (#125), and since #122 it is the picture
+      // of MAP_HOME rather than the link list. The CLOCK cases in this block
+      // boot the map before they time anything (#117).
       await expect(
         page.locator("[data-property-map]").first(),
         "the band's map never finished booting, so this audit has no map in it",
@@ -1087,6 +1105,102 @@ test.describe("rotation", () => {
       await expectRing(page, page.getByRole("button", { name: "Next slide" }), GARNET);
     } finally {
       await context.close();
+    }
+  });
+
+  test("before the engine: the band's map is its picture, and axe passes it — refused, not late", async ({
+    browser,
+  }) => {
+    // THE PRE-BOOT STATE, AUDITED ON PURPOSE (#125). The case above waits the
+    // boot OUT; this one takes it away, so there is no race in either
+    // direction: the engine's module is refused at the network, the lazy gate
+    // still opens on the scroll, and the import that follows fails. Since #122
+    // what a visitor has in that state is the committed picture of MAP_HOME
+    // with the listings' pins over it, and the list under it `sr-only` — not
+    // the visible list this issue was first written about (that state is the
+    // next case's).
+    test.setTimeout(60_000);
+    const { context, page } = await moving(browser);
+    try {
+      await page.route(/map-engine|maplibre/, (route) => route.abort());
+      const refused = page.waitForEvent("requestfailed", (r) => /map-engine/.test(r.url()));
+      await page.goto(HOME);
+      await adopted(page);
+      await settledForAudit(page, page.locator(CARD));
+      // Positive evidence the boot was ATTEMPTED and refused, rather than the
+      // gate simply never having opened.
+      await refused;
+      await page.getByRole("button", { name: "Pause slides" }).click();
+      await expect(page.getByRole("button", { name: "Play slides" })).toBeVisible();
+
+      const map = page.locator(`${BAND} [data-property-map]`);
+      await expect(map).not.toHaveAttribute("data-map-ready", "");
+      await expect(map.locator("[data-map-home-box]"), "the picture is drawn").toBeVisible();
+      const pins = map.locator('[data-map-home-frame="full"] [data-map-home-pin]');
+      expect(await pins.count(), "with the listings' pins on it").toBeGreaterThan(0);
+      for (const link of await map.locator("[data-map-link]").all())
+        await expect(link).toHaveClass(/\bsr-only\b/);
+
+      const results = await new AxeBuilder({ page }).include(BAND).analyze();
+      expect(results.violations.map((v) => `${v.id}: ${v.nodes.length}`)).toEqual([]);
+      const { measured, unmeasured } = contrastOf(results);
+      expect(
+        unmeasured.map((n) => n.html.slice(0, 60)),
+        "axe could not measure these",
+      ).toEqual([]);
+      expect(measured.length, "every text node in the card").toBeGreaterThanOrEqual(6);
+      // WHAT AXE LOOKED AT IN THE MAP, by name. The picture's text is the
+      // list, which is `sr-only`, so there is no contrast in it to measure;
+      // what can go wrong is the pins — links a pointer can press, hidden from
+      // the accessibility tree — and the list's names. The picture is hidden
+      // as ONE subtree, so axe reports its root and checks every pin in it.
+      expect(
+        await passedOn(page, results, "aria-hidden-focus", "[data-map-home-box]"),
+        "the hidden picture, pins and all, was checked for a tab stop",
+      ).toBe(1);
+      expect(
+        await passedOn(page, results, "link-name", "[data-map-link]"),
+        "every listing link was checked for a name",
+      ).toBe(await map.locator("[data-map-link]").count());
+    } finally {
+      await context.close();
+    }
+  });
+
+  test("…and where no listing is inside the opening frame, the LIST is the map — axe measures it on both grounds", async ({
+    page,
+  }) => {
+    // The other pre-boot state (#125): `homeFrames` is null, so no picture is
+    // drawn and the links are what a sighted visitor reads — on the band's
+    // #3d0707 as on a section's sand. /dev/home cannot reach it (every
+    // featured listing is inside MAP_HOME), so /dev/a11y-fixtures draws one
+    // box per ground with `engine="off"`: nothing to race at all.
+    await page.goto("/dev/a11y-fixtures");
+    for (const tone of ["garnet", "cream"]) {
+      const selector = `[data-property-map]:has([aria-label="Beyond the opening frame, ${tone} listings"])`;
+      const map = page.locator(selector);
+      await expect(map).toHaveCount(1);
+      await expect(map, `${tone}: no picture`).not.toHaveAttribute("data-map-home", "");
+      const link = map.locator("[data-map-link]");
+      await expect(link, `${tone}: the list is drawn`).toBeVisible();
+      await expect(link).not.toHaveClass(/\bsr-only\b/);
+
+      const results = await new AxeBuilder({ page }).include(selector).analyze();
+      expect(results.violations.map((v) => `${v.id}: ${v.nodes.length}`)).toEqual([]);
+      const { measured, unmeasured } = contrastOf(results);
+      expect(
+        unmeasured.map((n) => n.html.slice(0, 60)),
+        tone,
+      ).toEqual([]);
+      const links = await page.evaluate(
+        (targets) => targets.map((t) => !!document.querySelector(t)?.matches("[data-map-link]")),
+        measured.map((n) => String(n.target[0])),
+      );
+      const ratios = measured
+        .filter((_, i) => links[i])
+        .map((n) => (n.any?.[0]?.data as { contrastRatio?: number } | undefined)?.contrastRatio);
+      expect(ratios, `${tone}: axe measured the listing link`).toHaveLength(1);
+      expect(ratios[0], `${tone}: the link's ratio`).toBeGreaterThan(4.5);
     }
   });
 });
