@@ -101,8 +101,7 @@
     cameraMove,
     clusterDiameter,
     clusterPoints,
-    DIMMED_CLUSTER_OPACITY,
-    DIMMED_PIN_OPACITY,
+    DIMMED_MARKER_OPACITY,
     expansionZoom,
     fitCamera,
     frameFor,
@@ -293,14 +292,14 @@
   let heldLink: string | null = $state(null);
   /** The dimmed opacity for a marker standing for the listings `ids` — a pin's
    *  or a cluster's — or undefined when it is drawn at full. `--map-dim` is
-   *  written from the constants, so the value the stylesheet applies and the
-   *  value src/lib/map-marker-contrast.test.ts measures are one. */
+   *  written from the constant, so the value the stylesheet applies and the
+   *  value src/lib/map-marker-contrast.test.ts measures are one. The sheet's
+   *  listing is held like the focused link's: a pin pressed on a map with no
+   *  `onselect` (the homepage band) opens a sheet naming it and leaves
+   *  `active` alone, and the listing the visitor chose must not look disabled
+   *  beside one they did not. */
   const dimFor = (ids: readonly string[]) =>
-    markerDimmed(ids, active, points, heldLink)
-      ? ids.length === 1
-        ? DIMMED_PIN_OPACITY
-        : DIMMED_CLUSTER_OPACITY
-      : undefined;
+    markerDimmed(ids, active, points, [heldLink, selected?.id]) ? DIMMED_MARKER_OPACITY : undefined;
   /**
    * THE LISTING THAT WAS ACTIVE WHEN THE VISITOR LAST DROVE THE MAP, or
    * `undefined` if they never have. `null` is a real value here — it is what
@@ -2007,10 +2006,11 @@
 
   /* THE ACTIVE LISTING, FEATURED (operator, 2026-09-29). Every marker that is
      not the active listing's — live or in the picture, pin or cluster — is
-     drawn at `--map-dim`, which the markup writes from DIMMED_PIN_OPACITY or
-     DIMMED_CLUSTER_OPACITY only while this map HAS an active listing
-     (`markerDimmed`); with none, no marker carries the attribute and all of
-     them stay at 1. The measurement behind both numbers is on the constants.
+     drawn at `--map-dim`, which the markup writes from DIMMED_MARKER_OPACITY
+     only while this map HAS an active listing (`markerDimmed`); with none, no
+     marker carries the attribute and all of them stay at 1. The measurement
+     behind the number is on the constant. A marker whose list link has focus,
+     or that the details sheet names, is not dimmed at all (`dimFor`).
      A marker under the pointer or with keyboard focus goes back to 1: a
      control that looks disabled while it is being pointed at is lying, and
      `opacity` would dim the focus ring drawn on the element with it.

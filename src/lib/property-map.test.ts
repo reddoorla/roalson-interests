@@ -10,8 +10,7 @@ import {
   clusterSignature,
   COMPACT_MAX_HEIGHT,
   DEFAULT_MAP_STYLE_URL,
-  DIMMED_CLUSTER_OPACITY,
-  DIMMED_PIN_OPACITY,
+  DIMMED_MARKER_OPACITY,
   expansionZoom,
   fitCamera,
   frameFor,
@@ -1060,20 +1059,23 @@ describe("which markers are dimmed so the active one is featured (2026-09-29)", 
     }
   });
 
-  it("does not dim the marker whose link holds keyboard focus", () => {
-    expect(markerDimmed(["b"], "a", on, "b")).toBe(false);
-    expect(markerDimmed(["b", "c"], "a", on, "c")).toBe(false);
-    // …and only that one.
-    expect(markerDimmed(["c"], "a", on, "b")).toBe(true);
+  it("does not dim a marker holding a listing that is being named — link focus or the sheet", () => {
+    expect(markerDimmed(["b"], "a", on, ["b"])).toBe(false);
+    expect(markerDimmed(["b", "c"], "a", on, ["c"])).toBe(false);
+    // Both at once: the focused link's AND the sheet's.
+    expect(markerDimmed(["b"], "a", on, ["c", "b"])).toBe(false);
+    expect(markerDimmed(["c"], "a", on, ["b", "c"])).toBe(false);
+    // …and only those; an empty hold is no hold.
+    expect(markerDimmed(["c"], "a", on, ["b"])).toBe(true);
+    expect(markerDimmed(["c"], "a", on, [null, undefined])).toBe(true);
   });
 
-  it("dims to values inside the operator's 'slightly', the cluster never below the pin", () => {
-    // The measurement that chose them is src/lib/map-marker-contrast.test.ts.
-    for (const v of [DIMMED_PIN_OPACITY, DIMMED_CLUSTER_OPACITY]) {
-      expect(v).toBeGreaterThanOrEqual(0.55);
-      expect(v).toBeLessThanOrEqual(0.8);
-    }
-    expect(DIMMED_CLUSTER_OPACITY).toBeGreaterThanOrEqual(DIMMED_PIN_OPACITY);
+  it("dims by a value the operator's 'slightly' can live with", () => {
+    // The measurement that chose it is src/lib/map-marker-contrast.test.ts.
+    // Above 0.85 the dim stops featuring much, and the value goes back to the
+    // operator as a report instead (the review of 2026-09-29).
+    expect(DIMMED_MARKER_OPACITY).toBeGreaterThanOrEqual(0.55);
+    expect(DIMMED_MARKER_OPACITY).toBeLessThanOrEqual(0.85);
   });
 });
 

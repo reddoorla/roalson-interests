@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
-import { DIMMED_CLUSTER_OPACITY, DIMMED_PIN_OPACITY } from "$lib/property-map";
+import { DIMMED_MARKER_OPACITY } from "$lib/property-map";
 
 /**
  * THE DIMMED MARKERS STILL MEET THEIR CONTRAST — re-measured from the map's
@@ -11,13 +11,24 @@ import { DIMMED_CLUSTER_OPACITY, DIMMED_PIN_OPACITY } from "$lib/property-map";
  * it's featured").
  *
  * "Slightly" is decided here, not by taste. A pin is an interactive graphic,
- * so once it is composited at DIMMED_PIN_OPACITY its garnet must keep 3:1
- * (WCAG 1.4.11) against every ground the tinted style can put under it. A
- * cluster's count is TEXT, sand on its garnet disc, so at
- * DIMMED_CLUSTER_OPACITY the two must keep 4.5:1 (WCAG 1.4.3) after both are
- * composited over that ground. Each constant must be the LOWEST two-decimal
- * value that does, so a palette change that moves the answer either way is a
- * red test here, naming the ground, rather than a number nobody re-derives.
+ * so once it is composited at DIMMED_MARKER_OPACITY its garnet must keep 3:1
+ * (WCAG 1.4.11) against the colours ADJACENT to it. A cluster's disc is the
+ * same garnet and the same rule; its count is TEXT, sand on that disc, so the
+ * two must keep 4.5:1 (WCAG 1.4.3). The constant must be exactly the LOWEST
+ * two-decimal value at which all of that holds, for pins and for clusters, so
+ * a palette change that moves the answer either way is a red test here,
+ * naming the grounds, rather than a number nobody re-derives.
+ *
+ * UNDER IS NOT BESIDE — the correction this file was rewritten for. A
+ * see-through marker takes its colour from the ground UNDER it, but the
+ * colour it is compared with is the one BESIDE it, and at a shoreline, a
+ * river or a bridge those are two different grounds: inside the outline the
+ * pin is garnet over land, just outside it is water. This guard first shipped
+ * comparing a pin over ground X with that same X only, which chose 0.67 for
+ * pins and 0.74 for clusters — and garnet at 0.67 over the background, beside
+ * water, is 2.25:1 (a production build rendered that pixel pair at the San
+ * Antonio River, 2.26:1). So every marker is now measured over each ground X
+ * BESIDE each ground Y, X = Y included: the "straddle" pairs.
  *
  * NOTHING IS TYPED IN TWICE. The grounds come from static/map-style.json
  * (every paint layer, composited at its own opacity over the style's
@@ -208,29 +219,92 @@ const edges = paintedBy((l) => drawable(l) && EDGE.test(l.id)).filter(
   (g) => g.name !== "background",
 );
 
-// ── the two criteria ──────────────────────────────────────────────────────
+// ── the pairs ─────────────────────────────────────────────────────────────
+
+/**
+ * Every distinct ground colour, with the layers that paint it. Many layers
+ * share a colour (four paint water's), and a pair is a pair of COLOURS.
+ */
+const distinct = [
+  ...grounds
+    .reduce((by, g) => {
+      const key = hex(g.rgb);
+      const seen = by.get(key);
+      if (seen) seen.name += `, ${g.name}`;
+      else by.set(key, { ...g });
+      return by;
+    }, new Map<string, Ground>())
+    .values(),
+];
+
+/**
+ * A marker drawn over `under`, compared with `beside`. `under === beside` is
+ * the marker in the middle of one ground; every other pair is a boundary
+ * between two grounds running under the marker's edge. EVERY pair is
+ * measured, not just the ones a map is sure to draw side by side, because the
+ * pair that binds (the lightest ground beside the darkest) is one that does
+ * meet — a white bridge deck over water, below — so modelling which grounds
+ * touch would change nothing but add a claim.
+ */
+interface Pair {
+  under: Ground;
+  beside: Ground;
+}
+const pairs: Pair[] = distinct.flatMap((under) => distinct.map((beside) => ({ under, beside })));
+const sameGround: Pair[] = distinct.map((g) => ({ under: g, beside: g }));
 
 const PIN_NON_TEXT = 3;
 const COUNT_TEXT = 4.5;
 
-/** A dimmed pin against a ground: the composited body vs the ground. */
-const pinOn = (g: Ground, alpha: number) => {
-  const body = over(token(painted.body), g.rgb, alpha);
-  return { nominal: contrast(body, g.rgb), worst: contrastAtWorst(body, g.rgb) };
-};
-/** A dimmed cluster over a ground: its count vs its disc, both composited. */
-const countOn = (g: Ground, alpha: number) => {
-  const disc = over(token(painted.disc), g.rgb, alpha);
-  const text = over(token(painted.count), g.rgb, alpha);
+interface Measured {
+  nominal: number;
+  worst: number;
+}
+/** A dimmed pin body, or a cluster's disc: garnet over `under`, against `beside`. */
+const garnetBeside =
+  (token_: string) =>
+  (pair: Pair, alpha: number): Measured => {
+    const mark = over(token(token_), pair.under.rgb, alpha);
+    return {
+      nominal: contrast(mark, pair.beside.rgb),
+      worst: contrastAtWorst(mark, pair.beside.rgb),
+    };
+  };
+const pinBeside = garnetBeside(painted.body);
+const discBeside = garnetBeside(painted.disc);
+/** A dimmed cluster's count against its own disc. The glyph and the disc
+ *  pixel next to it can sit either side of a boundary too, so the count is
+ *  composited over `under` and the disc over `beside`. */
+const countBeside = (pair: Pair, alpha: number): Measured => {
+  const text = over(token(painted.count), pair.under.rgb, alpha);
+  const disc = over(token(painted.disc), pair.beside.rgb, alpha);
   return { nominal: contrast(text, disc), worst: contrastAtWorst(text, disc) };
 };
 
-const worstGround = (measure: (g: Ground, a: number) => { worst: number }, alpha: number) =>
-  grounds
-    .map((g) => ({ ground: g, ...measure(g, alpha) }))
+const worstOf = (measure: (p: Pair, a: number) => Measured, alpha: number, over_ = pairs) =>
+  over_
+    .map((pair) => ({ pair, ...measure(pair, alpha) }))
     .reduce((a, b) => (b.worst < a.worst ? b : a));
 
+const label = (r: { pair: Pair } & Measured) =>
+  `${hex(r.pair.under.rgb)} (${r.pair.under.name}) beside ${hex(r.pair.beside.rgb)} ` +
+  `(${r.pair.beside.name}): ${r.nominal.toFixed(4)} (${r.worst.toFixed(4)})`;
+
 const two = (n: number) => Math.round(n * 100) / 100;
+/** The lowest two-decimal opacity at which `passes` holds. */
+function floor(passes: (alpha: number) => boolean): number {
+  for (let k = 1; k <= 100; k++) if (passes(k / 100)) return k / 100;
+  throw new Error("nothing up to full opacity passes");
+}
+
+const pinPasses = (alpha: number, over_ = pairs) =>
+  worstOf(pinBeside, alpha, over_).worst >= PIN_NON_TEXT;
+const clusterPasses = (alpha: number, over_ = pairs) =>
+  worstOf(discBeside, alpha, over_).worst >= PIN_NON_TEXT &&
+  worstOf(countBeside, alpha, over_).worst >= COUNT_TEXT;
+
+const PIN_FLOOR = floor((a) => pinPasses(a));
+const CLUSTER_FLOOR = floor((a) => clusterPasses(a));
 
 describe("the dimmed markers, measured against the style's own grounds", () => {
   it("reads the grounds it claims to: the background, water, park and the road fills", () => {
@@ -271,93 +345,145 @@ describe("the dimmed markers, measured against the style's own grounds", () => {
     expect(luminance(stack)).toBeGreaterThan(luminance(darkest.rgb));
   });
 
-  it(`a dimmed pin (${DIMMED_PIN_OPACITY}) keeps 3:1 on every ground, even at the worst rounding`, () => {
-    const failing = grounds
-      .map((g) => ({ g, ...pinOn(g, DIMMED_PIN_OPACITY) }))
-      .filter((r) => r.worst < PIN_NON_TEXT)
-      .map((r) => `${r.g.name} ${hex(r.g.rgb)}: ${r.nominal.toFixed(4)} (${r.worst.toFixed(4)})`);
-    expect(failing, "grounds a dimmed pin falls under 3:1 on").toEqual([]);
-  });
-
-  it("and it is the LOWEST such value — 0.01 less fails, on water", () => {
-    const below = worstGround(pinOn, two(DIMMED_PIN_OPACITY - 0.01));
-    expect(below.worst, `${below.ground.name} at ${two(DIMMED_PIN_OPACITY - 0.01)}`).toBeLessThan(
-      PIN_NON_TEXT,
+  it("measures every ground beside every other, the rivers among them", () => {
+    // Positive evidence the straddles are there: a pairing that collapsed to
+    // the diagonal would measure the old, wrong model and pass it.
+    expect(distinct.length).toBeGreaterThan(15);
+    expect(pairs).toHaveLength(distinct.length ** 2);
+    const water = distinct.find((g) => hex(g.rgb) === "#a8b4b8")!;
+    // Rivers and streams are LINES drawn over land, so they are grounds here,
+    // not strokes: a pin sitting on land can have one along its edge.
+    for (const id of ["water", "waterway_river", "waterway_other"])
+      expect(water.name.split(", "), id).toContain(id);
+    for (const land of ["background", "road_minor", "landuse_residential", "park"])
+      expect(
+        pairs.some((p) => p.under.name.split(", ").includes(land) && p.beside === water),
+        `${land} beside water`,
+      ).toBe(true);
+    // The binding pair below is one the style really draws together: a white
+    // bridge deck is, by its own filter, laid over what it crosses.
+    const bridges = style.layers.filter(
+      (l) =>
+        /^bridge_/.test(l.id) &&
+        !EDGE.test(l.id) &&
+        colours(l.paint?.["line-color"]).some(
+          (c) => isColour(c) && hex(parse(c).rgb) === "#ffffff",
+        ),
     );
-    expect(hex(below.ground.rgb)).toBe("#a8b4b8");
-    // The figures the constant's comment quotes, so they cannot drift from it.
-    const water = { name: "water", rgb: parse("#a8b4b8").rgb };
-    expect(pinOn(water, 0.67).nominal).toBeCloseTo(3.082, 3);
-    expect(pinOn(water, 0.67).worst).toBeCloseTo(3.0018, 3);
-    expect(pinOn(water, 0.66).nominal).toBeCloseTo(3.0328, 3);
-    expect(pinOn(water, 0.66).worst).toBeCloseTo(2.954, 3);
+    expect(bridges.map((l) => l.id).sort()).toEqual(["bridge_path_pedestrian", "bridge_street"]);
   });
 
-  it(`a dimmed cluster (${DIMMED_CLUSTER_OPACITY}) keeps its count at 4.5:1 and its disc at 3:1`, () => {
-    const text = grounds
-      .map((g) => ({ g, ...countOn(g, DIMMED_CLUSTER_OPACITY) }))
-      .filter((r) => r.worst < COUNT_TEXT)
-      .map((r) => `${r.g.name} ${hex(r.g.rgb)}: ${r.nominal.toFixed(4)} (${r.worst.toFixed(4)})`);
-    expect(text, "grounds a dimmed count falls under 4.5:1 on").toEqual([]);
-    const disc = grounds
-      .map((g) => ({ g, ...pinOn(g, DIMMED_CLUSTER_OPACITY) }))
+  it(`DIMMED_MARKER_OPACITY (${DIMMED_MARKER_OPACITY}) is exactly the pin's floor: 3:1 beside every ground`, () => {
+    const failing = pairs
+      .map((pair) => ({ pair, ...pinBeside(pair, DIMMED_MARKER_OPACITY) }))
       .filter((r) => r.worst < PIN_NON_TEXT)
-      .map((r) => r.g.name);
-    expect(disc, "grounds a dimmed disc falls under 3:1 on").toEqual([]);
+      .map(label);
+    expect(failing, "pairs a dimmed pin falls under 3:1 on").toEqual([]);
+    expect(DIMMED_MARKER_OPACITY, "the LOWEST value that passes every pair").toBe(PIN_FLOOR);
+    // 0.01 less fails, and on the pair the constant's comment names: the
+    // lightest ground (a minor road or path, #ffffff) beside water.
+    const below = worstOf(pinBeside, two(PIN_FLOOR - 0.01));
+    expect(below.worst, label(below)).toBeLessThan(PIN_NON_TEXT);
+    expect([hex(below.pair.under.rgb), hex(below.pair.beside.rgb)]).toEqual(["#ffffff", "#a8b4b8"]);
+    // The figures the constant's comment quotes, so they cannot drift from it.
+    const roadBesideWater = pairs.find(
+      (p) => p.under === below.pair.under && p.beside === below.pair.beside,
+    )!;
+    expect(pinBeside(roadBesideWater, 0.81).nominal).toBeCloseTo(3.1706, 3);
+    expect(pinBeside(roadBesideWater, 0.81).worst).toBeCloseTo(3.0886, 3);
+    expect(pinBeside(roadBesideWater, 0.8).nominal).toBeCloseTo(3.0773, 3);
+    expect(pinBeside(roadBesideWater, 0.8).worst).toBeCloseTo(2.9979, 3);
   });
 
-  it("and it is the LOWEST such value — 0.01 less fails, on the lightest ground", () => {
-    const below = worstGround(countOn, two(DIMMED_CLUSTER_OPACITY - 0.01));
-    expect(
-      below.worst,
-      `${below.ground.name} at ${two(DIMMED_CLUSTER_OPACITY - 0.01)}`,
-    ).toBeLessThan(COUNT_TEXT);
-    expect(hex(below.ground.rgb)).toBe("#ffffff");
-    const white = { name: "minor road", rgb: parse("#ffffff").rgb };
-    expect(countOn(white, 0.74).nominal).toBeCloseTo(4.7102, 3);
-    expect(countOn(white, 0.74).worst).toBeCloseTo(4.6004, 3);
-    // Why a cluster cannot simply share the pin's value.
-    expect(countOn(white, DIMMED_PIN_OPACITY).nominal).toBeCloseTo(3.8984, 3);
-    expect(countOn(white, DIMMED_PIN_OPACITY).worst).toBeLessThan(COUNT_TEXT);
+  it("and the cluster's floor too: its disc 3:1 beside every ground, its count 4.5:1 on its disc", () => {
+    const at = DIMMED_MARKER_OPACITY;
+    const disc = pairs
+      .map((pair) => ({ pair, ...discBeside(pair, at) }))
+      .filter((r) => r.worst < PIN_NON_TEXT)
+      .map(label);
+    expect(disc, "pairs a dimmed disc falls under 3:1 on").toEqual([]);
+    const count = pairs
+      .map((pair) => ({ pair, ...countBeside(pair, at) }))
+      .filter((r) => r.worst < COUNT_TEXT)
+      .map(label);
+    expect(count, "pairs a dimmed count falls under 4.5:1 on").toEqual([]);
+    expect(DIMMED_MARKER_OPACITY, "the LOWEST value that passes every pair").toBe(CLUSTER_FLOOR);
+    // What decides it is the disc, not the count: the count alone would
+    // allow 0.79 (the glyph over water, the disc beside it over a white road).
+    const countOnly = floor((a) => worstOf(countBeside, a).worst >= COUNT_TEXT);
+    expect(countOnly).toBe(0.79);
+    expect(countOnly).toBeLessThan(CLUSTER_FLOOR);
   });
 
   /**
-   * THE EDGES, RECORDED — what dimming costs, said plainly. At full opacity
-   * the garnet pin clears 3:1 against every edge stroke in the style; the
-   * lowest are the motorway casing `#a3906a` (3.7154:1) and the country
-   * boundary `#8e8676` (3.2023:1). Dimmed to 0.67 it does not against three
-   * of them: the motorway casing 2.4338, the link/trunk casings `#b6a685`
-   * 2.8434, the boundary 2.2175 — and NO value in the operator's range fixes
-   * that (at 0.8 the motorway casing is 2.8971 and the boundary 2.5920), so
-   * it is a property of dimming at all, not of this number. Where a dimmed
-   * pin crosses one of those sub-pixel lines, the pixels of its outline that
-   * touch the line are under 3:1 against IT, while the rest of its outline
-   * is on the ground on either side, at >= 3:1. The casings are themselves
-   * under 3:1 against the ground they are drawn on (#119). Asserted as
-   * today's fact, so the day it changes this says so.
+   * WHAT THE STRADDLES CHANGED, asserted so the old model cannot come back
+   * quietly. Over the SAME ground only, the floors are the numbers this
+   * shipped with first — 0.67 for a pin (water) and 0.74 for a cluster's
+   * count (a white road) — and at 0.67 a pin over the background beside
+   * water is 2.25:1, over a white road beside water 2.10:1.
+   */
+  it("over one ground only, the floors would be the 0.67 and 0.74 that were wrong", () => {
+    expect(floor((a) => pinPasses(a, sameGround))).toBe(0.67);
+    expect(floor((a) => worstOf(countBeside, a, sameGround).worst >= COUNT_TEXT)).toBe(0.74);
+    const water = distinct.find((g) => hex(g.rgb) === "#a8b4b8")!;
+    const bg = distinct.find((g) => g.name.split(", ").includes("background"))!;
+    const white = distinct.find((g) => hex(g.rgb) === "#ffffff")!;
+    expect(pinBeside({ under: bg, beside: water }, 0.67).nominal).toBeCloseTo(2.2513, 3);
+    expect(pinBeside({ under: white, beside: water }, 0.67).nominal).toBeCloseTo(2.1048, 3);
+    expect(pinBeside({ under: bg, beside: water }, DIMMED_MARKER_OPACITY).worst).toBeGreaterThan(3);
+  });
+
+  /**
+   * THE EDGES, RECORDED — what dimming costs, said plainly. Strokes are not
+   * grounds: a road's casing, a park's outline, an administrative boundary is
+   * a line under a pixel a side at the zooms these maps open on (the motorway
+   * casing is 0.62px showing each side at z12, 1.07px at z16). They are
+   * REPORTED here, not guarded as grounds, and W3C's Understanding 1.4.11 is
+   * the reason — its test for a part of a graphic under 3:1 is "if the
+   * least-contrasting area is less than 3:1, assume that area is invisible;
+   * is the graphical object still understandable?" Where a dimmed pin crosses
+   * one, the pixels of its outline touching the line are under 3:1 against
+   * it; the rest of the outline is on the grounds either side, which the
+   * pairs above hold at >= 3:1 — so with that area taken away the pin is
+   * still all there.
+   *
+   * At full opacity the garnet pin clears 3:1 against every edge stroke in the
+   * style; the lowest are the motorway casing `#a3906a` (3.7154:1) and the
+   * country boundary `#8e8676` (3.2023:1). At 0.81 two still do not: the
+   * motorway casing 2.9235 and the boundary 2.6157. The link/trunk casing
+   * `#b6a685`, under 3:1 at 0.67, clears it (3.5960). The casing needs 0.84 and
+   * the boundary 0.94, which is hardly dimmed at all. Asserted as today's
+   * fact, so the day it changes this says so.
    */
   it("records the edge strokes a dimmed pin can cross, including the ones under 3:1", () => {
     const at = (name: string, alpha: number) => {
       const edge = edges.find((e) => e.name === name);
       expect(edge, `premise: the style still draws ${name}`).toBeDefined();
-      return pinOn(edge!, alpha).nominal;
+      return pinBeside({ under: edge!, beside: edge! }, alpha).nominal;
     };
     expect(at("road_motorway_casing", 1)).toBeCloseTo(3.7154, 3);
     expect(at("boundary_2", 1)).toBeCloseTo(3.2023, 3);
-    expect(at("road_motorway_casing", DIMMED_PIN_OPACITY)).toBeCloseTo(2.4338, 3);
-    expect(at("road_trunk_primary_casing", DIMMED_PIN_OPACITY)).toBeCloseTo(2.8434, 3);
-    expect(at("boundary_2", DIMMED_PIN_OPACITY)).toBeCloseTo(2.2175, 3);
-    expect(at("road_motorway_casing", 0.8)).toBeCloseTo(2.8971, 3);
-    expect(at("boundary_2", 0.8)).toBeCloseTo(2.592, 3);
-    // Exactly those three strokes (and their tunnel/bridge twins), no more.
+    expect(at("road_motorway_casing", DIMMED_MARKER_OPACITY)).toBeCloseTo(2.9235, 3);
+    expect(at("road_trunk_primary_casing", DIMMED_MARKER_OPACITY)).toBeCloseTo(3.596, 3);
+    expect(at("boundary_2", DIMMED_MARKER_OPACITY)).toBeCloseTo(2.6157, 3);
+    // Exactly those two strokes (and their tunnel/bridge twins), no more.
     const under = new Set(
       edges
-        .filter((e) => pinOn(e, DIMMED_PIN_OPACITY).nominal < PIN_NON_TEXT)
+        .filter(
+          (e) => pinBeside({ under: e, beside: e }, DIMMED_MARKER_OPACITY).nominal < PIN_NON_TEXT,
+        )
         .map((e) => hex(e.rgb)),
     );
-    expect([...under].sort()).toEqual(["#8e8676", "#a3906a", "#b6a685"]);
+    expect([...under].sort()).toEqual(["#8e8676", "#a3906a"]);
+    // And what it would take to lift each of them.
+    const clears = (name: string) => floor((a) => at(name, a) >= PIN_NON_TEXT);
+    expect(clears("road_motorway_casing")).toBe(0.84);
+    expect(clears("boundary_2")).toBe(0.94);
     // Every edge clears 3:1 at full opacity: the ACTIVE pin, and every pin on
     // a map with nothing active, is unaffected.
-    for (const e of edges) expect(pinOn(e, 1).nominal, e.name).toBeGreaterThanOrEqual(PIN_NON_TEXT);
+    for (const e of edges)
+      expect(pinBeside({ under: e, beside: e }, 1).nominal, e.name).toBeGreaterThanOrEqual(
+        PIN_NON_TEXT,
+      );
   });
 });

@@ -279,26 +279,36 @@ export const ACTIVE_PIN_SCALE = 1.5;
  * active pin is should stay full opacity and the rest should be slightly
  * reduced opacity so it's featured"). A map with NO active listing dims
  * nothing — dimming everything would feature nothing. See `markerDimmed`.
+ * One value for pins and clusters alike, because the measurement below gives
+ * both the same floor.
  *
- * MEASURED, NOT PICKED. A pin is an interactive graphic, so its garnet must
- * keep 3:1 (WCAG 1.4.11) against the map it sits on once composited at this
- * opacity. The darkest AREA the tinted style paints is water `#a8b4b8`, and
- * 0.67 is the lowest two-decimal opacity at which garnet over water still
- * measures >= 3:1 with every channel of both colours one 8-bit step against it
- * (3.0820:1 nominal, 3.0018:1 at that worst; 0.66 is 3.0328 / 2.9540). The
- * road casings and boundaries are hairlines, not grounds, and are recorded
- * with the table in src/lib/map-marker-contrast.test.ts, which re-derives
- * this value from static/map-style.json.
+ * MEASURED, NOT PICKED, and measured against the ground BESIDE a marker as
+ * well as the one under it. A see-through marker takes its colour from what it
+ * is drawn over, but WCAG 1.4.11 asks for 3:1 against the colours ADJACENT to
+ * it — and where a shoreline, a river or a bridge runs under a pin's outline
+ * the two are different grounds. So every garnet marker (a pin's body, a
+ * cluster's disc) is composited over each area ground X the tinted style
+ * paints and compared with each ground Y, X = Y included, every channel of
+ * both colours one 8-bit step toward the other. The binding pair is a minor
+ * road or path (`#ffffff`) beside water (`#a8b4b8`), which the style draws
+ * together wherever a white bridge deck crosses a river: 0.81 is the lowest
+ * two-decimal opacity that clears 3:1 there
+ * (3.1706:1 nominal, 3.0886:1 at the worst rounding; 0.80 is 3.0773 /
+ * 2.9979). A cluster's count is TEXT — sand on its own disc at 11-12.5px, so
+ * 4.5:1 (WCAG 1.4.3) — and holds from 0.74 over one ground, 0.79 with the
+ * count over water and its disc over a road, so the disc's 3:1 decides the
+ * cluster too: 0.81 again.
+ *
+ * This value replaced 0.67 for pins and 0.74 for clusters, which were the
+ * floors for the pin compared with the SAME ground it sits on — 2.25:1 beside
+ * water over the background, 2.10:1 over a white road. The road casings and
+ * boundaries are strokes under a pixel a side, not grounds: two stay under
+ * 3:1 here (the motorway casing would need 0.84, a country boundary 0.94),
+ * and are recorded, with the reason they do not choose this number, in
+ * src/lib/map-marker-contrast.test.ts, which re-derives it from
+ * static/map-style.json and asserts it is exactly the floor.
  */
-export const DIMMED_PIN_OPACITY = 0.67;
-
-/** The same, for a CLUSTER: its count is TEXT, sand on its own garnet disc at
- *  11-12.5px, so it needs 4.5:1 (WCAG 1.4.3) after both are composited over
- *  the lightest ground a disc can sit on (a minor road's `#ffffff`). 0.74 is
- *  the lowest two-decimal opacity that holds it by the same rule (4.7102:1,
- *  4.6004:1 at the worst rounding); at the pin's 0.67 the count would be
- *  3.8984:1. */
-export const DIMMED_CLUSTER_OPACITY = 0.74;
+export const DIMMED_MARKER_OPACITY = 0.81;
 
 /**
  * Whether a marker standing for the listings `ids` is drawn DIMMED.
@@ -308,19 +318,20 @@ export const DIMMED_CLUSTER_OPACITY = 0.74;
  * no active pin at all, and every marker stays at full opacity. The marker
  * that HOLDS the active listing is never dimmed, whether it is its own pin or
  * a cluster it has been grouped into (#115: at a listing's camera the active
- * one is often inside a cluster, with no pin of its own). Nor is the marker
- * holding `held` — the listing whose link in the map's list has keyboard
- * focus, which is the keyboard's way to a pin (the pins themselves are
- * `tabindex="-1"`).
+ * one is often inside a cluster, with no pin of its own). Nor is a marker
+ * holding one of the `held` listings: the one whose link in the map's list
+ * has keyboard focus (the keyboard's way to a pin — the pins themselves are
+ * `tabindex="-1"`), and the one the map's details sheet is naming. A marker
+ * that is being named must not look disabled while it is.
  */
 export function markerDimmed(
   ids: readonly string[],
   active: string | null,
   points: readonly Pick<MapPoint, "id">[],
-  held: string | null = null,
+  held: readonly (string | null | undefined)[] = [],
 ): boolean {
   if (active === null || !points.some((p) => p.id === active)) return false;
-  return !ids.includes(active) && (held === null || !ids.includes(held));
+  return !ids.includes(active) && !held.some((id) => id != null && ids.includes(id));
 }
 
 // ---------------------------------------------------------------------------
