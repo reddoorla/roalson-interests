@@ -291,9 +291,10 @@
    * while it is being named. See `markerDimmed`.
    */
   let heldLink: string | null = $state(null);
-  /** The dimmed opacity for a marker of `count` listings, or undefined when it
-   *  is drawn at full. `--map-dim` is written from the constants, so the value
-   *  the stylesheet applies and the value the contrast guard measures are one. */
+  /** The dimmed opacity for a marker standing for the listings `ids` — a pin's
+   *  or a cluster's — or undefined when it is drawn at full. `--map-dim` is
+   *  written from the constants, so the value the stylesheet applies and the
+   *  value src/lib/map-marker-contrast.test.ts measures are one. */
   const dimFor = (ids: readonly string[]) =>
     markerDimmed(ids, active, points, heldLink)
       ? ids.length === 1
