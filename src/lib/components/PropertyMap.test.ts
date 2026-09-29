@@ -681,16 +681,54 @@ describe("the zoom buttons (P3)", () => {
 });
 
 describe("the active listing's pin (P2/P4)", () => {
-  const svgWidth = (el: Element | null) => Number(el!.querySelector("svg")!.getAttribute("width"));
+  // WHAT THIS CAN AND CANNOT SEE. The active pin used to be drawn larger by
+  // its SVG's width/height attributes, which this compared — and an attribute
+  // swap cannot transition, so the pin snapped (operator, 2026-09-29). It is
+  // now drawn at the frame's size like every pin and scaled by a transform
+  // the stylesheet derives from `--pin-scale`. jsdom lays nothing out and
+  // applies no transform, so what is decided here is the MARKUP: every pin at
+  // one size, and the scale each one is told to be drawn at. What the page
+  // PAINTS — 1.5x, grown about the tip, eased — is read off real boxes in
+  // active-card-highlight.spec.ts and map-featured-pin.spec.ts.
+  const drawnAt = (el: Element | null) => {
+    const svg = el!.querySelector("svg")!;
+    return [Number(svg.getAttribute("width")), Number(svg.getAttribute("height"))];
+  };
+  const scaleOf = (el: Element | null) =>
+    Number((el as HTMLElement).style.getPropertyValue("--pin-scale"));
 
-  it("is marked and drawn ACTIVE_PIN_SCALE larger than the rest, live", async () => {
+  it("is marked and told to draw ACTIVE_PIN_SCALE larger than the rest, live", async () => {
     const { view } = await booted({ active: "a" });
     const a = view.container.querySelector("[data-map-pin='a']");
     const b = view.container.querySelector("[data-map-pin='b']");
     expect(a!.hasAttribute("data-map-active")).toBe(true);
     expect(b!.hasAttribute("data-map-active")).toBe(false);
-    expect(svgWidth(a)).toBe(svgWidth(b) * ACTIVE_PIN_SCALE);
+    expect(scaleOf(a)).toBe(ACTIVE_PIN_SCALE);
+    expect(scaleOf(b)).toBe(1);
+    // Both at the frame's own size: the difference is the scale, never the box.
+    expect(drawnAt(a)).toEqual(drawnAt(b));
+    expect(drawnAt(a)[0]).toBeGreaterThan(0);
     expect(view.container.querySelectorAll("[data-map-active]")).toHaveLength(1);
+  });
+
+  it("moves its scale, and only its scale, when the active listing moves", async () => {
+    // On the server's picture, because `rerender` re-runs the boot effect and
+    // tears a live map down (see `stubResizableTo`); the live half is
+    // measured in the browser, where the page moves `active`.
+    const props = { points, label: "Land", engine: "off" as const };
+    const view = render(PropertyMap, { props: { ...props, active: "a" } });
+    await tick();
+    const at = (id: string) => view.container.querySelector(`[data-map-home-pin='${id}']`);
+    const [a, b] = [at("a"), at("b")];
+    const before = [drawnAt(a), drawnAt(b)];
+    await view.rerender({ ...props, active: "b" });
+    await tick();
+    // The SAME elements — a keyed pin that was re-created would start at its
+    // end state and there would be nothing to transition.
+    expect(at("a")).toBe(a);
+    expect(at("b")).toBe(b);
+    expect([scaleOf(a), scaleOf(b)]).toEqual([1, ACTIVE_PIN_SCALE]);
+    expect([drawnAt(a), drawnAt(b)], "the attribute size never changes").toEqual(before);
   });
 
   it("marks nothing when nothing is active — the control", async () => {
@@ -707,8 +745,20 @@ describe("the active listing's pin (P2/P4)", () => {
     const pins = [...container.querySelectorAll("[data-map-home-pin='a']")];
     expect(pins.length, "premise: 'a' is in the picture").toBeGreaterThan(0);
     for (const pin of pins) expect(pin.hasAttribute("data-map-active")).toBe(true);
-    const others = container.querySelectorAll("[data-map-home-pin]:not([data-map-home-pin='a'])");
+    for (const pin of pins) expect(scaleOf(pin)).toBe(ACTIVE_PIN_SCALE);
+    const others = [
+      ...container.querySelectorAll("[data-map-home-pin]:not([data-map-home-pin='a'])"),
+    ];
+    expect(others.length, "premise: other pins in the picture").toBeGreaterThan(0);
     for (const pin of others) expect(pin.hasAttribute("data-map-active")).toBe(false);
+    for (const pin of others) expect(scaleOf(pin)).toBe(1);
+    // One size per layer, the active pin's included.
+    for (const layer of container.querySelectorAll("[data-map-home-frame]")) {
+      const sizes = new Set(
+        [...layer.querySelectorAll("[data-map-home-pin]")].map((p) => drawnAt(p).join("x")),
+      );
+      expect(sizes.size, `${layer.getAttribute("data-map-home-frame")}: one drawn size`).toBe(1);
+    }
   });
 });
 
