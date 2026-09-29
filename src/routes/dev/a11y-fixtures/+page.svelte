@@ -452,7 +452,7 @@
        The photo state first, on a drawn near-white ground (#15). axe cannot
        measure text over an image — it files colour-contrast as `incomplete`,
        "needs review" — so what this gate actually covers here is the alt text,
-       the heading and the aria-hidden scrim layers; the ratio itself is
+       the heading and the aria-hidden scrim layer; the ratio itself is
        computed from the scrim's own stops in PageMasthead.test.ts. Neither
        instance preloads: the hero fixture above already injects the page's one
        fetchpriority=high link, and a second would fight it for bandwidth. -->

@@ -548,32 +548,35 @@ main > section.hero-band:first-child {
   @apply bg-gradient-to-b from-background to-light;
 }
 
-/* The two scrim layers $lib/components/PageMasthead.svelte draws over its
-   photograph — the reason that band stays legible, and therefore measured
-   values, which is why they live here beside the palette rather than in a
-   scoped <style> block. (Svelte's scoping also stamps its hash class onto the
-   band itself, and the band with no photo has to stay byte-identical to what
-   it was before the photo existed. PageMasthead.test.ts pins that.)
+/* The scrim $lib/components/PageMasthead.svelte draws over its photograph —
+   the reason the H1 stays legible, and therefore a measured value, which is
+   why it lives here beside the palette rather than in a scoped <style> block.
+   (Svelte's scoping also stamps its hash class onto the band itself, and the
+   band with no photo has to stay byte-identical to what it was before the
+   photo existed. PageMasthead.test.ts pins that.)
 
    Sized against a PURE WHITE photo pixel, not against the photo we happen to
    have: the picture is content an editor replaces, so the guarantee has to
    hold for whatever they upload next. PageMasthead.test.ts parses these stops
-   and recomputes both ratios, and CAPS them too: a floor alone let this band
-   drift to 0.82 black over the bar, darker than any ink on it needed, and
-   that was the client's "too dark" (2026-09-24).
-   tests/interaction/masthead-scrim.spec.ts samples the painted pixels. The
-   component's header comment carries the reasoning and the numbers measured
-   on the real asset.
+   and recomputes the ratio, with a CEILING as well as a floor: a floor alone
+   let this band drift darker than its ink needed, and that was the client's
+   "too dark" (2026-09-24). tests/interaction/masthead-scrim.spec.ts samples
+   the painted pixels. The component's header comment carries the reasoning
+   and the numbers measured on the real asset.
+
+   It is the band's ONLY layer. `.masthead-shade`, which darkened the top of
+   the band for a bar floating over the photo, was deleted on 2026-09-29 with
+   the floating bar on /properties (the client's "dark cloud").
 
    `rgb(0 0 0 / 0)` rather than `transparent` — the keyword interpolates
    through premultiplied black in some engines and grey in others. */
 
-/* The band. From 66% down — where the h1's line box starts at both
-   breakpoints — it is >= 0.44 black, which puts white at 3.25:1 on a pure-white
-   pixel: WCAG 1.4.3's 3:1 for LARGE text, and the h1 is 66px / 38px. It was
-   held to 4.5:1 (0.60 black here) until 2026-09-28, by choice rather than by
-   WCAG, and that choice is half of what read as "too dark". Nothing above 36%:
-   between the bar and the title the photo shows through. */
+/* From 66% down — where the h1's line box starts at both breakpoints — it is
+   >= 0.44 black, which puts white at 3.25:1 on a pure-white pixel: WCAG
+   1.4.3's 3:1 for LARGE text, and the h1 is 66px / 38px. It was held to 4.5:1
+   (0.60 black here) until 2026-09-28, by choice rather than by WCAG, and that
+   choice is half of what read as "too dark". Nothing above 36%: the top of
+   the band is the photo itself. */
 .masthead-scrim {
   background-image: linear-gradient(
     to bottom,
@@ -581,30 +584,6 @@ main > section.hero-band:first-child {
     rgb(0 0 0 / 0.2) 54%,
     rgb(0 0 0 / 0.44) 66%,
     rgb(0 0 0 / 0.5) 100%
-  );
-}
-
-/* The bar's. Its box is sized so the floating nav's 80px (70 below lg) lands
-   in the top 45.45%, held at >= 0.62 — enough for the bar's INK, which is the
-   BrandButton `light` tone's text token (sand since #96): 4.77:1 on pure white
-   with sand at #e8e1d1, 5.05:1 at #eae7e4. PageMasthead.test.ts reads that ink
-   out of BrandButton.svelte and @theme, so a new sand re-measures itself.
-   It was sized for DUST (0.82 → 0.78) until 2026-09-28; no bar control has
-   been dust since #96, and the extra 0.16 was the heavy band the client saw.
-   Past the bar it falls away by 80%, and the scrim does not start until 36%,
-   so between them the photo itself shows: the combined darkening dips to 0.09
-   at 1440 (y≈176) and 0.29 at 390 (y≈124). That gap is where the client saw a
-   "hazy light band" — near-white SKY, under the old centred crop, between two
-   dark bands. The comp's crop (PageMasthead) puts the sunrise skyline there,
-   and a lighter bar leaves less of a step down to it. */
-.masthead-shade {
-  background-image: linear-gradient(
-    to bottom,
-    rgb(0 0 0 / 0.66) 0%,
-    rgb(0 0 0 / 0.62) 46%,
-    rgb(0 0 0 / 0.36) 62%,
-    rgb(0 0 0 / 0.14) 80%,
-    rgb(0 0 0 / 0) 100%
   );
 }
 

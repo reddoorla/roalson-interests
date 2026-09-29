@@ -3,39 +3,48 @@ import sharp from "sharp";
 
 import { forceStyle, type StyleWrite } from "./force-style";
 import { hydrated } from "./hydrated";
+import { GARNET, OFF_WHITE } from "./palette";
 
-// THE MASTHEAD'S TWO DARKENING LAYERS, AS PAINTED (P1, 2026-09-28).
+// THE MASTHEAD'S SCRIM, AS PAINTED (P1, 2026-09-28) — AND THE SOLID BAR ABOVE
+// IT (2026-09-29).
 //
 // PageMasthead.test.ts computes the same ratios from the stops it parses out
 // of app.css — fast, and blind to whether any of it reaches a pixel: a renamed
-// class, a stacking change that put the photo ON TOP of the layers, or a
+// class, a stacking change that put the photo ON TOP of the scrim, or a
 // Tailwind arbitrary value (`object-[50%_70%]`) that never made it into the
 // production CSS would all leave that file green. This one screenshots the band
 // and reads the pixels, so it is the only evidence that the CSS actually paints.
 //
-// HOW. The ink is hidden (`visibility: hidden` on the bar and the h1) so the
-// screenshot holds only what is UNDER each piece of text. Then, per case:
+// THE BAR. Until 2026-09-29 the nav floated over this band on /properties and a
+// second layer, `.masthead-shade`, darkened the band's top for its sand
+// controls; this spec measured them too. The client asked for the solid bar
+// from the top and the "dark cloud" gone (Discord, 2026-09-29), so no control
+// sits on the photo now, and what is asserted about the bar is where it is:
+// solid, pinned and garnet-marked at scroll 0, with the masthead starting at
+// or below its bottom edge — in the server's markup as well as once mounted.
+//
+// HOW. The h1 is hidden (`visibility: hidden`) so the screenshot holds only
+// what is UNDER it. Then, per case:
 //
 //  - OVER A PURE-WHITE GROUND. The photo is hidden and the band's own ground
 //    set to #fff, so every pixel is exactly 255 × (1 − darkening) and the
-//    darkening can be read back row by row. This is the ground the layers are
-//    sized against (the brightest a photograph can present), so the floors,
-//    the ceilings and the photo window below are the unit test's own claims,
-//    re-made on paint. Runs on /properties on both servers, and on the fixture
-//    under `vite dev`.
+//    darkening can be read back row by row. This is the ground the scrim is
+//    sized against (the brightest a photograph can present), so the floor, the
+//    ceiling, the photo window and the undarkened top below are the unit
+//    test's own claims, re-made on paint. Runs on /properties on both servers,
+//    and on the fixture under `vite dev`.
 //  - OVER THE PHOTO AS DRAWN. Nothing is forced, so this is the stack as
-//    shipped, and a photo painted ABOVE the layers fails here (measured: 1.30:1
-//    for the CTA with `z-10` on the img). A photo that never painted would
-//    PASS — the garnet ground under the layers clears every floor — so each
-//    case first proves the pixels under every ink are the photo's, by
-//    comparing them with the same band with the photo hidden
-//    (`assertPhotoPainted`). On /dev/properties the photo is a
-//    near-white drawing whose sky is pure white under the bar and the title
+//    shipped, and a photo painted ABOVE the scrim fails here. A photo that
+//    never painted would PASS — the garnet ground under the scrim clears the
+//    floor — so each case first proves the pixels under the h1 are the
+//    photo's, by comparing them with the same band with the photo hidden
+//    (`assertPhotoPainted`). On /dev/properties the photo is a near-white
+//    drawing whose sky is pure white under the title
 //    (PROPERTIES_MASTHEAD_FIXTURE), so it is the worst case; on /properties it
 //    is whatever the CMS holds, and its numbers are the ones a visitor gets.
 //
-// The INKS are read off the rendered page (computed `color`), never written
-// here, so a palette change (sand #e8e1d1 → #eae7e4) re-measures itself.
+// The INK is read off the rendered page (computed `color`), never written
+// here, so a palette change re-measures itself.
 //
 //   pnpm exec playwright test tests/interaction/masthead-scrim.spec.ts --workers=1
 //   REDDOOR_GATE_SERVER=preview pnpm exec playwright test tests/interaction/masthead-scrim.spec.ts --workers=1
@@ -45,9 +54,9 @@ import { hydrated } from "./hydrated";
 // that broke on dev has to fail, not vanish.
 //
 // /properties HAS TO CARRY A PHOTO for its cases to mean anything: with the
-// `page_media.properties_masthead` field empty, PageMasthead draws neither
-// layer. That is asserted, not skipped — a green over a band with no layers
-// would be a green from the absence of the thing under test.
+// `page_media.properties_masthead` field empty, PageMasthead draws no scrim.
+// That is asserted, not skipped — a green over a band with no layer would be a
+// green from the absence of the thing under test.
 
 const FIXTURE = "/dev/properties";
 const LIVE = "/properties";
@@ -57,33 +66,28 @@ const NO_FIXTURE = "/dev/* 404s on a production build (#120)";
 const BAR = 'nav[aria-label="Primary"]';
 const BAND = "main header";
 
-/** WCAG 1.4.3: the bar's CTA label is t-h6, 12px — normal text. */
-const AA = 4.5;
 /** WCAG 1.4.3, large text (24px and up at weight 500): the h1. */
 const LARGE = 3;
 const LARGE_TEXT_MIN_PX = 24;
 /** PageMasthead.test.ts's ceilings — see there for the reasoning. */
-const BAR_CEILING = 0.7;
 const TITLE_CEILING = 0.55;
 const WINDOW_CEILING = 0.35;
+/** "Undarkened", read off an 8-bit screenshot: one level of 255 of slack. */
+const UNDARKENED = 1 / 255;
 
-/** What the bar draws at each width: the menu trigger always, and the CTA,
- *  whose wrapper in Nav.svelte is `hidden sm:block`, at 1440 but not at 390.
- *  DECLARED per viewport, never inferred from a breakpoint. This spec used to
- *  expect the CTA from a band 560px wide, the `--screen-sm` app.css declared —
- *  but Tailwind v4 ignores `--screen-*`, so the shipped `sm:` is 40rem, 640px.
- *  The band measures 15px narrower than the viewport (545 at 560, 624 at 639;
- *  html has `scrollbar-gutter: stable`), so the guess expected a CTA the page
- *  does not draw at viewports 575 to 639 — measured: no CTA through 639,
- *  "Contact us" from 640, and the old check red at 600. A viewport added here
- *  has to say what its bar shows. */
+/** What the bar draws at each width: the CTA, whose wrapper in Nav.svelte is
+ *  `hidden sm:block`, at 1440 but not at 390. DECLARED per viewport, never
+ *  inferred from a breakpoint: Tailwind v4 ignores `--screen-*`, so the shipped
+ *  `sm:` is 40rem, 640px, and the band measures 15px narrower than the
+ *  viewport (html has `scrollbar-gutter: stable`). A viewport added here has to
+ *  say what its bar shows. */
 const VIEWPORTS = [
   { width: 1440, height: 900, cta: true },
   { width: 390, height: 844, cta: false },
 ];
 type Viewport = (typeof VIEWPORTS)[number];
 
-/** How much of what is under an ink must be the photo, for an as-drawn case
+/** How much of what is under the h1 must be the photo, for an as-drawn case
  *  to count as having measured it. See `assertPhotoPainted`. */
 const PHOTO_SHARE_MIN = 0.5;
 /** A device pixel "differs" when some channel moved by more than this. */
@@ -111,16 +115,72 @@ const parseRgb = (css: string) => {
 type Box = { x: number; y: number; width: number; height: number };
 type Ink = { what: string; box: Box; color: number[] };
 
-async function at(browser: Browser, { width, height }: Viewport) {
-  const context = await browser.newContext({ viewport: { width, height } });
+async function at(browser: Browser, { width, height }: Viewport, javaScriptEnabled = true) {
+  const context = await browser.newContext({ viewport: { width, height }, javaScriptEnabled });
   return { context, page: await context.newPage() };
 }
 
+/** The bar as it stands, and where the band starts under it — one read. The
+ *  wordmark is the home link's two lockups: the garnet one first, the reverse
+ *  one (for a floating bar) second. */
+const barState = (page: Page) =>
+  page.evaluate(
+    ([barSel, bandSel]) => {
+      const bar = document.querySelector(barSel)!;
+      const band = document.querySelector(bandSel)!;
+      const [garnet, reverse] = [...bar.querySelectorAll('a[href="/"] img')].map((img) => ({
+        opacity: Number(getComputedStyle(img).opacity),
+        width: img.getBoundingClientRect().width,
+      }));
+      // The bar's own CTA — not the <noscript> list's "Contact Us", which a
+      // browser with scripting off lays out in the bar at 390.
+      const cta = [...bar.querySelectorAll("a")].find(
+        (a) =>
+          !a.closest("noscript") &&
+          a.textContent!.trim().toLowerCase() === "contact us" &&
+          a.checkVisibility(),
+      );
+      return {
+        scrollY: window.scrollY,
+        floating: bar.hasAttribute("data-floating"),
+        position: getComputedStyle(bar).position,
+        ground: getComputedStyle(bar).backgroundColor,
+        garnet,
+        reverse,
+        cta: cta ? getComputedStyle(cta).color : null,
+        barBottom: bar.getBoundingClientRect().bottom,
+        bandTop: band.getBoundingClientRect().top,
+      };
+    },
+    [BAR, BAND] as const,
+  );
+
+/** The solid bar, from the top: no float, the page's off-white ground, the
+ *  garnet wordmark showing and the reverse one not, CONTACT US garnet where the
+ *  bar draws it — and the masthead starting at or below the bar's bottom. */
+async function assertSolidBarAbove(page: Page, viewport: Viewport, where: string) {
+  const s = await barState(page);
+  const seen = JSON.stringify(s);
+  expect(s.scrollY, `${where}: at the top of the page`).toBe(0);
+  expect(s.floating, `${where}: the bar does not float: ${seen}`).toBe(false);
+  expect(s.position, `${where}: pinned: ${seen}`).toBe("fixed");
+  expect(s.ground, `${where}: on the page's off-white: ${seen}`).toBe(OFF_WHITE);
+  expect(s.garnet, `${where}: the garnet wordmark shows: ${seen}`).toEqual(
+    expect.objectContaining({ opacity: 1 }),
+  );
+  expect(s.garnet!.width, `${where}: and has a box: ${seen}`).toBeGreaterThan(0);
+  expect(s.reverse?.opacity ?? 0, `${where}: the reverse one does not: ${seen}`).toBe(0);
+  expect(s.cta, `${where}: CONTACT US (${viewport.cta ? "drawn" : "not drawn"}): ${seen}`).toBe(
+    viewport.cta ? GARNET : null,
+  );
+  expect(
+    s.bandTop,
+    `${where}: the masthead's top edge is at or below the bar's bottom edge: ${seen}`,
+  ).toBeGreaterThanOrEqual(s.barBottom);
+}
+
 /** Everything the measurement needs, read off the page BEFORE anything is
- *  hidden: the band, the bar's height, every visible control in the bar with
- *  its computed colour (the wordmark is a logo, exempt, and left out) and
- *  whether it is the menu trigger (the one control with `aria-expanded` once
- *  script runs), the h1, and the photo. */
+ *  hidden: the band, the bar's height, the h1, the band's layers, the photo. */
 const read = (page: Page) =>
   page.evaluate(
     ([barSel, bandSel]) => {
@@ -130,30 +190,22 @@ const read = (page: Page) =>
       };
       const band = document.querySelector(bandSel)!;
       const bar = document.querySelector(barSel)!;
-      const controls = [...bar.querySelectorAll("a, button")]
-        .filter((el) => el.getAttribute("href") !== "/")
-        .filter((el) => el.checkVisibility() && el.getBoundingClientRect().width > 0)
-        .map((el) => ({
-          what: el.getAttribute("aria-label") ?? el.textContent!.trim(),
-          trigger: el.matches("button[aria-expanded]"),
-          box: box(el),
-          color: getComputedStyle(el).color,
-        }));
       const h1 = band.querySelector("h1")!;
       const img = band.querySelector("img");
       return {
         band: box(band),
         barHeight: bar.getBoundingClientRect().height,
-        controls,
         title: {
           what: "the h1",
           box: box(h1),
           color: getComputedStyle(h1).color,
           fontSize: parseFloat(getComputedStyle(h1).fontSize),
         },
+        // Every decorative box in the band, not one class: the shade that
+        // used to sit here would come back under any name.
         layers: {
-          shade: band.querySelectorAll(".masthead-shade").length,
           scrim: band.querySelectorAll(".masthead-scrim").length,
+          decorative: band.querySelectorAll('[aria-hidden="true"]').length,
         },
         photo: img ? { objectPosition: getComputedStyle(img).objectPosition } : null,
       };
@@ -161,16 +213,12 @@ const read = (page: Page) =>
     [BAR, BAND] as const,
   );
 
-/** Hide the ink — and, for the white ground, the photo — and WAIT until the
- *  page wears it, descendants included. Through ./force-style, because with
- *  the write on the bar alone the first run's screenshot caught the menu glyph
- *  (1.00:1, sand over sand): under the harness's `reduce` a child inherits
- *  `hidden` through a transition of its own (#170). */
+/** Hide the h1 — and, for the white ground, the photo — and WAIT until the
+ *  page wears it, descendants included, through ./force-style (under the
+ *  harness's `reduce` a child inherits `hidden` through a transition of its
+ *  own, #170). */
 async function strip(page: Page, ground: "white" | "photo") {
-  const writes: StyleWrite[] = [
-    [BAR, "visibility", "hidden"],
-    [`${BAND} h1`, "visibility", "hidden"],
-  ];
+  const writes: StyleWrite[] = [[`${BAND} h1`, "visibility", "hidden"]];
   if (ground === "white") {
     writes.push([`${BAND} img`, "visibility", "hidden"]);
     writes.push([BAND, "background-image", "none"]);
@@ -224,94 +272,60 @@ const worstUnder = (pixels: number[][], ink: Ink) => {
   return { ratio: contrast(ink.color, ground), ground };
 };
 
-async function measure(page: Page, ground: "white" | "photo", viewport: Viewport) {
+async function measure(page: Page, ground: "white" | "photo") {
   await hydrated(page);
   const seen = await read(page);
   expect(
     seen.layers,
-    "PageMasthead drew no darkening layers — is there a photo on this route? /properties " +
-      "needs one in page_media.properties_masthead for this spec to measure anything.",
-  ).toEqual({ shade: 1, scrim: 1 });
-  // Positive evidence of what is being measured: a bar with exactly the
-  // controls VIEWPORTS says it draws at this width — the menu trigger always,
-  // the CTA where Nav draws it — and a title in large type. A selector
-  // that stopped matching fails here rather than auditing nothing.
-  const listed = JSON.stringify(seen.controls);
-  expect(
-    seen.controls.filter((c) => c.trigger).length,
-    `the menu trigger is in the bar at ${viewport.width}: ${listed}`,
-  ).toBe(1);
-  expect(
-    seen.controls.filter((c) => !c.trigger).length,
-    `the bar draws ${viewport.cta ? "its CTA" : "no CTA"} at ${viewport.width} (VIEWPORTS): ${listed}`,
-  ).toBe(viewport.cta ? 1 : 0);
+    "PageMasthead's layers over the photo are exactly one scrim. No scrim: is there a photo " +
+      "on this route? /properties needs one in page_media.properties_masthead for this spec to " +
+      "measure anything. A second decorative box: the shade is back, under whatever name.",
+  ).toEqual({ scrim: 1, decorative: 1 });
   expect(seen.title.fontSize).toBeGreaterThanOrEqual(LARGE_TEXT_MIN_PX);
 
   await strip(page, ground);
   const shot = await shoot(page, seen.band);
-  const inks: Ink[] = seen.controls.map((c) => ({ ...c, color: parseRgb(c.color) }));
   const title: Ink = { ...seen.title, color: parseRgb(seen.title.color) };
 
   // Over the photo, the same band again with the photo hidden: what these
   // pixels would be had the photo not painted (the garnet ground under the
-  // layers). `assertPhotoPainted` reads the share of each ink's box that
-  // differs from it.
-  let photoShare = (_: Box) => NaN;
+  // scrim). `assertPhotoPainted` reads the share of the h1's box that differs.
+  let photo = NaN;
   if (ground === "photo") {
     await forceStyle(page, [[`${BAND} img`, "visibility", "hidden"]], "the photo never hid");
     const bare = await shoot(page, seen.band);
-    photoShare = (box) => {
-      const drawn = shot.within(box);
-      const without = bare.within(box);
-      const moved = drawn.filter((p, i) =>
-        p.some((c, k) => Math.abs(c - without[i][k]) > PHOTO_DIFF_LEVELS),
-      );
-      return moved.length / drawn.length;
-    };
+    const drawn = shot.within(title.box);
+    const without = bare.within(title.box);
+    const moved = drawn.filter((p, i) =>
+      p.some((c, k) => Math.abs(c - without[i][k]) > PHOTO_DIFF_LEVELS),
+    );
+    photo = moved.length / drawn.length;
   }
   return {
     seen,
-    bar: inks.map((ink) => ({
-      ink,
-      ...worstUnder(shot.within(ink.box), ink),
-      photo: photoShare(ink.box),
-    })),
-    title: {
-      ink: title,
-      ...worstUnder(shot.within(title.box), title),
-      photo: photoShare(title.box),
-    },
+    title: { ink: title, ...worstUnder(shot.within(title.box), title), photo },
     darkening: shot.darkening,
   };
 }
 
 /** The as-drawn cases' positive evidence that they measured a PHOTO. Loaded,
  *  decoded and not broken still is not painted — and with no photo pixels the
- *  ground under the layers is the band's garnet gradient, which clears every
- *  floor. So a case goes green only if most of what is under each ink differs
+ *  ground under the scrim is the band's garnet gradient, which clears the
+ *  floor. So a case goes green only if most of what is under the h1 differs
  *  from the same band with the photo hidden. Measured 2026-09-28: 100% under
  *  every ink on both routes at both widths; with `opacity-0` on the masthead
- *  img (loaded, decoded, never visible) 0% under the first ink checked, red in
- *  all four cases — which the spec before this check passed. */
+ *  img (loaded, decoded, never visible) 0%. */
 function assertPhotoPainted(m: Awaited<ReturnType<typeof measure>>, where: string) {
-  for (const { ink, photo } of [...m.bar, m.title]) {
-    expect(
-      photo,
-      `${where}: only ${(photo * 100).toFixed(0)}% of the pixels under ${ink.what} differ from ` +
-        `the band with its photo hidden — the photo has not painted, so this measured the ` +
-        `garnet ground, not the photo.`,
-    ).toBeGreaterThanOrEqual(PHOTO_SHARE_MIN);
-  }
+  const { ink, photo } = m.title;
+  expect(
+    photo,
+    `${where}: only ${(photo * 100).toFixed(0)}% of the pixels under ${ink.what} differ from ` +
+      `the band with its photo hidden — the photo has not painted, so this measured the ` +
+      `garnet ground, not the photo.`,
+  ).toBeGreaterThanOrEqual(PHOTO_SHARE_MIN);
 }
 
-function assertFloors(m: Awaited<ReturnType<typeof measure>>, where: string) {
-  for (const { ink, ratio, ground } of m.bar) {
-    expect(
-      ratio,
-      `${where}: ${ink.what} (rgb ${ink.color.join(" ")}) over the brightest pixel under it ` +
-        `(rgb ${ground.join(" ")}) is ${ratio.toFixed(2)}:1, below ${AA}:1.`,
-    ).toBeGreaterThanOrEqual(AA);
-  }
+function assertFloor(m: Awaited<ReturnType<typeof measure>>, where: string) {
   const { ink, ratio, ground } = m.title;
   expect(
     ratio,
@@ -327,14 +341,16 @@ function assertCeilings(m: Awaited<ReturnType<typeof measure>>, where: string) {
   const rows = (y0: number, y1: number) =>
     Array.from({ length: Math.floor(y1) - Math.ceil(y0) }, (_, i) => Math.ceil(y0) + i);
 
-  const bar = Math.max(...rows(band.y, band.y + barHeight).map((y) => m.darkening(y).darkest));
+  // The "dark cloud" (Discord, 2026-09-29): the band's first bar-height of
+  // rows is the photo itself, darkened by nothing.
+  const top = Math.max(...rows(band.y, band.y + barHeight).map((y) => m.darkening(y).darkest));
   expect
     .soft(
-      bar,
-      `${where}: the bar's ${barHeight}px sit under ${bar.toFixed(3)} black at their darkest; the ` +
-        `ceiling is ${BAR_CEILING}.`,
+      top,
+      `${where}: the band's first ${barHeight}px sit under ${top.toFixed(3)} black at their ` +
+        `darkest; nothing sits on the photo there, so nothing may darken it.`,
     )
-    .toBeLessThanOrEqual(BAR_CEILING);
+    .toBeLessThanOrEqual(UNDARKENED);
 
   const t = Math.max(
     ...rows(title.box.y, title.box.y + title.box.height).map((y) => m.darkening(y).darkest),
@@ -347,30 +363,68 @@ function assertCeilings(m: Awaited<ReturnType<typeof measure>>, where: string) {
     )
     .toBeLessThanOrEqual(TITLE_CEILING);
 
-  const window = Math.min(
-    ...rows(band.y + barHeight, title.box.y).map((y) => m.darkening(y).lightest),
-  );
+  const window = Math.min(...rows(band.y, title.box.y).map((y) => m.darkening(y).lightest));
   expect
     .soft(
       window,
-      `${where}: between the bar and the h1 the layers never drop below ${window.toFixed(3)} ` +
-        `black; the photo has to show somewhere there (<= ${WINDOW_CEILING}).`,
+      `${where}: above the h1 the scrim never drops below ${window.toFixed(3)} black; the ` +
+        `photo has to show somewhere there (<= ${WINDOW_CEILING}).`,
     )
     .toBeLessThanOrEqual(WINDOW_CEILING);
 }
 
 for (const route of [FIXTURE, LIVE]) {
-  test.describe(`${route}: the masthead's layers over a pure-white ground`, () => {
+  test.describe(`${route}: the solid bar from the top, and the masthead below it`, () => {
     test.skip(route === FIXTURE && PREVIEW, NO_FIXTURE);
 
     for (const viewport of VIEWPORTS) {
-      test(`${viewport.width}: inks clear their floors, the layers stay under their ceilings, and the photo shows between`, async ({
+      test(`${viewport.width}: solid, pinned and garnet-marked at scroll 0, with the masthead at or below its bottom edge`, async ({
         browser,
       }) => {
         const { context, page } = await at(browser, viewport);
         try {
           await page.goto(route);
-          const m = await measure(page, "white", viewport);
+          await hydrated(page);
+          await assertSolidBarAbove(page, viewport, `${route} at ${viewport.width}`);
+        } finally {
+          await context.close();
+        }
+      });
+
+      // The server's answer, which is the only one a visitor without script
+      // gets and the first paint for everyone else: the bar is pinned and
+      // solid in the markup, not re-toned by an effect.
+      test(`${viewport.width}, scripting off: the server's bar is already the solid one`, async ({
+        browser,
+      }) => {
+        const { context, page } = await at(browser, viewport, false);
+        try {
+          await page.goto(route, { waitUntil: "domcontentloaded" });
+          expect(
+            await page.evaluate(() => document.documentElement.hasAttribute("data-hydrated")),
+            "positive evidence script is off: the root layout never mounted",
+          ).toBe(false);
+          await assertSolidBarAbove(page, viewport, `${route} at ${viewport.width}, no script`);
+        } finally {
+          await context.close();
+        }
+      });
+    }
+  });
+}
+
+for (const route of [FIXTURE, LIVE]) {
+  test.describe(`${route}: the masthead's scrim over a pure-white ground`, () => {
+    test.skip(route === FIXTURE && PREVIEW, NO_FIXTURE);
+
+    for (const viewport of VIEWPORTS) {
+      test(`${viewport.width}: the h1 clears its floor, the scrim stays under its ceilings, and the band's top is undarkened`, async ({
+        browser,
+      }) => {
+        const { context, page } = await at(browser, viewport);
+        try {
+          await page.goto(route);
+          const m = await measure(page, "white");
           // The comp's crop, as COMPUTED — which proves Tailwind emitted the
           // arbitrary `object-[50%_70%]` into the CSS this server ships, a
           // thing the unit test's class-list check cannot see.
@@ -379,14 +433,11 @@ for (const route of [FIXTURE, LIVE]) {
             "the photo's computed object-position — the comp's crop is 50% 70%",
           ).toBe("50% 70%");
           const where = `${route} at ${viewport.width}, white ground`;
-          assertFloors(m, where);
+          assertFloor(m, where);
           assertCeilings(m, where);
           test.info().annotations.push({
             type: "measured",
-            description:
-              `${where}: ` +
-              m.bar.map((b) => `${b.ink.what} ${b.ratio.toFixed(2)}:1`).join(", ") +
-              `, h1 ${m.title.ratio.toFixed(2)}:1`,
+            description: `${where}: h1 ${m.title.ratio.toFixed(2)}:1`,
           });
         } finally {
           await context.close();
@@ -402,7 +453,7 @@ for (const route of [FIXTURE, LIVE]) {
     test.skip(route === FIXTURE && PREVIEW, NO_FIXTURE);
 
     for (const viewport of VIEWPORTS) {
-      test(`${viewport.width}: the photo is UNDER both layers and every ink clears its floor`, async ({
+      test(`${viewport.width}: the photo is UNDER the scrim and the h1 clears its floor`, async ({
         browser,
       }) => {
         const { context, page } = await at(browser, viewport);
@@ -428,20 +479,15 @@ for (const route of [FIXTURE, LIVE]) {
               { message: `${photo} never loaded and decoded`, timeout: 30_000 },
             )
             .toBe(true);
-          const m = await measure(page, "photo", viewport);
+          const m = await measure(page, "photo");
           const where = `${route} at ${viewport.width}, ${photo}`;
           assertPhotoPainted(m, where);
-          assertFloors(m, where);
+          assertFloor(m, where);
           test.info().annotations.push({
             type: "measured",
             description:
-              `${where}: ` +
-              [...m.bar, m.title]
-                .map(
-                  (b) =>
-                    `${b.ink.what} ${b.ratio.toFixed(2)}:1 (photo ${(b.photo * 100).toFixed(0)}%)`,
-                )
-                .join(", "),
+              `${where}: h1 ${m.title.ratio.toFixed(2)}:1 over rgb ` +
+              `${m.title.ground.join(" ")} (photo ${(m.title.photo * 100).toFixed(0)}%)`,
           });
         } finally {
           await context.close();

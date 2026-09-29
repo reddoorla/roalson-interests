@@ -2,6 +2,7 @@ import { expect, test, type CDPSession, type Page } from "@playwright/test";
 
 import { cameraLog, cameraProbeInstalled, mapZoom, resetCamera, watchCamera } from "./camera-probe";
 import { hydrated } from "./hydrated";
+import { scrollMapToBoot } from "./map-boot";
 
 // THE WHEEL OVER THE MAP ZOOMS THE MAP (operator call, 2026-09-23): "if you
 // scroll on the map it should zoom in and out rather than scrolling the whole
@@ -485,20 +486,25 @@ test.describe("the zoom carried is one the visitor chose, on a listing", () => {
     // first listing the visitor then scrolled to flew at z7.7021 instead of
     // z12 — as did every one after. With 5 notches in it was 9.4979.
     test.setTimeout(240_000);
-    // AT LOAD, NOT AFTER A SCROLL. The centre rule holds the last card it
-    // reported rather than clearing it ("nothing on the line means hold",
-    // centreWatch.ts), so the only time /properties has NO active listing is
-    // before the first card has crossed the line — and at 1440x900 the land
-    // map is already drawn then: 384px of its 595 are on screen at scrollY 0,
-    // past the half its boot waits for. `landMapUp` scrolls it into view, so
-    // it is not used here.
+    // BEFORE ANY CARD HAS CROSSED THE LINE. The centre rule holds the last
+    // card it reported rather than clearing it ("nothing on the line means
+    // hold", centreWatch.ts), so the only time /properties has NO active
+    // listing is before the first card has crossed the line. The land map
+    // booted at scrollY 0 until 2026-09-29 (304 of its 595px on screen, 6.5
+    // past the half its boot waits for); with the solid bar from the top it
+    // shows 224, so it is scrolled just far enough to boot (./map-boot), which
+    // stops short of the centre line, and the page goes back to the top.
+    // `landMapUp` scrolls it into view — centred, a card on the line — so it is
+    // not used here.
     await watchCamera(page);
     await page.setViewportSize({ width: 1440, height: 900 });
     await page.goto(PROPERTIES);
     await hydrated(page);
+    await scrollMapToBoot(page.locator(MAP).first());
     await expect(page.locator(MAP).first()).toHaveAttribute("data-map-ready", "", {
       timeout: 60_000,
     });
+    await page.evaluate(() => window.scrollTo({ top: 0, behavior: "instant" }));
     await expect
       .poll(() => page.evaluate(() => window.__camera?.maps?.length ?? 0), { timeout: 30_000 })
       .toBeGreaterThan(0);

@@ -19,11 +19,11 @@
   // skyline at sunrise — the worst pixel under the H1 gives white 1.02:1 at
   // 1440 and 1.04:1 at 390. Naked, it is illegible, and no overlay drawn to
   // taste can be trusted to fix that for the NEXT photo an editor uploads. So
-  // both layers below are sized against a pure-white photo pixel, the worst
-  // case any photograph can present. Their stops are in app.css beside the
-  // palette (measured values live there), and PageMasthead.test.ts parses them
-  // back out and recomputes the ratio rather than trusting this comment — with
-  // a FLOOR (legible) and a CEILING (no darker than legible needs):
+  // the layer below is sized against a pure-white photo pixel, the worst case
+  // any photograph can present. Its stops are in app.css beside the palette
+  // (measured values live there), and PageMasthead.test.ts parses them back
+  // out and recomputes the ratio rather than trusting this comment — with a
+  // FLOOR (legible) and a CEILING (no darker than legible needs):
   //
   //   `.masthead-scrim`  the band's own gradient. The H1's line box runs
   //                      66.5%→86.5% of the band at BOTH breakpoints (44px of
@@ -34,26 +34,17 @@
   //                      what it asks of text this large (66px and 38px are
   //                      both large text).
   //
-  //   `.masthead-shade`  the bar's. The nav floats over this band in its
-  //                      reverse tone (`navOver: "dark"`), and its CONTACT US
-  //                      label is `t-h6` — 12px, so SMALL text needing 4.5:1 —
-  //                      in the BrandButton `light` tone, SAND since #96
-  //                      (2026-09-22). 0.62 through the bar's height puts sand
-  //                      at 4.77:1 on pure white (5.05:1 with the lighter
-  //                      #eae7e4).
+  // It is the ONLY layer, because no bar sits on the photo: /properties has
+  // the solid bar above the band (Discord, 2026-09-29), so the layer that kept
+  // a FLOATING bar's sand legible here — `.masthead-shade`, the "dark cloud" —
+  // is gone. A route that floats the bar over this band (/contact) gives it
+  // no photo; src/routes/nav-over.test.ts holds that.
   //
-  // WHAT CHANGED, 2026-09-28. The client read this band as "too dark" and
-  // "not multiplying" (Discord, 2026-09-24). It was 0.82 black over the bar and
-  // 0.60–0.67 under the title, and where the two layers part (0.10 at y≈176 at
-  // 1440) the centred crop showed near-white sky — a light band between two
-  // dark ones. The shade was sized for DUST, a mid tone that no bar control has
-  // worn since #96 and that needed 0.78, and the title was held to 4.5:1 by
-  // choice. Sized for sand and for large text, the bar is 0.66→0.62 and the
-  // title's line box 0.44–0.48. "Multiply" is not in the comp — no layer in the
-  // Figma file uses it, and black at partial opacity already IS a multiply by
-  // grey. On the real photo at the comp's crop (production build, read off the
-  // pixels by tests/interaction/masthead-scrim.spec.ts): the title 3.47:1 at
-  // 1440 and 3.62:1 at 390, CONTACT US 5.82:1, the menu glyph 5.85:1 / 7.24:1.
+  // Measured on the real photo at the comp's crop (production build, read off
+  // the pixels by tests/interaction/masthead-scrim.spec.ts): the title 3.47:1
+  // at 1440 and 3.62:1 at 390. The scrim was 0.60–0.67 under the title until
+  // 2026-09-28 — 4.5:1 held by choice, not by WCAG — and that was half of what
+  // the client read as "too dark" (Discord, 2026-09-24).
   //
   // THE CROP is the comp's too: `object-[50%_70%]`. It offsets the photo 401px
   // into 578px of overflow at 1440 (69.4%), which puts the skyline under the
@@ -101,15 +92,7 @@
       {preload}
       class="absolute bottom-0 left-0 h-full w-full object-cover object-[50%_70%]"
     />
-    <!-- Decorative, and named here rather than in the CSS: both layers are
-         `aria-hidden` boxes that exist only to darken pixels. The shade's box is
-         tall enough that the floating bar sits in its darkest 45%: 80/176 and
-         70/154 are both 45.45%, so the bar lands on the same alpha at both
-         breakpoints. -->
-    <div
-      class="masthead-shade absolute inset-x-0 top-0 h-[154px] lg:h-[176px]"
-      aria-hidden="true"
-    ></div>
+    <!-- Decorative: an `aria-hidden` box that exists only to darken pixels. -->
     <div class="masthead-scrim absolute inset-0" aria-hidden="true"></div>
   {/if}
   <div

@@ -15,6 +15,7 @@ import {
 } from "./camera-probe";
 import { measureDwell, nextTurn, slideOnStage } from "./band-turn";
 import { hydrated } from "./hydrated";
+import { scrollMapToBoot } from "./map-boot";
 import { placedPin } from "./placed-markers";
 import { gapsPerMap, travelOf } from "./scroll-travel";
 
@@ -55,9 +56,14 @@ const PROPERTIES = "/properties";
 const HOME = "/";
 const MAP = "[data-property-map]";
 
-/** MapLibre's own `load` has fired for the nth map on the page. */
-const drawn = (page: Page, nth = 0) =>
-  expect(page.locator(MAP).nth(nth)).toHaveAttribute("data-map-ready", "", { timeout: 45_000 });
+/** MapLibre's own `load` has fired for the nth map on the page — scrolled just
+ *  far enough to boot first, where it cannot at rest (./map-boot). */
+async function drawn(page: Page, nth = 0) {
+  await scrollMapToBoot(page.locator(MAP).nth(nth));
+  await expect(page.locator(MAP).nth(nth)).toHaveAttribute("data-map-ready", "", {
+    timeout: 45_000,
+  });
+}
 
 /** A point in the middle of the map's box AND inside the window — the two are
  *  not the same thing once the box is 520px tall on an 844px phone, and a

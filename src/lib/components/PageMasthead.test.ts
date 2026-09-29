@@ -5,7 +5,6 @@ import type { ImageField } from "@prismicio/client";
 import { cleanup, render } from "@testing-library/svelte";
 import { afterEach, describe, expect, it } from "vitest";
 
-import { BRAND_BUTTON_TONES } from "./BrandButton.svelte";
 import PageMasthead from "./PageMasthead.svelte";
 
 afterEach(cleanup);
@@ -80,7 +79,7 @@ describe("PageMasthead", () => {
       expect(classes(header)).toEqual(BAND_BEFORE_THE_PHOTO);
       expect(container.querySelector("img")).toBeNull();
       expect(container.querySelector(".masthead-scrim")).toBeNull();
-      expect(container.querySelector(".masthead-shade")).toBeNull();
+      expect(container.querySelectorAll('[aria-hidden="true"]')).toHaveLength(0);
       expect(document.head.querySelector('link[rel="preload"][as="image"]')).toBeNull();
     });
 
@@ -147,16 +146,49 @@ describe("PageMasthead", () => {
       expect(classes(wrapper)).toContain("relative");
     });
 
-    it("hides both scrim layers from assistive tech — they darken pixels, nothing more", () => {
+    it("hides the scrim from assistive tech — it darkens pixels, nothing more", () => {
       const { container } = render(PageMasthead, {
         props: { title: "Our Properties", image: photo },
       });
-      for (const sel of [".masthead-shade", ".masthead-scrim"]) {
-        const layer = container.querySelector(sel);
-        expect(layer, `${sel} is missing`).not.toBeNull();
-        expect(layer!.getAttribute("aria-hidden")).toBe("true");
-        expect(layer!.textContent).toBe("");
-      }
+      const layer = container.querySelector(".masthead-scrim");
+      expect(layer, ".masthead-scrim is missing").not.toBeNull();
+      expect(layer!.getAttribute("aria-hidden")).toBe("true");
+      expect(layer!.textContent).toBe("");
+    });
+
+    /**
+     * THE SHADE IS GONE, and this is what keeps it gone. Until 2026-09-29 a
+     * second layer, `.masthead-shade`, darkened the top of the band for a nav
+     * floating over the photo; the client asked for the solid bar instead and
+     * the "dark cloud" removed (Discord, 2026-09-29). A check for that one
+     * class name would pass the same layer back under any other name, so this
+     * holds the STRUCTURE: over a photo the band holds exactly the photo, one
+     * decorative layer, and the title — and the only `masthead-*` class in the
+     * component or in app.css is the scrim's.
+     */
+    it("draws one layer over the photo — the scrim — and no shade under any name", () => {
+      const { container } = render(PageMasthead, {
+        props: { title: "Our Properties", image: photo },
+      });
+      const header = container.querySelector("header")!;
+      const children = [...header.children].map((el) =>
+        el.tagName === "IMG"
+          ? "img"
+          : el.getAttribute("aria-hidden") === "true"
+            ? `layer ${el.className}`
+            : el.querySelector("h1")
+              ? "title"
+              : `${el.tagName.toLowerCase()} ${el.className}`,
+      );
+      expect(children).toEqual(["img", "layer masthead-scrim absolute inset-0", "title"]);
+      expect(container.querySelectorAll('[aria-hidden="true"]')).toHaveLength(1);
+
+      const named = (text: string) => [...new Set(text.match(/\bmasthead-[a-z-]+/g) ?? [])];
+      expect(named(SOURCE.replace(/\/\/.*$/gm, "")), "PageMasthead.svelte").toEqual([
+        "masthead-scrim",
+      ]);
+      const rules = [...APP_CSS.matchAll(/^\s*\.(masthead-[a-z-]+)\s*\{/gm)].map((m) => m[1]);
+      expect(rules, "the .masthead-* rules in app.css").toEqual(["masthead-scrim"]);
     });
 
     it("preloads the photo by default and not when told otherwise", () => {
@@ -182,16 +214,19 @@ describe("PageMasthead", () => {
    *
    * Everything below is read out of the files that decide it — the scrim's
    * stops from app.css, the band's height and pad from its own class list, the
-   * H1's line box and size from app.css's type ramp, the floating bar's height
-   * and its INK from Nav.svelte, BrandButton.svelte and @theme — so moving any
-   * one of them moves this assertion with it, instead of leaving a number in a
-   * comment that used to be true.
+   * H1's line box, size and ink from app.css's type ramp and @theme — so moving
+   * any one of them moves this assertion with it, instead of leaving a number
+   * in a comment that used to be true.
    *
-   * It asserts both directions. Until 2026-09-28 it held only a floor, and the
-   * layers drifted to 0.82 black over the bar — sized for dust, an ink the bar
-   * had stopped wearing six days earlier — which the client saw as a band "too
-   * dark" (Discord, 2026-09-24). A floor cannot see that. The ceilings and the
-   * photo window below can.
+   * It asserts both directions: a FLOOR under the h1, and CEILINGS — no darker
+   * than the h1 needs, and the photo left to show above it. A floor alone let
+   * this band drift to a weight the client read as "too dark" (Discord,
+   * 2026-09-24).
+   *
+   * Until 2026-09-29 this also sized `.masthead-shade` for the sand controls of
+   * a nav floating over the photo. No bar sits on the photo now (see
+   * src/routes/nav-over.test.ts), so the scrim is the only layer, and the top
+   * of the band is held to the photo itself.
    */
   describe("white on the photo", () => {
     /** WCAG 2.x relative luminance / contrast (as theme-contrast.test.ts). */
@@ -232,10 +267,9 @@ describe("PageMasthead", () => {
       return list[list.length - 1][1];
     };
 
-    const SHADE = stops("masthead-shade");
     const SCRIM = stops("masthead-scrim");
 
-    /** `h-60` / `h-[154px]` / `lg:h-20` → pixels. Tailwind's spacing unit is 4px. */
+    /** `h-60` / `h-[70px]` / `lg:h-20` → pixels. Tailwind's spacing unit is 4px. */
     function px(source: string, token: RegExp): number {
       const m = token.exec(source);
       if (!m) throw new Error(`no ${token} in source`);
@@ -257,7 +291,6 @@ describe("PageMasthead", () => {
         name: "1440 (lg)",
         height: px(SOURCE, /lg:h-\[(\d+px)\]\s+lg:pb-/),
         pad: px(SOURCE, /lg:pb-\[(\d+px)\]/),
-        shade: px(SOURCE, /masthead-shade[^"]*\slg:h-\[(\d+px)\]/),
         bar: px(NAV, /lg:h-(\d+) /),
         ...ramp("t-h1"),
       },
@@ -265,7 +298,6 @@ describe("PageMasthead", () => {
         name: "390 (base)",
         height: px(SOURCE, /class="flex h-(\d+)\s/),
         pad: px(SOURCE, /\spb-(\d+)\s+sm:/),
-        shade: px(SOURCE, /masthead-shade[^"]*\stop-0 h-\[(\d+px)\]/),
         bar: px(NAV, /flex h-\[(\d+px)\]/),
         ...ramp("t-h2"),
       },
@@ -282,25 +314,21 @@ describe("PageMasthead", () => {
     /** Black at `alpha` over a pure-white photo pixel. */
     const overWhite = (alpha: number) => [255 * (1 - alpha), 255 * (1 - alpha), 255 * (1 - alpha)];
 
-    /** Both layers stack, so what gets through is the product of what each lets through. */
-    const combined = (b: Breakpoint, y: number) => {
-      const shade = y < b.shade ? alphaAt(SHADE, (100 * y) / b.shade) : 0;
-      const scrim = alphaAt(SCRIM, (100 * y) / b.height);
-      return 1 - (1 - shade) * (1 - scrim);
-    };
+    /** The scrim is the band's one layer, so its alpha IS the darkening. */
+    const darkening = (b: Breakpoint, y: number) => alphaAt(SCRIM, (100 * y) / b.height);
 
     /** Every whole-pixel row from y0 to y1 inclusive — the span each check scans. */
     const rows = (y0: number, y1: number) =>
       Array.from({ length: Math.ceil(y1) - Math.floor(y0) + 1 }, (_, i) => Math.floor(y0) + i);
 
     const worst = (b: Breakpoint, y0: number, y1: number, ink: number[]) =>
-      Math.min(...rows(y0, y1).map((y) => contrast(ink, overWhite(combined(b, y)))));
+      Math.min(...rows(y0, y1).map((y) => contrast(ink, overWhite(darkening(b, y)))));
     const darkest = (b: Breakpoint, y0: number, y1: number) =>
-      Math.max(...rows(y0, y1).map((y) => combined(b, y)));
+      Math.max(...rows(y0, y1).map((y) => darkening(b, y)));
     const lightest = (b: Breakpoint, y0: number, y1: number) =>
-      Math.min(...rows(y0, y1).map((y) => combined(b, y)));
+      Math.min(...rows(y0, y1).map((y) => darkening(b, y)));
 
-    // ── THE INKS, out of the files that paint them ─────────────────────────
+    // ── THE INK, out of the file that paints it ────────────────────────────
 
     /** app.css's @theme `--color-*` values, as the palette's own guard reads
      *  them (theme-contrast.test.ts's parseThemeColors). */
@@ -328,51 +356,6 @@ describe("PageMasthead", () => {
         .map((m) => m[1])
         .filter((t) => t in THEME);
 
-    /**
-     * What the floating bar paints ON the shade, from the files that paint it.
-     *
-     *  - The CTA: whatever BrandButton tone Nav.svelte gives it while floating
-     *    (`tone={floating ? "light" : …}`), and that tone's `text-*` in
-     *    BRAND_BUTTON_TONES. Sand since #96 (2026-09-22); it was dust before,
-     *    which is what this shade had been sized for.
-     *  - Every other floating-state class list in Nav.svelte
-     *    (`{floating ? 'text-light' : …}`): the menu trigger, its no-script
-     *    fallback, the no-script link list, and the "Home" text the wordmark
-     *    falls back to. The wordmark image is a logo and exempt.
-     */
-    const BAR_INKS = (() => {
-      const tone = /tone=\{floating\s*\?\s*"(\w+)"/.exec(NAV)?.[1];
-      if (!tone || !(tone in BRAND_BUTTON_TONES)) {
-        throw new Error(`Nav.svelte's floating CTA tone is ${tone}, not a BRAND_BUTTON_TONES key`);
-      }
-      const cta = textColours(BRAND_BUTTON_TONES[tone as keyof typeof BRAND_BUTTON_TONES]);
-      if (cta.length !== 1) throw new Error(`the "${tone}" tone has ${cta.length} text colours`);
-      const floating = [...NAV.matchAll(/\{floating\s*\?\s*(["'])([^"']*)\1/g)].flatMap((m) =>
-        textColours(m[2]),
-      );
-      const inks = [
-        { what: `the CTA (BrandButton "${tone}")`, token: cta[0] },
-        ...[...new Set(floating)].map((token) => ({ what: `Nav's floating text-${token}`, token })),
-      ];
-      return inks.map((i) => ({ ...i, rgb: ink(i.token) }));
-    })();
-
-    /** The floating bar's keyboard focus ring. app.css's ground rule gives
-     *  every child of `[data-floating]` `--focus-ring: var(--color-…)`, and the
-     *  outline is drawn 2px OUTSIDE the control — still inside the bar, still
-     *  on the shade. Non-text, so 3:1 (WCAG 1.4.11 / 2.4.13). */
-    const BAR_RING = (() => {
-      const rule = [
-        ...APP_CSS.matchAll(
-          /:where\(([^)]*)\)\s*>\s*\*\s*\{\s*--focus-ring:\s*var\(--color-([a-z0-9-]+)\)/g,
-        ),
-      ].find((m) => m[1].includes("[data-floating]"));
-      if (!rule) throw new Error("no --focus-ring rule for [data-floating] in app.css");
-      return { token: rule[2], rgb: ink(rule[2]) };
-    })();
-    /** WCAG 1.4.11: a focus indicator against what is next to it. */
-    const NON_TEXT = 3;
-
     /** The h1's colour, off its own class list. */
     const TITLE_INK = (() => {
       const cls = /<h1 class="([^"]*)"/.exec(SOURCE)?.[1];
@@ -384,8 +367,6 @@ describe("PageMasthead", () => {
 
     // ── THE THRESHOLDS ─────────────────────────────────────────────────────
 
-    /** WCAG 1.4.3, normal text: the bar's CONTACT US is t-h6, 12px. */
-    const AA = 4.5;
     /** WCAG 1.4.3, LARGE text — 18pt (24px) and up at this weight. The h1 is
      *  66px / 38px, so 3:1 is what WCAG asks of it. It was held to 4.5:1 until
      *  2026-09-28, by a choice made here and not by WCAG, and that choice cost
@@ -393,15 +374,12 @@ describe("PageMasthead", () => {
     const LARGE = 3;
     const LARGE_TEXT_MIN_PX = 24;
 
-    /** No darker than legible needs. Sand needs 0.605 black over a pure-white
-     *  pixel (0.591 at #eae7e4) and white-as-large-text 0.416, so these leave
-     *  room to tune and none to drift back to where the client objected:
-     *  0.82 over the bar and 0.67 under the title. */
-    const BAR_CEILING = 0.7;
+    /** No darker than legible needs. White-as-large-text needs 0.416 black over
+     *  a pure-white pixel, so this leaves room to tune and none to drift back to
+     *  where the client objected: 0.67 under the title. */
     const TITLE_CEILING = 0.55;
-    /** Between the bar and the title the photo has to SHOW — the comp draws
-     *  no overlay there at all. The old layers let it at 1440 (0.10 at y≈176)
-     *  but not at 390, where they never parted below 0.39 black. */
+    /** Above the title the photo has to SHOW — the comp draws no overlay there
+     *  at all. */
     const WINDOW_CEILING = 0.35;
 
     it.each(breakpoints)(
@@ -426,67 +404,42 @@ describe("PageMasthead", () => {
       },
     );
 
-    it.each(breakpoints)(
-      "clears 4.5:1 for every ink the floating bar paints at $name, over that same pixel",
-      (b) => {
-        for (const { what, token, rgb } of BAR_INKS) {
-          const ratio = worst(b, 0, b.bar, rgb);
-          expect(
-            ratio,
-            `${what} — text-${token}, ${THEME[token]} — on the shade over a pure-white photo ` +
-              `pixel is ${ratio.toFixed(2)}:1 across the bar's ${b.bar}px (the shade box is ` +
-              `${b.shade}px), below ${AA}:1. /properties claims navOver: "dark", so the bar ` +
-              `floats over this band, and the CTA's label is t-h6, 12px — normal text. Darken ` +
-              `.masthead-shade (but see the ceiling below), or change the ink.`,
-          ).toBeGreaterThanOrEqual(AA);
-        }
-      },
-    );
+    it.each(breakpoints)("is no darker under the h1 than it needs to be at $name", (b) => {
+      const { top, bottom } = lineBox(b);
+      const title = darkest(b, top, bottom);
+      expect(
+        title,
+        `The h1's line box (y ${top}–${bottom}) sits under ${title.toFixed(3)} black at its ` +
+          `darkest; the ceiling is ${TITLE_CEILING}. Large text needs 0.416 on pure white.`,
+      ).toBeLessThanOrEqual(TITLE_CEILING);
+    });
 
-    it.each(breakpoints)(
-      "keeps the bar's focus ring at 3:1 at $name, over that same pixel",
-      (b) => {
-        const ratio = worst(b, 0, b.bar, BAR_RING.rgb);
-        expect(
-          ratio,
-          `The floating bar's focus ring — --color-${BAR_RING.token}, ${THEME[BAR_RING.token]} — ` +
-            `on the shade over a pure-white photo pixel is ${ratio.toFixed(2)}:1, below ` +
-            `${NON_TEXT}:1.`,
-        ).toBeGreaterThanOrEqual(NON_TEXT);
-      },
-    );
-
-    it.each(breakpoints)(
-      "is no darker than those inks need — over the bar, and under the h1 — at $name",
-      (b) => {
-        const bar = darkest(b, 0, b.bar);
-        expect(
-          bar,
-          `The bar's ${b.bar}px sit under ${bar.toFixed(3)} black at its darkest; the ceiling ` +
-            `is ${BAR_CEILING}. The client read 0.82 here as "too dark" (2026-09-24). If a new ` +
-            `ink needs more, the ink is the thing to change.`,
-        ).toBeLessThanOrEqual(BAR_CEILING);
-        const { top, bottom } = lineBox(b);
-        const title = darkest(b, top, bottom);
-        expect(
-          title,
-          `The h1's line box (y ${top}–${bottom}) sits under ${title.toFixed(3)} black at its ` +
-            `darkest; the ceiling is ${TITLE_CEILING}. Large text needs 0.416 on pure white.`,
-        ).toBeLessThanOrEqual(TITLE_CEILING);
-      },
-    );
-
-    it.each(breakpoints)("lets the photo show between the bar and the h1 at $name", (b) => {
+    it.each(breakpoints)("lets the photo show above the h1 at $name", (b) => {
       const { top } = lineBox(b);
-      const clearest = lightest(b, b.bar, top);
+      const clearest = lightest(b, 0, top);
       expect(
         clearest,
-        `Between the bar (y ${b.bar}) and the h1 (y ${top}) the two layers never drop below ` +
-          `${clearest.toFixed(3)} black; they must reach ${WINDOW_CEILING} somewhere, or the ` +
-          `band reads as one grey haze. Let .masthead-shade fall away sooner, or start ` +
+        `Above the h1 (y ${top}) the scrim never drops below ${clearest.toFixed(3)} black; it ` +
+          `must reach ${WINDOW_CEILING} somewhere, or the band reads as one grey haze. Start ` +
           `.masthead-scrim later.`,
       ).toBeLessThanOrEqual(WINDOW_CEILING);
     });
+
+    // The "dark cloud" the client asked to lose (Discord, 2026-09-29) was the
+    // top of this band, where the floating bar sat. The structural test above
+    // keeps a second layer out; this keeps the scrim itself from growing into
+    // the same place. The strip is a bar's height, read from Nav.svelte.
+    it.each(breakpoints)(
+      "leaves the top of the band — a bar's height of it — undarkened at $name",
+      (b) => {
+        const top = darkest(b, 0, b.bar);
+        expect(
+          top,
+          `The band's first ${b.bar}px sit under ${top.toFixed(3)} black at their darkest. ` +
+            `Nothing sits on the photo there any more, so nothing darkens it.`,
+        ).toBe(0);
+      },
+    );
 
     it("read every geometry and ink it measures against out of the files that set them", () => {
       // Guard the guard. Each of these numbers is scraped with a regex from
@@ -494,20 +447,14 @@ describe("PageMasthead", () => {
       // the tests above auditing a zero-height strip — green on anything.
       expect(breakpoints.map((b) => b.height)).toEqual([400, 240]); // the band
       expect(breakpoints.map((b) => b.pad)).toEqual([72, 44]); // its bottom pad
-      expect(breakpoints.map((b) => b.shade)).toEqual([176, 154]); // the shade box
       expect(breakpoints.map((b) => b.bar)).toEqual([80, 70]); // Nav.svelte's BAR
       expect(breakpoints.map((b) => b.lineHeight)).toEqual([80, 48]); // app.css ramp
       expect(breakpoints.map((b) => b.margin)).toEqual([18, 11.5]);
       expect(breakpoints.map((b) => b.fontSize)).toEqual([66, 38]);
-      expect([SHADE.length, SCRIM.length]).toEqual([5, 4]);
-      // The inks: the CTA's tone, then each distinct colour in Nav's floating
-      // class lists (the "Home" fallback's white, the trigger's and the
-      // no-script list's sand). The TOKENS are pinned, never their hex — the
-      // hex is the palette's to move (sand is #e8e1d1 and may become #eae7e4),
+      expect(SCRIM.length).toBe(4);
+      // The TOKEN is pinned, never its hex — the hex is the palette's to move,
       // and the ratios above re-measure it.
-      expect(BAR_INKS.map((i) => i.token)).toEqual(["light", "white", "light"]);
       expect(TITLE_INK.token).toBe("white");
-      expect(BAR_RING.token).toBe("background");
       // The h1's line box is the same slice of the band at both widths — 44 of
       // 400 over a 72 pad, 25 of 240 over 44 — which is why one scrim serves
       // both. If that ever stops being true the two spans have to diverge.
