@@ -448,43 +448,46 @@ describe("the dimmed markers, measured against the style's own grounds", () => {
    * pairs above hold at >= 3:1 — so with that area taken away the pin is
    * still all there.
    *
-   * At full opacity the garnet pin clears 3:1 against every edge stroke in the
-   * style; the lowest are the motorway casing `#a3906a` (3.7154:1) and the
-   * country boundary `#8e8676` (3.2023:1). At 0.81 two still do not: the
-   * motorway casing 2.9235 and the boundary 2.6157. The link/trunk casing
-   * `#b6a685`, under 3:1 at 0.67, clears it (3.5960). The casing needs 0.84 and
-   * the boundary 0.94, which is hardly dimmed at all. Asserted as today's
-   * fact, so the day it changes this says so.
+   * Measured as a crossing, the way the grounds are: the pin's edge drawn over
+   * a ground beside the stroke, or over the stroke beside a ground, the worst
+   * of either. At full opacity the garnet pin clears 3:1 against every edge
+   * stroke in the style; the lowest are the motorway casing `#a3906a`
+   * (3.7154:1) and the country boundary `#8e8676` (3.2023:1). At 0.81 three
+   * do not: the motorway casing 2.1664, the link/trunk casing `#b6a685`
+   * 2.8167 and the boundary 1.8672. They would need 0.93, 0.83 and 0.98,
+   * which is hardly dimmed at all. Asserted as today's fact, so the day it
+   * changes this says so.
    */
   it("records the edge strokes a dimmed pin can cross, including the ones under 3:1", () => {
+    const crossing = (edge: Ground, alpha: number) =>
+      Math.min(
+        ...[edge, ...grounds].flatMap((g) => [
+          pinBeside({ under: g, beside: edge }, alpha).nominal,
+          pinBeside({ under: edge, beside: g }, alpha).nominal,
+        ]),
+      );
     const at = (name: string, alpha: number) => {
       const edge = edges.find((e) => e.name === name);
       expect(edge, `premise: the style still draws ${name}`).toBeDefined();
-      return pinBeside({ under: edge!, beside: edge! }, alpha).nominal;
+      return crossing(edge!, alpha);
     };
     expect(at("road_motorway_casing", 1)).toBeCloseTo(3.7154, 3);
     expect(at("boundary_2", 1)).toBeCloseTo(3.2023, 3);
-    expect(at("road_motorway_casing", DIMMED_MARKER_OPACITY)).toBeCloseTo(2.9235, 3);
-    expect(at("road_trunk_primary_casing", DIMMED_MARKER_OPACITY)).toBeCloseTo(3.596, 3);
-    expect(at("boundary_2", DIMMED_MARKER_OPACITY)).toBeCloseTo(2.6157, 3);
-    // Exactly those two strokes (and their tunnel/bridge twins), no more.
+    expect(at("road_motorway_casing", DIMMED_MARKER_OPACITY)).toBeCloseTo(2.1664, 3);
+    expect(at("road_trunk_primary_casing", DIMMED_MARKER_OPACITY)).toBeCloseTo(2.8167, 3);
+    expect(at("boundary_2", DIMMED_MARKER_OPACITY)).toBeCloseTo(1.8672, 3);
+    // Exactly those three strokes (and their tunnel/bridge twins), no more.
     const under = new Set(
-      edges
-        .filter(
-          (e) => pinBeside({ under: e, beside: e }, DIMMED_MARKER_OPACITY).nominal < PIN_NON_TEXT,
-        )
-        .map((e) => hex(e.rgb)),
+      edges.filter((e) => crossing(e, DIMMED_MARKER_OPACITY) < PIN_NON_TEXT).map((e) => hex(e.rgb)),
     );
-    expect([...under].sort()).toEqual(["#8e8676", "#a3906a"]);
+    expect([...under].sort()).toEqual(["#8e8676", "#a3906a", "#b6a685"]);
     // And what it would take to lift each of them.
     const clears = (name: string) => floor((a) => at(name, a) >= PIN_NON_TEXT);
-    expect(clears("road_motorway_casing")).toBe(0.84);
-    expect(clears("boundary_2")).toBe(0.94);
+    expect(clears("road_motorway_casing")).toBe(0.93);
+    expect(clears("road_trunk_primary_casing")).toBe(0.83);
+    expect(clears("boundary_2")).toBe(0.98);
     // Every edge clears 3:1 at full opacity: the ACTIVE pin, and every pin on
     // a map with nothing active, is unaffected.
-    for (const e of edges)
-      expect(pinBeside({ under: e, beside: e }, 1).nominal, e.name).toBeGreaterThanOrEqual(
-        PIN_NON_TEXT,
-      );
+    for (const e of edges) expect(crossing(e, 1), e.name).toBeGreaterThanOrEqual(PIN_NON_TEXT);
   });
 });

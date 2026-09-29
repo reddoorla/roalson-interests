@@ -303,8 +303,9 @@ export const ACTIVE_PIN_SCALE = 1.5;
  * background beside water is 2.25:1, over a white road 2.10:1.
  *
  * The road casings and boundaries are strokes under a pixel a side, not
- * grounds: two stay under 3:1 here (the motorway casing would need 0.84, a
- * country boundary 0.94), and are recorded, with the reason they do not choose
+ * grounds: measured as crossings, three stay under 3:1 here (the motorway
+ * casing would need 0.93, the link/trunk casing 0.83, a country boundary
+ * 0.98), and are recorded, with the reason they do not choose
  * this number, in src/lib/map-marker-contrast.test.ts, which re-derives it
  * from static/map-style.json and asserts it is exactly the floor.
  */
