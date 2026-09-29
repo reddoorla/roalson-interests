@@ -23,6 +23,9 @@
     enabled?: boolean;
     /** "garnet" controls on the sand card, "cream" on the garnet one. */
     tone?: "garnet" | "cream";
+    /** A Next button INSIDE every slide — the layout the module header
+     *  forbids, drawn only for the focus net's tests (#34). */
+    inSlideControl?: boolean;
   }
 
   let {
@@ -34,6 +37,7 @@
     settle = 0,
     enabled = true,
     tone = "garnet",
+    inSlideControl = false,
   }: Props = $props();
 
   const carousel = createCarousel({
@@ -75,6 +79,11 @@
       >
         <p class="t-body-2">Slide body {i + 1}</p>
         <a href="#carousel-heading" class="t-body-2 underline">Link in slide {i + 1}</a>
+        {#if inSlideControl}
+          <button type="button" class="t-body-2 underline" onclick={carousel.next}>
+            Next, from slide {i + 1}
+          </button>
+        {/if}
       </div>
     {/each}
   </div>

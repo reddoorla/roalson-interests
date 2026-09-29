@@ -117,6 +117,17 @@ const onCentreLine = (sec: Locator) =>
     return null;
   });
 
+/** The card a phone's carousel has on stage (#14), if the middle of the
+ *  window crosses it — every slide shares one box there, so `onCentreLine`
+ *  would answer the first of them whichever is showing. */
+const onStageOnCentreLine = (sec: Locator) =>
+  sec.evaluate((el) => {
+    const mid = window.innerHeight / 2;
+    const li = el.querySelector<HTMLElement>("li[data-centre-id]:not([aria-hidden])");
+    const box = li?.getBoundingClientRect();
+    return box && box.top <= mid && box.bottom >= mid ? li!.dataset.centreId! : null;
+  });
+
 /** The listings whose card is drawn garnet, by computed background. */
 const garnetIds = (sec: Locator) =>
   sec.evaluate(
@@ -596,13 +607,18 @@ test.describe("below lg the highlight does not travel, because nothing there fol
       const ids = await cardIds(land);
       expect(await garnetIds(land)).toEqual([ids[0]]);
 
-      // Scroll every later card across the middle. At `lg` each of these
-      // moves the highlight; here none may.
+      // Put every later card across the middle. At `lg` each of these moves
+      // the highlight; here none may. Since #14 the phone's section is a
+      // carousel, every card in the one box, so "scroll card N across the
+      // middle" is "turn to card N and centre the box".
+      const carousel = land.locator('[aria-roledescription="carousel"]');
+      await expect(carousel).toHaveAttribute("data-carousel-ready", "");
       for (const id of ids.slice(1)) {
+        await carousel.getByRole("button", { name: "Next slide" }).click();
         await centre(page, id);
-        // Positive evidence the scroll really put that card on the line —
-        // otherwise this passes by never having asked the question.
-        expect(await onCentreLine(land), `${id} crossed the middle`).toBe(id);
+        // Positive evidence the card is on stage AND on the line — otherwise
+        // this passes by never having asked the question.
+        expect(await onStageOnCentreLine(land), `${id} crossed the middle`).toBe(id);
         expect(await garnetIds(land), "the phone keeps card 0").toEqual([ids[0]]);
       }
     } finally {

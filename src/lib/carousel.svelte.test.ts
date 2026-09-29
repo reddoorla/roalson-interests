@@ -592,6 +592,86 @@ describe("carousel switched off, in markup", () => {
   });
 });
 
+describe("the focus net (#34), in markup", () => {
+  // jsdom has no `inert`, so it never drops focus the way a browser does: an
+  // element left focused inside an `inert` slide STAYS document.activeElement
+  // here. That makes the attribute the thing to read — focus sitting under
+  // `[inert]` is exactly the state a browser answers by throwing it on
+  // <body> — and removal is read as jsdom reports it, which is <body>.
+  // tests/interaction/carousel.spec.ts and listing-carousel.spec.ts hold the
+  // same promise against a real `inert`.
+  const where = () => {
+    const el = document.activeElement as HTMLElement | null;
+    return {
+      el,
+      onBody: !el || el === document.body,
+      underInert: !!el?.closest("[inert]"),
+      connected: !!el?.isConnected,
+    };
+  };
+  const safe = { onBody: false, underInert: false, connected: true };
+
+  it("a control inside a slide turns its own slide, and focus goes to the region — not under the inert slide", async () => {
+    const { getByRole, getByText } = renderFixture({ inSlideControl: true });
+    const region = getByRole("region");
+    const control = getByText("Next, from slide 1");
+    control.focus();
+    await fireEvent.click(control);
+    await tick();
+
+    expect(current(region), "the press did turn the slide").toBe(2);
+    expect(where()).toMatchObject(safe);
+    expect(where().el).toBe(region);
+    // Made focusable for the occasion only: gone once focus moves on.
+    expect(region.getAttribute("tabindex")).toBe("-1");
+    getByText("Link in slide 2").focus();
+    expect(region.hasAttribute("tabindex")).toBe(false);
+  });
+
+  it("a list switched on with focus in its third card makes that card the current slide", async () => {
+    const { container, getByText, rerender } = renderFixture({ enabled: false });
+    const link = getByText("Link in slide 3");
+    link.focus();
+
+    await rerender({ enabled: true });
+    expect(current(container), "the card being read is the one on stage").toBe(3);
+    expect(where().el, "and focus never moved").toBe(link);
+    expect(where()).toMatchObject(safe);
+  });
+
+  it("the arrows unmounting as it is switched off hand focus to the region", async () => {
+    const { getByRole, getByLabelText, rerender } = renderFixture();
+    const region = getByRole("region");
+    getByLabelText("Next slide").focus();
+
+    await rerender({ enabled: false });
+    expect(region.querySelector("button"), "the arrows are gone").toBeNull();
+    expect(where()).toMatchObject(safe);
+    expect(where().el).toBe(region);
+  });
+
+  it("Pause unmounting when reduced motion comes on mid-session hands focus to the region", async () => {
+    const { getByRole, getByLabelText } = renderFixture({ autoplay: DWELL });
+    const region = getByRole("region");
+    getByLabelText("Pause slides").focus();
+
+    setReducedMotion(true);
+    await tick();
+    expect(region.querySelector('[aria-label$="slides"]'), "Pause is gone").toBeNull();
+    expect(where()).toMatchObject(safe);
+    expect(where().el).toBe(region);
+  });
+
+  it("leaves focus alone when nothing it holds is going anywhere", async () => {
+    const { getByLabelText } = renderFixture();
+    const next = getByLabelText("Next slide");
+    next.focus();
+    await fireEvent.click(next);
+    await tick();
+    expect(where().el, "an arrow outside the slides keeps focus").toBe(next);
+  });
+});
+
 // ── headless ────────────────────────────────────────────────────────────────
 
 /** `createCarousel` registers effects, so it needs an owner. */
@@ -1050,7 +1130,11 @@ describe("createCarousel, headless", () => {
     });
 
     expect(carousel.region).toEqual({});
-    expect(carousel.slide(1)).toEqual({});
+    // No attributes; only the element ref the focus net needs to know which
+    // card holds focus when the list is switched on (#34). A symbol-keyed
+    // attachment writes nothing to the element.
+    expect(Object.keys(carousel.slide(1))).toEqual([]);
+    expect(Object.getOwnPropertySymbols(carousel.slide(1))).toHaveLength(1);
     expect(carousel.status).toEqual({});
     expect(carousel.swipe).toEqual({});
     expect(carousel.statusText).toBe("");

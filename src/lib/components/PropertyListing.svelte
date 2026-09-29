@@ -154,7 +154,9 @@
   // this replaced. Below `lg` `centreWatch` does not run (3 above), so a phone
   // keeps card 0 featured too. There the map is a 200px box above the cards
   // and does not stick, so a travelling highlight would match nothing on
-  // screen. Past Projects has no map and no watcher.
+  // screen. Past Projects has no map and no watcher. (Since #14 a phone WITH
+  // script shows the sections as carousels in the comp's own tones, where
+  // only the first section's first card is garnet; see below.)
   //
   // AND NOTHING HERE HOLDS THAT RULE BACK WHILE A SCROLL TRAVELS. It used to —
   // see `revealCard` for the two separate defects that cost — and the job now
@@ -162,14 +164,43 @@
   // the air (`cameraMove`'s `in-flight`). This component is back to reporting
   // which card is in the middle, whatever put it there.
   //
-  // Still not here: the 390 comp's in-card carousel (#14 — this stacks the
-  // cards, which is also that carousel's no-JS state).
+  // BELOW `lg`, WITH SCRIPT, EACH SECTION IS A CAROUSEL (#14): the 390 comp's
+  // `feature scroll` / `regular scroll` sets, one 350-wide card at a time with
+  // a 2px bar and two arrows INSIDE the card, between its photo and its text.
+  // The stacked list stays what the server sends, what a browser without
+  // script keeps, and what `lg` and up gets; the carousel is the same <ul>
+  // re-laid out once hydrated below `lg`. Below `lg` the centre rule does not
+  // run (3 above), so the two never both decide which card is "the" card.
+  //
+  // - The primitive is $lib/carousel.svelte.ts, with CarouselArrows and
+  //   CarouselProgress, through ListingCarousel (one instance per section).
+  //   Slider.svelte was read and declined, for #14's reason: its controls are
+  //   a row outside the slides and it has no progress bar.
+  // - THE CONTROLS ARE IN THE CARD, NOT IN THE SLIDE. The <ul> becomes one grid
+  //   of [photo][bar][arrows][text] rows (below `md`; from `md` the photo is a
+  //   column beside the other three), every slide spans all of it as a
+  //   SUBGRID, and the bar and arrows are the grid's own items. So they sit
+  //   between the photo and the text of whichever card is on stage and are
+  //   never inside one — a slide that turns away goes inert, and an arrow in it
+  //   would take the keyboard's focus with it (#34). Same shape as the homepage
+  //   band's card.
+  // - The comp's variants: the first section's first card garnet, every other
+  //   card in the light tone the stacked list already gives it; the arrows and
+  //   bar are cream on the garnet card and garnet on the light ones. No
+  //   autoplay and no transition — the comp's arrows CHANGE_TO with none, and
+  //   there is no AFTER_TIMEOUT on these sets — so there is no Pause to owe and
+  //   nothing for reduced motion to stop.
+  // - A pressed pin turns the carousel to its card, see `revealCard`.
   import { onMount } from "svelte";
 
   import { centreWatch } from "$lib/actions/centreWatch";
   import { brandButtonBase, brandButtonPadding } from "$lib/components/BrandButton.svelte";
+  import CarouselArrows from "$lib/components/CarouselArrows.svelte";
+  import CarouselProgress from "$lib/components/CarouselProgress.svelte";
+  import ListingCarousel from "$lib/components/ListingCarousel.svelte";
   import PropertyCard from "$lib/components/PropertyCard.svelte";
   import PropertyMap from "$lib/components/PropertyMap.svelte";
+  import type { Carousel } from "$lib/carousel.svelte";
   import {
     listingViews,
     viewFromHash,
@@ -191,6 +222,42 @@
 
   /** Tailwind's `lg` (64rem). The one breakpoint this file pins at. */
   const LG = 1024;
+
+  /** Where the sections are carousels: the exact complement of Tailwind's
+   *  `lg`, `(width >= 64rem)`, so script and the stylesheet agree on which
+   *  layout is on screen at every width and font-size setting. Written as a
+   *  range, not `max-width`, so that nothing between 1023 and 1024 is both. */
+  const BELOW_LG = "(width < 64rem)";
+
+  /** The listing grid a carousel lays its list out on — see the header. Row 4
+   *  (row 3 from `md`) takes what is left, so every slide is as tall as the
+   *  tallest and the arrows never move between cards. */
+  const CAROUSEL_LIST =
+    "grid grid-cols-1 grid-rows-[auto_auto_auto_1fr] md:grid-cols-2 md:grid-rows-[auto_auto_1fr]";
+
+  /** Slide `j` of a carousel on that grid. `invisible`, with no transition:
+   *  the comp swaps variants outright, and a card that is not on stage must
+   *  paint nothing over the one that is. */
+  const slideClass = (carousel: Carousel, j: number) =>
+    `col-span-full row-span-full grid grid-cols-subgrid grid-rows-subgrid${
+      carousel.isActive(j) ? "" : " invisible"
+    }`;
+
+  /** False on the server, before hydration and from `lg` up. */
+  let narrow = $state(false);
+  $effect(() => {
+    if (typeof window.matchMedia !== "function") return;
+    const query = window.matchMedia(BELOW_LG);
+    const sync = () => (narrow = query.matches);
+    sync();
+    query.addEventListener("change", sync);
+    return () => query.removeEventListener("change", sync);
+  });
+
+  /** Each section's carousel, by section id, for a pin press to turn. Not
+   *  state: nothing renders from it, and an instance is a bag of getters that
+   *  must not be proxied. */
+  const carousels: Record<string, Carousel> = {};
 
   /**
    * What `--sticky-top` holds until the first measurement, PER SECTION — and
@@ -329,15 +396,58 @@
   function revealCard(sectionIndex: number, id: string) {
     const list = listEls[sectionIndex];
     if (!list) return;
-    for (const child of list.children) {
-      if ((child as HTMLElement).dataset.centreId !== id) continue;
-      (child as HTMLElement).scrollIntoView?.({ block: "center" });
+    // Below `lg` the list is a carousel (#14) and the card is probably off
+    // stage — invisible and inert in the same grid cell as the one on it —
+    // so scrolling "to" it would show the wrong listing. The press turns the
+    // carousel to it and brings the carousel into view, `nearest` so a card
+    // that already fits under the map leaves the map on screen too.
+    const cards = [...list.children].filter(
+      (child): child is HTMLElement =>
+        child instanceof HTMLElement && child.dataset.centreId !== undefined,
+    );
+    const card = cards.find((child) => child.dataset.centreId === id);
+    if (!card) return;
+    const carousel = carousels[sections[sectionIndex]?.id ?? ""];
+    if (carousel?.enabled) {
+      carousel.goTo(cards.indexOf(card));
+      list.scrollIntoView?.({ block: "nearest" });
       return;
     }
+    card.scrollIntoView?.({ block: "center" });
   }
 </script>
 
 <svelte:window {onhashchange} />
+
+<!-- A carousel's bar and arrows (#14): rows 2 and 3 of CAROUSEL_LIST, and the
+     top of column 2 from `md`. They are the grid's OWN items, never inside a
+     slide, and `z-[2]` so they paint over the card they sit in. `role="none"`
+     like the <ul> they are in, which stops being a list in carousel mode.
+     Their tone is the card on stage's: cream on garnet, garnet on the light
+     cards. The focus ring takes its colour from the ground above the element,
+     and above these is the SECTION, not the card — so on the garnet card the
+     ring is set here, off-white as `.bg-primary > *` would have made it. The
+     comp's 20 above the bar, 10 under it, 20 under the arrows (the text
+     panel's own top pad). The column is explicit, like the row: a row-only
+     item is AUTO-placed, and with every cell already taken by the slides
+     auto-placement opens a new column for it — measured, a 205px card with
+     the arrows in a second column at 390. -->
+{#snippet controls(carousel: Carousel, onGarnet: boolean)}
+  {@const tone = onGarnet ? "cream" : "garnet"}
+  <li
+    role="none"
+    class="relative z-[2] col-start-1 row-start-2 mx-5 mt-5 h-0.5 md:col-start-2 md:row-start-1"
+  >
+    <CarouselProgress {carousel} {tone} />
+  </li>
+  <li
+    role="none"
+    class="relative z-[2] col-start-1 row-start-3 mx-5 mt-[10px] flex justify-end md:col-start-2 md:row-start-2
+      {onGarnet ? '[--focus-ring:var(--color-background)]' : ''}"
+  >
+    <CarouselArrows {carousel} {tone} />
+  </li>
+{/snippet}
 
 <div class={passedClasses} data-listing data-view={current}>
   {#if sections.length === 0}
@@ -391,20 +501,35 @@
       </div>
 
       {#if section.past}
-        <ul
-          class="{GUTTERS} grid gap-5 pt-10 sm:grid-cols-2 lg:grid-cols-3 {last
-            ? 'pb-[100px]'
-            : ''}"
+        <ListingCarousel
+          onready={(carousel) => (carousels[section.id] = carousel)}
+          count={section.properties.length}
+          label="{section.label} listings"
+          enabled={narrow}
+          class="{GUTTERS} pt-10 {last ? 'pb-[100px]' : ''}"
         >
-          {#each section.properties as property (property.id)}
-            <li><PropertyCard {property} variant="cream" layout="column" /></li>
-          {/each}
-        </ul>
+          {#snippet children(carousel)}
+            {@const on = carousel.enabled}
+            <ul
+              role={on ? "none" : undefined}
+              {...carousel.swipe}
+              class={on ? CAROUSEL_LIST : "grid gap-5 sm:grid-cols-2 lg:grid-cols-3"}
+            >
+              {#if on}{@render controls(carousel, false)}{/if}
+              {#each section.properties as property, j (property.id)}
+                <li {...carousel.slide(j)} class={on ? slideClass(carousel, j) : undefined}>
+                  <PropertyCard {property} variant="cream" layout="column" inCarousel={on} />
+                </li>
+              {/each}
+            </ul>
+          {/snippet}
+        </ListingCarousel>
       {:else}
         {@const points = sectionPoints(section.properties)}
         <!-- The garnet card: whichever listing the centre rule reports, and
              the first until it reports one. The fallback is not defensive: it
-             is the whole no-JS, pre-hydration and below-`lg` state. -->
+             is the whole no-JS, pre-hydration and below-`lg` state — except
+             where a carousel draws the comp's tones instead (#14). -->
         {@const featuredId = activeIds[section.id] ?? section.properties[0]?.id}
         <!-- Column 1 is the section's map, 397 × 595 in the comp; `lg:gap-9`
              is its measured 36.0 to the cards. The top pad is the comp's at
@@ -442,17 +567,39 @@
                 lg:top-[max(var(--sticky-top),calc(50vh-var(--map-height)/2))]"
             />
           {/if}
-          <ul
-            bind:this={listEls[i]}
-            use:centreWatch={{
-              minWidth: LG,
-              enabled: points.length > 0,
-              onactive: (id) => (activeIds[section.id] = id),
-            }}
-            class="flex flex-col gap-5 lg:col-start-2"
+          <!-- The card column. From `lg`, and with no script, a stacked list
+               exactly as before; below `lg` once hydrated, the carousel (see
+               the header). In carousel mode the garnet card is the comp's —
+               the first section's first listing — and not the centre rule's,
+               which does not run there. -->
+          <ListingCarousel
+            onready={(carousel) => (carousels[section.id] = carousel)}
+            count={section.properties.length}
+            label="{section.label} listings"
+            enabled={narrow}
+            class="lg:col-start-2"
           >
-            {#each section.properties as property (property.id)}
-              <!-- `data-centre-id` — the `CENTRE_ID` the action exports,
+            {#snippet children(carousel)}
+              {@const on = carousel.enabled}
+              {@const garnetId = on
+                ? i === 0
+                  ? section.properties[0]?.id
+                  : undefined
+                : featuredId}
+              <ul
+                bind:this={listEls[i]}
+                use:centreWatch={{
+                  minWidth: LG,
+                  enabled: points.length > 0,
+                  onactive: (id) => (activeIds[section.id] = id),
+                }}
+                role={on ? "none" : undefined}
+                {...carousel.swipe}
+                class={on ? CAROUSEL_LIST : "flex flex-col gap-5"}
+              >
+                {#if on}{@render controls(carousel, i === 0 && carousel.index === 0)}{/if}
+                {#each section.properties as property, j (property.id)}
+                  <!-- `data-centre-id` — the `CENTRE_ID` the action exports,
                    written out because an attribute name is not an expression.
                    The id the centre rule reports, on the CARD's own wrapper:
                    what the map follows is which listing you are looking at, and
@@ -477,18 +624,24 @@
                    what `scroll-padding-top` already applied. In section 0,
                    where nothing pins, the two are equal and this is 0.
                    `lg:` because none of it pins below that. -->
-              <li
-                data-centre-id={property.id}
-                class="lg:scroll-mt-[calc(var(--sticky-top)-var(--usable-top))]"
-              >
-                <PropertyCard
-                  {property}
-                  variant={property.id === featuredId ? "featured" : i === 0 ? "sand" : "cream"}
-                  layout="row"
-                />
-              </li>
-            {/each}
-          </ul>
+                  <li
+                    data-centre-id={property.id}
+                    {...carousel.slide(j)}
+                    class="lg:scroll-mt-[calc(var(--sticky-top)-var(--usable-top))] {on
+                      ? slideClass(carousel, j)
+                      : ''}"
+                  >
+                    <PropertyCard
+                      {property}
+                      variant={property.id === garnetId ? "featured" : i === 0 ? "sand" : "cream"}
+                      layout="row"
+                      inCarousel={on}
+                    />
+                  </li>
+                {/each}
+              </ul>
+            {/snippet}
+          </ListingCarousel>
         </div>
       {/if}
     </section>
