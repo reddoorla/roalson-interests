@@ -11880,3 +11880,52 @@ that saved wall time was not measured. It did cost every timing measurement a
 load figure beside it. The one red that looked like load was the band's own
 change: a hand-over case assumed every frame after Play is `timed`, and #146
 makes the first ones `departing`. It is fixed in the branch.
+
+## 2026-09-29 — After #194: the partner fields dropped, the #74 copy published, the live site checked, and a doubled full stop (`claude/roalson-comments-review-45cstm`)
+
+#194 merged as `b0be9ba`, and `prismic-models` pushed the Partners slice without its
+row `name`, `role`, `photo` and `email`. The dry run flagged all four as
+destructive. Before merging, the Content API's master ref was read for both
+sides: the live home rows and both Person documents agreed on name, role, photo
+URL, photo alt and email. So nothing the site renders was lost with the fields.
+
+The #74 typo fixes went out as one Prismic release through the connector: 7
+fields in 6 listings. `diff_release` showed exactly those 7 deltas and nothing
+else before the publish. The publish fired four Netlify hook builds between
+03:48:10 and 03:49:35. The one created at 03:49:04 already carried the new
+copy, although the publish's `last_publication_date` is 03:49:10. So a hook
+deploy's `created_at` does not say whether its content is fresh; only the
+built HTML does. This time none of the hook builds was stale, unlike the #180
+publish.
+
+The live check (published deploy `6abb354f`, on `b0be9ba`) was run by a separate
+agent, and every item passed:
+
+- Both partner cards render from the Person documents: prerendered, with
+  script off and with script on. The section reports linked 2, shown 2,
+  unembedded 0.
+- The featured band shows 3 of 3 picks.
+- All seven #74 strings are in the prerendered listing pages.
+- /properties is a carousel per section at 390 with script on, and stacks with
+  it off. Nothing is a carousel at 1440.
+- There were 0 console errors, page errors or 4xx/5xx across `/`,
+  `/properties`, `/team/matt-howard` and `/contact` at both widths.
+
+Each check was shown to fail where it should:
+
+- the copy check fails on the pre-publish deploy;
+- the photo check fails with the images blocked;
+- the script-off runs show no `data-hydrated`.
+
+One load in 59 did not hydrate within 20 s (`/team/matt-howard` at 390), and 3
+more took about 11 s. The one instrumented outlier was a single chunk taking
+11,363 ms in Chromium, which curl fetched 30 times at 0.49 s at most. That points
+at Chromium through the sandbox's proxy, not the site, but it is not proven,
+and the >20 s miss did not recur.
+
+**The check found a defect that predates #74.** The 101 W. Commerce meta
+description ended `…called "300 Main.".`, because `sentence()` in
+`property-meta.ts` only saw a stop at the very end of the string. A stop inside
+a closing quote or bracket now counts, and a new case covers straight and curly
+quotes and a bracket. Reverting the regex turns it red. Across the seed, that is
+the only string in the class.

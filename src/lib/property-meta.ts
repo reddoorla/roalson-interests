@@ -6,8 +6,9 @@ import { canonicalUrl } from "$lib/seo";
 import { imgix } from "$lib/utils/image";
 
 /** End each part as a sentence, so "Up to 16,700 SF" and "New ownership!"
- *  join into prose rather than a run-on or a doubled full stop. */
-const sentence = (s: string) => (/[.!?]$/.test(s) ? s : `${s}.`);
+ *  join into prose rather than a run-on or a doubled full stop. A stop inside
+ *  a closing quote or bracket already ends one: `called "300 Main."` (#74). */
+const sentence = (s: string) => (/[.!?]["'”’)\]]*$/.test(s) ? s : `${s}.`);
 
 /** The description a share card and a search result show when the editor left
  *  Meta Description empty — which, for a client adding listings weekly, is
