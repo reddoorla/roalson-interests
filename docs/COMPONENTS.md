@@ -101,8 +101,8 @@ source. It is the fastest way to recognise what a thing does.
 | [`preNavIntercept.ts`](../src/lib/utils/preNavIntercept.ts) | `shouldIntercept` | 11 |  |
 | [`reveal.ts`](../src/lib/utils/reveal.ts) | `reveal`, `revealInvalid` | 8 | Move focus to an element and land it 20px under the pinned bar — an alert, a confirmation or an error summary that script has just rendered (`reveal`), or the control native validation has just refused (`revealInvalid`) — because `focus()` alone loses a race with a smooth scroll in flight and leaves the element focused and hidden |
 | [`richTextHeadings.ts`](../src/lib/utils/richTextHeadings.ts) | `RT_HEADING_CTX`, `defaultLevel`, `buildHeadingLevelMap` | 9 | Editors author arbitrary heading levels inside Prismic rich-text bodies (heading1–6 are all enabled in the slice models) |
-| [`scrollLock.ts`](../src/lib/utils/scrollLock.ts) | `lockBodyScroll` | 4 | Stop the document scrolling behind a full-screen overlay; returns the release |
+| [`scrollLock.ts`](../src/lib/utils/scrollLock.ts) | `lockBodyScroll` | 5 | Stop the document scrolling behind a full-screen overlay; returns the release |
 | [`vimeo.ts`](../src/lib/utils/vimeo.ts) | `checkVimeoVideo`, `parseVimeoId` | 11 | True when the Vimeo video exists and is embeddable (oEmbed responds 200) |
 | [`vimeoBackground.svelte.ts`](../src/lib/utils/vimeoBackground.svelte.ts) | `VIMEO_PLAYER_ORIGIN`, `backgroundEmbedSrc`, `VimeoBackground` | 5 | The gate, the heartbeat and the pause flag behind every chrome-less Vimeo background embed in this repo — lifted OUT of VimeoBanner.svelte so the homepage hero could have all three without taking VimeoBanner's markup with them |
 
-87 modules, 843 tests behind them.
+87 modules, 844 tests behind them.

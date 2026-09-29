@@ -339,14 +339,10 @@ test.describe("the expand affordance", () => {
           .poll(() =>
             map.evaluate((el) => {
               const r = el.getBoundingClientRect();
-              // The window, as a fixed box sees it: app.css keeps
-              // `scrollbar-gutter: stable` on html, so a classic scrollbar's
-              // 15px stays reserved under the scroll lock.
-              const probe = document.body.appendChild(document.createElement("div"));
-              probe.style.cssText = "position:fixed;inset:0";
-              const w = probe.getBoundingClientRect();
-              probe.remove();
-              return [r.left, r.top, r.width - w.width, r.height - w.height];
+              // The WINDOW, strip included: the scroll lock releases app.css's
+              // `scrollbar-gutter: stable` so the overlay covers a classic
+              // scrollbar's 15px (#172; overlay-gutter.spec.ts has the pixels).
+              return [r.left, r.top, r.width - innerWidth, r.height - innerHeight];
             }),
           )
           .toEqual([0, 0, 0, 0]);
