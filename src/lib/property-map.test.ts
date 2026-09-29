@@ -10,6 +10,7 @@ import {
   clusterSignature,
   COMPACT_MAX_HEIGHT,
   DEFAULT_MAP_STYLE_URL,
+  DIMMED_MARKER_OPACITY,
   expansionZoom,
   fitCamera,
   frameFor,
@@ -20,6 +21,7 @@ import {
   MAP_HOME,
   MAP_TILE_HOST,
   mapStyleUrl,
+  markerDimmed,
   PIN_ASPECT,
   PIN_HOLE,
   PIN_PATH,
@@ -1015,6 +1017,20 @@ describe("the placeholder's markers", () => {
     }
   });
 
+  it("names every member, so a cluster holding the active listing can be featured", () => {
+    for (const frame of ["full", "compact"] as const) {
+      const live = clusterPoints(all, MAP_HOME[frame].camera.zoom, MAP_FRAMES[frame].clusterRadius);
+      const drawn = homeMarkers(all, frame);
+      expect(drawn.map((m) => m.ids)).toEqual(live.map((c) => c.points.map((p) => p.id)));
+      // Non-vacuity: the real portfolio does group at MAP_HOME.
+      expect(
+        drawn.some((m) => m.ids.length > 1),
+        `${frame}: a cluster to name`,
+      ).toBe(true);
+      for (const m of drawn) expect(m.ids).toHaveLength(m.count);
+    }
+  });
+
   it("puts the centre listing within a pixel of the box's centre", () => {
     // A listing at MAP_HOME's exact coordinate must land at dx = dy = 0, which
     // is the one offset that can be checked without re-deriving Mercator.
@@ -1022,6 +1038,44 @@ describe("the placeholder's markers", () => {
     const [marker] = homeMarkers([centre], "full");
     expect(marker!.dx).toBeCloseTo(0, 9);
     expect(marker!.dy).toBeCloseTo(0, 9);
+  });
+});
+
+describe("which markers are dimmed so the active one is featured (2026-09-29)", () => {
+  const on = [{ id: "a" }, { id: "b" }, { id: "c" }];
+
+  it("dims every marker that does not hold the active listing, and never the one that does", () => {
+    expect(markerDimmed(["a"], "a", on)).toBe(false);
+    expect(markerDimmed(["b"], "a", on)).toBe(true);
+    // A cluster holding the active listing counts as the active one (#115).
+    expect(markerDimmed(["b", "a"], "a", on)).toBe(false);
+    expect(markerDimmed(["b", "c"], "a", on)).toBe(true);
+  });
+
+  it("dims nothing when nothing is active, or when the active id is not on this map", () => {
+    for (const ids of [["a"], ["b"], ["b", "c"]]) {
+      expect(markerDimmed(ids, null, on), `${ids} with nothing active`).toBe(false);
+      expect(markerDimmed(ids, "elsewhere", on), `${ids} with another map's listing`).toBe(false);
+    }
+  });
+
+  it("does not dim a marker holding a listing that is being named — link focus or the sheet", () => {
+    expect(markerDimmed(["b"], "a", on, ["b"])).toBe(false);
+    expect(markerDimmed(["b", "c"], "a", on, ["c"])).toBe(false);
+    // Both at once: the focused link's AND the sheet's.
+    expect(markerDimmed(["b"], "a", on, ["c", "b"])).toBe(false);
+    expect(markerDimmed(["c"], "a", on, ["b", "c"])).toBe(false);
+    // …and only those; an empty hold is no hold.
+    expect(markerDimmed(["c"], "a", on, ["b"])).toBe(true);
+    expect(markerDimmed(["c"], "a", on, [null, undefined])).toBe(true);
+  });
+
+  it("dims by a value the operator's 'slightly' can live with", () => {
+    // The measurement that chose it is src/lib/map-marker-contrast.test.ts.
+    // Above 0.85 the dim stops featuring much, and the value goes back to the
+    // operator as a report instead (the review of 2026-09-29).
+    expect(DIMMED_MARKER_OPACITY).toBeGreaterThanOrEqual(0.55);
+    expect(DIMMED_MARKER_OPACITY).toBeLessThanOrEqual(0.85);
   });
 });
 

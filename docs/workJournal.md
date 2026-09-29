@@ -12213,3 +12213,91 @@ now names `Matt_Howard_Headshot_NO_GPS.png` and
 and the upload's reply. The seed's own dry run was not run, because it needs
 a Roalson-scoped token (#164). The old `partner-*.jpg` assets stay in the
 library, unused.
+
+## 2026-09-29 — The active listing's map marker is featured: every other marker at 0.81, a value that was 0.67 until review measured beside the pin (#205, `claude/roalson-comments-review-45cstm`)
+
+The operator: "for the map, whatever the active pin is should stay full
+opacity and the rest should be slightly reduced opacity so it's featured",
+and later confirmed a hovered pin should come back to full. On every
+PropertyMap (the /properties section maps, their expanded overlay, the
+homepage band's map and the static pictures both draw before the canvas),
+while the map has an active listing, every other marker is drawn at
+`DIMMED_MARKER_OPACITY = 0.81`.
+
+The rule, in `markerDimmed`:
+
+- Nothing dims when nothing is active, or when the active id is not on
+  this map. Dimming everything would feature nothing.
+- The marker holding the active listing is never dimmed, whether it is the
+  listing's own pin or the cluster it has been grouped into.
+- These go back to 1: a marker under the pointer or with `:focus-visible`,
+  the marker whose list link has keyboard focus (pins are `tabindex=-1`, so
+  the link is the keyboard's way to a listing), and on the band the pin
+  whose details sheet is open.
+- The change fades on the garnet card's own 150ms, and is instant under
+  reduced motion.
+
+**The number was measured, and the first measurement had the wrong model.**
+The builder took "slightly" as "the lowest opacity that keeps WCAG 1.4.11",
+compositing garnet over each ground the tinted style paints and comparing it
+with that same ground. Water `#a8b4b8` bound it at 0.67 (3.0820:1, and
+3.0018:1 with every channel moved one 8-bit step against it). A cluster's
+sand count needs 4.5:1 on its disc, which gave 0.74.
+
+Review found the flaw. A see-through pin takes its colour from the ground
+under it, but 1.4.11 compares it with what is beside it. Where a pin's edge
+sits on land next to a river or shoreline, 0.67 measured 2.25:1 over the
+background beside water and 2.10:1 over a white road. The two refuters
+split: one held that W3C's own test for 1.4.11 ("if the least-contrasting
+area is less than 3:1, assume that area is invisible; is the graphical
+object still understandable?") excuses a strip along a shoreline. The
+operator's "slightly" pointed higher anyway, so the guard was rewritten:
+
+- It composites garnet over each of 21 ground colours (59 style layers,
+  rivers included) and compares it with every ground beside it: 441 pairs,
+  all with the one-step margin.
+- The pin floor and the cluster floor both come out at 0.81, so they are one
+  constant.
+- The binding pair is a white bridge deck beside water: 3.1706:1 at 0.81
+  (3.0886 with the margin). At 0.80 it is 3.0773 (2.9979), which fails.
+- The guard asserts the constant IS the floor, and that the old one-ground
+  model would give 0.67 and 0.74. Putting the diagonal model back turns it
+  red.
+
+**Strokes are reported, not guarded.** Road casings and boundaries are lines
+under a pixel a side at these zooms. The fix round first recorded them with
+the rejected model, comparing a pin over a casing with that same casing. That
+said two were under 3:1 at 0.81, needing 0.84 and 0.94, and that the
+link/trunk casing cleared. Measured as crossings, three are under: the
+motorway casing 2.1664 (needs 0.93), the link/trunk casing 2.8167 (0.83) and
+the country boundary 1.8672 (0.98). The record now says so, and the old
+figures turn it red. Whether these count as grounds is the operator's call
+(#205), and the only compliant answer if they do is not to dim.
+
+**What review caught in the behaviour.**
+
+- The centre-line watcher stops reporting below lg and never cleared. Load
+  /properties at 1440, scroll a card to the line, then turn an iPad to
+  portrait: the carousel showed one listing while the map still featured
+  another and dimmed the one on stage. `activeIds` now empties when the
+  carousel takes over.
+- On the band, the pin a visitor pressed stayed dimmed while its details
+  sheet named it.
+
+**What review caught in the tests.**
+
+- The browser guard read each marker's own computed `opacity`. A rule of
+  `opacity: 0.6` on the pins' `<svg>` dimmed every pin, the active one
+  included, and passed all 12 cases. It now multiplies the painted opacity
+  from the element that paints the garnet up to the map. The same rule turns
+  9 of 16 cases red. A `filter: opacity()` still gets past it (#205).
+- axe blends a cluster's count over the already-dimmed disc. It reported
+  3.44:1 where the page paints 4.86:1, so the audit failed on correct code
+  whenever a dimmed cluster was in view. Cluster counts are now left out of
+  the spec's contrast results, with that reason, and the audit is called a
+  no-regression check of the maps' text, not coverage of dimming. The
+  site-wide gate has no such exclusion: a two-digit dimmed cluster would get
+  a false serious violation. Today's largest is 6 (#205).
+
+Also found: with scripting off, the band's focused list link names a pin
+that stays at 0.81, because the held link is JS-only (#205).

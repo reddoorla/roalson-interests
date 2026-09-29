@@ -273,6 +273,68 @@ export const MAP_ZOOM_STEP_MS = 300;
  *  under reduced motion; the fill stays garnet (>= 3:1 on the map ground). */
 export const ACTIVE_PIN_SCALE = 1.5;
 
+/**
+ * EVERY OTHER MARKER, WHILE A MAP HAS AN ACTIVE LISTING, is drawn at reduced
+ * opacity so the active one is featured (operator, 2026-09-29: "whatever the
+ * active pin is should stay full opacity and the rest should be slightly
+ * reduced opacity so it's featured"). A map with NO active listing dims
+ * nothing — dimming everything would feature nothing. See `markerDimmed`.
+ * One value for pins and clusters alike, because the measurement below gives
+ * both the same floor.
+ *
+ * MEASURED, NOT PICKED, and measured against the ground BESIDE a marker as
+ * well as the one under it. A see-through marker takes its colour from what it
+ * is drawn over, but WCAG 1.4.11 asks for 3:1 against the colours ADJACENT to
+ * it — and where a shoreline, a river or a bridge runs under a pin's outline
+ * the two are different grounds. So every garnet marker (a pin's body, a
+ * cluster's disc) is composited over each area ground X the tinted style
+ * paints and compared with each ground Y, X = Y included, every channel of
+ * both colours one 8-bit step toward the other. The binding pair is a minor
+ * road or path (`#ffffff`) beside water (`#a8b4b8`), which the style draws
+ * together wherever a white bridge deck crosses a river: 0.81 is the lowest
+ * two-decimal opacity that clears 3:1 there (3.1706:1 nominal, 3.0886:1 at
+ * the worst rounding; 0.80 is 3.0773 / 2.9979). A cluster's count is TEXT —
+ * sand on its own disc at 11-12.5px, so 4.5:1 (WCAG 1.4.3) — and holds from
+ * 0.74 over one ground, 0.79 with the count over water and its disc over a
+ * road, so the disc's 3:1 decides the cluster too: 0.81 again.
+ *
+ * This value replaced 0.67 for pins and 0.74 for clusters, the floors for a
+ * marker compared only with the ground it sits on. At 0.67 a pin over the
+ * background beside water is 2.25:1, over a white road 2.10:1.
+ *
+ * The road casings and boundaries are strokes under a pixel a side, not
+ * grounds: measured as crossings, three stay under 3:1 here (the motorway
+ * casing would need 0.93, the link/trunk casing 0.83, a country boundary
+ * 0.98), and are recorded, with the reason they do not choose
+ * this number, in src/lib/map-marker-contrast.test.ts, which re-derives it
+ * from static/map-style.json and asserts it is exactly the floor.
+ */
+export const DIMMED_MARKER_OPACITY = 0.81;
+
+/**
+ * Whether a marker standing for the listings `ids` is drawn DIMMED.
+ *
+ * Only when `active` names a listing THIS map draws (`points`): an id the map
+ * has no pin for — a slide with no location, another section's listing — is
+ * no active pin at all, and every marker stays at full opacity. The marker
+ * that HOLDS the active listing is never dimmed, whether it is its own pin or
+ * a cluster it has been grouped into (#115: at a listing's camera the active
+ * one is often inside a cluster, with no pin of its own). Nor is a marker
+ * holding one of the `held` listings: the one whose link in the map's list
+ * has keyboard focus (the keyboard's way to a pin — the pins themselves are
+ * `tabindex="-1"`), and the one the map's details sheet is naming. A marker
+ * that is being named must not look disabled while it is.
+ */
+export function markerDimmed(
+  ids: readonly string[],
+  active: string | null,
+  points: readonly Pick<MapPoint, "id">[],
+  held: readonly (string | null | undefined)[] = [],
+): boolean {
+  if (active === null || !points.some((p) => p.id === active)) return false;
+  return !ids.includes(active) && !held.some((id) => id != null && ids.includes(id));
+}
+
 // ---------------------------------------------------------------------------
 // MAP_HOME — the frame the map OPENS on, and the frame the raster is of (#122)
 // ---------------------------------------------------------------------------
@@ -299,6 +361,10 @@ export type { HomeCamera, HomeFrame } from "./map-home";
 export interface HomeMarker {
   /** `MapCluster.id` — the member ids, sorted. */
   id: string;
+  /** The member ids themselves, in `points` order — what `markerDimmed`
+   *  asks, so a placeholder cluster holding the active listing is featured
+   *  exactly as the live one is. */
+  ids: string[];
   /** How many listings this marker stands for. */
   count: number;
   /** The listing, when this marker is one listing's own pin. */
@@ -321,6 +387,7 @@ export function homeMarkers(points: readonly MapPoint[], frame: MapFrame): HomeM
   const cy = projectY(camera.lat, camera.zoom);
   return clusterPoints(points, camera.zoom, clusterRadius).map((cluster) => ({
     id: cluster.id,
+    ids: cluster.points.map((p) => p.id),
     count: cluster.points.length,
     point: cluster.points.length === 1 ? cluster.points[0]! : null,
     dx: projectX(cluster.lng, camera.zoom) - cx,
