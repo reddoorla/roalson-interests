@@ -263,14 +263,16 @@ test("with scripting off: centred at 1440x900 and floored at 1440x720, from the 
     try {
       await page.goto(LIVE);
       // Positive evidence that script really is off: no map booted, and the
-      // bar is still the server's `absolute`, never mount's `fixed`.
+      // root layout never mounted (`html[data-hydrated]`). The bar is no
+      // witness since 2026-09-29: the listing's is solid and ships pinned.
       expect(
         await page.$$eval(MAP, (els) => els.map((el) => el.hasAttribute("data-map-ready"))),
         "no map booted, because nothing ran",
       ).not.toContain(true);
       expect(
-        await page.$eval("nav[aria-label='Primary']", (el) => getComputedStyle(el).position),
-      ).toBe("absolute");
+        await page.$eval("html", (el) => el.hasAttribute("data-hydrated")),
+        "and the root layout never mounted",
+      ).toBe(false);
       for (const id of await sections(page)) {
         const read = await pinnedMidSection(page, id);
         expectPinned(`${id} @${height}, no JS`, read);

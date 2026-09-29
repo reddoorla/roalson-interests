@@ -1047,6 +1047,8 @@ files.
 
 ## 2026-09-20 — The bar and its menu: a pinned transparent bar the build does not reproduce, a floating state that needs no script to stay legible, and a `<noscript>` that printed itself (`feat/nav-overlay`)
 
+> Superseded in part by 2026-09-29 — /properties takes the solid bar from the top: the dark cloud gone, a map that no longer boots at load, and two helpers that leaned on the floating bar.
+
 Third Stage B batch, after #16 merged under the operator's new standing rule
 (merge on green until the site is live): the bar to the comp, and the open menu
 Stage A call 4 said to design from the system, because the file draws a
@@ -3740,6 +3742,8 @@ cannot be reopened either. Two things follow, and both are cheap:
 
 ## 2026-09-21 — Nine copies of one wait, all of them five seconds (`test/shared-hydration-wait`, #50)
 
+> Superseded in part by 2026-09-29 — /properties takes the solid bar from the top: the dark cloud gone, a map that no longer boots at load, and two helpers that leaned on the floating bar.
+
 Closes #50, and it is the defect this session kept reading as weather.
 
 `pnpm verify` went red locally three times today — `home-hero.spec.ts` once,
@@ -4990,6 +4994,7 @@ release was not published. That is the orchestrator's step after this merges.
 ## 2026-09-21 — The ground past both ends of the page, and a proxy that measured the page at rest (`fix/canvas-ground-past-both-ends`)
 
 > Superseded in part by 2026-09-22 — The ground past the top of the page was never once visible, and the test that "proved" it assumed the thing in question (#86). `.canvas-top` was never revealed by any pull; the top is the canvas now and the foot is the element.
+> Superseded in part by 2026-09-29 — /properties takes the solid bar from the top: the dark cloud gone, a map that no longer boots at load, and two helpers that leaned on the floating bar.
 
 The operator's words were "extend the bg of the top and bottom past the screen
 so trying to scroll past doesn't show white". A rubber-band overscroll on a Mac
@@ -5285,6 +5290,7 @@ routes, 1012 unit tests in 99 files, 133 of 134 Playwright.
 ## 2026-09-21 — The Properties masthead takes a photo, and a scrim sized for the photo we do NOT have yet (#15, `aa6e40b`)
 
 > Superseded in part by 2026-09-28 — Roalson's 2026-09-25 meeting notes, built: one-column hero, less yellow grounds, lighter masthead, map controls, view tabs, Past Projects, partner pages.
+> Superseded in part by 2026-09-29 — /properties takes the solid bar from the top: the dark cloud gone, a map that no longer boots at load, and two helpers that leaned on the floating bar.
 
 The band had been the brand's garnet-to-dark gradient since #11, for two
 reasons that both went away at once: the comp's file was unlicensed Unsplash
@@ -6062,6 +6068,8 @@ of #32; the rest of #32 stays open, and its comment now says which parts this
 batch answered and which it did not.
 
 ## 2026-09-22 — The ground past the top of the page was never once visible, and the test that "proved" it assumed the thing in question (#86)
+
+> Superseded in part by 2026-09-29 — /properties takes the solid bar from the top: the dark cloud gone, a map that no longer boots at load, and two helpers that leaned on the floating bar.
 
 The operator pulled past the top of the page on a real Mac — the confirmation
 #86 was left open for — and saw **sand**. Not the homepage hero's #3d0707, not
@@ -9847,6 +9855,7 @@ corrections they carried are all made in this entry, where they belong:
 ## 2026-09-23 — The wheel over the map zooms it again, on the operator's call: the trap that buys, measured, and a zoom that outlives its card (`feat/map-scroll-zoom`)
 
 > Superseded in part by 2026-09-28 — Roalson's 2026-09-25 meeting notes, built: one-column hero, less yellow grounds, lighter masthead, map controls, view tabs, Past Projects, partner pages.
+> Superseded in part by 2026-09-29 — /properties takes the solid bar from the top: the dark cloud gone, a map that no longer boots at load, and two helpers that leaned on the floating bar.
 
 **This reverses a decision that shipped yesterday**, and says so first. The
 2026-09-22 entry "The pinned map was taking the page's scroll…" turned
@@ -10924,6 +10933,7 @@ depends on where the map pins:
 
 > Superseded in part by 2026-09-28 — After #180: the content published through the connector, a hook build that prerendered the old page, and an issue sweep.
 > Superseded in part by 2026-09-29 — The triage batch: 23 issues closed across six clusters, and the defaults that did not survive measurement.
+> Superseded in part by 2026-09-29 — /properties takes the solid bar from the top: the dark cloud gone, a map that no longer boots at load, and two helpers that leaned on the floating bar.
 
 The client's feedback came in three pieces. Erik relayed the first on Discord on
 2026-09-24: the /properties masthead looked too dark ("aren't multiplying?"), a
@@ -11996,3 +12006,75 @@ URL and the route to host the clean copy was refused, so it went to the
 operator. Uploading Erik's original would put that location in the asset
 library's origin file. #73 (Bart's 140×177 headshot) is unchanged by any of
 this.
+
+## 2026-09-29 — /properties takes the solid bar from the top: the dark cloud gone, a map that no longer boots at load, and two helpers that leaned on the floating bar (#91, `claude/roalson-comments-review-45cstm`)
+
+The client's call, on Discord at 16:43 UTC: "Can we use the garnet and sand one
+(one that appears on sticky nav) and remove the dark cloud all together?"
+Nicole approved it at 16:47, and the operator picked the existing sticky bar
+over drawing a new one. So /properties no longer claims `navOver: "dark"` or
+`canvasTop`. The server ships the bar pinned and solid from the first paint:
+off-white ground, garnet wordmark, garnet CONTACT US. The layout pads `<main>`,
+so the masthead starts below the bar at 80px (1440) and 70px (390).
+`.masthead-shade`, the "dark cloud" that existed only to keep a floating bar's
+ink legible over the photo, is deleted. `.masthead-scrim` is unchanged. /contact
+is now the one route that floats its bar over a PageMasthead, and the homepage
+is untouched.
+
+**The title's contrast did not move, and the reason is geometry.** Measured on
+the real CMS photo on production builds, the H1's worst pixel is 3.47:1 at 1440
+and 3.62:1 at 390, before and after. Those match the 2026-09-28 numbers, which
+checks the script. The shade's box was 0–176px of the band at 1440 and 0–154
+at 390. The H1's line box is 266–346 and 159.5–207.5. They never overlapped, so
+the scrim's stops needed no change.
+
+**#91 is moot.** The canvas above the document was garnet and is now the page
+ground (#f3f1ef), which also fixed a defect nobody had filed. The before
+screenshots show a 15px garnet strip down the right edge: the
+`scrollbar-gutter: stable` gutter showing the garnet canvas.
+
+**Two test helpers leaned on the floating bar without saying so.**
+
+- `hydrated()` waited only for the bar to be `position: fixed`. That proves
+  script ran only where the server ships the bar unpinned. With every script
+  request refused, the old wait PASSED on both /properties routes. It now also
+  waits for `html[data-hydrated]`, which only the root layout's onMount writes
+  (#57).
+- The first map on /properties no longer boots at load at 1440x900. A map
+  boots once half of it is on screen (#103). Its top moved from y 596, with 304
+  of 595px showing (6.5px past the threshold), to y 676, with 224 showing. It
+  needs 297.5px, so it boots after about 76px of scroll and shows its MAP_HOME
+  picture until then. It had not booted after 5s at rest on a production build.
+  Sixteen tests waited for it at scroll 0. `tests/interaction/map-boot.ts`
+  scrolls just far enough to boot it without making any listing active. This
+  is a behaviour change the operator may want to weigh; nothing about it is
+  broken.
+
+**What review caught.** Two reviewers, then two refuters per finding:
+
+- The new scripting-off test read the bar at `domcontentloaded`. With no
+  scripts, that event does not wait for stylesheets, and the production build
+  links /properties' CSS as two files where `vite dev` inlines it. So on
+  preview the test raced the CSS. A reviewer's probe got an unstyled page on
+  10 of 20 reads at 1440 and 8 of 20 at 390. With both sheets held back 1.5s,
+  the read got `static` 30 of 30 times at DOMContentLoaded and `fixed` 30 of 30
+  at `load`. The builder's "preview run green" had been luck. It now waits for
+  `load`.
+- The reworked "photo shows above the h1" check could not fail on its own. It
+  scanned from row 0, which the new "top of the band undarkened" test already
+  forces to 0. A flat 0.44-black haze from 31% down (the "one grey haze" the
+  check exists to stop) passed every unit and browser test. The window now
+  runs from under the top strip to a fixed 36% of the band (`PHOTO_TO`, a
+  constant, not read back from the scrim, which would move with it). A guard
+  stops the window being empty, since `Math.max()` of no rows is -Infinity and
+  passes any ceiling.
+- `Nav.test.ts` still modelled a client navigation to /properties as a floating
+  page. It uses /contact now.
+
+**Found and not fixed:** the same stylesheet race in
+`listing-carousel.spec.ts`'s no-script case at 390, which fails OPEN: an
+unstyled page is exactly a visible stacked list (#199).
+
+**Still on hold:** lightening the masthead scrim. Erik's note on the gradient's
+transparency came the same afternoon. The operator stopped that work because it
+may become a design change, so the scrim's stops are the 2026-09-28 ones.

@@ -1,6 +1,7 @@
 import { expect, test, type Browser, type Locator, type Page } from "@playwright/test";
 
 import { hydrated } from "./hydrated";
+import { scrollMapToBoot } from "./map-boot";
 import { DARK, GARNET, OFF_WHITE, SAND } from "./palette";
 import { placedPin } from "./placed-markers";
 import { axe } from "./axe";
@@ -402,6 +403,8 @@ test.describe("the garnet card is the listing on the centre line", () => {
       await hydrated(page);
       const land = sectionOf(page, "land");
       const map = land.locator(MAP).first();
+      // It cannot boot at the top since 2026-09-29 (./map-boot).
+      await scrollMapToBoot(map);
       await expect(map).toHaveAttribute("data-map-ready", "", { timeout: 25_000 });
 
       for (const id of [CASTROVILLE, NEW_BRAUNFELS, CASTROVILLE]) {
@@ -445,6 +448,7 @@ test.describe("the garnet card is the listing on the centre line", () => {
       await hydrated(page);
       const land = sectionOf(page, "land");
       const map = land.locator(MAP).first();
+      await scrollMapToBoot(map);
       await expect(map).toHaveAttribute("data-map-ready", "", { timeout: 25_000 });
       for (const id of [CASTROVILLE, NEW_BRAUNFELS]) {
         await centre(page, id);

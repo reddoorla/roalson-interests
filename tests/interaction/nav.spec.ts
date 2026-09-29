@@ -15,9 +15,13 @@ import { axe } from "./axe";
 //     see — scripting on, bundle never arrived (#19). There the trigger is a
 //     link to the footer's list of pages, and a click has to get there.
 //
-// Both fixtures render through the real layout. DARK opens on PageMasthead and
-// claims `navOver`; LIGHT opens on the property page and claims nothing.
-const DARK = "/dev/properties";
+// Both render through the real layout. DARK opens on PageMasthead and claims
+// `navOver`; LIGHT opens on the property page and claims nothing. DARK is the
+// real /contact, the one route left whose bar floats over PageMasthead: it was
+// the /dev/properties fixture until 2026-09-29, when /properties took the solid
+// bar from the top (masthead-scrim.spec.ts holds that route to it). /contact's
+// load touches no CMS, so it serves the same on both servers.
+const DARK = "/contact";
 const LIGHT = "/dev/property";
 
 // SAND (./palette) is what the floating bar's controls are drawn in. They were
@@ -138,7 +142,7 @@ test("with scripting off, a solid bar is pinned and legible from the server's ma
   try {
     const page = await context.newPage();
     await page.goto(LIGHT, { waitUntil: "domcontentloaded" });
-    await hydrated(page);
+    await expect(page.locator(bar)).toHaveCSS("position", "fixed");
     await expect(page.locator(bar)).toHaveCSS("background-color", OFF_WHITE);
     await expect(page.locator(`${bar} noscript a`).first()).toHaveCSS("color", GARNET);
   } finally {
@@ -335,8 +339,8 @@ test("the open menu: named, focused, locked, clean under axe, and closed by Esca
   await expect(page.locator("body")).toHaveCSS("overflow", "hidden");
 
   await expect(menu.locator("ul a")).toHaveText(["Home", "Properties", "Contact Us"]);
-  // The fixture is not a real destination, so nothing is current here…
-  await expect(menu.locator('[aria-current="page"]')).toHaveCount(0);
+  // DARK is /contact, so its own entry is the one marked current.
+  await expect(menu.locator('[aria-current="page"]')).toHaveText(["Contact Us"]);
 
   // The Close sits exactly where the trigger was — and the trigger's GLYPH,
   // not its 44px target, ends on the comp's 80px gutter, centred on y=40.

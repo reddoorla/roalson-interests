@@ -359,7 +359,8 @@ describe("Nav — the homepage's gated wordmark", () => {
     expectHeld(bar);
 
     // → away again, scrolled to the top by the router: the wordmark is back.
-    await rerender({ wordmark: undefined, currentPath: "/properties" });
+    // /contact, the one other route whose bar floats (`over` stays "dark").
+    await rerender({ wordmark: undefined, currentPath: "/contact" });
     expect(resting(parts(bar).reverse)).not.toContain("opacity-0");
     expect(parts(bar).reverse.hasAttribute("data-nav-wordmark")).toBe(false);
   });
@@ -376,9 +377,9 @@ describe("Nav — the homepage's gated wordmark", () => {
     await scrollTo(600);
     expect(bar.hasAttribute("data-floating"), "past the gate").toBe(false);
 
-    // → /properties, which the visitor scrolls back to the top of. No claim, so
-    // nothing reads a gate on the way.
-    await rerender({ wordmark: undefined, currentPath: "/properties" });
+    // → /contact, which the visitor scrolls back to the top of. Its bar floats
+    // but claims no gate, so nothing reads one on the way.
+    await rerender({ wordmark: undefined, currentPath: "/contact" });
     await scrollTo(0);
     // → the homepage again. Top to top: the window fires no scroll event.
     await rerender({ wordmark: "gated", currentPath: "/" });

@@ -1,6 +1,7 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
 
 import { hydrated } from "./hydrated";
+import { scrollMapToBoot } from "./map-boot";
 import { axe } from "./axe";
 
 // THE PROPERTIES VIEW TABS (P5, client meeting 2026-09-25: "land / improved
@@ -108,6 +109,8 @@ test.describe("hydrated", () => {
     await page.goto(FIXTURE);
     await hydrated(page);
     const landMap = sectionOf(page, "land").locator("[data-property-map]");
+    // It cannot boot at the top since 2026-09-29 (./map-boot).
+    await scrollMapToBoot(landMap);
     await expect(landMap).toHaveAttribute("data-map-ready", "", { timeout: 25_000 });
     // A mark on the element itself. `{#if}` would pass everything else here:
     // the section leaves the DOM (so `toBeHidden` holds) and a NEW map boots
