@@ -53,3 +53,15 @@ export const FEATURED_DISSOLVE = 500;
 /** One whole turn of the band's clock: the dwell, then the settle the next
  *  dwell waits out. 8500 since 2026-09-23; 4500 before. */
 export const FEATURED_LAP = FEATURED_DWELL + FEATURED_DISSOLVE;
+
+/** The card reveal's `failSafe` (ms): how long after mount a SILENT observer
+ *  is given before the card is shown anyway (#105). Read out of the slice for
+ *  DWELL's reason: a spec that waits past it must follow it. */
+export const FEATURED_REVEAL_FAILSAFE = (() => {
+  const declared = /const REVEAL = \{[^}]*failSafe: (\d+)/.exec(readFileSync(SLICE, "utf8"));
+  if (!declared)
+    throw new Error(
+      "src/lib/slices/FeaturedProperties/index.svelte no longer declares REVEAL's `failSafe`",
+    );
+  return Number(declared[1]);
+})();

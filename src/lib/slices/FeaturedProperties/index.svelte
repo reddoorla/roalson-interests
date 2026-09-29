@@ -130,8 +130,14 @@
    *  `delayMax: 0` because the default 400 is multiplied by the element's
    *  `left / innerWidth` — at a 1440 window the card's left edge is 513 of a
    *  1455 layout width, so 400 × 513 / 1455 = 141.031ms of unasked-for delay
-   *  before a reveal nobody staggered against. */
-  const REVEAL = { translateY: "24px", duration: 600, delayMax: 0 } as const;
+   *  before a reveal nobody staggered against.
+   *
+   *  `failSafe` because the card ships `data-reveal` from the server (#105,
+   *  see the card's comment): hidden by CSS before script runs, it must not be
+   *  stranded by an observer that never reports. It stands down on the
+   *  observer's first report, so a card below the fold still waits for the
+   *  reader rather than being revealed on the timer, unseen. */
+  const REVEAL = { translateY: "24px", duration: 600, delayMax: 0, failSafe: 2500 } as const;
 
   /** The staggered text entrance, as FOUR LITERAL class strings, because
    *  Tailwind's source scan reads text and cannot see `delay-[${n}ms]` built
@@ -570,75 +576,38 @@
          `data-carousel-ready` is `hydrated` made visible: what a browser test
          waits on before it presses anything.
 
-         THE CARD REVEALS ON SCROLL, and carries NO `data-reveal` in the
-         server's markup — deliberately, and the two facts are one decision.
-         app.css hides `[data-reveal]` at `translateY(50%)`, hard-coded, and
-         `src/reveal-hidden-state.test.ts` holds that number against the
-         action's default; a call site travelling its own 24px may therefore
-         not ship the marker, or CSS would hide it at one distance and JS
-         reveal it from another. The cost is that the card paints in its final
-         position and is yanked to opacity 0 at hydration, so this is only safe
-         where nobody is looking at it when that happens.
+         THE CARD REVEALS ON SCROLL, AND SHIPS `data-reveal` FROM THE SERVER
+         (#105, the issue's option 2, operator call). It used to ship none,
+         because app.css hides `[data-reveal]` at the action's default 50% and
+         this card travels 24px: the card painted in place and was hidden at
+         hydration, which was only safe below the fold — and on a viewport
+         tall enough to show it at load, `hide()` and `show()` collapsed into
+         one style recalc and the reveal simply did not play. After the
+         revised hero (2026-09-28) the card's top is 921 at 1440 (947 on the
+         live document until it is re-seeded), so from `lg` it played only in
+         windows shorter than that: not at 1920 × 1080, nor at 1455 × 960.
+         See #105 for the full table.
 
-         MEASURED — and the first version of this comment was WRONG, which is
-         why the numbers are spelled out rather than summarised. It claimed
-         1391px at 1440 × 900 and 1072 at 390 × 844, "2.5 and 2.3 viewports
-         below the fold". Its own arithmetic did not agree with itself
-         (1391 / 900 = 1.55) and it had the two widths the wrong way round
-         relative to each other. Re-measured on a production build of the real
-         `/`: the card's top is ~1031px at 1440 × 900 and ~1173px at 390 × 844,
-         i.e. 1.15 and 1.39 viewports — only 131px of headroom at 1440, not two
-         and a half screens of it.
-
-         THOSE NUMBERS ARE HISTORY NOW. Both include the action's 24px of
-         travel: 1031 is the band's top, 1007, plus 24, and 1173 is 1149 + 24,
-         which matches a reading taken without the 200px map that #107 put
-         first in this band below `lg` (with the old hero, re-measured
-         2026-09-28, the card read 1373 there). Since the revised one-column hero (2026-09-28) the band —
-         and, from `lg`, the card — starts at y = 921 with the seeded copy, and
-         at 947 on the live document until it is re-seeded (its old heading
-         sets three lines); below `lg` the card sits 200 lower, at 1121 (1067).
-         At 1440 × 900 that is 21px of headroom (47), and the first-paint hazard
-         above is still off screen — `featured-properties.spec.ts` holds that
-         at 1440 × 900 and 390 × 844. That check reads the card's box with any
-         travel applied, and still cannot be fooled by the 24px: a card already
-         in view is shown the moment the observer first reports it, so it reads
-         at its layout position (measured with the hero's `lg:pb` cut to 40,
-         2026-09-28: the check failed at 896 against 900).
-
-         WHAT THAT MEANS, SAID PLAINLY: on a tall viewport the card is ALREADY
-         IN VIEW on load, so the observer fires immediately, `hide()` and
-         `show()` collapse into one style recalc, and THE REVEAL SIMPLY DOES
-         NOT PLAY. Measured above the fold at 1920 × 1080 (card top 1007), and
-         also at 1920 × 1200, 2560 × 1440, 3440 × 1440, 1024 × 1366 and
-         834 × 1112. There is no yank there — 460 sampled frames never dropped
-         below opacity 1 — so nothing is broken; the animation is just absent
-         on the most common desktop resolution there is. That is the honest
-         cost of shipping no marker, and it is a product call, not a bug: #105.
-
-         If the band ever moves up the page, or the reveal has to play at 1080,
-         this goes back to the action's default travel with a server-rendered
-         marker and a `failSafe`.
-
-         THAT TRIGGER HAS FIRED, AND THE CALL IS STILL OPEN. The revised hero
-         moved the band up 86px at 1440 (1007 → 921; 60 on the live document
-         until it is re-seeded). Measured at load on /dev/home, 2026-09-28, in
-         viewports that include a 15px scrollbar: the reveal still plays at
-         1455 × 900, and no longer plays at 1455 × 960 or 1551 × 960, where it
-         did before; at 1695 × 1050 and 1935 × 1080 it was already absent
-         (1007 < 1050). From `lg` the card now reveals only in a window
-         shorter than 921px (947 on the live document), against 1007 before.
-         Nothing here changed with it — switching to the marker is the
-         operator's product call on #105, not a side effect of a copy change.
+         Now the marker is in the markup, and the 24px it is hidden at is this
+         file's own rule (<style> below), which src/reveal-hidden-state.test.ts
+         holds against REVEAL's travel. The card is hidden at first paint in
+         both places, so hydration re-writes identical values and the reveal
+         plays whether the card is on screen at load or scrolled to later.
+         With scripting off, app.html's <noscript> rule shows it; `failSafe`
+         covers an observer that never reports (see REVEAL). What nothing
+         covers is scripting ON with a bundle that never arrives: the card
+         stays hidden, as the homepage wordmark does in the same state (#43).
 
          `use:animateIn` and not a local IntersectionObserver: one-shot on
          first intersection at threshold 0 is already what the action does, and
          a second copy of it here is exactly the re-derivation CLAUDE.md names
-         (Slider, trapFocus, prefersReducedMotion). It is also a complete no-op
-         under reduced motion — it tears itself down before it hides anything —
-         which is this animation's reduced-motion answer. -->
+         (Slider, trapFocus, prefersReducedMotion). Under reduced motion it
+         hides nothing — it drops the server's marker and tears itself down,
+         and app.css never hid the card there — which is this animation's
+         reduced-motion answer. -->
     <div
       {...carousel.region}
+      data-reveal
       use:animateIn={REVEAL}
       data-featured-card
       data-carousel-ready={carousel.hydrated ? "" : undefined}
@@ -939,6 +908,16 @@
 {/if}
 
 <style>
+  /* The card's hidden state at first paint (#105): app.css's `[data-reveal]`
+     rule with this card's own 24px travel, which is REVEAL's `translateY` —
+     src/reveal-hidden-state.test.ts holds the two together. Under the same
+     no-preference gate, and released by app.html's <noscript> rule. */
+  @media (prefers-reduced-motion: no-preference) {
+    [data-featured-card][data-reveal] {
+      transform: translateY(24px);
+    }
+  }
+
   /* Below `lg` the band is a one-column grid rather than block flow, for one
      reason: so the map slot — last in the DOM, because the card is the band's
      content — can take `order: -1` and sit where the 390 comp draws it, on

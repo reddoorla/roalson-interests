@@ -1,7 +1,12 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Browser, type Locator, type Page } from "@playwright/test";
 import { expectRing, GARNET } from "./expect-ring";
-import { FEATURED_DISSOLVE, FEATURED_DWELL, FEATURED_KEN_BURNS } from "./featured-dwell";
+import {
+  FEATURED_DISSOLVE,
+  FEATURED_DWELL,
+  FEATURED_KEN_BURNS,
+  FEATURED_REVEAL_FAILSAFE,
+} from "./featured-dwell";
 import { measuresGutter, viewportFor } from "./gutter";
 import { HYDRATION_TIMEOUT } from "./hydrated";
 import { DARK, SAND } from "./palette";
@@ -177,20 +182,24 @@ const revealed = (card: Locator) =>
  *  forget to wait for and the reason three audits in this file were measuring
  *  the server's markup rather than the page.
  *
- *  `revealed()` alone cannot say so: before hydration the card is at opacity 1
- *  with no transform and answers it instantly — the SAME answer the finished
- *  reveal gives. `data-reveal` is written by animateIn and by nothing else, so
- *  it is the positive artefact that the action ran. Pair it with `revealed()`
- *  around a scroll and the audit is pinned to one state: hidden by script, then
- *  revealed by script, then measured.
+ *  `revealed()` alone used to be unable to say so: before hydration the card
+ *  was at opacity 1 with no transform. It ships `data-reveal` since #105, so
+ *  under no-preference the SERVER's card is hidden too, and `data-reveal` is
+ *  no longer animateIn's alone — it is the server's. What only script writes
+ *  is `data-carousel-ready` (an effect) and the INLINE opacity (animateIn's
+ *  `hide()`), so those are the positive artefact now. Pair it with
+ *  `revealed()` around a scroll and the audit is pinned to one state: hidden
+ *  by script, then revealed by script, then measured.
  *
  *  Only sound for a card that is BELOW THE FOLD at load, which every band on
  *  /dev/home and /dev/a11y-fixtures is (measured: the fixtures page's launch
  *  band sits at y=16093 of a 1455 x 900 viewport, re-measured 2026-09-28 with
  *  the revised hero; it read 16119 when first written). A card already on
  *  screen is hidden and revealed inside one frame and this would race it. */
-const hiddenByScript = (card: Locator) =>
-  expect(card).toHaveAttribute("data-reveal", "", { timeout: HYDRATION_TIMEOUT });
+const hiddenByScript = async (card: Locator) => {
+  await expect(card).toHaveAttribute("data-carousel-ready", "", { timeout: HYDRATION_TIMEOUT });
+  await expect.poll(() => card.evaluate((el) => (el as HTMLElement).style.opacity)).toBe("0");
+};
 
 /** The one settled state every contrast audit in this file measures: script has
  *  hidden the card, the reader has scrolled to it, and the reveal is over.
@@ -2509,11 +2518,9 @@ test.describe("motion", () => {
         await page.goto(HOME);
         await adopted(page);
 
-        // THE FIRST-PAINT HAZARD, MEASURED RATHER THAN ASSUMED. The card may
-        // not ship `data-reveal` — its travel is not app.css's hard-coded 50%
-        // — so it paints in its final position and is put back to opacity 0
-        // when the action runs at hydration. That is only acceptable because
-        // it happens off screen, which is this assertion and nothing else.
+        // BELOW THE FOLD AT THESE TWO: the reveal waits for the scroll. (The
+        // card ships `data-reveal` since #105, so it is hidden at first paint
+        // wherever it is; "the reveal PLAYS" below is the tall-viewport half.)
         const fold = await page.locator(CARD).evaluate((el) => ({
           top: el.getBoundingClientRect().top,
           viewport: window.innerHeight,
@@ -2524,14 +2531,12 @@ test.describe("motion", () => {
           `card top ${fold.top}, viewport ${fold.viewport}, scrollY ${fold.scrollY}`,
         ).toBeGreaterThan(fold.viewport);
 
-        // AND IT IS NOT A YANK, IT IS A 600ms FADE-OUT. animateIn writes the
-        // hidden opacity and the transition in one block, so the browser
-        // starts a transition INTO the hidden state: measured here at 0.92 and
-        // 0.97 while it ran, which is why this polls for the settled value
-        // instead of reading once. Below the fold nobody sees either version,
-        // but the distinction is the whole cost of shipping no marker, so it
-        // is measured rather than described.
+        // Hidden, by script as well as by the server's marker: the inline
+        // opacity is animateIn's alone.
         await expect(page.locator(CARD)).toHaveCSS("opacity", "0");
+        expect(await page.locator(CARD).evaluate((el) => (el as HTMLElement).style.opacity)).toBe(
+          "0",
+        );
         // matrix(1, 0, 0, 1, 0, 24) — 24px down, which is the travel asked for
         // and NOT the 50% app.css would have hidden a marked element at.
         await expect(page.locator(CARD)).toHaveCSS("transform", "matrix(1, 0, 0, 1, 0, 24)");
@@ -2561,14 +2566,145 @@ test.describe("motion", () => {
     });
   }
 
-  test("reduced motion: the card is never hidden — the action is a no-op", async ({ page }) => {
+  for (const [width, height] of [
+    [1920, 1080],
+    [1440, 900],
+  ] as const) {
+    test(`${width} × ${height}: the reveal PLAYS — hidden at first paint, then a fade, never a flash (#105)`, async ({
+      browser,
+    }) => {
+      // THE TALL-VIEWPORT HALF OF #105. With no marker in the server's markup
+      // a card already on screen at load was hidden and shown inside one
+      // style recalc, and the reveal did not play at all: at 1920 × 1080 the
+      // card's top (921 with the seeded copy) is above the 1080 fold. 1440 ×
+      // 900 is the control, where the card is below the fold and the reveal
+      // waits for the scroll. The card's opacity is sampled every frame from
+      // the page's first, so "hidden at first paint" is read, not inferred.
+      test.setTimeout(45_000);
+      const { context, page } = await moving(browser, viewportFor(width, height));
+      try {
+        await page.addInitScript((card: string) => {
+          const w = window as unknown as {
+            __card: { o: number; seen: boolean }[];
+            __cardDone: boolean;
+          };
+          w.__card = [];
+          w.__cardDone = false;
+          let held: HTMLElement | null = null;
+          let overAt: number | null = null;
+          const tick = () => {
+            held ??= document.querySelector<HTMLElement>(card);
+            if (held) {
+              const box = held.getBoundingClientRect();
+              w.__card.push({
+                o: Number(getComputedStyle(held).opacity),
+                seen: box.top < innerHeight && box.bottom > 0,
+              });
+              if (overAt === null && !held.hasAttribute("data-reveal") && !held.style.opacity)
+                overAt = performance.now();
+            }
+            if (overAt !== null && performance.now() - overAt >= 300) w.__cardDone = true;
+            else requestAnimationFrame(tick);
+          };
+          requestAnimationFrame(tick);
+        }, CARD);
+        await page.goto(HOME);
+        await adopted(page);
+        const fold = await page.locator(CARD).evaluate((el) => ({
+          top: el.getBoundingClientRect().top,
+          viewport: window.innerHeight,
+        }));
+        if (height === 1080)
+          expect(fold.top, "premise: the card is ON SCREEN at load").toBeLessThan(fold.viewport);
+        else {
+          expect(fold.top, "premise: the card is below the fold").toBeGreaterThan(fold.viewport);
+          // A reader who lingers on the hero past the fail-safe still gets
+          // the reveal: the observer has reported, so the timer stood down
+          // (animateIn's `failSafe`). Shown unseen here would read 1 on every
+          // frame after the scroll.
+          await page.waitForTimeout(FEATURED_REVEAL_FAILSAFE + 500);
+          await page.locator(BAND).scrollIntoViewIfNeeded();
+        }
+        await expect
+          .poll(
+            () => page.evaluate(() => (window as unknown as { __cardDone: boolean }).__cardDone),
+            {
+              timeout: 15_000,
+              message: "the reveal never completed",
+            },
+          )
+          .toBe(true);
+        const frames = await page.evaluate(
+          () => (window as unknown as { __card: { o: number; seen: boolean }[] }).__card,
+        );
+        const trace = frames.map((f) => f.o);
+
+        expect(trace[0], "hidden on the first frame the card exists in").toBe(0);
+        const flashAt = trace.findIndex((o, i) => i > 0 && trace[i - 1] > 0.5 && o < 0.5);
+        expect(flashAt, `opacity ${trace[flashAt - 1]} → ${trace[flashAt]}`).toBe(-1);
+        // THE REVEAL PLAYED WHERE IT COULD BE SEEN: frames part-way, over the
+        // 600ms fade, with the card in the window. An element hidden and shown
+        // in one recalc has none — it goes 0 → 1 — and one revealed below the
+        // fold by a timer has them all off screen.
+        const partial = frames
+          .filter((f) => f.seen)
+          .map((f) => f.o)
+          .filter((o) => o > 0.02 && o < 0.98);
+        expect(
+          partial.length,
+          `${trace.length} frames, ${partial.length} part-way`,
+        ).toBeGreaterThan(5);
+        expect(trace.at(-1), "ends shown").toBe(1);
+      } finally {
+        await context.close();
+      }
+    });
+  }
+
+  test("scripting off, motion allowed: the card ships hidden by `data-reveal` and is SHOWN (#105)", async ({
+    browser,
+  }) => {
+    // The no-JS case below runs in the shared config's reduced-motion
+    // context, where app.css never hides `[data-reveal]` at all — so it
+    // cannot see this. Here the hidden state is live, and app.html's
+    // <noscript> rule is the only thing that shows the card.
+    const context = await browser.newContext({
+      javaScriptEnabled: false,
+      reducedMotion: "no-preference",
+      viewport: viewportFor(1440),
+    });
+    try {
+      const page = await context.newPage();
+      const html = await (await page.request.get(HOME)).text();
+      expect(html, "the served card carries the marker").toMatch(
+        /<div[^>]*data-reveal[^>]*data-featured-card|<div[^>]*data-featured-card[^>]*data-reveal/,
+      );
+      await page.goto(HOME, { waitUntil: "domcontentloaded" });
+      const card = page.locator(CARD);
+      // Present ("true" out of the spread's SSR; `[data-reveal]` matches any).
+      await expect(card).toHaveAttribute("data-reveal");
+      await expect(card).toHaveCSS("opacity", "1");
+      await expect(card).toHaveCSS("transform", "none");
+      await expect(
+        card.getByRole("link", { name: /Learn more about 25331 IH 10 West/ }),
+      ).toBeVisible();
+    } finally {
+      await context.close();
+    }
+  });
+
+  test("reduced motion: the card is never hidden — the action only drops the marker", async ({
+    page,
+  }) => {
     await page.goto(HOME);
     await adopted(page);
     const card = page.locator(CARD);
-    // No inline style AT ALL: animateIn tears itself down before it hides
-    // anything when the preference is already on, so there is nothing to
-    // reveal and nothing that could be stranded at opacity 0.
-    expect(await card.evaluate((el) => el.getAttribute("style"))).toBeNull();
+    // The server's marker is gone and nothing hid the card: app.css gates its
+    // hidden state on no-preference, and animateIn, seeing the preference on,
+    // only drops the marker (and hands its inline styles back on a timer).
+    await expect(card).not.toHaveAttribute("data-reveal");
+    expect(await card.evaluate((el) => (el as HTMLElement).style.opacity)).not.toBe("0");
+    await expect.poll(() => card.evaluate((el) => (el as HTMLElement).style.cssText)).toBe("");
     await expect(card).toHaveCSS("opacity", "1");
     await expect(card).toHaveCSS("transform", "none");
   });

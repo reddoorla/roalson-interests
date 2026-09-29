@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 // The scroll reveal's hidden state has three halves that have to agree, and
@@ -73,5 +73,66 @@ describe("the scroll reveal's first-paint hidden state", () => {
     const noscript = html.slice(html.indexOf("<noscript>"), html.indexOf("</noscript>"));
     expect(noscript).toContain("<style>");
     expect(noscript).not.toContain("<script");
+  });
+});
+
+// A call site that ships `data-reveal` from the SERVER owes two things the
+// rules above cannot see from app.css: a `failSafe` (the element is hidden
+// before script runs), and — if it passes its own `translateY` — a rule of its
+// own that hides it at THAT travel, or CSS hides it at one distance and the
+// action reveals it from another. The featured card is the first such site
+// (#105); this reads every component rather than naming it, so the next one
+// is held to the same pair.
+describe("every server-rendered reveal target", () => {
+  const svelteFiles = (readdirSync(resolve(root, "src"), { recursive: true }) as string[])
+    .filter((f) => f.endsWith(".svelte"))
+    .map((f) => resolve(root, "src", f));
+
+  const DEFAULT_TRAVEL = /translateY\s*\?\?\s*"([^"]+)"/.exec(action)![1];
+
+  const subjects = svelteFiles.flatMap((file) => {
+    const source = readFileSync(file, "utf-8");
+    const styleAt = source.lastIndexOf("<style>");
+    const markup = source
+      .slice(source.lastIndexOf("</script>"), styleAt === -1 ? undefined : styleAt)
+      .replace(/<!--[\s\S]*?-->/g, "");
+    const style = styleAt === -1 ? "" : source.slice(styleAt);
+    return [...markup.matchAll(/<[a-z][^>]*\sdata-reveal[\s=>/][^>]*>/g)].map(([tag]) => {
+      // The options: an inline `{{ … }}`, or a `const NAME = { … }` it names.
+      const inline = /use:animateIn=\{\{([^}]*)\}\}/.exec(tag)?.[1];
+      const named = /use:animateIn=\{(\w+)\}/.exec(tag)?.[1];
+      const options =
+        inline ??
+        (named ? new RegExp(`const ${named} = \\{([^}]*)\\}`).exec(source)?.[1] : undefined);
+      return { file: file.slice(root.length + 1), options, style };
+    });
+  });
+
+  it("finds them (the demo page and the featured card at least)", () => {
+    expect(subjects.map((s) => s.file)).toEqual(
+      expect.arrayContaining([
+        "src/routes/dev/animate-in/+page.svelte",
+        "src/lib/slices/FeaturedProperties/index.svelte",
+      ]),
+    );
+  });
+
+  it("each is driven by animateIn with a failSafe", () => {
+    for (const { file, options } of subjects) {
+      expect(options, `${file}: data-reveal without use:animateIn options`).toBeDefined();
+      expect(options, `${file}: no failSafe`).toMatch(/failSafe:\s*\d+/);
+    }
+  });
+
+  it("each is hidden at the distance it reveals from", () => {
+    for (const { file, options, style } of subjects) {
+      const travel = /translateY:\s*"([^"]+)"/.exec(options ?? "")?.[1] ?? DEFAULT_TRAVEL;
+      if (travel === DEFAULT_TRAVEL) continue; // app.css's rule, checked above
+      const gate = style.indexOf("@media (prefers-reduced-motion: no-preference)");
+      expect(gate, `${file}: its own rule must sit behind no-preference`).toBeGreaterThan(-1);
+      const rule = ruleAt(style, "[data-reveal]", gate);
+      expect(rule, `${file}: travels ${travel} but has no [data-reveal] rule`).not.toBeNull();
+      expect(/transform:\s*translateY\(([^)]+)\)/.exec(rule!)?.[1]?.trim(), file).toBe(travel);
+    }
   });
 });
