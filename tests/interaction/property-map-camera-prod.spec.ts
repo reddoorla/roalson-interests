@@ -1,6 +1,9 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
 
 import {
+  adopted,
+  CAMERA_FLIGHT_MS,
+  cameraAtRest,
   cameraLog,
   cameraMovesFor,
   cameraProbeInstalled,
@@ -9,18 +12,11 @@ import {
   mapZoom,
   resetCamera,
   watchCamera,
-  type CameraLog,
 } from "./camera-probe";
 import { measureDwell, nextTurn, slideOnStage } from "./band-turn";
 import { hydrated } from "./hydrated";
 import { placedPin } from "./placed-markers";
-
-/** `CAMERA_FLIGHT_MS` from $lib/property-map, repeated rather than imported: a
- *  Playwright spec is transformed by Playwright and does not resolve `$lib`.
- *  property-map.test.ts pins the source at 500 ("flies for as long as the
- *  homepage band's own dissolve"), so a change there fails a unit test before
- *  it can quietly weaken the floor below. */
-const CAMERA_FLIGHT_MS = 500;
+import { gapsPerMap, travelOf } from "./scroll-travel";
 
 // THE CAMERA, ON THE SITE'S OWN ROUTES (#118 review).
 //
@@ -175,111 +171,6 @@ async function premises(page: Page) {
   ).toBe("smooth");
 }
 
-/** Sample `window.scrollY` every frame from INSIDE the page while `drive` runs
- *  and for `ms` afterwards — a round trip per sample would miss the middle of a
- *  scroll that is over in under a second. Returns the positions and the cards
- *  the centre line crossed, both measured off the page's own boxes.
- *
- *  WHAT `crossed` COUNTS, AND WHY IT IS NOT THE SAMPLES ANY MORE. It used to be
- *  the cards a SAMPLED centre line sat on, and that made a premise out of the
- *  rAF lottery. Measured on this machine, 32 runs of the `End` case: the
- *  journey is the same every single time — 0 to 7000 on a 7900px document, over
- *  a span of 139-256ms — but the main thread sees it as 3 to 9 position
- *  changes, because the scroll is composited and one frame's step can be
- *  3841px (447 -> 4288 -> 7000 was a real run). Of 22 cards the centre line
- *  passes over, between 1 and 7 happened to be under a sampled position. The
- *  floor of `> 2` therefore failed 1 in 16 runs here and on CI (#130), on a
- *  scroll that had covered every card on the page.
- *
- *  So the span the centre line SWEPT is what is counted: every card whose box
- *  meets the interval between the lowest and the highest position sampled. That
- *  is the question the premise is asking, it cannot be under-reported by a
- *  missed frame, and it is 22 of 22 on every run of the case above. It is also
- *  strictly MORE than the old count — a card the sweep passed over between two
- *  samples was crossed, and the old line said it was not.
- *
- *  A SWEEP IS ONLY A SWEEP IF THE PAGE GLIDED, and that is why the glide
- *  premise is asserted BEFORE this count rather than beside it: a page that
- *  teleports 7000px in one frame passes OVER no card, and this interval would
- *  happily report all 22 of them. Mutated to exactly that — `End` replaced by
- *  `scrollTo({ behavior: "instant" })` over the same distance — the glide
- *  premise reds 3 times in 3, at "2 distinct" positions and 0 in the middle. */
-async function travelOf(page: Page, drive: () => Promise<void>, ms = 2500) {
-  // Each sample carries the time the CAMERA PROBE would stamp on a flight
-  // issued in the same frame (`__camera.t0` is the shared origin), which is
-  // what lets a case ask "did it fly while the page was moving" rather than
-  // only "how many times did it fly".
-  const sampling = page.evaluate(async (until) => {
-    const out: { t: number; y: number }[] = [];
-    const t0 = window.__camera.t0;
-    const end = performance.now() + until;
-    await new Promise<void>((resolve) => {
-      const step = () => {
-        out.push({ t: performance.now() - t0, y: Math.round(window.scrollY) });
-        if (performance.now() < end) requestAnimationFrame(step);
-        else resolve();
-      };
-      requestAnimationFrame(step);
-    });
-    return out;
-  }, ms);
-  await drive();
-  const samples = await sampling;
-  const positions = samples.map((s) => s.y);
-  // The last instant the page's own position CHANGED — the end of the
-  // movement, whoever or whatever was driving it, and not the moment the
-  // driving call returned (`End` returns the instant the key is pressed and
-  // the page glides on for another 300ms after it).
-  let movingUntil = samples[0]?.t ?? 0;
-  // …and the first instant it changed, so "how long was it moving" is a span
-  // and not a count of frames. A single-frame jump — which is what the fleet's
-  // reduced-motion emulation turns every drive here into — spans 0.
-  let movingFrom: number | null = null;
-  for (let i = 1; i < samples.length; i++)
-    if (samples[i]!.y !== samples[i - 1]!.y) {
-      movingUntil = samples[i]!.t;
-      movingFrom ??= samples[i - 1]!.t;
-    }
-  const { crossed, sampled } = await page.evaluate((ys) => {
-    const cards = [...document.querySelectorAll<HTMLElement>("[data-centre-id]")].map((li) => {
-      const b = li.getBoundingClientRect();
-      return {
-        id: li.dataset.centreId!,
-        top: b.top + window.scrollY,
-        bottom: b.bottom + window.scrollY,
-      };
-    });
-    const seen = new Set<string>();
-    for (const y of ys) {
-      const mid = y + window.innerHeight / 2;
-      for (const c of cards) if (c.top <= mid && c.bottom >= mid) seen.add(c.id);
-    }
-    const half = window.innerHeight / 2;
-    const lo = Math.min(...ys) + half;
-    const hi = Math.max(...ys) + half;
-    return {
-      crossed: cards.filter((c) => c.top <= hi && c.bottom >= lo).map((c) => c.id),
-      sampled: seen.size,
-    };
-  }, positions);
-  const first = positions[0]!;
-  const last = positions[positions.length - 1]!;
-  return {
-    positions,
-    crossed,
-    /** How many of `crossed` a sampled position happened to land on. Evidence
-     *  for a failure message, never a premise — see the note above. */
-    sampled,
-    movingUntil,
-    /** How long the page's position kept changing, in ms. */
-    movingFor: movingFrom === null ? 0 : movingUntil - movingFrom,
-    /** Positions strictly between where it started and where it ended: a page
-     *  that jumped in one frame has none, however far it went. */
-    between: new Set(positions.filter((y) => y !== first && y !== last)).size,
-    distance: last - first,
-  };
-}
-
 // ---------------------------------------------------------------------------
 // NO ARC IS ABANDONED, whatever is moving the page (#118 review MAJOR 3,
 // re-based on the flight itself by #127 and #128)
@@ -338,20 +229,6 @@ test.describe("no arc is abandoned: a flight lands before the next one leaves", 
   // found.
   const FLIGHT_FLOOR_MS = 450;
 
-  /** Consecutive flights to the same map, ms apart, closest first. */
-  function gapsPerMap(log: CameraLog) {
-    const byMap = new Map<number, number[]>();
-    for (const call of [...log.fly, ...log.ease])
-      byMap.set(call.m, [...(byMap.get(call.m) ?? []), call.t]);
-    const gaps: { m: number; gap: number }[] = [];
-    for (const [m, times] of byMap) {
-      const sorted = [...times].sort((a, b) => a - b);
-      for (let i = 1; i < sorted.length; i++)
-        gaps.push({ m, gap: Math.round(sorted[i]! - sorted[i - 1]!) });
-    }
-    return gaps.sort((a, b) => a.gap - b.gap);
-  }
-
   /** A point in the CARDS column, clear of every pinned map box — where a real
    *  visitor's pointer is while they wheel down the portfolio. Wheeling over a
    *  map box is a different test entirely: maplibre's ScrollZoomHandler ends in
@@ -369,7 +246,7 @@ test.describe("no arc is abandoned: a flight lands before the next one leaves", 
       return clear ? { x, y } : null;
     });
 
-  for (const [name, drive, watchFor] of [
+  for (const [name, drive, atLeast] of [
     ["the End key", (page: Page) => page.keyboard.press("End"), 2500],
     [
       "three PageDowns",
@@ -393,10 +270,16 @@ test.describe("no arc is abandoned: a flight lands before the next one leaves", 
     // and the spacing is set by a hand — 130-220ms for someone turning it
     // steadily. 150ms is inside that band and wider than the 120ms the old
     // rule used, so a guard that measures the PAGE is absent here and a guard
-    // that measures the FLIGHT is not. 300px a notch because that is a notch
-    // that crosses a card every time: at 1440x900 the portfolio's cards are
-    // ~284px of scroll apart, so a 100px notch crosses one every third notch
-    // and hides the interruption behind the card geometry.
+    // that measures the FLIGHT is not.
+    //
+    // 300px a notch because it clears a card on EVERY notch (they are ~284px
+    // of scroll apart at 1440x900), so a flight is interrupted at every
+    // crossing: against the 120ms debounce it went red 8 times in 8. A 100px
+    // notch is not blind to that defect, as this comment used to say — it
+    // discriminates only in a band. Measured on a production build of the
+    // debounce (#138): red 3 of 3 at a 130ms gap, 2 of 3 at 100ms, 0 of 3 at
+    // 160ms and 220ms. A guard that catches a defect at some gaps and not
+    // others is a flaky guard, and that is the reason it is 300.
     [
       "a real mouse wheel, 300px a notch, 150ms apart",
       async (page: Page) => {
@@ -439,13 +322,13 @@ test.describe("no arc is abandoned: a flight lands before the next one leaves", 
       test.setTimeout(180_000);
       await atTheTop(page);
 
-      const travel = await travelOf(page, () => drive(page), watchFor);
+      const travel = await travelOf(page, () => drive(page), { atLeast });
 
       // THE PREMISES. Without these a gap of Infinity could be true because
       // nothing moved, or because it moved in a single frame.
       expect(
         travel.distance,
-        `the page really travelled (${travel.positions.length} frames)`,
+        `the page really travelled (from ${travel.from}, ${travel.positions.length} frames)`,
       ).toBeGreaterThan(500);
       // IT GLIDED RATHER THAN JUMPING, said as time and as shape rather than as
       // a sample count. What stood here wanted more than 4 DISTINCT POSITIONS,
@@ -515,12 +398,33 @@ test.describe("no arc is abandoned: a flight lands before the next one leaves", 
       // never produced a pair to measure.
       expect(log.fly.length, `the camera did follow the scroll (${tally})`).toBeGreaterThan(0);
       // …and — the other half of #128 — it followed WHILE the page was moving
-      // rather than only once it stopped. The drive is the first `watchFor` ms
-      // of the run; a camera that issued everything after it is the freeze.
-      const during = log.fly.filter((c) => c.t <= travel.movingUntil + 100).length;
+      // rather than only once it stopped; a camera that issued everything after
+      // the page stopped is the freeze.
+      //
+      // Counted for the LAND map, the one every drive here starts in and
+      // crosses, and not for the page (#139). /properties draws two maps, so a
+      // flight to the improved one satisfied a page-wide count while the land
+      // map was frozen end to end — a per-section rule, the shape of #126's
+      // MAJOR 1. None of the drives above reaches an improved card while the
+      // page is moving on today's portfolio (the improved section starts at
+      // 5711 of 7968px), so here the two counts agree; the hole is real on a
+      // drive that does. Measured with the land map alone refusing while the
+      // document scrolls, a held scroll from 4300 across both sections: this
+      // count 0 and 0, the page-wide one 3 and 2.
+      //
+      // The `+ 100` is slack for the frame the flight is stamped in. It also
+      // means that on the SHORT drives a camera that commands only at the
+      // settle can clear this line — on `main` before #137 a pressed pin's one
+      // flight landed 121ms after the page stopped (#139). The held scroll is
+      // the case that discriminates the freeze; this line on the others is not.
+      const landMap = await mapNamed(page, "Land");
+      expect(landMap, "the land map is one of the booted maps").toBeGreaterThanOrEqual(0);
+      const landFlights = log.fly.filter((c) => c.m === landMap);
+      const during = landFlights.filter((c) => c.t <= travel.movingUntil + 100).length;
       expect(
         during,
-        `flights issued while the page was still moving (${during} of ${log.fly.length}; ${tally})`,
+        `land map flights issued while the page was still moving ` +
+          `(${during} of ${landFlights.length}, map ${landMap}; ${tally})`,
       ).toBeGreaterThan(0);
 
       // And the camera is not merely quiet: it went where the scroll ENDED.
@@ -565,13 +469,17 @@ test.describe("no arc is abandoned: a flight lands before the next one leaves", 
       return ids.slice().sort((a, b) => order.indexOf(b) - order.indexOf(a))[0]!;
     }, pins);
 
-    const travel = await travelOf(page, async () => {
-      await page.evaluate(
+    const travel = await travelOf(page, () =>
+      page.evaluate(
         (id) => document.querySelector<HTMLElement>(`[data-map-pin="${id}"]`)!.click(),
         target,
-      );
-    });
+      ),
+    );
     expect(travel.distance, "the press really scrolled the page").toBeGreaterThan(500);
+    // Glided before swept, as in every case above: `crossed` is an interval,
+    // and a press that teleported would sweep every card in it.
+    expect(travel.between, "and it glided — it occupied the middle").toBeGreaterThan(0);
+    expect(travel.movingFor, "and the travel took time").toBeGreaterThan(32);
     expect(travel.crossed.length, "across several cards").toBeGreaterThan(2);
 
     await page.waitForTimeout(1200);
@@ -656,9 +564,9 @@ test.describe("two sections, two cameras, no shared state between them", () => {
     const landMap = await mapNamed(page, "Land");
     expect(landMap, "the land map is one of the booted maps").toBeGreaterThanOrEqual(0);
     await resetCamera(page);
-    const before = await page.evaluate((n) => window.__camera.maps[n]!.getCenter(), landMap);
+    const before = await page.evaluate((n) => window.__camera.map(n).getCenter(), landMap);
     for (const id of landCards.slice(0, 5)) await centre(page, id);
-    const after = await page.evaluate((n) => window.__camera.maps[n]!.getCenter(), landMap);
+    const after = await page.evaluate((n) => window.__camera.map(n).getCenter(), landMap);
 
     const followed = await cameraMovesFor(page, landMap);
     expect(
@@ -720,6 +628,10 @@ test.describe("a drag holds the view against a box change the real portfolio can
     await page.locator(MAP).first().scrollIntoViewIfNeeded();
     await drawn(page, 0);
     expect(await cameraProbeInstalled(page)).toBe(true);
+    // Installed is not ADOPTED. At 390 this map issues no camera command after
+    // it boots, and on a production build addControl beats the patch, so
+    // nothing here adopted it until PropertyMap's own `resize()` did (#135).
+    await adopted(page);
     // POSITIVE EVIDENCE that the camera on screen is the fit-them-all one, not
     // an argument that it must be: `centreWatch` does not run below `lg`, so
     // `active` is null and the zoom is whatever the whole section fits into.
@@ -762,7 +674,7 @@ test.describe("a drag holds the view against a box change the real portfolio can
     ).toContain("mousemove");
 
     const held = await page.evaluate(() => {
-      const m = window.__camera.maps[0]!;
+      const m = window.__camera.map(0);
       const c = m.getCenter();
       return { lng: Number(c.lng.toFixed(5)), lat: Number(c.lat.toFixed(5)), zoom: m.getZoom() };
     });
@@ -771,7 +683,7 @@ test.describe("a drag holds the view against a box change the real portfolio can
     await page.waitForTimeout(1200);
     expect(await cameraMovesFor(page, 0), "the visitor's pan survives the same box change").toBe(0);
     const after = await page.evaluate(() => {
-      const m = window.__camera.maps[0]!;
+      const m = window.__camera.map(0);
       const c = m.getCenter();
       return { lng: Number(c.lng.toFixed(5)), lat: Number(c.lat.toFixed(5)), zoom: m.getZoom() };
     });
@@ -832,9 +744,11 @@ test.describe("the band's auto-advance keeps its hands off the visitor's view", 
     const expand = page.locator("[data-map-expand]").first();
     await expand.click();
     await expect(expand).toHaveAttribute("data-map-expand", "collapse");
-    await page.waitForTimeout(600);
+    // The expand costs two flights (see `cameraAtRest`, #148), so the zoom
+    // the wheel is measured against is read once they have landed.
+    await cameraAtRest(page);
     expect(
-      await page.evaluate(() => window.__camera.maps[0]!.scrollZoom.isEnabled()),
+      await page.evaluate(() => window.__camera.map(0).scrollZoom.isEnabled()),
       "paused, the map has the wheel",
     ).toBe(true);
 
@@ -850,7 +764,7 @@ test.describe("the band's auto-advance keeps its hands off the visitor's view", 
       await page.mouse.wheel(0, -120);
       await page.waitForTimeout(150);
     }
-    await page.waitForTimeout(900);
+    await cameraAtRest(page);
     const zoomed = await mapZoom(page);
     expect(zoomed, `the wheel really zoomed the map (${before} -> ${zoomed})`).toBeGreaterThan(
       before + 0.1,
@@ -918,7 +832,16 @@ test.describe("the band's auto-advance keeps its hands off the visitor's view", 
     await expect(page.getByRole("button", { name: "Play slides" })).toBeVisible();
     const expand = page.locator("[data-map-expand]").first();
     await expand.click();
-    await page.waitForTimeout(1200);
+    await expect(expand).toHaveAttribute("data-map-expand", "collapse");
+    // AT REST, NOT AFTER 1200ms (#148). The expand is two flights — the frame
+    // change, then the re-ask when the first lands — 1100ms of motion
+    // unloaded, so the fixed wait this replaced had 100ms of margin, and a Van
+    // Wijk arc read mid-flight is a zoom BELOW where it lands. (#148's "the
+    // zoom went DOWN" was on 6cfeba8, where this case did not pause the band
+    // and waited 600ms, so a clock turn's arc and the expand's own were both
+    // candidates. It pauses first now — Play is asserted above — so only the
+    // expand's is left, and this is the wait for it.)
+    await cameraAtRest(page);
     const before = await mapZoom(page);
     const spot = await wheelSpot(page);
     await page.mouse.move(spot.x, spot.y);
@@ -927,7 +850,7 @@ test.describe("the band's auto-advance keeps its hands off the visitor's view", 
       await page.mouse.wheel(0, -120);
       await page.waitForTimeout(150);
     }
-    await page.waitForTimeout(900);
+    await cameraAtRest(page);
     const zoomed = await mapZoom(page);
     expect(zoomed, `the wheel really zoomed the map (${before} -> ${zoomed})`).toBeGreaterThan(
       before + 0.1,
@@ -937,17 +860,17 @@ test.describe("the band's auto-advance keeps its hands off the visitor's view", 
     await expand.click();
     await expect(expand).toHaveAttribute("data-map-expand", "expand");
     await page.mouse.move(2, 2);
-    await page.waitForTimeout(600);
+    await cameraAtRest(page);
     const held = await mapCentre(page);
     await resetCamera(page);
     await page.getByRole("button", { name: "Next slide" }).click();
-    await page.waitForTimeout(1500);
 
-    const log = await cameraLog(page);
-    expect(
-      log.fly.length + log.ease.length + log.jump.length,
-      "the visitor asked for a different listing, so the camera follows again",
-    ).toBeGreaterThan(0);
+    await expect
+      .poll(async () => (await cameraMovesFor(page, 0)) > 0, {
+        message: "the visitor asked for a different listing, so the camera follows again",
+      })
+      .toBe(true);
+    await cameraAtRest(page);
     // WHAT PROVES IT FOLLOWED, since 2026-09-23: the camera arrives somewhere
     // ELSE at the SAME zoom — the visitor's zoom is carried to the next
     // listing (`chosenZoom`, PropertyMap.svelte), so a zoom that differed from

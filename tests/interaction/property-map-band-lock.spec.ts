@@ -2,7 +2,16 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Browser, type Page } from "@playwright/test";
 
 import { nextTurn } from "./band-turn";
-import { cameraLog, cameraProbeInstalled, mapZoom, resetCamera, watchCamera } from "./camera-probe";
+import {
+  adopted,
+  CAMERA_FLIGHT_MS,
+  cameraAtRest,
+  cameraLog,
+  cameraProbeInstalled,
+  mapZoom,
+  resetCamera,
+  watchCamera,
+} from "./camera-probe";
 import { carouselHydrated, hydrated } from "./hydrated";
 
 // THE HOMEPAGE BAND'S MAP IS A PICTURE WHILE THE SLIDESHOW RUNS, AND A MAP
@@ -32,10 +41,6 @@ import { carouselHydrated, hydrated } from "./hydrated";
 // nothing running. The reduced-motion case puts the emulation back on purpose.
 test.use({ contextOptions: { reducedMotion: "no-preference" } });
 
-/** `CAMERA_FLIGHT_MS` from $lib/property-map (a spec cannot resolve `$lib`);
- *  property-map.test.ts pins the source at 500. */
-const CAMERA_FLIGHT_MS = 500;
-
 const HOME = "/";
 const MAP = "[data-property-map]";
 const CARD = "[data-featured-card]";
@@ -62,9 +67,7 @@ async function bandUp(page: Page, viewport = { width: 1440, height: 900 }) {
   await expect(page.locator(MAP).first()).toHaveAttribute("data-map-ready", "", {
     timeout: 60_000,
   });
-  await expect
-    .poll(() => page.evaluate(() => window.__camera?.maps?.length ?? 0), { timeout: 30_000 })
-    .toBeGreaterThan(0);
+  await adopted(page);
   expect(await cameraProbeInstalled(page), "the camera probe installed").toBe(true);
 }
 
@@ -76,7 +79,7 @@ const running = (page: Page) =>
 /** The navigation handlers the band's map has on right now, read off maplibre. */
 const tools = (page: Page) =>
   page.evaluate(() => {
-    const m = window.__camera.maps[0] as unknown as Record<string, { isEnabled(): boolean }>;
+    const m = window.__camera.map(0) as unknown as Record<string, { isEnabled(): boolean }>;
     return [
       "scrollZoom",
       "boxZoom",
@@ -94,7 +97,7 @@ const tools = (page: Page) =>
 /** The canvas's focus and name, and the cursor a pointer over it gets. */
 const canvasState = (page: Page) =>
   page.evaluate(() => {
-    const c = window.__camera.maps[0]!.getCanvas();
+    const c = window.__camera.map(0).getCanvas();
     return {
       tabindex: c.getAttribute("tabindex"),
       name: c.getAttribute("aria-label"),
@@ -146,7 +149,8 @@ async function wheel(page: Page, at: { x: number; y: number }, n: number, deltaY
 
 /**
  * THE CAMERA AT REST: wait until maplibre reports nothing moving, twice, 200ms
- * apart, and read the zoom there.
+ * apart, with the view unchanged between (`cameraAtRest`), and read the zoom
+ * there.
  *
  * WHY NOT A ZOOM DELTA. While the slideshow runs its clock flies the camera to
  * each new listing — an arc that zooms OUT and back to 12 — so "the zoom did
@@ -157,16 +161,7 @@ async function wheel(page: Page, at: { x: number; y: number }, n: number, deltaY
  * it anywhere else.
  */
 async function zoomAtRest(page: Page) {
-  const still = () =>
-    page.evaluate(
-      () => !(window.__camera.maps[0] as unknown as { isMoving(): boolean }).isMoving(),
-    );
-  await expect
-    .poll(async () => (await still()) && (await page.waitForTimeout(200), await still()), {
-      timeout: 15_000,
-      message: "the camera came to rest",
-    })
-    .toBe(true);
+  await cameraAtRest(page, 0, 200);
   return mapZoom(page);
 }
 
@@ -455,7 +450,7 @@ test.describe("Pause hands over every tool at once, and Play takes them back at 
     expect(
       await page.evaluate(() =>
         (
-          window.__camera.maps[0] as unknown as { dragPan: { isActive(): boolean } }
+          window.__camera.map(0) as unknown as { dragPan: { isActive(): boolean } }
         ).dragPan.isActive(),
       ),
       "the drag is over",
@@ -487,7 +482,7 @@ test.describe("Pause hands over every tool at once, and Play takes them back at 
     expect(
       await page.evaluate(() =>
         (
-          window.__camera.maps[0] as unknown as { scrollZoom: { isActive(): boolean } }
+          window.__camera.map(0) as unknown as { scrollZoom: { isActive(): boolean } }
         ).scrollZoom.isActive(),
       ),
       "the wheel's zoom is over",
