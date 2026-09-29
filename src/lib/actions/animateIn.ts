@@ -13,17 +13,21 @@ export type AnimateInOptions = {
   /** This element's position in its group; pairs with `stagger`. Default 0. */
   index?: number;
   /** Viewport mode only: force the revealed state this many ms after mount if
-   *  the reveal has not run by then. However the reveal machinery fails — an
-   *  IntersectionObserver that never fires (sandboxed review iframes), or
+   *  the OBSERVER HAS NOT REPORTED by then. However the reveal machinery fails
+   *  — an IntersectionObserver that never fires (sandboxed review iframes), or
    *  requestAnimationFrame throttled to a stop in a background tab — the
-   *  element must not persist at opacity 0. When the normal reveal has already
-   *  run the timer is cleared.
+   *  element must not persist at opacity 0.
+   *
+   *  A live observer always delivers one first report after `observe()`,
+   *  intersecting or not, and that report stands the timer down (#105): from
+   *  then on the reveal waits for the reader. It used to run until the reveal
+   *  itself, so a below-fold element was revealed on the timer, unseen, by
+   *  anyone who had not scrolled to it within `failSafe` ms.
    *
    *  Opt-in per element, and REQUIRED on any element whose server-rendered
    *  markup carries `data-reveal` (see applyHidden): that element is hidden by
    *  CSS before JS runs, so a broken observer leaves it invisible rather than
-   *  merely unanimated. A blanket timer is deliberately not the default — it
-   *  would pre-reveal below-fold content before it is ever scrolled to. */
+   *  merely unanimated. */
   failSafe?: number;
 };
 
@@ -227,9 +231,11 @@ export function animateIn(node: HTMLElement, param?: AnimateInParam) {
 
     observer = new IntersectionObserver(
       ([entry]) => {
+        // Any report proves the observer alive: the fail-safe stands down.
+        if (failSafeTimer !== undefined) clearTimeout(failSafeTimer);
+        failSafeTimer = undefined;
         if (entry.isIntersecting) {
           show();
-          if (failSafeTimer !== undefined) clearTimeout(failSafeTimer);
           observer?.disconnect();
         }
       },

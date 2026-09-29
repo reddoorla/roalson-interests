@@ -57,7 +57,7 @@ A Svelte action that attaches fade-up reveal behavior to any element. Defaults t
 <div use:animateIn={{ duration: 1200, delayMax: 0 }}>…</div>
 ```
 
-**Options:** `trigger?: boolean` · `duration?: number` (ms, default `2400`) · `delayMax?: number` (ms, default `400`; viewport mode only — position-based stagger) · `translateY?: string` (default `"50%"`) · `stagger?: number` / `index?: number` (viewport mode only — fixed per-step delay for grids and columns) · `failSafe?: number` (ms; viewport mode only — reveal anyway if the reveal has not run by then).
+**Options:** `trigger?: boolean` · `duration?: number` (ms, default `2400`) · `delayMax?: number` (ms, default `400`; viewport mode only — position-based stagger) · `translateY?: string` (default `"50%"`) · `stagger?: number` / `index?: number` (viewport mode only — fixed per-step delay for grids and columns) · `failSafe?: number` (ms; viewport mode only — reveal anyway if the observer has not reported by then; its first report, in view or not, stands the timer down, so a below-fold element still waits for the reader).
 
 #### Revealing without the flash — `data-reveal`
 
@@ -72,10 +72,10 @@ The action can only hide its target once JS runs, which is well after the browse
 Three rules come with it, and none is optional:
 
 - **Pair it with `failSafe`.** An element hidden by server markup depends on JS to ever appear, so a broken observer would leave it invisible rather than merely unanimated.
-- **Keep the default `translateY`.** The CSS hides it at that distance; a call site passing its own travel must not ship the attribute, or CSS would hide it somewhere the action does not reveal it from.
-- **Above the fold only.** Below it the flash is nearly unobservable, so the trade — a certain flash for a possible invisible element — does not pay.
+- **Keep the default `translateY`, or ship its own rule.** The CSS hides it at that distance; a call site passing its own travel must carry a `[data-reveal]` rule of its own at that travel (under the same `no-preference` gate), or CSS would hide it somewhere the action does not reveal it from. The homepage's featured card does (#105), and `src/reveal-hidden-state.test.ts` holds every server-rendered target to both rules.
+- **Where it can be on screen at load.** Below the fold at every size the flash is nearly unobservable, so the trade — a certain flash for a possible invisible element — does not pay. The featured card is below the fold at 1440 × 900 and above it at 1920 × 1080, which is why it ships the marker.
 
-Scripting-off browsers are covered by a `<noscript>` style in `app.html` that forces the two properties back, so a reader with JS disabled is never shown less than a crawler reading the SSR HTML gets. `tests/interaction/reveal-no-js.spec.ts` measures all of it; `/dev/animate-in` carries the template's only server-hidden target.
+Scripting-off browsers are covered by a `<noscript>` style in `app.html` that forces the two properties back, so a reader with JS disabled is never shown less than a crawler reading the SSR HTML gets. `tests/interaction/reveal-no-js.spec.ts` measures all of it; `/dev/animate-in` carries the template's own server-hidden target, and `tests/interaction/featured-properties.spec.ts` the featured card's.
 
 ### Focus trap action — `use:trapFocus`
 

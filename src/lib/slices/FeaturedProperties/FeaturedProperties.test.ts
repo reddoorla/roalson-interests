@@ -688,13 +688,12 @@ describe("FeaturedProperties slice", () => {
       expect(announced(container)).toBe(2);
     });
 
-    it("reveals the card at 24px over 600ms — and never ships `data-reveal`", () => {
+    it("reveals the card at 24px over 600ms — and the fail-safe reveals it if nothing reports", async () => {
       // jsdom's IntersectionObserver is the no-op from vitest-setup.ts, so the
-      // card stays in animateIn's HIDDEN state here: that state is what this
-      // reads. The marker must not be in the markup — app.css hides
-      // `[data-reveal]` at a hard-coded translateY(50%), which is not the 24px
-      // this reveals from (src/reveal-hidden-state.test.ts holds those two
-      // against each other).
+      // card stays in animateIn's HIDDEN state here until the fail-safe: that
+      // state is what this reads, and then the fail-safe is. A no-op observer
+      // never reports, which is exactly the dead observer it exists for.
+      vi.useFakeTimers();
       const { container } = render(FeaturedProperties, {
         props: { slice: featuredPropertiesFixture() },
       });
@@ -704,9 +703,6 @@ describe("FeaturedProperties slice", () => {
       expect(region.style.transition).toContain("600ms");
       expect(region.style.transition).toContain("opacity");
       expect(region.style.transition).toContain("transform");
-      // The action writes the marker itself while it holds an element hidden,
-      // and drops it the moment the element is on its way to visible — so it
-      // being here is positive evidence the action ran, not a defect.
       expect(region.getAttribute("data-reveal")).toBe("");
       // delayMax: 0 — and THIS ASSERTION CANNOT FAIL HERE, which is worth
       // saying rather than leaving to be discovered. The delay is
@@ -717,42 +713,41 @@ describe("FeaturedProperties slice", () => {
       // tests/interaction/featured-properties.spec.ts, where the card's real
       // 513px left edge turns the default into 141ms.
       expect(region.style.transitionDelay).toBe("0ms");
+
+      // The card ships `data-reveal` from the server (#105), so an observer
+      // that never reports must not strand it: 2500ms, then shown.
+      await vi.advanceTimersByTimeAsync(2499);
+      expect(region.style.opacity).toBe("0");
+      await vi.advanceTimersByTimeAsync(1);
+      expect(region.hasAttribute("data-reveal")).toBe(false);
+      expect(region.style.opacity).toBe("1");
     });
 
-    it("ships no `data-reveal` from the SERVER, because its travel is not the CSS's", () => {
-      // The half of the decision jsdom cannot see. app.css hides
-      // `[data-reveal]` at a hard-coded translateY(50%) and
-      // src/reveal-hidden-state.test.ts holds that number against animateIn's
-      // default; this card reveals from 24px, so markup carrying the attribute
-      // would be hidden at one distance and revealed from another. The only
-      // way the attribute could reach the server's output is a literal in the
-      // template, which is what this reads — the same way
-      // reveal-hidden-state.test.ts reads app.css and app.html.
-      // WHY THIS READS SOURCE AND NOT A RENDER, WHICH IS NOT THE OBVIOUS
-      // ANSWER. The review of #102 called this out as the source-scraping
-      // technique CLAUDE.md names for making two separately-green branches red
-      // on merge (#86/#89), and proposed rendering instead. That was tried and
-      // it CANNOT work here: `animateIn` writes `data-reveal` ITSELF while the
-      // element is hidden (animateIn.ts:77) and removes it on reveal
-      // (animateIn.ts:88), so a client render shows the attribute present —
-      // measured, `hasAttribute("data-reveal") === true` — whether or not the
-      // template ever contained it. A render cannot tell the server's markup
-      // from the action's own bookkeeping, so it answers a different question.
+    it("ships `data-reveal` from the SERVER, hidden by its own 24px rule (#105)", () => {
+      // The half of the decision jsdom cannot see: what the SERVER emits.
+      // app.css hides `[data-reveal]` at animateIn's default 50%, and this
+      // card travels 24px, so the marker ships only beside a rule of its own
+      // at that travel (src/reveal-hidden-state.test.ts holds every such pair
+      // together, and tests/interaction/featured-properties.spec.ts reads the
+      // served bytes and the painted card).
       //
-      // The claim being made is about what the SERVER emits, and the only
-      // things that can see that are this read and a no-JS page fetch. The
-      // blindness is real and stated: a spread, a computed attribute name or
-      // the card moving into its own component would all pass this. That is
-      // what tests/interaction/featured-properties.spec.ts's no-JS case is
-      // for; this one fails fast, in milliseconds, for the ordinary edit.
+      // WHY THIS READS SOURCE AND NOT A RENDER. `animateIn` writes
+      // `data-reveal` ITSELF while the element is hidden and removes it on
+      // reveal, so a client render shows the attribute whether or not the
+      // template ever contained it — measured when this case asserted the
+      // opposite (#102's review). A render answers a different question.
       const source = readFileSync(
         resolve(process.cwd(), "src/lib/slices/FeaturedProperties/index.svelte"),
         "utf8",
       );
-      const markup = source.slice(source.indexOf("</script>"));
-      expect(markup).not.toMatch(/\sdata-reveal[\s=>]/);
-      // …and the travel it does pass is not the one app.css hides at.
+      const markup = source
+        .slice(source.lastIndexOf("</script>"), source.lastIndexOf("<style>"))
+        .replace(/<!--[\s\S]*?-->/g, "");
+      const card = /<div\s[^>]*data-featured-card[^>]*>/.exec(markup)?.[0] ?? "";
+      expect(card, "the card's opening tag").toContain("use:animateIn={REVEAL}");
+      expect(card).toMatch(/\sdata-reveal[\s=>]/);
       expect(source).toContain('translateY: "24px"');
+      expect(source).toMatch(/const REVEAL = \{[^}]*failSafe: \d+/);
     });
 
     it("under reduced motion there is no Pause to press, and the bar shows position", () => {
@@ -803,10 +798,14 @@ describe("FeaturedProperties slice", () => {
       const fill = container.querySelector<HTMLElement>("[data-carousel-progress] > div")!;
       expect(fill.dataset.carouselFill).toBe("position");
 
-      // D — the action is a complete no-op: it never touched the card.
+      // D — the action never hides the card. It ships `data-reveal` (#105),
+      // whose CSS is gated on no-preference, and the action's only act here
+      // is to drop that marker: no opacity 0, no travel, ever.
       const region = card(container);
-      expect(region.getAttribute("style")).toBeNull();
       expect(region.hasAttribute("data-reveal")).toBe(false);
+      expect(region.style.opacity).not.toBe("0");
+      expect(region.style.transform).not.toContain("24px");
+      expect(region.style.transition).toBe("");
     });
   });
 

@@ -42,6 +42,7 @@
 </script>
 
 <script lang="ts">
+  import { untrack } from "svelte";
   import type { Carousel } from "$lib/carousel.svelte";
 
   interface Props {
@@ -83,16 +84,7 @@
   // before this line: 41 frames in `handover` at 887px after a manual turn
   // and Play. So the paragraph below — "a handover only ever follows a
   // COMPLETED dwell" — was false on the visitor's path, and is true now.
-  // A visitor's turn restarts the dwell, so the bar sits at 0 through the
-  // settle and fills from there.
-  //
-  // WHAT THE BAR DOES AT THE VISITOR'S TURN ITSELF is unchanged, and on
-  // purpose: it drops to 0 on the frame of the turn. The consumer's slide
-  // dissolves there now (the featured band's `fade`, operator call
-  // 2026-09-23), but a full bar is not what the clock last said, and a
-  // partial one fading out would need the pre-turn value remembered and a
-  // timer to end a fade the stopped clock never will — the second clock this
-  // header refuses.
+  // A visitor's turn has a fade of its own: `departing`, below.
   const handover = $derived(
     timed && carousel.rotating && carousel.settling && carousel.turnedBy === "auto",
   );
@@ -122,7 +114,46 @@
   // there is no pop to see: the review that caught the bug above predicted one
   // here, and it is answered by the gating rather than by new state.
 
-  const value = $derived(timed ? (handover ? 1 : carousel.progress) : carousel.position);
+  // A VISITOR'S TURN FADES THE FILL IT FOUND (#146, operator 2026-09-23:
+  // manual turns animate). It used to drop to 0 on the frame of the turn.
+  // Now the fill keeps the width it was DRAWN at and fades out over the
+  // settle, and is HELD at opacity 0 for as long as `settling` lasts — which,
+  // after a manual turn with the clock stopped, is until Play has run the
+  // settle down. Not gated on `rotating`, so nothing can bring back a count
+  // the turn abandoned.
+  //
+  // NO TIMER ENDS IT. The fade is a CSS transition, and CSS ends it; the hold
+  // is state. The value is never eased, so there is still one clock: the
+  // width is simply what was on screen when the visitor turned, frozen.
+  const departing = $derived(timed && carousel.settling && carousel.turnedBy === "visitor");
+
+  /** What the fill showed when the visitor turned — a record of what was
+   *  DRAWN, which only an effect can know: the turn has already restarted
+   *  the dwell, so `progress` reads 0 by then (the featured band's `parked`
+   *  drift, same reason). */
+  let left = $state(0);
+
+  const value = $derived(
+    timed ? (handover ? 1 : departing ? left : carousel.progress) : carousel.position,
+  );
+
+  // Plain variables: what was last drawn, not inputs to anything. Taken on
+  // the flush `departing` turns on, and not again until it turns off — so a
+  // second press inside the fade keeps the width that is fading, and a turn
+  // inside a clock handover keeps its full bar. `$effect.pre`, so the width
+  // is written before the DOM is.
+  let drawn = 0;
+  let wasDeparting = false;
+  $effect.pre(() => {
+    const now = departing;
+    const shown = value;
+    untrack(() => {
+      if (now && !wasDeparting) left = drawn;
+      wasDeparting = now;
+      drawn = now ? left : shown;
+    });
+  });
+  const fading = $derived(handover || departing);
 
   // The arrows' rule, for the same reason (#47): a bar drawn before script
   // runs is a timer that will never move, or a "2 of 3" that cannot change.
@@ -134,8 +165,9 @@
      the live region already say both. No CSS transition on the TRANSFORM while
      it is timed: the clock draws every frame, and easing on top would be a
      second clock that keeps moving after a pause. Opacity is not the value, so
-     it may dissolve — see `handover` above. Position mode has no clock, so its
-     transform may glide (and app.css zeroes that under reduced motion).
+     it may dissolve — see `handover` and `departing` above. Position mode has
+     no clock, so its transform may glide (and app.css zeroes that under
+     reduced motion).
      `data-js-only`, like the arrows: without script nothing will ever move it.
 
      The fade's duration is the carousel's OWN `settle`, not a number written
@@ -153,12 +185,18 @@
       .track} {passedClasses}"
   >
     <div
-      data-carousel-fill={handover ? "handover" : timed ? "timed" : "position"}
+      data-carousel-fill={handover
+        ? "handover"
+        : departing
+          ? "departing"
+          : timed
+            ? "timed"
+            : "position"}
       class="absolute inset-0 origin-left {PROGRESS_TONES[tone].fill} {timed
-        ? `transition-opacity ease-linear ${handover ? 'opacity-0' : 'opacity-100'}`
+        ? `transition-opacity ease-linear ${fading ? 'opacity-0' : 'opacity-100'}`
         : 'transition-transform duration-300 ease-out'}"
       style="transform: scaleX({value}){timed
-        ? `; transition-duration: ${handover ? carousel.settle : 0}ms`
+        ? `; transition-duration: ${fading ? carousel.settle : 0}ms`
         : ''}"
     ></div>
   </div>
