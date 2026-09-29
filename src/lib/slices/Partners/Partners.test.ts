@@ -7,7 +7,6 @@ import type { Content } from "@prismicio/client";
 
 import {
   PARTNER_PHOTO_FIXTURE,
-  PARTNER_PROFILE_FIXTURE,
   partnerFixture,
   partnersFixture,
   partnersFixtureState,
@@ -27,14 +26,6 @@ const section = (container: HTMLElement) =>
 const cards = (container: HTMLElement) => [
   ...section(container).querySelectorAll<HTMLElement>("[data-partner]"),
 ];
-
-const withProfile = () =>
-  partnersFixture({
-    partners: [
-      partnerFixture({ profile: PARTNER_PROFILE_FIXTURE } as never),
-      partnerFixture({ name: "Bart Wilson" }),
-    ],
-  });
 
 describe("Partners slice — the band", () => {
   it("is registered, so a SliceZone renders it rather than a TodoComponent", () => {
@@ -78,12 +69,33 @@ describe("Partners slice — the band", () => {
     expect(section(container).innerHTML).not.toMatch(/\border-(first|last|none|\d)/);
   });
 
-  it("uses the site's one grid and caps the LEFT column at the comp's 371", () => {
+  it("uses the site's one grid and caps the LEFT column at the comp's 371 from `sm` up", () => {
     const { container, getByRole } = render(Partners, { props: { slice: partnersFixture() } });
     const grid = section(container).querySelector(".lg\\:grid")!;
     expect(grid.className).toContain("lg:grid-cols-[397fr_847fr]");
     expect(grid.className).toContain("lg:gap-9");
-    expect(getByRole("list").parentElement!.className).toContain("lg:max-w-[371px]");
+    // Not `lg:` only: a tablet drew the cards 704 to 959 wide (#54).
+    const column = getByRole("list").parentElement!.className.split(/\s+/);
+    expect(column).toContain("sm:max-w-[371px]");
+    expect(column).not.toContain("lg:max-w-[371px]");
+  });
+
+  it("draws the rule half a pixel from 2x up, and a half-alpha pixel below 1.5dppx (#53)", () => {
+    const { container } = render(Partners, { props: { slice: partnersFixture() } });
+    const rule = section(container).querySelector("[data-partners-rule]")!;
+    const classes = rule.getAttribute("class")!.split(/\s+/);
+    expect(classes).toEqual(
+      expect.arrayContaining([
+        "h-px",
+        "-mb-px",
+        "origin-top",
+        "scale-y-50",
+        "bg-primary",
+        "[@media(max-resolution:1.5dppx)]:scale-y-100",
+        "[@media(max-resolution:1.5dppx)]:bg-primary/50",
+      ]),
+    );
+    expect(rule.getAttribute("aria-hidden")).toBe("true");
   });
 
   it("renders the body's paragraphs on the comp's measure, a blank line apart", () => {
@@ -101,9 +113,11 @@ describe("Partners slice — the band", () => {
   it("draws no buttons — the comp has none — until an editor fills them", () => {
     const bare = render(Partners, { props: { slice: partnersFixture() } });
     expect(bare.queryByRole("link", { name: /properties/i })).toBeNull();
-    // Every link in the launch state is a partner's CONTACT.
+    // Every link in the default state is a partner's PROFILE or CONTACT.
     expect(bare.getAllByRole("link").map((a) => a.textContent?.trim())).toEqual([
+      "Profile, Matt Howard",
       "Contact Matt Howard",
+      "Profile, Bart Wilson",
       "Contact Bart Wilson",
     ]);
     cleanup();
@@ -157,8 +171,8 @@ describe("Partners slice — the band", () => {
   });
 });
 
-describe("Partners slice — a card", () => {
-  it("lists the partners under the eyebrow's name: name, role, in the editor's order", () => {
+describe("Partners slice — a card is its Person (#179)", () => {
+  it("lists the partners under the eyebrow's name: the Person's name and role, in the editor's order", () => {
     const { getByRole } = render(Partners, { props: { slice: partnersFixture() } });
     const list = getByRole("list", { name: "Our legacy" });
     const items = within(list).getAllByRole("listitem");
@@ -176,21 +190,94 @@ describe("Partners slice — a card", () => {
     }
   });
 
-  it("drops a row with no name, and a blank role's line", () => {
+  it("reads every word on the card from the Person: a renamed Person is a renamed card", () => {
     const slice = partnersFixture({
       partners: [
-        partnerFixture({ name: "  " }),
-        partnerFixture({ name: null } as never),
-        partnerFixture({ name: "Bart Wilson", role: " " }),
+        partnerFixture({
+          name: " Jonathan Collins ",
+          role: " Principal ",
+          email: "jcollins@roalson.com",
+        }),
       ],
     });
+    const { container, getByRole } = render(Partners, { props: { slice } });
+    const [card] = cards(container);
+    expect(card.querySelector(".t-h3")?.textContent).toBe("Jonathan Collins");
+    expect(card.querySelector(".t-h4")?.textContent).toBe("Principal");
+    expect(getByRole("link", { name: "Profile, Jonathan Collins" }).getAttribute("href")).toBe(
+      "/team/jonathan-collins",
+    );
+    expect(getByRole("link", { name: "Contact Jonathan Collins" }).getAttribute("href")).toBe(
+      "mailto:jcollins@roalson.com",
+    );
+  });
+
+  it("draws NO card for a Person that is unpublished, unset or nameless — and says so on the band", () => {
+    const unpublished = partnerFixture({ name: "Bart Wilson" }, {
+      profile: { link_type: "Document", id: "fixture-person-bart-wilson", isBroken: true },
+    } as never);
+    const slice = partnersFixture({
+      partners: [
+        partnerFixture(),
+        unpublished,
+        partnerFixture({}, { profile: { link_type: "Any" } } as never),
+        partnerFixture({ name: "  " }),
+        partnerFixture({ name: null } as never),
+      ],
+    });
+    const { container, queryByText } = render(Partners, { props: { slice } });
+    expect(cards(container).map((c) => c.querySelector(".t-h3")?.textContent)).toEqual([
+      "Matt Howard",
+    ]);
+    // An unpublished Person's page would 404, and the row has no name of its
+    // own any more to draw a card without one.
+    expect(queryByText("Bart Wilson")).toBeNull();
+    expect(container.innerHTML).not.toContain("/team/bart-wilson");
+    const root = section(container);
+    expect(root.getAttribute("data-partners-linked")).toBe("3");
+    expect(root.getAttribute("data-partners-shown")).toBe("1");
+    expect(root.getAttribute("data-partners-unembedded")).toBe("0");
+  });
+
+  it("drops a Person the API sent BARE, and counts it apart from an editor's drop", () => {
+    // A live link with no `data`: the repository's model does not ask for the
+    // four fields yet. Never the editor's doing, so it is counted separately.
+    const bare = partnerFixture({ name: "Bart Wilson" });
+    delete (bare.profile as { data?: unknown }).data;
+    const slice = partnersFixture({ partners: [partnerFixture(), bare] });
     const { container } = render(Partners, { props: { slice } });
     expect(cards(container).length).toBe(1);
+    const root = section(container);
+    expect(root.getAttribute("data-partners-linked")).toBe("2");
+    expect(root.getAttribute("data-partners-shown")).toBe("1");
+    expect(root.getAttribute("data-partners-unembedded")).toBe("1");
+  });
+
+  it("with every Person gone draws no cards, no rule and no list — the text column stays", () => {
+    const slice = partnersFixture({
+      partners: [
+        partnerFixture({}, {
+          profile: { link_type: "Document", id: "x", isBroken: true },
+        } as never),
+      ],
+    });
+    const { container, getByRole } = render(Partners, { props: { slice } });
+    expect(cards(container)).toEqual([]);
+    expect(section(container).querySelector("[data-partners-rule]")).toBeNull();
+    expect(section(container).querySelector("[data-partners-list]")).toBeNull();
+    expect(getByRole("heading", { level: 2 })).toBeTruthy();
+  });
+
+  it("drops a blank role's line", () => {
+    const slice = partnersFixture({
+      partners: [partnerFixture({ name: "Bart Wilson", role: " " })],
+    });
+    const { container } = render(Partners, { props: { slice } });
     expect(cards(container)[0].querySelector(".t-h3")?.textContent).toBe("Bart Wilson");
     expect(cards(container)[0].querySelector(".t-h4")).toBeNull();
   });
 
-  it("sends CONTACT to /contact when the row has neither a link nor an email", () => {
+  it("sends CONTACT to /contact when the row has no link and the Person no email", () => {
     const { getByRole } = render(Partners, { props: { slice: partnersFixture() } });
     expect(getByRole("link", { name: "Contact Matt Howard" }).getAttribute("href")).toBe(
       "/contact",
@@ -203,20 +290,19 @@ describe("Partners slice — a card", () => {
   it("sends CONTACT where the editor said, through cms-href, whatever shape was stored", () => {
     const slice = partnersFixture({
       partners: [
-        partnerFixture({
+        partnerFixture({ email: "mhoward@roalson.com" }, {
           contact_link: { link_type: "Web", url: "mailto:partner@example.com" },
         } as never),
-        partnerFixture({
-          name: "Bart Wilson",
+        partnerFixture({ name: "Bart Wilson" }, {
           contact_link: { link_type: "Web", url: "https://www.roalson.com/contact?who=bart" },
         } as never),
-        partnerFixture({
-          name: "A Third",
+        partnerFixture({ name: "A Third" }, {
           contact_link: { link_type: "Web", url: "tel:+12104965800" },
         } as never),
       ],
     });
     const { getByRole } = render(Partners, { props: { slice } });
+    // The row's link overrides the Person's email.
     expect(getByRole("link", { name: "Contact Matt Howard" }).getAttribute("href")).toBe(
       "mailto:partner@example.com",
     );
@@ -230,16 +316,11 @@ describe("Partners slice — a card", () => {
     );
   });
 
-  it("mails the partner's own address when the row has an email and no link (D3)", () => {
+  it("mails the Person's own address when the row has no link (D3)", () => {
     const slice = partnersFixture({
       partners: [
-        partnerFixture({ email: " mhoward@roalson.com " } as never),
-        partnerFixture({ name: "Bart Wilson", email: "not an address" } as never),
-        partnerFixture({
-          name: "A Third",
-          email: "third@roalson.com",
-          contact_link: { link_type: "Web", url: "/contact?who=third" },
-        } as never),
+        partnerFixture({ email: " mhoward@roalson.com " }),
+        partnerFixture({ name: "Bart Wilson", email: "not an address" }),
       ],
     });
     const { getByRole } = render(Partners, { props: { slice } });
@@ -250,26 +331,22 @@ describe("Partners slice — a card", () => {
     expect(getByRole("link", { name: "Contact Bart Wilson" }).getAttribute("href")).toBe(
       "/contact",
     );
-    // The link, when set, overrides the email.
-    expect(getByRole("link", { name: "Contact A Third" }).getAttribute("href")).toBe(
-      "/contact?who=third",
-    );
   });
 
-  it("names each CONTACT for its partner — two links reading 'Contact' are one name twice", () => {
+  it("names each link for its partner — two links reading 'Contact' are one name twice", () => {
     const { getAllByRole } = render(Partners, { props: { slice: partnersFixture() } });
     const names = getAllByRole("link").map((a) => a.textContent?.trim());
     expect(new Set(names).size).toBe(names.length);
     // WCAG 2.5.3: the drawn label opens the accessible name.
-    for (const name of names) expect(name).toMatch(/^Contact /);
+    for (const name of names) expect(name).toMatch(/^(Contact |Profile, )/);
   });
 
   it("gives every text link the padded 24px target, with the ramp class on an INNER element", () => {
-    const { container } = render(Partners, { props: { slice: withProfile() } });
+    const { container } = render(Partners, { props: { slice: partnersFixture() } });
     const targets = [
       ...section(container).querySelectorAll<HTMLElement>("[data-partner-links] > a"),
     ];
-    expect(targets.length).toBe(3);
+    expect(targets.length).toBe(4);
     for (const target of targets) {
       const classes = target.className.split(/\s+/);
       expect(classes).toEqual(expect.arrayContaining(["py-2", "-my-2"]));
@@ -281,10 +358,10 @@ describe("Partners slice — a card", () => {
   });
 
   it("ships the Figma export's arrow bytes on every text link, not a redraw and not ArrowRight", () => {
-    const { container } = render(Partners, { props: { slice: withProfile() } });
+    const { container } = render(Partners, { props: { slice: partnersFixture() } });
     const arrows = [...section(container).querySelectorAll<SVGElement>("[data-partner-links] svg")];
-    // PROFILE + CONTACT on the first card, CONTACT on the second.
-    expect(arrows.length).toBe(3);
+    // PROFILE + CONTACT on each card.
+    expect(arrows.length).toBe(4);
     for (const arrow of arrows) {
       expect(arrow.getAttribute("viewBox")).toBe("0 0 11 8");
       expect(arrow.getAttribute("aria-hidden")).toBe("true");
@@ -303,42 +380,26 @@ describe("Partners slice — a card", () => {
 });
 
 describe("Partners slice — PROFILE, the partner's page", () => {
-  it("WITHOUT a profile renders no PROFILE at all", () => {
-    const { container, queryByText } = render(Partners, { props: { slice: partnersFixture() } });
-    expect(section(container).querySelector("[data-partner-profile]")).toBeNull();
-    expect(queryByText(/profile/i)).toBeNull();
-  });
-
-  it("WITH a profile renders PROFILE as a link to /team/<uid>, before CONTACT, on that card only", () => {
-    const { container, getByRole } = render(Partners, { props: { slice: withProfile() } });
-    const [matt, bart] = cards(container);
+  it("renders PROFILE as a link to /team/<uid>, before CONTACT, on every card", () => {
+    const { container, getByRole } = render(Partners, { props: { slice: partnersFixture() } });
     const profile = getByRole("link", { name: "Profile, Matt Howard" });
     expect(profile.getAttribute("href")).toBe("/team/matt-howard");
     expect(profile.hasAttribute("data-partner-profile")).toBe(true);
-    const links = matt.querySelector("[data-partner-links]")!;
-    expect(
-      [...links.children].map((el) =>
-        el.hasAttribute("data-partner-profile")
-          ? "profile"
-          : el.hasAttribute("data-partner-contact")
-            ? "contact"
-            : el.tagName,
-      ),
-    ).toEqual(["profile", "contact"]);
-    expect(bart.querySelector("[data-partner-profile]")).toBeNull();
-    expect(
-      [...bart.querySelectorAll("[data-partner-links] > *")].map((a) => a.textContent?.trim()),
-    ).toEqual(["Contact Bart Wilson"]);
-  });
-
-  it("drops PROFILE when the linked Person is unpublished — asLink ignores isBroken", () => {
-    const slice = partnersFixture({
-      partners: [
-        partnerFixture({ profile: { ...PARTNER_PROFILE_FIXTURE, isBroken: true } } as never),
-      ],
-    });
-    const { container } = render(Partners, { props: { slice } });
-    expect(section(container).querySelector("[data-partner-profile]")).toBeNull();
+    for (const card of cards(container)) {
+      const links = card.querySelector("[data-partner-links]")!;
+      expect(
+        [...links.children].map((el) =>
+          el.hasAttribute("data-partner-profile")
+            ? "profile"
+            : el.hasAttribute("data-partner-contact")
+              ? "contact"
+              : el.tagName,
+        ),
+      ).toEqual(["profile", "contact"]);
+    }
+    expect(getByRole("link", { name: "Profile, Bart Wilson" }).getAttribute("href")).toBe(
+      "/team/bart-wilson",
+    );
   });
 
   it("no longer carries the <details> bio disclosure or its stylesheet", () => {
@@ -363,14 +424,19 @@ describe("Partners slice — the headshot", () => {
     }
   });
 
-  it("WITH a photo renders a 153px box and a srcset that tops out at 3×", () => {
+  it("WITH the Person's photo renders a 153px box and a srcset that tops out at 3×", () => {
+    // The live Person's own field, as the Content API embeds it (read
+    // 2026-09-29 from the published `home` document's relationship).
     const slice = partnersFixture({
       partners: [
         partnerFixture({
           photo: {
-            url: "https://images.prismic.io/roalson-interests/matt.jpg?auto=format,compress&rect=0,0,1200,1200&w=612&h=612",
-            alt: null,
             dimensions: { width: 612, height: 612 },
+            alt: "Matt Howard",
+            copyright: null,
+            url: "https://images.prismic.io/roalson-interests/FQHPWT2UEH21pF58_partner-matt-howard.jpg?auto=format%2Ccompress&rect=0%2C0%2C847%2C847&w=612&h=612",
+            id: "FQHPWT2UEH21pF58",
+            edit: { x: 0, y: 0, zoom: 1, background: "#ffffff" },
           },
         } as never),
       ],
@@ -388,49 +454,53 @@ describe("Partners slice — the headshot", () => {
     // First in the row: the photo is left of the panel.
     expect(box.parentElement!.firstElementChild).toBe(box);
     const img = box.querySelector("img")!;
-    expect(img.getAttribute("alt")).toBe("");
+    expect(img.getAttribute("alt")).toBe("Matt Howard");
     expect(img.getAttribute("sizes")).toBe("153px");
     expect(img.getAttribute("loading")).toBe("lazy");
     expect(img.className).toContain("object-cover");
     const widths = [...img.getAttribute("srcset")!.matchAll(/ (\d+)w/g)].map((m) => Number(m[1]));
     expect(widths).toEqual([153, 306, 459]);
     // The editor's square crop survives the resize: `rect` kept, stale `h` gone.
-    expect(img.getAttribute("src")).toContain("rect=0%2C0%2C1200%2C1200");
+    expect(img.getAttribute("src")).toContain("rect=0%2C0%2C847%2C847");
     expect(img.getAttribute("src")).toContain("w=306");
     expect(img.getAttribute("src")).not.toMatch(/[?&]h=/);
   });
 
-  it("uses the editor's alt text when there is one", () => {
+  it("uses an empty alt when the Person's photo has none: the name is the next thing read", () => {
     const slice = partnersFixture({
-      partners: [
-        partnerFixture({ photo: { ...PARTNER_PHOTO_FIXTURE, alt: "Matt Howard" } } as never),
-      ],
+      partners: [partnerFixture({ photo: { ...PARTNER_PHOTO_FIXTURE, alt: null } } as never)],
     });
     const { container } = render(Partners, { props: { slice } });
-    expect(cards(container)[0].querySelector("img")!.getAttribute("alt")).toBe("Matt Howard");
+    expect(cards(container)[0].querySelector("img")!.getAttribute("alt")).toBe("");
   });
 });
 
 describe("the /dev/home partner states", () => {
-  it("default is bare: no profiles, no photos, no emails, no contact links", () => {
+  it("default: both partners are live Persons with no photo, no email and no contact link", () => {
     const rows = partnersFixture().primary.partners;
-    expect(rows.map((row) => row.name)).toEqual(["Matt Howard", "Bart Wilson"]);
+    expect(rows.map((row) => Object.keys(row).sort())).toEqual([
+      ["contact_link", "profile"],
+      ["contact_link", "profile"],
+    ]);
     for (const row of rows) {
-      expect(row.profile).toEqual({ link_type: "Any" });
-      expect(row.photo).toEqual({});
-      expect(row.email).toBeNull();
+      const person = row.profile as unknown as {
+        isBroken: boolean;
+        data: Record<string, unknown>;
+      };
+      expect(person.isBroken).toBe(false);
+      expect(person.data.photo).toEqual({});
+      expect(person.data.email).toBeNull();
       expect(row.contact_link).toEqual({ link_type: "Any" });
     }
   });
 
-  it("?profile gives ONE partner a profile, so both PROFILE states are on the page together", () => {
+  it("?unpublished draws the first partner only", () => {
     const { container } = render(Partners, {
-      props: { slice: partnersFixtureState({ profile: true }) },
+      props: { slice: partnersFixtureState({ unpublished: true }) },
     });
-    expect(
-      cards(container).map((card) => card.querySelector("[data-partner-profile]") !== null),
-    ).toEqual([true, false]);
-    expect(section(container).querySelector("img")).toBeNull();
+    expect(cards(container).map((c) => c.querySelector(".t-h3")?.textContent)).toEqual([
+      "Matt Howard",
+    ]);
   });
 
   it("?photos gives both a generated headshot — a drawing, from no host", () => {
@@ -444,6 +514,5 @@ describe("the /dev/home partner states", () => {
       // Not a Prismic URL, so no srcset is invented for it.
       expect(img.hasAttribute("srcset")).toBe(false);
     }
-    expect(section(container).querySelector("[data-partner-profile]")).toBeNull();
   });
 });

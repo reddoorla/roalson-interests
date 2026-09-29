@@ -19,10 +19,10 @@
   //             interaction gates use it.
   //   ?bare     a `home` document with NO hero slice: the route still opens on
   //             the dark 528px ground its `navOver` claim promises.
-  //   ?profile  the first partner links a Person page, so ONE card carries
-  //             PROFILE and the other does not.
-  //   ?photos   both partner cards carry a headshot — a generated drawing (the
-  //             comp's two are placeholders, #3). Launch has none.
+  //   ?photos   both partners' Person documents carry a headshot — a
+  //             generated drawing, not either man's photo.
+  //   ?unpublished  the second partner's Person is unpublished, so the band
+  //             draws ONE card (#179).
   //   ?photo    with a picture in the photo band — again a drawing, not the
   //             comp's unlicensed stock. Empty (the gradient) is the default.
   //   ?featured=one   the featured band on launch day: three picks, ONE photo,
@@ -54,8 +54,11 @@
       ),
       params.get("featured"),
     ).map((slice) =>
-      slice.slice_type === "partners" && (params.has("profile") || params.has("photos"))
-        ? partnersFixtureState({ profile: params.has("profile"), photos: params.has("photos") })
+      slice.slice_type === "partners" && (params.has("photos") || params.has("unpublished"))
+        ? partnersFixtureState({
+            photos: params.has("photos"),
+            unpublished: params.has("unpublished"),
+          })
         : slice,
     ),
   );

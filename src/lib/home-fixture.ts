@@ -175,29 +175,31 @@ export const PARTNER_PHOTO_FIXTURE = {
   edit: { x: 0, y: 0, zoom: 1, background: "transparent" },
 };
 
-/** PROFILE's target for the `?profile` state: a published Person document
- *  link, as the API delivers one. */
-export const PARTNER_PROFILE_FIXTURE = {
-  link_type: "Document",
-  id: "fixture-person-matt",
-  type: "person",
-  uid: "matt-howard",
-  lang: "en-us",
-  tags: [],
-  slug: "matt-howard",
-  isBroken: false,
-};
+type PartnerPerson = NonNullable<Extract<PartnerRow["profile"], { id: string }>["data"]>;
 
-/** One partner row. Bare by default — no photo, no profile, no email, no
- *  contact link: the card is text only, PROFILE does not render, and CONTACT
- *  falls back to /contact. */
-export function partnerFixture(row: Partial<PartnerRow> = {}): PartnerRow {
+/** One partner row: a link to a published `person` document carrying the
+ *  model's four fields, as the Content API embeds them (#179 — the Person is
+ *  the one source), and no CONTACT override. Bare by default: no photo and no
+ *  email, so the card is text only and CONTACT falls back to /contact. Pass
+ *  `row` to override the row's own fields (`profile`, `contact_link`). */
+export function partnerFixture(
+  person: Partial<PartnerPerson> = {},
+  row: Partial<PartnerRow> = {},
+): PartnerRow {
+  const data = { name: "Matt Howard", role: "Partner", photo: {}, email: null, ...person };
+  const uid = (data.name ?? "").trim().toLowerCase().replace(/\W+/g, "-") || "partner";
   return {
-    name: "Matt Howard",
-    role: "Partner",
-    photo: {},
-    profile: { link_type: "Any" },
-    email: null,
+    profile: {
+      link_type: "Document",
+      id: `fixture-person-${uid}`,
+      type: "person",
+      uid,
+      lang: "en-us",
+      tags: [],
+      slug: uid,
+      isBroken: false,
+      data,
+    },
     contact_link: { link_type: "Any" },
     ...row,
   } as unknown as PartnerRow;
@@ -246,20 +248,23 @@ export function partnersFixture(primary: Partial<PartnersPrimary> = {}): Content
 }
 
 /** The partner cards' other states, as /dev/home's query string asks for them:
- *  `profile` links the FIRST partner's Person page (so one card has PROFILE and
- *  one does not, side by side), `photos` gives both a headshot. */
+ *  `photos` gives both a headshot; `unpublished` unpublishes the SECOND
+ *  partner's Person, whose card is then not drawn at all. */
 export function partnersFixtureState(state: {
-  profile?: boolean;
   photos?: boolean;
+  unpublished?: boolean;
 }): Content.PartnersSlice {
   const photo = state.photos ? { photo: PARTNER_PHOTO_FIXTURE } : {};
+  const bart = partnerFixture({ name: "Bart Wilson", ...photo } as never);
   return partnersFixture({
     partners: [
-      partnerFixture({
-        ...photo,
-        ...(state.profile ? { profile: PARTNER_PROFILE_FIXTURE } : {}),
-      } as never),
-      partnerFixture({ name: "Bart Wilson", ...photo } as never),
+      partnerFixture(photo as never),
+      state.unpublished
+        ? ({
+            ...bart,
+            profile: { link_type: "Document", id: "fixture-person-bart-wilson", isBroken: true },
+          } as unknown as PartnerRow)
+        : bart,
     ],
   });
 }

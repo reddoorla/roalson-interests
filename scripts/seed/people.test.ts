@@ -38,13 +38,16 @@ describe("the people data file", () => {
     }
   });
 
-  it("uses the same headshots as the home page's partner rows", () => {
+  it("is the only place a partner's headshot is written — the home rows link the Person (#179)", () => {
     const pages = read("scripts/seed/pages.json");
-    const partnerRows = JSON.stringify(
-      pages[0].data.slices.find((s: { slice_type: string }) => s.slice_type === "partners"),
+    const band = pages[0].data.slices.find(
+      (s: { slice_type: string }) => s.slice_type === "partners",
     );
-    for (const filename of people.flatMap((p) => imageRefs(p.data)))
-      expect(partnerRows).toContain(filename);
+    expect(imageRefs(band)).toEqual([]);
+    expect(people.flatMap((p) => imageRefs(p.data))).toEqual([
+      "partner-matt-howard.jpg",
+      "partner-bart-wilson.jpg",
+    ]);
   });
 
   it("stages the name as the document title and resolves the headshot to its asset id", () => {
