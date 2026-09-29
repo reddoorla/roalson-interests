@@ -380,16 +380,21 @@ describe("the property map's tinted palette", () => {
   });
 
   /**
-   * NOT A PASS, and recorded as a number rather than left out. `highway-name-path`
-   * is footpath and track names at minzoom 15.5 — well past every section's fit
-   * (6.948 land, 9.644 improved) but reachable by pinching in — and at 3.33:1 on
-   * its halo it is below AA for normal text (3.27:1 on the ground before
-   * 2026-09-28). Tracked as an issue rather than
-   * quietly darkened here, because the tone came from the operator's table.
+   * `highway-name-path` is footpath and track names at minzoom 15.5 — well past
+   * every section's fit (6.948 land, 9.644 improved) but reachable by pinching
+   * in. It was `#8a8378`, 3.3294:1 on its halo (3.27:1 on the ground before
+   * 2026-09-28) and the one sub-AA label on the map, recorded here as a failing
+   * number until #111 darkened it to `#6f6a60`. It stays LIGHTER than the road
+   * names' `--color-secondary`, so paths still read as a second, quieter tier.
    */
-  it("records the one map label that is BELOW AA, so it cannot be forgotten", () => {
-    expect(ratio(PALETTE.pathLabel, PALETTE.ground)).toBeCloseTo(3.3294, 3);
-    expect(ratio(PALETTE.pathLabel, PALETTE.ground)).toBeLessThan(AA_NORMAL_TEXT);
+  it("puts footpath labels above AA on their halo and fill, a tier under road names", () => {
+    expect(ratio(PALETTE.pathLabel, PALETTE.ground)).toBeCloseTo(4.7715, 3);
+    expect(ratio(PALETTE.pathLabel, PALETTE.ground)).toBeGreaterThanOrEqual(AA_NORMAL_TEXT);
+    // The path fill it is drawn along (road_path_pedestrian is minorRoad).
+    expect(ratio(PALETTE.pathLabel, PALETTE.minorRoad)).toBeCloseTo(5.3758, 3);
+    expect(ratio(PALETTE.pathLabel, PALETTE.ground)).toBeLessThan(
+      ratio(PALETTE.secondary, PALETTE.ground),
+    );
   });
 
   /** The map's ground IS the page's ground, so a tile that has not arrived is

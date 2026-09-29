@@ -1245,6 +1245,10 @@ describe("which scroll a wheel event belongs to", () => {
 // geometry is property-map.spec.ts's "the control column": three 44px targets
 // stacked flush with the map's right and bottom edges. Measured 2026-09-28:
 // on the full frame the tightest clearance is 36.8px (the land panel).
+// Compact widths start at 265 (#182): WCAG 1.4.10's 320px window less the 40px
+// of gutters and Chromium's 15px classic scrollbar gutter. From the comp's 350
+// the walk could not see a camera that only moves the Seguin collision onto
+// 360 and 375 phones (-98.38 does exactly that, and passed from 350).
 describe("no marker opens under the control column (plan guard 2i)", () => {
   const COLUMN = { width: 44, height: 3 * 44 };
   /** The homepage band's picks (scripts/seed/pages.json). */
@@ -1253,7 +1257,7 @@ describe("no marker opens under the control column (plan guard 2i)", () => {
   );
   // Every box each frame is drawn at: the full frame's fixed panel and the
   // band's measured slots (map-home.ts), and the compact frame at every width
-  // below `lg`.
+  // from a 320px window's to `lg`.
   const FULL: Box[] = [
     PANEL,
     BAND,
@@ -1262,22 +1266,40 @@ describe("no marker opens under the control column (plan guard 2i)", () => {
     { width: 1073, height: 1170.5 },
   ];
   const COMPACT: Box[] = [];
-  for (let width = 350; width <= 1023; width++) COMPACT.push({ width, height: 200 });
+  for (let width = 265; width <= 1023; width++) COMPACT.push({ width, height: 200 });
 
-  const underColumn = (points: MapPoint[], frame: "full" | "compact", boxes: Box[]) => {
+  /** Each marker's centre in each box: a pin is anchored at its tip, a
+   *  cluster disc at its centre. */
+  const centres = (points: MapPoint[], frame: "full" | "compact", boxes: Box[]) => {
     const { pin } = MAP_FRAMES[frame];
-    const hits: string[] = [];
-    for (const box of boxes)
-      for (const m of homeMarkers(points, frame)) {
-        // A pin is anchored at its tip; a cluster disc at its centre.
-        const x = box.width / 2 + m.dx;
-        const y = box.height / 2 + m.dy - (m.point ? (pin * PIN_ASPECT) / 2 : 0);
-        if (x > box.width - COLUMN.width && x <= box.width)
-          if (y > box.height - COLUMN.height && y <= box.height)
-            hits.push(`${m.id} at ${box.width} x ${box.height}`);
-      }
-    return hits;
+    return boxes.flatMap((box) =>
+      homeMarkers(points, frame).map((m) => ({
+        box,
+        id: m.id,
+        x: box.width / 2 + m.dx,
+        y: box.height / 2 + m.dy - (m.point ? (pin * PIN_ASPECT) / 2 : 0),
+      })),
+    );
   };
+
+  const underColumn = (points: MapPoint[], frame: "full" | "compact", boxes: Box[]) =>
+    centres(points, frame, boxes)
+      .filter(({ box, x }) => x > box.width - COLUMN.width && x <= box.width)
+      .filter(({ box, y }) => y > box.height - COLUMN.height && y <= box.height)
+      .map(({ box, id }) => `${id} at ${box.width} x ${box.height}`);
+
+  /** The closest any on-screen marker centre comes to the column, in px. */
+  const clearance = (points: MapPoint[], frame: "full" | "compact", boxes: Box[]) =>
+    Math.min(
+      ...centres(points, frame, boxes)
+        .filter(({ box, x, y }) => x >= 0 && x <= box.width && y >= 0 && y <= box.height)
+        .map(({ box, x, y }) =>
+          Math.hypot(
+            Math.max(box.width - COLUMN.width - x, 0),
+            Math.max(box.height - COLUMN.height - y, 0),
+          ),
+        ),
+    );
 
   it("the improved section, at every Properties box", () => {
     expect(underColumn(improved, "full", [PANEL])).toEqual([]);
@@ -1288,8 +1310,9 @@ describe("no marker opens under the control column (plan guard 2i)", () => {
   // 445 wide (a 398-485px phone; the 430px Pro Max is one), the Seguin pin's
   // centre is under the − target. Confirmed in Chromium on the live /properties
   // at 430: the pin's centre, (366.3, 115.8) in a 375 x 200 box, hit-tests to
-  // `zoom-out`. Moving the camera or the column is a design call, so this list
-  // pins the known collision exactly: a new one, or the fix, turns it red.
+  // `zoom-out`. Moving the camera or the column is a design call (#182), so
+  // this list pins the known collision exactly: a new one, or the fix, turns
+  // it red. Nothing collides from 265 to 357: the pin is off the right edge.
   const SEGUIN_UNDER_MINUS = Array.from(
     { length: 445 - 358 + 1 },
     (_, i) => `ih-10-at-fm-725-seguin at ${358 + i} x 200`,
@@ -1297,6 +1320,16 @@ describe("no marker opens under the control column (plan guard 2i)", () => {
   it("the land section, at every Properties box: only the known Seguin collision", () => {
     expect(underColumn(land, "full", [PANEL])).toEqual([]);
     expect(underColumn(land, "compact", COMPACT)).toEqual(SEGUIN_UNDER_MINUS);
+  });
+
+  // The margins, so a camera change that keeps every centre out but eats the
+  // room is still seen. Full is the land panel's Loop 1604 at 181 pin.
+  it("records the tightest clearance on each frame", () => {
+    expect(clearance(land, "full", [PANEL])).toBeCloseTo(36.79, 2);
+    expect(clearance(improved, "full", [PANEL])).toBeGreaterThan(36.79);
+    expect(clearance(bandPicks, "full", FULL)).toBeGreaterThan(36.79);
+    expect(clearance(improved, "compact", COMPACT)).toBeCloseTo(37.19, 2);
+    expect(clearance(bandPicks, "compact", COMPACT)).toBeCloseTo(32.74, 2);
   });
 
   it("the homepage band's picks, at every band box", () => {
