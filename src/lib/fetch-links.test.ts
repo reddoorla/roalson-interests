@@ -44,6 +44,6 @@ describe("fetchLinksOf", () => {
       },
       {},
     ];
-    expect(fetchLinksOf(models)).toEqual(["a.g", "a.w", "a.x", "b.z"]);
+    expect(fetchLinksOf(models as never)).toEqual(["a.g", "a.w", "a.x", "b.z"]);
   });
 });
