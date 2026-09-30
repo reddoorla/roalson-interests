@@ -243,9 +243,12 @@
     "motion-reduce:transition-none group-active:scale-90 group-active:opacity-70 " +
     "group-data-[pressed]:scale-90 group-data-[pressed]:opacity-70";
 
-  // A 44px target around a 20×16 glyph, pulled 12px into the gutter so the
-  // GLYPH's edge — not the target's — lands on the comp's x=1360 / x=370.
-  const ICON_BUTTON = "group -mr-3 flex min-h-11 min-w-11 items-center justify-center";
+  // A 44px target around a 20×16 glyph, pulled into the gutter so the edge the
+  // eye reads — not the target's — lands on the comp's x=1360 / x=370: the
+  // GLYPH's, 12px in; on the photograph the disc's, 2px in, the glyph centred
+  // in it. The Close takes the same pull, so it sits where the trigger was.
+  const ICON_BUTTON = (onPhoto: boolean) =>
+    `group ${onPhoto ? "-mr-0.5" : "-mr-3"} flex min-h-11 min-w-11 items-center justify-center`;
   // The trigger's 40px garnet disc on a photograph (`onPhoto`), ringed in sand
   // like the CTA beside it, with the focus ring pulled inside it. Always
   // drawn, transparent off the photograph, so it fades with the bar.
@@ -255,6 +258,14 @@
     (on
       ? "rounded-full before:border-light before:bg-primary focus-visible:outline-offset-[-5px]"
       : "before:border-transparent before:bg-transparent");
+
+  // Both forms of the trigger. The pull glides with the disc's fade, so the
+  // controls do not hop 10px at the gate.
+  const trigger = $derived(
+    `${ICON_BUTTON(onPhoto)} ${ICON_DISC(onPhoto)} duration-300 ` +
+      "transition-[color,outline-color,margin-right] motion-reduce:transition-colors " +
+      (floating ? "text-light" : "text-primary"),
+  );
 
   // The bar's box, shared with the overlay's own bar so the wordmark and the
   // Close sit exactly where the wordmark and the trigger were: 80 tall from
@@ -399,9 +410,7 @@
           <button
             bind:this={openButtonEl}
             type="button"
-            class="{ICON_BUTTON} {ICON_DISC(onPhoto)} transition-colors duration-300 {floating
-              ? 'text-light'
-              : 'text-primary'}"
+            class={trigger}
             onclick={openMenu}
             aria-label="Open menu"
             aria-expanded={isMenuOpen}
@@ -427,9 +436,7 @@
             href="#{FOOTER_NAV_ID}"
             data-js-only
             data-menu-fallback
-            class="{ICON_BUTTON} {ICON_DISC(onPhoto)} transition-colors duration-300 {floating
-              ? 'text-light'
-              : 'text-primary'}"
+            class={trigger}
             aria-label="Menu"
           >
             <span class={ICON_GLYPH}>{@render menuGlyph()}</span>
@@ -472,7 +479,7 @@
       <button
         type="button"
         data-autofocus
-        class="{ICON_BUTTON} text-light"
+        class="{ICON_BUTTON(onPhoto)} text-light"
         onclick={closeMenu}
         aria-label="Close menu"
         aria-expanded={isMenuOpen}

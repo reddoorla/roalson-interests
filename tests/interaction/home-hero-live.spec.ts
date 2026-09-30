@@ -2,6 +2,7 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 import sharp from "sharp";
 import { gutter, measuresGutter, viewportFor } from "./gutter";
 import { hydrated } from "./hydrated";
+import { GARNET } from "./palette";
 
 // THE REVISED HERO BAND ON THE ROUTE THE SITE SERVES (`/`), so it runs on a
 // production build too:
@@ -285,6 +286,33 @@ for (const [width, height] of [
     expect(glyph.worst, "the menu glyph against its ground (WCAG 1.4.11)").toBeGreaterThanOrEqual(
       3,
     );
+
+    // The disc's edge stands on the gutter, as the glyph's does off the photo,
+    // with the glyph centred in it and the target still 44px.
+    const disc = await menu.evaluate((el) => {
+      const row = el.closest("nav")!.firstElementChild!;
+      const before = getComputedStyle(el, "::before");
+      const box = el.getBoundingClientRect();
+      const svg = el.querySelector("svg")!.getBoundingClientRect();
+      return {
+        left: box.left + parseFloat(before.left),
+        right: box.right - parseFloat(before.right),
+        width: parseFloat(before.width),
+        ground: before.backgroundColor,
+        target: box.width,
+        glyph: (svg.left + svg.right) / 2,
+        gutter: row.getBoundingClientRect().right - parseFloat(getComputedStyle(row).paddingRight),
+      };
+    });
+    const discAt = JSON.stringify(disc);
+    expect(disc.width, `premise: the disc is drawn ${discAt}`).toBe(40);
+    expect(disc.ground, discAt).toBe(GARNET);
+    expect(
+      Math.abs(disc.right - disc.gutter),
+      `the disc ends on the gutter ${discAt}`,
+    ).toBeLessThanOrEqual(1);
+    expect(Math.abs(disc.glyph - (disc.left + disc.right) / 2), discAt).toBeLessThanOrEqual(1);
+    expect(disc.target, discAt).toBe(44);
 
     const cta = bar.getByRole("link", { name: "Contact us" });
     if (await cta.isVisible()) {

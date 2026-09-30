@@ -469,6 +469,19 @@ for (const [name, viewport] of [
   });
 }
 
+test("over the homepage's hero the Close still sits exactly where the trigger was", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(HOME);
+  await adopted(page);
+  await expect.poll(async () => pick(await gateState(page))).toEqual(HELD);
+  const trigger = await page.getByLabel("Open menu").boundingBox();
+  await page.getByLabel("Open menu").click();
+  await expect(page.getByLabel("Close menu")).toBeFocused();
+  expect(await page.getByLabel("Close menu").boundingBox()).toEqual(trigger);
+});
+
 test("the homepage's invisible wordmark is still a home link: tabbable, named, ringed — and shown on focus", async ({
   page,
 }) => {
