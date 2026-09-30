@@ -330,13 +330,17 @@ test.describe("on /properties at 1440, the garnet card's marker is the featured 
  *
  * WHERE IT IS, MEASURED IN PIXELS. `outside` is how far the box of every
  * pixel that changes when the pin loses keyboard focus sits outside each edge
- * of the SVG's painted rect; round the pin as drawn, that is the 2px offset
- * plus the 2px outline on all four sides, and `drawn` allows 1px because the
- * outline is painted out to whole pixels (clean code on a production build
- * read 4.00 to 5.00 on every edge, 2026-09-30). It used to be WORKED OUT — `::after`'s computed width and height
- * placed by the anchoring the rule was assumed to have — so a ring painted
- * 36px to the right (no `translate: -50% 0`) or 22px low (`top: 0` for
- * `bottom: 0`) still reported itself drawn (review, 2026-09-30).
+ * of the SVG's painted rect. Round the pin as drawn that is the 2px offset
+ * plus the 2px outline, 4px, on all four sides; `drawn` allows 1px because
+ * the outline is painted out to whole pixels. On a production build,
+ * 2026-09-30, left / right / top / bottom: 4.93 / 4.07 / 4.39 / 4.37 round a
+ * 48px pin, 4 / 4 / 4.15 / 5 round the active 72px one.
+ *
+ * It used to be WORKED OUT — `::after`'s computed width and height placed by
+ * the anchoring the rule was assumed to have — so a ring painted 36px to the
+ * right (no `translate: -50% 0`) or 22px low (`top: 0` for `bottom: 0`) still
+ * reported itself drawn (review, 2026-09-30). Measured, those two read right
+ * 40 and bottom 26 round the active pin, and are red.
  *
  * The pin must arrive keyboard-focused and is left so. The focused shot is
  * taken again after the pin is focused back, and a map that changed round the
