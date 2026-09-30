@@ -1302,6 +1302,15 @@ describe("which scroll a wheel event belongs to", () => {
 //   full     + above − above expand, three 44px targets flush bottom-right,
 //            and the whole credit chip flush bottom-left.
 //   compact  expand alone, and the credit collapsed to MapLibre's (i).
+// THE COMPACT ROW IS THE MAP AFTER ITS CREDIT'S OPEN WINDOW (operator call the
+// same day, "option A"): for MAP_CREDIT_OPEN_MS after the first frame, or until
+// the visitor's first pan, zoom or press, a compact map shows the credit's
+// whole line where the (i) will be, as the OSMF safe harbour asks. That window
+// is the operator's accepted cost and is recorded, not guarded, in its own
+// case at the end ("what the open window covers"). The raster picture before
+// `load` — and for good with scripting off — carries the whole chip, which is
+// the compact furniture this replaced: its collisions are the chip's rows of
+// the guard-the-guard case.
 // The geometry is property-map.spec.ts's, measured in Chromium: "the control
 // column" (44px targets; garnet boxes 20.884 x 20.88, 10 from the right and
 // the bottom, stacked 44 apart) and "the credit" (the (i) 24 x 24 at 10 from
@@ -1533,6 +1542,71 @@ describe("no marker opens under a control or the credit (plan guard 2i)", () => 
       [`${DOWNTOWN} drawn under the credit chip`]: run(265, 457),
       "loop-1604-at-dove-canyon drawn under the credit chip": run(265, 608),
     });
+  });
+
+  // WHAT THE OPEN WINDOW COVERS — option A's accepted cost, measured rather
+  // than waved at. For its first MAP_CREDIT_OPEN_MS a compact map's credit is
+  // MapLibre's compact credit OPEN: 10 from the left and the bottom, bounded
+  // by the control column's strip (`right: 54px`), one line 248 x 24 in this
+  // container's fonts, or two lines 32 tall where 248 does not fit (191 x 32
+  // on a 265 box). property-map.spec.ts holds the rendered line inside this
+  // box at 320, 390 and 768 on both pages. It is a record: a camera or a
+  // listing that changes these runs goes red here, so the cost is re-read by
+  // whoever changed it, and a first touch or five seconds ends it either way.
+  it("records what the open window covers, for its first seconds", () => {
+    const LINE = { width: 248, oneLine: 24, twoLines: 32, inset: 10, strip: 54 };
+    const line = (): Furniture => {
+      const rect = (b: Box) => {
+        // maplibre's compact credit has a 10px margin on EVERY side, so the
+        // right one is room lost too: 191 on a 265 box, not 201.
+        const room = b.width - LINE.strip - 2 * LINE.inset;
+        const width = Math.min(LINE.width, room);
+        const height = width < LINE.width ? LINE.twoLines : LINE.oneLine;
+        return {
+          x0: LINE.inset,
+          x1: LINE.inset + width,
+          y0: b.height - LINE.inset - height,
+          y1: b.height - LINE.inset,
+        };
+      };
+      return { name: "the open line", target: rect, painted: rect };
+    };
+    const window = [control("expand", 0), line()];
+    const runs = (points: MapPoint[]) => {
+      const found: Record<string, number[]> = {};
+      for (const hit of collisions(points, "compact", COMPACT, window)) {
+        const [, what, width] = /^(.*) at (\d+) x 200$/.exec(hit)!;
+        (found[what!] ??= []).push(Number(width));
+      }
+      return Object.fromEntries(
+        Object.entries(found).map(([what, widths]) => [
+          what,
+          `${Math.min(...widths)}-${Math.max(...widths)} (${widths.length} widths)`,
+        ]),
+      );
+    };
+    // Measured in Chromium on /properties at seven boxes (265, 295, 321, 323,
+    // 335, 505, 545) and 689: every marker the rendered line overlapped is in
+    // these runs, and none outside them. The (i) that follows clears every
+    // one — each section's own case above.
+    expect(runs(land)).toEqual({
+      [`${DOWNTOWN} pressed under the open line`]: "265-499 (235 widths)",
+      [`${DOWNTOWN} drawn under the open line`]: "265-525 (261 widths)",
+      "loop-1604-at-dove-canyon pressed under the open line": "265-654 (390 widths)",
+      "loop-1604-at-dove-canyon drawn under the open line": "265-676 (412 widths)",
+      "ih-10-east-at-loop-1604 drawn under the open line": "271-321 (51 widths)",
+    });
+    // 101 W Commerce Street is downtown too, on the improved map and among
+    // the band's picks — seen under the line on /properties' second map at
+    // 335, and on the band at 375 while it is still at MAP_HOME (with motion
+    // allowed; the band leaves MAP_HOME for its first pick at the hand-over,
+    // #132, which under reduced motion is the same frame).
+    const commerce = {
+      "101-w-commerce-street pressed under the open line": "265-497 (233 widths)",
+      "101-w-commerce-street drawn under the open line": "265-519 (255 widths)",
+    };
+    expect(runs(improved), "the improved section's map").toEqual(commerce);
+    expect(runs(bandPicks), "the homepage band's picks").toEqual(commerce);
   });
 
   // And a marker put in the middle target (the −) of the full column is found.

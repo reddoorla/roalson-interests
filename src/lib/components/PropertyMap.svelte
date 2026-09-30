@@ -78,9 +78,12 @@
   // moved to bottom-left, out of the control column's corner, and toned to
   // the brand. tests/interaction/property-map.spec.ts asserts the string
   // "OpenStreetMap" is really on the page rather than that no error appeared.
-  // On a COMPACT frame it is MapLibre's own collapsed (i), which opens to the
-  // same text on a press; on a full frame it is the whole chip. See
-  // `placeCredit` for why, and the spec presses the (i) before it reads.
+  // On a COMPACT frame it is MapLibre's own compact credit: the whole line
+  // for MAP_CREDIT_OPEN_MS after the first frame, or until the visitor's first
+  // pan, zoom or press, and then its (i), which opens to the same text on a
+  // press; on a full frame it is the whole chip. See `placeCredit` for why.
+  // The raster picture under the canvas carries the same line as plain markup
+  // (`MAP_HOME_CREDIT`), since before `load` there is no control to show it.
   //
   // Deep imports, not `{ Expand, Shrink } from "@lucide/svelte"`. That barrel
   // re-exports every icon in the pack as its own .svelte file, and reaching it
@@ -110,8 +113,10 @@
     frameFor,
     homeFrames,
     homeMarkers,
+    MAP_CREDIT_OPEN_MS,
     MAP_FRAMES,
     MAP_HOME,
+    MAP_HOME_CREDIT,
     MAP_HOME_FADE_MS,
     MAP_HOME_GROUND,
     MAP_MAX_ZOOM,
@@ -276,6 +281,13 @@
    *  kind (a no-op if it is already that kind). `boot` sets it, `destroy`
    *  clears it; null means there is no map to put a credit on. */
   let placeCredit: ((compact: boolean) => void) | null = null;
+  /** Ends the compact credit's open window — its whole line collapses to the
+   *  (i), and every compact credit placed after this starts collapsed. Called
+   *  by the visitor's first pan, zoom or press, and by `creditClock`; a no-op
+   *  after the first call. `boot` sets it, `destroy` clears it. */
+  let settleCredit: (() => void) | null = null;
+  /** MAP_CREDIT_OPEN_MS from MapLibre's `load`: the open window's other end. */
+  let creditClock: ReturnType<typeof setTimeout> | undefined;
 
   /** Only a rendered first frame sets this. Not "the import resolved", not
    *  "no error was thrown" — MapLibre's own `load`, which it fires when the
@@ -959,8 +971,9 @@
     instance.touchZoomRotate.disableRotation();
 
     // THE CREDIT, one of two kinds by frame — the whole chip on a full frame,
-    // MapLibre's collapsed (i) on a compact one — and swapped when the frame
-    // changes (the `$effect` on `frameName` below).
+    // MapLibre's compact credit on a compact one (the whole line, then its
+    // (i)) — and swapped when the frame changes (the `$effect` on `frameName`
+    // below).
     //
     // WHY NOT MAPLIBRE'S OWN `compact: undefined`. That is "compact when the
     // container is ≤ 640 wide", which is not this file's frame: the 1440
@@ -974,28 +987,52 @@
     // puts them back whenever they are missing. Toggling the classes on one
     // control fights that; a control built for its frame agrees with it.
     //
-    // AND WHY THE ONE CLASS IS STILL OURS. A `compact: true` control does not
-    // start collapsed: the first time it has text it adds
-    // `maplibregl-compact-show` and `open` — the WHOLE chip, over the downtown
-    // cluster (#188) — and collapses only on the visitor's first drag. Marking
-    // it `maplibregl-compact` now, before its text arrives (or taking the
-    // show off, if the style was already in), is the state MapLibre's own
-    // drag leaves it in; its `_updateCompact` then sees a compact credit and
-    // leaves it alone, and its summary toggles it open and shut from there.
+    // THE OPEN WINDOW, AND HOW LITTLE OF IT IS OURS. Operator's call,
+    // 2026-09-29, "option A": a compact map shows the WHOLE line at first and
+    // collapses it to the (i) on the visitor's first pan, zoom or press, or
+    // after MAP_CREDIT_OPEN_MS, whichever comes first — the three ways the OSMF
+    // safe harbour lets an interactive map collapse its credit (quoted on the
+    // constant). Measured against maplibre-gl 6.10.0 on /properties at 390
+    // before a line of this was written, a `compact: true` control left alone:
     //
-    // WHAT THAT TRADES, said at the call site because it is a licence and not a
-    // style. The OSMF attribution guidelines' safe harbour (read 2026-09-29)
-    // lets a credit collapse "immediately with a dismiss interaction",
-    // "automatically on map interaction such as panning, clicking, or
-    // zooming", or "automatically after five seconds", with an "(i)" to find
-    // it again — and says the format "should not require individuals to
-    // interact with the map … to see the attribution". Collapsed from the
-    // first frame is none of the three: it is the operator's option two as
-    // specified, and the open question is written up with this change.
+    //   at the first frame    the whole line: the first time the control has
+    //                         text it adds `open` and `maplibregl-compact-show`
+    //                         itself (0.9-1.8s BEFORE `load`, on a canvas still
+    //                         transparent, so `load` is when a visitor sees it)
+    //   a drag                collapsed (`_updateCompactMinimize`), but `open`
+    //                         left on the <details>, so the (i) still reports
+    //                         itself expanded
+    //   a wheel zoom          still open
+    //   a double-click zoom   still open
+    //   6.3s later, untouched still open — it has no clock
+    //
+    // So the first row is maplibre's and is left to it, and what this adds is
+    // the rest: the clock, zoom, a press, and the `open` a drag leaves behind.
+    // `collapse` is the state maplibre's own drag leaves minus that `open`, and
+    // `settled` makes it permanent: once the window has closed, a compact
+    // credit placed later (a phone map expanded and collapsed again, a
+    // /properties map crossing `lg`) starts as the (i) — marked
+    // `maplibregl-compact` as it is added, and maplibre's `_updateCompact` then
+    // sees a compact credit and leaves it alone. Pressing the (i) is
+    // maplibre's own toggle from there, open and shut. A window still open when
+    // the frame changes stays open, and the clock that was already running
+    // closes it.
+    //
+    // The accepted cost, the operator's own: for those seconds the line sits
+    // where the (i) will be, over the downtown cluster (#188) — plan guard 2i
+    // in src/lib/property-map.test.ts describes the map after the window.
     let credit: {
       control: InstanceType<MapEngine["AttributionControl"]>;
       compact: boolean;
     } | null = null;
+    let settled = false;
+    const collapse = () => {
+      if (!credit?.compact) return;
+      const el = host.querySelector(".maplibregl-ctrl-attrib");
+      el?.classList.add("maplibregl-compact");
+      el?.classList.remove("maplibregl-compact-show");
+      el?.removeAttribute("open");
+    };
     placeCredit = (compact: boolean) => {
       if (credit?.compact === compact) return;
       if (credit) instance.removeControl(credit.control);
@@ -1004,12 +1041,29 @@
       // notice may not be the thing a finger covers.
       instance.addControl(control, "bottom-left");
       credit = { control, compact };
-      if (!compact) return;
-      const el = host.querySelector(".maplibregl-ctrl-attrib");
-      el?.classList.add("maplibregl-compact");
-      el?.classList.remove("maplibregl-compact-show");
-      el?.removeAttribute("open");
+      if (settled) collapse();
+      // A press on the (i) is the safe harbour's "dismiss interaction", and
+      // from then on the credit is the visitor's to open and shut — so it
+      // ends the window without collapsing anything itself. maplibre's own
+      // toggle has already run (it listened first), and the <summary>'s
+      // native toggle of `open` runs after both; a `collapse` here would
+      // take `open` off before that toggle put it straight back on, over a
+      // hidden line. Without this, a visitor who shut the line and opened it
+      // again inside the window had the clock shut it on them.
+      host
+        .querySelector(".maplibregl-ctrl-attrib-button")
+        ?.addEventListener("click", endWindow, { once: true });
     };
+    const endWindow = () => {
+      settled = true;
+      clearTimeout(creditClock);
+    };
+    const settle = () => {
+      if (settled) return;
+      endWindow();
+      collapse();
+    };
+    settleCredit = settle;
     placeCredit(untrack(() => frameName === "compact"));
 
     // MapLibre names the canvas "Map" and gives it role="region", so two maps
@@ -1047,8 +1101,14 @@
     // went at the frame's zoom. See the wheel listener below and `chosenZoom`.
     //
     // So the predicate is in two halves, one for each of those rows.
+    //
+    // The same two halves are the visitor's first pan or zoom for the credit
+    // (`settle`): a pinch, a drag, a double-tap and the keyboard come through
+    // the tagged `movestart`, the wheel through the listener below.
     instance.on("movestart", (e: { originalEvent?: unknown }) => {
-      if (e.originalEvent) drivenAt = active;
+      if (!e.originalEvent) return;
+      drivenAt = active;
+      settle();
     });
     // The untagged half, AND IT IS LOAD-BEARING NOW. It was written when the
     // in-page map declined the wheel, and was noted as inert on the pages where
@@ -1072,10 +1132,16 @@
     instance.getCanvasContainer().addEventListener(
       "wheel",
       () => {
-        if (instance.scrollZoom.isEnabled()) drivenAt = active;
+        if (!instance.scrollZoom.isEnabled()) return;
+        drivenAt = active;
+        settle();
       },
       { passive: true },
     );
+    // A press on the map that neither pans nor zooms it — maplibre's `click`,
+    // which it does not fire for a drag. A press on a PIN never reaches
+    // maplibre (the pins are ours, over its canvas), so `press` settles too.
+    instance.on("click", settle);
     // THE VISITOR'S ZOOM, RECORDED — see `chosenZoom` for the three rules and
     // the defect behind each. One listener per event, in maplibre's order: a
     // move's `zoomend` fires before its `moveend`, in the same call, so the
@@ -1117,6 +1183,10 @@
       zoom = instance.getZoom();
       ready = true;
       void tick().then(reposition);
+      // The credit's clock starts at the first frame — see MAP_CREDIT_OPEN_MS
+      // for why not at page load. The fade that brings the canvas up is 300ms
+      // of it with motion allowed, and none under reduced motion.
+      creditClock = setTimeout(settle, MAP_CREDIT_OPEN_MS);
     });
   }
 
@@ -1124,6 +1194,8 @@
     map?.remove();
     map = null;
     placeCredit = null;
+    settleCredit = null;
+    clearTimeout(creditClock);
     ready = false;
     // A re-boot gets a map that has been told nothing yet, and one nobody has
     // driven — both of these describe the instance, not the visitor.
@@ -1330,6 +1402,8 @@
   function press(cluster: MapCluster) {
     const instance = map;
     if (!instance) return;
+    // A press on a marker is a press on the map: the credit's open window ends.
+    settleCredit?.();
     if (cluster.points.length === 1) {
       const point = cluster.points[0]!;
       // The caller that draws its own detail takes the press instead. It must
@@ -1815,6 +1889,18 @@
           </div>
         {/each}
       </div>
+      <!-- THE PICTURE'S CREDIT (`MAP_HOME_CREDIT`): the style's own line, whole,
+           for as long as the picture is up — and with scripting off that is
+           for good. A picture has no gesture to collapse it on and no clock,
+           so the OSMF safe harbour wants all of it on screen, on every frame.
+           Outside the picture's `aria-hidden` box, because this is the same
+           licence notice the live credit puts in the accessibility tree.
+           `z-[1]`: over the picture's own active pin (`z-[1]`, earlier in the
+           DOM). The canvas comes up over it and the live credit takes over at
+           the swap, when this goes with the picture. Toned and sized by the
+           live chip's own rule, below. -->
+      <!-- eslint-disable-next-line svelte/no-at-html-tags -- a constant, held to the committed style's attribution by scripts/map-home.test.ts -->
+      <p data-map-home-credit class="absolute bottom-0 left-0 z-[1] m-0">{@html MAP_HOME_CREDIT}</p>
     {/if}
 
     <!-- MapLibre's own box. `aria-hidden` is not a shortcut: the canvas keeps
@@ -2177,7 +2263,8 @@
      wins on specificity rather than on injection order, which nothing in this
      repo controls. (Found by the axe case in featured-properties.spec.ts once
      that band's map was allowed to finish booting; review of #121.) */
-  :global([data-property-map] .maplibregl-ctrl.maplibregl-ctrl-attrib) {
+  :global([data-property-map] .maplibregl-ctrl.maplibregl-ctrl-attrib),
+  [data-map-home-credit] {
     background-color: var(--color-light);
     color: var(--color-primary);
     font-size: 10px;
@@ -2189,8 +2276,19 @@
      credit's `2px 24px 2px 0`, which is what makes it a 24 × 24 box with the
      (i) in it, came out `2px 6px` — a 12px sliver with the button hanging off
      its side. The compact credit keeps maplibre's own box, collapsed and open. */
-  :global([data-property-map] .maplibregl-ctrl.maplibregl-ctrl-attrib:not(.maplibregl-compact)) {
+  :global([data-property-map] .maplibregl-ctrl.maplibregl-ctrl-attrib:not(.maplibregl-compact)),
+  [data-map-home-credit] {
     padding: 2px 6px;
+  }
+  /* The picture's credit is the live chip before MapLibre is here to draw it:
+     the same box (224 x 18 in this container, guard 2i's chip), because the
+     live chip is set in the page's own font too — measured, the control's
+     computed family is the site's, not maplibre's `.maplibregl-map` stack;
+     copying that stack here made this one 225.41 wide. It stops short of the
+     control column's strip as the live corner does, so on a 265px map it
+     wraps (211 x 32) instead of running under expand. */
+  [data-map-home-credit] {
+    max-width: calc(100% - 54px);
   }
 
   /* THE COLLAPSED CREDIT, compact frames only (`placeCredit`): maplibre's own
@@ -2251,7 +2349,8 @@
      this was (0,2,1), so the COLOUR here always did win — but it is written
      with the same three classes as its parent so the pair cannot drift apart
      the next time one of them is edited. */
-  :global([data-property-map] .maplibregl-ctrl.maplibregl-ctrl-attrib a) {
+  :global([data-property-map] .maplibregl-ctrl.maplibregl-ctrl-attrib a),
+  [data-map-home-credit] :global(a) {
     color: var(--color-primary);
     text-decoration: underline;
   }

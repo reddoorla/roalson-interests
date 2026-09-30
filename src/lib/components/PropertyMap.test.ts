@@ -10,6 +10,7 @@ import {
   DIMMED_MARKER_OPACITY,
   frameFor,
   homeMarkers,
+  MAP_CREDIT_OPEN_MS,
   MAP_HOME_FADE_MS,
   MAP_HOME,
   type MapPoint,
@@ -470,13 +471,15 @@ describe("when the engine is asked for", () => {
     expect((added!.control as { options: unknown }).options).toEqual({ compact: false });
   });
 
-  // Operator, 2026-09-29: a compact map's credit is maplibre's collapsed (i).
+  // Operator, 2026-09-29: a compact map's credit is maplibre's compact credit
+  // — the whole line for its open window, then the (i).
   // `compact` is read once, at construction, so the frame changing — a phone
   // map expanded to the window and collapsed again, a /properties map
   // crossing `lg` — has to swap the control, and a resize INSIDE a frame must
-  // not. What this cannot see is that the (i) is really collapsed and opens
-  // onto the text: that is a DOM claim about maplibre, and
-  // tests/interaction/property-map.spec.ts presses it.
+  // not. What this cannot see is the line at the first frame, its collapse on
+  // the clock or a first gesture, and the (i) opening onto the text: those are
+  // DOM claims about maplibre, and tests/interaction/property-map.spec.ts
+  // reads each of them in a browser.
   it("collapses the credit on a compact frame, and swaps it only when the frame changes", async () => {
     const resize = stubResizableTo(350, 200);
     stubIntersecting({ mapHeight: 200, visible: 200 });
@@ -1988,7 +1991,14 @@ describe("the hand-over from the picture to the canvas", () => {
     engine.created[0]!.handlers.load?.();
     await tick();
     expect(view.container.querySelector("[data-map-home-box]")).toBeNull();
-    // Nothing was scheduled, so nothing can fire late.
+    // No fade guard was scheduled, so nothing can fire late. The one timer
+    // `load` does start is the credit's clock (MAP_CREDIT_OPEN_MS, "option A",
+    // 2026-09-29), named by when it fires; a leak guard scheduled here too
+    // would make the count two.
+    expect(vi.getTimerCount(), "the credit's clock, and nothing else").toBe(1);
+    vi.advanceTimersByTime(MAP_CREDIT_OPEN_MS - 1);
+    expect(vi.getTimerCount(), "the clock has not run out").toBe(1);
+    vi.advanceTimersByTime(1);
     expect(vi.getTimerCount()).toBe(0);
   });
 });
