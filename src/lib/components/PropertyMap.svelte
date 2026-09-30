@@ -1502,15 +1502,22 @@
           r.top < view.bottom
         );
       });
-      const link = held.matches(":focus-visible")
-        ? boxEl.querySelectorAll<HTMLElement>("[data-map-link]")[
-            points.findIndex((p) => p.id === id)
-          ]
-        : undefined;
       if (pin) pin.focus({ preventScroll: true });
-      else (link ?? boxEl.querySelector<HTMLElement>("[data-map-expand]"))?.focus();
+      else focusListing(id, held);
     }
     selected = null;
+  }
+
+  /** Focus onto listing `id`'s link in the list when `from` has a keyboard's
+   *  focus ring (a pointer's would draw the link's chip for nothing), else
+   *  onto expand. */
+  function focusListing(id: string | undefined, from: Element) {
+    const i = points.findIndex((p) => p.id === id);
+    const link =
+      i >= 0 && from.matches(":focus-visible")
+        ? boxEl?.querySelectorAll<HTMLElement>("[data-map-link]")[i]
+        : undefined;
+    (link ?? boxEl?.querySelector<HTMLElement>("[data-map-expand]"))?.focus();
   }
 
   // The zoom a +/− press leaves from, and why it is not always `getZoom()`:
@@ -1718,13 +1725,18 @@
     placeCredit?.(compact);
   });
 
-  // + and − go with `fullControls` (a map crossing `lg`), before the DOM does:
-  // a keyboard on one is moved to expand rather than dropped to <body>.
+  // + and − go with `fullControls` (a map crossing `lg`), and the pins and the
+  // canvas stop taking focus with `interactive` (the band's lock), before the
+  // DOM does: a keyboard on one is moved on rather than dropped to <body>.
   $effect.pre(() => {
-    if (fullControls) return;
+    const full = fullControls;
+    const on = interactive;
     const held = document.activeElement;
-    if (held?.matches("[data-map-control^='zoom']") && boxEl?.contains(held))
+    if (!held || !boxEl?.contains(held)) return;
+    if (!full && held.matches("[data-map-control^='zoom']"))
       boxEl.querySelector<HTMLElement>("[data-map-expand]")?.focus();
+    else if (!on && held.matches("[data-map-pin], canvas"))
+      focusListing(held.getAttribute("data-map-pin") ?? undefined, held);
   });
 
   // (The `$effect` that used to hand scroll-zoom to the EXPANDED map and take
