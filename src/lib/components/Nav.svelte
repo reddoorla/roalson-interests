@@ -139,6 +139,12 @@
    *  see (2) above. A solid bar is legible over anything, so it pins in the
    *  server's markup. */
   const pinned = $derived(!canFloat || mounted);
+  /** Floating over the homepage hero, which is a PHOTOGRAPH (the poster, then
+   *  the video), not a flat band: on its sunlit sky the sand controls measured
+   *  1.09–1.23:1 at 390, 768 and 1024. So there every control carries its own
+   *  garnet ground (sand on it is 9.38:1 whatever the frame) and draws its
+   *  focus ring inside that ground, where the sky cannot be. */
+  const onPhoto = $derived(floating && gated);
 
   /** Rect against rect, never a scrollY: the hero pins, so how far the page
    *  has moved is not what is under the bar — and the threshold is 448 or 458
@@ -240,6 +246,15 @@
   // A 44px target around a 20×16 glyph, pulled 12px into the gutter so the
   // GLYPH's edge — not the target's — lands on the comp's x=1360 / x=370.
   const ICON_BUTTON = "group -mr-3 flex min-h-11 min-w-11 items-center justify-center";
+  // The trigger's 40px garnet disc on a photograph (`onPhoto`), ringed in sand
+  // like the CTA beside it, with the focus ring pulled inside it. Always
+  // drawn, transparent off the photograph, so it fades with the bar.
+  const ICON_DISC = (on: boolean) =>
+    "relative isolate before:absolute before:inset-0.5 before:-z-10 before:rounded-full before:border " +
+    "before:border-solid before:transition-colors before:duration-300 before:content-[''] " +
+    (on
+      ? "rounded-full before:border-light before:bg-primary focus-visible:outline-offset-[-5px]"
+      : "before:border-transparent before:bg-transparent");
 
   // The bar's box, shared with the overlay's own bar so the wordmark and the
   // Close sit exactly where the wordmark and the trigger were: 80 tall from
@@ -292,7 +307,12 @@
     : 'absolute'} {floating ? 'bg-transparent' : 'bg-background'}"
 >
   <div class={BAR}>
-    <a href="/" class="{WORDMARK} group/home">
+    <a
+      href="/"
+      class="{WORDMARK} group/home {held && onPhoto
+        ? 'focus-visible:bg-primary focus-visible:ring-[6px] focus-visible:ring-primary'
+        : ''}"
+    >
       {#if logo}
         <!-- `|| held` is redundant today — a held bar is a floating bar — and
              is here so that "no wordmark while the gate holds" is stated where
@@ -351,7 +371,7 @@
           <ul
             class="t-h6 mr-3 flex flex-wrap items-center justify-end gap-x-5 gap-y-1 {floating
               ? 'text-light'
-              : 'text-primary'}"
+              : 'text-primary'} {onPhoto ? 'bg-primary px-[14px] py-2.5' : ''}"
           >
             {#each items.filter((item) => item.href && item.href !== "/") as item, i (i)}
               <!-- From `sm` the CTA is in the bar and already is this link. -->
@@ -365,7 +385,11 @@
 
       {#if cta}
         <div class="hidden sm:block">
-          <BrandButton href={cta.href} tone={floating ? "light" : "garnet"}>{cta.label}</BrandButton
+          <BrandButton
+            href={cta.href}
+            tone={floating ? "light" : "garnet"}
+            class={onPhoto ? "bg-primary focus-visible:outline-offset-[-5px]" : ""}
+            >{cta.label}</BrandButton
           >
         </div>
       {/if}
@@ -375,7 +399,7 @@
           <button
             bind:this={openButtonEl}
             type="button"
-            class="{ICON_BUTTON} transition-colors duration-300 {floating
+            class="{ICON_BUTTON} {ICON_DISC(onPhoto)} transition-colors duration-300 {floating
               ? 'text-light'
               : 'text-primary'}"
             onclick={openMenu}
@@ -403,7 +427,7 @@
             href="#{FOOTER_NAV_ID}"
             data-js-only
             data-menu-fallback
-            class="{ICON_BUTTON} transition-colors duration-300 {floating
+            class="{ICON_BUTTON} {ICON_DISC(onPhoto)} transition-colors duration-300 {floating
               ? 'text-light'
               : 'text-primary'}"
             aria-label="Menu"
