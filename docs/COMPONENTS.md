@@ -72,6 +72,7 @@ source. It is the fastest way to recognise what a thing does.
 | [`home-page.ts`](../src/lib/home-page.ts) | `splitHomeHero` | 5 | The home route's shape, as data |
 | [`index.ts`](../src/lib/index.ts) | — | — | place files you want to import through the `$lib` alias in this folder |
 | [`indexability.ts`](../src/lib/indexability.ts) | `MIRROR_ROBOTS_TAG`, `isNetlifyMirrorHost` | 6 | Which HOST a request arrived on decides whether it may be indexed (#140) |
+| [`legacy-redirects.ts`](../src/lib/legacy-redirects.ts) | `TREC_IABS`, `TREC_CPN`, `LEGACY_PATHS`, `LEGACY_PATTERNS`, `legacyRedirect` | 6 | Where the old www.roalson.com's URLs go once this site takes the domain |
 | [`map-engine.ts`](../src/lib/map-engine.ts) | — | — | The heavy half of the property map (#13), isolated so it can be a CHUNK |
 | [`map-home.ts`](../src/lib/map-home.ts) | `MAP_HOME`, `MAP_HOME_GROUND`, `MAP_HOME_CREDIT`, `MAP_HOME_FADE_MS` | — | MAP_HOME — the frame every property map OPENS on, and the frame the committed raster placeholder is a picture of (#122) |
 | [`office.ts`](../src/lib/office.ts) | `telHref`, `OFFICE`, `officeAddressLines`, `officePostalAddress`, `officeDirectionsUrl` | 8 | The firm's one office — the ONE place its address and numbers are written. The footer reads it on every page; the contact page and the site's RealEstateAgent JSON-LD are its next two readers. It is structured rather than a list of display lines because `organizationJsonLd` (seo.ts) wants a PostalAddress, and lines cannot be turned back into one |
@@ -108,4 +109,4 @@ source. It is the fastest way to recognise what a thing does.
 | [`vimeo.ts`](../src/lib/utils/vimeo.ts) | `checkVimeoVideo`, `parseVimeoId` | 11 | True when the Vimeo video exists and is embeddable (oEmbed responds 200) |
 | [`vimeoBackground.svelte.ts`](../src/lib/utils/vimeoBackground.svelte.ts) | `VIMEO_PLAYER_ORIGIN`, `backgroundEmbedSrc`, `VimeoBackground` | 5 | The gate, the heartbeat and the pause flag behind every chrome-less Vimeo background embed in this repo — lifted OUT of VimeoBanner.svelte so the homepage hero could have all three without taking VimeoBanner's markup with them |
 
-90 modules, 965 tests behind them.
+91 modules, 971 tests behind them.
