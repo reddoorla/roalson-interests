@@ -824,12 +824,39 @@
     // host means `transitionend` will never fire, so the hand-over is the same
     // tick. #122's "no cross-fade under prefers-reduced-motion", both halves.
     if ($reducedMotion) {
-      handedOver = true;
+      handOver();
       return;
     }
-    const guard = setTimeout(() => (handedOver = true), MAP_HOME_FADE_MS * 10);
+    const guard = setTimeout(handOver, MAP_HOME_FADE_MS * 10);
     return () => clearTimeout(guard);
   });
+  /** Removes the picture, and with it its credit's two links — so a keyboard
+   *  standing on one is first moved to the live credit's. */
+  function handOver() {
+    const held = document.activeElement;
+    const picture = boxEl?.querySelector("[data-map-home-credit]");
+    if (held instanceof HTMLAnchorElement && picture?.contains(held)) focusCredit(held.href);
+    handedOver = true;
+  }
+  /**
+   * Focus onto the live credit: its link to `href` (else its first) while its
+   * line is showing, else its (i). For focus on credit furniture that is about
+   * to be removed or hidden — the picture's credit at the hand-over, a credit
+   * swapped when `fullControls` changes, a compact line collapsing — which
+   * would otherwise drop a keyboard to <body>.
+   */
+  function focusCredit(href: string | null) {
+    const live = canvasHost?.querySelector(".maplibregl-ctrl-attrib");
+    if (!live) return;
+    const line =
+      !live.classList.contains("maplibregl-compact") ||
+      live.classList.contains("maplibregl-compact-show");
+    const links = [...live.querySelectorAll("a")];
+    const target = line
+      ? (links.find((a) => a.href === href) ?? links[0])
+      : live.querySelector("summary");
+    target?.focus();
+  }
   const homeLayers = $derived(
     home === null
       ? []
@@ -1034,12 +1061,17 @@
     const collapse = () => {
       if (!credit?.compact) return;
       const el = host.querySelector(".maplibregl-ctrl-attrib");
+      const held = !!el?.contains(document.activeElement);
       el?.classList.add("maplibregl-compact");
       el?.classList.remove("maplibregl-compact-show");
       el?.removeAttribute("open");
+      if (held) focusCredit(null);
     };
     placeCredit = (compact: boolean) => {
       if (credit?.compact === compact) return;
+      const held = host.querySelector(".maplibregl-ctrl-attrib")?.contains(document.activeElement)
+        ? document.activeElement
+        : null;
       if (credit) instance.removeControl(credit.control);
       const control = new maplibre.AttributionControl({ compact });
       // Bottom-LEFT: the control column owns bottom-right, and a licence
@@ -1047,6 +1079,7 @@
       instance.addControl(control, "bottom-left");
       credit = { control, compact };
       if (settled) collapse();
+      if (held) focusCredit(held instanceof HTMLAnchorElement ? held.href : null);
       // A press on the (i) is the safe harbour's "dismiss interaction", and
       // from then on the credit is the visitor's to open and shut — so it
       // ends the window without collapsing anything itself. maplibre's own
@@ -1648,6 +1681,15 @@
     placeCredit?.(compact);
   });
 
+  // + and − go with `fullControls` (a map crossing `lg`), before the DOM does:
+  // a keyboard on one is moved to expand rather than dropped to <body>.
+  $effect.pre(() => {
+    if (fullControls) return;
+    const held = document.activeElement;
+    if (held?.matches("[data-map-control^='zoom']") && boxEl?.contains(held))
+      boxEl.querySelector<HTMLElement>("[data-map-expand]")?.focus();
+  });
+
   // (The `$effect` that used to hand scroll-zoom to the EXPANDED map and take
   // it back on collapse lived here. It is gone, not moved: the in-page map now
   // takes the wheel in every state, so the effect's two branches had become
@@ -1933,7 +1975,7 @@
         // #3d0707 would show through a canvas at two-thirds opacity, which is
         // the 0.535164 defect above arriving by a different door. Latent
         // today: the pins are plain SVG and `cooperativeGestures` is off.
-        if (e.target === canvasHost && e.propertyName === "opacity" && ready) handedOver = true;
+        if (e.target === canvasHost && e.propertyName === "opacity" && ready) handOver();
       }}
       style="transition-duration:{MAP_HOME_FADE_MS}ms"
       class="absolute inset-0 transition-opacity motion-reduce:transition-none
