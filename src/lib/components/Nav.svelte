@@ -259,6 +259,9 @@
       ? "rounded-full before:border-light before:bg-primary focus-visible:outline-offset-[-5px]"
       : "before:border-transparent before:bg-transparent");
 
+  // CONTACT US on the photograph, and the scripting-off links beside it.
+  const PHOTO_CHIP = "bg-primary focus-visible:outline-offset-[-5px]";
+
   // Both forms of the trigger. The pull glides with the disc's fade, so the
   // controls do not hop 10px at the gate.
   const trigger = $derived(
@@ -380,14 +383,22 @@
              list's markup across the bar. tests/interaction/nav.spec.ts looks. -->
         <noscript>
           <ul
-            class="t-h6 mr-3 flex flex-wrap items-center justify-end gap-x-5 gap-y-1 {floating
-              ? 'text-light'
-              : 'text-primary'} {onPhoto ? 'bg-primary px-[14px] py-2.5' : ''}"
+            class="t-h6 flex flex-wrap items-center justify-end {onPhoto
+              ? 'gap-2'
+              : 'mr-3 gap-x-5 gap-y-1'} {floating ? 'text-light' : 'text-primary'}"
           >
             {#each items.filter((item) => item.href && item.href !== "/") as item, i (i)}
               <!-- From `sm` the CTA is in the bar and already is this link. -->
               <li class={item.href === cta?.href ? "sm:hidden" : undefined}>
-                <a href={item.href} class="hover:underline">{item.label}</a>
+                {#if onPhoto}
+                  <!-- On the photo, the CTA's chip. Narrower below `sm`, where
+                       two share the bar with the wordmark's halo. -->
+                  <BrandButton href={item.href} tone="light" class="{PHOTO_CHIP} max-sm:px-2.5"
+                    >{item.label}</BrandButton
+                  >
+                {:else}
+                  <a href={item.href} class="hover:underline">{item.label}</a>
+                {/if}
               </li>
             {/each}
           </ul>
@@ -399,8 +410,7 @@
           <BrandButton
             href={cta.href}
             tone={floating ? "light" : "garnet"}
-            class={onPhoto ? "bg-primary focus-visible:outline-offset-[-5px]" : ""}
-            >{cta.label}</BrandButton
+            class={onPhoto ? PHOTO_CHIP : ""}>{cta.label}</BrandButton
           >
         </div>
       {/if}

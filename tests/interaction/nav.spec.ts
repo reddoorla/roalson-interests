@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Browser, type Page } from "@playwright/test";
 import { hydrated } from "./hydrated";
 import { GARNET, OFF_WHITE, SAND } from "./palette";
 import { axe } from "./axe";
@@ -614,6 +614,93 @@ test("with scripting off the homepage's wordmark is shown — by the noscript ru
     await expect(page.locator(bar)).toHaveCSS("background-color", TRANSPARENT);
   } finally {
     await context.close();
+  }
+});
+
+/** The scripting-off bar at one width: the wordmark's halo, the visible
+ *  <noscript> links and the CTA, each with its box and its skin. A context of
+ *  its own per width: resized in place, a page with scripting off was read
+ *  mid-reflow, its wordmark still where 1280 puts it (80..225) and one chip's
+ *  border still in its 1280 colour. */
+async function scriptlessBar(browser: Browser, width: number) {
+  const context = await browser.newContext({
+    javaScriptEnabled: false,
+    viewport: { width, height: 900 },
+  });
+  try {
+    const page = await context.newPage();
+    await page.goto(HOME, { waitUntil: "domcontentloaded" });
+    await expect(page.locator(`${bar} noscript a`)).toHaveText(["Properties", "Contact Us"]);
+    // Measured in the face they are set in: in the fallback's wider labels the
+    // two chips wrap at 390 (120 + 8 + 122 against 242).
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () =>
+            document.fonts.status === "loaded" &&
+            [...document.fonts].some(
+              (face) =>
+                face.family.includes("Atkinson Hyperlegible Next") && face.status === "loaded",
+            ),
+        ),
+      )
+      .toBe(true);
+    return await page.evaluate((selector) => {
+      const nav = document.querySelector(selector)!;
+      const shown = (el: Element) => el.checkVisibility();
+      const look = (el: Element) => {
+        const r = el.getBoundingClientRect();
+        const cs = getComputedStyle(el);
+        return {
+          left: r.left,
+          right: r.right,
+          top: r.top,
+          height: r.height,
+          ground: cs.backgroundColor,
+          border: `${cs.borderTopWidth} ${cs.borderTopStyle} ${cs.borderTopColor}`,
+        };
+      };
+      const home = nav.querySelector('a[href="/"]')!;
+      const halo = Number(/([\d.]+)px$/.exec(getComputedStyle(home).boxShadow)?.[1] ?? 0);
+      const cta = [...nav.querySelectorAll('a[href="/contact"]')].find(
+        (a) => !a.closest("noscript") && shown(a),
+      );
+      return {
+        halo,
+        haloRight: home.getBoundingClientRect().right + halo,
+        links: [...nav.querySelectorAll("noscript a")].filter(shown).map(look),
+        cta: cta ? look(cta) : null,
+      };
+    }, bar);
+  } finally {
+    await context.close();
+  }
+}
+
+test("with scripting off the homepage's links are the CTA's chips, clear of the wordmark's halo", async ({
+  browser,
+}) => {
+  const chip = { height: 40, ground: GARNET, border: `1px solid ${SAND}` };
+
+  const narrow = await scriptlessBar(browser, 390);
+  const at390 = JSON.stringify(narrow);
+  expect(narrow.halo, `premise: the wordmark wears its halo ${at390}`).toBe(6);
+  expect(narrow.links, at390).toHaveLength(2);
+  for (const link of narrow.links) expect(link, at390).toMatchObject(chip);
+  expect(
+    narrow.links[0]!.left - narrow.haloRight,
+    `clear of the halo ${at390}`,
+  ).toBeGreaterThanOrEqual(6);
+  expect(narrow.links[1]!.top, `one row ${at390}`).toBe(narrow.links[0]!.top);
+
+  for (const width of [768, 1440]) {
+    const wide = await scriptlessBar(browser, width);
+    const at = JSON.stringify(wide);
+    expect(wide.links, at).toHaveLength(1);
+    expect(wide.cta, `the CTA is in the bar ${at}`).not.toBeNull();
+    expect(wide.cta, at).toMatchObject(chip);
+    expect(wide.links[0], at).toMatchObject({ ...chip, top: wide.cta!.top });
+    expect(wide.cta!.left - wide.links[0]!.right, `apart ${at}`).toBeGreaterThanOrEqual(6);
   }
 });
 
