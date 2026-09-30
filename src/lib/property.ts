@@ -79,6 +79,21 @@ export interface PropertyFact {
   value: string;
 }
 
+const UNITS: [RegExp, string][] = [
+  [/^(?:sf|sq\.?\s*ft\.?|sqft|square\s+f(?:oo|ee)t)$/i, "SF"],
+  [/^(?:acres?|ac\.?)$/i, "acre"],
+];
+
+/** The per-unit price as its own row: "$375.17 / SF" reads "Price per SF
+ *  $375.17", so it never sits under a second "Price" beside the total (the
+ *  client struck "Total" from that one, Figma 1838699126). A value whose unit
+ *  is not one of these keeps its own words under "Unit price". */
+function unitPrice(value: string): [string, string] {
+  const [, amount, unit] = /^(.*?\S)\s*\/\s*(.+?)$/.exec(value) ?? [];
+  const named = unit && UNITS.find(([re]) => re.test(unit.trim()))?.[1];
+  return named ? [`Price per ${named}`, amount] : ["Unit price", value];
+}
+
 /** The Details tab as label/value rows, in reading order, filled fields only —
  *  an empty field is omitted rather than shown as a dash, because most
  *  listings fill fewer than half of these. `pricing: false` drops the three
@@ -89,10 +104,11 @@ export function propertyFacts(
 ): PropertyFact[] {
   const d = property.data;
   const deal = (value: string | null) => (pricing ? value : null);
+  const perUnit = deal(d.price_per_unit?.trim() || null);
   const rows: [string, string | null][] = [
     ["Offered for", deal(d.transaction_type ?? null)],
-    ["Total price", deal(d.total_price?.trim() || null)],
-    ["Price", deal(d.price_per_unit?.trim() || null)],
+    ["Price", deal(d.total_price?.trim() || null)],
+    ...(perUnit ? [unitPrice(perUnit)] : []),
     ["Building size", isFilled.number(d.size_total_sf) ? sf(d.size_total_sf) : null],
     ["Office", isFilled.number(d.size_office_sf) ? sf(d.size_office_sf) : null],
     ["Retail", isFilled.number(d.size_retail_sf) ? sf(d.size_retail_sf) : null],

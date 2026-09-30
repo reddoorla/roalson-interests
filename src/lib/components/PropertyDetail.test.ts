@@ -61,8 +61,7 @@ describe("PropertyDetail", () => {
     expect(queryByText(/^PDF/)).toBeNull();
     const terms = [...container.querySelectorAll("dt")].map((dt) => dt.textContent);
     expect(terms).not.toContain("Offered for");
-    expect(terms).not.toContain("Total price");
-    expect(terms).not.toContain("Price");
+    expect(terms.join(" ")).not.toMatch(/price/i);
     expect(terms).toContain("Building size");
     expect(queryByRole("table")).toBeNull();
     expect(getByRole("link", { name: /View on Google Maps/ })).toBeTruthy();
@@ -102,6 +101,17 @@ describe("PropertyDetail", () => {
     expect(queryByRole("link", { name: /Google Maps/ })).toBeNull();
     expect(queryByRole("heading", { name: "Details" })).toBeNull();
     expect(container.querySelector("dl")).toBeNull();
+  });
+
+  it("prices the listing under Price and never says Total", () => {
+    const { container } = render(PropertyDetail, { props: { property: propertyFixture() } });
+    const rows = [...container.querySelectorAll("dl > div")].map((row) => [
+      row.querySelector("dt")?.textContent,
+      row.querySelector("dd")?.textContent,
+    ]);
+    expect(rows).toContainEqual(["Price", "Contact Broker"]);
+    expect(rows).toContainEqual(["Price per SF", "$22.50"]);
+    expect(container.textContent).not.toMatch(/total/i);
   });
 
   it("lists the facts as a description list and the tracts as a table", () => {

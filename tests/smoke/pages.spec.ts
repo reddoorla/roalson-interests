@@ -1,5 +1,5 @@
 import { test, expect, type Page, type ConsoleMessage } from "@playwright/test";
-import { smokeRoutes } from "./routes";
+import { isPlaceholderRepo, smokeRoutes } from "./routes";
 import { HYDRATION_TIMEOUT } from "../interaction/hydrated";
 
 // Console messages we don't care about. Add patterns here only after seeing them
@@ -72,4 +72,22 @@ test("404 page renders the custom error component", async ({ page }) => {
   // src/routes/+error.svelte renders `<h1>{page.status}</h1>` → "404".
   await expect(page.getByText("404", { exact: false }).first()).toBeVisible();
   expect(errors).toEqual([]);
+});
+
+// The client struck "Total" from the listing price (Figma 1838699126). Every
+// listing page /properties links, as the build served it.
+test("no listing page says Total price, and the price row is there", async ({ request }) => {
+  test.skip(isPlaceholderRepo, "no listings before Prismic is wired");
+  const index = await (await request.get("/properties")).text();
+  const paths = new Set([...index.matchAll(/href="(\/properties\/[^"#?]+)"/g)].map((m) => m[1]));
+  expect(paths.size, "listing links on /properties").toBeGreaterThan(0);
+  let priced = 0;
+  for (const path of paths) {
+    const response = await request.get(path);
+    expect(response.status(), path).toBe(200);
+    const html = await response.text();
+    expect(/.{0,40}total price.{0,40}/i.exec(html)?.[0] ?? null, path).toBeNull();
+    if (/<dt[^>]*>Price<\/dt>/.test(html)) priced++;
+  }
+  expect(priced, "listing pages with a Price row").toBeGreaterThan(0);
 });
