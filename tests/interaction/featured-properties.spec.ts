@@ -3637,8 +3637,20 @@ test.describe("the other states", () => {
       const rowHrefs = await rows.evaluateAll((els) => els.map((e) => e.getAttribute("href")));
       for (const pin of await pins.all())
         expect(rowHrefs).toContain(await pin.getAttribute("href"));
+      // And since 2026-09-29 a THIRD set, also the map's: the picture's own
+      // credit (`MAP_HOME_CREDIT`). The raster is a picture of OpenStreetMap
+      // data, and with no script it is the only map this visitor gets, so it
+      // carries the licence line whole — exactly these two links, on screen.
+      const credit = page.locator(`${BAND} [data-map-home-credit] a`);
+      expect(
+        await credit.evaluateAll((els) => els.map((e) => e.getAttribute("href"))),
+        "the picture's credit",
+      ).toEqual(["https://www.openmaptiles.org/", "https://www.openstreetmap.org/copyright"]);
+      for (const link of await credit.all()) await expect(link).toBeVisible();
       for (const link of await page
-        .locator(`${BAND} a:not([data-map-link]):not([data-map-home-pin])`)
+        .locator(
+          `${BAND} a:not([data-map-link]):not([data-map-home-pin]):not([data-map-home-credit] a)`,
+        )
         .all())
         await expect(link).toHaveAttribute("href", /^\/properties(\/.+)?$/);
     } finally {

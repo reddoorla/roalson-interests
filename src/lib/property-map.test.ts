@@ -37,6 +37,7 @@ import {
   WHEEL_SLOP_PX,
   wheelRun,
   type Box,
+  type MapFrame,
   type MapPoint,
   type WheelRun,
 } from "$lib/property-map";
@@ -862,8 +863,8 @@ describe("the frame a container is", () => {
     expect(frameFor({ width: 390, height: 200 })).toBe("compact");
     expect(frameFor({ width: 397, height: 595 })).toBe("full");
     expect(frameFor({ width: 512, height: 827 })).toBe("full");
-    // The expand affordance grows a phone map to 520, which is a FULL frame:
-    // that is the whole point of expanding it.
+    // The expand affordance grows a phone map to the window, a FULL frame in
+    // any window at least COMPACT_MAX_HEIGHT tall.
     expect(frameFor({ width: 350, height: 520 })).toBe("full");
     expect(frameFor({ width: 350, height: COMPACT_MAX_HEIGHT })).toBe("full");
   });
@@ -1292,19 +1293,96 @@ describe("which scroll a wheel event belongs to", () => {
   });
 });
 
-// Plan guard 2i (#174): the control column (+, −, expand) sits bottom-right
-// over the map, and MAP_FRAMES' right padding is only 44/26, so a pin could
-// open UNDER a control and be unpressable. At MAP_HOME, at rest, over the real
-// portfolio, no marker's centre may sit in the column's targets. The column's
-// geometry is property-map.spec.ts's "the control column": three 44px targets
-// stacked flush with the map's right and bottom edges. Measured 2026-09-28:
-// on the full frame the tightest clearance is 36.8px (the land panel).
+// Plan guard 2i (#174, #182, #188): nothing the map draws over itself — the
+// control column and the credit — sits on a marker. At MAP_HOME, at rest,
+// over the real portfolio, on every box each frame is drawn at.
+//
+// THE FURNITURE, BY FRAME (operator call 2026-09-29, "option two": "happy not
+// to have the zoom buttons on mobile since we've thumbs"):
+//   full     + above − above expand, three 44px targets flush bottom-right,
+//            and the whole credit chip flush bottom-left.
+//   compact  expand alone, and the credit collapsed to MapLibre's (i).
+// THE COMPACT ROW IS THE MAP AFTER ITS CREDIT'S OPEN WINDOW (operator call the
+// same day, "option A"): for MAP_CREDIT_OPEN_MS after the first frame, or until
+// the visitor's first pan, zoom or press, a compact map shows the credit's
+// whole line where the (i) will be, as the OSMF safe harbour asks. That window
+// is the operator's accepted cost and is recorded, not guarded, in its own
+// case at the end ("what the open window covers"). The raster picture before
+// `load` carries the open line too on a compact frame, the live credit's box,
+// so that case covers it; with scripting off the picture is for good and
+// carries the whole chip, the compact furniture this replaced: its collisions
+// are the chip's rows of the guard-the-guard case.
+// The geometry is property-map.spec.ts's, measured in Chromium: "the control
+// column" (44px targets; garnet boxes 20.884 x 20.88, 10 from the right and
+// the bottom, stacked 44 apart) and "the credit" (the (i) 24 x 24 at 10 from
+// the left and the bottom; the chip at 0/0, 224 x 18 in this container's
+// fonts — the spec holds the rendered chip inside that box).
+//
+// TWO RULES, because a control and the credit fail a marker in different ways:
+//  - PRESSED: the marker's centre inside a control's target, or the credit's
+//    box, so a press aimed at the marker lands on that instead. #182 was this:
+//    the Seguin pin's centre under − on 358-445px compact maps.
+//  - DRAWN UNDER: any of the marker's own box under something PAINTED — a
+//    control's garnet box or the credit. #188 was this and ONLY this. The
+//    downtown cluster's centre is at y 181.80 on a 200 box and the chip's top
+//    is at 182 (Chromium puts the live cluster at exactly 181.80 too), so a
+//    centre rule walks past a cluster whose lower half the chip covers; the
+//    hit test #188 reported was that 0.2px landing either way on a box at a
+//    fractional page offset. A control's TARGET is mostly transparent padding
+//    around its garnet box, which is why this rule reads the paint.
 // Compact widths start at 265 (#182): WCAG 1.4.10's 320px window less the 40px
-// of gutters and Chromium's 15px classic scrollbar gutter. From the comp's 350
-// the walk could not see a camera that only moves the Seguin collision onto
-// 360 and 375 phones (-98.38 does exactly that, and passed from 350).
-describe("no marker opens under the control column (plan guard 2i)", () => {
-  const COLUMN = { width: 44, height: 3 * 44 };
+// of gutters and Chromium's 15px classic scrollbar gutter.
+describe("no marker opens under a control or the credit (plan guard 2i)", () => {
+  interface Rect {
+    x0: number;
+    x1: number;
+    y0: number;
+    y1: number;
+  }
+  interface Furniture {
+    name: string;
+    /** Where a press lands. */
+    target: (box: Box) => Rect;
+    /** What is drawn over the map. */
+    painted: (box: Box) => Rect;
+  }
+  const TARGET = 44;
+  const GARNET_BOX = { width: 20.884, height: 20.88, inset: 10 };
+  /** The control `slot` targets up from the map's bottom edge (expand is 0). */
+  const control = (name: string, slot: number): Furniture => ({
+    name,
+    target: (b) => ({
+      x0: b.width - TARGET,
+      x1: b.width,
+      y0: b.height - TARGET * (slot + 1),
+      y1: b.height - TARGET * slot,
+    }),
+    painted: (b) => ({
+      x0: b.width - GARNET_BOX.inset - GARNET_BOX.width,
+      x1: b.width - GARNET_BOX.inset,
+      y0: b.height - TARGET * slot - GARNET_BOX.inset - GARNET_BOX.height,
+      y1: b.height - TARGET * slot - GARNET_BOX.inset,
+    }),
+  });
+  /** The credit is opaque edge to edge: its target and its paint are one box. */
+  const credit = (name: string, inset: number, width: number, height: number): Furniture => {
+    const rect = (b: Box) => ({
+      x0: inset,
+      x1: inset + width,
+      y0: b.height - inset - height,
+      y1: b.height - inset,
+    });
+    return { name, target: rect, painted: rect };
+  };
+  const COLUMN = [control("+", 2), control("−", 1), control("expand", 0)];
+  /** #188's cluster: 402 W Nueva, St Mary's at Martin / River Walk, Urban Loop Road. */
+  const DOWNTOWN = "402-w-nueva-street|st-marys-at-martin-river-walk|urban-loop-road";
+  const CHIP = credit("the credit chip", 0, 224, 18);
+  const FURNITURE: Record<MapFrame, Furniture[]> = {
+    full: [...COLUMN, CHIP],
+    compact: [control("expand", 0), credit("the (i)", 10, 24, 24)],
+  };
+
   /** The homepage band's picks (scripts/seed/pages.json). */
   const bandPicks = improved.filter((p) =>
     ["25331-ih-10-west", "101-w-commerce-street", "13810-lookout-road"].includes(p.id),
@@ -1322,77 +1400,217 @@ describe("no marker opens under the control column (plan guard 2i)", () => {
   const COMPACT: Box[] = [];
   for (let width = 265; width <= 1023; width++) COMPACT.push({ width, height: 200 });
 
-  /** Each marker's centre in each box: a pin is anchored at its tip, a
-   *  cluster disc at its centre. */
-  const centres = (points: MapPoint[], frame: "full" | "compact", boxes: Box[]) => {
+  /** Every marker at least partly on screen in each box: its centre, and its
+   *  own element's box — a pin S x S·PIN_ASPECT anchored at its tip, a
+   *  cluster a d x d disc on its centre. */
+  const markers = (points: MapPoint[], frame: MapFrame, boxes: Box[]) => {
     const { pin } = MAP_FRAMES[frame];
     return boxes.flatMap((box) =>
-      homeMarkers(points, frame).map((m) => ({
-        box,
-        id: m.id,
-        x: box.width / 2 + m.dx,
-        y: box.height / 2 + m.dy - (m.point ? (pin * PIN_ASPECT) / 2 : 0),
-      })),
+      homeMarkers(points, frame)
+        .map((m) => {
+          const w = m.point ? pin : clusterDiameter(m.count, pin);
+          const h = m.point ? pin * PIN_ASPECT : w;
+          const x = box.width / 2 + m.dx;
+          const y = box.height / 2 + m.dy - (m.point ? h / 2 : 0);
+          const rect = { x0: x - w / 2, x1: x + w / 2, y0: y - h / 2, y1: y + h / 2 };
+          return { box, id: m.id, ids: m.ids, x, y, rect };
+        })
+        .filter(({ box, rect }) => rect.x1 > 0 && rect.x0 < box.width)
+        .filter(({ box, rect }) => rect.y1 > 0 && rect.y0 < box.height),
     );
   };
 
-  const underColumn = (points: MapPoint[], frame: "full" | "compact", boxes: Box[]) =>
-    centres(points, frame, boxes)
-      .filter(({ box, x }) => x > box.width - COLUMN.width && x <= box.width)
-      .filter(({ box, y }) => y > box.height - COLUMN.height && y <= box.height)
-      .map(({ box, id }) => `${id} at ${box.width} x ${box.height}`);
+  const within = (x: number, y: number, r: Rect) => x > r.x0 && x <= r.x1 && y > r.y0 && y <= r.y1;
+  const overlap = (a: Rect, b: Rect) => a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
+  /** The distance between two rectangles, 0 if they touch or overlap. */
+  const gap = (a: Rect, b: Rect) =>
+    Math.hypot(Math.max(b.x0 - a.x1, a.x0 - b.x1, 0), Math.max(b.y0 - a.y1, a.y0 - b.y1, 0));
 
-  /** The closest any on-screen marker centre comes to the column, in px. */
-  const clearance = (points: MapPoint[], frame: "full" | "compact", boxes: Box[]) =>
-    Math.min(
-      ...centres(points, frame, boxes)
-        .filter(({ box, x, y }) => x >= 0 && x <= box.width && y >= 0 && y <= box.height)
-        .map(({ box, x, y }) =>
-          Math.hypot(
-            Math.max(box.width - COLUMN.width - x, 0),
-            Math.max(box.height - COLUMN.height - y, 0),
-          ),
-        ),
+  const collisions = (
+    points: MapPoint[],
+    frame: MapFrame,
+    boxes: Box[],
+    furniture = FURNITURE[frame],
+  ) =>
+    markers(points, frame, boxes).flatMap(({ box, id, x, y, rect }) =>
+      furniture
+        .flatMap((f) => [
+          ...(within(x, y, f.target(box)) ? [`${id} pressed under ${f.name}`] : []),
+          ...(overlap(rect, f.painted(box)) ? [`${id} drawn under ${f.name}`] : []),
+        ])
+        .map((what) => `${what} at ${box.width} x ${box.height}`),
     );
 
+  /** The tightest room any matching marker keeps: its centre from every
+   *  target (`press`), its own box from every painted box (`paint`). */
+  const margins = (
+    points: MapPoint[],
+    frame: MapFrame,
+    boxes: Box[],
+    which: (ids: string[]) => boolean = () => true,
+  ) => {
+    let press = Infinity;
+    let paint = Infinity;
+    for (const { box, ids, x, y, rect } of markers(points, frame, boxes)) {
+      if (!which(ids)) continue;
+      for (const f of FURNITURE[frame]) {
+        press = Math.min(press, gap({ x0: x, x1: x, y0: y, y1: y }, f.target(box)));
+        paint = Math.min(paint, gap(rect, f.painted(box)));
+      }
+    }
+    return { press, paint };
+  };
+
   it("the improved section, at every Properties box", () => {
-    expect(underColumn(improved, "full", [PANEL])).toEqual([]);
-    expect(underColumn(improved, "compact", COMPACT)).toEqual([]);
+    expect(collisions(improved, "full", [PANEL])).toEqual([]);
+    expect(collisions(improved, "compact", COMPACT)).toEqual([]);
   });
 
-  // FOUND BY THIS GUARD, NOT FIXED HERE: on a compact Properties map 358 to
-  // 445 wide (a 398-485px phone; the 430px Pro Max is one), the Seguin pin's
-  // centre is under the − target. Confirmed in Chromium on the live /properties
-  // at 430: the pin's centre, (366.3, 115.8) in a 375 x 200 box, hit-tests to
-  // `zoom-out`. Moving the camera or the column is a design call (#182), so
-  // this list pins the known collision exactly: a new one, or the fix, turns
-  // it red. Nothing collides from 265 to 357: the pin is off the right edge.
-  const SEGUIN_UNDER_MINUS = Array.from(
-    { length: 445 - 358 + 1 },
-    (_, i) => `ih-10-at-fm-725-seguin at ${358 + i} x 200`,
-  );
-  it("the land section, at every Properties box: only the known Seguin collision", () => {
-    expect(underColumn(land, "full", [PANEL])).toEqual([]);
-    expect(underColumn(land, "compact", COMPACT)).toEqual(SEGUIN_UNDER_MINUS);
-  });
-
-  // The margins, so a camera change that keeps every centre out but eats the
-  // room is still seen. Full is the land panel's Loop 1604 at 181 pin.
-  it("records the tightest clearance on each frame", () => {
-    expect(clearance(land, "full", [PANEL])).toBeCloseTo(36.79, 2);
-    expect(clearance(improved, "full", [PANEL])).toBeGreaterThan(36.79);
-    expect(clearance(bandPicks, "full", FULL)).toBeGreaterThan(36.79);
-    expect(clearance(improved, "compact", COMPACT)).toBeCloseTo(37.19, 2);
-    expect(clearance(bandPicks, "compact", COMPACT)).toBeCloseTo(32.74, 2);
+  it("the land section, at every Properties box: #182 and #188 are both gone", () => {
+    expect(collisions(land, "full", [PANEL])).toEqual([]);
+    expect(collisions(land, "compact", COMPACT)).toEqual([]);
   });
 
   it("the homepage band's picks, at every band box", () => {
     expect(bandPicks).toHaveLength(3);
-    expect(underColumn(bandPicks, "full", FULL)).toEqual([]);
-    expect(underColumn(bandPicks, "compact", COMPACT)).toEqual([]);
+    expect(collisions(bandPicks, "full", FULL)).toEqual([]);
+    expect(collisions(bandPicks, "compact", COMPACT)).toEqual([]);
   });
 
-  // Guard the guard: a marker put in the middle target (the −) is found.
+  const expectMargins = (got: { press: number; paint: number }, press: number, paint: number) => {
+    expect(got.press, "centre to the nearest target").toBeCloseTo(press, 2);
+    expect(got.paint, "box to the nearest painted box").toBeCloseTo(paint, 2);
+  };
+
+  // The margins, so a camera change that keeps every marker clear but eats
+  // the room is still seen. Measured 2026-09-29. The full frame's 36.79 is
+  // the land panel's Loop 1604 at 181 pin, as before; the compact land map's
+  // 6.23 / 9.41 is the IH 10 East at Loop 1604 pin against expand on a 265
+  // box, where its centre is 6.05px left of and 1.48px above the target and
+  // its tip 19.2px left of the garnet box.
+  it("records the tightest margins on each frame", () => {
+    expectMargins(margins(land, "full", [PANEL]), 36.79, 25.9);
+    expectMargins(margins(improved, "full", [PANEL]), 137.1, 134.66);
+    expectMargins(margins(bandPicks, "full", FULL), 153.94, 140.55);
+    expectMargins(margins(land, "compact", COMPACT), 6.23, 9.41);
+    expectMargins(margins(improved, "compact", COMPACT), 43.09, 43.25);
+    expectMargins(margins(bandPicks, "compact", COMPACT), 54.24, 58.08);
+  });
+
+  // #182's pin and #188's cluster, by name, at their tightest compact widths.
+  // Seguin is on screen from 358 and its nearest furniture is expand, 40.18
+  // below its centre at every width to 445 (a 398-485px phone). The cluster's
+  // nearest is expand too, not the (i): 80.46 on a 265 box, growing half a
+  // pixel per pixel of width. It is 106.54 clear of the (i) there.
+  it("the Seguin pin and the downtown cluster, where each was", () => {
+    const seguin = (ids: string[]) => ids.includes("ih-10-at-fm-725-seguin");
+    const downtown = (ids: string[]) => ids.includes("402-w-nueva-street");
+    expect(
+      homeMarkers(land, "compact").find((m) => downtown(m.ids))!.id,
+      "the cluster #188 names, still one cluster of three",
+    ).toBe(DOWNTOWN);
+    expectMargins(margins(land, "compact", COMPACT, seguin), 40.18, 43.39);
+    expectMargins(margins(land, "compact", COMPACT, downtown), 80.46, 80.58);
+    const [, credit] = FURNITURE.compact;
+    const at265 = markers(land, "compact", [{ width: 265, height: 200 }]).find((m) =>
+      downtown(m.ids),
+    )!;
+    expect(
+      gap({ x0: at265.x, x1: at265.x, y0: at265.y, y1: at265.y }, credit!.target(at265.box)),
+    ).toBeCloseTo(106.54, 2);
+  });
+
+  // GUARD THE GUARD. Both rules, run against the furniture the compact frame
+  // carried before 2026-09-29 — the three-target column and the whole chip —
+  // find exactly the two defects the issues report. If either rule stops
+  // seeing its defect, this goes red before the frame's own case goes green
+  // for the wrong reason.
+  //
+  // It finds one more than the issues named: the Loop 1604 at Dove Canyon pin
+  // was under the chip too, from 265 to 608 (its box reaches y 184.9 on a 200
+  // box; the chip starts at 182). The (i) clears it by 18.05 at 265.
+  it("finds #182 and #188 against the compact furniture this replaced", () => {
+    const runs: Record<string, number[]> = {};
+    for (const found of collisions(land, "compact", COMPACT, [...COLUMN, CHIP])) {
+      const [, what, width] = /^(.*) at (\d+) x 200$/.exec(found)!;
+      (runs[what!] ??= []).push(Number(width));
+    }
+    const run = (from: number, to: number) =>
+      Array.from({ length: to - from + 1 }, (_, i) => from + i);
+    expect(runs).toEqual({
+      "ih-10-at-fm-725-seguin pressed under −": run(358, 445),
+      "ih-10-at-fm-725-seguin drawn under −": run(356, 441),
+      [`${DOWNTOWN} drawn under the credit chip`]: run(265, 457),
+      "loop-1604-at-dove-canyon drawn under the credit chip": run(265, 608),
+    });
+  });
+
+  // WHAT THE OPEN WINDOW COVERS — option A's accepted cost, measured rather
+  // than waved at. For its first MAP_CREDIT_OPEN_MS a compact map's credit is
+  // MapLibre's compact credit OPEN: 10 from the left and the bottom, bounded
+  // by the control column's strip (`right: 54px`), one line 248 x 24 in this
+  // container's fonts, or two lines 32 tall where 248 does not fit (191 x 32
+  // on a 265 box). property-map.spec.ts holds the rendered line inside this
+  // box at 320, 390 and 768 on both pages. It is a record: a camera or a
+  // listing that changes these runs goes red here, so the cost is re-read by
+  // whoever changed it, and a first touch or five seconds ends it either way.
+  it("records what the open window covers, for its first seconds", () => {
+    const LINE = { width: 248, oneLine: 24, twoLines: 32, inset: 10, strip: 54 };
+    const line = (): Furniture => {
+      const rect = (b: Box) => {
+        // maplibre's compact credit has a 10px margin on EVERY side, so the
+        // right one is room lost too: 191 on a 265 box, not 201.
+        const room = b.width - LINE.strip - 2 * LINE.inset;
+        const width = Math.min(LINE.width, room);
+        const height = width < LINE.width ? LINE.twoLines : LINE.oneLine;
+        return {
+          x0: LINE.inset,
+          x1: LINE.inset + width,
+          y0: b.height - LINE.inset - height,
+          y1: b.height - LINE.inset,
+        };
+      };
+      return { name: "the open line", target: rect, painted: rect };
+    };
+    const window = [control("expand", 0), line()];
+    const runs = (points: MapPoint[]) => {
+      const found: Record<string, number[]> = {};
+      for (const hit of collisions(points, "compact", COMPACT, window)) {
+        const [, what, width] = /^(.*) at (\d+) x 200$/.exec(hit)!;
+        (found[what!] ??= []).push(Number(width));
+      }
+      return Object.fromEntries(
+        Object.entries(found).map(([what, widths]) => [
+          what,
+          `${Math.min(...widths)}-${Math.max(...widths)} (${widths.length} widths)`,
+        ]),
+      );
+    };
+    // Measured in Chromium on /properties at seven boxes (265, 295, 321, 323,
+    // 335, 505, 545) and 689: every marker the rendered line overlapped is in
+    // these runs, and none outside them. The (i) that follows clears every
+    // one — each section's own case above.
+    expect(runs(land)).toEqual({
+      [`${DOWNTOWN} pressed under the open line`]: "265-499 (235 widths)",
+      [`${DOWNTOWN} drawn under the open line`]: "265-525 (261 widths)",
+      "loop-1604-at-dove-canyon pressed under the open line": "265-654 (390 widths)",
+      "loop-1604-at-dove-canyon drawn under the open line": "265-676 (412 widths)",
+      "ih-10-east-at-loop-1604 drawn under the open line": "271-321 (51 widths)",
+    });
+    // 101 W Commerce Street is downtown too, on the improved map and among
+    // the band's picks — seen under the line on /properties' second map at
+    // 335, and on the band at 375 while it is still at MAP_HOME (with motion
+    // allowed; the band leaves MAP_HOME for its first pick at the hand-over,
+    // #132, which under reduced motion is the same frame).
+    const commerce = {
+      "101-w-commerce-street pressed under the open line": "265-497 (233 widths)",
+      "101-w-commerce-street drawn under the open line": "265-519 (255 widths)",
+    };
+    expect(runs(improved), "the improved section's map").toEqual(commerce);
+    expect(runs(bandPicks), "the homepage band's picks").toEqual(commerce);
+  });
+
+  // And a marker put in the middle target (the −) of the full column is found.
   it("finds a marker placed under the column", () => {
     const { camera } = MAP_HOME.full;
     const [x, y] = [PANEL.width - 22, PANEL.height - 66 + (48 * PIN_ASPECT) / 2];
@@ -1402,6 +1620,9 @@ describe("no marker opens under the control column (plan guard 2i)", () => {
       lng: unprojectLng(projectX(camera.lng, camera.zoom) + x - PANEL.width / 2, camera.zoom),
       lat: unprojectLat(projectY(camera.lat, camera.zoom) + y - PANEL.height / 2, camera.zoom),
     };
-    expect(underColumn([probe], "full", [PANEL])).toEqual(["probe at 397 x 595"]);
+    expect(collisions([probe], "full", [PANEL])).toEqual([
+      "probe pressed under − at 397 x 595",
+      "probe drawn under − at 397 x 595",
+    ]);
   });
 });

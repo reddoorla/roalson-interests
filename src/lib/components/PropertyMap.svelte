@@ -78,6 +78,13 @@
   // moved to bottom-left, out of the control column's corner, and toned to
   // the brand. tests/interaction/property-map.spec.ts asserts the string
   // "OpenStreetMap" is really on the page rather than that no error appeared.
+  // On a COMPACT frame it is MapLibre's own compact credit: the whole line
+  // for MAP_CREDIT_OPEN_MS after the first frame, or until the visitor's first
+  // pan, zoom or press, and then its (i), which opens to the same text on a
+  // press; on a full frame, and in the expanded overlay at any window height,
+  // it is the whole chip (`fullControls`). See `placeCredit` for why.
+  // The raster picture under the canvas carries the same line as plain markup
+  // (`MAP_HOME_CREDIT`), since before `load` there is no control to show it.
   //
   // Deep imports, not `{ Expand, Shrink } from "@lucide/svelte"`. That barrel
   // re-exports every icon in the pack as its own .svelte file, and reaching it
@@ -107,8 +114,10 @@
     frameFor,
     homeFrames,
     homeMarkers,
+    MAP_CREDIT_OPEN_MS,
     MAP_FRAMES,
     MAP_HOME,
+    MAP_HOME_CREDIT,
     MAP_HOME_FADE_MS,
     MAP_HOME_GROUND,
     MAP_MAX_ZOOM,
@@ -269,6 +278,17 @@
   let boxEl: HTMLDivElement | undefined = $state();
   let canvasHost: HTMLDivElement | undefined = $state();
   let map: MapInstance | null = null;
+  /** Puts the credit of the given kind on the live map, replacing the other
+   *  kind (a no-op if it is already that kind). `boot` sets it, `destroy`
+   *  clears it; null means there is no map to put a credit on. */
+  let placeCredit: ((compact: boolean) => void) | null = null;
+  /** Ends the compact credit's open window — its whole line collapses to the
+   *  (i), and every compact credit placed after this starts collapsed. Called
+   *  by the visitor's first pan, zoom or press, and by `creditClock`; a no-op
+   *  after the first call. `boot` sets it, `destroy` clears it. */
+  let settleCredit: (() => void) | null = null;
+  /** MAP_CREDIT_OPEN_MS from MapLibre's `load`: the open window's other end. */
+  let creditClock: ReturnType<typeof setTimeout> | undefined;
 
   /** Only a rendered first frame sets this. Not "the import resolved", not
    *  "no error was thrown" — MapLibre's own `load`, which it fires when the
@@ -685,7 +705,7 @@
     // themselves, which is what gives a finger's swipe back to the page.
     instance.getCanvasContainer().classList.toggle("maplibregl-interactive", on);
     if (!locking) return;
-    selected = null;
+    closeSheet();
     drivenAt = undefined;
     releaseDue = false;
     stepping = null;
@@ -702,7 +722,39 @@
     "group grid h-11 w-11 cursor-pointer place-items-end bg-transparent pr-[10px] pb-[10px] focus-visible:outline-none";
   const CONTROL_PAINTED =
     "grid h-[20.88px] w-[20.884px] place-items-center rounded-[2px] bg-primary text-light group-focus-visible:outline-2 group-focus-visible:outline-offset-2 group-focus-visible:outline-primary group-aria-disabled:opacity-40";
-  const frame = $derived(MAP_FRAMES[frameFor(box)]);
+  /**
+   * WHICH FRAME THIS BOX IS — and, since the operator's call of 2026-09-29,
+   * which CONTROLS an in-page map carries. "On phones, drop + and −
+   * (pinch-zoom covers it) and keep only expand, plus the (i) credit": "do
+   * option two, happy not to have the zoom buttons on mobile since we've
+   * thumbs".
+   *
+   * "Phone" is this, not a second test. `frameFor` is already this file's
+   * only notion of a small map — it is the box's own measured height, it is
+   * what picks the 22px pin, the compact raster and the camera — and a
+   * /properties map crossing `lg` is `full` above it and `compact` below.
+   * The expanded overlay is the window, which is NOT always a full frame: a
+   * window under COMPACT_MAX_HEIGHT (a landscape phone, 800 x 280) makes it
+   * `compact`. So the controls read `fullControls`, below, and not this.
+   *
+   * What it clears (#182, #188): the − target sat over the Seguin land pin
+   * on 358–445px compact maps, and the whole credit chip over the downtown
+   * cluster of 3 (#188 measured 265–545 on the live site; guard 2i's 224px
+   * chip gives 265–457) and over the Loop 1604 at Dove Canyon pin (265–608,
+   * which no issue named). src/lib/property-map.test.ts's plan guard 2i walks
+   * both frames' furniture at every compact width from 265 and finds none.
+   *
+   * Before the box is measured it reads `compact` (a 0 × 0 box is under 300),
+   * which nothing draws against: the control column waits for `measured`, and
+   * MapLibre is not constructed until the box is on screen.
+   */
+  const frameName = $derived(frameFor(box));
+  const frame = $derived(MAP_FRAMES[frameName]);
+  /** + and − and the whole credit chip: a full frame, and the expanded overlay
+   *  at every window height. The overlay is a phone's single-pointer way to
+   *  zoom out (WCAG 2.5.1: a pinch is two pointers and a double-tap only zooms
+   *  in), and a resize inside it must not take a focused control away. */
+  const fullControls = $derived(expanded || frameName === "full");
 
   /**
    * THE FIXED OPENING FRAME (#122), and the single answer both halves read.
@@ -772,12 +824,39 @@
     // host means `transitionend` will never fire, so the hand-over is the same
     // tick. #122's "no cross-fade under prefers-reduced-motion", both halves.
     if ($reducedMotion) {
-      handedOver = true;
+      handOver();
       return;
     }
-    const guard = setTimeout(() => (handedOver = true), MAP_HOME_FADE_MS * 10);
+    const guard = setTimeout(handOver, MAP_HOME_FADE_MS * 10);
     return () => clearTimeout(guard);
   });
+  /** Removes the picture, and with it its credit's two links — so a keyboard
+   *  standing on one is first moved to the live credit's. */
+  function handOver() {
+    const held = document.activeElement;
+    const picture = boxEl?.querySelector("[data-map-home-credit]");
+    if (held instanceof HTMLAnchorElement && picture?.contains(held)) focusCredit(held.href);
+    handedOver = true;
+  }
+  /**
+   * Focus onto the live credit: its link to `href` (else its first) while its
+   * line is showing, else its (i). For focus on credit furniture that is about
+   * to be removed or hidden — the picture's credit at the hand-over, a credit
+   * swapped when `fullControls` changes, a compact line collapsing — which
+   * would otherwise drop a keyboard to <body>.
+   */
+  function focusCredit(href: string | null) {
+    const live = canvasHost?.querySelector(".maplibregl-ctrl-attrib");
+    if (!live) return;
+    const line =
+      !live.classList.contains("maplibregl-compact") ||
+      live.classList.contains("maplibregl-compact-show");
+    const links = [...live.querySelectorAll("a")];
+    const target = line
+      ? (links.find((a) => a.href === href) ?? links[0])
+      : live.querySelector("summary");
+    target?.focus();
+  }
   const homeLayers = $derived(
     home === null
       ? []
@@ -923,12 +1002,107 @@
     instance.keyboard.disableRotation();
     instance.touchZoomRotate.disableRotation();
 
-    instance.addControl(
-      new maplibre.AttributionControl({ compact: false }),
+    // THE CREDIT, one of two kinds by `fullControls` — the whole chip on a
+    // full frame and in the expanded overlay, MapLibre's compact credit on an
+    // in-page compact map (the whole line, then its (i)) — and swapped when
+    // that changes (the `$effect` on `fullControls` below).
+    //
+    // WHY NOT MAPLIBRE'S OWN `compact: undefined`. That is "compact when the
+    // container is ≤ 640 wide", which is not this file's frame: the 1440
+    // /properties panel is 392 wide and would collapse too, and a compact
+    // /properties map at 768 is 689 wide and would not. The frame is height.
+    //
+    // WHY IT IS RE-ADDED RATHER THAN RE-CLASSED. `compact` is read once, at
+    // construction, and MapLibre re-applies its own reading on every `resize`
+    // (`_updateCompact`): a `compact: false` control strips the compact
+    // classes whenever the map is over 640 wide, and a `compact: true` one
+    // puts them back whenever they are missing. Toggling the classes on one
+    // control fights that; a control built for its frame agrees with it.
+    //
+    // THE OPEN WINDOW, AND HOW LITTLE OF IT IS OURS. Operator's call,
+    // 2026-09-29, "option A": a compact map shows the WHOLE line at first and
+    // collapses it to the (i) on the visitor's first pan, zoom or press, or
+    // after MAP_CREDIT_OPEN_MS, whichever comes first — the three ways the OSMF
+    // safe harbour lets an interactive map collapse its credit (quoted on the
+    // constant). Measured against maplibre-gl 6.10.0 on /properties at 390
+    // before a line of this was written, a `compact: true` control left alone:
+    //
+    //   at the first frame    the whole line: the first time the control has
+    //                         text it adds `open` and `maplibregl-compact-show`
+    //                         itself (0.9-1.8s BEFORE `load`, on a canvas still
+    //                         transparent, so `load` is when a visitor sees it)
+    //   a drag                collapsed (`_updateCompactMinimize`), but `open`
+    //                         left on the <details>, so the (i) still reports
+    //                         itself expanded
+    //   a wheel zoom          still open
+    //   a double-click zoom   still open
+    //   6.3s later, untouched still open — it has no clock
+    //
+    // So the first row is maplibre's and is left to it, and what this adds is
+    // the rest: the clock, zoom, a press, and the `open` a drag leaves behind.
+    // `collapse` is the state maplibre's own drag leaves minus that `open`, and
+    // `settled` makes it permanent: once the window has closed, a compact
+    // credit placed later (a phone map expanded and collapsed again, a
+    // /properties map crossing `lg`) starts as the (i) — marked
+    // `maplibregl-compact` as it is added, and maplibre's `_updateCompact` then
+    // sees a compact credit and leaves it alone. Pressing the (i) is
+    // maplibre's own toggle from there, open and shut. A window still open when
+    // the frame changes stays open, and the clock that was already running
+    // closes it.
+    //
+    // The accepted cost, the operator's own: for those seconds the line sits
+    // where the (i) will be, over the downtown cluster (#188) — plan guard 2i
+    // in src/lib/property-map.test.ts describes the map after the window.
+    let credit: {
+      control: InstanceType<MapEngine["AttributionControl"]>;
+      compact: boolean;
+    } | null = null;
+    let settled = false;
+    const collapse = () => {
+      if (!credit?.compact) return;
+      const el = host.querySelector(".maplibregl-ctrl-attrib");
+      const held = !!el?.contains(document.activeElement);
+      el?.classList.add("maplibregl-compact");
+      el?.classList.remove("maplibregl-compact-show");
+      el?.removeAttribute("open");
+      if (held) focusCredit(null);
+    };
+    placeCredit = (compact: boolean) => {
+      if (credit?.compact === compact) return;
+      const held = host.querySelector(".maplibregl-ctrl-attrib")?.contains(document.activeElement)
+        ? document.activeElement
+        : null;
+      if (credit) instance.removeControl(credit.control);
+      const control = new maplibre.AttributionControl({ compact });
       // Bottom-LEFT: the control column owns bottom-right, and a licence
       // notice may not be the thing a finger covers.
-      "bottom-left",
-    );
+      instance.addControl(control, "bottom-left");
+      credit = { control, compact };
+      if (settled) collapse();
+      if (held) focusCredit(held instanceof HTMLAnchorElement ? held.href : null);
+      // A press on the (i) is the safe harbour's "dismiss interaction", and
+      // from then on the credit is the visitor's to open and shut — so it
+      // ends the window without collapsing anything itself. maplibre's own
+      // toggle has already run (it listened first), and the <summary>'s
+      // native toggle of `open` runs after both; a `collapse` here would
+      // take `open` off before that toggle put it straight back on, over a
+      // hidden line. Without this, a visitor who shut the line and opened it
+      // again inside the window had the clock shut it on them.
+      host
+        .querySelector(".maplibregl-ctrl-attrib-button")
+        ?.addEventListener("click", endWindow, { once: true });
+    };
+    const endWindow = () => {
+      settled = true;
+      clearTimeout(creditClock);
+    };
+    const settle = () => {
+      if (settled) return;
+      endWindow();
+      collapse();
+    };
+    settleCredit = settle;
+    placeCredit(untrack(() => !fullControls));
 
     // MapLibre names the canvas "Map" and gives it role="region", so two maps
     // on the Properties page would be two identically named landmarks. The
@@ -936,9 +1110,9 @@
     // is one; that call is also what takes the inventory it switches.
     //
     // HERE, at construction, and not first in the effect that follows
-    // `interactive`: that effect next runs when `ready` flips, and until then
-    // a locked band's canvas would sit in the tab order, focusable and named
-    // "interactive", under the placeholder picture.
+    // `interactive`: that effect next runs when `ready` flips, and a locked
+    // band's canvas must not be focusable or named "interactive" at that
+    // flip. (Until it, the whole canvas host is `inert`.)
     navigation = NAVIGATION.filter((name) => handler(instance, name).isEnabled());
     applyInteractive(
       instance,
@@ -965,8 +1139,14 @@
     // went at the frame's zoom. See the wheel listener below and `chosenZoom`.
     //
     // So the predicate is in two halves, one for each of those rows.
+    //
+    // The same two halves are the visitor's first pan or zoom for the credit
+    // (`settle`): a pinch, a drag, a double-tap and the keyboard come through
+    // the tagged `movestart`, the wheel through the listener below.
     instance.on("movestart", (e: { originalEvent?: unknown }) => {
-      if (e.originalEvent) drivenAt = active;
+      if (!e.originalEvent) return;
+      drivenAt = active;
+      settle();
     });
     // The untagged half, AND IT IS LOAD-BEARING NOW. It was written when the
     // in-page map declined the wheel, and was noted as inert on the pages where
@@ -990,10 +1170,19 @@
     instance.getCanvasContainer().addEventListener(
       "wheel",
       () => {
-        if (instance.scrollZoom.isEnabled()) drivenAt = active;
+        if (!instance.scrollZoom.isEnabled()) return;
+        drivenAt = active;
+        settle();
       },
       { passive: true },
     );
+    // A press on the map that neither pans nor zooms it — maplibre's `click`,
+    // which it does not fire for a drag. A press on a PIN never reaches
+    // maplibre (the pins are ours, over its canvas), so `press` settles too.
+    instance.on("click", settle);
+    // Every drag, not only the first: maplibre's own hides an open line and
+    // leaves `open` on, so the (i) reports expanded over nothing.
+    instance.on("drag", collapse);
     // THE VISITOR'S ZOOM, RECORDED — see `chosenZoom` for the three rules and
     // the defect behind each. One listener per event, in maplibre's order: a
     // move's `zoomend` fires before its `moveend`, in the same call, so the
@@ -1035,12 +1224,19 @@
       zoom = instance.getZoom();
       ready = true;
       void tick().then(reposition);
+      // The credit's clock starts at the first frame — see MAP_CREDIT_OPEN_MS
+      // for why not at page load. The fade that brings the canvas up is 300ms
+      // of it with motion allowed, and none under reduced motion.
+      creditClock = setTimeout(settle, MAP_CREDIT_OPEN_MS);
     });
   }
 
   function destroy() {
     map?.remove();
     map = null;
+    placeCredit = null;
+    settleCredit = null;
+    clearTimeout(creditClock);
     ready = false;
     // A re-boot gets a map that has been told nothing yet, and one nobody has
     // driven — both of these describe the instance, not the visitor.
@@ -1247,6 +1443,8 @@
   function press(cluster: MapCluster) {
     const instance = map;
     if (!instance) return;
+    // A press on a marker is a press on the map: the credit's open window ends.
+    settleCredit?.();
     if (cluster.points.length === 1) {
       const point = cluster.points[0]!;
       // The caller that draws its own detail takes the press instead. It must
@@ -1279,6 +1477,50 @@
       zoom: expansionZoom(cluster, frame.clusterRadius, instance.getMaxZoom()),
       duration: $reducedMotion ? 0 : 400,
     });
+  }
+
+  /**
+   * Closes the pin sheet (its ×, Escape, the lock). Focus in it is handed on
+   * first, or the sheet's removal drops it to <body> — inside the overlay's
+   * dialog too. A keyboard's goes to the listing's link in the list: named,
+   * and its chip is the ring (the pin is `aria-hidden`, a button with no name).
+   * A pointer's goes to the pin that opened it while that pin is pressable and
+   * in view, since a focus on the link would draw its chip; else to expand.
+   */
+  function closeSheet() {
+    const held = document.activeElement;
+    const id = selected?.id;
+    if (held instanceof HTMLElement && boxEl?.contains(held) && held.closest("[data-map-sheet]")) {
+      const view = boxEl.getBoundingClientRect();
+      const pin = held.matches(":focus-visible")
+        ? undefined
+        : [...boxEl.querySelectorAll<HTMLButtonElement>("[data-map-pin]")].find((p) => {
+            const r = p.getBoundingClientRect();
+            return (
+              p.dataset.mapPin === id &&
+              !p.disabled &&
+              r.right > view.left &&
+              r.left < view.right &&
+              r.bottom > view.top &&
+              r.top < view.bottom
+            );
+          });
+      if (pin) pin.focus({ preventScroll: true });
+      else focusListing(id, held);
+    }
+    selected = null;
+  }
+
+  /** Focus onto listing `id`'s link in the list when `from` has a keyboard's
+   *  focus ring (a pointer's would draw the link's chip for nothing), else
+   *  onto expand. */
+  function focusListing(id: string | undefined, from: Element) {
+    const i = points.findIndex((p) => p.id === id);
+    const link =
+      i >= 0 && from.matches(":focus-visible")
+        ? boxEl?.querySelectorAll<HTMLElement>("[data-map-link]")[i]
+        : undefined;
+    (link ?? boxEl?.querySelector<HTMLElement>("[data-map-expand]"))?.focus();
   }
 
   // The zoom a +/− press leaves from, and why it is not always `getZoom()`:
@@ -1340,8 +1582,8 @@
   // The container's box, which is the only thing that decides the frame: a
   // 200px-tall map takes the comp's 22px pin, a 595px one its 48px pin. No
   // viewport media query is consulted anywhere in this file, so the SAME rule
-  // covers the expanded state — a phone map grown to the window is a full
-  // frame, which is exactly what expanding it is for.
+  // covers the expanded state — a phone map grown to the window takes the
+  // window's frame: full, unless the window is under COMPACT_MAX_HEIGHT.
   $effect(() => {
     const el = boxEl;
     // Guarded the way Footer.svelte guards its own: jsdom ships no
@@ -1475,6 +1717,31 @@
     void tick().then(() => map?.resize());
   });
 
+  // THE CREDIT FOLLOWS `fullControls`: expanding a phone map, collapsing it,
+  // or a /properties map crossing `lg`. It is a boolean, so this runs when it
+  // changes and not on every resize. Before the map exists `placeCredit` is
+  // null and this does nothing — `boot` places the first one itself, reading
+  // it after its `await`, so a change while the engine was loading is not
+  // missed.
+  $effect(() => {
+    const compact = !fullControls;
+    placeCredit?.(compact);
+  });
+
+  // + and − go with `fullControls` (a map crossing `lg`), and the pins and the
+  // canvas stop taking focus with `interactive` (the band's lock), before the
+  // DOM does: a keyboard on one is moved on rather than dropped to <body>.
+  $effect.pre(() => {
+    const full = fullControls;
+    const on = interactive;
+    const held = document.activeElement;
+    if (!held || !boxEl?.contains(held)) return;
+    if (!full && held.matches("[data-map-control^='zoom']"))
+      boxEl.querySelector<HTMLElement>("[data-map-expand]")?.focus();
+    else if (!on && held.matches("[data-map-pin], canvas"))
+      focusListing(held.getAttribute("data-map-pin") ?? undefined, held);
+  });
+
   // (The `$effect` that used to hand scroll-zoom to the EXPANDED map and take
   // it back on collapse lived here. It is gone, not moved: the in-page map now
   // takes the wheel in every state, so the effect's two branches had become
@@ -1549,7 +1816,7 @@
 <svelte:window
   onkeydown={(e) => {
     if (e.key !== "Escape") return;
-    if (selected) selected = null;
+    if (selected) closeSheet();
     else if (expanded) expanded = false;
   }}
 />
@@ -1728,6 +1995,22 @@
           </div>
         {/each}
       </div>
+      <!-- THE PICTURE'S CREDIT (`MAP_HOME_CREDIT`): the style's own line, whole,
+           for as long as the picture is up — and with scripting off that is
+           for good. A picture has no gesture to collapse it on and no clock,
+           so the OSMF safe harbour wants all of it on screen, on every frame.
+           Outside the picture's `aria-hidden` box, because this is the same
+           licence notice the live credit puts in the accessibility tree.
+           `z-[1]`: over the canvas while it fades in, so the live credit, the
+           same box, stays under this one until the swap. Toned and sized by
+           the live credit's own rules, below; the wrapper is the container
+           those rules query. -->
+      <div data-map-home-query class="pointer-events-none absolute inset-0">
+        <p data-map-home-credit class="pointer-events-auto absolute bottom-0 left-0 z-[1] m-0">
+          <!-- eslint-disable-next-line svelte/no-at-html-tags -- a constant, held to the committed style's attribution by scripts/map-home.test.ts -->
+          {@html MAP_HOME_CREDIT}
+        </p>
+      </div>
     {/if}
 
     <!-- MapLibre's own box. `aria-hidden` is not a shortcut: the canvas keeps
@@ -1740,10 +2023,13 @@
          reads as a sharpening rather than a cut. `motion-reduce:transition-none`
          is #122's reduced-motion rule, and it is paired with `handedOver`
          flipping immediately under the same preference — one setting, both
-         halves, no cross-fade at all. -->
+         halves, no cross-fade at all.
+         `inert` until `ready`: the canvas and the credit under a transparent
+         host are no tab stops. -->
     <div
       bind:this={canvasHost}
       data-map-canvas
+      inert={!ready}
       ontransitionend={(e) => {
         // THIS ELEMENT'S OWN FADE, and nothing else's (#134). The property is
         // named rather than assumed, and so is the target: `transitionend`
@@ -1755,7 +2041,7 @@
         // #3d0707 would show through a canvas at two-thirds opacity, which is
         // the 0.535164 defect above arriving by a different door. Latent
         // today: the pins are plain SVG and `cooperativeGestures` is off.
-        if (e.target === canvasHost && e.propertyName === "opacity" && ready) handedOver = true;
+        if (e.target === canvasHost && e.propertyName === "opacity" && ready) handOver();
       }}
       style="transition-duration:{MAP_HOME_FADE_MS}ms"
       class="absolute inset-0 transition-opacity motion-reduce:transition-none
@@ -1763,7 +2049,11 @@
     ></div>
 
     {#if ready}
-      <div aria-hidden="true" class="pointer-events-none absolute inset-0 z-[1] overflow-hidden">
+      <div
+        data-map-pins
+        aria-hidden="true"
+        class="pointer-events-none absolute inset-0 z-[1] overflow-hidden"
+      >
         {#each clusters as cluster (cluster.id)}
           {@const count = cluster.points.length}
           {@const isActive = count === 1 && active !== null && cluster.points[0]!.id === active}
@@ -1845,11 +2135,13 @@
            by one, which tests/interaction/property-map.spec.ts measures rather
            than asserts. -->
       <!-- `right-[54px]`: the control column's 44px targets on their 10px
-           inset keep that strip, so the sheet's × is never under them. -->
+           inset keep that strip, so the sheet's × is never under them.
+           `pl-11` on a compact frame, for the same reason on the left: the
+           credit's (i) is 24 × 24 at 10 in, and the links start clear of it. -->
       <div
         data-map-sheet
         class="absolute bottom-0 left-0 right-[54px] z-[2] flex items-start justify-between gap-4
-          bg-light/95 p-4 text-primary"
+          bg-light/95 p-4 text-primary {fullControls ? '' : 'pl-11'}"
       >
         <div class="min-w-0">
           <p class="t-h4 truncate">{selected.title}</p>
@@ -1871,7 +2163,7 @@
         </div>
         <button
           type="button"
-          onclick={() => (selected = null)}
+          onclick={closeSheet}
           aria-label="Close {selected.title}"
           class="-m-2 grid h-11 w-11 shrink-0 cursor-pointer place-items-center"
         >
@@ -1889,9 +2181,14 @@
            ours (no comp). The focus ring is on the PAINTED box, in garnet,
            inside the map: on the target it was clipped by the root's
            `overflow-hidden` and toned off-white by the band's `cream` ground,
-           ~1:1 on the map. `aria-disabled` at a zoom bound keeps focus on it. -->
+           ~1:1 on the map. `aria-disabled` at a zoom bound keeps focus on it.
+         + AND − ARE FULL-FRAME ONLY (operator, 2026-09-29): a compact map —
+         the phone maps — carries expand alone, and a finger pinches. The
+         column is bottom-anchored, so expand does not move when they go; the
+         expanded overlay has all three at any window height. See
+         `fullControls`. -->
       <div data-map-controls class="absolute right-0 bottom-0 z-[3] flex flex-col">
-        {#if ready}
+        {#if ready && fullControls}
           <button
             type="button"
             data-map-control="zoom-in"
@@ -1942,6 +2239,15 @@
 {/if}
 
 <style>
+  /* No transition on the root. Under reduced motion app.css gives every
+     element a 0.01ms `transition: all`, so a height that changes at `lg`
+     (the band's `lg:h-full` to `h-50`) is drawn at its old value for a
+     frame: 0 tall below lg, which unmounted the control column under a
+     keyboard's focus. */
+  [data-property-map] {
+    transition-property: none;
+  }
+
   /* The overlay. Scoped CSS sits outside every layer, so it beats Tailwind's
      `@layer utilities` (`h-50`, `lg:sticky`, `lg:top-…`, `mb-5`) on the root.
      z-70 puts it over the nav (z-50) and the pinned dividers (`lg:z-10`); no
@@ -1992,7 +2298,8 @@
      grid row. A browser with no container-query support matches NEITHER rule
      and shows no placeholder at all, which is exactly the pre-#122 state —
      the degradation is "as before", never "the wrong frame". */
-  [data-map-home-box] {
+  [data-map-home-box],
+  [data-map-home-query] {
     container-type: size;
   }
   [data-map-home-frame] {
@@ -2131,6 +2438,22 @@
     }
   }
 
+  /* Drawn on the tiles or on sand, so a garnet ring on either tone: the band's
+     `bg-dark` root hands its children off-white, ~1.1:1 there. The list keeps
+     the root's, since before the map is drawn it is on #3d0707. */
+  [data-map-pins],
+  [data-map-home-box],
+  [data-map-sheet],
+  :global([data-property-map] .maplibregl-ctrl.maplibregl-ctrl-attrib),
+  [data-map-home-credit] {
+    --focus-ring: var(--color-primary);
+  }
+  /* Inside the canvas: outside it, the root's `overflow-hidden` clips it all. */
+  :global([data-property-map] .maplibregl-canvas:focus-visible) {
+    outline: 2px solid var(--color-primary);
+    outline-offset: -2px;
+  }
+
   [data-map-ready] [data-map-link]:focus,
   [data-map-home] [data-map-link]:focus {
     position: absolute;
@@ -2183,18 +2506,129 @@
      wins on specificity rather than on injection order, which nothing in this
      repo controls. (Found by the axe case in featured-properties.spec.ts once
      that band's map was allowed to finish booting; review of #121.) */
-  :global([data-property-map] .maplibregl-ctrl.maplibregl-ctrl-attrib) {
+  :global([data-property-map] .maplibregl-ctrl.maplibregl-ctrl-attrib),
+  [data-map-home-credit] {
     background-color: var(--color-light);
     color: var(--color-primary);
     font-size: 10px;
     line-height: 1.4;
+  }
+  /* The whole chip's padding, and ONLY the whole chip's. Written on the rule
+     above it beat maplibre's compact geometry too (0,3,0 against
+     `.maplibregl-ctrl-attrib.maplibregl-compact`'s 0,2,0): the collapsed
+     credit's `2px 24px 2px 0`, which is what makes it a 24 × 24 box with the
+     (i) in it, came out `2px 6px` — a 12px sliver with the button hanging off
+     its side. The compact credit keeps maplibre's own box, collapsed and open. */
+  :global([data-property-map] .maplibregl-ctrl.maplibregl-ctrl-attrib:not(.maplibregl-compact)),
+  [data-map-home-credit] {
     padding: 2px 6px;
+  }
+  /* The picture's credit is the live chip before MapLibre is here to draw it:
+     the same box (224 x 18 in this container, guard 2i's chip), because the
+     live chip is set in the page's own font too — measured, the control's
+     computed family is the site's, not maplibre's `.maplibregl-map` stack;
+     copying that stack here made this one 225.41 wide. It stops short of the
+     control column's strip as the live corner does, so on a 265px map it
+     wraps (211 x 32) instead of running under expand. */
+  [data-map-home-credit] {
+    max-width: calc(100% - 54px);
+  }
+  /* On a compact frame the live credit opens as maplibre's compact line, so
+     there the picture's is that line: its margin, padding, radius and wrap
+     width, and the (i) where the live one is. The hand-over then swaps like
+     for like, as it does on a full frame, rather than showing two lines and
+     then a jump. The overlay keeps the chip at any height (`fullControls`).
+     With scripting off the picture is for good and keeps the chip: the line's
+     box is over the centres of pins the chip leaves clear or only reaches the
+     foot of (plan guard 2i's "pressed under the open line" rows). */
+  @media (scripting: enabled) {
+    @container (0px < height < 300px) {
+      [data-property-map]:not([data-expanded="true"]) [data-map-home-credit] {
+        left: 10px;
+        bottom: 10px;
+        box-sizing: content-box;
+        min-height: 20px;
+        max-width: calc(100% - 110px);
+        padding: 2px 8px 2px 28px;
+        border-radius: 12px;
+      }
+      [data-property-map]:not([data-expanded="true"]) [data-map-home-credit]::before {
+        content: "";
+      }
+    }
+  }
+
+  /* THE COLLAPSED CREDIT, compact frames only (`placeCredit`): maplibre's own
+     <summary>, a 24 × 24 target (WCAG 2.5.8's minimum, and the no-pin zone
+     plan guard 2i walks), keyboard-operable as a native disclosure. Toned to
+     the brand the way the control column is: the SAME glyph maplibre ships —
+     its data URI, copied, because a mask cannot point at another rule's
+     `background-image` — painted garnet through a mask on a pseudo-element,
+     over the sand the chip already has. On the pseudo-element and not on the
+     summary so the summary's own focus ring is not masked away with it. The
+     ring is the column's: 2px garnet, 2px off, and it has to be written here —
+     maplibre's own `.maplibregl-ctrl-attrib-button { outline: none }` is
+     unlayered, so it beats app.css's `@layer base` focus floor and the (i)
+     had no ring at all without this (the spec's ring assertion goes red).
+     (0,4,0) on purpose: maplibre's `.maplibregl-compact-show
+     .maplibregl-ctrl-attrib-button` is (0,3,0) and injected after this file —
+     the tie #121's review found on the chip. */
+  :global(
+    [data-property-map] .maplibregl-ctrl.maplibregl-ctrl-attrib .maplibregl-ctrl-attrib-button
+  ) {
+    background-color: transparent;
+    background-image: none;
+    box-shadow: none;
+  }
+  :global(
+    [data-property-map]
+      .maplibregl-ctrl.maplibregl-ctrl-attrib
+      .maplibregl-ctrl-attrib-button::before
+  ) {
+    content: "";
+  }
+  :global(
+    [data-property-map]
+      .maplibregl-ctrl.maplibregl-ctrl-attrib
+      .maplibregl-ctrl-attrib-button::before
+  ),
+  [data-map-home-credit]::before {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 24px;
+    height: 24px;
+    background-color: var(--color-primary);
+    mask: url("data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20fill-rule%3D%22evenodd%22%20viewBox%3D%220%200%2020%2020%22%3E%3Cpath%20d%3D%22M4%2010a6%206%200%201%200%2012%200%206%206%200%201%200-12%200m5-3a1%201%200%201%200%202%200%201%201%200%201%200-2%200m0%203a1%201%200%201%201%202%200v3a1%201%200%201%201-2%200%22%2F%3E%3C%2Fsvg%3E")
+      center / 100% 100% no-repeat;
+  }
+  :global(
+    [data-property-map]
+      .maplibregl-ctrl.maplibregl-ctrl-attrib
+      .maplibregl-ctrl-attrib-button:focus-visible
+  ) {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+  /* Forced colours repaint a background to the backplate, which would leave a
+     glyph painted in the backplate's colour on the backplate. */
+  @media (forced-colors: active) {
+    :global(
+      [data-property-map]
+        .maplibregl-ctrl.maplibregl-ctrl-attrib
+        .maplibregl-ctrl-attrib-button::before
+    ),
+    [data-map-home-credit]::before {
+      forced-color-adjust: none;
+      background-color: CanvasText;
+    }
   }
   /* Same tie, same fix: maplibre's `.maplibregl-ctrl-attrib a` is (0,1,1) and
      this was (0,2,1), so the COLOUR here always did win — but it is written
      with the same three classes as its parent so the pair cannot drift apart
      the next time one of them is edited. */
-  :global([data-property-map] .maplibregl-ctrl.maplibregl-ctrl-attrib a) {
+  :global([data-property-map] .maplibregl-ctrl.maplibregl-ctrl-attrib a),
+  [data-map-home-credit] :global(a) {
     color: var(--color-primary);
     text-decoration: underline;
   }
@@ -2207,7 +2641,14 @@
      now sit above the sheet; the credit's chip is opaque so it stays legible
      over it. property-map.spec.ts hit-tests both with a sheet open. (The
      control column is z-3 too, and the sheet now stops 54px short of it.) */
+  /* `right: 54px` is the control column's strip, the same one the sheet
+     stops short of. The corner is `pointer-events: none`, so this only bounds
+     how wide the credit may grow: opened from its (i) on a 265px compact map
+     (a 320px window) it was 245 wide, x 10..255, under the expand target at
+     221..265 — the column is later in the DOM on the same z, so it hid the
+     end of the licence line it sat over. Bounded, the line wraps instead. */
   :global([data-property-map] .maplibregl-ctrl-bottom-left) {
     z-index: 3;
+    right: 54px;
   }
 </style>
