@@ -69,8 +69,13 @@ test("404 page renders the custom error component", async ({ page }) => {
     waitUntil: "domcontentloaded",
   });
   expect(response?.status()).toBe(404);
-  // src/routes/+error.svelte renders `<h1>{page.status}</h1>` → "404".
-  await expect(page.getByText("404", { exact: false }).first()).toBeVisible();
+  // src/routes/+error.svelte renders `<h1>{page.status}</h1>` → "404", which
+  // reddoor-maintenance's launch gate reads off the served HTML
+  // (SITE_404_MARKER, src/recipes/launch.ts) — so the check is on those bytes.
+  expect(await response!.text()).toMatch(/<h1[^>]*>\s*404\s*<\/h1>/i);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("404");
+  await expect(page).toHaveTitle("Page not found | Roalson Interests");
+  await expect(page.getByRole("main").getByRole("link", { name: "Properties" })).toBeVisible();
   expect(errors).toEqual([]);
 });
 
