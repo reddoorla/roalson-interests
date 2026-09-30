@@ -1,4 +1,5 @@
 import { expect, test, type Browser, type ConsoleMessage, type Page } from "@playwright/test";
+import sharp from "sharp";
 import {
   FEATURED_DISSOLVE,
   FEATURED_DWELL,
@@ -82,6 +83,28 @@ const focusAnd = (page: Page) =>
       live: live.getAttribute("aria-live"),
     };
   }, CARD);
+
+/** How much fine detail a screenshot holds: the mean |4-neighbour Laplacian|
+ *  of its greyscale, 8px in from its edges so the clip is not measured. A
+ *  raster stretched by 6% loses exactly this. */
+async function detail(png: Buffer) {
+  const { data, info } = await sharp(png)
+    .removeAlpha()
+    .greyscale()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  expect(info.channels, "premise: one grey channel").toBe(1);
+  const { width: w, height: h } = info;
+  let sum = 0;
+  let n = 0;
+  for (let y = 8; y < h - 8; y++)
+    for (let x = 8; x < w - 8; x++) {
+      const i = y * w + x;
+      sum += Math.abs(4 * data[i] - data[i - 1] - data[i + 1] - data[i - w] - data[i + w]);
+      n++;
+    }
+  return sum / n;
+}
 
 /** Every console warning and error, and every uncaught page error. */
 function listen(page: Page) {
@@ -603,6 +626,154 @@ test.describe("motion on the shipped bundle", () => {
     } finally {
       await context.close();
     }
+  });
+
+  test("a visitor's drift keeps its layer while it runs and DROPS it once it has ended — held as sharp as a photo never layered", async ({
+    browser,
+  }) => {
+    // A layer with will-change keeps the raster it was first drawn at, so in
+    // Chromium a photo held at 1 + KEN_BURNS on one is its start raster
+    // stretched, for as long as it is held (`LAYER` in the slice). A
+    // visitor's turn is what holds it: the arrow's focus stops the clock,
+    // and the drift the turn started runs to its end and stays there.
+    //
+    // THREE RUNS OF THAT TURN, on the same photo, at 1440 × DPR 2: the page
+    // as it ships, and two controls whose photos have will-change forced by
+    // an !important rule, which beats the inline style — `transform`
+    // throughout (the layer kept, as #212 shipped it) and `auto` throughout
+    // (never layered). The controls must differ by more than SHARPER, or the
+    // measurement cannot tell a stretched raster from a fresh one and the
+    // shipped run's number means nothing.
+    test.setTimeout(240_000);
+    const SHARPER = 1.1;
+    const turn = async (forced: "transform" | "auto" | null) => {
+      const context = await browser.newContext({
+        reducedMotion: "no-preference",
+        viewport: viewportFor(1440),
+        deviceScaleFactor: 2,
+      });
+      try {
+        const page = await context.newPage();
+        if (forced)
+          await page.addInitScript((value: string) => {
+            const add = () => {
+              const style = document.createElement("style");
+              style.textContent = `[data-featured-photo] { will-change: ${value} !important; }`;
+              document.head.append(style);
+            };
+            if (document.head) add();
+            else document.addEventListener("DOMContentLoaded", add);
+          }, forced);
+        await page.goto(HOME);
+        await adopted(page);
+        // Focus in the card stops the clock on slide 1 before anything has
+        // loaded, so every run turns from 1 to 2: the same photo, fetched
+        // whole before its drift starts.
+        const next = page.getByRole("button", { name: "Next slide" });
+        await next.focus();
+        await page.locator(CARD).scrollIntoViewIfNeeded();
+        await expect
+          .poll(
+            () =>
+              page
+                .locator(`${CARD} [data-featured-photo]`)
+                .evaluateAll((els) =>
+                  (els as HTMLImageElement[]).every((img) => img.complete && img.naturalWidth > 0),
+                ),
+            { timeout: 30_000 },
+          )
+          .toBe(true);
+        const photo = page.locator(`${SLIDES}:not([inert]) [data-featured-photo]`);
+        const read = () =>
+          photo.evaluate((el) => {
+            const m = new DOMMatrix(getComputedStyle(el).transform);
+            return {
+              // √(a² + b²), rounded to 1e-6: see the drift's case above.
+              scale: Math.round(Math.hypot(m.a, m.b) * 1e6) / 1e6,
+              animations: el
+                .getAnimations()
+                .map((a) => a.playState)
+                .join(","),
+              willChange: getComputedStyle(el).willChange,
+            };
+          });
+        await next.click();
+        await page.mouse.move(2, 2);
+        await expect(page.locator(`${SLIDES}:not([inert])`)).toHaveAttribute(
+          "aria-label",
+          /^2 of \d+$/,
+        );
+        await expect(page.getByRole("button", { name: "Play slides" })).toBeVisible();
+
+        // MID-DRIFT: past the settle, moving — on its layer.
+        await expect
+          .poll(async () => (await read()).scale, { timeout: 10_000 })
+          .toBeGreaterThan(1.005);
+        const mid = await read();
+        expect(mid.scale, "mid-drift").toBeLessThan(1 + FEATURED_KEN_BURNS);
+        expect(mid.animations, "mid-drift").toBe("running");
+        expect(mid.willChange, "mid-drift").toBe(forced ?? "transform");
+
+        // ENDED: no animation left, at the end scale — and, as shipped, off
+        // its layer.
+        await expect
+          .poll(read, { timeout: FEATURED_DISSOLVE + FEATURED_DWELL + 6_000 })
+          .toEqual({ scale: 1 + FEATURED_KEN_BURNS, animations: "", willChange: forced ?? "auto" });
+
+        // HELD: the photo as painted, a second, two and three after the
+        // end. The best of the three, so a re-raster that load delays past
+        // the first still counts — and a raster that never re-sharpens is
+        // the same all three times.
+        const wrapper = photo.locator("..");
+        const held: number[] = [];
+        for (let k = 0; k < 3; k++) {
+          await page.waitForTimeout(1000);
+          held.push(await detail(await wrapper.screenshot()));
+        }
+        return {
+          held,
+          best: Math.max(...held),
+          src: await photo.evaluate((el) => (el as HTMLImageElement).currentSrc),
+          box: await wrapper.evaluate((el) => `${el.clientWidth}×${el.clientHeight}`),
+        };
+      } finally {
+        await context.close();
+      }
+    };
+
+    const shipped = await turn(null);
+    const layered = await turn("transform");
+    const never = await turn("auto");
+    test.info().annotations.push({
+      type: "held detail",
+      description: [
+        ["shipped", shipped],
+        ["forced transform", layered],
+        ["forced auto", never],
+      ]
+        .map(
+          ([name, r]) =>
+            `${name}: ${(r as typeof shipped).held.map((d) => d.toFixed(4)).join(" / ")}`,
+        )
+        .join("; ")
+        .concat(` — ${shipped.box}, w=${new URL(shipped.src).searchParams.get("w")}`),
+    });
+    expect([layered.src, never.src], "premise: the same photo, the same candidate").toEqual([
+      shipped.src,
+      shipped.src,
+    ]);
+    expect(
+      never.best,
+      `premise: never layered (${never.best}) against kept on its layer (${layered.best})`,
+    ).toBeGreaterThan(layered.best * SHARPER);
+    expect(
+      shipped.best,
+      `as shipped (${shipped.best}), held, against never layered (${never.best})`,
+    ).toBeGreaterThanOrEqual(never.best * 0.97);
+    expect(
+      shipped.best,
+      `as shipped (${shipped.best}), held, against kept on its layer (${layered.best})`,
+    ).toBeGreaterThan(layered.best * SHARPER);
   });
 
   test("a photo brought back after it stopped showing drifts again from 1.00 — a Previous, and a Next, Next that wraps", async ({
