@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 
 import { expect, test, type Browser, type Locator, type Page } from "@playwright/test";
+import sharp from "sharp";
 
 import { axe } from "./axe";
 import { nextTurn } from "./band-turn";
@@ -33,6 +34,14 @@ import { GARNET } from "./palette";
 //     markup.
 //  6. THAT AXE STILL PASSES THE MAPS' OWN TEXT WHILE MARKERS ARE DIMMED —
 //     a no-regression audit, not a measurement of the markers (see 6).
+//  7. THAT THE ACTIVE PIN GROWS AND THE ONE IT LEAVES SHRINKS — through
+//     intermediate sizes, on the dim's clock, about the tip, the grower on top
+//     — read off the painted boxes on every frame, in the picture and live;
+//     and in one frame under reduced motion (operator, 2026-09-29: "the pin
+//     scale change needs a transition").
+//  8. THAT THE PICTURE'S PINS STAY UNDER THE LIVE MAP through the cross-fade,
+//     now that 7 gives pins a z-index: the picture's active pin is z 2, and
+//     only the picture being its own stacking context keeps that inside it.
 //
 // Every route here is one a production build serves, so this runs either way:
 //
@@ -93,11 +102,15 @@ interface Marker {
   opacity: number;
   active: boolean;
   dimmed: boolean;
-  /** The marker's centre, as an offset from the map box's centre. */
+  /** The centre of the marker's PAINTED box, as an offset from the map box's
+   *  centre. */
   dx: number;
   dy: number;
-  /** Whole marker inside the map box, and its centre hit-tests to it. */
+  /** Whole painted marker inside the map box, and its centre hit-tests to it. */
   pointable: boolean;
+  /** Px from the painted marker to the nearest edge of the map box, which
+   *  clips what the overlay draws — negative when it is cut. */
+  room: number;
 }
 
 /**
@@ -115,7 +128,11 @@ const markersOf = (map: Locator) =>
     (el, { selector, garnet }): Marker[] => {
       const box = el.getBoundingClientRect();
       return [...el.querySelectorAll<HTMLElement>(selector)].map((m) => {
-        const r = m.getBoundingClientRect();
+        // THE PAINTED BOX. A pin's element is laid out at its frame's size and
+        // the active one is drawn larger by a transform on its SVG, so the
+        // element's own box stopped being the drawing on 2026-09-29; a
+        // cluster has no SVG and its disc is its box.
+        const r = (m.querySelector("svg") ?? m).getBoundingClientRect();
         const cx = r.left + r.width / 2;
         const cy = r.top + r.height / 2;
         const inside =
@@ -138,6 +155,12 @@ const markersOf = (map: Locator) =>
           dx: Math.round(cx - (box.left + box.width / 2)),
           dy: Math.round(cy - (box.top + box.height / 2)),
           pointable: inside && hit !== null && m.contains(hit),
+          room: Math.min(
+            r.left - box.left,
+            box.right - r.right,
+            r.top - box.top,
+            box.bottom - r.bottom,
+          ),
         };
       });
     },
@@ -295,6 +318,120 @@ test.describe("on /properties at 1440, the garnet card's marker is the featured 
   });
 });
 
+/**
+ * The focus ring a pin draws, and whether it is round the pin AS PAINTED.
+ *
+ * The active pin is drawn larger by a transform on its SVG, so the pin
+ * element's own box is the frame's size and the drawing is 1.5x it. An
+ * outline on the element would wrap the smaller box and cut across the top
+ * third of the pin; one on the SVG would be scaled with it, to 3px at 3px.
+ * So the element draws no outline and its `::after`, sized from the same
+ * `--pin-scale`, carries the site's 2px-at-2px ring.
+ *
+ * WHERE IT IS, MEASURED IN PIXELS. `outside` is how far the box of every
+ * pixel that changes when the pin loses keyboard focus sits outside each edge
+ * of the SVG's painted rect. Round the pin as drawn that is the 2px offset
+ * plus the 2px outline, 4px, on all four sides; `drawn` allows 1px because
+ * the outline is painted out to whole pixels. On a production build,
+ * 2026-09-30, left / right / top / bottom: 4.93 / 4.07 / 4.39 / 4.37 round a
+ * 48px pin, 4 / 4 / 4.15 / 5 round the active 72px one.
+ *
+ * It used to be WORKED OUT — `::after`'s computed width and height placed by
+ * the anchoring the rule was assumed to have — so a ring painted 36px to the
+ * right (no `translate: -50% 0`) or 22px low (`top: 0` for `bottom: 0`) still
+ * reported itself drawn (review, 2026-09-30). Measured, those two read right
+ * 40 and bottom 26 round the active pin, and are red.
+ *
+ * The pin must arrive keyboard-focused and is left so. The focused shot is
+ * taken again after the pin is focused back, and a map that changed round the
+ * pin in between (a tile landing) is shot again rather than read as a ring.
+ */
+const RING_OUT = 4;
+async function ringOf(page: Page, pin: Locator) {
+  const style = await pin.evaluate((el) => {
+    const own = getComputedStyle(el);
+    const after = getComputedStyle(el, "::after");
+    return {
+      element: own.outlineStyle,
+      ring: [after.outlineStyle, after.outlineWidth, after.outlineOffset, after.outlineColor],
+    };
+  });
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const at = await pin.evaluate((el, pad) => {
+      const s = el.querySelector("svg")!.getBoundingClientRect();
+      const box = el.closest("[data-property-map]")!.getBoundingClientRect();
+      // Wide enough to hold a ring that went astray, so a failure says where
+      // it went; never past the map box, which clips the overlay anyway.
+      const x = Math.max(Math.floor(s.left - pad), Math.ceil(box.left), 0);
+      const y = Math.max(Math.floor(s.top - pad), Math.ceil(box.top), 0);
+      const right = Math.min(Math.ceil(s.right + pad), Math.floor(box.right), innerWidth);
+      const bottom = Math.min(Math.ceil(s.bottom + pad), Math.floor(box.bottom), innerHeight);
+      return {
+        svg: { left: s.left, right: s.right, top: s.top, bottom: s.bottom },
+        room: Math.min(
+          s.left - box.left,
+          box.right - s.right,
+          s.top - box.top,
+          box.bottom - s.bottom,
+        ),
+        clip: { x, y, width: right - x, height: bottom - y },
+        focusVisible: el.matches(":focus-visible"),
+      };
+    }, 48);
+    expect(at.focusVisible, "premise: the pin has keyboard focus").toBe(true);
+    expect(at.room, "premise: room for the ring inside the map box").toBeGreaterThan(RING_OUT);
+    const on = await page.screenshot({ clip: at.clip });
+    await pin.evaluate((el: HTMLElement) => el.blur());
+    const off = await page.screenshot({ clip: at.clip });
+    await pin.evaluate((el: HTMLElement) => el.focus({ preventScroll: true }));
+    const again = await page.screenshot({ clip: at.clip });
+    if (!on.equals(again)) continue;
+
+    const [a, b] = await Promise.all(
+      [on, off].map((png) => sharp(png).raw().toBuffer({ resolveWithObject: true })),
+    );
+    const { width, height, channels } = a!.info;
+    const k = width / at.clip.width;
+    let [x0, y0, x1, y1] = [Infinity, Infinity, -Infinity, -Infinity];
+    for (let y = 0; y < height; y++)
+      for (let x = 0; x < width; x++) {
+        const i = (y * width + x) * channels;
+        const d =
+          Math.abs(a!.data[i]! - b!.data[i]!) +
+          Math.abs(a!.data[i + 1]! - b!.data[i + 1]!) +
+          Math.abs(a!.data[i + 2]! - b!.data[i + 2]!);
+        if (d <= 30) continue;
+        [x0, y0, x1, y1] = [Math.min(x0, x), Math.min(y0, y), Math.max(x1, x), Math.max(y1, y)];
+      }
+    expect(x1, "premise: taking focus changed some pixel round the pin").toBeGreaterThanOrEqual(0);
+    const r2 = (n: number) => Math.round(n * 100) / 100;
+    const outside = {
+      left: r2(at.svg.left - (at.clip.x + x0 / k)),
+      right: r2(at.clip.x + (x1 + 1) / k - at.svg.right),
+      top: r2(at.svg.top - (at.clip.y + y0 / k)),
+      bottom: r2(at.clip.y + (y1 + 1) / k - at.svg.bottom),
+    };
+    // The measurement itself, in the run's output (as the grow's is).
+    console.log(
+      `focus ring round a ${r2(at.svg.right - at.svg.left)}px-wide pin as painted: ` +
+        `px outside it left ${outside.left}, right ${outside.right}, top ${outside.top}, ` +
+        `bottom ${outside.bottom} (shot ${attempt + 1})`,
+    );
+    return {
+      ...style,
+      drawn: Object.values(outside).every((d) => Math.abs(d - RING_OUT) <= 1),
+      outside,
+    };
+  }
+  throw new Error("the map never held still round the pin for three shots in five attempts");
+}
+const RING = {
+  element: "none",
+  ring: ["solid", "2px", "2px", GARNET],
+  drawn: true,
+  outside: expect.anything(),
+};
+
 // ── 3: hover, keyboard focus, the list link, the overlay ───────────────────
 
 test.describe("a marker being pointed at or focused is not drawn disabled", () => {
@@ -320,11 +457,19 @@ test.describe("a marker being pointed at or focused is not drawn disabled", () =
         .poll(
           async () => {
             target = (await markersOf(map)).find(
-              (m) => m.pointable && m.count === 1 && m.id !== id && m.opacity === DIM,
+              (m) =>
+                m.pointable &&
+                m.room > RING_OUT + 2 &&
+                m.count === 1 &&
+                m.id !== id &&
+                m.opacity === DIM,
             );
             return target !== undefined;
           },
-          { message: "a dimmed pin in the box, pointable", timeout: 15_000 },
+          {
+            message: "a dimmed pin in the box, pointable, with room for its ring",
+            timeout: 15_000,
+          },
         )
         .toBe(true);
       const pin = map.locator(`[data-map-pin="${target!.id}"]`);
@@ -344,14 +489,14 @@ test.describe("a marker being pointed at or focused is not drawn disabled", () =
       await pin.evaluate((el: HTMLElement) => el.focus());
       expect(await pin.evaluate((el) => el.matches(":focus-visible")), "premise").toBe(true);
       await expect.poll(opacity, { message: "keyboard-focused" }).toBe(1);
-      // The ring is on the element whose opacity this is, so at 1 it is drawn
-      // at full strength: 2px solid, in garnet.
+      // The ring is drawn inside the element whose opacity this is (its
+      // `::after`, sized to the drawn pin — see ringOf), so at 1 it is drawn
+      // at full strength: 2px solid, in garnet, round the pin as painted.
+      const ring = await ringOf(page, pin);
       expect(
-        await pin.evaluate((el) => {
-          const cs = getComputedStyle(el);
-          return [cs.outlineStyle, cs.outlineWidth, cs.outlineColor];
-        }),
-      ).toEqual(["solid", "2px", GARNET]);
+        ring,
+        `the ring, px outside the pin as painted: ${JSON.stringify(ring.outside)}`,
+      ).toEqual(RING);
       await pin.evaluate((el: HTMLElement) => el.blur());
       await expect.poll(opacity).toBe(DIM);
 
@@ -368,6 +513,37 @@ test.describe("a marker being pointed at or focused is not drawn disabled", () =
       await expect.poll(opacity, { message: "its link has keyboard focus" }).toBe(1);
       await link.blur();
       await expect.poll(opacity).toBe(DIM);
+    } finally {
+      await context.close();
+    }
+  });
+
+  test("keyboard focus on the ACTIVE pin rings the pin as drawn, not its frame-size box", async ({
+    browser,
+  }) => {
+    const { context, page } = await at(browser, WIDE);
+    try {
+      await page.goto(PROPERTIES);
+      await hydrated(page);
+      const got = await activate(page, "pin");
+      expect(got).not.toBeNull();
+      const { id, map } = got!;
+      const pin = map.locator(`[data-map-pin="${id}"]`);
+      // Premise: the drawing IS larger than the element, or a ring on the
+      // element would pass this too.
+      const scale = await pin.evaluate(
+        (el) =>
+          el.querySelector("svg")!.getBoundingClientRect().width / el.getBoundingClientRect().width,
+      );
+      expect(scale, "premise: the active pin is drawn 1.5x its element").toBeCloseTo(1.5, 2);
+      await page.keyboard.press("Tab");
+      await pin.evaluate((el: HTMLElement) => el.focus());
+      expect(await pin.evaluate((el) => el.matches(":focus-visible")), "premise").toBe(true);
+      const ring = await ringOf(page, pin);
+      expect(
+        ring,
+        `the ring, px outside the pin as painted: ${JSON.stringify(ring.outside)}`,
+      ).toEqual(RING);
     } finally {
       await context.close();
     }
@@ -393,6 +569,23 @@ test.describe("a marker being pointed at or focused is not drawn disabled", () =
           };
         })
         .toEqual({ active: 1, wrong: 0, others: true });
+      // And drawn larger in the overlay too: its PAINTED width against its
+      // element's, which is laid out at the frame's size (the overlay is the
+      // full frame's, whatever the box was before).
+      await expect
+        .poll(() =>
+          map
+            .locator(`[data-map-pin="${id}"]`)
+            .evaluate(
+              (el) =>
+                Math.round(
+                  (el.querySelector("svg")!.getBoundingClientRect().width /
+                    el.getBoundingClientRect().width) *
+                    100,
+                ) / 100,
+            ),
+        )
+        .toBe(1.5);
     } finally {
       await context.close();
     }
@@ -402,19 +595,29 @@ test.describe("a marker being pointed at or focused is not drawn disabled", () =
 // ── 4: the fade, on the card's clock, and none under reduced motion ────────
 
 interface Fade {
-  on: string;
+  on: "pin" | "cluster" | "card";
   property: string;
   ms: number;
+  /** The transition's timing function, read off the EFFECT's timing — see
+   *  `fadesAsActiveMoves`. */
   easing: string;
 }
 
 /** A marker whose state the move changed: its computed opacity at the
  *  instant of the change, and what it changed TO. */
 interface Changed {
+  /** The listing a pin draws; null for a cluster. */
+  id: string | null;
   instant: number;
   dimmed: boolean;
   /** One of the placeholder picture's markers rather than a live one. */
   picture: boolean;
+  /** Laid out at all: the picture draws a copy of every marker in each frame
+   *  layer and `display: none`s all but one, and a marker with no box starts
+   *  no transition. */
+  painted: boolean;
+  /** An opacity transition started on THIS marker at the instant. */
+  fading: boolean;
 }
 
 /**
@@ -426,45 +629,53 @@ interface Changed {
  * computed opacity at that same instant, read AFTER that flush: a transition
  * that started reports its from-value there, so a marker still at its OLD
  * value is one that is fading, however short the fade.
+ *
+ * THE EASING IS THE EFFECT'S TIMING, never a keyframe's. Chrome puts a CSS
+ * transition's timing function on `getTiming().easing` and reports every
+ * keyframe's easing as "linear", so the `getKeyframes()[0]?.easing ?? …` this
+ * read until 2026-09-30 never fell through: every comparison here and in
+ * `growAsActiveMoves` was "linear" against "linear", and a grow or a pin fade
+ * switched to `linear` stayed green (review, 2026-09-30).
  */
 const fadesAsActiveMoves = (page: Page, to: string) =>
   page.evaluate(
-    ({ to, selector }) =>
+    ({ to, selector, pins }) =>
       new Promise<{ markers: Fade[]; card: Fade[]; changed: Changed[] }>((resolve, reject) => {
         const sec = document.querySelector("section[aria-labelledby='listing-land']")!;
         const map = sec.querySelector("[data-property-map]")!;
         const target = sec.querySelector<HTMLElement>(`[data-centre-id="${to}"]`);
         if (!target) return reject(new Error(`no card ${to}`));
-        const fades = (els: Element[], on: string): Fade[] =>
-          els.flatMap((el) =>
-            el
-              .getAnimations()
-              .filter((a) => "transitionProperty" in a)
-              .map((a) => {
-                const t = a as Animation & { transitionProperty: string };
-                const effect = t.effect as KeyframeEffect;
-                const frames = effect.getKeyframes();
-                return {
-                  on,
-                  property: t.transitionProperty,
-                  ms: Number(effect.getTiming().duration),
-                  easing: String(frames[0]?.easing ?? effect.getTiming().easing),
-                };
-              }),
-          );
+        const fades = (el: Element, on: Fade["on"]): Fade[] =>
+          el
+            .getAnimations()
+            .filter((a) => "transitionProperty" in a)
+            .map((a) => {
+              const t = a as Animation & { transitionProperty: string };
+              const timing = t.effect!.getTiming();
+              return {
+                on,
+                property: t.transitionProperty,
+                ms: Number(timing.duration),
+                easing: String(timing.easing),
+              };
+            });
+        const kind = (el: Element) => (el.matches(pins) ? "pin" : "cluster");
         const mo = new MutationObserver((records) => {
           mo.disconnect();
           const els = [...new Set(records.map((r) => r.target as HTMLElement))].filter((el) =>
             el.matches(selector),
           );
-          const markers = fades(els, "marker");
+          const markers = els.flatMap((el) => fades(el, kind(el)));
           resolve({
             markers,
-            card: fades([target.querySelector("article")!], "card"),
+            card: fades(target.querySelector("article")!, "card"),
             changed: els.map((el) => ({
+              id: el.dataset.mapPin ?? el.dataset.mapHomePin ?? null,
               instant: Number(getComputedStyle(el).opacity),
               dimmed: el.hasAttribute("data-map-dimmed"),
               picture: el.matches("[data-map-home-pin],[data-map-home-cluster]"),
+              painted: el.getClientRects().length > 0,
+              fading: fades(el, kind(el)).some((f) => f.property === "opacity"),
             })),
           });
         });
@@ -472,21 +683,40 @@ const fadesAsActiveMoves = (page: Page, to: string) =>
         target.scrollIntoView({ block: "center", behavior: "instant" });
         setTimeout(() => reject(new Error(`no marker changed state within 15s of ${to}`)), 15_000);
       }),
-    { to, selector: MARKERS },
+    { to, selector: MARKERS, pins: "[data-map-pin],[data-map-home-pin]" },
   );
 
 /** Every opacity fade `markers` holds is on the card's own clock, and the
- *  card's clock is the 150ms active-card-highlight.spec.ts pins. */
-function onTheCardsClock(markers: Fade[], card: Fade[]) {
+ *  card's clock is the 150ms active-card-highlight.spec.ts pins.
+ *
+ *  AND EVERY PIN THE MOVE CHANGED FADED, not merely some marker: pins and
+ *  clusters fade by different rules (the pin rules below "THE ACTIVE PIN
+ *  GROWS" in PropertyMap, `transition-opacity` on a cluster), so asking only
+ *  that SOME marker faded let a pin rule that lost its fade pass on the
+ *  clusters' (review, 2026-09-30). Both callers move to a card whose move is
+ *  sure to change a pin — the live one away from a pin, the picture's onto
+ *  one it had dimmed — so that is a premise, not a condition. */
+function onTheCardsClock(markers: Fade[], card: Fade[], changed: Changed[]) {
   const opacity = markers.filter((f) => f.property === "opacity");
   expect(opacity.length, "an opacity fade started on a marker").toBeGreaterThan(0);
+  const pins = changed.filter((c) => c.id !== null && c.painted);
+  expect(pins.length, "premise: the move dimmed or undimmed a painted pin").toBeGreaterThan(0);
+  expect(
+    pins.filter((c) => !c.fading).map((c) => `${c.id} -> ${c.dimmed ? "dimmed" : "undimmed"}`),
+    "every painted pin the move changed started an opacity fade",
+  ).toEqual([]);
   const ground = card.find((f) => f.property === "background-color");
   expect(ground, "premise: the card's own fade started too").toBeDefined();
   for (const f of opacity) {
-    expect(f.ms, "the card's duration").toBe(ground!.ms);
-    expect(f.easing, "the card's easing").toBe(ground!.easing);
+    expect(f.ms, `the card's duration, on a ${f.on}`).toBe(ground!.ms);
+    expect(f.easing, `the card's easing, on a ${f.on}`).toBe(ground!.easing);
   }
   expect(ground!.ms).toBe(150);
+  const on = (kind: Fade["on"]) => opacity.filter((f) => f.on === kind).length;
+  console.log(
+    `fades on the card's clock (${ground!.ms}ms, ${ground!.easing}): ${on("pin")} on pins ` +
+      `(${pins.length} painted pins changed), ${on("cluster")} on clusters`,
+  );
 }
 
 /** Reduced motion: nothing fades, and each changed marker already reads its
@@ -543,11 +773,20 @@ async function pictureOnly(page: Page) {
       { message: "the picture's first fades have finished" },
     )
     .toBe(0);
+  // In the frame layer the picture PAINTS: the others are `display: none`, and
+  // a pin with no box starts no fade for `onTheCardsClock` to find.
   for (const id of [...ids].reverse()) {
-    if ((await map.locator(`[data-map-home-pin="${id}"][data-map-dimmed]`).count()) > 0)
-      return { map, to: id };
+    const dimmed = await map.evaluate(
+      (el, id) =>
+        [...el.querySelectorAll("[data-map-home-frame]")]
+          .find((l) => getComputedStyle(l).display !== "none")
+          ?.querySelector(`[data-map-home-pin="${id}"]`)
+          ?.hasAttribute("data-map-dimmed") ?? false,
+      id,
+    );
+    if (dimmed) return { map, to: id };
   }
-  throw new Error("no listing has a dimmed pin of its own in the picture");
+  throw new Error("no listing has a dimmed pin of its own in the picture as painted");
 }
 
 test.describe("the change of featured marker", () => {
@@ -563,8 +802,8 @@ test.describe("the change of featured marker", () => {
       const { id, ids } = got!;
       // Far along the list, so it is not the same marker as the one active now.
       const to = ids[ids.indexOf(id) > 0 ? 0 : ids.length - 1]!;
-      const { markers, card } = await fadesAsActiveMoves(page, to);
-      onTheCardsClock(markers, card);
+      const { markers, card, changed } = await fadesAsActiveMoves(page, to);
+      onTheCardsClock(markers, card, changed);
     } finally {
       await context.close();
     }
@@ -605,7 +844,7 @@ test.describe("the placeholder picture's markers, while the map is still loading
         changed.filter((c) => !c.picture),
         "premise: only the picture's markers exist to change",
       ).toEqual([]);
-      onTheCardsClock(markers, card);
+      onTheCardsClock(markers, card, changed);
       await expect(map, "premise: the map never loaded").not.toHaveAttribute("data-map-ready");
     } finally {
       await context.close();
@@ -996,6 +1235,584 @@ test.describe("axe, on the maps' own text", () => {
         "premise: the dimmed state",
       ).toBe(true);
       await auditMap(page, `${BAND} [data-property-map]`);
+    } finally {
+      await context.close();
+    }
+  });
+});
+
+// ── 7: the active pin grows, about its tip ─────────────────────────────────
+//
+// "the pin scale change needs a transition" (operator, 2026-09-29). The pin
+// was drawn larger by its SVG's width/height attributes, and an attribute
+// swap does not transition: on a production build the incoming pin was
+// already 72 x 64.86 and the outgoing already 48 x 43.23 in the
+// MutationObserver callback that saw `data-map-active` move, before a frame
+// was drawn. It is now a transform about the tip, eased with the dim.
+//
+// READ OFF PAINTED BOXES, EVERY FRAME, from the instant the attribute moves:
+// the SVG's `getBoundingClientRect`, which includes its transform. Checking
+// that a transition was CONFIGURED would pass a stylesheet whose transition
+// names the wrong property; checking only the end state would pass the snap.
+
+const SCALE = declared("ACTIVE_PIN_SCALE");
+
+interface PinAt {
+  w: number;
+  h: number;
+  /** The tip as painted: the SVG's bottom centre, in page coordinates. */
+  tipX: number;
+  tipY: number;
+  /** The point the pin marks: live, the projected point the per-frame loop
+   *  wrote (its first `translate()`), in page coordinates; null in the
+   *  picture, whose camera never moves, so the tip's own first position is
+   *  the reference there. */
+  markX: number | null;
+  markY: number | null;
+  z: number;
+}
+
+interface Grow {
+  from: string;
+  to: string;
+  /** The first entry is the MutationObserver's instant, after a style flush
+   *  and before any frame; the rest are one per animation frame. */
+  frames: { t: number; out: PinAt; inc: PinAt; rest: PinAt }[];
+  /** The pins read were the same nodes on every frame — a keyed pin that was
+   *  re-created would start at its end state and prove nothing. */
+  sameNodes: boolean;
+  /** Every CSS transition that STARTED at the instant, on the two pins and
+   *  on their SVGs. */
+  started: { on: "out" | "in"; el: "pin" | "svg"; property: string; ms: number; easing: string }[];
+}
+
+/**
+ * Move the garnet card to `to` and watch the two pins that change — the one
+ * leaving (`out`), the one arriving (`inc`) — and one that does neither
+ * (`rest`), on every frame for 450ms from the instant `data-map-active` moves.
+ * `where` picks the picture's painted layer or the live map.
+ */
+const growAsActiveMoves = (page: Page, to: string, where: "picture" | "live", rate = 1) =>
+  page.evaluate(
+    ({ to, where, window }) =>
+      new Promise<Grow>((resolve, reject) => {
+        const sec = document.querySelector("section[aria-labelledby='listing-land']")!;
+        const map = sec.querySelector("[data-property-map]")!;
+        const attr = where === "picture" ? "data-map-home-pin" : "data-map-pin";
+        // The picture draws each pin once per frame layer and the container
+        // query paints one; a `display: none` layer's boxes are all zeros.
+        const scope = () =>
+          where === "picture"
+            ? [...map.querySelectorAll("[data-map-home-frame]")].find(
+                (el) => getComputedStyle(el).display !== "none",
+              )!
+            : map;
+        const pin = (id: string) => scope().querySelector<HTMLElement>(`[${attr}="${id}"]`);
+        const outEl = scope().querySelector<HTMLElement>(`[${attr}][data-map-active]`);
+        if (!outEl) return reject(new Error("premise: an active pin to move away from"));
+        const from = outEl.getAttribute(attr)!;
+        const inEl = pin(to);
+        if (!inEl) return reject(new Error(`premise: ${to} has a pin of its own`));
+        const restEl = [...scope().querySelectorAll<HTMLElement>(`[${attr}]`)].find(
+          (el) => el !== outEl && el !== inEl,
+        );
+        if (!restEl) return reject(new Error("premise: a third pin"));
+        const read = (el: HTMLElement): PinAt => {
+          const s = el.querySelector("svg")!.getBoundingClientRect();
+          const m = /translate\(([-\d.]+)px,\s*([-\d.]+)px\)/.exec(el.style.transform);
+          const o = el.parentElement!.getBoundingClientRect();
+          const live = where === "live" && m !== null;
+          return {
+            w: s.width,
+            h: s.height,
+            tipX: s.left + s.width / 2,
+            tipY: s.bottom,
+            markX: live ? o.left + Number(m[1]) : null,
+            markY: live ? o.top + Number(m[2]) : null,
+            z: Number(getComputedStyle(el).zIndex) || 0,
+          };
+        };
+        const frames: Grow["frames"] = [];
+        let sameNodes = true;
+        let t0 = 0;
+        const sample = () => {
+          if (pin(from) !== outEl || pin(to) !== inEl) sameNodes = false;
+          frames.push({
+            t: performance.now() - t0,
+            out: read(outEl),
+            inc: read(inEl),
+            rest: read(restEl),
+          });
+        };
+        const mo = new MutationObserver(() => {
+          if (!inEl.hasAttribute("data-map-active")) return;
+          mo.disconnect();
+          t0 = performance.now();
+          const started: Grow["started"] = [];
+          for (const [on, el] of [
+            ["out", outEl],
+            ["in", inEl],
+          ] as const) {
+            for (const [kind, target] of [
+              ["pin", el],
+              ["svg", el.querySelector("svg")!],
+            ] as const) {
+              for (const a of target.getAnimations()) {
+                if (!("transitionProperty" in a)) continue;
+                // The EFFECT's timing: a keyframe's easing is "linear" on
+                // every CSS transition (see `fadesAsActiveMoves`).
+                const timing = a.effect!.getTiming();
+                started.push({
+                  on,
+                  el: kind,
+                  property: (a as Animation & { transitionProperty: string }).transitionProperty,
+                  ms: Number(timing.duration),
+                  easing: String(timing.easing),
+                });
+              }
+            }
+          }
+          sample();
+          const step = () => {
+            sample();
+            if (performance.now() - t0 < window) requestAnimationFrame(step);
+            else resolve({ from, to, frames, sameNodes, started });
+          };
+          requestAnimationFrame(step);
+        });
+        mo.observe(map, { subtree: true, attributes: true, attributeFilter: ["data-map-active"] });
+        sec
+          .querySelector(`[data-centre-id="${to}"]`)!
+          .scrollIntoView({ block: "center", behavior: "instant" });
+        setTimeout(() => reject(new Error(`the active pin did not move to ${to} in 15s`)), 15_000);
+      }),
+    { to, where, window: 450 / rate },
+  );
+
+/**
+ * THE ANIMATION CLOCK, SLOWED — DevTools' own control, the one its Animations
+ * panel drives — so that the frames a loaded machine draws still land several
+ * times inside a 150ms run. It is a microscope and not a change of subject:
+ * the run's DURATION is read off the transition itself (`started`), which the
+ * rate does not touch, and a snap is one step at any rate. Measured before it
+ * was added, at a load average of 10 on 4 CPUs: 9 frames in 450ms, the live
+ * pin's widths 48.0 48.0 48.0 68.1 71.8 72.0 — one intermediate size, red, on
+ * code that eases.
+ */
+const SLOW = 0.25;
+async function slowAnimations(page: Page) {
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send("Animation.enable");
+  await cdp.send("Animation.setPlaybackRate", { playbackRate: SLOW });
+}
+
+/** The pin nearest `from`'s tip, among `ids`, wholly inside the map box —
+ *  so a live move is a short ease at one zoom and nothing re-clusters. */
+const nearestPin = (map: Locator, from: string, ids: string[], where: "picture" | "live") =>
+  map.evaluate(
+    (el, { from, ids, where }) => {
+      const attr = where === "picture" ? "data-map-home-pin" : "data-map-pin";
+      const scope =
+        where === "picture"
+          ? [...el.querySelectorAll("[data-map-home-frame]")].find(
+              (l) => getComputedStyle(l).display !== "none",
+            )!
+          : el;
+      const box = el.getBoundingClientRect();
+      const tip = (p: Element) => {
+        const r = p.querySelector("svg")!.getBoundingClientRect();
+        return { x: r.left + r.width / 2, y: r.bottom, r };
+      };
+      const a = tip(scope.querySelector(`[${attr}="${from}"]`)!);
+      return (
+        [...scope.querySelectorAll<HTMLElement>(`[${attr}]`)]
+          .map((p) => ({ id: p.getAttribute(attr)!, ...tip(p) }))
+          .filter((p) => p.id !== from && ids.includes(p.id))
+          .filter(
+            (p) =>
+              p.r.left >= box.left &&
+              p.r.right <= box.right &&
+              p.r.top >= box.top &&
+              p.r.bottom <= box.bottom,
+          )
+          .sort((p, q) => Math.hypot(p.x - a.x, p.y - a.y) - Math.hypot(q.x - a.x, q.y - a.y))[0]
+          ?.id ?? null
+      );
+    },
+    { from, ids, where },
+  );
+
+/** How far the painted tip ever got from the point the pin marks. */
+const tipDrift = (g: Grow, pick: "out" | "inc") => {
+  const first = g.frames[0]![pick];
+  return Math.max(
+    ...g.frames.map(({ [pick]: p }) =>
+      Math.hypot(p.tipX - (p.markX ?? first.tipX), p.tipY - (p.markY ?? first.tipY)),
+    ),
+  );
+};
+
+/** Motion allowed: the incoming pin grows and the outgoing one shrinks, each
+ *  through intermediate sizes, on the dim's own transition, about the tip,
+ *  with the grower on top of the shrinker and the shrinker on top of the rest
+ *  for as long as it is larger than them. */
+function grewAboutTheTip(g: Grow) {
+  const { frames } = g;
+  expect(g.sameNodes, "premise: the same two pins throughout").toBe(true);
+  expect(frames.length, "premise: frames sampled").toBeGreaterThan(5);
+  const base = frames[0]!.rest.w;
+  const big = base * SCALE;
+  const near = (a: number, b: number) => Math.abs(a - b) <= 0.05;
+
+  // Both ends. At the instant the attribute moved, nothing has been drawn:
+  // the incoming pin is still at the frame's size and the outgoing one still
+  // 1.5x it. A snap reads the END sizes here.
+  expect(
+    near(frames[0]!.inc.w, base) && near(frames[0]!.out.w, big),
+    `at the instant: the OLD sizes (in ${frames[0]!.inc.w}, out ${frames[0]!.out.w}, base ${base})`,
+  ).toBe(true);
+  const last = frames.at(-1)!;
+  expect(near(last.inc.w, big) && near(last.out.w, base), "at the end: the NEW sizes").toBe(true);
+
+  // Through the middle, one way each, never a step.
+  const inW = frames.map((f) => f.inc.w);
+  const outW = frames.map((f) => f.out.w);
+  const between = (w: number) => w > base + 0.5 && w < big - 0.5;
+  expect(
+    new Set(inW.filter(between).map((w) => w.toFixed(2))).size,
+    `the incoming pin's widths ${inW.map((w) => w.toFixed(1)).join(" ")}: intermediate sizes`,
+  ).toBeGreaterThanOrEqual(3);
+  expect(
+    new Set(outW.filter(between).map((w) => w.toFixed(2))).size,
+    `the outgoing pin's widths ${outW.map((w) => w.toFixed(1)).join(" ")}: intermediate sizes`,
+  ).toBeGreaterThanOrEqual(3);
+  expect(
+    inW.every((w, i) => i === 0 || w >= inW[i - 1]! - 0.01),
+    "grows, never back",
+  ).toBe(true);
+  expect(
+    outW.every((w, i) => i === 0 || w <= outW[i - 1]! + 0.01),
+    "shrinks, never back",
+  ).toBe(true);
+
+  // On the dim's clock: the size transition that started on each SVG is the
+  // opacity transition that started on its pin, duration and easing — the
+  // grow and the fade move together — and that is the card's 150ms.
+  for (const on of ["in", "out"] as const) {
+    const size = g.started.filter(
+      (s) => s.on === on && s.el === "svg" && s.property === "transform",
+    );
+    const fade = g.started.filter((s) => s.on === on && s.el === "pin" && s.property === "opacity");
+    expect(size, `${on}: one transform transition started on its SVG`).toHaveLength(1);
+    expect(fade, `${on}: premise, its fade started too`).toHaveLength(1);
+    expect([size[0]!.ms, size[0]!.easing], `${on}: the fade's clock`).toEqual([
+      fade[0]!.ms,
+      fade[0]!.easing,
+    ]);
+    expect(size[0]!.ms).toBe(150);
+  }
+
+  // About the tip: the painted tip never leaves the point the pin marks.
+  expect(tipDrift(g, "inc"), "the incoming tip, px from its point").toBeLessThanOrEqual(0.1);
+  expect(tipDrift(g, "out"), "the outgoing tip, px from its point").toBeLessThanOrEqual(0.1);
+
+  // The measurement itself, in the run's output: what the numbers above were
+  // (each width once, in order — the tail at rest is one entry).
+  const steps = (ws: number[]) =>
+    ws
+      .map((w) => w.toFixed(1))
+      .filter((w, i, all) => i === 0 || w !== all[i - 1])
+      .join(" ");
+  console.log(
+    `pin grow ${g.from} -> ${g.to}: ${frames.length} samples over ` +
+      `${frames.at(-1)!.t.toFixed(0)}ms; in ${steps(inW)}; out ${steps(outW)}; tip drift in ` +
+      `${tipDrift(g, "inc").toFixed(3)}px, out ${tipDrift(g, "out").toFixed(3)}px`,
+  );
+
+  // Stacking, every frame: the grower above everything, and the shrinker
+  // above the rest for as long as it is still larger than them.
+  for (const f of frames) {
+    expect(f.inc.z, `${f.t.toFixed(0)}ms: the incoming pin on top`).toBeGreaterThan(f.out.z);
+    expect(f.inc.z).toBeGreaterThan(f.rest.z);
+    if (f.out.w > base + 0.05)
+      expect(f.out.z, `${f.t.toFixed(0)}ms: the shrinking pin above the rest`).toBeGreaterThan(
+        f.rest.z,
+      );
+  }
+}
+
+/** Reduced motion: both pins are at their new sizes at the instant the
+ *  attribute moved, and no size transition started at all. */
+function grewAtOnce(g: Grow) {
+  const base = g.frames[0]!.rest.w;
+  expect(g.frames[0]!.inc.w, "the incoming pin, already at its new size").toBeCloseTo(
+    base * SCALE,
+    2,
+  );
+  expect(g.frames[0]!.out.w, "the outgoing pin, already back").toBeCloseTo(base, 2);
+  expect(g.started.filter((s) => s.property === "transform")).toEqual([]);
+  expect(tipDrift(g, "inc")).toBeLessThanOrEqual(0.1);
+}
+
+/** The picture, never handed over: an active pin in the painted layer, and
+ *  the nearest other listing with a pin to move to. */
+async function pictureMove(page: Page) {
+  await page.route("**/map-style.json", () => {
+    /* never answered */
+  });
+  await page.goto(PROPERTIES);
+  await hydrated(page);
+  const section = land(page);
+  const map = section.locator(MAP);
+  const ids = await cardIds(section);
+  for (const id of fromTheMiddle(ids)) {
+    await centre(page, id);
+    await garnet(section, id);
+    const painted = await map.evaluate(
+      (el, id) =>
+        [...el.querySelectorAll("[data-map-home-frame]")]
+          .find((l) => getComputedStyle(l).display !== "none")
+          ?.querySelector(`[data-map-home-pin="${id}"]`)
+          ?.hasAttribute("data-map-active") ?? false,
+      id,
+    );
+    if (!painted) continue;
+    // At rest before the move (see `pictureOnly`).
+    await expect
+      .poll(() =>
+        map.evaluate(
+          (el, selector) =>
+            [...el.querySelectorAll(selector)].flatMap((m) => [
+              ...m.getAnimations(),
+              ...(m.querySelector("svg")?.getAnimations() ?? []),
+            ]).length,
+          MARKERS,
+        ),
+      )
+      .toBe(0);
+    const to = await nearestPin(map, id, ids, "picture");
+    if (to !== null) return { map, to };
+  }
+  throw new Error("no listing has an active pin of its own in the picture");
+}
+
+/** The live map, settled on a listing with its own pin, and the nearest other
+ *  listing whose pin is wholly in the box. */
+async function liveMove(page: Page) {
+  await page.goto(PROPERTIES);
+  await hydrated(page);
+  const got = await activate(page, "pin");
+  expect(got, "a mid-list land listing with a pin of its own at its camera").not.toBeNull();
+  const { id, map, ids } = got!;
+  // The camera has landed and nothing is mid-transition.
+  await expect
+    .poll(() =>
+      map.evaluate(
+        (el) =>
+          [...el.querySelectorAll("[data-map-pin] > svg")].flatMap((s) => s.getAnimations()).length,
+      ),
+    )
+    .toBe(0);
+  const to = await nearestPin(map, id, ids, "live");
+  expect(to, "premise: another listing's pin in the box").not.toBeNull();
+  return { map, to: to! };
+}
+
+test.describe("the active pin grows, and the one it leaves shrinks, about their tips", () => {
+  test.setTimeout(120_000);
+
+  test("the picture, motion allowed: through intermediate sizes, on the dim's clock", async ({
+    browser,
+  }) => {
+    const { context, page } = await moving(browser, WIDE);
+    try {
+      const { map, to } = await pictureMove(page);
+      await slowAnimations(page);
+      const g = await growAsActiveMoves(page, to, "picture", SLOW);
+      grewAboutTheTip(g);
+      await expect(map, "premise: the map never loaded").not.toHaveAttribute("data-map-ready");
+    } finally {
+      await context.close();
+    }
+  });
+
+  test("the live map, motion allowed: the tip rides its point through the camera's ease", async ({
+    browser,
+  }) => {
+    const { context, page } = await moving(browser, WIDE);
+    try {
+      const { map, to } = await liveMove(page);
+      await slowAnimations(page);
+      const g = await growAsActiveMoves(page, to, "live", SLOW);
+      grewAboutTheTip(g);
+      expect(g.frames[0]!.inc.markX, "premise: the live pin's point was read").not.toBeNull();
+      await expect(map).toHaveAttribute("data-map-ready", "");
+    } finally {
+      await context.close();
+    }
+  });
+
+  test("reduced motion: both pins at their new sizes in the same frame, picture and live", async ({
+    browser,
+  }) => {
+    const { context, page } = await at(browser, WIDE);
+    try {
+      const picture = await pictureMove(page);
+      grewAtOnce(await growAsActiveMoves(page, picture.to, "picture"));
+      // A page of its own: the picture's route holds MapLibre's style back.
+      const second = await context.newPage();
+      const live = await liveMove(second);
+      grewAtOnce(await growAsActiveMoves(second, live.to, "live"));
+    } finally {
+      await context.close();
+    }
+  });
+});
+
+// ── 8: the picture's pins stay under the live map ──────────────────────────
+//
+// The picture stays up until the canvas's own fade ends (MAP_HOME_FADE_MS),
+// and the canvas comes up OVER it — a placeholder that stays fully opaque
+// underneath — so through that fade the canvas and the live overlay are drawn
+// over the picture. Section 7 gave every pin a z-index (0, 1 while shrinking,
+// 2 active). The picture box is `isolate`, so those numbers rank its pins only
+// against each other; without it the picture's ACTIVE pin, at z 2, rises out
+// of the picture over the canvas (z auto, later in the tree) and over the live
+// overlay (`z-[1]`): drawn over the live map, and taking its presses — it is a
+// link to Google Maps — for the whole fade.
+//
+// The fade is 300ms, so the ANIMATION clock is frozen (playback rate 0) before
+// MapLibre's style is let through: the canvas's fade starts and holds at its
+// first frame. The picture's other exit, a timer at ten times the fade, is a
+// setTimeout the freeze does not stop, so the stack is read IN the page, one
+// frame after `data-map-ready` appears — never by a poll from here.
+
+interface MidFade {
+  /** What `elementFromPoint` finds at the picture's active pin's head. */
+  top: string;
+  pictureUp: boolean;
+  /** Opacity transitions running on the canvas host: its fade, held. */
+  fading: number;
+  liveMarkers: number;
+}
+
+test.describe("through the cross-fade, the picture's pins stay under the live map", () => {
+  test.setTimeout(120_000);
+
+  test("the picture's ACTIVE pin does not rise over the canvas coming up on top of it", async ({
+    browser,
+  }) => {
+    const { context, page } = await moving(browser, WIDE);
+    try {
+      let release!: () => void;
+      const held = new Promise<void>((resolve) => (release = resolve));
+      await page.route("**/map-style.json", async (route) => {
+        await held;
+        await route.continue();
+      });
+      await page.goto(PROPERTIES);
+      await hydrated(page);
+      const section = land(page);
+      const map = section.locator(MAP);
+      const ids = await cardIds(section);
+      // A listing whose OWN pin is the picture's active one, wholly in the
+      // box; the point read is its head, well inside the drawing.
+      let head: { x: number; y: number } | null = null;
+      for (const id of fromTheMiddle(ids)) {
+        await centre(page, id);
+        await garnet(section, id);
+        head = await map.evaluate((el, id) => {
+          const layer = [...el.querySelectorAll("[data-map-home-frame]")].find(
+            (l) => getComputedStyle(l).display !== "none",
+          );
+          const pin = layer?.querySelector(`[data-map-home-pin="${id}"][data-map-active]`);
+          if (!pin) return null;
+          const r = pin.querySelector("svg")!.getBoundingClientRect();
+          const box = el.getBoundingClientRect();
+          const inside =
+            r.left >= box.left &&
+            r.right <= box.right &&
+            r.top >= box.top &&
+            r.bottom <= box.bottom;
+          return inside ? { x: r.left + r.width / 2, y: r.top + r.height * 0.3 } : null;
+        }, id);
+        if (head) break;
+      }
+      expect(head, "premise: a listing whose own pin is the picture's active one").not.toBeNull();
+      // Grown and at rest before anything is read.
+      await expect
+        .poll(() =>
+          map.evaluate(
+            (el, selector) =>
+              [...el.querySelectorAll(selector)].flatMap((m) => [
+                ...m.getAnimations(),
+                ...(m.querySelector("svg")?.getAnimations() ?? []),
+              ]).length,
+            MARKERS,
+          ),
+        )
+        .toBe(0);
+
+      // Arm the reading, and take the premise with the same instrument: while
+      // the map is still loading, the point IS the picture's pin — so what is
+      // read mid-fade is a spot that pin covers.
+      const loading = await map.evaluate((el, { x, y }) => {
+        const top = () => {
+          const e = document.elementFromPoint(x, y);
+          if (!e) return "nothing";
+          if (e.closest("[data-map-home-pin]")) return "the picture's pin";
+          if (e.closest("[data-map-pin],[data-map-cluster]")) return "a live marker";
+          if (e.closest("[data-map-canvas]")) return "the live canvas";
+          return e.tagName.toLowerCase();
+        };
+        (window as unknown as { midFade: Promise<MidFade> }).midFade = new Promise(
+          (resolve, reject) => {
+            const mo = new MutationObserver(() => {
+              if (!el.hasAttribute("data-map-ready")) return;
+              mo.disconnect();
+              requestAnimationFrame(() => {
+                const canvas = el.querySelector("[data-map-canvas]")!;
+                resolve({
+                  top: top(),
+                  pictureUp: el.querySelector("[data-map-home-box]") !== null,
+                  fading: canvas
+                    .getAnimations()
+                    .filter(
+                      (a) =>
+                        (a as Animation & { transitionProperty?: string }).transitionProperty ===
+                        "opacity",
+                    ).length,
+                  liveMarkers: el.querySelectorAll("[data-map-pin],[data-map-cluster]").length,
+                });
+              });
+            });
+            mo.observe(el, { attributes: true, attributeFilter: ["data-map-ready"] });
+            setTimeout(() => reject(new Error("the map was not ready within 45s")), 45_000);
+          },
+        );
+        return top();
+      }, head!);
+      expect(loading, "premise: while the map loads, the point is the picture's pin").toBe(
+        "the picture's pin",
+      );
+
+      const cdp = await context.newCDPSession(page);
+      await cdp.send("Animation.enable");
+      await cdp.send("Animation.setPlaybackRate", { playbackRate: 0 });
+      release();
+      const mid = await page.evaluate(
+        () => (window as unknown as { midFade: Promise<MidFade> }).midFade,
+      );
+      console.log(
+        `mid-fade at the picture's active pin: ${mid.top} on top; picture up ${mid.pictureUp}; ` +
+          `${mid.fading} fade held on the canvas; ${mid.liveMarkers} live markers`,
+      );
+      expect(mid.pictureUp, "premise: the picture has not retired").toBe(true);
+      expect(mid.fading, "premise: the canvas's fade started, and is held").toBe(1);
+      expect(
+        ["the live canvas", "a live marker"],
+        `on top at the picture's active pin, mid-fade (${mid.liveMarkers} live markers drawn)`,
+      ).toContain(mid.top);
     } finally {
       await context.close();
     }

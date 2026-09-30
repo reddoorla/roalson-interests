@@ -1642,13 +1642,18 @@
       <!-- `--map-home-ground` is written from the constant rather than typed
            into the stylesheet, so the colour the margin paints and the colour
            `scripts/map-home.test.ts` checks against the style file are the
-           same string. A second literal in CSS is a second thing to drift. -->
+           same string. A second literal in CSS is a second thing to drift.
+           `isolate` keeps its pins' z-index (0, 1 while shrinking, 2 active —
+           see "THE ACTIVE PIN GROWS") inside the picture, as the live
+           overlay's own `z-[1]` keeps theirs inside it: without it the
+           picture's active pin would paint over the live overlay and the
+           canvas through the cross-fade. -->
       <div
         data-map-home-box
         aria-hidden="true"
         style="--map-home-ground:{MAP_HOME_GROUND};--map-home-full:url(/{MAP_HOME.full
           .file});--map-home-compact:url(/{MAP_HOME.compact.file})"
-        class="pointer-events-none absolute inset-0"
+        class="pointer-events-none absolute inset-0 isolate"
       >
         {#each homeLayers as layer (layer.key)}
           <div
@@ -1680,12 +1685,14 @@
                   data-map-dimmed={dim === undefined ? undefined : ""}
                   style="{at} translate(-50%,-100%)"
                   style:--map-dim={dim}
-                  class="pointer-events-auto absolute transition-opacity motion-reduce:transition-none
-                    {isActive ? 'z-[1]' : ''}"
+                  style:--pin-scale={isActive ? ACTIVE_PIN_SCALE : 1}
+                  class="pointer-events-auto absolute"
                 >
+                  <!-- Drawn at the frame's size, always; the active listing's
+                       is scaled by the stylesheet (see "THE ACTIVE PIN GROWS"). -->
                   <svg
-                    width={layer.pin * (isActive ? ACTIVE_PIN_SCALE : 1)}
-                    height={layer.pin * (isActive ? ACTIVE_PIN_SCALE : 1) * PIN_ASPECT}
+                    width={layer.pin}
+                    height={layer.pin * PIN_ASPECT}
                     viewBox={PIN_VIEWBOX}
                     aria-hidden="true"
                     focusable="false"
@@ -1783,20 +1790,23 @@
             data-map-active={isActive ? "" : undefined}
             data-map-dimmed={dim === undefined ? undefined : ""}
             style:--map-dim={dim}
+            style:--pin-scale={count === 1 ? (isActive ? ACTIVE_PIN_SCALE : 1) : undefined}
             onclick={() => press(cluster)}
-            class="absolute top-0 left-0 border-0 bg-transparent p-0 transition-opacity
-              motion-reduce:transition-none
-              {isActive ? 'z-[1]' : ''}
+            class="absolute top-0 left-0 border-0 bg-transparent p-0
+              {count === 1 ? '' : 'transition-opacity motion-reduce:transition-none'}
               {interactive ? 'pointer-events-auto cursor-pointer' : 'pointer-events-none'}"
           >
             {#if count === 1}
               <!-- `np_pin-map_4984332` — see $lib/property-map for the five
                    measured numbers and the tangent construction they imply.
-                   The ACTIVE listing's pin is ACTIVE_PIN_SCALE larger; the
-                   anchor is a percentage of the box, so its tip stays put. -->
+                   Drawn at the frame's size, always: the ACTIVE listing's pin
+                   is ACTIVE_PIN_SCALE larger by a transform the stylesheet
+                   eases, about its tip (see "THE ACTIVE PIN GROWS"). The
+                   button's box stays the drawn-at size, so the anchor above
+                   (a percentage of that box) still puts the tip on the point. -->
               <svg
-                width={frame.pin * (isActive ? ACTIVE_PIN_SCALE : 1)}
-                height={frame.pin * (isActive ? ACTIVE_PIN_SCALE : 1) * PIN_ASPECT}
+                width={frame.pin}
+                height={frame.pin * PIN_ASPECT}
                 viewBox={PIN_VIEWBOX}
                 aria-hidden="true"
                 focusable="false"
@@ -2015,16 +2025,110 @@
      control that looks disabled while it is being pointed at is lying, and
      `opacity` would dim the focus ring drawn on the element with it.
      The change animates on the SAME clock as the garnet card it follows —
-     `transition-opacity` is Tailwind's default duration and easing, exactly
-     what app.css's `transition-colors` on the card uses (150ms) — and not at
-     all under reduced motion (`motion-reduce:transition-none`, as on the
-     canvas host). The expanded overlay is this same box, so it needs nothing
-     of its own. */
+     Tailwind's default duration and easing (`transition-opacity` on a
+     cluster, the pin rules below on a pin), exactly what app.css's
+     `transition-colors` on the card uses (150ms) — and not at all under
+     reduced motion (`motion-reduce:transition-none`, as on the canvas host,
+     and the pin rules' own media block). The expanded overlay is this same
+     box, so it needs nothing of its own. */
   [data-map-dimmed] {
     opacity: var(--map-dim);
   }
   [data-map-dimmed]:is(:hover, :focus-visible) {
     opacity: 1;
+  }
+
+  /* THE ACTIVE PIN GROWS, AND THE ONE IT REPLACES SHRINKS, on the same clock
+     as the dim above (operator, 2026-09-29: "the pin scale change needs a
+     transition").
+
+     It used to be the SVG's `width`/`height` attributes, 1.5x on the active
+     pin, and an attribute swap does not transition: measured on a production
+     build of /properties at 1440, the incoming pin was already 72 x 64.86 and
+     the outgoing already 48 x 43.23 in the MutationObserver callback that saw
+     `data-map-active` move — before a single frame was drawn.
+
+     So every pin is drawn at its frame's size and `--pin-scale` (written from
+     ACTIVE_PIN_SCALE on the pin, 1 on the rest) is a TRANSFORM on the SVG,
+     which does transition. The origin is the SVG's bottom centre because that
+     is the tip: PIN_VIEWBOX stops at PIN_PATH's first point (0.5, 0.901019),
+     so the point the pin marks never moves while it grows or shrinks. The
+     scale is on the SVG and not on the pin element because the per-frame
+     loop owns the pin's own `transform` (every camera frame rewrites it, and
+     a transition there would drag every marker 150ms behind the tiles), and
+     because the element keeps the dim, the hover and the focus rules exactly
+     as they were.
+
+     WHAT A VISITOR CAN PRESS IS WHAT IS DRAWN. The button's box stays the
+     frame's size; hit-testing follows the transform, so the scaled SVG is
+     pressable across its whole drawn box and nothing outside it is — the
+     same box the attribute size gave (elementFromPoint at 1px inside and
+     outside each edge, before and after; the journal has the numbers).
+
+     THE RING FOLLOWS THE DRAWING. An outline on the button would now wrap the
+     frame-size box, cutting across the top third of a grown pin, and one on
+     the SVG would be scaled with it (3px at 3px). So the ring is drawn by
+     `::after`, sized from the same `--pin-scale` and eased on the same clock:
+     2px at 2px round the drawn pin, at every scale.
+
+     IT STAYS ON TOP IN BOTH DIRECTIONS. The active pin is z 2 from the first
+     frame (`step-start`), and the pin it replaces holds z 1 until its shrink
+     is over (`steps(1, jump-both)` puts 2 -> 0 at 1 for the whole run) — so a
+     pin that is still larger than its neighbours never dips under one, and
+     the incoming pin is never under the outgoing one. The containers are
+     stacking contexts (the overlay's `z-[1]`, the picture's `isolate`), so
+     none of these numbers reach the controls or the sheet.
+
+     Reduced motion: none of it transitions — size, ring and z-order all
+     change in one frame, as the dim does. */
+  [data-map-pin],
+  [data-map-home-pin] {
+    z-index: 0;
+    transition-property: opacity, z-index;
+    transition-duration: var(--default-transition-duration);
+    transition-timing-function: var(--default-transition-timing-function), steps(1, jump-both);
+  }
+  [data-map-pin][data-map-active],
+  [data-map-home-pin][data-map-active] {
+    z-index: 2;
+    transition-timing-function: var(--default-transition-timing-function), step-start;
+  }
+  [data-map-pin] > svg,
+  [data-map-home-pin] > svg {
+    transform: scale(var(--pin-scale));
+    transform-origin: 50% 100%;
+    transition: transform var(--default-transition-duration)
+      var(--default-transition-timing-function);
+  }
+  [data-map-pin]:focus-visible,
+  [data-map-home-pin]:focus-visible {
+    outline: none;
+  }
+  [data-map-pin]:focus-visible::after,
+  [data-map-home-pin]:focus-visible::after {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    width: calc(100% * var(--pin-scale));
+    height: calc(100% * var(--pin-scale));
+    translate: -50% 0;
+    outline: 2px solid var(--focus-ring, var(--color-primary));
+    outline-offset: 2px;
+    pointer-events: none;
+    transition-property: width, height;
+    transition-duration: var(--default-transition-duration);
+    transition-timing-function: var(--default-transition-timing-function);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    [data-map-pin],
+    [data-map-home-pin],
+    [data-map-pin] > svg,
+    [data-map-home-pin] > svg,
+    [data-map-pin]:focus-visible::after,
+    [data-map-home-pin]:focus-visible::after {
+      transition: none;
+    }
   }
 
   [data-map-ready] [data-map-link]:focus,
