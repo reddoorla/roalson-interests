@@ -705,7 +705,7 @@
     // themselves, which is what gives a finger's swipe back to the page.
     instance.getCanvasContainer().classList.toggle("maplibregl-interactive", on);
     if (!locking) return;
-    selected = null;
+    closeSheet();
     drivenAt = undefined;
     releaseDue = false;
     stepping = null;
@@ -1110,9 +1110,9 @@
     // is one; that call is also what takes the inventory it switches.
     //
     // HERE, at construction, and not first in the effect that follows
-    // `interactive`: that effect next runs when `ready` flips, and until then
-    // a locked band's canvas would sit in the tab order, focusable and named
-    // "interactive", under the placeholder picture.
+    // `interactive`: that effect next runs when `ready` flips, and a locked
+    // band's canvas must not be focusable or named "interactive" at that
+    // flip. (Until it, the whole canvas host is `inert`.)
     navigation = NAVIGATION.filter((name) => handler(instance, name).isEnabled());
     applyInteractive(
       instance,
@@ -1180,6 +1180,9 @@
     // which it does not fire for a drag. A press on a PIN never reaches
     // maplibre (the pins are ours, over its canvas), so `press` settles too.
     instance.on("click", settle);
+    // Every drag, not only the first: maplibre's own hides an open line and
+    // leaves `open` on, so the (i) reports expanded over nothing.
+    instance.on("drag", collapse);
     // THE VISITOR'S ZOOM, RECORDED — see `chosenZoom` for the three rules and
     // the defect behind each. One listener per event, in maplibre's order: a
     // move's `zoomend` fires before its `moveend`, in the same call, so the
@@ -1476,6 +1479,40 @@
     });
   }
 
+  /**
+   * Closes the pin sheet (its ×, Escape, the lock). A keyboard in it is handed
+   * on first, or the sheet's removal drops it to <body> — inside the overlay's
+   * dialog too: to the pin that opened it while that pin is pressable and in
+   * view, else to the listing's link in the list (its chip; only for a
+   * keyboard, since a pointer's close would draw it), else to expand.
+   */
+  function closeSheet() {
+    const held = document.activeElement;
+    const id = selected?.id;
+    if (boxEl && held instanceof HTMLElement && held.closest("[data-map-sheet]")) {
+      const view = boxEl.getBoundingClientRect();
+      const pin = [...boxEl.querySelectorAll<HTMLButtonElement>("[data-map-pin]")].find((p) => {
+        const r = p.getBoundingClientRect();
+        return (
+          p.dataset.mapPin === id &&
+          !p.disabled &&
+          r.right > view.left &&
+          r.left < view.right &&
+          r.bottom > view.top &&
+          r.top < view.bottom
+        );
+      });
+      const link = held.matches(":focus-visible")
+        ? boxEl.querySelectorAll<HTMLElement>("[data-map-link]")[
+            points.findIndex((p) => p.id === id)
+          ]
+        : undefined;
+      if (pin) pin.focus({ preventScroll: true });
+      else (link ?? boxEl.querySelector<HTMLElement>("[data-map-expand]"))?.focus();
+    }
+    selected = null;
+  }
+
   // The zoom a +/− press leaves from, and why it is not always `getZoom()`:
   // over a flight of ours still in the air that is the arc's waypoint, so the
   // step goes from where the flight was GOING (`chosenZoom`'s rule 2).
@@ -1764,7 +1801,7 @@
 <svelte:window
   onkeydown={(e) => {
     if (e.key !== "Escape") return;
-    if (selected) selected = null;
+    if (selected) closeSheet();
     else if (expanded) expanded = false;
   }}
 />
@@ -1949,12 +1986,16 @@
            so the OSMF safe harbour wants all of it on screen, on every frame.
            Outside the picture's `aria-hidden` box, because this is the same
            licence notice the live credit puts in the accessibility tree.
-           `z-[1]`: over the picture's own active pin (`z-[1]`, earlier in the
-           DOM). The canvas comes up over it and the live credit takes over at
-           the swap, when this goes with the picture. Toned and sized by the
-           live chip's own rule, below. -->
-      <!-- eslint-disable-next-line svelte/no-at-html-tags -- a constant, held to the committed style's attribution by scripts/map-home.test.ts -->
-      <p data-map-home-credit class="absolute bottom-0 left-0 z-[1] m-0">{@html MAP_HOME_CREDIT}</p>
+           `z-[1]`: over the canvas while it fades in, so the live credit, the
+           same box, stays under this one until the swap. Toned and sized by
+           the live credit's own rules, below; the wrapper is the container
+           those rules query. -->
+      <div data-map-home-query class="pointer-events-none absolute inset-0">
+        <p data-map-home-credit class="pointer-events-auto absolute bottom-0 left-0 z-[1] m-0">
+          <!-- eslint-disable-next-line svelte/no-at-html-tags -- a constant, held to the committed style's attribution by scripts/map-home.test.ts -->
+          {@html MAP_HOME_CREDIT}
+        </p>
+      </div>
     {/if}
 
     <!-- MapLibre's own box. `aria-hidden` is not a shortcut: the canvas keeps
@@ -1967,10 +2008,13 @@
          reads as a sharpening rather than a cut. `motion-reduce:transition-none`
          is #122's reduced-motion rule, and it is paired with `handedOver`
          flipping immediately under the same preference — one setting, both
-         halves, no cross-fade at all. -->
+         halves, no cross-fade at all.
+         `inert` until `ready`: the canvas and the credit under a transparent
+         host are no tab stops. -->
     <div
       bind:this={canvasHost}
       data-map-canvas
+      inert={!ready}
       ontransitionend={(e) => {
         // THIS ELEMENT'S OWN FADE, and nothing else's (#134). The property is
         // named rather than assumed, and so is the target: `transitionend`
@@ -2072,11 +2116,13 @@
            by one, which tests/interaction/property-map.spec.ts measures rather
            than asserts. -->
       <!-- `right-[54px]`: the control column's 44px targets on their 10px
-           inset keep that strip, so the sheet's × is never under them. -->
+           inset keep that strip, so the sheet's × is never under them.
+           `pl-11` on a compact frame, for the same reason on the left: the
+           credit's (i) is 24 × 24 at 10 in, and the links start clear of it. -->
       <div
         data-map-sheet
         class="absolute bottom-0 left-0 right-[54px] z-[2] flex items-start justify-between gap-4
-          bg-light/95 p-4 text-primary"
+          bg-light/95 p-4 text-primary {fullControls ? '' : 'pl-11'}"
       >
         <div class="min-w-0">
           <p class="t-h4 truncate">{selected.title}</p>
@@ -2098,7 +2144,7 @@
         </div>
         <button
           type="button"
-          onclick={() => (selected = null)}
+          onclick={closeSheet}
           aria-label="Close {selected.title}"
           class="-m-2 grid h-11 w-11 shrink-0 cursor-pointer place-items-center"
         >
@@ -2174,6 +2220,15 @@
 {/if}
 
 <style>
+  /* No transition on the root. Under reduced motion app.css gives every
+     element a 0.01ms `transition: all`, so a height that changes at `lg`
+     (the band's `lg:h-full` to `h-50`) is drawn at its old value for a
+     frame: 0 tall below lg, which unmounted the control column under a
+     keyboard's focus. */
+  [data-property-map] {
+    transition-property: none;
+  }
+
   /* The overlay. Scoped CSS sits outside every layer, so it beats Tailwind's
      `@layer utilities` (`h-50`, `lg:sticky`, `lg:top-…`, `mb-5`) on the root.
      z-70 puts it over the nav (z-50) and the pinned dividers (`lg:z-10`); no
@@ -2224,7 +2279,8 @@
      grid row. A browser with no container-query support matches NEITHER rule
      and shows no placeholder at all, which is exactly the pre-#122 state —
      the degradation is "as before", never "the wrong frame". */
-  [data-map-home-box] {
+  [data-map-home-box],
+  [data-map-home-query] {
     container-type: size;
   }
   [data-map-home-frame] {
@@ -2442,6 +2498,30 @@
   [data-map-home-credit] {
     max-width: calc(100% - 54px);
   }
+  /* On a compact frame the live credit opens as maplibre's compact line, so
+     there the picture's is that line: its margin, padding, radius and wrap
+     width, and the (i) where the live one is. The hand-over then swaps like
+     for like, as it does on a full frame, rather than showing two lines and
+     then a jump. The overlay keeps the chip at any height (`fullControls`).
+     With scripting off the picture is for good and keeps the chip: the line's
+     box would sit on pins' centres that the chip only reaches the foot of
+     (plan guard 2i's two runs). */
+  @media (scripting: enabled) {
+    @container (0px < height < 300px) {
+      [data-property-map]:not([data-expanded="true"]) [data-map-home-credit] {
+        left: 10px;
+        bottom: 10px;
+        box-sizing: content-box;
+        min-height: 20px;
+        max-width: calc(100% - 110px);
+        padding: 2px 8px 2px 28px;
+        border-radius: 12px;
+      }
+      [data-property-map]:not([data-expanded="true"]) [data-map-home-credit]::before {
+        content: "";
+      }
+    }
+  }
 
   /* THE COLLAPSED CREDIT, compact frames only (`placeCredit`): maplibre's own
      <summary>, a 24 × 24 target (WCAG 2.5.8's minimum, and the no-pin zone
@@ -2471,8 +2551,18 @@
       .maplibregl-ctrl-attrib-button::before
   ) {
     content: "";
+  }
+  :global(
+    [data-property-map]
+      .maplibregl-ctrl.maplibregl-ctrl-attrib
+      .maplibregl-ctrl-attrib-button::before
+  ),
+  [data-map-home-credit]::before {
     position: absolute;
-    inset: 0;
+    top: 0;
+    left: 0;
+    width: 24px;
+    height: 24px;
     background-color: var(--color-primary);
     mask: url("data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20fill-rule%3D%22evenodd%22%20viewBox%3D%220%200%2020%2020%22%3E%3Cpath%20d%3D%22M4%2010a6%206%200%201%200%2012%200%206%206%200%201%200-12%200m5-3a1%201%200%201%200%202%200%201%201%200%201%200-2%200m0%203a1%201%200%201%201%202%200v3a1%201%200%201%201-2%200%22%2F%3E%3C%2Fsvg%3E")
       center / 100% 100% no-repeat;
@@ -2492,7 +2582,8 @@
       [data-property-map]
         .maplibregl-ctrl.maplibregl-ctrl-attrib
         .maplibregl-ctrl-attrib-button::before
-    ) {
+    ),
+    [data-map-home-credit]::before {
       forced-color-adjust: none;
       background-color: CanvasText;
     }
