@@ -535,9 +535,12 @@
     }
     if (primed) return;
     // `if`: a slide removed in a Prismic preview leaves its binding null.
+    // On its layer from here, so the first slide's drift (0ms delay, written
+    // in the same flush) starts on a photo already carrying it, as every
+    // later drift does and as the operator's Firefox comparison page did.
     for (const photo of photos)
       if (photo) {
-        photo.style.cssText = tilted(1);
+        photo.style.cssText = `${LAYER}; ${tilted(1)}`;
         getComputedStyle(photo).getPropertyValue("transform");
       }
     // Every photo starts again from its rest, so none has ended a drift.

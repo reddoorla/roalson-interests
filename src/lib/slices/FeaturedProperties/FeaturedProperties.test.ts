@@ -413,9 +413,9 @@ describe("FeaturedProperties slice", () => {
           props: { slice: featuredPropertiesFixture() },
         });
         expect(resolved, "each photo, as the browser resolved it first").toEqual([
-          at(1),
-          at(1),
-          at(1),
+          `${LAYER} ${at(1)}`,
+          `${LAYER} ${at(1)}`,
+          `${LAYER} ${at(1)}`,
         ]);
         expect(stylesOf(container), "and then the drift and the holds").toEqual([
           FIRST,
@@ -460,6 +460,29 @@ describe("FeaturedProperties slice", () => {
       await advance(DISSOLVE + DWELL / 2);
       expect(writes, "half a dwell after a visitor's turn, and not one write").toEqual([]);
       observer.disconnect();
+    });
+
+    it("a photo brought back WHILE IT STILL SHOWS keeps its layer, whatever becomes of the hold it leaves", async () => {
+      // Turned away and back inside the dissolve, the photo's held off-stage
+      // transition is replaced before it ends, so the browser may report it
+      // as a `transitioncancel`. That is not a drift ending: only a finished
+      // `transitionend` drops the layer (see `ended`).
+      vi.useFakeTimers();
+      const { container, getByLabelText } = render(FeaturedProperties, {
+        props: { slice: featuredPropertiesFixture() },
+      });
+      await fireEvent.click(getByLabelText("Next slide"));
+      expect(stylesOf(container), "premise: turned away").toEqual([OFF_STAGE, ON_STAGE, OFF_STAGE]);
+      await fireEvent.click(getByLabelText("Previous slide"));
+      photosOf(container)[0].dispatchEvent(
+        new TransitionEvent("transitioncancel", { propertyName: "transform", bubbles: true }),
+      );
+      await tick();
+      expect(stylesOf(container), "back while it showed: on stage, on its layer").toEqual([
+        ON_STAGE,
+        OFF_STAGE,
+        OFF_STAGE,
+      ]);
     });
 
     it("a photo that left RESTS once its own fade-out has ended — and a turn back starts it from 1", async () => {
