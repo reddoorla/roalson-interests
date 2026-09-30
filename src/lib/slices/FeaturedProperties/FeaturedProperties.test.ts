@@ -345,8 +345,9 @@ describe("FeaturedProperties slice", () => {
     // leaves and freezes on Pause is featured-properties.spec.ts's, in
     // Chromium.
 
-    /** Every photo that can drift is on its own compositor layer, whichever
-     *  of the three states below it is in (see `LAYER` in the slice). */
+    /** Every photo that can drift is on its own compositor layer in each of
+     *  the four states below — until its drift has ENDED on stage, and from
+     *  then until it rests (`ENDED`, `ENDED_OFF`; see `LAYER` in the slice). */
     const LAYER = "will-change: transform;";
     /** Every state's transform: the scale, then the SAME tilt, so each
      *  transition runs between two lists of the same functions and never
@@ -362,6 +363,10 @@ describe("FeaturedProperties slice", () => {
     const OFF_STAGE = `${LAYER} ${at(1)} transition: transform 0ms linear ${DWELL}ms;`;
     /** …until its wrapper's fade-out ENDS, and then at rest, hidden. */
     const RESTING = `${LAYER} ${at(1)} transition: none;`;
+    /** ON_STAGE once its drift has run to its end: held still, no layer. */
+    const ENDED = `${at(1 + KEN_BURNS)} transition: transform ${DWELL}ms linear ${CAMERA_FLIGHT_MS}ms;`;
+    /** OFF_STAGE for a photo that left after its drift had ended. */
+    const ENDED_OFF = `${at(1)} transition: transform 0ms linear ${DWELL}ms;`;
     const photosOf = (container: HTMLElement) => [
       ...container.querySelectorAll<HTMLElement>("[data-featured-photo]"),
     ];
@@ -492,6 +497,66 @@ describe("FeaturedProperties slice", () => {
         ON_STAGE,
         OFF_STAGE,
       ]);
+    });
+
+    it("a drift that ENDS on stage drops the photo's layer — and it comes back when the photo rests", async () => {
+      // A layer with will-change keeps the raster it was drawn at, so a photo
+      // held at 1 + KEN_BURNS on one is its start raster stretched, for as
+      // long as it is held (see `LAYER` in the slice). What ends it is the
+      // photo's OWN transition on `transform`, while on stage — dispatched by
+      // hand, as jsdom runs no transitions. That the browser really fires it,
+      // really re-rasters and that a Pause keeps the layer are the specs'.
+      const { container, getByLabelText } = render(FeaturedProperties, {
+        props: { slice: featuredPropertiesFixture() },
+      });
+      const end = async (i: number, property = "transform", from?: Element) => {
+        (from ?? photosOf(container)[i]).dispatchEvent(
+          new TransitionEvent("transitionend", { propertyName: property, bubbles: true }),
+        );
+        await tick();
+      };
+      await fireEvent.click(getByLabelText("Next slide"));
+      expect(stylesOf(container), "premise: turned").toEqual([OFF_STAGE, ON_STAGE, OFF_STAGE]);
+      await end(1, "opacity");
+      await end(0);
+      expect(stylesOf(container), "not a transform's, and not a photo on stage").toEqual([
+        OFF_STAGE,
+        ON_STAGE,
+        OFF_STAGE,
+      ]);
+      await end(1);
+      expect(stylesOf(container), "the drift on stage ended").toEqual([
+        OFF_STAGE,
+        ENDED,
+        OFF_STAGE,
+      ]);
+      await fireEvent.click(getByLabelText("Pause slides"));
+      await fireEvent.click(getByLabelText("Play slides"));
+      expect(stylesOf(container), "Pause and Play start nothing").toEqual([
+        OFF_STAGE,
+        ENDED,
+        OFF_STAGE,
+      ]);
+
+      // It leaves held, still with no layer; brought back while it still
+      // shows it is already at 1 + KEN_BURNS, so nothing drifts and the layer
+      // stays off. The photo it hands back to had not ended: it keeps its own.
+      await fireEvent.click(getByLabelText("Next slide"));
+      expect(stylesOf(container), "left after it ended").toEqual([OFF_STAGE, ENDED_OFF, ON_STAGE]);
+      await fireEvent.click(getByLabelText("Previous slide"));
+      expect(stylesOf(container), "back while it still shows").toEqual([
+        OFF_STAGE,
+        ENDED,
+        OFF_STAGE,
+      ]);
+
+      // Once its fade-out ends it RESTS, on its layer again, before its next
+      // drift — which then runs on it.
+      await fireEvent.click(getByLabelText("Next slide"));
+      await end(1, "opacity", photosOf(container)[1].parentElement!);
+      expect(stylesOf(container), "at rest").toEqual([OFF_STAGE, RESTING, ON_STAGE]);
+      await fireEvent.click(getByLabelText("Previous slide"));
+      expect(stylesOf(container), "its next drift").toEqual([OFF_STAGE, ON_STAGE, OFF_STAGE]);
     });
 
     /** A stand-in for each photo's transition — jsdom has no Web Animations —

@@ -400,11 +400,28 @@
   //    there (`LAYER`), for Firefox: it keeps the photo on its own compositor
   //    layer. It was meant to have each sub-pixel step filtered on the GPU
   //    rather than re-rasterised; in the operator's Firefox (2026-09-30) the
-  //    drift still ticked with it alone, and stopped only with the tilt. In
-  //    headless Chromium, 1440 × DPR 2, it changed no layer and no pixel of
-  //    the drift; what it did change is a VISITOR's drift ending on stage,
-  //    which without it dropped its layer and repainted ~150ms later, visibly
-  //    sharper, on a photo that had stopped moving.
+  //    drift still ticked with it alone, and stopped only with the tilt — on
+  //    a comparison page whose photos carried it from load, so here too it
+  //    is on before a drift starts and for all of it. In headless Chromium,
+  //    1440 × DPR 2, it changed no layer and no pixel of the drift.
+  //  - AND OFF A PHOTO WHOSE DRIFT HAS ENDED ON STAGE (`ended`), which is the
+  //    trade. A layer with will-change keeps the raster it was first drawn
+  //    at, so in Chromium the drift's end frame is its start raster stretched
+  //    by 1 + KEN_BURNS — and a photo HELD there stayed that soft for as long
+  //    as it was held, never re-sharpening: a visitor's turn, whose drift
+  //    runs to its end with the clock stopped by the arrow's focus, and
+  //    #156's Play after that. Mean |Laplacian| of the photo Next brings on,
+  //    held, 1440 × DPR 2: 7.678 with the layer against 9.3835 without it,
+  //    ~18% (review of #212, 2026-09-30). Without will-change Chromium
+  //    re-rasters ~150ms after the transition ends, and that one visible
+  //    re-sharpening, on a photo that has stopped moving, is the price. So
+  //    the on-stage photo's own `transitionend` on `transform` drops it (a
+  //    Pause does not: a paused transition has not ended), and it comes back
+  //    when the photo RESTS, hidden, before its next drift — not when that
+  //    drift is written, because the turn's first render runs before the
+  //    effect below records the turn. A photo brought back while it still
+  //    shows after its drift ended is already at 1 + KEN_BURNS: nothing
+  //    drifts, and it stays off.
   // What the script did and this does not, on purpose ("overbuilt"): keep the
   // photo on the bar's clock frame for frame (both wait the settle and run
   // DWELL, so they agree to within frames, not by construction), stop for a
@@ -438,6 +455,9 @@
     return `(min-width: 1024px) ${vw(65)}vw, ${vw(100)}vw`;
   };
   const resting: boolean[] = $state([]);
+  /** The photo's drift ran to its end ON STAGE, and it has not rested since:
+   *  it is held still, so it carries no `LAYER`. */
+  const ended: boolean[] = $state([]);
   let shown = carousel.index;
   let turned = false;
   let primed = $state(false);
@@ -446,13 +466,14 @@
   const tilted = (scale: number) => `transform: scale(${scale}) rotate(${TILT_DEG}deg)`;
   const zoom = (i: number) => {
     if (!carousel.hydrated || !carousel.eligible || !primed) return undefined;
+    const layer = ended[i] ? "" : `${LAYER}; `;
     if (carousel.isActive(i)) {
       const delay = turned || i !== shown ? carousel.settle : 0;
-      return `${LAYER}; ${tilted(1 + KEN_BURNS)}; transition: transform ${DWELL}ms linear ${delay}ms`;
+      return `${layer}${tilted(1 + KEN_BURNS)}; transition: transform ${DWELL}ms linear ${delay}ms`;
     }
     return resting[i]
-      ? `${LAYER}; ${tilted(1)}; transition: none`
-      : `${LAYER}; ${tilted(1)}; transition: transform 0ms linear ${DWELL}ms`;
+      ? `${layer}${tilted(1)}; transition: none`
+      : `${layer}${tilted(1)}; transition: transform 0ms linear ${DWELL}ms`;
   };
 
   // PAUSE FREEZES THE DRIFT AND PLAY RESUMES IT (WCAG 2.2.2), through the
@@ -517,6 +538,8 @@
         photo.style.cssText = tilted(1);
         getComputedStyle(photo).getPropertyValue("transform");
       }
+    // Every photo starts again from its rest, so none has ended a drift.
+    ended.length = 0;
     primed = true;
   });
 </script>
@@ -668,8 +691,10 @@
               class="col-span-full row-start-1 aspect-[928/542] overflow-hidden bg-background
                 {active ? fade.photoIn : fade.photoOut}"
               ontransitionend={(e) => {
-                if (e.target === e.currentTarget && e.propertyName === "opacity" && !active)
+                if (e.target === e.currentTarget && e.propertyName === "opacity" && !active) {
                   resting[i] = true;
+                  ended[i] = false;
+                }
               }}
             >
               <img
@@ -684,6 +709,10 @@
                 data-featured-photo
                 bind:this={photos[i]}
                 style={zoom(i)}
+                ontransitionend={(e) => {
+                  if (e.target === e.currentTarget && e.propertyName === "transform" && active)
+                    ended[i] = true;
+                }}
                 class="size-full object-cover"
               />
             </div>
