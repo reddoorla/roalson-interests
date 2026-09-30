@@ -12,7 +12,7 @@ import {
 } from "$lib/home-fixture";
 import { CAMERA_FLIGHT_MS } from "$lib/property-map";
 import { components } from "$lib/slices";
-import FeaturedProperties, { DWELL, KEN_BURNS } from "./index.svelte";
+import FeaturedProperties, { DWELL, KEN_BURNS, TILT_DEG } from "./index.svelte";
 
 // THE ENGINE, for the one block below that boots the band's map: a fake that
 // keeps maplibre's navigation handlers as real on/off state, so the band's
@@ -348,16 +348,20 @@ describe("FeaturedProperties slice", () => {
     /** Every photo that can drift is on its own compositor layer, whichever
      *  of the three states below it is in (see `LAYER` in the slice). */
     const LAYER = "will-change: transform;";
+    /** Every state's transform: the scale, then the SAME tilt, so each
+     *  transition runs between two lists of the same functions and never
+     *  turns the photo (see TILT_DEG in the slice: Firefox, 2026-09-30). */
+    const at = (scale: number) => `transform: scale(${scale}) rotate(${TILT_DEG}deg);`;
     /** The photo a turn brings on: to 1 + KEN_BURNS over DWELL, linear,
      *  after the settle — which is the camera's flight, read from its own
      *  module. */
-    const ON_STAGE = `${LAYER} transform: scale(${1 + KEN_BURNS}); transition: transform ${DWELL}ms linear ${CAMERA_FLIGHT_MS}ms;`;
+    const ON_STAGE = `${LAYER} ${at(1 + KEN_BURNS)} transition: transform ${DWELL}ms linear ${CAMERA_FLIGHT_MS}ms;`;
     /** The first slide's: nothing to arrive, so no settle — as the bar. */
-    const FIRST = `${LAYER} transform: scale(${1 + KEN_BURNS}); transition: transform ${DWELL}ms linear 0ms;`;
+    const FIRST = `${LAYER} ${at(1 + KEN_BURNS)} transition: transform ${DWELL}ms linear 0ms;`;
     /** A photo that left: held at its start value by a whole DWELL's delay… */
-    const OFF_STAGE = `${LAYER} transform: scale(1); transition: transform 0ms linear ${DWELL}ms;`;
+    const OFF_STAGE = `${LAYER} ${at(1)} transition: transform 0ms linear ${DWELL}ms;`;
     /** …until its wrapper's fade-out ENDS, and then at rest, hidden. */
-    const RESTING = `${LAYER} transform: scale(1); transition: none;`;
+    const RESTING = `${LAYER} ${at(1)} transition: none;`;
     const photosOf = (container: HTMLElement) => [
       ...container.querySelectorAll<HTMLElement>("[data-featured-photo]"),
     ];
@@ -381,6 +385,40 @@ describe("FeaturedProperties slice", () => {
       for (const photo of photosOf(container)) {
         expect(photo.parentElement!.getAttribute("style")).toBeNull();
         expect(photo.className).not.toContain("transition");
+      }
+    });
+
+    it("resolves every photo at its TILTED REST before the first drift is written, so none turns up from 0", () => {
+      // The server's markup has no style, so without this the first drift
+      // (and every hold at load) starts from `none`, and a transition from
+      // `none` interpolates the tilt 0 → TILT_DEG across the dwell — below
+      // Firefox's threshold for two thirds of it (see `primed` in the slice).
+      // What is pinned here is the ORDER: each photo carries its tilted rest
+      // when the browser is made to resolve it, and only after that does it
+      // carry a drift. That the drift then starts tilted is the browser's —
+      // featured-properties.spec.ts, slide 1's first dwell, every frame.
+      const real = window.getComputedStyle.bind(window);
+      const resolved: (string | null)[] = [];
+      const read = vi.spyOn(window, "getComputedStyle").mockImplementation((el, pseudo) => {
+        if (el.hasAttribute("data-featured-photo")) resolved.push(el.getAttribute("style"));
+        return real(el, pseudo);
+      });
+      try {
+        const { container } = render(FeaturedProperties, {
+          props: { slice: featuredPropertiesFixture() },
+        });
+        expect(resolved, "each photo, as the browser resolved it first").toEqual([
+          at(1),
+          at(1),
+          at(1),
+        ]);
+        expect(stylesOf(container), "and then the drift and the holds").toEqual([
+          FIRST,
+          OFF_STAGE,
+          OFF_STAGE,
+        ]);
+      } finally {
+        read.mockRestore();
       }
     });
 
@@ -552,6 +590,17 @@ describe("FeaturedProperties slice", () => {
       // amplitude, pinned once, as DWELL is: twice the 0.03 it was. That the
       // browser specs time this same number is featured-dwell.test.ts's.
       expect(KEN_BURNS).toBe(0.06);
+    });
+
+    it("tilts by the operator's 0.02deg — past the 1/4096 WebRender reads as no rotation at all", () => {
+      // Measured in Firefox by the operator, 2026-09-30: smooth with
+      // rotate(0.02deg) at both ends, ticking without. WebRender takes a
+      // matrix whose off-diagonal is within 1/4096 of zero for a plain scale
+      // (`ScaleOffset::from_transform`), so a "tidier" 0.01deg would quietly
+      // be no tilt there. The photo is never drawn below scale 1, where the
+      // off-diagonal is smallest: sin(TILT_DEG).
+      expect(TILT_DEG).toBe(0.02);
+      expect(Math.sin((TILT_DEG * Math.PI) / 180)).toBeGreaterThan(1 / 4096);
     });
 
     describe("fetched for the width it is drawn at, at the end of its drift", () => {

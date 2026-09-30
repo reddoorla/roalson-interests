@@ -44,6 +44,19 @@ export const FEATURED_KEN_BURNS = (() => {
   return Number(declared[1]);
 })();
 
+/** The photo's tilt, in degrees: the slice's TILT_DEG, on every Ken Burns
+ *  state for Firefox (operator, 2026-09-30). Read out of the slice for
+ *  KEN_BURNS's reason: the specs check the photo's angle on every frame
+ *  against it, and an angle checked against a copy would follow the copy. */
+export const FEATURED_TILT_DEG = (() => {
+  const declared = /^\s*export const TILT_DEG = (\d*\.?\d+);$/m.exec(readFileSync(SLICE, "utf8"));
+  if (!declared)
+    throw new Error(
+      "src/lib/slices/FeaturedProperties/index.svelte no longer declares `export const TILT_DEG = <deg>;`",
+    );
+  return Number(declared[1]);
+})();
+
 /** The slice's DISSOLVE, which is CAMERA_FLIGHT_MS — pinned at 500 by
  *  property-map.test.ts (property-map-camera-prod.spec.ts repeats it the same
  *  way). The dwell doubling did not touch it: the hand-over is how long a turn

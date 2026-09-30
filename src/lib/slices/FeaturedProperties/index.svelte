@@ -31,8 +31,28 @@
    *  moves 27.8px across the dwell, ~3.5px a second: ~0.058px a frame at
    *  60Hz, ~0.029 at 120Hz. A whole pixel a frame would be ~60px a second at
    *  each edge, ~480px over the dwell. Smooth sub-pixel motion is the GPU's
-   *  job instead — see `will-change` in `zoom`. */
+   *  job instead — see TILT_DEG, and `will-change` in `zoom`. */
   export const KEN_BURNS = 0.06;
+
+  /** A rotation too small to see, in EVERY Ken Burns state (`zoom`), for
+   *  FIREFOX. Measured by the operator on 2026-09-30, in Firefox, on a
+   *  comparison page: scale 1 → 1.06 over 8s with `will-change` "ticks"
+   *  ("feels like it's calculating every tick rather than interpolating");
+   *  the same with rotate(0.02deg) at BOTH ends is smooth, and so is 1.12
+   *  with it. A translateZ(0) variant and a no-will-change one still ticked.
+   *  The accepted explanation: an axis-aligned scale lets Firefox's renderer
+   *  snap the photo to whole device pixels each frame, and a transform that
+   *  is not axis-aligned is resampled with filtering instead. 0.02deg is
+   *  0.32px of skew across the 928px box.
+   *
+   *  NOT ANY SMALL ANGLE — read in Firefox's source, not measured (there is
+   *  no Firefox in the build container): WebRender's
+   *  `ScaleOffset::from_transform` (gfx/wr/webrender_api/src/fast_transform.rs)
+   *  takes a matrix whose off-diagonal terms are within 1/4096 of zero for a
+   *  plain scale. sin(0.02deg) is 1.43 times that; under 0.014deg is nothing
+   *  to it. So the tilt must never be interpolated up from 0 either — see
+   *  `primed`, below. */
+  export const TILT_DEG = 0.02;
 </script>
 
 <script lang="ts">
@@ -370,15 +390,21 @@
   //    at all. Under reduced motion app.css cuts every transition to 0.01ms,
   //    which would SNAP a declared end scale and hold it; and an end scale in
   //    the server's markup would be the photo's first style, with nothing for
-  //    a transition to start from.
+  //    a transition to start from. Nor before `primed` (below).
+  //  - EVERY STATE CARRIES THE SAME TILT, in the same place — `rotate(TILT_DEG)`
+  //    after the scale, through `tilted` — so every transition runs between
+  //    two lists of the same functions: the scale moves and the rotation is
+  //    TILT_DEG on every frame (see TILT_DEG: Firefox, operator, 2026-09-30).
+  //    A state without it would interpolate the rotation to or from 0.
   //  - `will-change: transform` on every photo that can drift, and only
   //    there (`LAYER`), for Firefox: it keeps the photo on its own compositor
-  //    layer, so each sub-pixel step is filtered on the GPU rather than
-  //    re-rasterised (see KEN_BURNS). Unmeasured there — no Firefox in the
-  //    build container. In headless Chromium, 1440 × DPR 2, it changed no
-  //    layer and no pixel of the drift; what it did change is a VISITOR's
-  //    drift ending on stage, which without it dropped its layer and repainted
-  //    ~150ms later, visibly sharper, on a photo that had stopped moving.
+  //    layer. It was meant to have each sub-pixel step filtered on the GPU
+  //    rather than re-rasterised; in the operator's Firefox (2026-09-30) the
+  //    drift still ticked with it alone, and stopped only with the tilt. In
+  //    headless Chromium, 1440 × DPR 2, it changed no layer and no pixel of
+  //    the drift; what it did change is a VISITOR's drift ending on stage,
+  //    which without it dropped its layer and repainted ~150ms later, visibly
+  //    sharper, on a photo that had stopped moving.
   // What the script did and this does not, on purpose ("overbuilt"): keep the
   // photo on the bar's clock frame for frame (both wait the settle and run
   // DWELL, so they agree to within frames, not by construction), stop for a
@@ -414,15 +440,19 @@
   const resting: boolean[] = $state([]);
   let shown = carousel.index;
   let turned = false;
+  let primed = $state(false);
+  /** A photo's transform at `scale`, tilted: the one function list every
+   *  state below is written in. */
+  const tilted = (scale: number) => `transform: scale(${scale}) rotate(${TILT_DEG}deg)`;
   const zoom = (i: number) => {
-    if (!carousel.hydrated || !carousel.eligible) return undefined;
+    if (!carousel.hydrated || !carousel.eligible || !primed) return undefined;
     if (carousel.isActive(i)) {
       const delay = turned || i !== shown ? carousel.settle : 0;
-      return `${LAYER}; transform: scale(${1 + KEN_BURNS}); transition: transform ${DWELL}ms linear ${delay}ms`;
+      return `${LAYER}; ${tilted(1 + KEN_BURNS)}; transition: transform ${DWELL}ms linear ${delay}ms`;
     }
     return resting[i]
-      ? `${LAYER}; transform: scale(1); transition: none`
-      : `${LAYER}; transform: scale(1); transition: transform 0ms linear ${DWELL}ms`;
+      ? `${LAYER}; ${tilted(1)}; transition: none`
+      : `${LAYER}; ${tilted(1)}; transition: transform 0ms linear ${DWELL}ms`;
   };
 
   // PAUSE FREEZES THE DRIFT AND PLAY RESUMES IT (WCAG 2.2.2), through the
@@ -447,6 +477,47 @@
     for (const animation of photos[i]?.getAnimations?.() ?? [])
       if (paused) animation.pause();
       else animation.play();
+  });
+
+  // THE TILT IS IN PLACE BEFORE THE FIRST STYLE IS WRITTEN, or the first
+  // transitions interpolate it up from nothing. The server's markup carries
+  // no style, so at hydration every photo's transform is `none`, and a
+  // transition from `none` to `scale(1.06) rotate(0.02deg)` turns the photo
+  // 0 → TILT_DEG across the whole DWELL — under WebRender's 1/4096 (see
+  // TILT_DEG) until 5378ms in, so the first listing would tick in Firefox
+  // for two thirds of its dwell. The photos held off stage at load were the
+  // same: `none` through their DWELL-long hold, so the first clock turn
+  // brought its photo on from `none` too. MEASURED in headless Chromium with
+  // the write and the read below removed: slide 1 at 0deg on the frame its
+  // drift started and 0.0000417deg (b = 7.3e-7) 16.7ms in; the photo the
+  // first clock turn brought on at 0.0055deg (b = 9.7e-5) a second into its
+  // drift. So each photo is given its tilted rest here, and only then does
+  // `zoom` write anything; its first write replaces the whole style
+  // attribute, this transform with it. Again after reduced motion is turned
+  // off, which drops every photo back to no style.
+  //
+  // THE READ IS WHAT GUARANTEES THE BROWSER SAW THE REST before the drift
+  // replaced it: without a style resolution between the two writes they are
+  // one style change, and the transition starts from `none` as though the
+  // rest had never been written. On this page something else in the same
+  // flush happens to resolve style first — with the read removed, slide 1
+  // still read 0.02deg on every frame of its first dwell (Chromium,
+  // 2026-09-30) — so no browser test can tell the read is there. It stays so
+  // that the priming does not depend on what else hydrates alongside it;
+  // FeaturedProperties.test.ts pins the order.
+  $effect(() => {
+    if (!carousel.hydrated || !carousel.eligible) {
+      primed = false;
+      return;
+    }
+    if (primed) return;
+    // `if`: a slide removed in a Prismic preview leaves its binding null.
+    for (const photo of photos)
+      if (photo) {
+        photo.style.cssText = tilted(1);
+        getComputedStyle(photo).getPropertyValue("transform");
+      }
+    primed = true;
   });
 </script>
 

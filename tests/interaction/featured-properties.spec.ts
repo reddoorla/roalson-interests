@@ -5,6 +5,7 @@ import {
   FEATURED_DWELL,
   FEATURED_KEN_BURNS,
   FEATURED_REVEAL_FAILSAFE,
+  FEATURED_TILT_DEG,
 } from "./featured-dwell";
 import { measuresGutter, viewportFor } from "./gutter";
 import { HYDRATION_TIMEOUT } from "./hydrated";
@@ -54,6 +55,16 @@ const DISSOLVE = FEATURED_DISSOLVE;
  *  426 KB MapLibre boot lands inside the first dwell on a cold dev server and
  *  pushed one turn past 6s, which read as "the carousel never turned". */
 const TURN_CEILING = DWELL + DISSOLVE + 6000;
+/** The off-diagonal under which Firefox's WebRender takes a transform for a
+ *  plain scale — `NEARLY_ZERO` in `ScaleOffset::from_transform`
+ *  (gfx/wr/webrender_api/src/fast_transform.rs), read in its source on
+ *  2026-09-30. The photo's tilt (TILT_DEG in the slice) is there to be past
+ *  it on every frame: at or under it, the drift ticks there again. */
+const NEARLY_ZERO = 1 / 4096;
+/** How far a frame's angle may read from TILT_DEG, in degrees: well over what
+ *  Chromium's six serialized digits cost (~1e-7), well under what a tilt
+ *  interpolated to or from 0 is off by a second into a dwell (~0.0025). */
+const ANGLE_SLACK = 5e-6;
 /** Half the leading the ramp trims off `t-h4` (25.2 line, 9 cap box). The comp
  *  measures from the CAP box, CSS from the line box. */
 const H4_TRIM = 8.1;
@@ -1231,7 +1242,8 @@ test.describe("motion", () => {
   interface Frame {
     /** Each on-stage text line's opacity and vertical translate, in order. */
     lines: { opacity: number; ty: number }[];
-    /** The on-stage photo's scale, out of its computed matrix; null = none. */
+    /** The on-stage photo's scale, out of its computed matrix (as
+     *  `photoScale` reads it); null = none. */
     scale: number | null;
     /** `width` is the PAINTED width of the fill, and it is the only one of
      *  these that can see the dissolve. `value` is the scaleX the component
@@ -1275,7 +1287,11 @@ test.describe("motion", () => {
           const fill = region.querySelector<HTMLElement>("[data-carousel-progress] > div")!;
           return {
             lines,
-            scale: transform === "none" ? null : Number(/matrix\(([^,]+),/.exec(transform)![1]),
+            // √(a² + b²), not `a`: see `photoScale`.
+            scale:
+              transform === "none"
+                ? null
+                : ((m) => Math.round(Math.hypot(m.a, m.b) * 1e6) / 1e6)(new DOMMatrix(transform)),
             bar: {
               opacity: Number(getComputedStyle(fill).opacity),
               value: Number(/scaleX\(([^)]+)\)/.exec(fill.getAttribute("style") ?? "")?.[1]),
@@ -1434,9 +1450,12 @@ test.describe("motion", () => {
         const region = document.querySelector(card)!;
         const slides = [...region.querySelectorAll("[data-featured-slide]")];
         const photoOf = (el: Element) => el.querySelector<HTMLElement>("[data-featured-photo]")!;
+        /** √(a² + b²), not `a`: see `photoScale`. */
         const scaleOf = (el: Element) => {
           const t = getComputedStyle(photoOf(el)).transform;
-          return t === "none" ? null : Number(/matrix\(([^,]+),/.exec(t)![1]);
+          if (t === "none") return null;
+          const m = new DOMMatrix(t);
+          return Math.round(Math.hypot(m.a, m.b) * 1e6) / 1e6;
         };
         const linesOf = (el: Element) =>
           [...el.querySelectorAll("[data-featured-line]")].map((line) => {
@@ -2014,14 +2033,23 @@ test.describe("motion", () => {
   // thread did. It is one transition on `transform` now, which the
   // compositor runs.
 
-  /** The active photo's scale, read out of the computed matrix. */
+  /** The active photo's scale, read out of the computed matrix — as the
+   *  LENGTH of its first column, √(a² + b²), and not `a`. Every state is
+   *  `scale(s) rotate(TILT_DEG)` since 2026-09-30 (Firefox; see TILT_DEG in
+   *  the slice), so the matrix is s·(cos θ, sin θ, −sin θ, cos θ) and `a` is
+   *  s·cos θ. Rounded to 1e-6 because Chromium serializes six significant
+   *  digits: scale(1) rotate(0.02deg) reads matrix(1, 0.000349066, …), whose
+   *  √(a² + b²) is 1.00000006 — not the 1 the style declares, where the
+   *  rounded value is, exactly. Every in-page reader in this file does the
+   *  same, written out because a page.evaluate body cannot share a helper. */
   const photoScale = (page: Page) =>
     page
       .locator(`${CARD} [data-featured-slide]:not([inert]) [data-featured-photo]`)
       .evaluate((el) => {
         const t = getComputedStyle(el).transform;
         if (t === "none") return null;
-        return Number(/matrix\(([^,]+),/.exec(t)![1]);
+        const m = new DOMMatrix(t);
+        return Math.round(Math.hypot(m.a, m.b) * 1e6) / 1e6;
       });
 
   test("the drift is ONE running CSS transition on transform — and no style is written per frame", async ({
@@ -2044,7 +2072,13 @@ test.describe("motion", () => {
         const photo = document
           .querySelector(card)!
           .querySelector("[data-featured-slide]:not([inert]) [data-featured-photo]")!;
-        const scale = () => Number(/matrix\(([^,]+),/.exec(getComputedStyle(photo).transform)![1]);
+        const matrix = () => {
+          const t = getComputedStyle(photo).transform;
+          if (t === "none") throw new Error("the on-stage photo has no transform");
+          return new DOMMatrix(t);
+        };
+        /** √(a² + b²), not `a`: see `photoScale`. */
+        const scale = () => ((m) => Math.round(Math.hypot(m.a, m.b) * 1e6) / 1e6)(matrix());
         const transitions = photo.getAnimations().map((a) => {
           const timing = a.effect!.getTiming();
           return {
@@ -2064,7 +2098,15 @@ test.describe("motion", () => {
         const from = scale();
         await new Promise((resolve) => setTimeout(resolve, 1000));
         observer.disconnect();
-        return { transitions, writes, from, to: scale() };
+        const m = matrix();
+        return {
+          transitions,
+          writes,
+          from,
+          to: scale(),
+          tilt: m.b,
+          angle: (Math.atan2(m.b, m.a) * 180) / Math.PI,
+        };
       }, CARD);
 
       // Soft, so one run reports all three.
@@ -2084,6 +2126,24 @@ test.describe("motion", () => {
       expect
         .soft(seen.to, `${seen.from} → ${seen.to} across 1s mid-dwell`)
         .toBeGreaterThan(seen.from);
+      test.info().annotations.push({
+        type: "tilt",
+        description: `${seen.from} → ${seen.to} across 1s mid-dwell, b = ${seen.tilt}, ${seen.angle}deg`,
+      });
+      // TILTED WHILE IT DRIFTS (Firefox, operator, 2026-09-30; TILT_DEG in the
+      // slice): the matrix's off-diagonal is nonzero — and past the 1/4096
+      // under which WebRender takes it for a plain scale…
+      expect
+        .soft(Math.abs(seen.tilt), `the drifting photo's tilt, b = ${seen.tilt}`)
+        .toBeGreaterThan(NEARLY_ZERO);
+      // …and it is the WHOLE tilt, a second into the drift. A drift written
+      // without it, from a tilted rest, still has b past 1/4096 there: the
+      // rotation runs down to 0 across the dwell (measured with the on-stage
+      // state's rotate() removed: b = 0.000291706 at scale 1.01037, which is
+      // 0.01654deg), and only the angle sees that.
+      expect
+        .soft(Math.abs(seen.angle - FEATURED_TILT_DEG), `the drifting photo at ${seen.angle}deg`)
+        .toBeLessThan(ANGLE_SLACK);
       expect(seen.writes, "style writes on the photo across 1s mid-dwell").toBe(0);
     } finally {
       await context.close();
@@ -2137,15 +2197,23 @@ test.describe("motion", () => {
         const live = region.querySelector("[aria-live]")!;
         const slides = [...region.querySelectorAll("[data-featured-slide]")];
         const photo = (i: number) => slides[i].querySelector("[data-featured-photo]")!;
+        /** √(a² + b²), not `a`: see `photoScale`. */
         const scaleOf = (i: number) => {
           const t = getComputedStyle(photo(i)).transform;
-          return t === "none" ? null : Number(/matrix\(([^,]+),/.exec(t)![1]);
+          if (t === "none") return null;
+          const m = new DOMMatrix(t);
+          return Math.round(Math.hypot(m.a, m.b) * 1e6) / 1e6;
+        };
+        /** Its rotation in degrees, out of the same matrix; 0 for `none`. */
+        const angleOf = (i: number) => {
+          const m = new DOMMatrix(getComputedStyle(photo(i)).transform);
+          return (Math.atan2(m.b, m.a) * 180) / Math.PI;
         };
         const frames: {
           tl: number;
           turns: number;
           onStage: number;
-          photos: { scale: number | null; visible: boolean; opacity: number }[];
+          photos: { scale: number | null; angle: number; visible: boolean; opacity: number }[];
         }[] = [];
         const turnTls: number[] = [];
         const observer = new MutationObserver(() =>
@@ -2184,6 +2252,7 @@ test.describe("motion", () => {
               onStage,
               photos: slides.map((el, i) => ({
                 scale: scaleOf(i),
+                angle: angleOf(i),
                 visible: getComputedStyle(el).visibility === "visible",
                 opacity: Number(getComputedStyle(photo(i).parentElement!).opacity),
               })),
@@ -2210,7 +2279,9 @@ test.describe("motion", () => {
     origin: number | null;
     timing: object | null;
     turnTl: number | null;
-    frames: { tl: number; scale: number; turned: boolean }[];
+    /** `tilt` is the matrix's off-diagonal, b, and `angle` its rotation in
+     *  degrees: both 0 for `none`. */
+    frames: { tl: number; scale: number; tilt: number; angle: number; turned: boolean }[];
   }
   const recordFirstDwell = (page: Page) =>
     page.addInitScript((card: string) => {
@@ -2250,10 +2321,13 @@ test.describe("motion", () => {
               easing: t.easing,
             };
           }
-          const t = getComputedStyle(photo).transform;
+          // √(a² + b²), not `a`: see `photoScale`. `none` is the identity.
+          const m = new DOMMatrix(getComputedStyle(photo).transform);
           first.frames.push({
             tl: Number(document.timeline.currentTime),
-            scale: t === "none" ? 1 : Number(/matrix\(([^,]+),/.exec(t)![1]),
+            scale: Math.round(Math.hypot(m.a, m.b) * 1e6) / 1e6,
+            tilt: m.b,
+            angle: (Math.atan2(m.b, m.a) * 180) / Math.PI,
             turned: first.turnTl !== null,
           });
           if (first.turnTl === null || ++after < 2) requestAnimationFrame(tick);
@@ -2327,6 +2401,16 @@ test.describe("motion", () => {
       // …then monotone, never a jump back…
       const back = dwell.filter((f, i) => i > 0 && at(f) < at(dwell[i - 1]));
       expect(back.map(where), "went backwards").toEqual([]);
+      // …at TILT_DEG on every frame, settle and drift alike: the tilt is in
+      // every state, so no transition turns it (Firefox, 2026-09-30).
+      expect
+        .soft(
+          dwell
+            .filter((f) => !(Math.abs(f.photos[p].angle - FEATURED_TILT_DEG) < ANGLE_SLACK))
+            .map((f) => `${since(f).toFixed(1)}ms: ${f.photos[p].angle}deg`),
+          "the incoming photo's frames off TILT_DEG",
+        )
+        .toEqual([]);
       // …halfway at half a dwell (±ON_CURVE)…
       const half = dwell.find((f) => since(f) >= DISSOLVE + DWELL / 2)!;
       expect(half, "sampled half a dwell in").toBeDefined();
@@ -2400,7 +2484,7 @@ test.describe("motion", () => {
       const firstLast = before.at(-1)!;
       test.info().annotations.push({
         type: "first dwell",
-        description: `held ${firstHeld} at the first turn, ${(first.turnTl! - firstLast.tl).toFixed(1)}ms after the last frame (${firstLast.scale}); drift started ${firstLag.toFixed(1)}ms after hydration; ${before.length} frames`,
+        description: `held ${firstHeld} at the first turn, ${(first.turnTl! - firstLast.tl).toFixed(1)}ms after the last frame (${firstLast.scale}); drift started ${firstLag.toFixed(1)}ms after hydration; ${before.length} frames, |b| ${Math.min(...before.map((f) => Math.abs(f.tilt)))} at least, ${Math.min(...before.map((f) => f.angle))}–${Math.max(...before.map((f) => f.angle))}deg`,
       });
       const dueFirst = due(firstLast.tl, 0, first.origin!);
       expect
@@ -2429,6 +2513,23 @@ test.describe("motion", () => {
           `slide 1 held at the first turn (drift started ${firstLag.toFixed(1)}ms after hydration)`,
         )
         .toBeGreaterThanOrEqual(1 + FEATURED_KEN_BURNS - rate * (firstLag + SHORT_BY));
+      // AND TILTED ON EVERY FRAME OF IT, FROM HYDRATION. The server's markup
+      // carries no style, and a first drift written straight onto `none` turns
+      // the photo up from 0deg with the scale: b under NEARLY_ZERO for the
+      // first 5378ms of the dwell — Firefox's tick, on the first listing a
+      // visitor sees. `primed` in the slice resolves the tilted rest first.
+      expect
+        .soft(
+          before
+            .filter(
+              (f) =>
+                !(Math.abs(f.tilt) > NEARLY_ZERO) ||
+                !(Math.abs(f.angle - FEATURED_TILT_DEG) < ANGLE_SLACK),
+            )
+            .map((f) => `${(f.tl - first.origin!).toFixed(1)}ms: ${f.angle}deg, b = ${f.tilt}`),
+          "slide 1's first-dwell frames off TILT_DEG, or not past 1/4096",
+        )
+        .toEqual([]);
     } finally {
       await context.close();
     }
@@ -2461,7 +2562,10 @@ test.describe("motion", () => {
           tl: Number(document.timeline.currentTime),
           label: region.querySelector("button")!.getAttribute("aria-label"),
           turned,
-          scale: Number(/matrix\(([^,]+),/.exec(getComputedStyle(photo).transform)![1]),
+          // √(a² + b²), not `a`: see `photoScale`.
+          scale: ((m) => Math.round(Math.hypot(m.a, m.b) * 1e6) / 1e6)(
+            new DOMMatrix(getComputedStyle(photo).transform),
+          ),
         });
         if (!turned) requestAnimationFrame(tick);
       };
@@ -2584,7 +2688,10 @@ test.describe("motion", () => {
             page
               .locator(`${CARD} [data-featured-slide]:not([inert]) [data-featured-photo]`)
               .evaluate((el) => ({
-                scale: Number(/matrix\(([^,]+),/.exec(getComputedStyle(el).transform)?.[1]),
+                // √(a² + b²), not `a`: see `photoScale`.
+                scale: ((m) => Math.round(Math.hypot(m.a, m.b) * 1e6) / 1e6)(
+                  new DOMMatrix(getComputedStyle(el).transform),
+                ),
                 animations: el.getAnimations().length,
               })),
           { timeout: DISSOLVE + DWELL + 4_000 },

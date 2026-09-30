@@ -1,5 +1,10 @@
 import { expect, test, type Browser, type ConsoleMessage, type Page } from "@playwright/test";
-import { FEATURED_DISSOLVE, FEATURED_DWELL, FEATURED_KEN_BURNS } from "./featured-dwell";
+import {
+  FEATURED_DISSOLVE,
+  FEATURED_DWELL,
+  FEATURED_KEN_BURNS,
+  FEATURED_TILT_DEG,
+} from "./featured-dwell";
 import { measuresGutter, viewportFor } from "./gutter";
 import { hydrated, HYDRATION_TIMEOUT } from "./hydrated";
 import { GARNET, SAND } from "./palette";
@@ -30,6 +35,16 @@ const BAND = '[data-slice-type="featured_properties"]';
 const CARD = "[data-featured-card]";
 const SLIDES = `${CARD} [data-featured-slide]`;
 const FILL = `${CARD} [data-carousel-progress] > div`;
+/** The off-diagonal under which Firefox's WebRender takes a transform for a
+ *  plain scale — `NEARLY_ZERO` in `ScaleOffset::from_transform`
+ *  (gfx/wr/webrender_api/src/fast_transform.rs), read in its source on
+ *  2026-09-30. The photo's tilt (TILT_DEG in the slice) is there to be past
+ *  it on every frame. */
+const NEARLY_ZERO = 1 / 4096;
+/** How far a frame's angle may read from TILT_DEG, in degrees: well over what
+ *  Chromium's six serialized digits cost (~1e-7), well under what a tilt
+ *  interpolated to or from 0 is off by a second into a dwell (~0.0025). */
+const ANGLE_SLACK = 5e-6;
 
 measuresGutter();
 
@@ -455,9 +470,39 @@ test.describe("motion on the shipped bundle", () => {
     // transition on `transform` now, which the compositor runs.
     // featured-properties.spec.ts measures its curve, its hold and Pause on
     // /dev/home; this is the production build's word that it is wired.
+    //
+    // AND TILTED (Firefox, operator, 2026-09-30; TILT_DEG in the slice), from
+    // the first frame the photo drifts: the served markup carries no style,
+    // and a first drift written straight onto `none` turns the photo up from
+    // 0deg — under NEARLY_ZERO for its first 5378ms. A hydration claim, so it
+    // is made on the shipped bundle too. The first photo's off-diagonal, every
+    // frame of the first second from the flush that made the band ready.
     test.setTimeout(45_000);
     const { context, page } = await moving(browser);
     try {
+      await page.addInitScript((card: string) => {
+        const w = window as unknown as { __tilts: { tl: number; b: number; angle: number }[] };
+        w.__tilts = [];
+        const ready = new MutationObserver(() => {
+          const region = document.querySelector(card);
+          if (!region?.hasAttribute("data-carousel-ready")) return;
+          ready.disconnect();
+          const photo = region.querySelector("[data-featured-photo]")!;
+          const t0 = Number(document.timeline.currentTime);
+          const tick = () => {
+            const tl = Number(document.timeline.currentTime);
+            const m = new DOMMatrix(getComputedStyle(photo).transform);
+            w.__tilts.push({ tl: tl - t0, b: m.b, angle: (Math.atan2(m.b, m.a) * 180) / Math.PI });
+            if (tl - t0 < 1000) requestAnimationFrame(tick);
+          };
+          requestAnimationFrame(tick);
+        });
+        ready.observe(document, {
+          attributes: true,
+          subtree: true,
+          attributeFilter: ["data-carousel-ready"],
+        });
+      }, CARD);
       await page.goto(HOME);
       await adopted(page);
       await page.mouse.move(2, 2);
@@ -471,7 +516,17 @@ test.describe("motion on the shipped bundle", () => {
         const photo = document
           .querySelector(card)!
           .querySelector("[data-featured-slide]:not([inert]) [data-featured-photo]")!;
-        const scale = () => Number(/matrix\(([^,]+),/.exec(getComputedStyle(photo).transform)![1]);
+        const matrix = () => {
+          const t = getComputedStyle(photo).transform;
+          if (t === "none") throw new Error("the on-stage photo has no transform");
+          return new DOMMatrix(t);
+        };
+        // The scale is the LENGTH of the matrix's first column, √(a² + b²),
+        // not `a`: every state is `scale(s) rotate(TILT_DEG)`, so `a` is
+        // s·cos θ. Rounded to 1e-6, the six significant digits Chromium
+        // serializes: scale(1) rotate(0.02deg) reads matrix(1, 0.000349066,
+        // …), whose √(a² + b²) is 1.00000006 and not the declared 1.
+        const scale = () => ((m) => Math.round(Math.hypot(m.a, m.b) * 1e6) / 1e6)(matrix());
         const animations = photo.getAnimations().map((a) => ({
           kind: a.constructor.name,
           property: (a as CSSTransition).transitionProperty,
@@ -487,7 +542,16 @@ test.describe("motion on the shipped bundle", () => {
         const willChange = [...document.querySelectorAll(`${card} [data-featured-photo]`)].map(
           (el) => getComputedStyle(el).willChange,
         );
-        return { animations, writes, from, to: scale(), willChange };
+        const m = matrix();
+        return {
+          animations,
+          writes,
+          from,
+          to: scale(),
+          tilt: m.b,
+          angle: (Math.atan2(m.b, m.a) * 180) / Math.PI,
+          willChange,
+        };
       }, CARD);
       // Every photo on its own layer, the one drifting and the ones resting.
       expect(seen.willChange.length, "premise: more than one photo").toBeGreaterThan(1);
@@ -501,7 +565,41 @@ test.describe("motion on the shipped bundle", () => {
         },
       ]);
       expect(seen.to, `${seen.from} → ${seen.to} across 1s mid-dwell`).toBeGreaterThan(seen.from);
+      // The drifting photo carries the tilt: its off-diagonal is nonzero, and
+      // past the 1/4096 under which WebRender takes it for a plain scale — and
+      // it is the WHOLE tilt, which the first check alone is not: a rotation
+      // running down to 0 across the dwell stays past 1/4096 for about the
+      // first third of it (measured on this case with the on-stage state's
+      // rotate() removed: 0.01392deg, b still past 1/4096).
+      expect
+        .soft(Math.abs(seen.tilt), `the drifting photo's tilt, b = ${seen.tilt}`)
+        .toBeGreaterThan(NEARLY_ZERO);
+      expect
+        .soft(Math.abs(seen.angle - FEATURED_TILT_DEG), `the drifting photo at ${seen.angle}deg`)
+        .toBeLessThan(ANGLE_SLACK);
       expect(seen.writes, "style writes on the photo across 1s mid-dwell").toBe(0);
+      // …and slide 1 carried it from its first frame after hydration.
+      const tilts = await page.evaluate(
+        () =>
+          (window as unknown as { __tilts: { tl: number; b: number; angle: number }[] }).__tilts,
+      );
+      test.info().annotations.push({
+        type: "tilt",
+        description: `on stage mid-dwell b = ${seen.tilt}, ${seen.angle}deg; slide 1's first second: ${tilts.length} frames, |b| ${Math.min(...tilts.map((f) => Math.abs(f.b)))} at least, ${Math.min(...tilts.map((f) => f.angle))}–${Math.max(...tilts.map((f) => f.angle))}deg`,
+      });
+      expect(tilts.length, "sampled slide 1's first second").toBeGreaterThanOrEqual(2);
+      expect
+        .soft(
+          tilts
+            .filter(
+              (f) =>
+                !(Math.abs(f.b) > NEARLY_ZERO) ||
+                !(Math.abs(f.angle - FEATURED_TILT_DEG) < ANGLE_SLACK),
+            )
+            .map((f) => `${f.tl.toFixed(1)}ms: ${f.angle}deg, b = ${f.b}`),
+          "slide 1's first-second frames off TILT_DEG, or not past 1/4096",
+        )
+        .toEqual([]);
     } finally {
       await context.close();
     }
@@ -547,12 +645,24 @@ test.describe("motion on the shipped bundle", () => {
             );
             const onStage = () => slides.findIndex((s) => !s.hasAttribute("inert"));
             const now = () => Number(document.timeline.currentTime);
+            // √(a² + b²), rounded to 1e-6: see the case above. `none` is 1.
             const scaleOf = (el: Element) => {
-              const t = getComputedStyle(el).transform;
-              return t === "none" ? 1 : Number(/matrix\(([^,]+),/.exec(t)![1]);
+              const m = new DOMMatrix(getComputedStyle(el).transform);
+              return Math.round(Math.hypot(m.a, m.b) * 1e6) / 1e6;
+            };
+            /** Its rotation in degrees; 0 for `none`. */
+            const angleOf = (el: Element) => {
+              const m = new DOMMatrix(getComputedStyle(el).transform);
+              return (Math.atan2(m.b, m.a) * 180) / Math.PI;
             };
             const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-            const frames: { tl: number; on: number; scale: number[]; opacity: number[] }[] = [];
+            const frames: {
+              tl: number;
+              on: number;
+              scale: number[];
+              angle: number[];
+              opacity: number[];
+            }[] = [];
             let back = -1;
             let pressedAt: number | null = null;
             let origin: number | null = null;
@@ -571,6 +681,7 @@ test.describe("motion on the shipped bundle", () => {
                   tl: now(),
                   on: onStage(),
                   scale: photos.map(scaleOf),
+                  angle: photos.map(angleOf),
                   opacity: photos.map((p) => Number(getComputedStyle(p.parentElement!).opacity)),
                 });
                 const drift = back < 0 ? undefined : photos[back].getAnimations()[0];
@@ -662,6 +773,19 @@ test.describe("motion on the shipped bundle", () => {
           .toEqual([]);
         // …then the whole drift: sampled until 100ms past its end, so all of
         // KEN_BURNS but for 100ms of drift's worth of slack.
+        // …at TILT_DEG on every frame from the press, settle and drift alike:
+        // a photo that RESTED starts from its tilted rest, so nothing turns it.
+        expect
+          .soft(
+            frames
+              .filter(
+                (f) =>
+                  f.tl > pressTl && !(Math.abs(f.angle[back] - FEATURED_TILT_DEG) < ANGLE_SLACK),
+              )
+              .map((f) => `${f.tl - pressTl}ms from the press: ${f.angle[back]}deg`),
+            `${name}: the photo brought back, off TILT_DEG`,
+          )
+          .toEqual([]);
         const drift = frames.filter((f) => f.tl >= origin).map((f) => f.scale[back]);
         const travel = Math.max(...drift) - Math.min(...drift);
         expect
