@@ -559,6 +559,51 @@ describe("FeaturedProperties slice", () => {
       expect(stylesOf(container), "its next drift").toEqual([OFF_STAGE, ON_STAGE, OFF_STAGE]);
     });
 
+    it("reduced motion turned on and off again starts the photo on stage from its rest — on its layer", async () => {
+      // Re-primed (see `primed` in the slice), the photo on stage drifts again
+      // from 1, so a drift that had ENDED before must not keep it off its
+      // layer. A stand-in media query that can be flipped mid-test: the
+      // preference is read through $lib/transitions' one listener.
+      let reduce = false;
+      let changed: ((event: { matches: boolean }) => void) | undefined;
+      window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+        get matches() {
+          return reduce && query.includes("prefers-reduced-motion");
+        },
+        media: query,
+        addEventListener: (_: string, run: (event: { matches: boolean }) => void) => {
+          if (query.includes("prefers-reduced-motion")) changed = run;
+        },
+        removeEventListener: () => {},
+      }));
+      const { container, getByLabelText } = render(FeaturedProperties, {
+        props: { slice: featuredPropertiesFixture() },
+      });
+      await fireEvent.click(getByLabelText("Next slide"));
+      photosOf(container)[1].dispatchEvent(
+        new TransitionEvent("transitionend", { propertyName: "transform", bubbles: true }),
+      );
+      await tick();
+      expect(stylesOf(container), "premise: its drift ended").toEqual([
+        OFF_STAGE,
+        ENDED,
+        OFF_STAGE,
+      ]);
+      expect(changed, "premise: the band hears the preference change").toBeTypeOf("function");
+      reduce = true;
+      changed!({ matches: true });
+      await tick();
+      expect(stylesOf(container), "reduced: no style at all").toEqual([null, null, null]);
+      reduce = false;
+      changed!({ matches: false });
+      await tick();
+      expect(stylesOf(container), "motion again: from rest, on its layer").toEqual([
+        OFF_STAGE,
+        ON_STAGE,
+        OFF_STAGE,
+      ]);
+    });
+
     /** A stand-in for each photo's transition — jsdom has no Web Animations —
      *  that records what the slice asks of it, as "pause 1" / "play 1". */
     function stubAnimations() {
