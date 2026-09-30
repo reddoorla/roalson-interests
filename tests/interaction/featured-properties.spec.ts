@@ -2158,7 +2158,9 @@ test.describe("motion", () => {
     // and only there. Reduced motion is the case below; the server's markup
     // carries no style at all (the same case, and featured-band-live.spec.ts
     // on the shipped bundle). A one-listing card never turns, so it never
-    // drifts, and a layer held for nothing is memory for nothing.
+    // drifts, and a layer held for nothing is memory for nothing. A photo
+    // whose drift has ENDED drops it until it rests — #156's case below, and
+    // featured-band-live.spec.ts's held photo, measured for sharpness.
     const { context, page } = await moving(browser);
     const willChange = () =>
       page
@@ -2612,6 +2614,17 @@ test.describe("motion", () => {
       await page.waitForTimeout((1 - frozenBar) * DWELL + 700);
       expect(await photoScale(page), "frozen with the bar").toBe(frozenScale);
       expect(await barScale(page)).toBe(frozenBar);
+      // …and still ON ITS LAYER: a paused transition has not ended, so the
+      // layer an ENDED drift drops (see `LAYER` in the slice) stays on.
+      expect(
+        await page
+          .locator(`${CARD} [data-featured-slide]:not([inert]) [data-featured-photo]`)
+          .evaluate((el) => ({
+            animations: el.getAnimations().map((a) => a.playState),
+            willChange: getComputedStyle(el).willChange,
+          })),
+        "paused past the end of its drift",
+      ).toEqual({ animations: ["paused"], willChange: "transform" });
 
       const { frames, turnTl } = await playToTheTurn(page);
       const played = frames.findIndex((f) => f.label === "Pause slides");
@@ -2693,10 +2706,12 @@ test.describe("motion", () => {
                   new DOMMatrix(getComputedStyle(el).transform),
                 ),
                 animations: el.getAnimations().length,
+                // Held, so off its layer: see `LAYER` in the slice.
+                willChange: getComputedStyle(el).willChange,
               })),
           { timeout: DISSOLVE + DWELL + 4_000 },
         )
-        .toEqual({ scale: 1 + FEATURED_KEN_BURNS, animations: 0 });
+        .toEqual({ scale: 1 + FEATURED_KEN_BURNS, animations: 0, willChange: "auto" });
 
       const { frames } = await playToTheTurn(page);
       const played = frames.findIndex((f) => f.label === "Pause slides");
