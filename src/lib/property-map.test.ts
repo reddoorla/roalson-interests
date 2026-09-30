@@ -1308,9 +1308,10 @@ describe("which scroll a wheel event belongs to", () => {
 // whole line where the (i) will be, as the OSMF safe harbour asks. That window
 // is the operator's accepted cost and is recorded, not guarded, in its own
 // case at the end ("what the open window covers"). The raster picture before
-// `load` — and for good with scripting off — carries the whole chip, which is
-// the compact furniture this replaced: its collisions are the chip's rows of
-// the guard-the-guard case.
+// `load` carries the open line too on a compact frame, the live credit's box,
+// so that case covers it; with scripting off the picture is for good and
+// carries the whole chip, the compact furniture this replaced: its collisions
+// are the chip's rows of the guard-the-guard case.
 // The geometry is property-map.spec.ts's, measured in Chromium: "the control
 // column" (44px targets; garnet boxes 20.884 x 20.88, 10 from the right and
 // the bottom, stacked 44 apart) and "the credit" (the (i) 24 x 24 at 10 from
