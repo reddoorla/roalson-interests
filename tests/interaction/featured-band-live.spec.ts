@@ -1,5 +1,5 @@
 import { expect, test, type Browser, type ConsoleMessage, type Page } from "@playwright/test";
-import { FEATURED_DISSOLVE, FEATURED_DWELL } from "./featured-dwell";
+import { FEATURED_DISSOLVE, FEATURED_DWELL, FEATURED_KEN_BURNS } from "./featured-dwell";
 import { measuresGutter, viewportFor } from "./gutter";
 import { hydrated, HYDRATION_TIMEOUT } from "./hydrated";
 import { GARNET, SAND } from "./palette";
@@ -122,6 +122,18 @@ test.describe("scripting off", () => {
       await expect(card).toHaveCSS("opacity", "1");
       await expect(card).toHaveCSS("transform", "none");
       await expect(page.locator(`${SLIDES}:not([inert]) a`).first()).toBeVisible();
+
+      // No drift and no layer in the server's markup: it cannot know the
+      // visitor's motion preference, and a declared end scale would be the
+      // photo's first style, with nothing for a transition to start from.
+      const photos = await page.locator(`${CARD} [data-featured-photo]`).evaluateAll((els) =>
+        els.map((el) => ({
+          style: el.getAttribute("style"),
+          willChange: getComputedStyle(el).willChange,
+        })),
+      );
+      expect(photos.length, "premise: every slide has its photo").toBe(slides.length);
+      for (const photo of photos) expect(photo).toEqual({ style: null, willChange: "auto" });
     } finally {
       await context.close();
     }
@@ -472,8 +484,14 @@ test.describe("motion on the shipped bundle", () => {
         const from = scale();
         await new Promise((resolve) => setTimeout(resolve, 1000));
         observer.disconnect();
-        return { animations, writes, from, to: scale() };
+        const willChange = [...document.querySelectorAll(`${card} [data-featured-photo]`)].map(
+          (el) => getComputedStyle(el).willChange,
+        );
+        return { animations, writes, from, to: scale(), willChange };
       }, CARD);
+      // Every photo on its own layer, the one drifting and the ones resting.
+      expect(seen.willChange.length, "premise: more than one photo").toBeGreaterThan(1);
+      expect(new Set(seen.willChange), "every photo's will-change").toEqual(new Set(["transform"]));
       expect(seen.animations).toEqual([
         {
           kind: "CSSTransition",
@@ -495,9 +513,10 @@ test.describe("motion on the shipped bundle", () => {
     // A photo that LEFT is held where it was while it still shows, and rests
     // at 1 once its wrapper's fade-out has ended. So a photo brought back ~2s
     // after a clock turn gets the drift a clock turn draws: still through
-    // the settle, then 1.00 → 1.03. On 3c7284e it was held for a whole DWELL
-    // instead and drifted on from there: from 1.02994 to 1.03 over a whole
-    // DWELL, a still photo for its visit (this case's red on that code).
+    // the settle, then 1.00 → 1 + KEN_BURNS. On 3c7284e it was held for a
+    // whole DWELL instead and drifted on from there: from 1.02994 to 1.03 (at
+    // 0.03) over a whole DWELL, a still photo for its visit (this case's red
+    // on that code).
     test.setTimeout(150_000);
     for (const wraps of [false, true]) {
       const { context, page } = await moving(browser);
@@ -641,12 +660,86 @@ test.describe("motion on the shipped bundle", () => {
             `${name}: through the settle`,
           )
           .toEqual([]);
-        // …then the whole drift.
+        // …then the whole drift: sampled until 100ms past its end, so all of
+        // KEN_BURNS but for 100ms of drift's worth of slack.
         const drift = frames.filter((f) => f.tl >= origin).map((f) => f.scale[back]);
         const travel = Math.max(...drift) - Math.min(...drift);
         expect
           .soft(travel, `${name}: travelled ${travel} over the dwell`)
-          .toBeGreaterThanOrEqual(0.025);
+          .toBeGreaterThanOrEqual(FEATURED_KEN_BURNS * (1 - 100 / FEATURED_DWELL));
+      } finally {
+        await context.close();
+      }
+    }
+  });
+
+  test("every photo is fetched at least as wide as it is drawn at the drift's END — or at the widest its source has", async ({
+    browser,
+  }) => {
+    // THE END SCALE IS WHAT `sizes` DESCRIBES (see `photoSizes` in the slice).
+    // It used to say 65vw — the box — so at 1440 × DPR 2 Chromium took 1920
+    // for a photo drawn 1965 device px wide at 1.06, and at DPR 1 a photo
+    // wider than the box (object-cover draws it at the box's height) took
+    // 1024 for 1139. Nothing here names a listing: each photo is held to its
+    // own box, its own aspect and its own srcset. Where the source itself is
+    // narrower than the end frame, the widest candidate is all there is.
+    for (const dpr of [1, 2]) {
+      const context = await browser.newContext({
+        reducedMotion: "no-preference",
+        viewport: viewportFor(1440),
+        deviceScaleFactor: dpr,
+      });
+      try {
+        const page = await context.newPage();
+        await page.goto(HOME);
+        await adopted(page);
+        await page.locator(CARD).scrollIntoViewIfNeeded();
+        await expect
+          .poll(() =>
+            page
+              .locator(`${CARD} [data-featured-photo]`)
+              .evaluateAll((els) =>
+                (els as HTMLImageElement[]).every((img) => img.complete && img.naturalWidth > 0),
+              ),
+          )
+          .toBe(true);
+        const photos = await page.locator(`${CARD} [data-featured-photo]`).evaluateAll(
+          (els, end) =>
+            (els as HTMLImageElement[]).map((img) => {
+              const box = img.parentElement!.getBoundingClientRect();
+              const drawn = Math.max(
+                box.width,
+                box.height * (img.naturalWidth / img.naturalHeight),
+              );
+              const offered = (img.getAttribute("srcset") ?? "")
+                .split(", ")
+                .map((c) => Number(/ (\d+)w$/.exec(c)?.[1]))
+                .filter((w) => w > 0);
+              return {
+                picked: Number(new URL(img.currentSrc).searchParams.get("w")),
+                widest: Math.max(...offered),
+                offered: offered.length,
+                needed: Math.round(drawn * devicePixelRatio * end * 10) / 10,
+              };
+            }),
+          1 + FEATURED_KEN_BURNS,
+        );
+        test.info().annotations.push({
+          type: `DPR ${dpr}`,
+          description: photos.map((p) => `${p.picked} of ${p.widest} for ${p.needed}`).join("; "),
+        });
+        expect(photos.length, "premise: more than one photo").toBeGreaterThan(1);
+        for (const [i, p] of photos.entries()) {
+          expect(p.offered, `photo ${i + 1} at DPR ${dpr}: a srcset`).toBeGreaterThan(1);
+          expect(p.picked, `photo ${i + 1} at DPR ${dpr}: a candidate was fetched`).toBeGreaterThan(
+            0,
+          );
+          if (p.picked < p.widest)
+            expect(
+              p.picked,
+              `photo ${i + 1} at DPR ${dpr}: fetched ${p.picked} of ${p.widest} for ${p.needed} device px`,
+            ).toBeGreaterThanOrEqual(p.needed);
+        }
       } finally {
         await context.close();
       }

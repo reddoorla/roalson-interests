@@ -20,16 +20,19 @@
   export const DWELL = 8000;
 
   /** How far the photo travels across its own dwell, as one CSS transition
-   *  (see `zoom` below): 1.00 → 1.03.
-   *  On the 928 × 542 box that is 27.8px of extra width and 16.3px of height,
-   *  13.9 / 8.1 of it clipped off each edge.
+   *  (see `zoom` below): 1.00 → 1.06. Operator, 2026-09-29, after the drift
+   *  became one transition (#204): "the ken burns still feels stuttery" …
+   *  "being too slow may be the answer, let's speed it up. ideally we aren't
+   *  moving by fractions of pixels". It was 0.03 — half this speed — from the
+   *  day the dwell doubled until then.
    *
-   *  THE AMPLITUDE WAS KEPT WHEN THE DWELL DOUBLED, SO THE DRIFT IS HALF AS
-   *  FAST: 27.8px of width over 8000ms is 3.5px a second, where over 4000ms it
-   *  was 7. That matches "it feels like we're rushing", and it is a call the
-   *  operator can reverse — 0.06 here is the old speed over the new dwell, at
-   *  twice the zoom (55.7 × 32.5px). */
-  export const KEN_BURNS = 0.03;
+   *  STILL FRACTIONS OF A PIXEL, AND FOR A ZOOM THAT IS UNAVOIDABLE. On the
+   *  928 × 542 box the photo gains 55.7px of width over DWELL, so each edge
+   *  moves 27.8px across the dwell, ~3.5px a second: ~0.058px a frame at
+   *  60Hz, ~0.029 at 120Hz. A whole pixel a frame would be ~60px a second at
+   *  each edge, ~480px over the dwell. Smooth sub-pixel motion is the GPU's
+   *  job instead — see `will-change` in `zoom`. */
+  export const KEN_BURNS = 0.06;
 </script>
 
 <script lang="ts">
@@ -124,6 +127,9 @@
    *  both sides claimed was real did not exist and tuning either one would
    *  have silently broken it. */
   const DISSOLVE = CAMERA_FLIGHT_MS;
+
+  /** The srcset's widths: the defaults and 2048 (see `photoSizes`). */
+  const PHOTO_WIDTHS = [...DEFAULT_IMAGE_WIDTHS, 2048].sort((a, b) => a - b);
 
   /** The card's scroll reveal: 24px and 600ms, not the action's 50% / 2400ms.
    *  `delayMax: 0` because the default 400 is multiplied by the element's
@@ -274,7 +280,7 @@
   // text fades THROUGH (out, then in): two listings' words overlaid are noise.
   // Under reduced motion app.css zeroes every duration and delay: a plain swap.
   // On top of that the incoming text arrives in FOUR staggered lines and the
-  // photo drifts 1.00 → 1.03 across its dwell — see `lines` and `zoom` below.
+  // photo drifts 1.00 → 1.06 across its dwell — see `lines` and `zoom` below.
   //
   // AN OFF-STAGE SLIDE LEAVES THE STACK when the dissolve is over — `invisible`
   // on the slide itself, delayed by exactly the 500 it takes. Two reasons, and
@@ -358,18 +364,53 @@
   //    time, and the dissolve's fresh ones on the next frame (766ms later, at
   //    worst, at 4x CPU throttle), so a reset at 500, then at 1000, fired in
   //    view; at DWELL, a photo brought back sooner drifted on from its held
-  //    value — two seconds after a clock turn, 1.02994 to 1.03: a still photo.
+  //    value — two seconds after a clock turn, 1.02994 to 1.03 (KEN_BURNS was
+  //    0.03 then): a still photo.
   //  - NOT `eligible` (reduced motion, one listing) OR NOT HYDRATED: no style
   //    at all. Under reduced motion app.css cuts every transition to 0.01ms,
-  //    which would SNAP a declared 1.03 and hold it; and a 1.03 in the
-  //    server's markup would be the photo's first style, with nothing for a
-  //    transition to start from.
+  //    which would SNAP a declared end scale and hold it; and an end scale in
+  //    the server's markup would be the photo's first style, with nothing for
+  //    a transition to start from.
+  //  - `will-change: transform` on every photo that can drift, and only
+  //    there (`LAYER`), for Firefox: it keeps the photo on its own compositor
+  //    layer, so each sub-pixel step is filtered on the GPU rather than
+  //    re-rasterised (see KEN_BURNS). Unmeasured there — no Firefox in the
+  //    build container. In headless Chromium, 1440 × DPR 2, it changed no
+  //    layer and no pixel of the drift; what it did change is a VISITOR's
+  //    drift ending on stage, which without it dropped its layer and repainted
+  //    ~150ms later, visibly sharper, on a photo that had stopped moving.
   // What the script did and this does not, on purpose ("overbuilt"): keep the
   // photo on the bar's clock frame for frame (both wait the settle and run
   // DWELL, so they agree to within frames, not by construction), stop for a
   // hidden tab, hand a visitor's drift to the clock on Play, and park each
   // photo at the value it left with until it is next shown. Never on the
   // wrapper: its transition-duration is the comp's 0.5s dissolve.
+  const LAYER = "will-change: transform";
+
+  // THE PHOTO IS FETCHED FOR THE WIDTH IT IS DRAWN AT, AT THE END OF ITS
+  // DRIFT. `sizes` said 65vw — the box — and at 1440 × DPR 2 Chromium took
+  // the 1920 candidate for a photo drawn 927 × 1.06 × 2 = 1965.2 device px
+  // wide at the end: upscaled, and softer through the whole drift, not only
+  // at its end (mean |Laplacian| of the composited photo frozen at 1.03,
+  // headless Chromium at 1440 × DPR 2: 6.66 from 1920, 8.35 from 2048, 9.67
+  // from 2560; 9.82 for a still, never-composited 1920). So `sizes` is the
+  // box times the end scale (none on a one-listing band, which never
+  // drifts), times how far an image wider than the box overflows it under
+  // object-cover: a 1717 × 866 photo is drawn 1073.6 wide in a 927 box, and
+  // at DPR 1 it was fetched at 1024. Reduced motion cannot be known in the
+  // server's markup, so it pays the 6% too.
+  //
+  // 2048 BESIDE THE DEFAULTS because Chromium takes the smallest candidate at
+  // least as dense as the screen: at 1440–1470 × DPR 2 the end frame needs
+  // 1965–2006px, which 1920 misses and 2560 overshoots — 191 KB of AVIF at
+  // 2048 against 172 at 1920 and 268 at 2560. cappedWidths still stops at the
+  // source's own width.
+  const BOX = 928 / 542;
+  const photoSizes = ({ width, height }: { width: number; height: number }) => {
+    const drawn = (carousel.enabled ? 1 + KEN_BURNS : 1) * Math.max(1, width / height / BOX);
+    const vw = (n: number) => +(n * drawn).toFixed(2);
+    return `(min-width: 1024px) ${vw(65)}vw, ${vw(100)}vw`;
+  };
   const resting: boolean[] = $state([]);
   let shown = carousel.index;
   let turned = false;
@@ -377,11 +418,11 @@
     if (!carousel.hydrated || !carousel.eligible) return undefined;
     if (carousel.isActive(i)) {
       const delay = turned || i !== shown ? carousel.settle : 0;
-      return `transform: scale(${1 + KEN_BURNS}); transition: transform ${DWELL}ms linear ${delay}ms`;
+      return `${LAYER}; transform: scale(${1 + KEN_BURNS}); transition: transform ${DWELL}ms linear ${delay}ms`;
     }
     return resting[i]
-      ? "transform: scale(1); transition: none"
-      : `transform: scale(1); transition: transform 0ms linear ${DWELL}ms`;
+      ? `${LAYER}; transform: scale(1); transition: none`
+      : `${LAYER}; transform: scale(1); transition: transform 0ms linear ${DWELL}ms`;
   };
 
   // PAUSE FREEZES THE DRIFT AND PLAY RESUMES IT (WCAG 2.2.2), through the
@@ -529,7 +570,7 @@
 
         {#each slides as slide, i (slide.id)}
           {@const active = carousel.isActive(i)}
-          {@const widths = cappedWidths(slide.image, DEFAULT_IMAGE_WIDTHS)}
+          {@const widths = cappedWidths(slide.image, PHOTO_WIDTHS)}
           <div
             {...carousel.slide(i)}
             data-featured-slide
@@ -563,7 +604,7 @@
               <img
                 src={imgix(slide.image.url, { w: Math.min(1920, Math.max(...widths)) })}
                 srcset={srcset(slide.image.url, widths)}
-                sizes="(min-width: 1024px) 65vw, 100vw"
+                sizes={photoSizes(slide.image.dimensions)}
                 width={slide.image.dimensions.width}
                 height={slide.image.dimensions.height}
                 alt={slide.image.alt ?? ""}

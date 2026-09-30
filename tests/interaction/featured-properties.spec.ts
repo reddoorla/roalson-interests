@@ -1615,7 +1615,7 @@ test.describe("motion", () => {
     // rotation's clock, and the press stops that clock. Since 2026-09-29 the
     // drift is ONE CSS transition that every activation starts again, so a
     // visitor's turn needs nothing of its own: still through the 500ms
-    // dissolve (the transition's delay), then 1.00 → 1.03 over DWELL, then
+    // dissolve (the transition's delay), then 1.00 → 1 + KEN_BURNS over DWELL, then
     // held, without restarting the rotation. The press focuses and clicks in
     // one task, so this is also the case that holds "a pause landing WITH the
     // turn is the arrow's own, and does not freeze the drift".
@@ -1675,12 +1675,18 @@ test.describe("motion", () => {
       // whole second stale on a loaded machine (measured: 1.0015 read at
       // t ≥ 2000ms, where the drift was due at 1.0113, after a 1.3s frame gap).
       // The rate is the unit test's; this is the browser's word that it moves.
-      await expect.poll(() => photoScale(page), { timeout: 8_000 }).toBeGreaterThan(1.005);
+      await expect
+        .poll(() => photoScale(page), { timeout: 8_000 })
+        .toBeGreaterThan(1 + FEATURED_KEN_BURNS / 6);
       // It ENDS, at the end scale, and HOLDS — DISSOLVE + DWELL from the press
       // (8.5s; it was 4.5 before the dwell doubled), then still.
-      await expect.poll(() => photoScale(page), { timeout: DISSOLVE + DWELL + 2_000 }).toBe(1.03);
+      await expect
+        .poll(() => photoScale(page), { timeout: DISSOLVE + DWELL + 2_000 })
+        .toBe(1 + FEATURED_KEN_BURNS);
       await page.waitForTimeout(600);
-      expect(await photoScale(page), "held at the end, not a second lap").toBe(1.03);
+      expect(await photoScale(page), "held at the end, not a second lap").toBe(
+        1 + FEATURED_KEN_BURNS,
+      );
       // It turned nothing: same slide, rotation still stopped, bar at 0.
       expect(await onStage(page)).toHaveLength(1);
       await expect(status(page)).toHaveText(`Slide ${now + 1} of 3`);
@@ -1705,8 +1711,8 @@ test.describe("motion", () => {
     //
     // 1. The photo that just left is held at the drift it HAD. It is opaque
     //    for the whole 500ms (its `opacity-0` waits out `delay-500`), so any
-    //    jump — to 1.03, or straight back to 1 — shows in a single frame: up
-    //    to 27.8px of width on the 928 × 542 box. Since 2026-09-29 the hold
+    //    jump — to the end scale, or straight back to 1 — shows in a single
+    //    frame: up to 55.7px of width on the 928 × 542 box at 1.06. Since 2026-09-29 the hold
     //    is the leaving transition's DELAY, until the photo's wrapper has
     //    faded out and it rests at 1 (see the slice). Asserted as ONE value
     //    for every frame it is visible, and that value is where the drift had
@@ -1727,13 +1733,13 @@ test.describe("motion", () => {
       await adopted(page);
       await pointerAway(page);
       // Press MID-DWELL, so the held value is distinguishable both from 1.00
-      // (the incoming photo's) and from 1.03 (what the old rule held).
+      // (the incoming photo's) and from 1 + KEN_BURNS (what the old rule held).
       await expect.poll(() => barScale(page), { timeout: TURN_CEILING }).toBeGreaterThan(0.2);
 
       const { was, before, beforeTl, series, origin } = await sampleAfterPress(page, 900);
       const was0 = before[was].scale!;
       expect(was0, `the outgoing photo was mid-drift at ${was0}`).toBeGreaterThan(1.0001);
-      expect(was0).toBeLessThan(1.03);
+      expect(was0).toBeLessThan(1 + FEATURED_KEN_BURNS);
 
       // 1 — every frame, while it is in the stack, at one value…
       const shown = series.filter((f) => f.v[was].visibility === "visible");
@@ -1850,7 +1856,7 @@ test.describe("motion", () => {
           inStack: slides.filter((s) => getComputedStyle(s).visibility === "visible").length,
           titleOnTop: topAt(slides[now].querySelector("h3")!),
           // The photo's WRAPPER, which clips it: the press's drift is
-          // finished above, and at 1.03 the <img>'s own box runs 13.9px past
+          // finished above, and at 1.06 the <img>'s own box runs 27.8px past
           // the clip, so a point 4px inside it is outside the card.
           photoOnTop: topAt(slides[now].querySelector("[data-featured-photo]")!.parentElement!),
         };
@@ -2084,6 +2090,36 @@ test.describe("motion", () => {
     }
   });
 
+  test("will-change: transform on every photo of a band that drifts — and on no photo of one that never does", async ({
+    browser,
+  }) => {
+    // The photo's own compositor layer (operator, 2026-09-29: "I'm in firefox
+    // … ideally we aren't moving by fractions of pixels"), where it can drift
+    // and only there. Reduced motion is the case below; the server's markup
+    // carries no style at all (the same case, and featured-band-live.spec.ts
+    // on the shipped bundle). A one-listing card never turns, so it never
+    // drifts, and a layer held for nothing is memory for nothing.
+    const { context, page } = await moving(browser);
+    const willChange = () =>
+      page
+        .locator(`${CARD} [data-featured-photo]`)
+        .evaluateAll((els) => els.map((el) => getComputedStyle(el).willChange));
+    try {
+      await page.goto(HOME);
+      await adopted(page);
+      expect(await willChange(), "three listings, hydrated").toEqual([
+        "transform",
+        "transform",
+        "transform",
+      ]);
+      await page.goto(`${HOME}?featured=one`);
+      await adopted(page);
+      expect(await willChange(), "one listing, hydrated").toEqual(["auto"]);
+    } finally {
+      await context.close();
+    }
+  });
+
   /** Every frame, IN THE PAGE, from now until `after` ms past the band's
    *  SECOND turn from now: one whole dwell of the photo the first turn brings
    *  on, and that photo leaving at the second. Each frame carries the
@@ -2231,7 +2267,8 @@ test.describe("motion", () => {
       });
     }, CARD);
 
-  /** How far the drift may be short of 1.03 at a clock turn, in ms of drift.
+  /** How far the drift may be short of 1 + KEN_BURNS at a clock turn, in ms
+   *  of drift.
    *  The clock counts a dwell from the frame it turned on; the drift starts
    *  on the first frame after (a new transition waits for one) — `lag`,
    *  measured — and the two clocks read that frame's time a callback apart.
@@ -2239,22 +2276,26 @@ test.describe("motion", () => {
    *  settle, or run over DWELL + the settle, is short by (500 and 471ms). */
   const SHORT_BY = 100;
 
-  test("on the clock: still through the settle, 1.00 → 1.03 across the dwell, then held still while it leaves", async ({
+  test("on the clock: still through the settle, 1.00 → 1 + KEN_BURNS across the dwell, then held still while it leaves", async ({
     browser,
   }) => {
     // One whole dwell and both of its ends, on the timeline, every frame:
     //  - the photo a clock turn brings on sits at 1 through the settle (the
     //    transition's delay), then travels at KEN_BURNS per DWELL — halfway
-    //    at half a dwell — and lands on 1.03 as the clock turns again;
+    //    at half a dwell — and lands on 1 + KEN_BURNS as the clock turns again;
     //  - at that turn it is still showing under the incoming photo for
     //    500ms, and holds ONE value — the value it had — for as long as it
     //    shows, then rests at 1 (featured-band-live.spec.ts brings one back);
     //  - and slide 1, on stage from load with no settle to wait out, drifts
-    //    from hydration and lands on 1.03 at the FIRST turn too.
+    //    from hydration and lands on the end scale at the FIRST turn too.
     // Every end-of-dwell tolerance is TIME: frames are sparse under load, so
     // a value is bounded by the drift's own rate over the time it had.
     test.setTimeout(60_000);
     const rate = FEATURED_KEN_BURNS / DWELL;
+    /** How far off its own curve a frame may read: ±133ms of drift, which was
+     *  ±0.0005 of scale when KEN_BURNS was 0.03 and is ±0.001 at 0.06. In
+     *  TIME, because frames are sparse under load whatever the amplitude. */
+    const ON_CURVE = rate * 133;
     const { context, page } = await moving(browser);
     try {
       await recordFirstDwell(page);
@@ -2286,18 +2327,18 @@ test.describe("motion", () => {
       // …then monotone, never a jump back…
       const back = dwell.filter((f, i) => i > 0 && at(f) < at(dwell[i - 1]));
       expect(back.map(where), "went backwards").toEqual([]);
-      // …halfway at half a dwell (±0.0005 of scale is ±133ms of drift)…
+      // …halfway at half a dwell (±ON_CURVE)…
       const half = dwell.find((f) => since(f) >= DISSOLVE + DWELL / 2)!;
       expect(half, "sampled half a dwell in").toBeDefined();
       const want = due(half.tl, DISSOLVE, origin!);
-      expect.soft(Math.abs(at(half) - want), `${where(half)}, due ${want}`).toBeLessThan(0.0005);
+      expect.soft(Math.abs(at(half) - want), `${where(half)}, due ${want}`).toBeLessThan(ON_CURVE);
       // …and on its own curve on the last frame before the turn, however
       // long before the turn that frame was.
       const last = dwell.at(-1)!;
       const dueLast = due(last.tl, DISSOLVE, origin!);
       expect
         .soft(Math.abs(at(last) - dueLast), `${where(last)}, due ${dueLast}`)
-        .toBeLessThan(0.0005);
+        .toBeLessThan(ON_CURVE);
 
       // THE TURN: held at one value for as long as its wrapper shows at all…
       const leaving = frames.filter((f) => f.turns === 2);
@@ -2326,7 +2367,8 @@ test.describe("motion", () => {
           `from ${at(last)} to ${held} in ${(turn2 - last.tl).toFixed(1)}ms`,
         )
         .toBeLessThanOrEqual(rate * (turn2 - last.tl) + 0.00002);
-      // …and it LANDED: 1.03, short by no more than its start lagged the turn.
+      // …and it LANDED: 1 + KEN_BURNS, short by no more than its start lagged
+      // the turn.
       const lag = origin! - turn1;
       test.info().annotations.push({
         type: "landed",
@@ -2366,7 +2408,7 @@ test.describe("motion", () => {
           Math.abs(firstLast.scale - dueFirst),
           `slide 1 on the last frame before the turn, ${(firstLast.tl - first.origin!).toFixed(1)}ms in: ${firstLast.scale}, due ${dueFirst}`,
         )
-        .toBeLessThan(0.0005);
+        .toBeLessThan(ON_CURVE);
       expect
         .soft(
           firstLast.scale,
@@ -2441,7 +2483,7 @@ test.describe("motion", () => {
     return read();
   }
 
-  test("Pause freezes the drift where it stands; Play resumes it from there, and it lands on 1.03", async ({
+  test("Pause freezes the drift where it stands; Play resumes it from there, and it lands on 1 + KEN_BURNS", async ({
     browser,
   }) => {
     // WCAG 2.2.2: the Pause button must stop the motion, not only the bar.
@@ -2460,9 +2502,9 @@ test.describe("motion", () => {
       const frozenScale = (await photoScale(page))!;
       const frozenBar = await barScale(page);
       expect(frozenScale).toBeGreaterThan(1);
-      expect(frozenScale).toBeLessThan(1.03);
+      expect(frozenScale).toBeLessThan(1 + FEATURED_KEN_BURNS);
       // Past the end of the dwell the bar says is left: a running
-      // transition would have reached 1.03 by then.
+      // transition would have reached 1 + KEN_BURNS by then.
       await page.waitForTimeout((1 - frozenBar) * DWELL + 700);
       expect(await photoScale(page), "frozen with the bar").toBe(frozenScale);
       expect(await barScale(page)).toBe(frozenBar);
@@ -2487,10 +2529,10 @@ test.describe("motion", () => {
         .filter(({ d, dt }) => d < 0 || d > rate * dt + 0.00002)
         .map(({ f, d, dt }) => `${f.scale}: ${d.toFixed(6)} in ${dt.toFixed(1)}ms`);
       expect(jumps, "steps that went back or outran the drift").toEqual([]);
-      // …and it LANDS on 1.03 with the bar, read where the clock turns and
+      // …and it LANDS on 1 + KEN_BURNS with the bar, read where the clock turns and
       // not on the last frame before it (under load that frame can be whole
       // tenths of a second early): the photo the turn sends away is held at
-      // what the drift reached ON the turn. Short of 1.03 by no more than it
+      // what the drift reached ON the turn. Short of it by no more than it
       // trailed the bar when both were paused (plus SHORT_BY); a resume that
       // re-declared the transition, or never resumed, is a whole dwell short.
       const last = after.at(-1)!;
@@ -2514,15 +2556,15 @@ test.describe("motion", () => {
     }
   });
 
-  test("Play after a visitor's drift has ENDED holds 1.03 — the photo is never sent back (#156)", async ({
+  test("Play after a visitor's drift has ENDED holds 1 + KEN_BURNS — the photo is never sent back (#156)", async ({
     browser,
   }) => {
     // #156, which main held in a unit test while the drift was drawn by
-    // script. A visitor's turn drifts the photo to 1.03 and the drift ENDS
+    // script. A visitor's turn drifts the photo to 1 + KEN_BURNS and the drift ENDS
     // there, the rotation stopped by the arrow's focus. A Play after that has
     // no travel left to draw, and every way to draw some moves the photo
     // backwards in full view: the quick "fix", restarting it at 1.00, is
-    // 27.8px of width in one frame. So it holds, while the bar fills, until
+    // 55.7px of width in one frame at 1.06. So it holds, while the bar fills, until
     // the clock turns it away. (It finished ON STAGE: it never left, so it is
     // never resting either.)
     test.setTimeout(60_000);
@@ -2535,7 +2577,7 @@ test.describe("motion", () => {
       await page.getByRole("button", { name: "Next slide" }).click();
       await pointerAway(page);
       await expect(page.getByRole("button", { name: "Play slides" })).toBeVisible();
-      // ENDED, not merely at 1.03: no animation left on it.
+      // ENDED, not merely at the end scale: no animation left on it.
       await expect
         .poll(
           () =>
@@ -2558,7 +2600,7 @@ test.describe("motion", () => {
         frames
           .filter((f) => f.scale !== 1 + FEATURED_KEN_BURNS)
           .map((f) => `${(f.tl - frames[played].tl).toFixed(1)}ms from Play: ${f.scale}`),
-        "every frame from before Play to the clock's turn, at 1.03",
+        "every frame from before Play to the clock's turn, at 1 + KEN_BURNS",
       ).toEqual([]);
     } finally {
       await context.close();
@@ -2569,11 +2611,11 @@ test.describe("motion", () => {
     page,
   }) => {
     // Not `scale(1)` — NO style. app.css cuts every transition to 0.01ms with
-    // no delay under reduce, so a declared transition to 1.03 would SNAP there
+    // no delay under reduce, so a declared transition to the end scale would SNAP there
     // and hold: a permanently zoomed photo dressed up as "no animation".
     //
     // FROM FIRST PAINT: the server's markup carries no style on any photo (it
-    // cannot know the preference, and a declared 1.03 there would be the
+    // cannot know the preference, and a declared end scale there would be the
     // photo's first style, with nothing to transition from), and a recorder
     // installed before any script sees nothing written through hydration and
     // a turn.
@@ -2600,12 +2642,13 @@ test.describe("motion", () => {
       els.map((el) => ({
         style: el.getAttribute("style"),
         transform: getComputedStyle(el).transform,
+        willChange: getComputedStyle(el).willChange,
         animations: el.getAnimations().length,
       })),
     );
     expect(photos).toHaveLength(3);
     for (const photo of photos)
-      expect(photo).toEqual({ style: null, transform: "none", animations: 0 });
+      expect(photo).toEqual({ style: null, transform: "none", willChange: "auto", animations: 0 });
     expect(
       await page.evaluate(() => (window as unknown as { __photoWrites: string[] }).__photoWrites),
       "style writes on a photo, from first paint",
