@@ -2386,10 +2386,11 @@ test.describe("the band's pin sheet", () => {
   // the sheet closed. Chrome blurs a focused element the moment it is
   // disabled or loses its tabindex, so each is handed on first: from the
   // sheet or a pin to the listing's own link in the list (its chip), from the
-  // canvas to expand.
-  for (const from of ["the sheet", "a pin", "the canvas"] as const)
+  // canvas to expand — and a pointer's focus (the pin a press focused) to
+  // expand too, since a focus on the list link would draw its chip.
+  for (const from of ["the sheet", "a pin", "a pin, by pointer", "the canvas"] as const)
     for (const expand of [false, true])
-      test(`the homepage band at 390${expand ? ", expanded" : ""}: the lock hands a keyboard on ${from} on`, async ({
+      test(`the homepage band at 390${expand ? ", expanded" : ""}: the lock moves focus off ${from}, and not to <body>`, async ({
         browser,
       }) => {
         const context = await browser.newContext({
@@ -2410,6 +2411,12 @@ test.describe("the band's pin sheet", () => {
           let title: string | null = null;
           if (from === "the canvas") {
             await map.locator("canvas").focus();
+          } else if (from === "a pin, by pointer") {
+            const id = await openSheet(page);
+            expect(await focused(page), "premise: the press focused its pin").toMatch(/^BUTTON/);
+            expect(
+              await page.evaluate(() => document.activeElement?.getAttribute("data-map-pin")),
+            ).toBe(id);
           } else {
             await openSheet(page);
             title = await map.locator("[data-map-sheet] p").first().textContent();
@@ -2435,7 +2442,7 @@ test.describe("the band's pin sheet", () => {
             true,
           );
           expect(after.dialog).toBe(expand ? "dialog" : null);
-          if (title === null) expect(after.expand, "the canvas: on expand").toBe(true);
+          if (title === null) expect(after.expand, `${from}: on expand`).toBe(true);
           else
             expect(after.listLink, "on the listing's own link in the list").toMatch(
               new RegExp(`^${title.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "i"),
