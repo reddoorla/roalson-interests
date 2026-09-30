@@ -38,6 +38,9 @@ import { GARNET } from "./palette";
 //     — read off the painted boxes on every frame, in the picture and live;
 //     and in one frame under reduced motion (operator, 2026-09-29: "the pin
 //     scale change needs a transition").
+//  8. THAT THE PICTURE'S PINS STAY UNDER THE LIVE MAP through the cross-fade,
+//     now that 7 gives pins a z-index: the picture's active pin is z 2, and
+//     only the picture being its own stacking context keeps that inside it.
 //
 // Every route here is one a production build serves, so this runs either way:
 //
@@ -1509,6 +1512,156 @@ test.describe("the active pin grows, and the one it leaves shrinks, about their 
       const second = await context.newPage();
       const live = await liveMove(second);
       grewAtOnce(await growAsActiveMoves(second, live.to, "live"));
+    } finally {
+      await context.close();
+    }
+  });
+});
+
+// ── 8: the picture's pins stay under the live map ──────────────────────────
+//
+// The picture stays up until the canvas's own fade ends (MAP_HOME_FADE_MS),
+// and the canvas comes up OVER it — a placeholder that stays fully opaque
+// underneath — so through that fade the canvas and the live overlay are drawn
+// over the picture. Section 7 gave every pin a z-index (0, 1 while shrinking,
+// 2 active). The picture box is `isolate`, so those numbers rank its pins only
+// against each other; without it the picture's ACTIVE pin, at z 2, rises out
+// of the picture over the canvas (z auto, later in the tree) and over the live
+// overlay (`z-[1]`): drawn over the live map, and taking its presses — it is a
+// link to Google Maps — for the whole fade.
+//
+// The fade is 300ms, so the ANIMATION clock is frozen (playback rate 0) before
+// MapLibre's style is let through: the canvas's fade starts and holds at its
+// first frame. The picture's other exit, a timer at ten times the fade, is a
+// setTimeout the freeze does not stop, so the stack is read IN the page, one
+// frame after `data-map-ready` appears — never by a poll from here.
+
+interface MidFade {
+  /** What `elementFromPoint` finds at the picture's active pin's head. */
+  top: string;
+  pictureUp: boolean;
+  /** Opacity transitions running on the canvas host: its fade, held. */
+  fading: number;
+  liveMarkers: number;
+}
+
+test.describe("through the cross-fade, the picture's pins stay under the live map", () => {
+  test.setTimeout(120_000);
+
+  test("the picture's ACTIVE pin does not rise over the canvas coming up on top of it", async ({
+    browser,
+  }) => {
+    const { context, page } = await moving(browser, WIDE);
+    try {
+      let release!: () => void;
+      const held = new Promise<void>((resolve) => (release = resolve));
+      await page.route("**/map-style.json", async (route) => {
+        await held;
+        await route.continue();
+      });
+      await page.goto(PROPERTIES);
+      await hydrated(page);
+      const section = land(page);
+      const map = section.locator(MAP);
+      const ids = await cardIds(section);
+      // A listing whose OWN pin is the picture's active one, wholly in the
+      // box; the point read is its head, well inside the drawing.
+      let head: { x: number; y: number } | null = null;
+      for (const id of fromTheMiddle(ids)) {
+        await centre(page, id);
+        await garnet(section, id);
+        head = await map.evaluate((el, id) => {
+          const layer = [...el.querySelectorAll("[data-map-home-frame]")].find(
+            (l) => getComputedStyle(l).display !== "none",
+          );
+          const pin = layer?.querySelector(`[data-map-home-pin="${id}"][data-map-active]`);
+          if (!pin) return null;
+          const r = pin.querySelector("svg")!.getBoundingClientRect();
+          const box = el.getBoundingClientRect();
+          const inside =
+            r.left >= box.left &&
+            r.right <= box.right &&
+            r.top >= box.top &&
+            r.bottom <= box.bottom;
+          return inside ? { x: r.left + r.width / 2, y: r.top + r.height * 0.3 } : null;
+        }, id);
+        if (head) break;
+      }
+      expect(head, "premise: a listing whose own pin is the picture's active one").not.toBeNull();
+      // Grown and at rest before anything is read.
+      await expect
+        .poll(() =>
+          map.evaluate(
+            (el, selector) =>
+              [...el.querySelectorAll(selector)].flatMap((m) => [
+                ...m.getAnimations(),
+                ...(m.querySelector("svg")?.getAnimations() ?? []),
+              ]).length,
+            MARKERS,
+          ),
+        )
+        .toBe(0);
+
+      // Arm the reading, and take the premise with the same instrument: while
+      // the map is still loading, the point IS the picture's pin — so what is
+      // read mid-fade is a spot that pin covers.
+      const loading = await map.evaluate((el, { x, y }) => {
+        const top = () => {
+          const e = document.elementFromPoint(x, y);
+          if (!e) return "nothing";
+          if (e.closest("[data-map-home-pin]")) return "the picture's pin";
+          if (e.closest("[data-map-pin],[data-map-cluster]")) return "a live marker";
+          if (e.closest("[data-map-canvas]")) return "the live canvas";
+          return e.tagName.toLowerCase();
+        };
+        (window as unknown as { midFade: Promise<MidFade> }).midFade = new Promise(
+          (resolve, reject) => {
+            const mo = new MutationObserver(() => {
+              if (!el.hasAttribute("data-map-ready")) return;
+              mo.disconnect();
+              requestAnimationFrame(() => {
+                const canvas = el.querySelector("[data-map-canvas]")!;
+                resolve({
+                  top: top(),
+                  pictureUp: el.querySelector("[data-map-home-box]") !== null,
+                  fading: canvas
+                    .getAnimations()
+                    .filter(
+                      (a) =>
+                        (a as Animation & { transitionProperty?: string }).transitionProperty ===
+                        "opacity",
+                    ).length,
+                  liveMarkers: el.querySelectorAll("[data-map-pin],[data-map-cluster]").length,
+                });
+              });
+            });
+            mo.observe(el, { attributes: true, attributeFilter: ["data-map-ready"] });
+            setTimeout(() => reject(new Error("the map was not ready within 45s")), 45_000);
+          },
+        );
+        return top();
+      }, head!);
+      expect(loading, "premise: while the map loads, the point is the picture's pin").toBe(
+        "the picture's pin",
+      );
+
+      const cdp = await context.newCDPSession(page);
+      await cdp.send("Animation.enable");
+      await cdp.send("Animation.setPlaybackRate", { playbackRate: 0 });
+      release();
+      const mid = await page.evaluate(
+        () => (window as unknown as { midFade: Promise<MidFade> }).midFade,
+      );
+      console.log(
+        `mid-fade at the picture's active pin: ${mid.top} on top; picture up ${mid.pictureUp}; ` +
+          `${mid.fading} fade held on the canvas; ${mid.liveMarkers} live markers`,
+      );
+      expect(mid.pictureUp, "premise: the picture has not retired").toBe(true);
+      expect(mid.fading, "premise: the canvas's fade started, and is held").toBe(1);
+      expect(
+        ["the live canvas", "a live marker"],
+        `on top at the picture's active pin, mid-fade (${mid.liveMarkers} live markers drawn)`,
+      ).toContain(mid.top);
     } finally {
       await context.close();
     }
