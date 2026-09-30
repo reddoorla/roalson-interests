@@ -410,18 +410,20 @@
   //    by 1 + KEN_BURNS — and a photo HELD there stayed that soft for as long
   //    as it was held, never re-sharpening: a visitor's turn, whose drift
   //    runs to its end with the clock stopped by the arrow's focus, and
-  //    #156's Play after that. Mean |Laplacian| of the photo Next brings on,
-  //    held, 1440 × DPR 2: 7.678 with the layer against 9.3835 without it,
-  //    ~18% (review of #212, 2026-09-30). Without will-change Chromium
-  //    re-rasters ~150ms after the transition ends, and that one visible
-  //    re-sharpening, on a photo that has stopped moving, is the price. So
-  //    the on-stage photo's own `transitionend` on `transform` drops it (a
-  //    Pause does not: a paused transition has not ended), and it comes back
-  //    when the photo RESTS, hidden, before its next drift — not when that
-  //    drift is written, because the turn's first render runs before the
-  //    effect below records the turn. A photo brought back while it still
-  //    shows after its drift ended is already at 1 + KEN_BURNS: nothing
-  //    drifts, and it stays off.
+  //    #156's Play after that. Mean |Laplacian| of the photo Next brings on
+  //    from load, held, 1440 × DPR 2, on the production build: 12.3838 on
+  //    the layer against 14.9699 off it — 17% less, the same at 1, 2 and 3s
+  //    after the end (featured-band-live.spec.ts; #212's review measured
+  //    7.678 against 9.3835 with its own probe). Without will-change
+  //    Chromium re-rasters once the transition ends (~150ms, the review
+  //    measured), and that one re-sharpening, on a photo that has stopped
+  //    moving, is the price. So the on-stage photo's own `transitionend` on
+  //    `transform` drops it (a Pause does not: a paused transition has not
+  //    ended), and it comes back when the photo RESTS, hidden, before its
+  //    next drift — not when that drift is written, because the turn's first
+  //    render runs before the effect below records the turn. A photo brought
+  //    back while it still shows after its drift ended is already at
+  //    1 + KEN_BURNS: nothing drifts, and it stays off.
   // What the script did and this does not, on purpose ("overbuilt"): keep the
   // photo on the bar's clock frame for frame (both wait the settle and run
   // DWELL, so they agree to within frames, not by construction), stop for a
