@@ -205,7 +205,7 @@ async function glyphOnGround(page: Page, control: Locator, hide: string) {
   const on = await raw(await still(page, at.clip));
   const style = await page.addStyleTag({ content: hide });
   const off = await raw(await still(page, at.clip));
-  await style.evaluate((n) => n.remove());
+  await style.evaluate((n: HTMLStyleElement) => n.remove());
   const ratios: number[] = [];
   for (let i = 0; i < on.length; i += 3) {
     const q: Rgb = [off[i]!, off[i + 1]!, off[i + 2]!];

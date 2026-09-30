@@ -1106,7 +1106,7 @@ describe("FeaturedProperties slice", () => {
 
   it("draws at most ten slides however many listings are picked", () => {
     const [first] = featuredPropertiesFixture().primary.properties;
-    const photo = (first.property as unknown as { data: { feature_image: unknown } }).data
+    const photo = (first!.property as unknown as { data: { feature_image: unknown } }).data
       .feature_image;
     const picks = Array.from({ length: 12 }, (_, i) =>
       featuredPickFixture(`listing-${i + 1}`, `id-${i + 1}`, {
@@ -1115,7 +1115,7 @@ describe("FeaturedProperties slice", () => {
       }),
     );
     const { container } = render(FeaturedProperties, {
-      props: { slice: featuredPropertiesFixture({ properties: picks }) },
+      props: { slice: featuredPropertiesFixture({ properties: picks as never }) },
     });
     const slides = slidesOf(container);
     expect(slides).toHaveLength(10);
