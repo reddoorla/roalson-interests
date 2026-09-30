@@ -1078,6 +1078,52 @@ describe("FeaturedProperties slice", () => {
     });
   });
 
+  // The client's on/off for the section (Figma 1908699525; Nicole: "whole
+  // section will go away if toggled off").
+  describe("the Show featured properties switch", () => {
+    it("turned off, renders no section, heading, card or map", () => {
+      const { container, queryByRole } = render(FeaturedProperties, {
+        props: { slice: featuredPropertiesFixture({ show_featured: false }) },
+      });
+      expect(band(container)).toBeNull();
+      expect(container.querySelector("section, [data-map-slot], [data-featured-card]")).toBeNull();
+      expect(queryByRole("heading")).toBeNull();
+      expect(container.textContent?.trim()).toBe("");
+    });
+
+    it("on, or unset on a document saved before the field existed, shows the band", () => {
+      for (const show_featured of [true, null, undefined]) {
+        const { container, getByRole, unmount } = render(FeaturedProperties, {
+          props: { slice: featuredPropertiesFixture({ show_featured } as never) },
+        });
+        expect(band(container).hidden).toBe(false);
+        expect(band(container).dataset.featuredShown).toBe("3");
+        expect(getByRole("heading", { level: 2 }).textContent).toBe("Featured Properties");
+        unmount();
+      }
+    });
+  });
+
+  it("draws at most ten slides however many listings are picked", () => {
+    const [first] = featuredPropertiesFixture().primary.properties;
+    const photo = (first.property as unknown as { data: { feature_image: unknown } }).data
+      .feature_image;
+    const picks = Array.from({ length: 12 }, (_, i) =>
+      featuredPickFixture(`listing-${i + 1}`, `id-${i + 1}`, {
+        title: `Listing ${i + 1}`,
+        feature_image: photo as never,
+      }),
+    );
+    const { container } = render(FeaturedProperties, {
+      props: { slice: featuredPropertiesFixture({ properties: picks }) },
+    });
+    const slides = slidesOf(container);
+    expect(slides).toHaveLength(10);
+    expect(slides.at(-1)!.getAttribute("aria-label")).toBe("10 of 10");
+    expect(band(container).dataset.featuredPicked).toBe("12");
+    expect(band(container).dataset.featuredShown).toBe("10");
+  });
+
   it("falls back to the comp's words when the heading is left empty — the region needs a name", () => {
     for (const heading of ["", "   ", null]) {
       const { getByRole, unmount } = render(FeaturedProperties, {
