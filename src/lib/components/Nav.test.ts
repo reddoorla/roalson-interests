@@ -255,6 +255,35 @@ describe("Nav — the homepage's gated wordmark", () => {
     expect(reverse.getAttribute("class")).toContain("group-focus-visible/home:opacity-100");
   });
 
+  // Over the hero's photograph the sand controls measured 1.09–1.23:1 on its
+  // sky; tests/interaction/home-hero-live.spec.ts measures the pixels.
+  it("over the hero each control wears a garnet ground, which leaves with the float and nowhere else has", async () => {
+    const classes = (el: Element) => (el.getAttribute("class") ?? "").split(/\s+/);
+    layOut();
+    const { getByRole, getByLabelText, unmount } = render(Nav, gatedProps);
+    const menu = getByLabelText("Open menu");
+    const contact = getByRole("link", { name: "Contact us" });
+    expect(classes(menu)).toContain("before:bg-primary");
+    expect(classes(menu)).toContain("focus-visible:outline-offset-[-5px]");
+    expect(resting(contact)).toContain("bg-primary");
+
+    await scrollTo(448);
+    expect(classes(menu)).toContain("before:bg-transparent");
+    expect(classes(menu)).not.toContain("before:bg-primary");
+    expect(resting(contact)).not.toContain("bg-primary");
+    unmount();
+
+    await scrollTo(0);
+    const contactPage = render(Nav, { items, logo, cta, over: "dark" });
+    expect(
+      contactPage.getByRole("navigation", { name: "Primary" }).hasAttribute("data-floating"),
+    ).toBe(true);
+    expect(classes(contactPage.getByLabelText("Open menu"))).toContain("before:bg-transparent");
+    expect(resting(contactPage.getByRole("link", { name: "Contact us" }))).not.toContain(
+      "bg-primary",
+    );
+  });
+
   it("floats for the whole hero — not just the 24px that re-tones every other page", async () => {
     layOut();
     const { getByRole } = render(Nav, gatedProps);

@@ -1,5 +1,5 @@
 import { test, expect, type Page, type ConsoleMessage } from "@playwright/test";
-import { smokeRoutes } from "./routes";
+import { isPlaceholderRepo, smokeRoutes } from "./routes";
 import { HYDRATION_TIMEOUT } from "../interaction/hydrated";
 
 // Console messages we don't care about. Add patterns here only after seeing them
@@ -69,7 +69,30 @@ test("404 page renders the custom error component", async ({ page }) => {
     waitUntil: "domcontentloaded",
   });
   expect(response?.status()).toBe(404);
-  // src/routes/+error.svelte renders `<h1>{page.status}</h1>` → "404".
-  await expect(page.getByText("404", { exact: false }).first()).toBeVisible();
+  // src/routes/+error.svelte renders `<h1>{page.status}</h1>` → "404", which
+  // reddoor-maintenance's launch gate reads off the served HTML
+  // (SITE_404_MARKER, src/recipes/launch.ts) — so the check is on those bytes.
+  expect(await response!.text()).toMatch(/<h1[^>]*>\s*404\s*<\/h1>/i);
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("404");
+  await expect(page).toHaveTitle("Page not found | Roalson Interests");
+  await expect(page.getByRole("main").getByRole("link", { name: "Properties" })).toBeVisible();
   expect(errors).toEqual([]);
+});
+
+// The client struck "Total" from the listing price (Figma 1838699126). Every
+// listing page /properties links, as the build served it.
+test("no listing page says Total price, and the price row is there", async ({ request }) => {
+  test.skip(isPlaceholderRepo, "no listings before Prismic is wired");
+  const index = await (await request.get("/properties")).text();
+  const paths = new Set([...index.matchAll(/href="(\/properties\/[^"#?]+)"/g)].map((m) => m[1]));
+  expect(paths.size, "listing links on /properties").toBeGreaterThan(0);
+  let priced = 0;
+  for (const path of paths) {
+    const response = await request.get(path);
+    expect(response.status(), path).toBe(200);
+    const html = await response.text();
+    expect(/.{0,40}total price.{0,40}/i.exec(html)?.[0] ?? null, path).toBeNull();
+    if (/<dt[^>]*>Price<\/dt>/.test(html)) priced++;
+  }
+  expect(priced, "listing pages with a Price row").toBeGreaterThan(0);
 });

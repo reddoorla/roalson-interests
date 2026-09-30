@@ -199,8 +199,12 @@
   const TEXT_STEPS = ["delay-[150ms]", "delay-[210ms]", "delay-[270ms]", "delay-[330ms]"];
 
   const primary = $derived(slice.primary);
+  // The editor's on/off for the whole section (Figma 1908699525). Only an
+  // explicit false turns it off: a home document saved before the field
+  // existed has no value for it, and must keep its band.
+  const switchedOn = $derived(primary.show_featured !== false);
   const listings = $derived(featuredListings(primary.properties));
-  const slides = $derived(listings.slides);
+  const slides = $derived(switchedOn ? listings.slides : []);
   /** Derived once rather than inline in the template: it is read twice (the
    *  map's pins and the active id's membership) and it drops slides with no
    *  GeoPoint, so recomputing it per read is a filter that could disagree with
@@ -549,7 +553,9 @@
   });
 </script>
 
-{#if slides.length === 0}
+{#if !switchedOn}
+  <!-- Turned off: no section at all. -->
+{:else if slides.length === 0}
   <!-- THE EMPTY STATE IS NO BAND: a dark 827px box around an empty card is a
        broken page, and every listing is still one link away (the hero's and
        the footer's "Properties"). What is left is a hidden marker carrying

@@ -139,6 +139,12 @@
    *  see (2) above. A solid bar is legible over anything, so it pins in the
    *  server's markup. */
   const pinned = $derived(!canFloat || mounted);
+  /** Floating over the homepage hero, which is a PHOTOGRAPH (the poster, then
+   *  the video), not a flat band: on its sunlit sky the sand controls measured
+   *  1.09–1.23:1 at 390, 768 and 1024. So there every control carries its own
+   *  garnet ground (sand on it is 9.38:1 whatever the frame) and draws its
+   *  focus ring inside that ground, where the sky cannot be. */
+  const onPhoto = $derived(floating && gated);
 
   /** Rect against rect, never a scrollY: the hero pins, so how far the page
    *  has moved is not what is under the bar — and the threshold is 448 or 458
@@ -237,9 +243,32 @@
     "motion-reduce:transition-none group-active:scale-90 group-active:opacity-70 " +
     "group-data-[pressed]:scale-90 group-data-[pressed]:opacity-70";
 
-  // A 44px target around a 20×16 glyph, pulled 12px into the gutter so the
-  // GLYPH's edge — not the target's — lands on the comp's x=1360 / x=370.
-  const ICON_BUTTON = "group -mr-3 flex min-h-11 min-w-11 items-center justify-center";
+  // A 44px target around a 20×16 glyph, pulled into the gutter so the edge the
+  // eye reads — not the target's — lands on the comp's x=1360 / x=370: the
+  // GLYPH's, 12px in; on the photograph the disc's, 2px in, the glyph centred
+  // in it. The Close takes the same pull, so it sits where the trigger was.
+  const ICON_BUTTON = (onPhoto: boolean) =>
+    `group ${onPhoto ? "-mr-0.5" : "-mr-3"} flex min-h-11 min-w-11 items-center justify-center`;
+  // The trigger's 40px garnet disc on a photograph (`onPhoto`), ringed in sand
+  // like the CTA beside it, with the focus ring pulled inside it. Always
+  // drawn, transparent off the photograph, so it fades with the bar.
+  const ICON_DISC = (on: boolean) =>
+    "relative isolate before:absolute before:inset-0.5 before:-z-10 before:rounded-full before:border " +
+    "before:border-solid before:transition-colors before:duration-300 before:content-[''] " +
+    (on
+      ? "rounded-full before:border-light before:bg-primary focus-visible:outline-offset-[-5px]"
+      : "before:border-transparent before:bg-transparent");
+
+  // CONTACT US on the photograph, and the scripting-off links beside it.
+  const PHOTO_CHIP = "bg-primary focus-visible:outline-offset-[-5px]";
+
+  // Both forms of the trigger. The pull glides with the disc's fade, so the
+  // controls do not hop 10px at the gate.
+  const trigger = $derived(
+    `${ICON_BUTTON(onPhoto)} ${ICON_DISC(onPhoto)} duration-300 ` +
+      "transition-[color,outline-color,margin-right] motion-reduce:transition-colors " +
+      (floating ? "text-light" : "text-primary"),
+  );
 
   // The bar's box, shared with the overlay's own bar so the wordmark and the
   // Close sit exactly where the wordmark and the trigger were: 80 tall from
@@ -292,7 +321,12 @@
     : 'absolute'} {floating ? 'bg-transparent' : 'bg-background'}"
 >
   <div class={BAR}>
-    <a href="/" class="{WORDMARK} group/home">
+    <a
+      href="/"
+      class="{WORDMARK} group/home {held && onPhoto
+        ? 'focus-visible:bg-primary focus-visible:ring-[6px] focus-visible:ring-primary'
+        : ''}"
+    >
       {#if logo}
         <!-- `|| held` is redundant today — a held bar is a floating bar — and
              is here so that "no wordmark while the gate holds" is stated where
@@ -349,14 +383,22 @@
              list's markup across the bar. tests/interaction/nav.spec.ts looks. -->
         <noscript>
           <ul
-            class="t-h6 mr-3 flex flex-wrap items-center justify-end gap-x-5 gap-y-1 {floating
-              ? 'text-light'
-              : 'text-primary'}"
+            class="t-h6 flex flex-wrap items-center justify-end {onPhoto
+              ? 'gap-2'
+              : 'mr-3 gap-x-5 gap-y-1'} {floating ? 'text-light' : 'text-primary'}"
           >
             {#each items.filter((item) => item.href && item.href !== "/") as item, i (i)}
               <!-- From `sm` the CTA is in the bar and already is this link. -->
               <li class={item.href === cta?.href ? "sm:hidden" : undefined}>
-                <a href={item.href} class="hover:underline">{item.label}</a>
+                {#if onPhoto}
+                  <!-- On the photo, the CTA's chip. Narrower below `sm`, where
+                       two share the bar with the wordmark's halo. -->
+                  <BrandButton href={item.href} tone="light" class="{PHOTO_CHIP} max-sm:px-2.5"
+                    >{item.label}</BrandButton
+                  >
+                {:else}
+                  <a href={item.href} class="hover:underline">{item.label}</a>
+                {/if}
               </li>
             {/each}
           </ul>
@@ -365,7 +407,10 @@
 
       {#if cta}
         <div class="hidden sm:block">
-          <BrandButton href={cta.href} tone={floating ? "light" : "garnet"}>{cta.label}</BrandButton
+          <BrandButton
+            href={cta.href}
+            tone={floating ? "light" : "garnet"}
+            class={onPhoto ? PHOTO_CHIP : ""}>{cta.label}</BrandButton
           >
         </div>
       {/if}
@@ -375,9 +420,7 @@
           <button
             bind:this={openButtonEl}
             type="button"
-            class="{ICON_BUTTON} transition-colors duration-300 {floating
-              ? 'text-light'
-              : 'text-primary'}"
+            class={trigger}
             onclick={openMenu}
             aria-label="Open menu"
             aria-expanded={isMenuOpen}
@@ -403,9 +446,7 @@
             href="#{FOOTER_NAV_ID}"
             data-js-only
             data-menu-fallback
-            class="{ICON_BUTTON} transition-colors duration-300 {floating
-              ? 'text-light'
-              : 'text-primary'}"
+            class={trigger}
             aria-label="Menu"
           >
             <span class={ICON_GLYPH}>{@render menuGlyph()}</span>
@@ -448,7 +489,7 @@
       <button
         type="button"
         data-autofocus
-        class="{ICON_BUTTON} text-light"
+        class="{ICON_BUTTON(onPhoto)} text-light"
         onclick={closeMenu}
         aria-label="Close menu"
         aria-expanded={isMenuOpen}

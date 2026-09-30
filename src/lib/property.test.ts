@@ -90,8 +90,8 @@ describe("propertyFacts", () => {
   it("lists only filled fields, formatted, in reading order", () => {
     expect(propertyFacts(propertyFixture())).toEqual([
       { label: "Offered for", value: "Sale or Lease" },
-      { label: "Total price", value: "Contact Broker" },
-      { label: "Price", value: "$22.50 / SF" },
+      { label: "Price", value: "Contact Broker" },
+      { label: "Price per SF", value: "$22.50" },
       { label: "Building size", value: "16,700 SF" },
       { label: "Office", value: "1,340 SF" },
       { label: "Warehouse", value: "2,890 SF" },
@@ -131,6 +131,33 @@ describe("propertyFacts", () => {
       label: "Land",
       value: "1 acre",
     });
+  });
+
+  // The client struck "Total" from the price line (Figma 1838699126), so the
+  // total is "Price" and the per-unit row names its unit instead.
+  it("names the per-unit row by the unit the editor typed", () => {
+    const perUnit = (price_per_unit: string) =>
+      propertyFacts(propertyFixture({ transaction_type: null, price_per_unit }))[1];
+    // Every value live in Prismic on 2026-09-30, exactly as spelled there.
+    expect(perUnit("$17.00 / SF")).toEqual({ label: "Price per SF", value: "$17.00" });
+    expect(perUnit("$375.17 / SF")).toEqual({ label: "Price per SF", value: "$375.17" });
+    expect(perUnit("$4.50 / SF")).toEqual({ label: "Price per SF", value: "$4.50" });
+    expect(perUnit("$8.50 / SF")).toEqual({ label: "Price per SF", value: "$8.50" });
+    // Variants an editor could type; none of these is live.
+    expect(perUnit("$8.50/sq. ft.")).toEqual({ label: "Price per SF", value: "$8.50" });
+    expect(perUnit("$375,000 / acre")).toEqual({ label: "Price per acre", value: "$375,000" });
+    expect(perUnit("$40,000 / AC")).toEqual({ label: "Price per acre", value: "$40,000" });
+    expect(perUnit("$18.00 / SF / yr")).toEqual({ label: "Unit price", value: "$18.00 / SF / yr" });
+    expect(perUnit("Call for pricing")).toEqual({ label: "Unit price", value: "Call for pricing" });
+  });
+
+  it("never says Total, and never shows two rows with one label", () => {
+    for (const price_per_unit of ["$375.17 / SF", "$1 / acre", "$18 / SF / yr", "TBD"]) {
+      const labels = propertyFacts(propertyFixture({ price_per_unit })).map((f) => f.label);
+      expect(labels).toContain("Price");
+      expect(labels.join(" ")).not.toMatch(/total/i);
+      expect(new Set(labels).size).toBe(labels.length);
+    }
   });
 });
 
