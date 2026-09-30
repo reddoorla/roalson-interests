@@ -150,7 +150,10 @@ test("on the served face the revised lines fit the column either side of the 104
 // floats over the hero, and with a poster filled that is a photograph with a
 // sunlit sky at its top. Measured on the served `/` before the fix: the sand
 // menu glyph at 1.09:1 against it at 390, 1.14:1 at 768, 1.18:1 at 1024, and
-// CONTACT US at 1.15:1 and 1.10:1. The controls now carry a garnet ground there
+// CONTACT US at 1.15:1 and 1.10:1. With the grounds taken away from xl, the
+// menu read 1.83:1 and CONTACT US 1.95:1 at 1280x800, and CONTACT US 3.86:1 at
+// 1920x1080 (1440's crop has land there: 8.79 and 5.90, and it is the comp's
+// width). The controls now carry a garnet ground there at every width
 // (Nav.svelte, `onPhoto`), so these read the page's own pixels: what is under
 // each glyph pixel with the glyph taken away, against the glyph's computed
 // colour. The shared harness forces reduced motion, so the video never plays
@@ -256,6 +259,9 @@ for (const [width, height] of [
   [390, 844],
   [768, 1024],
   [1024, 768],
+  [1280, 800],
+  [1440, 900],
+  [1920, 1080],
 ] as const) {
   test(`over the hero's photograph the bar's controls hold their contrast, ring included (${width})`, async ({
     page,
@@ -332,5 +338,15 @@ for (const [width, height] of [
       40,
     );
     expect(ring.median, "and most of what it changes").toBeGreaterThanOrEqual(3);
+
+    if (await cta.isVisible()) {
+      const ctaRing = await ringOf(page, cta);
+      test.info().annotations.push({
+        type: `cta-ring@${width}`,
+        description: JSON.stringify(ctaRing),
+      });
+      expect(ctaRing.atThree, "the CTA's ring moves 40+ pixels by 3:1").toBeGreaterThanOrEqual(40);
+      expect(ctaRing.median, "and most of what it changes").toBeGreaterThanOrEqual(3);
+    }
   });
 }
