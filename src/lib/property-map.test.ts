@@ -863,8 +863,8 @@ describe("the frame a container is", () => {
     expect(frameFor({ width: 390, height: 200 })).toBe("compact");
     expect(frameFor({ width: 397, height: 595 })).toBe("full");
     expect(frameFor({ width: 512, height: 827 })).toBe("full");
-    // The expand affordance grows a phone map to 520, which is a FULL frame:
-    // that is the whole point of expanding it.
+    // The expand affordance grows a phone map to the window, a FULL frame in
+    // any window at least COMPACT_MAX_HEIGHT tall.
     expect(frameFor({ width: 350, height: 520 })).toBe("full");
     expect(frameFor({ width: 350, height: COMPACT_MAX_HEIGHT })).toBe("full");
   });

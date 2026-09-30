@@ -81,7 +81,8 @@
   // On a COMPACT frame it is MapLibre's own compact credit: the whole line
   // for MAP_CREDIT_OPEN_MS after the first frame, or until the visitor's first
   // pan, zoom or press, and then its (i), which opens to the same text on a
-  // press; on a full frame it is the whole chip. See `placeCredit` for why.
+  // press; on a full frame, and in the expanded overlay at any window height,
+  // it is the whole chip (`fullControls`). See `placeCredit` for why.
   // The raster picture under the canvas carries the same line as plain markup
   // (`MAP_HOME_CREDIT`), since before `load` there is no control to show it.
   //
@@ -723,19 +724,18 @@
     "grid h-[20.88px] w-[20.884px] place-items-center rounded-[2px] bg-primary text-light group-focus-visible:outline-2 group-focus-visible:outline-offset-2 group-focus-visible:outline-primary group-aria-disabled:opacity-40";
   /**
    * WHICH FRAME THIS BOX IS — and, since the operator's call of 2026-09-29,
-   * which CONTROLS it carries. "On phones, drop + and − (pinch-zoom covers it)
-   * and keep only expand, plus the (i) credit": "do option two, happy not to
-   * have the zoom buttons on mobile since we've thumbs".
+   * which CONTROLS an in-page map carries. "On phones, drop + and −
+   * (pinch-zoom covers it) and keep only expand, plus the (i) credit": "do
+   * option two, happy not to have the zoom buttons on mobile since we've
+   * thumbs".
    *
    * "Phone" is this, not a second test. `frameFor` is already this file's
    * only notion of a small map — it is the box's own measured height, it is
-   * what picks the 22px pin, the compact raster and the camera — and it
-   * already changes at exactly the moments the controls must: the expanded
-   * overlay is the window, so a phone map grown to it is `full` and gets +
-   * and − back (a single-pointer zoom-out, WCAG 2.5.1: pinch is multipoint
-   * and a double-tap only zooms in), and a /properties map crossing `lg` is
-   * `full` above it and `compact` below. A viewport media query would answer
-   * the expanded overlay wrongly and needs a second threshold to drift.
+   * what picks the 22px pin, the compact raster and the camera — and a
+   * /properties map crossing `lg` is `full` above it and `compact` below.
+   * The expanded overlay is the window, which is NOT always a full frame: a
+   * window under COMPACT_MAX_HEIGHT (a landscape phone, 800 x 280) makes it
+   * `compact`. So the controls read `fullControls`, below, and not this.
    *
    * What it clears (#182, #188): the − target sat over the Seguin land pin
    * on 358–445px compact maps, and the whole credit chip over the downtown
@@ -750,6 +750,11 @@
    */
   const frameName = $derived(frameFor(box));
   const frame = $derived(MAP_FRAMES[frameName]);
+  /** + and − and the whole credit chip: a full frame, and the expanded overlay
+   *  at every window height. The overlay is a phone's single-pointer way to
+   *  zoom out (WCAG 2.5.1: a pinch is two pointers and a double-tap only zooms
+   *  in), and a resize inside it must not take a focused control away. */
+  const fullControls = $derived(expanded || frameName === "full");
 
   /**
    * THE FIXED OPENING FRAME (#122), and the single answer both halves read.
@@ -970,10 +975,10 @@
     instance.keyboard.disableRotation();
     instance.touchZoomRotate.disableRotation();
 
-    // THE CREDIT, one of two kinds by frame — the whole chip on a full frame,
-    // MapLibre's compact credit on a compact one (the whole line, then its
-    // (i)) — and swapped when the frame changes (the `$effect` on `frameName`
-    // below).
+    // THE CREDIT, one of two kinds by `fullControls` — the whole chip on a
+    // full frame and in the expanded overlay, MapLibre's compact credit on an
+    // in-page compact map (the whole line, then its (i)) — and swapped when
+    // that changes (the `$effect` on `fullControls` below).
     //
     // WHY NOT MAPLIBRE'S OWN `compact: undefined`. That is "compact when the
     // container is ≤ 640 wide", which is not this file's frame: the 1440
@@ -1064,7 +1069,7 @@
       collapse();
     };
     settleCredit = settle;
-    placeCredit(untrack(() => frameName === "compact"));
+    placeCredit(untrack(() => !fullControls));
 
     // MapLibre names the canvas "Map" and gives it role="region", so two maps
     // on the Properties page would be two identically named landmarks. The
@@ -1497,8 +1502,8 @@
   // The container's box, which is the only thing that decides the frame: a
   // 200px-tall map takes the comp's 22px pin, a 595px one its 48px pin. No
   // viewport media query is consulted anywhere in this file, so the SAME rule
-  // covers the expanded state — a phone map grown to the window is a full
-  // frame, which is exactly what expanding it is for.
+  // covers the expanded state — a phone map grown to the window takes the
+  // window's frame: full, unless the window is under COMPACT_MAX_HEIGHT.
   $effect(() => {
     const el = boxEl;
     // Guarded the way Footer.svelte guards its own: jsdom ships no
@@ -1632,14 +1637,14 @@
     void tick().then(() => map?.resize());
   });
 
-  // THE CREDIT FOLLOWS THE FRAME: expanding a phone map, collapsing it, or a
-  // /properties map crossing `lg`. `frameName` is a string, so this runs when
-  // the frame changes and not on every resize inside one. Before the map
-  // exists `placeCredit` is null and this does nothing — `boot` places the
-  // first one itself, reading the frame after its `await`, so a change while
-  // the engine was loading is not missed.
+  // THE CREDIT FOLLOWS `fullControls`: expanding a phone map, collapsing it,
+  // or a /properties map crossing `lg`. It is a boolean, so this runs when it
+  // changes and not on every resize. Before the map exists `placeCredit` is
+  // null and this does nothing — `boot` places the first one itself, reading
+  // it after its `await`, so a change while the engine was loading is not
+  // missed.
   $effect(() => {
-    const compact = frameName === "compact";
+    const compact = !fullControls;
     placeCredit?.(compact);
   });
 
@@ -2063,9 +2068,10 @@
          + AND − ARE FULL-FRAME ONLY (operator, 2026-09-29): a compact map —
          the phone maps — carries expand alone, and a finger pinches. The
          column is bottom-anchored, so expand does not move when they go; the
-         expanded overlay is a full frame and has all three. See `frameName`. -->
+         expanded overlay has all three at any window height. See
+         `fullControls`. -->
       <div data-map-controls class="absolute right-0 bottom-0 z-[3] flex flex-col">
-        {#if ready && frameName === "full"}
+        {#if ready && fullControls}
           <button
             type="button"
             data-map-control="zoom-in"

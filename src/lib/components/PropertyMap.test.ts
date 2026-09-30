@@ -768,6 +768,51 @@ describe("the zoom buttons (P3)", () => {
     await tick();
     expect(which(), "collapsed: expand alone again").toEqual(["expand"]);
   });
+
+  // A landscape phone's overlay (800 x 280) is a COMPACT frame — the window is
+  // under COMPACT_MAX_HEIGHT — and it is still the single-pointer zoom-out.
+  it("stay, with the whole chip, in an overlay under 300 tall and through a resize inside it", async () => {
+    const resize = stubResizableTo(350, 200);
+    stubIntersecting({ mapHeight: 200, visible: 200 });
+    const view = render(PropertyMap, { props: { points, label: "Land" } });
+    await vi.waitFor(() => expect(engine.created).toHaveLength(1));
+    const record = engine.created[0]!;
+    record.handlers.load?.();
+    await tick();
+    const which = () =>
+      [...view.container.querySelectorAll("[data-map-control]")].map((b) =>
+        b.getAttribute("data-map-control"),
+      );
+    const chip = () =>
+      (record.controls.at(-1)!.control as { options: { compact: boolean } }).options.compact ===
+      false;
+    expect(which(), "premise: compact, expand alone").toEqual(["expand"]);
+    expect(chip(), "premise: the compact credit").toBe(false);
+
+    view.container.querySelector<HTMLButtonElement>("[data-map-expand]")!.click();
+    resize({ width: 800, height: 280 });
+    await tick();
+    expect(which(), "expanded at 800 x 280").toEqual(["zoom-in", "zoom-out", "expand"]);
+    expect(chip(), "and the whole chip").toBe(true);
+    const placed = record.controls.length;
+
+    resize({ width: 390, height: 844 });
+    await tick();
+    resize({ width: 800, height: 280 });
+    await tick();
+    expect(which(), "across 300 and back, inside the overlay").toEqual([
+      "zoom-in",
+      "zoom-out",
+      "expand",
+    ]);
+    expect(record.controls, "no credit swapped inside the overlay").toHaveLength(placed);
+
+    view.container.querySelector<HTMLButtonElement>("[data-map-expand]")!.click();
+    resize({ width: 350, height: 200 });
+    await tick();
+    expect(which(), "collapsed: expand alone again").toEqual(["expand"]);
+    expect(chip(), "and the compact credit").toBe(false);
+  });
 });
 
 describe("the active listing's pin (P2/P4)", () => {

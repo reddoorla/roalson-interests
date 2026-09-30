@@ -211,7 +211,8 @@ export interface Camera {
  * `full` is the 1440 comp's 397 x 595 panel and its 512 x 827 band. They are
  * chosen by the container's MEASURED HEIGHT, not by a viewport media query,
  * because what makes a 22px pin right is a 200px-tall box — and a box the
- * expand affordance grows to the window is a full frame by the same rule.
+ * expand affordance grows to the window is framed by the same rule: full,
+ * unless the window is under COMPACT_MAX_HEIGHT tall.
  *
  * `pin` is the comp's box size S (`np_pin-map_4984332`, drawn at S=48 on every
  * 1440 map and S=22 on every 390 map).
