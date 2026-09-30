@@ -12087,6 +12087,8 @@ may become a design change, so the scrim's stops are the 2026-09-28 ones.
 
 ## 2026-09-29 — Ken Burns is one CSS transition now: the compositor draws it, a hold that ends with the dissolve, and a Chromium start time the plan assumed wrong (`claude/roalson-comments-review-45cstm`)
 
+> Superseded in part by 2026-09-30 — Ken Burns at twice the speed, tilted 0.02° for Firefox, and on its layer only while it moves.
+
 The operator said the homepage band's Ken Burns "feels a little stuttery,
 maybe because it's too slow or not using gpu?", then, before any fix of that
 shape landed: "rather than that, can it be one clean transform scale with a
@@ -12301,3 +12303,39 @@ figures turn it red. Whether these count as grounds is the operator's call
 
 Also found: with scripting off, the band's focused list link names a pin
 that stays at 0.81, because the held link is JS-only (#205).
+
+## 2026-09-30 — Ken Burns at twice the speed, tilted 0.02° for Firefox, and on its layer only while it moves (#212, `claude/roalson-comments-review-45cstm`)
+
+After #204 the operator still found the drift stuttery, in Firefox: "it still feels like it's calculating every tick rather than interpolating like smoother effects". They added "being too slow may be the answer, let's speed it up. ideally we aren't moving by fractions of pixels". That last wish cannot be met by any zoom. For the edges to move a whole pixel every 60Hz frame they would travel about 480px across the 8s dwell. So the aim was a speed that reads as motion, drawn so its sub-pixel steps are filtered rather than snapped.
+
+**Speed.** `KEN_BURNS` went 0.03 → 0.06, the pace before the dwell doubled from 4s to 8s. The 928px box gains 55.7px of width, each edge moves about 3.5px a second, and that is about 0.058px a frame at 60Hz. It is still sub-pixel, and that is unavoidable.
+
+**Firefox, measured by the operator, not here.** There is no Firefox in the cloud container. A throwaway page on the deploy preview ran five variants of one photo side by side, each looping 1 → 1.06:
+
+- A: `scale()` with `will-change`;
+- B: A plus `rotate(0.02deg)` at both ends;
+- C: a `translateZ(0)` 3D transform;
+- D: no `will-change`;
+- E: B at 1.12.
+
+B and E glided and the rest ticked. So the cause was never speed or GPU promotion: it was the transform being a pure axis-aligned scale.
+
+The likely mechanism was read in Firefox's source, not measured. WebRender's `ScaleOffset::from_transform` treats off-diagonal terms within 1/4096 of zero as a plain scale plus offset, which snaps to device pixels. sin(0.02°) = 0.000349, about 1.4× the threshold, and anything under about 0.014° would not count. `TILT_DEG = 0.02` is now in every photo state `zoom()` writes, in the same function position, so every transition runs between identical lists.
+
+**A defect the tilt would have had on its own.** The server markup carries no style, so at hydration each photo's transform is `none`. A first drift from `none` to `scale(1.06) rotate(0.02deg)` animates the tilt up from 0 along with the scale, and stays under 1/4096 for the first 5378ms of the dwell. So Firefox would have ticked through most of the first listing. A priming effect now writes each photo's tilted rest before the drift and reads its computed style. With it, slide 1 reads 0.0199999–0.0200001° on every frame of its first dwell in Chromium. The read cannot be shown to matter there, because something else in the same flush already resolves style. It is kept so the priming does not depend on that.
+
+**`will-change` now follows the drift.** It went on every eligible photo for Firefox. Review then found a cost in Chromium: once a visitor's drift has finished, the photo is held at 1.06 while the arrow's focus keeps the clock paused, and the same happens in #156's Play-after-end hold. Chromium keeps the drift's composited raster and stretches it. The held photo measured 17.3% less detail (mean |Laplacian| 12.38 against 14.97 with the layer dropped) and never re-sharpened. Without the hint, Chromium re-rasters about 150ms after the transition ends.
+
+The photo now drops `will-change` when its own `transform` `transitionend` fires, and gets it back at rest and at re-priming. A Pause mid-drift keeps it, because the transition has not ended. The operator's Firefox check was made with `will-change` on before motion, and that is kept. Whether dropping it on a still, tilted photo changes anything in Firefox is unmeasured.
+
+**Sharp at the end scale.** `sizes` had said "65vw", the box at scale 1, so several end frames were upscaled even at the old 1.03. The worst was 13810 Lookout Road at 1440 on a 1× screen: it is wider than the box, so `object-cover` draws it 1073.6px wide, and it was fetched at 1024. `sizes` now carries `1 + KEN_BURNS` and the photo's own aspect (68.9vw/106vw, or 79.79vw/122.75vw for Lookout), and `srcset` gained 2048. Where the source is narrower than the drawn size (1872 and 1717px), nothing is requested past it.
+
+**Tests.** Every reader takes the scale as `hypot(a, b)` and the tilt as `atan2(b, a)`, rounded to 1e-6, because Chromium serialises six significant digits. Three guards were added:
+
+- the on-stage angle equals `TILT_DEG` on every frame of slide 1's first dwell, the incoming photo's dwell and a returning photo's dwell;
+- `willChange` is "transform" mid-drift and "auto" once a visitor's drift has ended;
+- the held frame is as sharp as a photo never layered.
+
+Each was proven red by its mutation: no tilt on stage, no priming, the layer never cleared, the layer never set, the layer cleared on Pause.
+
+`pnpm verify` had one red, `carousel.spec.ts:478` (#203). An A/B at load ~1 showed it intermittent on both sides. Its cause was found on the way: the a11y-fixtures form focuses its error summary asynchronously and races the test's own focus.
