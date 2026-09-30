@@ -40,7 +40,7 @@ export type SmokeRoute = {
 // process, so read process.env rather than import.meta.env.
 const PLACEHOLDER_SENTINEL = "your-prismic-repo-name";
 const repositoryName = process.env.VITE_PRISMIC_ENVIRONMENT || slicemachineConfig.repositoryName;
-const isPlaceholderRepo = repositoryName === PLACEHOLDER_SENTINEL;
+export const isPlaceholderRepo = repositoryName === PLACEHOLDER_SENTINEL;
 
 // The env-var route to the sentinel is a LOCAL-ONLY hatch (#120). Under CI or
 // Netlify it would flip `/`'s expectation to 404 and pass — the smoke half of a

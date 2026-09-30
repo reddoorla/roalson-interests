@@ -12408,3 +12408,59 @@ So the clock, the zoom hooks (tagged `movestart` and the wheel listener, the sam
 - **Not every red was real, and not every red was test noise.** `indicatorOf` read 0 of 0 once in a 124-case run and never again. It now waits two frames and re-reads a no-change result, and a ring that is really gone still reads 0 five times. Separately, featured-properties' "ONE showable listing" fails on any production build because it counts the map's expand button (#221). It had only ever run on dev, where it passes, probably by timing.
 
 **Honest accounting.** The branch took four reviews and three fix rounds. It found more on main than on the branch. Four focus rules still have no guard, and live pins paint over the picture's credit line during the ~280ms fade (#222). A pin removed by re-clustering while it holds focus is the one member of the class left (#224).
+
+## 2026-09-30 — Before final approval: a readiness audit, the three client asks it found unbuilt, and launch prep (#239, `claude/roalson-comments-review-45cstm`)
+
+The operator asked whether the site was ready to send for final approval, and what it would take to roll it into the fleet. The answer came from a read-only audit rather than memory. Six auditors covered the backlog, a ledger of every client ask in Discord and Figma, live content and SEO, live quality and forms, Prismic, and fleet onboarding. A skeptic re-checked every blocker, and a completeness critic went looking for what the six had missed.
+
+**Beliefs corrected on contact.**
+
+- **"The client" is not who the brief assumed.** Erik Svendsen is Reddoor's account lead (erik@reddoorla.com, "Reddoor Creative" signature), not Roalson. The client is Matt Howard and Bart Wilson, who have never posted in #roalson-interests: 236 messages from Nicole, Erik, Tucker and Tim. Erik presents to them in person. "Send to the client" means a ready-for-review message to Erik.
+- **"Everything is addressed" was wrong.** Two asks had sat in Figma, unresolved, for months:
+  - Erik's "Remove word 'total'" (2026-07-10). All 22 listing pages still showed "Total price".
+  - "Limit … to a maximum of 10" and "Toggle on and off for feature" (2026-09-01). Nicole had answered "whole section will go away if toggled off".
+
+  Neither was ever built. Discord was the channel everyone read, and Figma comments were not.
+
+- **The skyline photos were believed unlicensed; they are licensed.** #3 had held them as unlicensed stock since the build began. The critic matched both to Unsplash-License originals: mean difference 0.8/255 and 1.77/255, against 44.7–59.4/255 for mismatched pairs.
+- **The hero clip was believed to be 720p (#82); it is 4K.** The player config for Vimeo 1229048743 now reports 3840×2160, after Erik's 4K master replaced it under the same id.
+
+**What the PR builds.**
+
+- **Price.** "Total price" becomes "Price". The per-unit row names its unit: all four live values end "/ SF", so it reads "Price per SF". "/ acre" gives "Price per acre", and anything else gives "Unit price" with the text as typed. No page shows two rows with the same label. The price reaches a visitor only through `propertyFacts` → `PropertyDetail`; cards, the map sheet, meta and JSON-LD carry none. A smoke test reads every listing the served `/properties` links.
+- **Featured band.** It gains `show_featured`, a Boolean defaulting to on, and a cap of 10 showable picks in editor order, applied after the existing drops.
+  - The live home document predates the field, so its value is absent, and the code shows the band unless the value is exactly `false`.
+  - Prismic reportedly returns null for a never-saved Boolean even when the model has a default. That was not observable before merge (no writes), so it is the first post-merge check.
+  - The model reaches Prismic through `prismic-models.yml`'s apply job on push to main. It is additive and changes no document.
+  - Today's page has 3 picks, so the cap changes nothing yet.
+- **The homepage bar over the hero photo.** It measured 1.09:1 (Menu, 390), 1.14 and 1.15:1 (768), and 1.18 and 1.10:1 (1024) against the poster's sunlit sky.
+  - 1024 is `lg`, so the audit's "below lg" framing would have left it failing.
+  - The client had asked for the dark overlay on /properties to go (#201), so there is no scrim. Instead each control wears its own garnet ground while the bar floats over the hero: a 40px disc behind the menu glyph, a garnet fill inside CONTACT US's sand outline, and a garnet box for the scripting-off links and the revealed wordmark. Sand on garnet is 9.38:1 whatever frame is behind.
+  - A translucent `bg-dark/70` was tried first and went muddy brown over the yellow sky.
+  - The video's frames could not be observed here: the harness forces reduced motion, Vimeo's config answered 403, and there is no ffmpeg. With no frame to justify a width cutoff, the grounds apply at every width, desktop included. The desktop bar the client already saw changes, and the operator should look at it.
+  - This closes the homepage half of #45, which #96 closed without fixing it.
+- **Old www.roalson.com URLs.** A read-only crawl of the old frameset site found 86 URLs answering 200: 20 pages and 66 PDFs, including 41 older packages linked from `SAmap.htm`. Each now 301s to its new page.
+  - The 22 current packages go to their own `/properties/<uid>`, the TREC PDFs to the same-origin copies, contact pages to `/contact`, and property pages to `/properties`.
+  - `netlify.toml` redirects would never be read: adapter-netlify publishes one `/*` function, and Netlify runs functions before redirects. So the table lives in `src/lib/legacy-redirects.ts` and `hooks.server.ts` answers the 301, matching case-insensitively on the decoded path.
+  - The first crawl hit GoDaddy's transient 502s; retries fixed it.
+  - The archived-listing trap is #236.
+- **The 404 page** now wears the site's bar, footer and type. It keeps `<h1>404</h1>` exactly, because the fleet's `launch` recipe (`SITE_404_MARKER`, `src/recipes/launch.ts:63`) refuses a site whose 404 lacks it.
+- **The axe gate** now scans `/properties/101-w-commerce-street`: 0 violations across 8 routes.
+
+Every guard went red for its named reason under mutation, and the builder's and two reviewers' mutations were independent of each other. One example: with `onPhoto` forced false, the photograph guard read 1.088, 1.145 and 1.184 against its threshold of 3. A polish round then:
+
+- **Moved the menu disc onto the gutter.** Its right edge had overhung by 10px at every width (at 1440 the disc spanned 1315–1355 against a gutter at 1345). While over the photo, the button's pull drops from 12px to 2px, the overlay's Close takes the same pull, and the margin glides back over 300ms at the gate.
+- **Made the scripting-off links chips that match CONTACT US.** Both now share one `PHOTO_CHIP` constant, clear of the wordmark's halo.
+- **Widened the contrast guard to 1280, 1440 and 1920, and added the CTA's focus ring.** With the grounds stripped, 1280 measured 1.83:1 (menu) and 1.95:1 (CONTACT US), between the widths the guard had covered.
+
+The one thing still open is the scripting-off chips wrapping at 390 before the webfont loads. It has the same fallback-metrics cause as #220, and is noted there.
+
+**Found and not fixed, filed.**
+
+- In the site repo: #227 (broker disclaimer and TREC name), #228 (Prismic publish hook builds go live stale), #229 (listing-package generator only on a branch), #230 (share cards cut heads), #231 (listing imagery), #232 (COOP and Permissions-Policy on server-rendered responses), #233 (seed state and a Roalson-scoped token), #234 (privacy page before GA4), #236, #237, #238.
+- In reddoor-maintenance: #1055 (no fleet site has a privacy policy) and #1056 (`launch` scores Lighthouse on the local checkout; VLF got 52 for a site that scored 85).
+- The launch path, from approval through cutover to fleet launch, is #235. The one trap in it: roalson.com's GoDaddy zone also runs `pay.roalson.com` (the client's GoDaddy Payments page) and Microsoft 365. Cutover must change only the apex and `www`, never the nameservers.
+
+**Closed with evidence:** #52, #82, #147, #193 and #216.
+
+**Honest accounting.** Every browser measurement in this session was Chromium. WebKit and Firefox were never run, and Erik shows the site on a phone, so a ten-minute pass on a real iPhone is the operator's before sending.

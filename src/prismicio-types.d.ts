@@ -924,11 +924,11 @@ export type CtaBannerSlice = prismic.SharedSlice<
 >;
 
 /**
- * Item in *FeaturedProperties → Default → Primary → Featured listings — shown in this order*
+ * Item in *FeaturedProperties → Default → Primary → Featured listings — up to 10, shown in this order; any after the tenth are not shown*
  */
 export interface FeaturedPropertiesSliceDefaultPrimaryPropertiesItem {
   /**
-   * Listing field in *FeaturedProperties → Default → Primary → Featured listings — shown in this order*
+   * Listing field in *FeaturedProperties → Default → Primary → Featured listings — up to 10, shown in this order; any after the tenth are not shown*
    *
    * - **Field Type**: Content Relationship
    * - **Placeholder**: Pick a listing — only listings with a feature image are shown; past projects and archived listings are skipped
@@ -958,6 +958,17 @@ export interface FeaturedPropertiesSliceDefaultPrimaryPropertiesItem {
  */
 export interface FeaturedPropertiesSliceDefaultPrimary {
   /**
+   * Show featured properties — turned off, this whole section is removed from the page field in *FeaturedProperties → Default → Primary*
+   *
+   * - **Field Type**: Boolean
+   * - **Placeholder**: *None*
+   * - **Default Value**: true
+   * - **API ID Path**: featured_properties.default.primary.show_featured
+   * - **Documentation**: https://prismic.io/docs/fields/boolean
+   */
+  show_featured: prismic.BooleanField;
+
+  /**
    * Heading — left empty it reads “Featured Properties” field in *FeaturedProperties → Default → Primary*
    *
    * - **Field Type**: Text
@@ -968,7 +979,7 @@ export interface FeaturedPropertiesSliceDefaultPrimary {
   heading: prismic.KeyTextField;
 
   /**
-   * Featured listings — shown in this order field in *FeaturedProperties → Default → Primary*
+   * Featured listings — up to 10, shown in this order; any after the tenth are not shown field in *FeaturedProperties → Default → Primary*
    *
    * - **Field Type**: Group
    * - **Placeholder**: *None*

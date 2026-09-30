@@ -6,7 +6,9 @@
 // shorter than its neighbours, so it is dropped — as is a past project or an
 // archived listing (unlinked or hidden everywhere else too), a relationship to a document that has
 // since been unpublished, an empty row, and a listing picked twice. The
-// model's placeholder tells the editor so.
+// model's placeholder tells the editor so. Of what is left, the band shows the
+// first FEATURED_MAX in the editor's order (the client's cap, Figma
+// 1908699278); the model's label says "up to 10".
 //
 // HOW THE LISTINGS GET HERE. Slices do not fetch. The slice's model is a Group
 // of content relationships whose `customtypes` entry names the fields to embed
@@ -31,6 +33,8 @@ import { linkResolver } from "$lib/prismicio";
 import { isListed, propertyHighlights } from "$lib/property";
 
 type FeaturedPick = Content.FeaturedPropertiesSliceDefaultPrimaryPropertiesItem;
+
+export const FEATURED_MAX = 10;
 
 export interface FeaturedSlide {
   /** The listing's document id — the slide's key. */
@@ -103,5 +107,5 @@ export function featuredListings(
     });
   }
 
-  return { slides, picked, unembedded };
+  return { slides: slides.slice(0, FEATURED_MAX), picked, unembedded };
 }

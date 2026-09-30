@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { featuredListings } from "./featured-properties";
+import { FEATURED_MAX, featuredListings } from "./featured-properties";
 import { featuredPickFixture, featuredPropertiesFixture } from "./home-fixture";
 
 // Which of an editor's picks reach the homepage's featured band, and — the part
@@ -126,6 +126,29 @@ describe("featuredListings", () => {
   it("survives an embed that carries no highlights group at all", () => {
     const { slides } = featuredListings([pick("a", { highlights: undefined })]);
     expect(slides[0].highlights).toEqual([]);
+  });
+
+  // The client's cap (Figma 1908699278): at most 10 SHOWN, so it counts only
+  // what survives the drops above, in the editor's order.
+  it("shows the first ten showable picks, skipping the unshowable before it counts", () => {
+    expect(FEATURED_MAX).toBe(10);
+    const picks = Array.from({ length: 12 }, (_, i) =>
+      pick(`p${i + 1}`, i === 2 ? { feature_image: {} } : {}),
+    );
+    const { slides, picked } = featuredListings(picks);
+    expect(slides.map((s) => s.title)).toEqual([
+      "p1",
+      "p2",
+      "p4",
+      "p5",
+      "p6",
+      "p7",
+      "p8",
+      "p9",
+      "p10",
+      "p11",
+    ]);
+    expect(picked).toBe(12);
   });
 
   it("is empty, not an error, for a slice whose group never arrived", () => {
