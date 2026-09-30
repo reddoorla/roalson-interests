@@ -68,6 +68,7 @@ const engine = vi.hoisted(() => {
     }
     on() {}
     addControl() {}
+    removeControl() {}
     getCanvas() {
       return this.canvas;
     }
@@ -1290,8 +1291,19 @@ describe("FeaturedProperties slice", () => {
       // is `sr-only` while the picture is up.
       for (const slice of [featuredPropertiesFixture(), featuredLaunchFixture()]) {
         const { container, unmount } = render(FeaturedProperties, { props: { slice } });
+        // And since 2026-09-29 a THIRD: the picture's own credit
+        // (`MAP_HOME_CREDIT`), the OpenMapTiles and OpenStreetMap licence
+        // links — asserted as exactly those two, so the exemption is a claim.
+        const credit = (l: Element) => l.closest("[data-map-home-credit]") !== null;
+        expect(
+          [...band(container).querySelectorAll("a")]
+            .filter(credit)
+            .map((l) => l.getAttribute("href")),
+          "the picture's credit",
+        ).toEqual(["https://www.openmaptiles.org/", "https://www.openstreetmap.org/copyright"]);
         const links = [...band(container).querySelectorAll("a")].filter(
-          (l) => !l.hasAttribute("data-map-link") && !l.hasAttribute("data-map-home-pin"),
+          (l) =>
+            !l.hasAttribute("data-map-link") && !l.hasAttribute("data-map-home-pin") && !credit(l),
         );
         expect(links.filter((l) => l.getAttribute("href") === "/properties")).toHaveLength(1);
         for (const link of links.filter((l) => l.getAttribute("href") !== "/properties")) {

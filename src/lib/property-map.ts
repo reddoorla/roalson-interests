@@ -211,7 +211,8 @@ export interface Camera {
  * `full` is the 1440 comp's 397 x 595 panel and its 512 x 827 band. They are
  * chosen by the container's MEASURED HEIGHT, not by a viewport media query,
  * because what makes a 22px pin right is a 200px-tall box — and a box the
- * expand affordance grows to the window is a full frame by the same rule.
+ * expand affordance grows to the window is framed by the same rule: full,
+ * unless the window is under COMPACT_MAX_HEIGHT tall.
  *
  * `pin` is the comp's box size S (`np_pin-map_4984332`, drawn at S=48 on every
  * 1440 map and S=22 on every 390 map).
@@ -267,6 +268,27 @@ export function frameFor(box: Box): MapFrame {
 export const MAP_MIN_ZOOM = 3;
 export const MAP_MAX_ZOOM = 16;
 export const MAP_ZOOM_STEP_MS = 300;
+
+/**
+ * HOW LONG A COMPACT MAP'S CREDIT SHOWS ITS WHOLE LINE before it collapses to
+ * MapLibre's (i) — unless the visitor pans, zooms or presses the map first,
+ * which collapses it at once. Operator's call, 2026-09-29, "option A".
+ *
+ * The number is not a taste. The OSMF attribution guidelines' safe harbour
+ * (https://osmfoundation.org/wiki/Licence/Attribution_Guidelines, read
+ * 2026-09-29) says the attribution "should not require individuals to
+ * interact with the map … to see the attribution", and lets an interactive
+ * map collapse it only "immediately with a dismiss interaction",
+ * "automatically on map interaction such as panning, clicking, or zooming",
+ * or "automatically after five seconds", with an "(i)" left to find it again.
+ * A compact map collapsed from its first frame met none of the three.
+ *
+ * The clock starts at MapLibre's `load` — the first frame, and the moment the
+ * canvas the credit lives on stops being transparent — and not at page load:
+ * a map is not booted until half of it is on screen (#103), so one scrolled
+ * to a minute later still shows its line for these five seconds.
+ */
+export const MAP_CREDIT_OPEN_MS = 5000;
 
 /** The ACTIVE listing's pin — the one whose card is garnet — drawn this many
  *  times the frame's pin, above its neighbours. Size, not motion, so it holds
@@ -347,7 +369,7 @@ export function markerDimmed(
  *  `satisfies` rather than an annotation: it keeps the literal types AND
  *  fails the build if a frame key is added to `MAP_FRAMES` without one. */
 export const MAP_HOME = HOME satisfies Record<MapFrame, HomeFrame>;
-export { MAP_HOME_FADE_MS, MAP_HOME_GROUND } from "./map-home";
+export { MAP_HOME_CREDIT, MAP_HOME_FADE_MS, MAP_HOME_GROUND } from "./map-home";
 export type { HomeCamera, HomeFrame } from "./map-home";
 
 /** One marker of the placeholder, positioned as an OFFSET FROM THE BOX'S

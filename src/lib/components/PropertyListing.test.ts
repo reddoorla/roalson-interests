@@ -60,12 +60,24 @@ describe("PropertyListing", () => {
     // this stays a statement about the CARDS: it used to read 4 and 2 by
     // counting everything, and would now read 8 and 4 for a reason that has
     // nothing to do with which listing got a link.
+    // …and, since 2026-09-29, the picture's own credit (`MAP_HOME_CREDIT`):
+    // the OpenMapTiles and OpenStreetMap licence links a picture of their data
+    // carries. The map's too, so not a card either — and asserted as exactly
+    // those two per map, so the exclusion cannot hide anything else.
+    const credit = (a: HTMLElement) => a.closest("[data-map-home-credit]") !== null;
     const cards = (el: HTMLElement) =>
       within(el)
         .getAllByRole("link")
-        .filter((a) => !a.hasAttribute("data-map-link"));
+        .filter((a) => !a.hasAttribute("data-map-link") && !credit(a));
     expect(cards(land!)).toHaveLength(4);
     expect(cards(improved!)).toHaveLength(2);
+    for (const section of [land!, improved!])
+      expect(
+        within(section)
+          .getAllByRole("link")
+          .filter(credit)
+          .map((a) => a.getAttribute("href")),
+      ).toEqual(["https://www.openmaptiles.org/", "https://www.openstreetmap.org/copyright"]);
     // Past Projects has no map either, so this stays an unqualified none.
     expect(within(past!).queryAllByRole("link")).toEqual([]);
   });

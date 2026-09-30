@@ -183,6 +183,7 @@ const engine = vi.hoisted(() => {
       this.handlers[name] = fn;
     }
     addControl() {}
+    removeControl() {}
     getCanvas() {
       return this.canvas;
     }
