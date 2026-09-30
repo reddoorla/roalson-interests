@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 
-import { expect, test, type Browser, type Page, type Route } from "@playwright/test";
+import { expect, test, type Browser, type Locator, type Page, type Route } from "@playwright/test";
+import sharp from "sharp";
 
 import { cameraAtRest, cameraProbeInstalled, watchCamera } from "./camera-probe";
 import { hydrated } from "./hydrated";
@@ -181,6 +182,101 @@ const focused = (page: Page) =>
     const what = a.getAttribute("data-map-control") ?? a.getAttribute("href") ?? a.className;
     return `${a.tagName} ${what}`;
   });
+
+/** What Chrome's accessibility tree says of the focused element. An
+ *  `aria-hidden` pin holding focus is `button` with the name "". */
+async function focusedAx(page: Page) {
+  const cdp = await page.context().newCDPSession(page);
+  try {
+    const held = await cdp.send("Runtime.evaluate", { expression: "document.activeElement" });
+    const { nodes } = await cdp.send("Accessibility.getPartialAXTree", {
+      objectId: held.result.objectId,
+      fetchRelatives: false,
+    });
+    const node = nodes[0]!;
+    return { role: node.role?.value, name: node.name?.value ?? "", ignored: node.ignored };
+  } finally {
+    await cdp.detach();
+  }
+}
+
+const luminance = ([r, g, b]: number[]) => {
+  const f = (c: number) => {
+    const s = c / 255;
+    return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * f(r!) + 0.7152 * f(g!) + 0.0722 * f(b!);
+};
+
+/** A FOCUS INDICATOR, IN PIXELS: the box round `target` keyboard-focused and
+ *  blurred, and every pixel that changed held against the one it covered.
+ *  `:focus-visible` alone stayed true with the pin's ring deleted, and with it
+ *  drawn off-white over the tiles (0 of 80 changed pixels at 3:1). A pin's
+ *  own drawing is left out, since its dim lifts on focus: what is left is the
+ *  ring. Shot again after focusing back; a map that changed in between (a
+ *  tile landing) is shot again rather than read as a ring. */
+async function indicatorOf(page: Page, target: Locator) {
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const at = await target.evaluate((el: HTMLElement) => {
+      el.focus({ preventScroll: true });
+      const box = el.closest("[data-property-map]")!.getBoundingClientRect();
+      const r = el.getBoundingClientRect();
+      const pad = 8;
+      const x = Math.max(Math.floor(r.left - pad), Math.ceil(box.left), 0);
+      const y = Math.max(Math.floor(r.top - pad), Math.ceil(box.top), 0);
+      const right = Math.min(Math.ceil(r.right + pad), Math.floor(box.right), innerWidth);
+      const bottom = Math.min(Math.ceil(r.bottom + pad), Math.floor(box.bottom), innerHeight);
+      const s = el.matches("[data-map-pin], [data-map-home-pin]")
+        ? el.querySelector("svg")!.getBoundingClientRect()
+        : null;
+      return {
+        showing: el.matches(":focus-visible"),
+        clip: { x, y, width: right - x, height: bottom - y },
+        drawing: s && {
+          l: s.left - x - 1,
+          t: s.top - y - 1,
+          r: s.right - x + 1,
+          b: s.bottom - y + 1,
+        },
+      };
+    });
+    expect(at.showing, "premise: a keyboard's focus").toBe(true);
+    const on = await page.screenshot({ clip: at.clip, scale: "css" });
+    await target.evaluate((el: HTMLElement) => el.blur());
+    const off = await page.screenshot({ clip: at.clip, scale: "css" });
+    await target.evaluate((el: HTMLElement) => el.focus({ preventScroll: true }));
+    const again = await page.screenshot({ clip: at.clip, scale: "css" });
+    if (!on.equals(again)) {
+      await page.waitForTimeout(300);
+      continue;
+    }
+    const [a, b] = await Promise.all(
+      [on, off].map((png) => sharp(png).removeAlpha().raw().toBuffer({ resolveWithObject: true })),
+    );
+    const { width } = a.info;
+    const ratios: number[] = [];
+    for (let i = 0, k = 0; i < a.data.length; i += 3, k++) {
+      const p = [a.data[i]!, a.data[i + 1]!, a.data[i + 2]!];
+      const q = [b.data[i]!, b.data[i + 1]!, b.data[i + 2]!];
+      if (Math.abs(p[0]! - q[0]!) + Math.abs(p[1]! - q[1]!) + Math.abs(p[2]! - q[2]!) <= 6)
+        continue;
+      const [px, py] = [k % width, Math.floor(k / width)];
+      const d = at.drawing;
+      if (d && px >= d.l && px <= d.r && py >= d.t && py <= d.b) continue;
+      const [hi, lo] = [luminance(p), luminance(q)].sort((m, n) => n - m);
+      ratios.push((hi! + 0.05) / (lo! + 0.05));
+    }
+    ratios.sort((m, n) => m - n);
+    const atThree = ratios.filter((c) => c >= 3).length;
+    const median = ratios.length ? Math.round(ratios[ratios.length >> 1]! * 100) / 100 : 0;
+    return {
+      /** At least 40 pixels at 3:1, and most of what changed. */
+      seen: atThree >= 40 && median >= 3,
+      numbers: `${atThree} of ${ratios.length} changed pixels at 3:1, median ${median}`,
+    };
+  }
+  throw new Error("the map never held still round the target for three shots in five attempts");
+}
 
 test.describe("the no-JS state is the content, not a blank box", () => {
   test("the server ships one Google Maps link per listing, on both pages", async ({ page }) => {
@@ -2306,17 +2402,19 @@ test.describe("the band's pin sheet", () => {
       }
     });
 
-  // CLOSING IT HANDS A KEYBOARD ON. The sheet is removed with whatever in it
-  // had focus, which dropped a keyboard to <body> — inside the overlay's
-  // dialog too. It goes back to the pin that opened the sheet, with its ring;
-  // a pointer's close goes there too, with none (and never to the list link,
-  // whose chip a focus draws).
+  // CLOSING IT HANDS FOCUS ON. The sheet is removed with whatever in it had
+  // focus, which dropped a keyboard to <body> — inside the overlay's dialog
+  // too. A keyboard goes to the listing's own link in the list: it has a name,
+  // and its chip is the ring. It went to the pin that opened the sheet, which
+  // is `aria-hidden` (a button with no name) and whose ring was off-white over
+  // the tiles, and a `:focus-visible` read passed both. A pointer's close goes
+  // to the pin, with no ring (a focus on the list link would draw its chip).
   for (const { width, height, expand } of [
     { width: 390, height: 844, expand: false },
     { width: 390, height: 844, expand: true },
     { width: 1440, height: 900, expand: false },
   ])
-    test(`the homepage band at ${width}${expand ? ", expanded" : ""}: ×, Escape and a pointer's × leave focus on the pin that opened the sheet`, async ({
+    test(`the homepage band at ${width}${expand ? ", expanded" : ""}: × and Escape hand a keyboard to the listing's named link, drawn at 3:1; a pointer's × leaves it on the pin`, async ({
       browser,
     }) => {
       const { context, page } = await at(browser, width, height);
@@ -2336,7 +2434,7 @@ test.describe("the band's pin sheet", () => {
             return {
               pin: a?.getAttribute("data-map-pin") ?? null,
               ring: !!a?.matches(":focus-visible"),
-              listLink: !!a?.matches("[data-map-link]"),
+              listLink: a?.matches("[data-map-link]") ? a.textContent!.trim() : null,
               inside: !!a && el.contains(a),
               dialog: el.getAttribute("role"),
             };
@@ -2346,7 +2444,9 @@ test.describe("the band's pin sheet", () => {
         const close = sheet.locator("button");
 
         for (const how of ["× and Enter", "Escape"] as const) {
-          const id = await openSheet(page);
+          await openSheet(page);
+          const title = (await sheet.locator("p").first().textContent())!.trim();
+          const named = new RegExp(`^${title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`);
           // A keyboard in the sheet: Tab from its first link, so the focus is
           // the keyboard's (a ring), not the pointer's that opened it.
           await sheet.locator("a").first().focus();
@@ -2357,15 +2457,24 @@ test.describe("the band's pin sheet", () => {
             await page.keyboard.press("Enter");
           }
           await expect(sheet, `${how} closes it`).toHaveCount(0);
-          expect(await holder(), `${how}: the pin that opened it (${await focused(page)})`).toEqual(
-            {
-              pin: id,
-              ring: true,
-              listLink: false,
-              inside: true,
-              dialog,
-            },
+          expect(await holder(), `${how}: the listing's link (${await focused(page)})`).toEqual({
+            pin: null,
+            ring: true,
+            listLink: expect.stringMatching(named),
+            inside: true,
+            dialog,
+          });
+          expect(await focusedAx(page), `${how}: what a screen reader hears`).toEqual({
+            role: "link",
+            name: expect.stringMatching(named),
+            ignored: false,
+          });
+          const n = await map.evaluate((el) =>
+            [...el.querySelectorAll("[data-map-link]")].indexOf(document.activeElement!),
           );
+          const shown = await indicatorOf(page, map.locator("[data-map-link]").nth(n));
+          console.log(`${width}${expand ? " expanded" : ""}, ${how}: its chip, ${shown.numbers}`);
+          expect(shown.seen, `${how}: its chip, ${shown.numbers}`).toBe(true);
         }
 
         const id = await openSheet(page);
@@ -2374,10 +2483,157 @@ test.describe("the band's pin sheet", () => {
         expect(await holder(), `a pointer's ×: the pin, no ring (${await focused(page)})`).toEqual({
           pin: id,
           ring: false,
-          listLink: false,
+          listLink: null,
           inside: true,
           dialog,
         });
+      } finally {
+        await context.close();
+      }
+    });
+
+  // EVERY FOCUS ON THE BAND'S MAP CAN BE SEEN. The root's `bg-dark` handed an
+  // off-white ring to all that is drawn on the tiles or on sand (the pins, the
+  // picture's pins, the sheet, both credits), and the root's `overflow-hidden`
+  // clipped the canvas's whole ring. Each target is measured in pixels, and
+  // each state names the kinds it must reach, so a selector that stops
+  // matching goes red instead of measuring fewer.
+  for (const { width, height, expand, picture, kinds } of [
+    {
+      width: 390,
+      height: 844,
+      expand: false,
+      picture: false,
+      kinds: ["canvas", "control", "credit (i)", "list link", "pin", "sheet link", "sheet ×"],
+    },
+    {
+      width: 390,
+      height: 844,
+      expand: true,
+      picture: false,
+      kinds: ["canvas", "control", "credit link", "list link", "pin", "sheet link", "sheet ×"],
+    },
+    {
+      width: 1440,
+      height: 900,
+      expand: false,
+      picture: false,
+      kinds: ["canvas", "control", "credit link", "list link", "pin", "sheet link", "sheet ×"],
+    },
+    {
+      width: 390,
+      height: 844,
+      expand: false,
+      picture: true,
+      kinds: ["control", "credit link", "list link", "picture pin"],
+    },
+  ])
+    test(`the homepage band at ${width}${expand ? ", expanded" : ""}${picture ? ", its picture" : ", a sheet open"}: every focus on the map is drawn at 3:1 against what it covers`, async ({
+      browser,
+    }) => {
+      const { context, page } = await at(browser, width, height);
+      try {
+        // No style, no `load`: the picture stays up.
+        if (picture) await page.route(/\/map-style\.json/, (route) => route.abort());
+        await page.goto(LIVE_HOME);
+        await hydrated(page);
+        const map = page.locator(MAP).first();
+        await map.scrollIntoViewIfNeeded();
+        if (picture) await expect(map.locator("[data-map-home-pin]:visible").first()).toBeVisible();
+        else {
+          await drawn(page);
+          if (expand) {
+            await map.locator("[data-map-expand]").click();
+            await expect(map).toHaveAttribute("data-expanded", "true");
+          }
+          await openSheet(page);
+        }
+        await page.keyboard.press("Shift");
+        const targets = await map.evaluate((root) => {
+          const box = root.getBoundingClientRect();
+          const DRAWN_OVER =
+            "[data-map-sheet], [data-map-controls], .maplibregl-ctrl, [data-map-home-credit]";
+          const MARKER = "[data-map-pin], [data-map-cluster], [data-map-home-pin]";
+          // A marker whose ring's box is in the map and under nothing else.
+          const clear = (el: Element) => {
+            const r = (el.querySelector("svg") ?? el).getBoundingClientRect();
+            return [
+              [r.left - 5, r.top - 5],
+              [r.right + 5, r.top - 5],
+              [r.left - 5, r.bottom + 5],
+              [r.right + 5, r.bottom + 5],
+            ].every(([x, y]) => {
+              if (x! < box.left || x! > box.right || y! < box.top || y! > box.bottom) return false;
+              const hit = document.elementFromPoint(x!, y!);
+              return (
+                !!hit &&
+                root.contains(hit) &&
+                !hit.closest(DRAWN_OVER) &&
+                (!hit.closest(MARKER) || hit.closest(MARKER) === el)
+              );
+            });
+          };
+          const out: { kind: string; label: string; n: number }[] = [];
+          const one = new Set(["list link", "pin", "cluster", "picture pin"]);
+          root
+            .querySelectorAll<HTMLElement>("a[href], button, summary, [tabindex]")
+            .forEach((el, n) => {
+              if ((el as HTMLButtonElement).disabled || el.closest("[inert]")) return;
+              const kind = el.matches("[data-map-link]")
+                ? "list link"
+                : el.tagName === "CANVAS"
+                  ? "canvas"
+                  : el.matches("[data-map-pin]")
+                    ? "pin"
+                    : el.matches("[data-map-cluster]")
+                      ? "cluster"
+                      : el.matches("[data-map-home-pin]")
+                        ? "picture pin"
+                        : el.closest("[data-map-sheet]")
+                          ? el.tagName === "BUTTON"
+                            ? "sheet ×"
+                            : "sheet link"
+                          : el.tagName === "SUMMARY"
+                            ? "credit (i)"
+                            : el.closest(".maplibregl-ctrl-attrib, [data-map-home-credit]")
+                              ? "credit link"
+                              : el.matches("[data-map-control]")
+                                ? "control"
+                                : "other";
+              if (kind !== "list link") {
+                if (!el.checkVisibility({ visibilityProperty: true })) return;
+                const r = el.getBoundingClientRect();
+                if (r.right <= box.left || r.left >= box.right) return;
+                if (r.bottom <= box.top || r.top >= box.bottom) return;
+              }
+              if (
+                one.has(kind) &&
+                (out.some((t) => t.kind === kind) || (kind !== "list link" && !clear(el)))
+              )
+                return;
+              el.setAttribute("data-focus-target", String(n));
+              const name =
+                el.getAttribute("aria-label") ??
+                el.getAttribute("data-map-pin") ??
+                el.getAttribute("data-map-home-pin") ??
+                el.textContent;
+              out.push({ kind, label: `${kind} ${(name ?? "").trim().slice(0, 24)}`, n });
+            });
+          return out;
+        });
+        expect(
+          kinds.filter((k) => !targets.some((t) => t.kind === k)),
+          `premise: every kind reached (${targets.map((t) => t.label).join(", ")})`,
+        ).toEqual([]);
+        const unseen: string[] = [];
+        for (const t of targets) {
+          const shown = await indicatorOf(page, map.locator(`[data-focus-target="${t.n}"]`));
+          console.log(`${t.label}: ${shown.numbers}`);
+          if (!shown.seen) unseen.push(`${t.label}: ${shown.numbers}`);
+        }
+        expect(unseen).toEqual([]);
+        if (picture)
+          expect(await map.getAttribute("data-map-ready"), "premise: never drawn").toBeNull();
       } finally {
         await context.close();
       }
@@ -2423,10 +2679,19 @@ test.describe("the band's pin sheet", () => {
           } else {
             await openSheet(page);
             title = await map.locator("[data-map-sheet] p").first().textContent();
-            await map.locator("[data-map-sheet] a").first().focus();
-            await page.keyboard.press("Tab");
-            // Escape puts it on the pin, with its ring (the case above).
-            if (from === "a pin") await page.keyboard.press("Escape");
+            if (from === "a pin") {
+              // The press focused the pin; a key makes that focus a keyboard's.
+              await page.keyboard.press("Shift");
+              expect(
+                await page.evaluate(() =>
+                  document.activeElement?.matches("[data-map-pin]:focus-visible"),
+                ),
+                "premise: a keyboard's focus on the pin",
+              ).toBe(true);
+            } else {
+              await map.locator("[data-map-sheet] a").first().focus();
+              await page.keyboard.press("Tab");
+            }
           }
           const before = await focused(page);
           expect(await map.getAttribute("data-map-locked"), "premise: unlocked").toBeNull();
