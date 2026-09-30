@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex" />
+    <title>Ken Burns test</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 16px;
+        font:
+          14px/1.4 system-ui,
+          sans-serif;
+        background: #f3f1ef;
+        color: #3d0707;
+      }
+      .controls {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        background: #f3f1ef;
+        padding: 8px 0 12px;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        align-items: center;
+      }
+      button {
+        font: inherit;
+        padding: 6px 10px;
+        border: 1px solid #652323;
+        background: #fff;
+        color: #652323;
+        cursor: pointer;
+      }
+      button[aria-pressed="true"] {
+        background: #652323;
+        color: #fff;
+      }
+      .bar {
+        width: 240px;
+        height: 4px;
+        background: #ddd;
+        position: relative;
+        overflow: hidden;
+      }
+      .bar > div {
+        position: absolute;
+        inset: 0;
+        background: #652323;
+        transform-origin: left;
+        transform: scaleX(0);
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+        gap: 16px;
+      }
+      figure {
+        margin: 0;
+      }
+      figcaption {
+        margin-top: 6px;
+      }
+      .box {
+        aspect-ratio: 928 / 542;
+        overflow: hidden;
+        background: #ccc;
+      }
+      .box img {
+        display: block;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+      @keyframes kb6 {
+        from {
+          transform: scale(1);
+        }
+        to {
+          transform: scale(1.06);
+        }
+      }
+      @keyframes kb6r {
+        from {
+          transform: scale(1) rotate(0.02deg);
+        }
+        to {
+          transform: scale(1.06) rotate(0.02deg);
+        }
+      }
+      @keyframes kb6z {
+        from {
+          transform: translateZ(0) scale(1);
+        }
+        to {
+          transform: translateZ(0) scale(1.06);
+        }
+      }
+      @keyframes kb12r {
+        from {
+          transform: scale(1) rotate(0.02deg);
+        }
+        to {
+          transform: scale(1.12) rotate(0.02deg);
+        }
+      }
+      .a img {
+        will-change: transform;
+        animation: kb6 8s linear infinite alternate;
+      }
+      .b img {
+        will-change: transform;
+        animation: kb6r 8s linear infinite alternate;
+      }
+      .c img {
+        will-change: transform;
+        animation: kb6z 8s linear infinite alternate;
+      }
+      .d img {
+        animation: kb6 8s linear infinite alternate;
+      }
+      .e img {
+        will-change: transform;
+        animation: kb12r 8s linear infinite alternate;
+      }
+    </style>
+    <script src="/kb-test.js" defer></script>
+  </head>
+  <body>
+    <div class="controls">
+      <button id="bar" aria-pressed="false">Progress bar loop (like the band)</button>
+      <button id="busy" aria-pressed="false">Busy main thread (+12ms a frame)</button>
+      <div class="bar" aria-hidden="true"><div id="fill"></div></div>
+      <span id="fps"></span>
+    </div>
+    <div class="grid">
+      <figure class="a">
+        <div class="box">
+          <img
+            alt=""
+            src="https://images.prismic.io/roalson-interests/u2QeymHWG2R4jRTM_25331-ih-10-west.jpg?auto=format%2Ccompress&w=1920"
+          />
+        </div>
+        <figcaption><b>A</b> — PR #212 as built: scale 1 → 1.06 over 8s, will-change</figcaption>
+      </figure>
+      <figure class="b">
+        <div class="box">
+          <img
+            alt=""
+            src="https://images.prismic.io/roalson-interests/u2QeymHWG2R4jRTM_25331-ih-10-west.jpg?auto=format%2Ccompress&w=1920"
+          />
+        </div>
+        <figcaption><b>B</b> — A + rotate(0.02deg)</figcaption>
+      </figure>
+      <figure class="c">
+        <div class="box">
+          <img
+            alt=""
+            src="https://images.prismic.io/roalson-interests/u2QeymHWG2R4jRTM_25331-ih-10-west.jpg?auto=format%2Ccompress&w=1920"
+          />
+        </div>
+        <figcaption><b>C</b> — A as a 3D transform (translateZ(0))</figcaption>
+      </figure>
+      <figure class="d">
+        <div class="box">
+          <img
+            alt=""
+            src="https://images.prismic.io/roalson-interests/u2QeymHWG2R4jRTM_25331-ih-10-west.jpg?auto=format%2Ccompress&w=1920"
+          />
+        </div>
+        <figcaption><b>D</b> — A without will-change</figcaption>
+      </figure>
+      <figure class="e">
+        <div class="box">
+          <img
+            alt=""
+            src="https://images.prismic.io/roalson-interests/u2QeymHWG2R4jRTM_25331-ih-10-west.jpg?auto=format%2Ccompress&w=1920"
+          />
+        </div>
+        <figcaption><b>E</b> — B at 1.12 (twice as far again)</figcaption>
+      </figure>
+    </div>
+  </body>
+</html>
