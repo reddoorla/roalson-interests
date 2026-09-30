@@ -68,6 +68,7 @@ const engine = vi.hoisted(() => {
     }
     on() {}
     addControl() {}
+    removeControl() {}
     getCanvas() {
       return this.canvas;
     }
