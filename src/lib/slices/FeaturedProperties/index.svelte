@@ -20,16 +20,39 @@
   export const DWELL = 8000;
 
   /** How far the photo travels across its own dwell, as one CSS transition
-   *  (see `zoom` below): 1.00 → 1.03.
-   *  On the 928 × 542 box that is 27.8px of extra width and 16.3px of height,
-   *  13.9 / 8.1 of it clipped off each edge.
+   *  (see `zoom` below): 1.00 → 1.06. Operator, 2026-09-29, after the drift
+   *  became one transition (#204): "the ken burns still feels stuttery" …
+   *  "being too slow may be the answer, let's speed it up. ideally we aren't
+   *  moving by fractions of pixels". It was 0.03 — half this speed — from the
+   *  day the dwell doubled until then.
    *
-   *  THE AMPLITUDE WAS KEPT WHEN THE DWELL DOUBLED, SO THE DRIFT IS HALF AS
-   *  FAST: 27.8px of width over 8000ms is 3.5px a second, where over 4000ms it
-   *  was 7. That matches "it feels like we're rushing", and it is a call the
-   *  operator can reverse — 0.06 here is the old speed over the new dwell, at
-   *  twice the zoom (55.7 × 32.5px). */
-  export const KEN_BURNS = 0.03;
+   *  STILL FRACTIONS OF A PIXEL, AND FOR A ZOOM THAT IS UNAVOIDABLE. On the
+   *  928 × 542 box the photo gains 55.7px of width over DWELL, so each edge
+   *  moves 27.8px across the dwell, ~3.5px a second: ~0.058px a frame at
+   *  60Hz, ~0.029 at 120Hz. A whole pixel a frame would be ~60px a second at
+   *  each edge, ~480px over the dwell. Smooth sub-pixel motion is the GPU's
+   *  job instead — see TILT_DEG, and `will-change` in `zoom`. */
+  export const KEN_BURNS = 0.06;
+
+  /** A rotation too small to see, in EVERY Ken Burns state (`zoom`), for
+   *  FIREFOX. Measured by the operator on 2026-09-30, in Firefox, on a
+   *  comparison page: scale 1 → 1.06 over 8s with `will-change` "ticks"
+   *  ("feels like it's calculating every tick rather than interpolating");
+   *  the same with rotate(0.02deg) at BOTH ends is smooth, and so is 1.12
+   *  with it. A translateZ(0) variant and a no-will-change one still ticked.
+   *  The accepted explanation: an axis-aligned scale lets Firefox's renderer
+   *  snap the photo to whole device pixels each frame, and a transform that
+   *  is not axis-aligned is resampled with filtering instead. 0.02deg is
+   *  0.32px of skew across the 928px box.
+   *
+   *  NOT ANY SMALL ANGLE — read in Firefox's source, not measured (there is
+   *  no Firefox in the build container): WebRender's
+   *  `ScaleOffset::from_transform` (gfx/wr/webrender_api/src/fast_transform.rs)
+   *  takes a matrix whose off-diagonal terms are within 1/4096 of zero for a
+   *  plain scale. sin(0.02deg) is 1.43 times that; under 0.014deg is nothing
+   *  to it. So the tilt must never be interpolated up from 0 either — see
+   *  `primed`, below. */
+  export const TILT_DEG = 0.02;
 </script>
 
 <script lang="ts">
@@ -124,6 +147,9 @@
    *  both sides claimed was real did not exist and tuning either one would
    *  have silently broken it. */
   const DISSOLVE = CAMERA_FLIGHT_MS;
+
+  /** The srcset's widths: the defaults and 2048 (see `photoSizes`). */
+  const PHOTO_WIDTHS = [...DEFAULT_IMAGE_WIDTHS, 2048].sort((a, b) => a - b);
 
   /** The card's scroll reveal: 24px and 600ms, not the action's 50% / 2400ms.
    *  `delayMax: 0` because the default 400 is multiplied by the element's
@@ -274,7 +300,7 @@
   // text fades THROUGH (out, then in): two listings' words overlaid are noise.
   // Under reduced motion app.css zeroes every duration and delay: a plain swap.
   // On top of that the incoming text arrives in FOUR staggered lines and the
-  // photo drifts 1.00 → 1.03 across its dwell — see `lines` and `zoom` below.
+  // photo drifts 1.00 → 1.06 across its dwell — see `lines` and `zoom` below.
   //
   // AN OFF-STAGE SLIDE LEAVES THE STACK when the dissolve is over — `invisible`
   // on the slide itself, delayed by exactly the 500 it takes. Two reasons, and
@@ -358,30 +384,98 @@
   //    time, and the dissolve's fresh ones on the next frame (766ms later, at
   //    worst, at 4x CPU throttle), so a reset at 500, then at 1000, fired in
   //    view; at DWELL, a photo brought back sooner drifted on from its held
-  //    value — two seconds after a clock turn, 1.02994 to 1.03: a still photo.
+  //    value — two seconds after a clock turn, 1.02994 to 1.03 (KEN_BURNS was
+  //    0.03 then): a still photo.
   //  - NOT `eligible` (reduced motion, one listing) OR NOT HYDRATED: no style
   //    at all. Under reduced motion app.css cuts every transition to 0.01ms,
-  //    which would SNAP a declared 1.03 and hold it; and a 1.03 in the
-  //    server's markup would be the photo's first style, with nothing for a
-  //    transition to start from.
+  //    which would SNAP a declared end scale and hold it; and an end scale in
+  //    the server's markup would be the photo's first style, with nothing for
+  //    a transition to start from. Nor before `primed` (below).
+  //  - EVERY STATE CARRIES THE SAME TILT, in the same place — `rotate(TILT_DEG)`
+  //    after the scale, through `tilted` — so every transition runs between
+  //    two lists of the same functions: the scale moves and the rotation is
+  //    TILT_DEG on every frame (see TILT_DEG: Firefox, operator, 2026-09-30).
+  //    A state without it would interpolate the rotation to or from 0.
+  //  - `will-change: transform` on every photo that can drift, and only
+  //    there (`LAYER`), for Firefox: it keeps the photo on its own compositor
+  //    layer. It was meant to have each sub-pixel step filtered on the GPU
+  //    rather than re-rasterised; in the operator's Firefox (2026-09-30) the
+  //    drift still ticked with it alone, and stopped only with the tilt — on
+  //    a comparison page whose photos carried it from load, so here too it
+  //    is on before a drift starts and for all of it. In headless Chromium,
+  //    1440 × DPR 2, it changed no layer and no pixel of the drift.
+  //  - AND OFF A PHOTO WHOSE DRIFT HAS ENDED ON STAGE (`ended`), which is the
+  //    trade. A layer with will-change keeps the raster it was first drawn
+  //    at, so in Chromium the drift's end frame is its start raster stretched
+  //    by 1 + KEN_BURNS — and a photo HELD there stayed that soft for as long
+  //    as it was held, never re-sharpening: a visitor's turn, whose drift
+  //    runs to its end with the clock stopped by the arrow's focus, and
+  //    #156's Play after that. Mean |Laplacian| of the photo Next brings on
+  //    from load, held, 1440 × DPR 2, on the production build: 12.3838 on
+  //    the layer against 14.9699 off it — 17% less, the same at 1, 2 and 3s
+  //    after the end (featured-band-live.spec.ts; #212's review measured
+  //    7.678 against 9.3835 with its own probe). Without will-change
+  //    Chromium re-rasters once the transition ends (~150ms, the review
+  //    measured), and that one re-sharpening, on a photo that has stopped
+  //    moving, is the price. So the on-stage photo's own `transitionend` on
+  //    `transform` drops it (a Pause does not: a paused transition has not
+  //    ended), and it comes back when the photo RESTS, hidden, before its
+  //    next drift — not when that drift is written, because the turn's first
+  //    render runs before the effect below records the turn. A photo brought
+  //    back while it still shows after its drift ended is already at
+  //    1 + KEN_BURNS: nothing drifts, and it stays off.
   // What the script did and this does not, on purpose ("overbuilt"): keep the
   // photo on the bar's clock frame for frame (both wait the settle and run
   // DWELL, so they agree to within frames, not by construction), stop for a
   // hidden tab, hand a visitor's drift to the clock on Play, and park each
   // photo at the value it left with until it is next shown. Never on the
   // wrapper: its transition-duration is the comp's 0.5s dissolve.
+  const LAYER = "will-change: transform";
+
+  // THE PHOTO IS FETCHED FOR THE WIDTH IT IS DRAWN AT, AT THE END OF ITS
+  // DRIFT. `sizes` said 65vw — the box — and at 1440 × DPR 2 Chromium took
+  // the 1920 candidate for a photo drawn 927 × 1.06 × 2 = 1965.2 device px
+  // wide at the end: upscaled, and softer through the whole drift, not only
+  // at its end (mean |Laplacian| of the composited photo frozen at 1.03,
+  // headless Chromium at 1440 × DPR 2: 6.66 from 1920, 8.35 from 2048, 9.67
+  // from 2560; 9.82 for a still, never-composited 1920). So `sizes` is the
+  // box times the end scale (none on a one-listing band, which never
+  // drifts), times how far an image wider than the box overflows it under
+  // object-cover: a 1717 × 866 photo is drawn 1073.6 wide in a 927 box, and
+  // at DPR 1 it was fetched at 1024. Reduced motion cannot be known in the
+  // server's markup, so it pays the 6% too.
+  //
+  // 2048 BESIDE THE DEFAULTS because Chromium takes the smallest candidate at
+  // least as dense as the screen: at 1440–1470 × DPR 2 the end frame needs
+  // 1965–2006px, which 1920 misses and 2560 overshoots — 191 KB of AVIF at
+  // 2048 against 172 at 1920 and 268 at 2560. cappedWidths still stops at the
+  // source's own width.
+  const BOX = 928 / 542;
+  const photoSizes = ({ width, height }: { width: number; height: number }) => {
+    const drawn = (carousel.enabled ? 1 + KEN_BURNS : 1) * Math.max(1, width / height / BOX);
+    const vw = (n: number) => +(n * drawn).toFixed(2);
+    return `(min-width: 1024px) ${vw(65)}vw, ${vw(100)}vw`;
+  };
   const resting: boolean[] = $state([]);
+  /** The photo's drift ran to its end ON STAGE, and it has not rested since:
+   *  it is held still, so it carries no `LAYER`. */
+  const ended: boolean[] = $state([]);
   let shown = carousel.index;
   let turned = false;
+  let primed = $state(false);
+  /** A photo's transform at `scale`, tilted: the one function list every
+   *  state below is written in. */
+  const tilted = (scale: number) => `transform: scale(${scale}) rotate(${TILT_DEG}deg)`;
   const zoom = (i: number) => {
-    if (!carousel.hydrated || !carousel.eligible) return undefined;
+    if (!carousel.hydrated || !carousel.eligible || !primed) return undefined;
+    const layer = ended[i] ? "" : `${LAYER}; `;
     if (carousel.isActive(i)) {
       const delay = turned || i !== shown ? carousel.settle : 0;
-      return `transform: scale(${1 + KEN_BURNS}); transition: transform ${DWELL}ms linear ${delay}ms`;
+      return `${layer}${tilted(1 + KEN_BURNS)}; transition: transform ${DWELL}ms linear ${delay}ms`;
     }
     return resting[i]
-      ? "transform: scale(1); transition: none"
-      : `transform: scale(1); transition: transform 0ms linear ${DWELL}ms`;
+      ? `${layer}${tilted(1)}; transition: none`
+      : `${layer}${tilted(1)}; transition: transform 0ms linear ${DWELL}ms`;
   };
 
   // PAUSE FREEZES THE DRIFT AND PLAY RESUMES IT (WCAG 2.2.2), through the
@@ -406,6 +500,52 @@
     for (const animation of photos[i]?.getAnimations?.() ?? [])
       if (paused) animation.pause();
       else animation.play();
+  });
+
+  // THE TILT IS IN PLACE BEFORE THE FIRST STYLE IS WRITTEN, or the first
+  // transitions interpolate it up from nothing. The server's markup carries
+  // no style, so at hydration every photo's transform is `none`, and a
+  // transition from `none` to `scale(1.06) rotate(0.02deg)` turns the photo
+  // 0 → TILT_DEG across the whole DWELL — under WebRender's 1/4096 (see
+  // TILT_DEG) until 5378ms in, so the first listing would tick in Firefox
+  // for two thirds of its dwell. The photos held off stage at load were the
+  // same: `none` through their DWELL-long hold, so the first clock turn
+  // brought its photo on from `none` too. MEASURED in headless Chromium with
+  // the write and the read below removed: slide 1 at 0deg on the frame its
+  // drift started and 0.0000417deg (b = 7.3e-7) 16.7ms in; the photo the
+  // first clock turn brought on at 0.0055deg (b = 9.7e-5) a second into its
+  // drift. So each photo is given its tilted rest here, and only then does
+  // `zoom` write anything; its first write replaces the whole style
+  // attribute, this transform with it. Again after reduced motion is turned
+  // off, which drops every photo back to no style.
+  //
+  // THE READ IS WHAT GUARANTEES THE BROWSER SAW THE REST before the drift
+  // replaced it: without a style resolution between the two writes they are
+  // one style change, and the transition starts from `none` as though the
+  // rest had never been written. On this page something else in the same
+  // flush happens to resolve style first — with the read removed, slide 1
+  // still read 0.02deg on every frame of its first dwell (Chromium,
+  // 2026-09-30) — so no browser test can tell the read is there. It stays so
+  // that the priming does not depend on what else hydrates alongside it;
+  // FeaturedProperties.test.ts pins the order.
+  $effect(() => {
+    if (!carousel.hydrated || !carousel.eligible) {
+      primed = false;
+      return;
+    }
+    if (primed) return;
+    // `if`: a slide removed in a Prismic preview leaves its binding null.
+    // On its layer from here, so the first slide's drift (0ms delay, written
+    // in the same flush) starts on a photo already carrying it, as every
+    // later drift does and as the operator's Firefox comparison page did.
+    for (const photo of photos)
+      if (photo) {
+        photo.style.cssText = `${LAYER}; ${tilted(1)}`;
+        getComputedStyle(photo).getPropertyValue("transform");
+      }
+    // Every photo starts again from its rest, so none has ended a drift.
+    ended.length = 0;
+    primed = true;
   });
 </script>
 
@@ -529,7 +669,7 @@
 
         {#each slides as slide, i (slide.id)}
           {@const active = carousel.isActive(i)}
-          {@const widths = cappedWidths(slide.image, DEFAULT_IMAGE_WIDTHS)}
+          {@const widths = cappedWidths(slide.image, PHOTO_WIDTHS)}
           <div
             {...carousel.slide(i)}
             data-featured-slide
@@ -556,14 +696,16 @@
               class="col-span-full row-start-1 aspect-[928/542] overflow-hidden bg-background
                 {active ? fade.photoIn : fade.photoOut}"
               ontransitionend={(e) => {
-                if (e.target === e.currentTarget && e.propertyName === "opacity" && !active)
+                if (e.target === e.currentTarget && e.propertyName === "opacity" && !active) {
                   resting[i] = true;
+                  ended[i] = false;
+                }
               }}
             >
               <img
                 src={imgix(slide.image.url, { w: Math.min(1920, Math.max(...widths)) })}
                 srcset={srcset(slide.image.url, widths)}
-                sizes="(min-width: 1024px) 65vw, 100vw"
+                sizes={photoSizes(slide.image.dimensions)}
                 width={slide.image.dimensions.width}
                 height={slide.image.dimensions.height}
                 alt={slide.image.alt ?? ""}
@@ -572,6 +714,10 @@
                 data-featured-photo
                 bind:this={photos[i]}
                 style={zoom(i)}
+                ontransitionend={(e) => {
+                  if (e.target === e.currentTarget && e.propertyName === "transform" && active)
+                    ended[i] = true;
+                }}
                 class="size-full object-cover"
               />
             </div>

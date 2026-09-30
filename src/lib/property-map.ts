@@ -292,7 +292,9 @@ export const MAP_CREDIT_OPEN_MS = 5000;
 
 /** The ACTIVE listing's pin — the one whose card is garnet — drawn this many
  *  times the frame's pin, above its neighbours. Size, not motion, so it holds
- *  under reduced motion; the fill stays garnet (>= 3:1 on the map ground). */
+ *  under reduced motion; the fill stays garnet (>= 3:1 on the map ground).
+ *  It is a transform about the pin's tip that eases on the dim's clock, and
+ *  in one frame under reduced motion (PropertyMap's "THE ACTIVE PIN GROWS"). */
 export const ACTIVE_PIN_SCALE = 1.5;
 
 /**

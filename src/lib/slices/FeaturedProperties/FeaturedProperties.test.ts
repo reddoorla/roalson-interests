@@ -12,7 +12,7 @@ import {
 } from "$lib/home-fixture";
 import { CAMERA_FLIGHT_MS } from "$lib/property-map";
 import { components } from "$lib/slices";
-import FeaturedProperties, { DWELL, KEN_BURNS } from "./index.svelte";
+import FeaturedProperties, { DWELL, KEN_BURNS, TILT_DEG } from "./index.svelte";
 
 // THE ENGINE, for the one block below that boots the band's map: a fake that
 // keeps maplibre's navigation handlers as real on/off state, so the band's
@@ -193,7 +193,11 @@ describe("FeaturedProperties slice", () => {
       expect(images).toHaveLength(3);
       for (const img of images) {
         expect(img.getAttribute("loading")).toBe("lazy");
-        expect(img.getAttribute("sizes")).toBe("(min-width: 1024px) 65vw, 100vw");
+        // The box at the drift's end scale: see "fetched for the width it is
+        // drawn at" below.
+        expect(img.getAttribute("sizes")).toBe(
+          `(min-width: 1024px) ${+(65 * (1 + KEN_BURNS)).toFixed(2)}vw, ${+(100 * (1 + KEN_BURNS)).toFixed(2)}vw`,
+        );
         expect(img.className).toContain("object-cover");
         expect(img.parentElement!.className).toContain("aspect-[928/542]");
         // Intrinsic size on the element: the box is reserved before the bytes land.
@@ -342,16 +346,28 @@ describe("FeaturedProperties slice", () => {
     // leaves and freezes on Pause is featured-properties.spec.ts's, in
     // Chromium.
 
+    /** Every photo that can drift is on its own compositor layer in each of
+     *  the four states below — until its drift has ENDED on stage, and from
+     *  then until it rests (`ENDED`, `ENDED_OFF`; see `LAYER` in the slice). */
+    const LAYER = "will-change: transform;";
+    /** Every state's transform: the scale, then the SAME tilt, so each
+     *  transition runs between two lists of the same functions and never
+     *  turns the photo (see TILT_DEG in the slice: Firefox, 2026-09-30). */
+    const at = (scale: number) => `transform: scale(${scale}) rotate(${TILT_DEG}deg);`;
     /** The photo a turn brings on: to 1 + KEN_BURNS over DWELL, linear,
      *  after the settle — which is the camera's flight, read from its own
      *  module. */
-    const ON_STAGE = `transform: scale(${1 + KEN_BURNS}); transition: transform ${DWELL}ms linear ${CAMERA_FLIGHT_MS}ms;`;
+    const ON_STAGE = `${LAYER} ${at(1 + KEN_BURNS)} transition: transform ${DWELL}ms linear ${CAMERA_FLIGHT_MS}ms;`;
     /** The first slide's: nothing to arrive, so no settle — as the bar. */
-    const FIRST = `transform: scale(${1 + KEN_BURNS}); transition: transform ${DWELL}ms linear 0ms;`;
+    const FIRST = `${LAYER} ${at(1 + KEN_BURNS)} transition: transform ${DWELL}ms linear 0ms;`;
     /** A photo that left: held at its start value by a whole DWELL's delay… */
-    const OFF_STAGE = `transform: scale(1); transition: transform 0ms linear ${DWELL}ms;`;
+    const OFF_STAGE = `${LAYER} ${at(1)} transition: transform 0ms linear ${DWELL}ms;`;
     /** …until its wrapper's fade-out ENDS, and then at rest, hidden. */
-    const RESTING = "transform: scale(1); transition: none;";
+    const RESTING = `${LAYER} ${at(1)} transition: none;`;
+    /** ON_STAGE once its drift has run to its end: held still, no layer. */
+    const ENDED = `${at(1 + KEN_BURNS)} transition: transform ${DWELL}ms linear ${CAMERA_FLIGHT_MS}ms;`;
+    /** OFF_STAGE for a photo that left after its drift had ended. */
+    const ENDED_OFF = `${at(1)} transition: transform 0ms linear ${DWELL}ms;`;
     const photosOf = (container: HTMLElement) => [
       ...container.querySelectorAll<HTMLElement>("[data-featured-photo]"),
     ];
@@ -375,6 +391,40 @@ describe("FeaturedProperties slice", () => {
       for (const photo of photosOf(container)) {
         expect(photo.parentElement!.getAttribute("style")).toBeNull();
         expect(photo.className).not.toContain("transition");
+      }
+    });
+
+    it("resolves every photo at its TILTED REST before the first drift is written, so none turns up from 0", () => {
+      // The server's markup has no style, so without this the first drift
+      // (and every hold at load) starts from `none`, and a transition from
+      // `none` interpolates the tilt 0 → TILT_DEG across the dwell — below
+      // Firefox's threshold for two thirds of it (see `primed` in the slice).
+      // What is pinned here is the ORDER: each photo carries its tilted rest
+      // when the browser is made to resolve it, and only after that does it
+      // carry a drift. That the drift then starts tilted is the browser's —
+      // featured-properties.spec.ts, slide 1's first dwell, every frame.
+      const real = window.getComputedStyle.bind(window);
+      const resolved: (string | null)[] = [];
+      const read = vi.spyOn(window, "getComputedStyle").mockImplementation((el, pseudo) => {
+        if (el.hasAttribute("data-featured-photo")) resolved.push(el.getAttribute("style"));
+        return real(el, pseudo);
+      });
+      try {
+        const { container } = render(FeaturedProperties, {
+          props: { slice: featuredPropertiesFixture() },
+        });
+        expect(resolved, "each photo, as the browser resolved it first").toEqual([
+          `${LAYER} ${at(1)}`,
+          `${LAYER} ${at(1)}`,
+          `${LAYER} ${at(1)}`,
+        ]);
+        expect(stylesOf(container), "and then the drift and the holds").toEqual([
+          FIRST,
+          OFF_STAGE,
+          OFF_STAGE,
+        ]);
+      } finally {
+        read.mockRestore();
       }
     });
 
@@ -413,6 +463,29 @@ describe("FeaturedProperties slice", () => {
       observer.disconnect();
     });
 
+    it("a photo brought back WHILE IT STILL SHOWS keeps its layer, whatever becomes of the hold it leaves", async () => {
+      // Turned away and back inside the dissolve, the photo's held off-stage
+      // transition is replaced before it ends, so the browser may report it
+      // as a `transitioncancel`. That is not a drift ending: only a finished
+      // `transitionend` drops the layer (see `ended`).
+      vi.useFakeTimers();
+      const { container, getByLabelText } = render(FeaturedProperties, {
+        props: { slice: featuredPropertiesFixture() },
+      });
+      await fireEvent.click(getByLabelText("Next slide"));
+      expect(stylesOf(container), "premise: turned away").toEqual([OFF_STAGE, ON_STAGE, OFF_STAGE]);
+      await fireEvent.click(getByLabelText("Previous slide"));
+      photosOf(container)[0].dispatchEvent(
+        new TransitionEvent("transitioncancel", { propertyName: "transform", bubbles: true }),
+      );
+      await tick();
+      expect(stylesOf(container), "back while it showed: on stage, on its layer").toEqual([
+        ON_STAGE,
+        OFF_STAGE,
+        OFF_STAGE,
+      ]);
+    });
+
     it("a photo that left RESTS once its own fade-out has ended — and a turn back starts it from 1", async () => {
       // Not on a timer: the leaving hold lasts until the wrapper's opacity
       // transition ENDS, which is when the photo stops showing. jsdom runs no
@@ -444,6 +517,111 @@ describe("FeaturedProperties slice", () => {
       expect(stylesOf(container), "back, from 1").toEqual([ON_STAGE, OFF_STAGE, OFF_STAGE]);
       await fireEvent.click(getByLabelText("Next slide"));
       expect(stylesOf(container), "and it leaves held again").toEqual([
+        OFF_STAGE,
+        ON_STAGE,
+        OFF_STAGE,
+      ]);
+    });
+
+    it("a drift that ENDS on stage drops the photo's layer — and it comes back when the photo rests", async () => {
+      // A layer with will-change keeps the raster it was drawn at, so a photo
+      // held at 1 + KEN_BURNS on one is its start raster stretched, for as
+      // long as it is held (see `LAYER` in the slice). What ends it is the
+      // photo's OWN transition on `transform`, while on stage — dispatched by
+      // hand, as jsdom runs no transitions. That the browser really fires it,
+      // really re-rasters and that a Pause keeps the layer are the specs'.
+      const { container, getByLabelText } = render(FeaturedProperties, {
+        props: { slice: featuredPropertiesFixture() },
+      });
+      const end = async (i: number, property = "transform", from?: Element) => {
+        (from ?? photosOf(container)[i]).dispatchEvent(
+          new TransitionEvent("transitionend", { propertyName: property, bubbles: true }),
+        );
+        await tick();
+      };
+      await fireEvent.click(getByLabelText("Next slide"));
+      expect(stylesOf(container), "premise: turned").toEqual([OFF_STAGE, ON_STAGE, OFF_STAGE]);
+      await end(1, "opacity");
+      await end(0);
+      expect(stylesOf(container), "not a transform's, and not a photo on stage").toEqual([
+        OFF_STAGE,
+        ON_STAGE,
+        OFF_STAGE,
+      ]);
+      await end(1);
+      expect(stylesOf(container), "the drift on stage ended").toEqual([
+        OFF_STAGE,
+        ENDED,
+        OFF_STAGE,
+      ]);
+      await fireEvent.click(getByLabelText("Pause slides"));
+      await fireEvent.click(getByLabelText("Play slides"));
+      expect(stylesOf(container), "Pause and Play start nothing").toEqual([
+        OFF_STAGE,
+        ENDED,
+        OFF_STAGE,
+      ]);
+
+      // It leaves held, still with no layer; brought back while it still
+      // shows it is already at 1 + KEN_BURNS, so nothing drifts and the layer
+      // stays off. The photo it hands back to had not ended: it keeps its own.
+      await fireEvent.click(getByLabelText("Next slide"));
+      expect(stylesOf(container), "left after it ended").toEqual([OFF_STAGE, ENDED_OFF, ON_STAGE]);
+      await fireEvent.click(getByLabelText("Previous slide"));
+      expect(stylesOf(container), "back while it still shows").toEqual([
+        OFF_STAGE,
+        ENDED,
+        OFF_STAGE,
+      ]);
+
+      // Once its fade-out ends it RESTS, on its layer again, before its next
+      // drift — which then runs on it.
+      await fireEvent.click(getByLabelText("Next slide"));
+      await end(1, "opacity", photosOf(container)[1].parentElement!);
+      expect(stylesOf(container), "at rest").toEqual([OFF_STAGE, RESTING, ON_STAGE]);
+      await fireEvent.click(getByLabelText("Previous slide"));
+      expect(stylesOf(container), "its next drift").toEqual([OFF_STAGE, ON_STAGE, OFF_STAGE]);
+    });
+
+    it("reduced motion turned on and off again starts the photo on stage from its rest — on its layer", async () => {
+      // Re-primed (see `primed` in the slice), the photo on stage drifts again
+      // from 1, so a drift that had ENDED before must not keep it off its
+      // layer. A stand-in media query that can be flipped mid-test: the
+      // preference is read through $lib/transitions' one listener.
+      let reduce = false;
+      let changed: ((event: { matches: boolean }) => void) | undefined;
+      window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+        get matches() {
+          return reduce && query.includes("prefers-reduced-motion");
+        },
+        media: query,
+        addEventListener: (_: string, run: (event: { matches: boolean }) => void) => {
+          if (query.includes("prefers-reduced-motion")) changed = run;
+        },
+        removeEventListener: () => {},
+      }));
+      const { container, getByLabelText } = render(FeaturedProperties, {
+        props: { slice: featuredPropertiesFixture() },
+      });
+      await fireEvent.click(getByLabelText("Next slide"));
+      photosOf(container)[1].dispatchEvent(
+        new TransitionEvent("transitionend", { propertyName: "transform", bubbles: true }),
+      );
+      await tick();
+      expect(stylesOf(container), "premise: its drift ended").toEqual([
+        OFF_STAGE,
+        ENDED,
+        OFF_STAGE,
+      ]);
+      expect(changed, "premise: the band hears the preference change").toBeTypeOf("function");
+      reduce = true;
+      changed!({ matches: true });
+      await tick();
+      expect(stylesOf(container), "reduced: no style at all").toEqual([null, null, null]);
+      reduce = false;
+      changed!({ matches: false });
+      await tick();
+      expect(stylesOf(container), "motion again: from rest, on its layer").toEqual([
         OFF_STAGE,
         ON_STAGE,
         OFF_STAGE,
@@ -521,7 +699,8 @@ describe("FeaturedProperties slice", () => {
 
     it("under reduced motion a turn adds no transform and no transition, however long it is watched", async () => {
       // app.css cuts every transition to 0.01ms under reduce, which would SNAP
-      // a declared 1.03 and hold it, so the style must not be written at all.
+      // a declared end scale and hold it, so the style must not be written at
+      // all — and with it goes the photo's `will-change`: nothing drifts.
       motion(true);
       vi.useFakeTimers();
       const { container, getByLabelText } = render(FeaturedProperties, {
@@ -537,6 +716,97 @@ describe("FeaturedProperties slice", () => {
           expect(photo.getAttribute("style"), `${watched}ms after the turn`).toBeNull();
       }
       expect(watched, "watched for longer than a drift").toBeGreaterThan(DISSOLVE + DWELL);
+    });
+
+    it("drifts the operator's 1.00 → 1.06", () => {
+      // "the ken burns still feels stuttery" … "being too slow may be the
+      // answer, let's speed it up" (operator, 2026-09-29, after #204). The
+      // amplitude, pinned once, as DWELL is: twice the 0.03 it was. That the
+      // browser specs time this same number is featured-dwell.test.ts's.
+      expect(KEN_BURNS).toBe(0.06);
+    });
+
+    it("tilts by the operator's 0.02deg — past the 1/4096 WebRender reads as no rotation at all", () => {
+      // Measured in Firefox by the operator, 2026-09-30: smooth with
+      // rotate(0.02deg) at both ends, ticking without. WebRender takes a
+      // matrix whose off-diagonal is within 1/4096 of zero for a plain scale
+      // (`ScaleOffset::from_transform`), so a "tidier" 0.01deg would quietly
+      // be no tilt there. The photo is never drawn below scale 1, where the
+      // off-diagonal is smallest: sin(TILT_DEG).
+      expect(TILT_DEG).toBe(0.02);
+      expect(Math.sin((TILT_DEG * Math.PI) / 180)).toBeGreaterThan(1 / 4096);
+    });
+
+    describe("fetched for the width it is drawn at, at the end of its drift", () => {
+      /** A band whose three photos are Prismic images of these sizes. */
+      const withPhotos = (...sizes: [number, number][]) => {
+        const slice = featuredPropertiesFixture();
+        const picks = slice.primary.properties as unknown as {
+          property: { data: { feature_image: unknown } };
+        }[];
+        sizes.forEach(([width, height], i) => {
+          picks[i].property.data.feature_image = {
+            url: `https://images.prismic.io/roalson-interests/photo-${i}.jpg?auto=format,compress`,
+            alt: `Photo ${i}`,
+            dimensions: { width, height },
+            copyright: null,
+            id: `photo-${i}`,
+            edit: { x: 0, y: 0, zoom: 1, background: "#ffffff" },
+          };
+        });
+        return slice;
+      };
+      const imgs = (container: HTMLElement) => [
+        ...container.querySelectorAll<HTMLImageElement>("[data-featured-photo]"),
+      ];
+      const END = 1 + KEN_BURNS;
+      /** The comp's box, 928 × 542 — the wrapper's `aspect-[928/542]`. */
+      const BOX = 928 / 542;
+      const sizesFor = (scale: number) =>
+        `(min-width: 1024px) ${+(65 * scale).toFixed(2)}vw, ${+(100 * scale).toFixed(2)}vw`;
+      const widthsOf = (img: HTMLImageElement) =>
+        img
+          .getAttribute("srcset")!
+          .split(", ")
+          .map((c) => Number(/ (\d+)w$/.exec(c)![1]));
+
+      it("sizes is the box at the end scale, and more for a photo wider than the box", () => {
+        // The live band's three photos: 4:3 and 1.45:1 are narrower than the
+        // box, so object-cover draws them its width; 1717 × 866 is wider, so
+        // it is drawn at the box's HEIGHT and overflows it sideways — 1073.6
+        // wide in a 927 box at 1440, which `65vw` said nothing about.
+        const { container } = render(FeaturedProperties, {
+          props: { slice: withPhotos([4032, 3024], [1872, 1290], [1717, 866]) },
+        });
+        expect(imgs(container).map((img) => img.getAttribute("sizes"))).toEqual([
+          sizesFor(END),
+          sizesFor(END),
+          sizesFor((END * 1717) / 866 / BOX),
+        ]);
+      });
+
+      it("a one-listing card never drifts, so it asks for the box alone", () => {
+        const { container } = render(FeaturedProperties, {
+          props: { slice: featuredLaunchFixture() },
+        });
+        expect(imgs(container).map((img) => img.getAttribute("sizes"))).toEqual([sizesFor(1)]);
+      });
+
+      it("offers 2048 between 1920 and 2560, and never more than the source has", () => {
+        const { container } = render(FeaturedProperties, {
+          props: { slice: withPhotos([4032, 3024], [1872, 1290], [1717, 866]) },
+        });
+        const [big, mid, wide] = imgs(container);
+        expect(widthsOf(big)).toEqual([480, 768, 1024, 1440, 1920, 2048, 2560]);
+        expect(widthsOf(mid)).toEqual([480, 768, 1024, 1440, 1872]);
+        expect(widthsOf(wide)).toEqual([480, 768, 1024, 1440, 1717]);
+        // The `src` fallback is still at most 1920.
+        expect(imgs(container).map((img) => new URL(img.src).searchParams.get("w"))).toEqual([
+          "1920",
+          "1872",
+          "1717",
+        ]);
+      });
     });
 
     // ── the clock: the operator's 8000, and no hover pause (2026-09-23) ────

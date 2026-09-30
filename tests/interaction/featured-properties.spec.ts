@@ -5,6 +5,7 @@ import {
   FEATURED_DWELL,
   FEATURED_KEN_BURNS,
   FEATURED_REVEAL_FAILSAFE,
+  FEATURED_TILT_DEG,
 } from "./featured-dwell";
 import { measuresGutter, viewportFor } from "./gutter";
 import { HYDRATION_TIMEOUT } from "./hydrated";
@@ -54,6 +55,16 @@ const DISSOLVE = FEATURED_DISSOLVE;
  *  426 KB MapLibre boot lands inside the first dwell on a cold dev server and
  *  pushed one turn past 6s, which read as "the carousel never turned". */
 const TURN_CEILING = DWELL + DISSOLVE + 6000;
+/** The off-diagonal under which Firefox's WebRender takes a transform for a
+ *  plain scale — `NEARLY_ZERO` in `ScaleOffset::from_transform`
+ *  (gfx/wr/webrender_api/src/fast_transform.rs), read in its source on
+ *  2026-09-30. The photo's tilt (TILT_DEG in the slice) is there to be past
+ *  it on every frame: at or under it, the drift ticks there again. */
+const NEARLY_ZERO = 1 / 4096;
+/** How far a frame's angle may read from TILT_DEG, in degrees: well over what
+ *  Chromium's six serialized digits cost (~1e-7), well under what a tilt
+ *  interpolated to or from 0 is off by a second into a dwell (~0.0025). */
+const ANGLE_SLACK = 5e-6;
 /** Half the leading the ramp trims off `t-h4` (25.2 line, 9 cap box). The comp
  *  measures from the CAP box, CSS from the line box. */
 const H4_TRIM = 8.1;
@@ -1231,7 +1242,8 @@ test.describe("motion", () => {
   interface Frame {
     /** Each on-stage text line's opacity and vertical translate, in order. */
     lines: { opacity: number; ty: number }[];
-    /** The on-stage photo's scale, out of its computed matrix; null = none. */
+    /** The on-stage photo's scale, out of its computed matrix (as
+     *  `photoScale` reads it); null = none. */
     scale: number | null;
     /** `width` is the PAINTED width of the fill, and it is the only one of
      *  these that can see the dissolve. `value` is the scaleX the component
@@ -1275,7 +1287,11 @@ test.describe("motion", () => {
           const fill = region.querySelector<HTMLElement>("[data-carousel-progress] > div")!;
           return {
             lines,
-            scale: transform === "none" ? null : Number(/matrix\(([^,]+),/.exec(transform)![1]),
+            // √(a² + b²), not `a`: see `photoScale`.
+            scale:
+              transform === "none"
+                ? null
+                : ((m) => Math.round(Math.hypot(m.a, m.b) * 1e6) / 1e6)(new DOMMatrix(transform)),
             bar: {
               opacity: Number(getComputedStyle(fill).opacity),
               value: Number(/scaleX\(([^)]+)\)/.exec(fill.getAttribute("style") ?? "")?.[1]),
@@ -1434,9 +1450,12 @@ test.describe("motion", () => {
         const region = document.querySelector(card)!;
         const slides = [...region.querySelectorAll("[data-featured-slide]")];
         const photoOf = (el: Element) => el.querySelector<HTMLElement>("[data-featured-photo]")!;
+        /** √(a² + b²), not `a`: see `photoScale`. */
         const scaleOf = (el: Element) => {
           const t = getComputedStyle(photoOf(el)).transform;
-          return t === "none" ? null : Number(/matrix\(([^,]+),/.exec(t)![1]);
+          if (t === "none") return null;
+          const m = new DOMMatrix(t);
+          return Math.round(Math.hypot(m.a, m.b) * 1e6) / 1e6;
         };
         const linesOf = (el: Element) =>
           [...el.querySelectorAll("[data-featured-line]")].map((line) => {
@@ -1615,7 +1634,7 @@ test.describe("motion", () => {
     // rotation's clock, and the press stops that clock. Since 2026-09-29 the
     // drift is ONE CSS transition that every activation starts again, so a
     // visitor's turn needs nothing of its own: still through the 500ms
-    // dissolve (the transition's delay), then 1.00 → 1.03 over DWELL, then
+    // dissolve (the transition's delay), then 1.00 → 1 + KEN_BURNS over DWELL, then
     // held, without restarting the rotation. The press focuses and clicks in
     // one task, so this is also the case that holds "a pause landing WITH the
     // turn is the arrow's own, and does not freeze the drift".
@@ -1675,12 +1694,18 @@ test.describe("motion", () => {
       // whole second stale on a loaded machine (measured: 1.0015 read at
       // t ≥ 2000ms, where the drift was due at 1.0113, after a 1.3s frame gap).
       // The rate is the unit test's; this is the browser's word that it moves.
-      await expect.poll(() => photoScale(page), { timeout: 8_000 }).toBeGreaterThan(1.005);
+      await expect
+        .poll(() => photoScale(page), { timeout: 8_000 })
+        .toBeGreaterThan(1 + FEATURED_KEN_BURNS / 6);
       // It ENDS, at the end scale, and HOLDS — DISSOLVE + DWELL from the press
       // (8.5s; it was 4.5 before the dwell doubled), then still.
-      await expect.poll(() => photoScale(page), { timeout: DISSOLVE + DWELL + 2_000 }).toBe(1.03);
+      await expect
+        .poll(() => photoScale(page), { timeout: DISSOLVE + DWELL + 2_000 })
+        .toBe(1 + FEATURED_KEN_BURNS);
       await page.waitForTimeout(600);
-      expect(await photoScale(page), "held at the end, not a second lap").toBe(1.03);
+      expect(await photoScale(page), "held at the end, not a second lap").toBe(
+        1 + FEATURED_KEN_BURNS,
+      );
       // It turned nothing: same slide, rotation still stopped, bar at 0.
       expect(await onStage(page)).toHaveLength(1);
       await expect(status(page)).toHaveText(`Slide ${now + 1} of 3`);
@@ -1705,8 +1730,8 @@ test.describe("motion", () => {
     //
     // 1. The photo that just left is held at the drift it HAD. It is opaque
     //    for the whole 500ms (its `opacity-0` waits out `delay-500`), so any
-    //    jump — to 1.03, or straight back to 1 — shows in a single frame: up
-    //    to 27.8px of width on the 928 × 542 box. Since 2026-09-29 the hold
+    //    jump — to the end scale, or straight back to 1 — shows in a single
+    //    frame: up to 55.7px of width on the 928 × 542 box at 1.06. Since 2026-09-29 the hold
     //    is the leaving transition's DELAY, until the photo's wrapper has
     //    faded out and it rests at 1 (see the slice). Asserted as ONE value
     //    for every frame it is visible, and that value is where the drift had
@@ -1727,13 +1752,13 @@ test.describe("motion", () => {
       await adopted(page);
       await pointerAway(page);
       // Press MID-DWELL, so the held value is distinguishable both from 1.00
-      // (the incoming photo's) and from 1.03 (what the old rule held).
+      // (the incoming photo's) and from 1 + KEN_BURNS (what the old rule held).
       await expect.poll(() => barScale(page), { timeout: TURN_CEILING }).toBeGreaterThan(0.2);
 
       const { was, before, beforeTl, series, origin } = await sampleAfterPress(page, 900);
       const was0 = before[was].scale!;
       expect(was0, `the outgoing photo was mid-drift at ${was0}`).toBeGreaterThan(1.0001);
-      expect(was0).toBeLessThan(1.03);
+      expect(was0).toBeLessThan(1 + FEATURED_KEN_BURNS);
 
       // 1 — every frame, while it is in the stack, at one value…
       const shown = series.filter((f) => f.v[was].visibility === "visible");
@@ -1850,7 +1875,7 @@ test.describe("motion", () => {
           inStack: slides.filter((s) => getComputedStyle(s).visibility === "visible").length,
           titleOnTop: topAt(slides[now].querySelector("h3")!),
           // The photo's WRAPPER, which clips it: the press's drift is
-          // finished above, and at 1.03 the <img>'s own box runs 13.9px past
+          // finished above, and at 1.06 the <img>'s own box runs 27.8px past
           // the clip, so a point 4px inside it is outside the card.
           photoOnTop: topAt(slides[now].querySelector("[data-featured-photo]")!.parentElement!),
         };
@@ -2008,14 +2033,23 @@ test.describe("motion", () => {
   // thread did. It is one transition on `transform` now, which the
   // compositor runs.
 
-  /** The active photo's scale, read out of the computed matrix. */
+  /** The active photo's scale, read out of the computed matrix — as the
+   *  LENGTH of its first column, √(a² + b²), and not `a`. Every state is
+   *  `scale(s) rotate(TILT_DEG)` since 2026-09-30 (Firefox; see TILT_DEG in
+   *  the slice), so the matrix is s·(cos θ, sin θ, −sin θ, cos θ) and `a` is
+   *  s·cos θ. Rounded to 1e-6 because Chromium serializes six significant
+   *  digits: scale(1) rotate(0.02deg) reads matrix(1, 0.000349066, …), whose
+   *  √(a² + b²) is 1.00000006 — not the 1 the style declares, where the
+   *  rounded value is, exactly. Every in-page reader in this file does the
+   *  same, written out because a page.evaluate body cannot share a helper. */
   const photoScale = (page: Page) =>
     page
       .locator(`${CARD} [data-featured-slide]:not([inert]) [data-featured-photo]`)
       .evaluate((el) => {
         const t = getComputedStyle(el).transform;
         if (t === "none") return null;
-        return Number(/matrix\(([^,]+),/.exec(t)![1]);
+        const m = new DOMMatrix(t);
+        return Math.round(Math.hypot(m.a, m.b) * 1e6) / 1e6;
       });
 
   test("the drift is ONE running CSS transition on transform — and no style is written per frame", async ({
@@ -2038,7 +2072,13 @@ test.describe("motion", () => {
         const photo = document
           .querySelector(card)!
           .querySelector("[data-featured-slide]:not([inert]) [data-featured-photo]")!;
-        const scale = () => Number(/matrix\(([^,]+),/.exec(getComputedStyle(photo).transform)![1]);
+        const matrix = () => {
+          const t = getComputedStyle(photo).transform;
+          if (t === "none") throw new Error("the on-stage photo has no transform");
+          return new DOMMatrix(t);
+        };
+        /** √(a² + b²), not `a`: see `photoScale`. */
+        const scale = () => ((m) => Math.round(Math.hypot(m.a, m.b) * 1e6) / 1e6)(matrix());
         const transitions = photo.getAnimations().map((a) => {
           const timing = a.effect!.getTiming();
           return {
@@ -2058,7 +2098,15 @@ test.describe("motion", () => {
         const from = scale();
         await new Promise((resolve) => setTimeout(resolve, 1000));
         observer.disconnect();
-        return { transitions, writes, from, to: scale() };
+        const m = matrix();
+        return {
+          transitions,
+          writes,
+          from,
+          to: scale(),
+          tilt: m.b,
+          angle: (Math.atan2(m.b, m.a) * 180) / Math.PI,
+        };
       }, CARD);
 
       // Soft, so one run reports all three.
@@ -2078,7 +2126,57 @@ test.describe("motion", () => {
       expect
         .soft(seen.to, `${seen.from} → ${seen.to} across 1s mid-dwell`)
         .toBeGreaterThan(seen.from);
+      test.info().annotations.push({
+        type: "tilt",
+        description: `${seen.from} → ${seen.to} across 1s mid-dwell, b = ${seen.tilt}, ${seen.angle}deg`,
+      });
+      // TILTED WHILE IT DRIFTS (Firefox, operator, 2026-09-30; TILT_DEG in the
+      // slice): the matrix's off-diagonal is nonzero — and past the 1/4096
+      // under which WebRender takes it for a plain scale…
+      expect
+        .soft(Math.abs(seen.tilt), `the drifting photo's tilt, b = ${seen.tilt}`)
+        .toBeGreaterThan(NEARLY_ZERO);
+      // …and it is the WHOLE tilt, a second into the drift. A drift written
+      // without it, from a tilted rest, still has b past 1/4096 there: the
+      // rotation runs down to 0 across the dwell (measured with the on-stage
+      // state's rotate() removed: b = 0.000291706 at scale 1.01037, which is
+      // 0.01654deg), and only the angle sees that.
+      expect
+        .soft(Math.abs(seen.angle - FEATURED_TILT_DEG), `the drifting photo at ${seen.angle}deg`)
+        .toBeLessThan(ANGLE_SLACK);
       expect(seen.writes, "style writes on the photo across 1s mid-dwell").toBe(0);
+    } finally {
+      await context.close();
+    }
+  });
+
+  test("will-change: transform on every photo of a band that drifts — and on no photo of one that never does", async ({
+    browser,
+  }) => {
+    // The photo's own compositor layer (operator, 2026-09-29: "I'm in firefox
+    // … ideally we aren't moving by fractions of pixels"), where it can drift
+    // and only there. Reduced motion is the case below; the server's markup
+    // carries no style at all (the same case, and featured-band-live.spec.ts
+    // on the shipped bundle). A one-listing card never turns, so it never
+    // drifts, and a layer held for nothing is memory for nothing. A photo
+    // whose drift has ENDED drops it until it rests — #156's case below, and
+    // featured-band-live.spec.ts's held photo, measured for sharpness.
+    const { context, page } = await moving(browser);
+    const willChange = () =>
+      page
+        .locator(`${CARD} [data-featured-photo]`)
+        .evaluateAll((els) => els.map((el) => getComputedStyle(el).willChange));
+    try {
+      await page.goto(HOME);
+      await adopted(page);
+      expect(await willChange(), "three listings, hydrated").toEqual([
+        "transform",
+        "transform",
+        "transform",
+      ]);
+      await page.goto(`${HOME}?featured=one`);
+      await adopted(page);
+      expect(await willChange(), "one listing, hydrated").toEqual(["auto"]);
     } finally {
       await context.close();
     }
@@ -2101,15 +2199,23 @@ test.describe("motion", () => {
         const live = region.querySelector("[aria-live]")!;
         const slides = [...region.querySelectorAll("[data-featured-slide]")];
         const photo = (i: number) => slides[i].querySelector("[data-featured-photo]")!;
+        /** √(a² + b²), not `a`: see `photoScale`. */
         const scaleOf = (i: number) => {
           const t = getComputedStyle(photo(i)).transform;
-          return t === "none" ? null : Number(/matrix\(([^,]+),/.exec(t)![1]);
+          if (t === "none") return null;
+          const m = new DOMMatrix(t);
+          return Math.round(Math.hypot(m.a, m.b) * 1e6) / 1e6;
+        };
+        /** Its rotation in degrees, out of the same matrix; 0 for `none`. */
+        const angleOf = (i: number) => {
+          const m = new DOMMatrix(getComputedStyle(photo(i)).transform);
+          return (Math.atan2(m.b, m.a) * 180) / Math.PI;
         };
         const frames: {
           tl: number;
           turns: number;
           onStage: number;
-          photos: { scale: number | null; visible: boolean; opacity: number }[];
+          photos: { scale: number | null; angle: number; visible: boolean; opacity: number }[];
         }[] = [];
         const turnTls: number[] = [];
         const observer = new MutationObserver(() =>
@@ -2148,6 +2254,7 @@ test.describe("motion", () => {
               onStage,
               photos: slides.map((el, i) => ({
                 scale: scaleOf(i),
+                angle: angleOf(i),
                 visible: getComputedStyle(el).visibility === "visible",
                 opacity: Number(getComputedStyle(photo(i).parentElement!).opacity),
               })),
@@ -2174,7 +2281,9 @@ test.describe("motion", () => {
     origin: number | null;
     timing: object | null;
     turnTl: number | null;
-    frames: { tl: number; scale: number; turned: boolean }[];
+    /** `tilt` is the matrix's off-diagonal, b, and `angle` its rotation in
+     *  degrees: both 0 for `none`. */
+    frames: { tl: number; scale: number; tilt: number; angle: number; turned: boolean }[];
   }
   const recordFirstDwell = (page: Page) =>
     page.addInitScript((card: string) => {
@@ -2214,10 +2323,13 @@ test.describe("motion", () => {
               easing: t.easing,
             };
           }
-          const t = getComputedStyle(photo).transform;
+          // √(a² + b²), not `a`: see `photoScale`. `none` is the identity.
+          const m = new DOMMatrix(getComputedStyle(photo).transform);
           first.frames.push({
             tl: Number(document.timeline.currentTime),
-            scale: t === "none" ? 1 : Number(/matrix\(([^,]+),/.exec(t)![1]),
+            scale: Math.round(Math.hypot(m.a, m.b) * 1e6) / 1e6,
+            tilt: m.b,
+            angle: (Math.atan2(m.b, m.a) * 180) / Math.PI,
             turned: first.turnTl !== null,
           });
           if (first.turnTl === null || ++after < 2) requestAnimationFrame(tick);
@@ -2231,7 +2343,8 @@ test.describe("motion", () => {
       });
     }, CARD);
 
-  /** How far the drift may be short of 1.03 at a clock turn, in ms of drift.
+  /** How far the drift may be short of 1 + KEN_BURNS at a clock turn, in ms
+   *  of drift.
    *  The clock counts a dwell from the frame it turned on; the drift starts
    *  on the first frame after (a new transition waits for one) — `lag`,
    *  measured — and the two clocks read that frame's time a callback apart.
@@ -2239,22 +2352,26 @@ test.describe("motion", () => {
    *  settle, or run over DWELL + the settle, is short by (500 and 471ms). */
   const SHORT_BY = 100;
 
-  test("on the clock: still through the settle, 1.00 → 1.03 across the dwell, then held still while it leaves", async ({
+  test("on the clock: still through the settle, 1.00 → 1 + KEN_BURNS across the dwell, then held still while it leaves", async ({
     browser,
   }) => {
     // One whole dwell and both of its ends, on the timeline, every frame:
     //  - the photo a clock turn brings on sits at 1 through the settle (the
     //    transition's delay), then travels at KEN_BURNS per DWELL — halfway
-    //    at half a dwell — and lands on 1.03 as the clock turns again;
+    //    at half a dwell — and lands on 1 + KEN_BURNS as the clock turns again;
     //  - at that turn it is still showing under the incoming photo for
     //    500ms, and holds ONE value — the value it had — for as long as it
     //    shows, then rests at 1 (featured-band-live.spec.ts brings one back);
     //  - and slide 1, on stage from load with no settle to wait out, drifts
-    //    from hydration and lands on 1.03 at the FIRST turn too.
+    //    from hydration and lands on the end scale at the FIRST turn too.
     // Every end-of-dwell tolerance is TIME: frames are sparse under load, so
     // a value is bounded by the drift's own rate over the time it had.
     test.setTimeout(60_000);
     const rate = FEATURED_KEN_BURNS / DWELL;
+    /** How far off its own curve a frame may read: ±133ms of drift, which was
+     *  ±0.0005 of scale when KEN_BURNS was 0.03 and is ±0.001 at 0.06. In
+     *  TIME, because frames are sparse under load whatever the amplitude. */
+    const ON_CURVE = rate * 133;
     const { context, page } = await moving(browser);
     try {
       await recordFirstDwell(page);
@@ -2286,18 +2403,28 @@ test.describe("motion", () => {
       // …then monotone, never a jump back…
       const back = dwell.filter((f, i) => i > 0 && at(f) < at(dwell[i - 1]));
       expect(back.map(where), "went backwards").toEqual([]);
-      // …halfway at half a dwell (±0.0005 of scale is ±133ms of drift)…
+      // …at TILT_DEG on every frame, settle and drift alike: the tilt is in
+      // every state, so no transition turns it (Firefox, 2026-09-30).
+      expect
+        .soft(
+          dwell
+            .filter((f) => !(Math.abs(f.photos[p].angle - FEATURED_TILT_DEG) < ANGLE_SLACK))
+            .map((f) => `${since(f).toFixed(1)}ms: ${f.photos[p].angle}deg`),
+          "the incoming photo's frames off TILT_DEG",
+        )
+        .toEqual([]);
+      // …halfway at half a dwell (±ON_CURVE)…
       const half = dwell.find((f) => since(f) >= DISSOLVE + DWELL / 2)!;
       expect(half, "sampled half a dwell in").toBeDefined();
       const want = due(half.tl, DISSOLVE, origin!);
-      expect.soft(Math.abs(at(half) - want), `${where(half)}, due ${want}`).toBeLessThan(0.0005);
+      expect.soft(Math.abs(at(half) - want), `${where(half)}, due ${want}`).toBeLessThan(ON_CURVE);
       // …and on its own curve on the last frame before the turn, however
       // long before the turn that frame was.
       const last = dwell.at(-1)!;
       const dueLast = due(last.tl, DISSOLVE, origin!);
       expect
         .soft(Math.abs(at(last) - dueLast), `${where(last)}, due ${dueLast}`)
-        .toBeLessThan(0.0005);
+        .toBeLessThan(ON_CURVE);
 
       // THE TURN: held at one value for as long as its wrapper shows at all…
       const leaving = frames.filter((f) => f.turns === 2);
@@ -2326,7 +2453,8 @@ test.describe("motion", () => {
           `from ${at(last)} to ${held} in ${(turn2 - last.tl).toFixed(1)}ms`,
         )
         .toBeLessThanOrEqual(rate * (turn2 - last.tl) + 0.00002);
-      // …and it LANDED: 1.03, short by no more than its start lagged the turn.
+      // …and it LANDED: 1 + KEN_BURNS, short by no more than its start lagged
+      // the turn.
       const lag = origin! - turn1;
       test.info().annotations.push({
         type: "landed",
@@ -2358,7 +2486,7 @@ test.describe("motion", () => {
       const firstLast = before.at(-1)!;
       test.info().annotations.push({
         type: "first dwell",
-        description: `held ${firstHeld} at the first turn, ${(first.turnTl! - firstLast.tl).toFixed(1)}ms after the last frame (${firstLast.scale}); drift started ${firstLag.toFixed(1)}ms after hydration; ${before.length} frames`,
+        description: `held ${firstHeld} at the first turn, ${(first.turnTl! - firstLast.tl).toFixed(1)}ms after the last frame (${firstLast.scale}); drift started ${firstLag.toFixed(1)}ms after hydration; ${before.length} frames, |b| ${Math.min(...before.map((f) => Math.abs(f.tilt)))} at least, ${Math.min(...before.map((f) => f.angle))}–${Math.max(...before.map((f) => f.angle))}deg`,
       });
       const dueFirst = due(firstLast.tl, 0, first.origin!);
       expect
@@ -2366,7 +2494,7 @@ test.describe("motion", () => {
           Math.abs(firstLast.scale - dueFirst),
           `slide 1 on the last frame before the turn, ${(firstLast.tl - first.origin!).toFixed(1)}ms in: ${firstLast.scale}, due ${dueFirst}`,
         )
-        .toBeLessThan(0.0005);
+        .toBeLessThan(ON_CURVE);
       expect
         .soft(
           firstLast.scale,
@@ -2387,6 +2515,23 @@ test.describe("motion", () => {
           `slide 1 held at the first turn (drift started ${firstLag.toFixed(1)}ms after hydration)`,
         )
         .toBeGreaterThanOrEqual(1 + FEATURED_KEN_BURNS - rate * (firstLag + SHORT_BY));
+      // AND TILTED ON EVERY FRAME OF IT, FROM HYDRATION. The server's markup
+      // carries no style, and a first drift written straight onto `none` turns
+      // the photo up from 0deg with the scale: b under NEARLY_ZERO for the
+      // first 5378ms of the dwell — Firefox's tick, on the first listing a
+      // visitor sees. `primed` in the slice resolves the tilted rest first.
+      expect
+        .soft(
+          before
+            .filter(
+              (f) =>
+                !(Math.abs(f.tilt) > NEARLY_ZERO) ||
+                !(Math.abs(f.angle - FEATURED_TILT_DEG) < ANGLE_SLACK),
+            )
+            .map((f) => `${(f.tl - first.origin!).toFixed(1)}ms: ${f.angle}deg, b = ${f.tilt}`),
+          "slide 1's first-dwell frames off TILT_DEG, or not past 1/4096",
+        )
+        .toEqual([]);
     } finally {
       await context.close();
     }
@@ -2419,7 +2564,10 @@ test.describe("motion", () => {
           tl: Number(document.timeline.currentTime),
           label: region.querySelector("button")!.getAttribute("aria-label"),
           turned,
-          scale: Number(/matrix\(([^,]+),/.exec(getComputedStyle(photo).transform)![1]),
+          // √(a² + b²), not `a`: see `photoScale`.
+          scale: ((m) => Math.round(Math.hypot(m.a, m.b) * 1e6) / 1e6)(
+            new DOMMatrix(getComputedStyle(photo).transform),
+          ),
         });
         if (!turned) requestAnimationFrame(tick);
       };
@@ -2441,7 +2589,7 @@ test.describe("motion", () => {
     return read();
   }
 
-  test("Pause freezes the drift where it stands; Play resumes it from there, and it lands on 1.03", async ({
+  test("Pause freezes the drift where it stands; Play resumes it from there, and it lands on 1 + KEN_BURNS", async ({
     browser,
   }) => {
     // WCAG 2.2.2: the Pause button must stop the motion, not only the bar.
@@ -2460,12 +2608,23 @@ test.describe("motion", () => {
       const frozenScale = (await photoScale(page))!;
       const frozenBar = await barScale(page);
       expect(frozenScale).toBeGreaterThan(1);
-      expect(frozenScale).toBeLessThan(1.03);
+      expect(frozenScale).toBeLessThan(1 + FEATURED_KEN_BURNS);
       // Past the end of the dwell the bar says is left: a running
-      // transition would have reached 1.03 by then.
+      // transition would have reached 1 + KEN_BURNS by then.
       await page.waitForTimeout((1 - frozenBar) * DWELL + 700);
       expect(await photoScale(page), "frozen with the bar").toBe(frozenScale);
       expect(await barScale(page)).toBe(frozenBar);
+      // …and still ON ITS LAYER: a paused transition has not ended, so the
+      // layer an ENDED drift drops (see `LAYER` in the slice) stays on.
+      expect(
+        await page
+          .locator(`${CARD} [data-featured-slide]:not([inert]) [data-featured-photo]`)
+          .evaluate((el) => ({
+            animations: el.getAnimations().map((a) => a.playState),
+            willChange: getComputedStyle(el).willChange,
+          })),
+        "paused past the end of its drift",
+      ).toEqual({ animations: ["paused"], willChange: "transform" });
 
       const { frames, turnTl } = await playToTheTurn(page);
       const played = frames.findIndex((f) => f.label === "Pause slides");
@@ -2487,10 +2646,10 @@ test.describe("motion", () => {
         .filter(({ d, dt }) => d < 0 || d > rate * dt + 0.00002)
         .map(({ f, d, dt }) => `${f.scale}: ${d.toFixed(6)} in ${dt.toFixed(1)}ms`);
       expect(jumps, "steps that went back or outran the drift").toEqual([]);
-      // …and it LANDS on 1.03 with the bar, read where the clock turns and
+      // …and it LANDS on 1 + KEN_BURNS with the bar, read where the clock turns and
       // not on the last frame before it (under load that frame can be whole
       // tenths of a second early): the photo the turn sends away is held at
-      // what the drift reached ON the turn. Short of 1.03 by no more than it
+      // what the drift reached ON the turn. Short of it by no more than it
       // trailed the bar when both were paused (plus SHORT_BY); a resume that
       // re-declared the transition, or never resumed, is a whole dwell short.
       const last = after.at(-1)!;
@@ -2514,15 +2673,15 @@ test.describe("motion", () => {
     }
   });
 
-  test("Play after a visitor's drift has ENDED holds 1.03 — the photo is never sent back (#156)", async ({
+  test("Play after a visitor's drift has ENDED holds 1 + KEN_BURNS — the photo is never sent back (#156)", async ({
     browser,
   }) => {
     // #156, which main held in a unit test while the drift was drawn by
-    // script. A visitor's turn drifts the photo to 1.03 and the drift ENDS
+    // script. A visitor's turn drifts the photo to 1 + KEN_BURNS and the drift ENDS
     // there, the rotation stopped by the arrow's focus. A Play after that has
     // no travel left to draw, and every way to draw some moves the photo
     // backwards in full view: the quick "fix", restarting it at 1.00, is
-    // 27.8px of width in one frame. So it holds, while the bar fills, until
+    // 55.7px of width in one frame at 1.06. So it holds, while the bar fills, until
     // the clock turns it away. (It finished ON STAGE: it never left, so it is
     // never resting either.)
     test.setTimeout(60_000);
@@ -2535,19 +2694,24 @@ test.describe("motion", () => {
       await page.getByRole("button", { name: "Next slide" }).click();
       await pointerAway(page);
       await expect(page.getByRole("button", { name: "Play slides" })).toBeVisible();
-      // ENDED, not merely at 1.03: no animation left on it.
+      // ENDED, not merely at the end scale: no animation left on it.
       await expect
         .poll(
           () =>
             page
               .locator(`${CARD} [data-featured-slide]:not([inert]) [data-featured-photo]`)
               .evaluate((el) => ({
-                scale: Number(/matrix\(([^,]+),/.exec(getComputedStyle(el).transform)?.[1]),
+                // √(a² + b²), not `a`: see `photoScale`.
+                scale: ((m) => Math.round(Math.hypot(m.a, m.b) * 1e6) / 1e6)(
+                  new DOMMatrix(getComputedStyle(el).transform),
+                ),
                 animations: el.getAnimations().length,
+                // Held, so off its layer: see `LAYER` in the slice.
+                willChange: getComputedStyle(el).willChange,
               })),
           { timeout: DISSOLVE + DWELL + 4_000 },
         )
-        .toEqual({ scale: 1 + FEATURED_KEN_BURNS, animations: 0 });
+        .toEqual({ scale: 1 + FEATURED_KEN_BURNS, animations: 0, willChange: "auto" });
 
       const { frames } = await playToTheTurn(page);
       const played = frames.findIndex((f) => f.label === "Pause slides");
@@ -2558,7 +2722,7 @@ test.describe("motion", () => {
         frames
           .filter((f) => f.scale !== 1 + FEATURED_KEN_BURNS)
           .map((f) => `${(f.tl - frames[played].tl).toFixed(1)}ms from Play: ${f.scale}`),
-        "every frame from before Play to the clock's turn, at 1.03",
+        "every frame from before Play to the clock's turn, at 1 + KEN_BURNS",
       ).toEqual([]);
     } finally {
       await context.close();
@@ -2569,11 +2733,11 @@ test.describe("motion", () => {
     page,
   }) => {
     // Not `scale(1)` — NO style. app.css cuts every transition to 0.01ms with
-    // no delay under reduce, so a declared transition to 1.03 would SNAP there
+    // no delay under reduce, so a declared transition to the end scale would SNAP there
     // and hold: a permanently zoomed photo dressed up as "no animation".
     //
     // FROM FIRST PAINT: the server's markup carries no style on any photo (it
-    // cannot know the preference, and a declared 1.03 there would be the
+    // cannot know the preference, and a declared end scale there would be the
     // photo's first style, with nothing to transition from), and a recorder
     // installed before any script sees nothing written through hydration and
     // a turn.
@@ -2600,12 +2764,13 @@ test.describe("motion", () => {
       els.map((el) => ({
         style: el.getAttribute("style"),
         transform: getComputedStyle(el).transform,
+        willChange: getComputedStyle(el).willChange,
         animations: el.getAnimations().length,
       })),
     );
     expect(photos).toHaveLength(3);
     for (const photo of photos)
-      expect(photo).toEqual({ style: null, transform: "none", animations: 0 });
+      expect(photo).toEqual({ style: null, transform: "none", willChange: "auto", animations: 0 });
     expect(
       await page.evaluate(() => (window as unknown as { __photoWrites: string[] }).__photoWrites),
       "style writes on a photo, from first paint",

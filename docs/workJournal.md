@@ -12087,6 +12087,8 @@ may become a design change, so the scrim's stops are the 2026-09-28 ones.
 
 ## 2026-09-29 — Ken Burns is one CSS transition now: the compositor draws it, a hold that ends with the dissolve, and a Chromium start time the plan assumed wrong (`claude/roalson-comments-review-45cstm`)
 
+> Superseded in part by 2026-09-30 — Ken Burns at twice the speed, tilted 0.02° for Firefox, and on its layer only while it moves.
+
 The operator said the homepage band's Ken Burns "feels a little stuttery,
 maybe because it's too slow or not using gpu?", then, before any fix of that
 shape landed: "rather than that, can it be one clean transform scale with a
@@ -12301,3 +12303,57 @@ figures turn it red. Whether these count as grounds is the operator's call
 
 Also found: with scripting off, the band's focused list link names a pin
 that stays at 0.81, because the held link is JS-only (#205).
+
+## 2026-09-30 — Ken Burns at twice the speed, tilted 0.02° for Firefox, and on its layer only while it moves (#212, `claude/roalson-comments-review-45cstm`)
+
+After #204 the operator still found the drift stuttery, in Firefox: "it still feels like it's calculating every tick rather than interpolating like smoother effects". They added "being too slow may be the answer, let's speed it up. ideally we aren't moving by fractions of pixels". That last wish cannot be met by any zoom. For the edges to move a whole pixel every 60Hz frame they would travel about 480px across the 8s dwell. So the aim was a speed that reads as motion, drawn so its sub-pixel steps are filtered rather than snapped.
+
+**Speed.** `KEN_BURNS` went 0.03 → 0.06, the pace before the dwell doubled from 4s to 8s. The 928px box gains 55.7px of width, each edge moves about 3.5px a second, and that is about 0.058px a frame at 60Hz. It is still sub-pixel, and that is unavoidable.
+
+**Firefox, measured by the operator, not here.** There is no Firefox in the cloud container. A throwaway page on the deploy preview ran five variants of one photo side by side, each looping 1 → 1.06:
+
+- A: `scale()` with `will-change`;
+- B: A plus `rotate(0.02deg)` at both ends;
+- C: a `translateZ(0)` 3D transform;
+- D: no `will-change`;
+- E: B at 1.12.
+
+B and E glided and the rest ticked. So the cause was never speed or GPU promotion: it was the transform being a pure axis-aligned scale.
+
+The likely mechanism was read in Firefox's source, not measured. WebRender's `ScaleOffset::from_transform` treats off-diagonal terms within 1/4096 of zero as a plain scale plus offset, which snaps to device pixels. sin(0.02°) = 0.000349, about 1.4× the threshold, and anything under about 0.014° would not count. `TILT_DEG = 0.02` is now in every photo state `zoom()` writes, in the same function position, so every transition runs between identical lists.
+
+**A defect the tilt would have had on its own.** The server markup carries no style, so at hydration each photo's transform is `none`. A first drift from `none` to `scale(1.06) rotate(0.02deg)` animates the tilt up from 0 along with the scale, and stays under 1/4096 for the first 5378ms of the dwell. So Firefox would have ticked through most of the first listing. A priming effect now writes each photo's tilted rest before the drift and reads its computed style. With it, slide 1 reads 0.0199999–0.0200001° on every frame of its first dwell in Chromium. The read cannot be shown to matter there, because something else in the same flush already resolves style. It is kept so the priming does not depend on that.
+
+**`will-change` now follows the drift.** It went on every eligible photo for Firefox. Review then found a cost in Chromium: once a visitor's drift has finished, the photo is held at 1.06 while the arrow's focus keeps the clock paused, and the same happens in #156's Play-after-end hold. Chromium keeps the drift's composited raster and stretches it. The held photo measured 17.3% less detail (mean |Laplacian| 12.38 against 14.97 with the layer dropped) and never re-sharpened. Without the hint, Chromium re-rasters about 150ms after the transition ends.
+
+The photo now drops `will-change` when its own `transform` `transitionend` fires, and gets it back at rest and at re-priming. A Pause mid-drift keeps it, because the transition has not ended. The operator's Firefox check was made with `will-change` on before motion, and that is kept. Whether dropping it on a still, tilted photo changes anything in Firefox is unmeasured.
+
+**Sharp at the end scale.** `sizes` had said "65vw", the box at scale 1, so several end frames were upscaled even at the old 1.03. The worst was 13810 Lookout Road at 1440 on a 1× screen: it is wider than the box, so `object-cover` draws it 1073.6px wide, and it was fetched at 1024. `sizes` now carries `1 + KEN_BURNS` and the photo's own aspect (68.9vw/106vw, or 79.79vw/122.75vw for Lookout), and `srcset` gained 2048. Where the source is narrower than the drawn size (1872 and 1717px), nothing is requested past it.
+
+**Tests.** Every reader takes the scale as `hypot(a, b)` and the tilt as `atan2(b, a)`, rounded to 1e-6, because Chromium serialises six significant digits. Three guards were added:
+
+- the on-stage angle equals `TILT_DEG` on every frame of slide 1's first dwell, the incoming photo's dwell and a returning photo's dwell;
+- `willChange` is "transform" mid-drift and "auto" once a visitor's drift has ended;
+- the held frame is as sharp as a photo never layered.
+
+Each was proven red by its mutation: no tilt on stage, no priming, the layer never cleared, the layer never set, the layer cleared on Pause.
+
+`pnpm verify` had one red, `carousel.spec.ts:478` (#203). An A/B at load ~1 showed it intermittent on both sides. Its cause was found on the way: the a11y-fixtures form focuses its error summary asynchronously and races the test's own focus.
+
+**Corrected before merge: "that is kept" was not true of the first slide.** The paragraph above says the operator's before-motion `will-change` is kept. A final review found the first listing's drift is written with a 0ms delay in the same flush as the priming, so its `will-change` arrived in the same style change that started the drift. Every later drift already had it from the photo's rest. The priming now writes `will-change: transform` with the tilted rest, so every drift, the first included, starts on a photo already carrying it. The unit test for the priming order was red with the layer taken back out of it. A second unit test covers a photo brought back mid-dissolve: a `transitioncancel` on its transform must not drop it off its layer. It went red when a cancel handler that marks the drift ended was added.
+
+## 2026-09-30 — The active pin grows and shrinks about its tip, on the dim's clock (#218, `claude/roalson-comments-review-45cstm`)
+
+The operator, on 2026-09-29: "the pin scale change needs a transition". The active listing's pin was drawn 1.5× by its SVG's `width`/`height` attributes, and an attribute swap cannot transition. On a production build of /properties at 1440, the incoming pin was already 72 × 64.86 and the outgoing one already 48 × 43.23 in the MutationObserver callback that saw `data-map-active` move. There was no frame in between.
+
+Every pin (live, the loading picture's, the expanded overlay's) is now drawn at its frame's size. `--pin-scale` carries `ACTIVE_PIN_SCALE` on the active pin and 1 on the rest, and is applied as `transform: scale()` on the SVG, with the origin at 50% 100%, which is the tip where `PIN_VIEWBOX` ends. It runs on 150ms `cubic-bezier(0.4, 0, 0.2, 1)`, Tailwind's default and the dim's own timing, so the grow and the fade move together. Under reduced motion it does not animate. The scale sits on the SVG rather than the pin element because MapLibre's per-frame loop owns the element's `transform`. Measured every frame on a production build, the tip drifted 0.000–0.001px through the grow.
+
+**Three things the scale brought with it.**
+
+- The focus ring was the element's outline, so it would have stayed at 48px while the pin drew at 72. It moved to the pin's `::after`, sized from the same variable, so it stays 2px solid, 2px out, round the pin as painted.
+- Stacking. The incoming pin is z 2 from its first frame. The outgoing one holds z 1 until its shrink ends (`steps(1, jump-both)`), so a pin still larger than its neighbours never dips under one, and the incoming pin is never under the outgoing one.
+- Those z-indexes escaped the picture. With the picture box not isolated, the picture's active pin at z 2 rose over the canvas and the live overlay (`z-[1]`) for the whole 300ms cross-fade, drawn over the live map and taking its presses as a link to Google Maps. The picture box is now `isolate`. Nothing guarded that at first: with `isolate` removed, all five map specs stayed green on a production build. The guard added freezes the animation clock (DevTools playback rate 0) with MapLibre's style held back, lets the style through, and reads `elementFromPoint` at the picture's active pin one frame after `data-map-ready`. Unmutated it finds a live marker on top; with `isolate` removed, the picture's pin.
+
+**Hit targets did not change.** `elementFromPoint` 1px inside each edge of the drawn 72 × 64.85 active pin hits it, and 1px outside hits the canvas, before and after.
+
+**Tests, and what a restart cost.** A container restart interrupted the last round of test fixes. The unverified edit was saved as a WIP commit and then verified separately rather than trusted. The guards read the transition's own easing from `getTiming()`, because `getKeyframes()` reports a CSS transition's easing as "linear"; the ring's painted place in pixels; and an opacity fade on every painted pin the move changed. Each went red for its named reason with the component mutated: a `linear` grow, a `linear` fade, the ring without `translate: -50% 0` (its outer edge 40px out on the active pin's right, where 2px of offset and 2px of outline put it at 4), the ring with `top: 0` for `bottom: 0` (26px out below it), and pins whose `transition-property` dropped opacity. The spec from before those fixes stayed green on the same mutants. map-featured-pin.spec.ts ran 21/21 on a production build, at load 0.25 to 2.41.
