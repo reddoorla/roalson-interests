@@ -134,6 +134,25 @@ const openLineBox = (mapWidth: number) => {
   return { width, height: width < 248 ? 32 : 24 };
 };
 
+/** The drawn pin's size — 22 on a compact frame, 48 on a full one: which frame
+ *  the map is, read off what it draws. */
+const pinSize = (page: Page, nth = 0) =>
+  page
+    .locator(MAP)
+    .nth(nth)
+    .locator("[data-map-pin]:not([data-map-active]) svg")
+    .first()
+    .getAttribute("width");
+
+/** What has focus, for a failure message: BODY, or the element. */
+const focused = (page: Page) =>
+  page.evaluate(() => {
+    const a = document.activeElement;
+    if (!a || a === document.body) return "BODY";
+    const what = a.getAttribute("data-map-control") ?? a.getAttribute("href") ?? a.className;
+    return `${a.tagName} ${what}`;
+  });
+
 test.describe("the no-JS state is the content, not a blank box", () => {
   test("the server ships one Google Maps link per listing, on both pages", async ({ page }) => {
     // Asserted on the SSR bytes: the whole claim is that this is in the
@@ -572,7 +591,7 @@ test.describe("the control column", () => {
 
   // WCAG 2.5.1: a pinch is two pointers and a double-tap only zooms IN, so
   // the one-pointer way out of a zoom on a phone is expand, then −. The
-  // expanded overlay is the window — a full frame — so it has all three.
+  // expanded overlay has all three at any window height (`fullControls`).
   for (const [route, where] of [
     [LIVE_PROPERTIES, "Properties"],
     [LIVE_HOME, "the homepage band"],
@@ -627,6 +646,147 @@ test.describe("the control column", () => {
         await context.close();
       }
     });
+
+  // A LANDSCAPE PHONE. The overlay is the window, and a window under 300 tall
+  // is a COMPACT frame (the 22px pin) — which drew expand alone and the
+  // compact credit, leaving no single-pointer zoom-out anywhere.
+  for (const [route, where] of [
+    [LIVE_PROPERTIES, "Properties"],
+    [LIVE_HOME, "the homepage band"],
+  ] as const)
+    test(`${where} expanded in an 800 x 280 window: + and − and expand, − zooms out, and the whole chip`, async ({
+      browser,
+    }) => {
+      const { context, page } = await at(browser, 800, 280);
+      try {
+        await watchCamera(page);
+        await page.goto(route);
+        await hydrated(page);
+        const map = page.locator(MAP).first();
+        await map.scrollIntoViewIfNeeded();
+        await drawn(page);
+        expect(await cameraProbeInstalled(page)).toBe(true);
+        await map.locator("[data-map-expand]").click();
+        await expect(map).toHaveAttribute("data-expanded", "true");
+        await expect
+          .poll(async () => {
+            const r = await rect(page, MAP);
+            return [r.w, r.h];
+          })
+          .toEqual([800, 280]);
+        await expect.poll(() => pinSize(page), { message: "premise: a compact frame" }).toBe("22");
+        const read = await map.evaluate((el) =>
+          [...el.querySelectorAll("[data-map-control]")].map((b) => {
+            const t = b.getBoundingClientRect();
+            const hit = document.elementFromPoint(t.left + t.width / 2, t.top + t.height / 2);
+            return { which: b.getAttribute("data-map-control"), hits: !!hit && b.contains(hit) };
+          }),
+        );
+        expect(read.map((r) => r.which)).toEqual(["zoom-in", "zoom-out", "expand"]);
+        for (const r of read) expect(r.hits, `${r.which} is what a press there hits`).toBe(true);
+
+        const zoom = () =>
+          map.evaluate((el) => {
+            const m = (
+              window.__camera.maps as unknown as {
+                getContainer(): HTMLElement;
+                getZoom(): number;
+              }[]
+            ).find((x) => el.contains(x.getContainer()))!;
+            return m.getZoom();
+          });
+        await cameraAtRest(page);
+        const z0 = await zoom();
+        await map.locator('[data-map-control="zoom-out"]').click();
+        await expect.poll(zoom, { message: "one press, one level out" }).toBeCloseTo(z0 - 1, 2);
+
+        await expect(map.locator(OSM), "the whole chip: the licence line, no press").toBeVisible();
+        expect(
+          await map
+            .locator(".maplibregl-ctrl-attrib")
+            .evaluate((c) => c.classList.contains("maplibregl-compact")),
+          "not the compact credit",
+        ).toBe(false);
+      } finally {
+        await context.close();
+      }
+    });
+
+  // …and a resize across 300 while it is open takes nothing away: a focused −
+  // or a focused licence link is still focused, not dropped to <body> inside
+  // the dialog.
+  for (const [route, where] of [
+    [LIVE_PROPERTIES, "Properties"],
+    [LIVE_HOME, "the homepage band"],
+  ] as const)
+    test(`${where} expanded at 390: a resize under 300 tall and back keeps focus on − and on the chip's link`, async ({
+      browser,
+    }) => {
+      const { context, page } = await at(browser, 390, 844);
+      try {
+        await page.goto(route);
+        await hydrated(page);
+        const map = page.locator(MAP).first();
+        await map.scrollIntoViewIfNeeded();
+        await drawn(page);
+        await map.locator("[data-map-expand]").click();
+        await expect(map).toHaveAttribute("data-expanded", "true");
+        const minus = map.locator('[data-map-control="zoom-out"]');
+        await minus.focus();
+        const held = await minus.elementHandle();
+        for (const height of [280, 844]) {
+          await page.setViewportSize({ width: 390, height });
+          await expect
+            .poll(() => pinSize(page), { message: `premise: the frame at 390 x ${height}` })
+            .toBe(height < 300 ? "22" : "48");
+          expect(
+            await page.evaluate((el) => el === document.activeElement, held),
+            `− still has focus at 390 x ${height} (${await focused(page)})`,
+          ).toBe(true);
+        }
+
+        const link = await map.locator(`.maplibregl-ctrl-attrib ${OSM}`).elementHandle();
+        await link!.focus();
+        await page.setViewportSize({ width: 390, height: 280 });
+        await expect.poll(() => pinSize(page), { message: "premise: compact again" }).toBe("22");
+        expect(
+          await page.evaluate((el) => el === document.activeElement, link),
+          `the chip's licence link still has focus (${await focused(page)})`,
+        ).toBe(true);
+      } finally {
+        await context.close();
+      }
+    });
+
+  // + and − go when a /properties map crosses `lg` downwards; a keyboard on
+  // one lands on expand rather than on <body>.
+  test("Properties crossing lg: a keyboard on − lands on expand", async ({ browser }) => {
+    const { context, page } = await at(browser, 1100, 900);
+    try {
+      await page.goto(LIVE_PROPERTIES);
+      await hydrated(page);
+      const map = page.locator(MAP).first();
+      await map.scrollIntoViewIfNeeded();
+      await drawn(page);
+      await map.locator('[data-map-control="zoom-out"]').focus();
+      await page.setViewportSize({ width: 1000, height: 900 });
+      await expect
+        .poll(() =>
+          map.evaluate((el) =>
+            [...el.querySelectorAll("[data-map-control]")].map((b) =>
+              b.getAttribute("data-map-control"),
+            ),
+          ),
+        )
+        .toEqual(["expand"]);
+      expect(
+        await map.locator("[data-map-expand]").evaluate((b) => b === document.activeElement),
+        `expand has focus (${await focused(page)})`,
+      ).toBe(true);
+    } finally {
+      await context.close();
+    }
+  });
 
   test("+ zooms one whole level and − comes back, and the page does not move", async ({
     browser,
@@ -1189,6 +1349,167 @@ test.describe("the credit", () => {
         collapsed! - ready!,
         "CREDIT_OPEN_MS after the first frame, not after page load",
       ).toBeGreaterThan(CREDIT_OPEN_MS - 500);
+    } finally {
+      await context.close();
+    }
+  });
+
+  // A KEYBOARD ON THE PICTURE'S CREDIT WHEN THE PICTURE GOES. Its two links are
+  // real and in the tab order — until `load` it is the whole attribution — and
+  // the hand-over removes them. So focus is moved to the live credit's same
+  // link first, and on a compact map, when the window closes the line under
+  // it, to the (i). Reached as a keyboard reaches it: Tab from the map's last
+  // list link, on a map below the fold, which that Tab brings on screen and
+  // boots. Both hand-overs: `transitionend` with motion allowed, the same tick
+  // under reduced motion.
+  for (const { route, where, width, height, nth } of [
+    { route: LIVE_HOME, where: "the homepage band", width: 1440, height: 900, nth: 0 },
+    { route: LIVE_HOME, where: "the homepage band", width: 390, height: 640, nth: 0 },
+    { route: LIVE_PROPERTIES, where: "Properties' second map", width: 390, height: 844, nth: 1 },
+  ])
+    for (const motion of ["no-preference", "reduce"] as const)
+      test(`${where} at ${width}, motion ${motion}: a keyboard on the picture's credit is on the live credit after the hand-over`, async ({
+        browser,
+      }) => {
+        const context = await browser.newContext({
+          viewport: { width, height },
+          reducedMotion: motion,
+        });
+        const page = await context.newPage();
+        try {
+          await page.goto(route);
+          await hydrated(page);
+          expect(
+            await page.evaluate(() => matchMedia("(prefers-reduced-motion: reduce)").matches),
+            "premise: the motion setting",
+          ).toBe(motion === "reduce");
+          const map = page.locator(MAP).nth(nth);
+          await map.locator("[data-map-link]").last().focus();
+          await page.keyboard.press("Tab");
+          const picture = map.locator("[data-map-home-credit]");
+          const openMapTiles = 'a[href="https://www.openmaptiles.org/"]';
+          expect(
+            await picture.locator(openMapTiles).evaluate((a) => a === document.activeElement),
+            `premise: Tab lands on the picture's credit (${await focused(page)})`,
+          ).toBe(true);
+          expect(await map.getAttribute("data-map-ready"), "premise: not drawn yet").toBeNull();
+
+          await drawn(page, nth);
+          await expect(picture, "the picture's credit went with the picture").toHaveCount(0);
+          const live = map.locator(".maplibregl-ctrl-attrib");
+          expect(
+            await live.locator(openMapTiles).evaluate((a) => a === document.activeElement),
+            `on the live credit's OpenMapTiles link (${await focused(page)})`,
+          ).toBe(true);
+
+          if (width >= 1024) return;
+          await expect(map.locator(OSM), "the window closes").toBeHidden({
+            timeout: CREDIT_OPEN_MS + 10_000,
+          });
+          expect(
+            await live.locator("summary").evaluate((s) => s === document.activeElement),
+            `and the (i) holds it (${await focused(page)})`,
+          ).toBe(true);
+        } finally {
+          await context.close();
+        }
+      });
+
+  // SETTLED IS FOR GOOD. Once the window has closed, a compact credit placed
+  // later — the phone map expanded and collapsed, a /properties map crossing
+  // `lg` — starts as the (i), and the line does not come back over the
+  // downtown cluster (#188).
+  const collapsed = (page: Page) =>
+    page
+      .locator(MAP)
+      .first()
+      .locator(".maplibregl-ctrl-attrib")
+      .evaluate((d) => ({
+        compact: d.classList.contains("maplibregl-compact"),
+        line: d.classList.contains("maplibregl-compact-show"),
+        open: (d as HTMLDetailsElement).open,
+      }));
+  for (const [route, where] of [
+    [LIVE_PROPERTIES, "Properties"],
+    [LIVE_HOME, "the homepage band"],
+  ] as const)
+    test(`${where} at 390: after the window, expanded and Escape, the credit is the (i) again`, async ({
+      browser,
+    }) => {
+      const { context, page } = await at(browser, 390, 844);
+      try {
+        await page.goto(route);
+        await hydrated(page);
+        const map = page.locator(MAP).first();
+        await map.scrollIntoViewIfNeeded();
+        await drawn(page);
+        await expect(map.locator(OSM), "the window closes").toBeHidden({
+          timeout: CREDIT_OPEN_MS + 10_000,
+        });
+        await map.locator("[data-map-expand]").click();
+        await expect(map.locator(OSM), "premise: the overlay's whole chip").toBeVisible();
+        await page.keyboard.press("Escape");
+        await expect(map).not.toHaveAttribute("data-expanded", "true");
+        await expect(map.locator(".maplibregl-ctrl-attrib summary"), "the (i)").toBeVisible();
+        expect(await collapsed(page)).toEqual({ compact: true, line: false, open: false });
+        await expect(map.locator(OSM), "no line").toBeHidden();
+      } finally {
+        await context.close();
+      }
+    });
+
+  test("Properties crossing lg after the window: the credit comes back as the (i)", async ({
+    browser,
+  }) => {
+    const { context, page } = await at(browser, 1000, 900);
+    try {
+      await page.goto(LIVE_PROPERTIES);
+      await hydrated(page);
+      const map = page.locator(MAP).first();
+      await map.scrollIntoViewIfNeeded();
+      await drawn(page);
+      await expect(map.locator(OSM), "the window closes").toBeHidden({
+        timeout: CREDIT_OPEN_MS + 10_000,
+      });
+      await page.setViewportSize({ width: 1100, height: 900 });
+      await expect(map.locator(OSM), "premise: over lg, the whole chip").toBeVisible();
+      await page.setViewportSize({ width: 1000, height: 900 });
+      await expect(map.locator(".maplibregl-ctrl-attrib summary"), "the (i)").toBeVisible();
+      expect(await collapsed(page)).toEqual({ compact: true, line: false, open: false });
+      await expect(map.locator(OSM), "no line").toBeHidden();
+    } finally {
+      await context.close();
+    }
+  });
+
+  // A /properties map crossing `lg` downwards swaps the chip for the compact
+  // credit, inside the window here, so its line is open: a keyboard on the
+  // chip's licence link is on the line's.
+  test("Properties crossing lg: a keyboard on the chip's licence link stays on the credit's", async ({
+    browser,
+  }) => {
+    const { context, page } = await at(browser, 1100, 900);
+    try {
+      await watchCredit(page);
+      await page.goto(LIVE_PROPERTIES);
+      await hydrated(page);
+      const map = page.locator(MAP).first();
+      await map.scrollIntoViewIfNeeded();
+      await drawn(page);
+      await map.locator(`.maplibregl-ctrl-attrib ${OSM}`).focus();
+      await page.setViewportSize({ width: 1000, height: 900 });
+      await expect.poll(() => collapsed(page)).toEqual({ compact: true, line: true, open: true });
+      const { ready } = await creditTimes(page);
+      expect(
+        (await page.evaluate(() => performance.now())) - ready!,
+        "premise: inside the window",
+      ).toBeLessThan(CREDIT_OPEN_MS - 1_000);
+      expect(
+        await map
+          .locator(`.maplibregl-ctrl-attrib ${OSM}`)
+          .evaluate((a) => a === document.activeElement && a.checkVisibility()),
+        `the line's licence link has focus (${await focused(page)})`,
+      ).toBe(true);
     } finally {
       await context.close();
     }
