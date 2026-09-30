@@ -138,9 +138,12 @@ describe("propertyFacts", () => {
   it("names the per-unit row by the unit the editor typed", () => {
     const perUnit = (price_per_unit: string) =>
       propertyFacts(propertyFixture({ transaction_type: null, price_per_unit }))[1];
-    // The four values live in Prismic on 2026-09-30.
+    // Every value live in Prismic on 2026-09-30, exactly as spelled there.
+    expect(perUnit("$17.00 / SF")).toEqual({ label: "Price per SF", value: "$17.00" });
     expect(perUnit("$375.17 / SF")).toEqual({ label: "Price per SF", value: "$375.17" });
     expect(perUnit("$4.50 / SF")).toEqual({ label: "Price per SF", value: "$4.50" });
+    expect(perUnit("$8.50 / SF")).toEqual({ label: "Price per SF", value: "$8.50" });
+    // Variants an editor could type; none of these is live.
     expect(perUnit("$8.50/sq. ft.")).toEqual({ label: "Price per SF", value: "$8.50" });
     expect(perUnit("$375,000 / acre")).toEqual({ label: "Price per acre", value: "$375,000" });
     expect(perUnit("$40,000 / AC")).toEqual({ label: "Price per acre", value: "$40,000" });
