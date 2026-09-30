@@ -1,5 +1,11 @@
 import { expect, test, type Browser, type ConsoleMessage, type Page } from "@playwright/test";
-import { FEATURED_DISSOLVE, FEATURED_DWELL } from "./featured-dwell";
+import sharp from "sharp";
+import {
+  FEATURED_DISSOLVE,
+  FEATURED_DWELL,
+  FEATURED_KEN_BURNS,
+  FEATURED_TILT_DEG,
+} from "./featured-dwell";
 import { measuresGutter, viewportFor } from "./gutter";
 import { hydrated, HYDRATION_TIMEOUT } from "./hydrated";
 import { GARNET, SAND } from "./palette";
@@ -30,6 +36,16 @@ const BAND = '[data-slice-type="featured_properties"]';
 const CARD = "[data-featured-card]";
 const SLIDES = `${CARD} [data-featured-slide]`;
 const FILL = `${CARD} [data-carousel-progress] > div`;
+/** The off-diagonal under which Firefox's WebRender takes a transform for a
+ *  plain scale — `NEARLY_ZERO` in `ScaleOffset::from_transform`
+ *  (gfx/wr/webrender_api/src/fast_transform.rs), read in its source on
+ *  2026-09-30. The photo's tilt (TILT_DEG in the slice) is there to be past
+ *  it on every frame. */
+const NEARLY_ZERO = 1 / 4096;
+/** How far a frame's angle may read from TILT_DEG, in degrees: well over what
+ *  Chromium's six serialized digits cost (~1e-7), well under what a tilt
+ *  interpolated to or from 0 is off by a second into a dwell (~0.0025). */
+const ANGLE_SLACK = 5e-6;
 
 measuresGutter();
 
@@ -67,6 +83,28 @@ const focusAnd = (page: Page) =>
       live: live.getAttribute("aria-live"),
     };
   }, CARD);
+
+/** How much fine detail a screenshot holds: the mean |4-neighbour Laplacian|
+ *  of its greyscale, 8px in from its edges so the clip is not measured. A
+ *  raster stretched by 6% loses exactly this. */
+async function detail(png: Buffer) {
+  const { data, info } = await sharp(png)
+    .removeAlpha()
+    .greyscale()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  expect(info.channels, "premise: one grey channel").toBe(1);
+  const { width: w, height: h } = info;
+  let sum = 0;
+  let n = 0;
+  for (let y = 8; y < h - 8; y++)
+    for (let x = 8; x < w - 8; x++) {
+      const i = y * w + x;
+      sum += Math.abs(4 * data[i] - data[i - 1] - data[i + 1] - data[i - w] - data[i + w]);
+      n++;
+    }
+  return sum / n;
+}
 
 /** Every console warning and error, and every uncaught page error. */
 function listen(page: Page) {
@@ -122,6 +160,18 @@ test.describe("scripting off", () => {
       await expect(card).toHaveCSS("opacity", "1");
       await expect(card).toHaveCSS("transform", "none");
       await expect(page.locator(`${SLIDES}:not([inert]) a`).first()).toBeVisible();
+
+      // No drift and no layer in the server's markup: it cannot know the
+      // visitor's motion preference, and a declared end scale would be the
+      // photo's first style, with nothing for a transition to start from.
+      const photos = await page.locator(`${CARD} [data-featured-photo]`).evaluateAll((els) =>
+        els.map((el) => ({
+          style: el.getAttribute("style"),
+          willChange: getComputedStyle(el).willChange,
+        })),
+      );
+      expect(photos.length, "premise: every slide has its photo").toBe(slides.length);
+      for (const photo of photos) expect(photo).toEqual({ style: null, willChange: "auto" });
     } finally {
       await context.close();
     }
@@ -443,9 +493,39 @@ test.describe("motion on the shipped bundle", () => {
     // transition on `transform` now, which the compositor runs.
     // featured-properties.spec.ts measures its curve, its hold and Pause on
     // /dev/home; this is the production build's word that it is wired.
+    //
+    // AND TILTED (Firefox, operator, 2026-09-30; TILT_DEG in the slice), from
+    // the first frame the photo drifts: the served markup carries no style,
+    // and a first drift written straight onto `none` turns the photo up from
+    // 0deg — under NEARLY_ZERO for its first 5378ms. A hydration claim, so it
+    // is made on the shipped bundle too. The first photo's off-diagonal, every
+    // frame of the first second from the flush that made the band ready.
     test.setTimeout(45_000);
     const { context, page } = await moving(browser);
     try {
+      await page.addInitScript((card: string) => {
+        const w = window as unknown as { __tilts: { tl: number; b: number; angle: number }[] };
+        w.__tilts = [];
+        const ready = new MutationObserver(() => {
+          const region = document.querySelector(card);
+          if (!region?.hasAttribute("data-carousel-ready")) return;
+          ready.disconnect();
+          const photo = region.querySelector("[data-featured-photo]")!;
+          const t0 = Number(document.timeline.currentTime);
+          const tick = () => {
+            const tl = Number(document.timeline.currentTime);
+            const m = new DOMMatrix(getComputedStyle(photo).transform);
+            w.__tilts.push({ tl: tl - t0, b: m.b, angle: (Math.atan2(m.b, m.a) * 180) / Math.PI });
+            if (tl - t0 < 1000) requestAnimationFrame(tick);
+          };
+          requestAnimationFrame(tick);
+        });
+        ready.observe(document, {
+          attributes: true,
+          subtree: true,
+          attributeFilter: ["data-carousel-ready"],
+        });
+      }, CARD);
       await page.goto(HOME);
       await adopted(page);
       await page.mouse.move(2, 2);
@@ -459,7 +539,17 @@ test.describe("motion on the shipped bundle", () => {
         const photo = document
           .querySelector(card)!
           .querySelector("[data-featured-slide]:not([inert]) [data-featured-photo]")!;
-        const scale = () => Number(/matrix\(([^,]+),/.exec(getComputedStyle(photo).transform)![1]);
+        const matrix = () => {
+          const t = getComputedStyle(photo).transform;
+          if (t === "none") throw new Error("the on-stage photo has no transform");
+          return new DOMMatrix(t);
+        };
+        // The scale is the LENGTH of the matrix's first column, √(a² + b²),
+        // not `a`: every state is `scale(s) rotate(TILT_DEG)`, so `a` is
+        // s·cos θ. Rounded to 1e-6, the six significant digits Chromium
+        // serializes: scale(1) rotate(0.02deg) reads matrix(1, 0.000349066,
+        // …), whose √(a² + b²) is 1.00000006 and not the declared 1.
+        const scale = () => ((m) => Math.round(Math.hypot(m.a, m.b) * 1e6) / 1e6)(matrix());
         const animations = photo.getAnimations().map((a) => ({
           kind: a.constructor.name,
           property: (a as CSSTransition).transitionProperty,
@@ -472,8 +562,23 @@ test.describe("motion on the shipped bundle", () => {
         const from = scale();
         await new Promise((resolve) => setTimeout(resolve, 1000));
         observer.disconnect();
-        return { animations, writes, from, to: scale() };
+        const willChange = [...document.querySelectorAll(`${card} [data-featured-photo]`)].map(
+          (el) => getComputedStyle(el).willChange,
+        );
+        const m = matrix();
+        return {
+          animations,
+          writes,
+          from,
+          to: scale(),
+          tilt: m.b,
+          angle: (Math.atan2(m.b, m.a) * 180) / Math.PI,
+          willChange,
+        };
       }, CARD);
+      // Every photo on its own layer, the one drifting and the ones resting.
+      expect(seen.willChange.length, "premise: more than one photo").toBeGreaterThan(1);
+      expect(new Set(seen.willChange), "every photo's will-change").toEqual(new Set(["transform"]));
       expect(seen.animations).toEqual([
         {
           kind: "CSSTransition",
@@ -483,10 +588,192 @@ test.describe("motion on the shipped bundle", () => {
         },
       ]);
       expect(seen.to, `${seen.from} → ${seen.to} across 1s mid-dwell`).toBeGreaterThan(seen.from);
+      // The drifting photo carries the tilt: its off-diagonal is nonzero, and
+      // past the 1/4096 under which WebRender takes it for a plain scale — and
+      // it is the WHOLE tilt, which the first check alone is not: a rotation
+      // running down to 0 across the dwell stays past 1/4096 for about the
+      // first third of it (measured on this case with the on-stage state's
+      // rotate() removed: 0.01392deg, b still past 1/4096).
+      expect
+        .soft(Math.abs(seen.tilt), `the drifting photo's tilt, b = ${seen.tilt}`)
+        .toBeGreaterThan(NEARLY_ZERO);
+      expect
+        .soft(Math.abs(seen.angle - FEATURED_TILT_DEG), `the drifting photo at ${seen.angle}deg`)
+        .toBeLessThan(ANGLE_SLACK);
       expect(seen.writes, "style writes on the photo across 1s mid-dwell").toBe(0);
+      // …and slide 1 carried it from its first frame after hydration.
+      const tilts = await page.evaluate(
+        () =>
+          (window as unknown as { __tilts: { tl: number; b: number; angle: number }[] }).__tilts,
+      );
+      test.info().annotations.push({
+        type: "tilt",
+        description: `on stage mid-dwell b = ${seen.tilt}, ${seen.angle}deg; slide 1's first second: ${tilts.length} frames, |b| ${Math.min(...tilts.map((f) => Math.abs(f.b)))} at least, ${Math.min(...tilts.map((f) => f.angle))}–${Math.max(...tilts.map((f) => f.angle))}deg`,
+      });
+      expect(tilts.length, "sampled slide 1's first second").toBeGreaterThanOrEqual(2);
+      expect
+        .soft(
+          tilts
+            .filter(
+              (f) =>
+                !(Math.abs(f.b) > NEARLY_ZERO) ||
+                !(Math.abs(f.angle - FEATURED_TILT_DEG) < ANGLE_SLACK),
+            )
+            .map((f) => `${f.tl.toFixed(1)}ms: ${f.angle}deg, b = ${f.b}`),
+          "slide 1's first-second frames off TILT_DEG, or not past 1/4096",
+        )
+        .toEqual([]);
     } finally {
       await context.close();
     }
+  });
+
+  test("a visitor's drift keeps its layer while it runs and DROPS it once it has ended — held as sharp as a photo never layered", async ({
+    browser,
+  }) => {
+    // A layer with will-change keeps the raster it was first drawn at, so in
+    // Chromium a photo held at 1 + KEN_BURNS on one is its start raster
+    // stretched, for as long as it is held (`LAYER` in the slice). A
+    // visitor's turn is what holds it: the arrow's focus stops the clock,
+    // and the drift the turn started runs to its end and stays there.
+    //
+    // THREE RUNS OF THAT TURN, on the same photo, at 1440 × DPR 2: the page
+    // as it ships, and two controls whose photos have will-change forced by
+    // an !important rule, which beats the inline style — `transform`
+    // throughout (the layer kept, as #212 shipped it) and `auto` throughout
+    // (never layered). The controls must differ by more than SHARPER, or the
+    // measurement cannot tell a stretched raster from a fresh one and the
+    // shipped run's number means nothing.
+    test.setTimeout(240_000);
+    const SHARPER = 1.1;
+    const turn = async (forced: "transform" | "auto" | null) => {
+      const context = await browser.newContext({
+        reducedMotion: "no-preference",
+        viewport: viewportFor(1440),
+        deviceScaleFactor: 2,
+      });
+      try {
+        const page = await context.newPage();
+        if (forced)
+          await page.addInitScript((value: string) => {
+            const add = () => {
+              const style = document.createElement("style");
+              style.textContent = `[data-featured-photo] { will-change: ${value} !important; }`;
+              document.head.append(style);
+            };
+            if (document.head) add();
+            else document.addEventListener("DOMContentLoaded", add);
+          }, forced);
+        await page.goto(HOME);
+        await adopted(page);
+        // Focus in the card stops the clock on slide 1 before anything has
+        // loaded, so every run turns from 1 to 2: the same photo, fetched
+        // whole before its drift starts.
+        const next = page.getByRole("button", { name: "Next slide" });
+        await next.focus();
+        await page.locator(CARD).scrollIntoViewIfNeeded();
+        await expect
+          .poll(
+            () =>
+              page
+                .locator(`${CARD} [data-featured-photo]`)
+                .evaluateAll((els) =>
+                  (els as HTMLImageElement[]).every((img) => img.complete && img.naturalWidth > 0),
+                ),
+            { timeout: 30_000 },
+          )
+          .toBe(true);
+        const photo = page.locator(`${SLIDES}:not([inert]) [data-featured-photo]`);
+        const read = () =>
+          photo.evaluate((el) => {
+            const m = new DOMMatrix(getComputedStyle(el).transform);
+            return {
+              // √(a² + b²), rounded to 1e-6: see the drift's case above.
+              scale: Math.round(Math.hypot(m.a, m.b) * 1e6) / 1e6,
+              animations: el
+                .getAnimations()
+                .map((a) => a.playState)
+                .join(","),
+              willChange: getComputedStyle(el).willChange,
+            };
+          });
+        await next.click();
+        await page.mouse.move(2, 2);
+        await expect(page.locator(`${SLIDES}:not([inert])`)).toHaveAttribute(
+          "aria-label",
+          /^2 of \d+$/,
+        );
+        await expect(page.getByRole("button", { name: "Play slides" })).toBeVisible();
+
+        // MID-DRIFT: past the settle, moving — on its layer.
+        await expect
+          .poll(async () => (await read()).scale, { timeout: 10_000 })
+          .toBeGreaterThan(1.005);
+        const mid = await read();
+        expect(mid.scale, "mid-drift").toBeLessThan(1 + FEATURED_KEN_BURNS);
+        expect(mid.animations, "mid-drift").toBe("running");
+        expect(mid.willChange, "mid-drift").toBe(forced ?? "transform");
+
+        // ENDED: no animation left, at the end scale — and, as shipped, off
+        // its layer.
+        await expect
+          .poll(read, { timeout: FEATURED_DISSOLVE + FEATURED_DWELL + 6_000 })
+          .toEqual({ scale: 1 + FEATURED_KEN_BURNS, animations: "", willChange: forced ?? "auto" });
+
+        // HELD: the photo as painted, a second, two and three after the
+        // end. The best of the three, so a re-raster that load delays past
+        // the first still counts — and a raster that never re-sharpens is
+        // the same all three times.
+        const wrapper = photo.locator("..");
+        const held: number[] = [];
+        for (let k = 0; k < 3; k++) {
+          await page.waitForTimeout(1000);
+          held.push(await detail(await wrapper.screenshot()));
+        }
+        return {
+          held,
+          best: Math.max(...held),
+          src: await photo.evaluate((el) => (el as HTMLImageElement).currentSrc),
+          box: await wrapper.evaluate((el) => `${el.clientWidth}×${el.clientHeight}`),
+        };
+      } finally {
+        await context.close();
+      }
+    };
+
+    const shipped = await turn(null);
+    const layered = await turn("transform");
+    const never = await turn("auto");
+    test.info().annotations.push({
+      type: "held detail",
+      description: [
+        ["shipped", shipped],
+        ["forced transform", layered],
+        ["forced auto", never],
+      ]
+        .map(
+          ([name, r]) =>
+            `${name}: ${(r as typeof shipped).held.map((d) => d.toFixed(4)).join(" / ")}`,
+        )
+        .join("; ")
+        .concat(` — ${shipped.box}, w=${new URL(shipped.src).searchParams.get("w")}`),
+    });
+    expect([layered.src, never.src], "premise: the same photo, the same candidate").toEqual([
+      shipped.src,
+      shipped.src,
+    ]);
+    expect(
+      never.best,
+      `premise: never layered (${never.best}) against kept on its layer (${layered.best})`,
+    ).toBeGreaterThan(layered.best * SHARPER);
+    expect(
+      shipped.best,
+      `as shipped (${shipped.best}), held, against never layered (${never.best})`,
+    ).toBeGreaterThanOrEqual(never.best * 0.97);
+    expect(
+      shipped.best,
+      `as shipped (${shipped.best}), held, against kept on its layer (${layered.best})`,
+    ).toBeGreaterThan(layered.best * SHARPER);
   });
 
   test("a photo brought back after it stopped showing drifts again from 1.00 — a Previous, and a Next, Next that wraps", async ({
@@ -495,9 +782,10 @@ test.describe("motion on the shipped bundle", () => {
     // A photo that LEFT is held where it was while it still shows, and rests
     // at 1 once its wrapper's fade-out has ended. So a photo brought back ~2s
     // after a clock turn gets the drift a clock turn draws: still through
-    // the settle, then 1.00 → 1.03. On 3c7284e it was held for a whole DWELL
-    // instead and drifted on from there: from 1.02994 to 1.03 over a whole
-    // DWELL, a still photo for its visit (this case's red on that code).
+    // the settle, then 1.00 → 1 + KEN_BURNS. On 3c7284e it was held for a
+    // whole DWELL instead and drifted on from there: from 1.02994 to 1.03 (at
+    // 0.03) over a whole DWELL, a still photo for its visit (this case's red
+    // on that code).
     test.setTimeout(150_000);
     for (const wraps of [false, true]) {
       const { context, page } = await moving(browser);
@@ -528,12 +816,24 @@ test.describe("motion on the shipped bundle", () => {
             );
             const onStage = () => slides.findIndex((s) => !s.hasAttribute("inert"));
             const now = () => Number(document.timeline.currentTime);
+            // √(a² + b²), rounded to 1e-6: see the case above. `none` is 1.
             const scaleOf = (el: Element) => {
-              const t = getComputedStyle(el).transform;
-              return t === "none" ? 1 : Number(/matrix\(([^,]+),/.exec(t)![1]);
+              const m = new DOMMatrix(getComputedStyle(el).transform);
+              return Math.round(Math.hypot(m.a, m.b) * 1e6) / 1e6;
+            };
+            /** Its rotation in degrees; 0 for `none`. */
+            const angleOf = (el: Element) => {
+              const m = new DOMMatrix(getComputedStyle(el).transform);
+              return (Math.atan2(m.b, m.a) * 180) / Math.PI;
             };
             const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-            const frames: { tl: number; on: number; scale: number[]; opacity: number[] }[] = [];
+            const frames: {
+              tl: number;
+              on: number;
+              scale: number[];
+              angle: number[];
+              opacity: number[];
+            }[] = [];
             let back = -1;
             let pressedAt: number | null = null;
             let origin: number | null = null;
@@ -552,6 +852,7 @@ test.describe("motion on the shipped bundle", () => {
                   tl: now(),
                   on: onStage(),
                   scale: photos.map(scaleOf),
+                  angle: photos.map(angleOf),
                   opacity: photos.map((p) => Number(getComputedStyle(p.parentElement!).opacity)),
                 });
                 const drift = back < 0 ? undefined : photos[back].getAnimations()[0];
@@ -641,12 +942,99 @@ test.describe("motion on the shipped bundle", () => {
             `${name}: through the settle`,
           )
           .toEqual([]);
-        // …then the whole drift.
+        // …then the whole drift: sampled until 100ms past its end, so all of
+        // KEN_BURNS but for 100ms of drift's worth of slack.
+        // …at TILT_DEG on every frame from the press, settle and drift alike:
+        // a photo that RESTED starts from its tilted rest, so nothing turns it.
+        expect
+          .soft(
+            frames
+              .filter(
+                (f) =>
+                  f.tl > pressTl && !(Math.abs(f.angle[back] - FEATURED_TILT_DEG) < ANGLE_SLACK),
+              )
+              .map((f) => `${f.tl - pressTl}ms from the press: ${f.angle[back]}deg`),
+            `${name}: the photo brought back, off TILT_DEG`,
+          )
+          .toEqual([]);
         const drift = frames.filter((f) => f.tl >= origin).map((f) => f.scale[back]);
         const travel = Math.max(...drift) - Math.min(...drift);
         expect
           .soft(travel, `${name}: travelled ${travel} over the dwell`)
-          .toBeGreaterThanOrEqual(0.025);
+          .toBeGreaterThanOrEqual(FEATURED_KEN_BURNS * (1 - 100 / FEATURED_DWELL));
+      } finally {
+        await context.close();
+      }
+    }
+  });
+
+  test("every photo is fetched at least as wide as it is drawn at the drift's END — or at the widest its source has", async ({
+    browser,
+  }) => {
+    // THE END SCALE IS WHAT `sizes` DESCRIBES (see `photoSizes` in the slice).
+    // It used to say 65vw — the box — so at 1440 × DPR 2 Chromium took 1920
+    // for a photo drawn 1965 device px wide at 1.06, and at DPR 1 a photo
+    // wider than the box (object-cover draws it at the box's height) took
+    // 1024 for 1139. Nothing here names a listing: each photo is held to its
+    // own box, its own aspect and its own srcset. Where the source itself is
+    // narrower than the end frame, the widest candidate is all there is.
+    for (const dpr of [1, 2]) {
+      const context = await browser.newContext({
+        reducedMotion: "no-preference",
+        viewport: viewportFor(1440),
+        deviceScaleFactor: dpr,
+      });
+      try {
+        const page = await context.newPage();
+        await page.goto(HOME);
+        await adopted(page);
+        await page.locator(CARD).scrollIntoViewIfNeeded();
+        await expect
+          .poll(() =>
+            page
+              .locator(`${CARD} [data-featured-photo]`)
+              .evaluateAll((els) =>
+                (els as HTMLImageElement[]).every((img) => img.complete && img.naturalWidth > 0),
+              ),
+          )
+          .toBe(true);
+        const photos = await page.locator(`${CARD} [data-featured-photo]`).evaluateAll(
+          (els, end) =>
+            (els as HTMLImageElement[]).map((img) => {
+              const box = img.parentElement!.getBoundingClientRect();
+              const drawn = Math.max(
+                box.width,
+                box.height * (img.naturalWidth / img.naturalHeight),
+              );
+              const offered = (img.getAttribute("srcset") ?? "")
+                .split(", ")
+                .map((c) => Number(/ (\d+)w$/.exec(c)?.[1]))
+                .filter((w) => w > 0);
+              return {
+                picked: Number(new URL(img.currentSrc).searchParams.get("w")),
+                widest: Math.max(...offered),
+                offered: offered.length,
+                needed: Math.round(drawn * devicePixelRatio * end * 10) / 10,
+              };
+            }),
+          1 + FEATURED_KEN_BURNS,
+        );
+        test.info().annotations.push({
+          type: `DPR ${dpr}`,
+          description: photos.map((p) => `${p.picked} of ${p.widest} for ${p.needed}`).join("; "),
+        });
+        expect(photos.length, "premise: more than one photo").toBeGreaterThan(1);
+        for (const [i, p] of photos.entries()) {
+          expect(p.offered, `photo ${i + 1} at DPR ${dpr}: a srcset`).toBeGreaterThan(1);
+          expect(p.picked, `photo ${i + 1} at DPR ${dpr}: a candidate was fetched`).toBeGreaterThan(
+            0,
+          );
+          if (p.picked < p.widest)
+            expect(
+              p.picked,
+              `photo ${i + 1} at DPR ${dpr}: fetched ${p.picked} of ${p.widest} for ${p.needed} device px`,
+            ).toBeGreaterThanOrEqual(p.needed);
+        }
       } finally {
         await context.close();
       }
