@@ -32,9 +32,10 @@ export const FEATURED_DWELL = (() => {
 })();
 
 /** How far the photo's drift travels across a dwell: the slice's KEN_BURNS
- *  (1.00 → 1.03). Read out of the slice for DWELL's reason — the slice calls
- *  it reversible (0.06 is the old speed over the new dwell), and a spec that
- *  checks where the photo should be on a given frame must follow it. */
+ *  (1.00 → 1.06). Read out of the slice for DWELL's reason — it has already
+ *  moved once, 0.03 to 0.06 on the operator's call of 2026-09-29 ("let's
+ *  speed it up"), and a spec that checks where the photo should be on a
+ *  given frame must follow it. */
 export const FEATURED_KEN_BURNS = (() => {
   const declared = /^\s*export const KEN_BURNS = (\d*\.?\d+);$/m.exec(readFileSync(SLICE, "utf8"));
   if (!declared)
