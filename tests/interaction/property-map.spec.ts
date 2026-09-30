@@ -208,14 +208,24 @@ const luminance = ([r, g, b]: number[]) => {
   return 0.2126 * f(r!) + 0.7152 * f(g!) + 0.0722 * f(b!);
 };
 
+/** Two animation frames: the state just set has been drawn. */
+const frames = (page: Page) =>
+  page.evaluate(
+    () => new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r()))),
+  );
+
 /** A FOCUS INDICATOR, IN PIXELS: the box round `target` keyboard-focused and
  *  blurred, and every pixel that changed held against the one it covered.
  *  `:focus-visible` alone stayed true with the pin's ring deleted, and with it
  *  drawn off-white over the tiles (0 of 80 changed pixels at 3:1). A pin's
  *  own drawing is left out, since its dim lifts on focus: what is left is the
  *  ring. Shot again after focusing back; a map that changed in between (a
- *  tile landing) is shot again rather than read as a ring. */
+ *  tile landing) is shot again rather than read as a ring. So is a reading
+ *  where nothing changed at all: once in a 124-case run the canvas's three
+ *  shots came back identical though it passed every run alone, and a ring
+ *  that is really missing reads the same five times. */
 async function indicatorOf(page: Page, target: Locator) {
+  let last: { seen: boolean; numbers: string; on: Buffer; off: Buffer; at: unknown } | null = null;
   for (let attempt = 0; attempt < 5; attempt++) {
     const at = await target.evaluate((el: HTMLElement) => {
       el.focus({ preventScroll: true });
@@ -241,10 +251,13 @@ async function indicatorOf(page: Page, target: Locator) {
       };
     });
     expect(at.showing, "premise: a keyboard's focus").toBe(true);
+    await frames(page);
     const on = await page.screenshot({ clip: at.clip, scale: "css" });
     await target.evaluate((el: HTMLElement) => el.blur());
+    await frames(page);
     const off = await page.screenshot({ clip: at.clip, scale: "css" });
     await target.evaluate((el: HTMLElement) => el.focus({ preventScroll: true }));
+    await frames(page);
     const again = await page.screenshot({ clip: at.clip, scale: "css" });
     if (!on.equals(again)) {
       await page.waitForTimeout(300);
@@ -269,13 +282,28 @@ async function indicatorOf(page: Page, target: Locator) {
     ratios.sort((m, n) => m - n);
     const atThree = ratios.filter((c) => c >= 3).length;
     const median = ratios.length ? Math.round(ratios[ratios.length >> 1]! * 100) / 100 : 0;
-    return {
+    last = {
       /** At least 40 pixels at 3:1, and most of what changed. */
       seen: atThree >= 40 && median >= 3,
       numbers: `${atThree} of ${ratios.length} changed pixels at 3:1, median ${median}`,
+      on,
+      off,
+      at,
     };
+    if (ratios.length > 0) break;
+    await page.waitForTimeout(300);
   }
-  throw new Error("the map never held still round the target for three shots in five attempts");
+  if (!last) throw new Error("the map never held still round the target in five attempts");
+  if (!last.seen) {
+    const name = `unseen-${Date.now()}`;
+    await test.info().attach(`${name}-focused.png`, { body: last.on, contentType: "image/png" });
+    await test.info().attach(`${name}-blurred.png`, { body: last.off, contentType: "image/png" });
+    await test.info().attach(`${name}.json`, {
+      body: JSON.stringify(last.at),
+      contentType: "application/json",
+    });
+  }
+  return { seen: last.seen, numbers: last.numbers };
 }
 
 test.describe("the no-JS state is the content, not a blank box", () => {
