@@ -1489,7 +1489,7 @@
   function closeSheet() {
     const held = document.activeElement;
     const id = selected?.id;
-    if (boxEl && held instanceof HTMLElement && held.closest("[data-map-sheet]")) {
+    if (held instanceof HTMLElement && boxEl?.contains(held) && held.closest("[data-map-sheet]")) {
       const view = boxEl.getBoundingClientRect();
       const pin = [...boxEl.querySelectorAll<HTMLButtonElement>("[data-map-pin]")].find((p) => {
         const r = p.getBoundingClientRect();
@@ -2516,8 +2516,8 @@
      for like, as it does on a full frame, rather than showing two lines and
      then a jump. The overlay keeps the chip at any height (`fullControls`).
      With scripting off the picture is for good and keeps the chip: the line's
-     box would sit on pins' centres that the chip only reaches the foot of
-     (plan guard 2i's two runs). */
+     box is over the centres of pins the chip leaves clear or only reaches the
+     foot of (plan guard 2i's "pressed under the open line" rows). */
   @media (scripting: enabled) {
     @container (0px < height < 300px) {
       [data-property-map]:not([data-expanded="true"]) [data-map-home-credit] {
