@@ -1480,28 +1480,31 @@
   }
 
   /**
-   * Closes the pin sheet (its ×, Escape, the lock). A keyboard in it is handed
-   * on first, or the sheet's removal drops it to <body> — inside the overlay's
-   * dialog too: to the pin that opened it while that pin is pressable and in
-   * view, else to the listing's link in the list (its chip; only for a
-   * keyboard, since a pointer's close would draw it), else to expand.
+   * Closes the pin sheet (its ×, Escape, the lock). Focus in it is handed on
+   * first, or the sheet's removal drops it to <body> — inside the overlay's
+   * dialog too. A keyboard's goes to the listing's link in the list: named,
+   * and its chip is the ring (the pin is `aria-hidden`, a button with no name).
+   * A pointer's goes to the pin that opened it while that pin is pressable and
+   * in view, since a focus on the link would draw its chip; else to expand.
    */
   function closeSheet() {
     const held = document.activeElement;
     const id = selected?.id;
     if (held instanceof HTMLElement && boxEl?.contains(held) && held.closest("[data-map-sheet]")) {
       const view = boxEl.getBoundingClientRect();
-      const pin = [...boxEl.querySelectorAll<HTMLButtonElement>("[data-map-pin]")].find((p) => {
-        const r = p.getBoundingClientRect();
-        return (
-          p.dataset.mapPin === id &&
-          !p.disabled &&
-          r.right > view.left &&
-          r.left < view.right &&
-          r.bottom > view.top &&
-          r.top < view.bottom
-        );
-      });
+      const pin = held.matches(":focus-visible")
+        ? undefined
+        : [...boxEl.querySelectorAll<HTMLButtonElement>("[data-map-pin]")].find((p) => {
+            const r = p.getBoundingClientRect();
+            return (
+              p.dataset.mapPin === id &&
+              !p.disabled &&
+              r.right > view.left &&
+              r.left < view.right &&
+              r.bottom > view.top &&
+              r.top < view.bottom
+            );
+          });
       if (pin) pin.focus({ preventScroll: true });
       else focusListing(id, held);
     }
@@ -2046,7 +2049,11 @@
     ></div>
 
     {#if ready}
-      <div aria-hidden="true" class="pointer-events-none absolute inset-0 z-[1] overflow-hidden">
+      <div
+        data-map-pins
+        aria-hidden="true"
+        class="pointer-events-none absolute inset-0 z-[1] overflow-hidden"
+      >
         {#each clusters as cluster (cluster.id)}
           {@const count = cluster.points.length}
           {@const isActive = count === 1 && active !== null && cluster.points[0]!.id === active}
@@ -2429,6 +2436,22 @@
     [data-map-home-pin]:focus-visible::after {
       transition: none;
     }
+  }
+
+  /* Drawn on the tiles or on sand, so a garnet ring on either tone: the band's
+     `bg-dark` root hands its children off-white, ~1.1:1 there. The list keeps
+     the root's, since before the map is drawn it is on #3d0707. */
+  [data-map-pins],
+  [data-map-home-box],
+  [data-map-sheet],
+  :global([data-property-map] .maplibregl-ctrl.maplibregl-ctrl-attrib),
+  [data-map-home-credit] {
+    --focus-ring: var(--color-primary);
+  }
+  /* Inside the canvas: outside it, the root's `overflow-hidden` clips it all. */
+  :global([data-property-map] .maplibregl-canvas:focus-visible) {
+    outline: 2px solid var(--color-primary);
+    outline-offset: -2px;
   }
 
   [data-map-ready] [data-map-link]:focus,
