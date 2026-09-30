@@ -27,7 +27,8 @@
       "/properties",
       "/contact",
       "/team/matt-howard",
-      "/team/bart-wilson"
+      "/team/bart-wilson",
+      "/properties/101-w-commerce-street"
     ]
   },
   "devDependencies": {
