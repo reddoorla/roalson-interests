@@ -46,13 +46,16 @@ const HOME = "/dev/home";
  *  depends on the fixture's listings — both pages open their first map on a
  *  section with pins (Land; the band's three picks).
  *
- *  The whole file runs on a production build that is let serve the fixtures
- *  (VITE_REDDOOR_GATE_FIXTURES=1, #219 — the flag the a11y gate's own build
- *  sets; the preview server's build inherits it):
+ *  On a production build the /dev cases need the build that serves the
+ *  fixtures (VITE_REDDOOR_GATE_FIXTURES=1, #219 — the a11y gate's own flag;
+ *  the preview server's build inherits it). Then every case runs but one:
+ *  "is not in the first-paint path" reads the engine's chunk by NAME, which
+ *  only the dev server gives it (see that case).
  *
  *    pnpm exec playwright test tests/interaction/property-map.spec.ts
  *    VITE_REDDOOR_GATE_FIXTURES=1 REDDOOR_GATE_SERVER=preview \
- *      pnpm exec playwright test tests/interaction/property-map.spec.ts */
+ *      pnpm exec playwright test tests/interaction/property-map.spec.ts \
+ *      --grep-invert "first-paint path" */
 const LIVE_PROPERTIES = "/properties";
 const LIVE_HOME = "/";
 
