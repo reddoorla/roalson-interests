@@ -12357,3 +12357,54 @@ Every pin (live, the loading picture's, the expanded overlay's) is now drawn at 
 **Hit targets did not change.** `elementFromPoint` 1px inside each edge of the drawn 72 × 64.85 active pin hits it, and 1px outside hits the canvas, before and after.
 
 **Tests, and what a restart cost.** A container restart interrupted the last round of test fixes. The unverified edit was saved as a WIP commit and then verified separately rather than trusted. The guards read the transition's own easing from `getTiming()`, because `getKeyframes()` reports a CSS transition's easing as "linear"; the ring's painted place in pixels; and an opacity fade on every painted pin the move changed. Each went red for its named reason with the component mutated: a `linear` grow, a `linear` fade, the ring without `translate: -50% 0` (its outer edge 40px out on the active pin's right, where 2px of offset and 2px of outline put it at 4), the ring with `top: 0` for `bottom: 0` (26px out below it), and pins whose `transition-property` dropped opacity. The spec from before those fixes stayed green on the same mutants. map-featured-pin.spec.ts ran 21/21 on a production build, at load 0.25 to 2.41.
+
+## 2026-09-30 — Phone maps carry expand alone, and the credit shows its whole line until the first touch or five seconds (#225, `claude/roalson-comments-review-45cstm`)
+
+The operator's two calls on 2026-09-29. The first, option two: "happy not to have the zoom buttons on mobile since we've thumbs". A compact frame (`frameFor`: box under 300 tall) now draws expand alone. The expanded overlay a phone map grows into keeps + above − above expand, because pinch is multipoint and a double-tap only zooms in, and WCAG 2.5.1 needs a single-pointer way out. The second, option A, came after the first build collapsed the OSM credit to MapLibre's (i) from the first frame. That is outside the OSMF attribution safe harbour, which says the credit "should not require individuals to interact with the map ... to see the attribution" and may collapse only on a dismiss, on map interaction, or after five seconds. So a compact credit now opens on its whole line and collapses to the (i) on the visitor's first pan, zoom, tap or pin press, or `MAP_CREDIT_OPEN_MS` (5000) after MapLibre's `load`, whichever comes first.
+
+**Measured before writing it** (maplibre-gl 6.10.0, /properties at 390):
+
+- A `compact: true` control left alone already opens the line when its text arrives.
+- A drag collapses it, but leaves `open` on the `<details>`.
+- A wheel, a double-click and time all leave it open.
+
+So the clock, the zoom hooks (tagged `movestart` and the wheel listener, the same two halves as `drivenAt`), a tap, a pin press and the clearing of `open` are this code's. A press on the (i) ends the window, so the clock cannot shut a line the visitor re-opened. The clock starts at `load`, not page load, because a map boots when it is half on screen (#103): a band scrolled to after six seconds still opens on the line. Measured on dev, the line collapsed 4971ms after the observed `data-map-ready`.
+
+**The picture had no credit at all.** It was rendered with `attributionControl: false` and nothing put one back. So a visitor without JS saw an uncredited map everywhere, and everyone saw one until `load`. It now carries `MAP_HOME_CREDIT`, the style's own attribution; `scripts/map-home.test.ts` holds the two equal. It is drawn as the live chip's 224 × 18 box, clear of the control column.
+
+**What the open line covers**, recorded by guard 2i for the five seconds it shows: the downtown cluster at widths 265–525, Dove Canyon at 265–676, IH 10 East at 271–321, and 101 W Commerce at 265–519. After the window, no marker collides at any compact width from 265. The guard now has two rules: a marker's centre under a control's target or the credit (#182), and a marker's own box under anything painted (#188). The second is needed because the downtown cluster's centre sat 0.2px above the old chip, where a centre rule could not see it. A guard-the-guard case finds both issues against the old furniture, and also the Dove Canyon pin (265–608), which no issue named.
+
+**A review found two real defects in the first build, both mine.**
+
+- **The overlay under 300 tall.** The column and credit followed the box's frame, and the overlay is the window. At 800 × 280, a landscape phone, the overlay was a compact frame: expand alone, and no single-pointer zoom-out anywhere. Main had drawn all three buttons there, so this was a regression. `fullControls` (expanded, or a full frame) now decides both the column and the credit. The overlay keeps the whole chip at every height, so no resize inside it removes anything focusable. The frame itself (pins, picture, camera) still follows the box.
+- **Focus dropped to `<body>`.** The picture's credit is two real links in the tab order, and the hand-over removed them under focus: Tab 3 on the homepage band at 1440 landed on "OpenMapTiles" about 1.9s in, and the hand-over at about 3.7s left `document.activeElement` on BODY.
+
+**The whole class, enumerated before fixing.** Four more ways in turned up, each confirmed on a production build before any change:
+
+- the clock collapsing the line under focus;
+- the credit swapped when crossing lg with focus on the chip's link;
+- - and − removed on the same crossing with one of them focused;
+- - and − removed by a resize to 280 inside the overlay.
+
+`focusCredit` moves focus to the live credit's counterpart: the link with the same href while the line shows, otherwise the (i). The hand-over, `collapse` and `placeCredit` call it only when focus is inside what they are about to remove. A `$effect.pre` moves a focused + or − to expand before the column drops them.
+
+**Verify caught three misses of the same shape**, one run at a time. They were tests that read the map's links without importing the component: two unit tests and the no-JS band case, each counting the picture credit's new links. The class was not enumerated first. Each now asserts the credit as its own set, exactly OpenMapTiles and OpenStreetMap's copyright page, so the exemption is a claim rather than a hole. A fake map without `removeControl` failed a later run, because expanding a compact map now swaps its credit.
+
+**A second review found the fixes had moved the problem, and two members of the class that also broke on main.**
+
+- **The (i) covered the sheet's first link.** A pin press ends the credit's window, so every sheet opened with the credit already collapsed to MapLibre's (i), 24 × 24 inset 10px. It sat over "View listing": 5 of 20 points along the link hit the (i) at 390, and at 320 it was "Get directions". A tap there opened the licence line, which then hid both links. The sheet now starts its links 44px in (`pl-11`) on a compact frame. Bottom padding was mocked and rejected: it made the 200-tall sheet 93 tall and, at 320, cut into the pressed pin. The `onTop` hit test now covers every link and button in the sheet, at 12 points each.
+- **A drag left the (i) reporting "expanded".** MapLibre's own minimise removes `maplibregl-compact-show` but leaves `open` on the `<details>`, and the settle that cleared it was one-shot. Every drag now collapses.
+- **Two credits for ~280ms at the hand-over.** For 17–18 frames the picture's chip (0,0,224,18) and the live line (10,10,248,24) were both visible, in different boxes. With scripting on, the picture's credit on a compact frame now takes the open line's box, so the swap is like for like: 0 differing frames. With scripting off it keeps the chip, because the picture never leaves and the line's box would sit on pins the chip leaves clear.
+- **The sheet's × and Escape dropped focus to `<body>`, on main too**, in-page and inside the modal. So did the band's lock, which disables the pins and takes the canvas's tabindex, and Chrome blurs a focused element synchronously on both. A keyboard close now lands on the listing's named list link, and a pointer close on the pin that opened the sheet.
+- **The band crossing lg under reduced motion unmounted the whole column, on main too.** The cause was app.css's reduced-motion reset. A 0.01ms duration over the default `transition-property: all` turned the root's `lg:h-full` → `h-50` into a transition. Its first frame resolved `100%` against an indefinite slot, which gave 985×0, so `measured` went false. The root now has no transition, and a single 985×200 entry arrives. The rest of the site is unaudited for the same shape (#223).
+- **The live credit was tabbable before `ready`** under a transparent host, for 450–530ms. The host is `inert` until ready.
+
+**Beliefs corrected on contact.**
+
+- **"Return focus to the pin that opened the sheet" was wrong for a keyboard.** The third review measured the pins' focus rings in pixels, which no test had done. On the homepage band the root is `bg-dark`, so app.css drew an off-white ring round the pins, the sheet's links and × and the credit's links. Over #f3f1ef tiles or sand, 0 changed pixels reached 3:1. The canvas's ring sat outside the root and `overflow-hidden` clipped it. A pin is also `aria-hidden` with no name. The earlier guard had read `:focus-visible`, which stayed true with the ring deleted.
+  - The rings on this map are now garnet, measured round every focus target at 390, expanded and 1440: pin 138/177, sheet 424/424, canvas 4105/4440 changed pixels at 3:1.
+  - A keyboard close goes to the named list link.
+  - `indicatorOf` is the guard, and it must see at least 40 changed pixels at 3:1 with the median there too.
+- **Not every red was real, and not every red was test noise.** `indicatorOf` read 0 of 0 once in a 124-case run and never again. It now waits two frames and re-reads a no-change result, and a ring that is really gone still reads 0 five times. Separately, featured-properties' "ONE showable listing" fails on any production build because it counts the map's expand button (#221). It had only ever run on dev, where it passes, probably by timing.
+
+**Honest accounting.** The branch took four reviews and three fix rounds. It found more on main than on the branch. Four focus rules still have no guard, and live pins paint over the picture's credit line during the ~280ms fade (#222). A pin removed by re-clustering while it holds focus is the one member of the class left (#224).
