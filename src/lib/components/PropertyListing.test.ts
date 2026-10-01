@@ -352,7 +352,7 @@ describe("PropertyListing", () => {
       for (const cb of observers) cb([], null as never);
       await tick();
 
-      const [land, improved] = getAllByRole("region");
+      const [, improved] = getAllByRole("region");
       const gridOf = (section: HTMLElement) =>
         section.querySelector<HTMLElement>("[data-property-map]")!.parentElement!;
 
@@ -361,10 +361,9 @@ describe("PropertyListing", () => {
       expect(gridOf(improved!).style.getPropertyValue("--sticky-top")).not.toBe(
         `${DIVIDER_HEIGHT}px`,
       );
-      // (Where exactly is the browser's to say: jsdom declares no usable top.
+      // Where exactly is the browser's to say: jsdom declares no usable top.
       // tests/interaction/listing-view-first.spec.ts measures it equal to
-      // Land's.)
-      void land;
+      // Land's.
     } finally {
       vi.restoreAllMocks();
       vi.unstubAllGlobals();

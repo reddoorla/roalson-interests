@@ -544,7 +544,8 @@ main > section.hero-band:first-child {
    down. Can we match it to Land?"): the off-white ground, a 40px strip with
    no gradient, and a divider that does not pin. Under All it is the second
    section and keeps the sand, the 100px strip and the pin. PropertyListing's
-   `measure()` reads the divider's position, so its map's sticky top follows. */
+   `measure()` reads the divider's position, so its map's sticky top follows
+   once hydrated. */
 [data-listing]:is([data-view="improved"], :not([data-view]):has(#improved:target))
   section[data-view-section="improved"],
 [data-listing]:is([data-view="improved"], :not([data-view]):has(#improved:target))
@@ -557,6 +558,27 @@ main > section.hero-band:first-child {
   > div:first-child
   > div:first-child {
   @apply h-10 bg-none;
+}
+/* …its cards take Land's sand, the token its ground now does not use
+   (PropertyCard's rule: a card is always a panel on its ground). The garnet
+   card keeps its own. */
+[data-listing]:is([data-view="improved"], :not([data-view]):has(#improved:target))
+  section[data-view-section="improved"]
+  [data-centre-id]
+  > article:not(.bg-primary) {
+  @apply bg-light;
+}
+[data-listing]:is([data-view="improved"], :not([data-view]):has(#improved:target))
+  section[data-view-section="improved"]
+  [data-centre-id]
+  > article:not(.bg-primary)
+  > div:has(> img) {
+  @apply bg-background;
+}
+/* …and with no script, where `measure()` never runs, the fallback its map and
+   cards are offset by is the usable top, not a pinned divider's height. */
+[data-listing]:not([data-view]):has(#improved:target) section[data-view-section="improved"] {
+  --listing-pinned-top: var(--usable-top);
 }
 
 /* Land or Improved, then Past Projects: warm the seam the second section's

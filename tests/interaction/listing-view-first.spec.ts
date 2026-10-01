@@ -24,6 +24,15 @@ async function dress(page: Page, id: string) {
       strip: strip.getBoundingClientRect().height,
       stripImage: getComputedStyle(strip).backgroundImage,
       headingBelowTabs: heading.getBoundingClientRect().top - tabs.getBoundingClientRect().bottom,
+      // The first card that is not the garnet one: a panel on its ground.
+      card: (() => {
+        const article = [...section.querySelectorAll("[data-centre-id] > article")].find(
+          (el) => !el.classList.contains("bg-primary"),
+        )!;
+        // Only the ground: the fixture's Improved cards have no photo box to
+        // compare (the live portfolio's do; checked on the deploy preview).
+        return { ground: getComputedStyle(article).backgroundColor };
+      })(),
     };
   }, id);
 }
@@ -62,13 +71,24 @@ test("hydrated: Improved Projects on its own is dressed as Land is on its own", 
   );
 });
 
-test("with no script: a shared #improved link is dressed as #land is", async ({ browser }) => {
-  const context = await browser.newContext({ javaScriptEnabled: false, viewport: WIDE });
+test("with no script: a shared #improved link is dressed as #land is, its map pinned as Land's", async ({
+  browser,
+}) => {
+  const context = await browser.newContext({
+    javaScriptEnabled: false,
+    viewport: { width: 1440, height: 700 },
+  });
   const page = await context.newPage();
+  const mapTop = (id: string) =>
+    page
+      .locator(`section[aria-labelledby="listing-${id}"] [data-property-map]`)
+      .evaluate((el) => getComputedStyle(el).top);
   await page.goto(`${FIXTURE}#land`);
   const land = await dress(page, "land");
+  const landTop = await mapTop("land");
   await page.goto(`${FIXTURE}#improved`);
   expect(await dress(page, "improved")).toEqual(land);
+  expect(await mapTop("improved")).toBe(landTop);
   await context.close();
 });
 
