@@ -219,8 +219,10 @@ describe("PropertyListing", () => {
     expect(gridOf(land!).style.getPropertyValue("--sticky-top")).toBe("var(--usable-top)");
     // Every later section does: its map lands on the DIVIDER, whose height
     // app.css derives from the divider's own declared parts.
+    // (`--listing-pinned-top` first: app.css's override for a section dressed
+    // as section 0, unset everywhere else.)
     expect(gridOf(improved!).style.getPropertyValue("--sticky-top")).toBe(
-      "var(--listing-divider-top)",
+      "var(--listing-pinned-top, var(--listing-divider-top))",
     );
     // Never missing, whichever it is — a missing variable makes `top` resolve
     // to `auto` and the map never pins at all.
@@ -267,6 +269,20 @@ describe("PropertyListing", () => {
       if (isDivider) return { ...realRect.call(this), height: DIVIDER_HEIGHT } as DOMRect;
       return realRect.call(this);
     });
+    // …and pinned, as `lg:sticky` makes it in a browser: jsdom applies no
+    // Tailwind, and `measure()` only reads a divider that pins.
+    const realStyle = window.getComputedStyle;
+    vi.spyOn(window, "getComputedStyle").mockImplementation((el, pseudo) => {
+      const style = realStyle(el, pseudo);
+      const isDivider =
+        el.parentElement?.matches("section[aria-labelledby^='listing-']") === true &&
+        el.parentElement.firstElementChild === el;
+      return isDivider
+        ? (new Proxy(style, {
+            get: (t, k) => (k === "position" ? "sticky" : Reflect.get(t, k)),
+          }) as CSSStyleDeclaration)
+        : style;
+    });
 
     try {
       const { getAllByRole } = render(PropertyListing, { props: { sections: sections() } });
@@ -283,6 +299,73 @@ describe("PropertyListing", () => {
       // And section 0's is not, because its divider deliberately does not pin —
       // so this also proves `measure()` read the divider and not just any box.
       expect(gridOf(land!).style.getPropertyValue("--sticky-top")).not.toBe(`${DIVIDER_HEIGHT}px`);
+    } finally {
+      vi.restoreAllMocks();
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("does not take a measured divider's height when the divider does not pin (Improved under its own view)", async () => {
+    const DIVIDER_HEIGHT = 145.4;
+    const observers: ResizeObserverCallback[] = [];
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
+        constructor(public cb: ResizeObserverCallback) {
+          observers.push(cb);
+        }
+        observe() {
+          this.cb([], this as never);
+        }
+        unobserve() {}
+        disconnect() {}
+      },
+    );
+    // Only the divider is given a box: `measure()` reads section i's FIRST
+    // child, and reporting a height for everything would not tell us it read
+    // the right element.
+    const realRect = Element.prototype.getBoundingClientRect;
+    vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (
+      this: Element,
+    ) {
+      const isDivider =
+        this.parentElement?.matches("section[aria-labelledby^='listing-']") === true &&
+        this.parentElement.firstElementChild === this;
+      if (isDivider) return { ...realRect.call(this), height: DIVIDER_HEIGHT } as DOMRect;
+      return realRect.call(this);
+    });
+    // …and NOT pinned, as app.css makes Improved's under its own view.
+    const realStyle = window.getComputedStyle;
+    vi.spyOn(window, "getComputedStyle").mockImplementation((el, pseudo) => {
+      const style = realStyle(el, pseudo);
+      const isDivider =
+        el.parentElement?.matches("section[aria-labelledby^='listing-']") === true &&
+        el.parentElement.firstElementChild === el;
+      return isDivider
+        ? (new Proxy(style, {
+            get: (t, k) => (k === "position" ? "static" : Reflect.get(t, k)),
+          }) as CSSStyleDeclaration)
+        : style;
+    });
+
+    try {
+      const { getAllByRole } = render(PropertyListing, { props: { sections: sections() } });
+      await tick();
+      for (const cb of observers) cb([], null as never);
+      await tick();
+
+      const [, improved] = getAllByRole("region");
+      const gridOf = (section: HTMLElement) =>
+        section.querySelector<HTMLElement>("[data-property-map]")!.parentElement!;
+
+      // Dressed as section 0's (app.css, MarkUp 2026-10-01), so what the
+      // divider measures is not what is pinned over its map.
+      expect(gridOf(improved!).style.getPropertyValue("--sticky-top")).not.toBe(
+        `${DIVIDER_HEIGHT}px`,
+      );
+      // Where exactly is the browser's to say: jsdom declares no usable top.
+      // tests/interaction/listing-view-first.spec.ts measures it equal to
+      // Land's.
     } finally {
       vi.restoreAllMocks();
       vi.unstubAllGlobals();
