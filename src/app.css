@@ -539,9 +539,33 @@ main > section.hero-band:first-child {
   @apply sr-only normal-case;
 }
 
-/* Land then Past Projects: warm the seam the second section's strip covers
-   under All. */
-[data-listing]:is([data-view="land"], :not([data-view]):has(#land:target))
+/* Improved Projects on its own is the page's first section, so it is dressed
+   as Land is (MarkUp, 2026-10-01: "the background changes and the title moves
+   down. Can we match it to Land?"): the off-white ground, a 40px strip with
+   no gradient, and a divider that does not pin. Under All it is the second
+   section and keeps the sand, the 100px strip and the pin. PropertyListing's
+   `measure()` reads the divider's position, so its map's sticky top follows. */
+[data-listing]:is([data-view="improved"], :not([data-view]):has(#improved:target))
+  section[data-view-section="improved"],
+[data-listing]:is([data-view="improved"], :not([data-view]):has(#improved:target))
+  section[data-view-section="improved"]
+  > div:first-child {
+  @apply static bg-none bg-transparent;
+}
+[data-listing]:is([data-view="improved"], :not([data-view]):has(#improved:target))
+  section[data-view-section="improved"]
+  > div:first-child
+  > div:first-child {
+  @apply h-10 bg-none;
+}
+
+/* Land or Improved, then Past Projects: warm the seam the second section's
+   strip covers under All. */
+[data-listing]:is(
+    [data-view="land"],
+    [data-view="improved"],
+    :not([data-view]):has(#land:target, #improved:target)
+  )
   section[data-past]
   > div:first-child
   > div:first-child {

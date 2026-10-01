@@ -334,7 +334,10 @@
       // correctly-rendered no-JS page the moment hydration ran with a
       // divider it could not yet measure.
       const measured = el ? el.getBoundingClientRect().height : 0;
-      if (measured > 0) return measured;
+      // A later divider dressed as section 0's does not pin either (app.css:
+      // Improved Projects under its own view, MarkUp 2026-10-01), so the
+      // cascade decides and not `i`; below `lg` none pins.
+      if (measured > 0) return getComputedStyle(el!).position === "sticky" ? measured : usableTop();
       return i > 0 ? undefined : usableTop();
     });
   }
