@@ -12592,3 +12592,22 @@ Mutations, each run against the tests named and each red:
   cap.
 - One unrelated red in the 137-test dev run: the homepage band's credit
   hand-over premise. It passed 24 of 24 alone. That map has no `onselect`.
+
+## 2026-10-01 — The MarkUp round closes: 12 of 12 pins resolved, and the bar at 75% on the hero (#246, #247, #248)
+
+> Follows 2026-10-01 — Nicole's MarkUp round (#240, #241; held #242, #243).
+
+The held PRs landed on the operator's word, as #242 and #243, along with #245, the package download. The last three answers followed.
+
+**Home #3, "drop down back color to 20% opacity".** The operator read it as the progress bar's unfilled track. The search through Figma and history for a removed colour found nothing at 20% in any homepage frame, which is what you would expect when the request is a new value and not a lost one. The track was 53%, chosen so the track holds 3:1 against the card (WCAG 1.4.11), because in `position` mode the bar is the only "2 of 3".
+
+#246 makes the track 20% only while the bar is timed. There it is a countdown, and the fill still clears 3:1 against both the 20% track and the card. The 3:1 track stays wherever the bar draws position. If the operator wants 20% everywhere, it is a one-line change.
+
+**Home #4, the PROPERTIES button.** The operator's answer was "eliminate it, add an 'all' button next to the slideshow controls". #248 makes it the arrows' 40px circle reading ALL, last in the controls row and outside their `data-js-only` wrapper, so it still serves no-JS visitors (#47). Two consequences:
+
+- **The 320 layout.** With 190px of controls, "PROPERTIES" (94px) no longer fits beside them at 320, so the row now wraps there. The heading carries `min-w-min grow basis-0`, reset at `lg`; 360 and up keep one row.
+- **The hydration instrument.** The instrument proving the hydration-mismatch listener went silent when its injection target was the chrome's head. It injects into the controls row now. That was the instrument failing, not the system.
+
+**The nav at 75% on the hero** (operator, unprompted by a pin), #247. The CONTACT US chip and the menu disc are garnet at 75% over the photograph, with transparent borders so no 94% ring forms. Sand on that ground over a pure-white pixel is 4.57:1, and the pixel contrast tests pass at six widths. Tailwind v4 computes `bg-primary/75` as an `oklab(...)` string, so the specs read it off a probe element rather than typing an `rgba`.
+
+**Process, twice over.** `pkill -f <pattern>` and `ps | grep | kill` both matched the calling shell's own command line and killed it (exit 144). The dev server's PID now goes in a file when it is started.
