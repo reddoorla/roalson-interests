@@ -680,8 +680,14 @@ async function scriptlessBar(browser: Browser, width: number) {
 test("with scripting off the homepage's links are the CTA's chips, clear of the wordmark's halo", async ({
   browser,
 }) => {
-  // No sand outline since MarkUp, 2026-10-01: the chip is garnet edge to edge.
-  const chip = { height: 40, ground: GARNET, border: `1px solid ${GARNET}` };
+  // No sand outline since MarkUp, 2026-10-01, and garnet at 75% on the hero
+  // (operator, same day): the ground paints under a transparent border.
+  const chip = {
+    height: 40,
+    // `bg-primary/75` as this Chromium computes it (an oklab mix).
+    ground: "oklab(0.356017 0.0878949 0.0378237 / 0.75)",
+    border: "1px solid rgba(0, 0, 0, 0)",
+  };
 
   const narrow = await scriptlessBar(browser, 390);
   const at390 = JSON.stringify(narrow);
