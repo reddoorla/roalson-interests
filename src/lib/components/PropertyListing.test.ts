@@ -219,8 +219,10 @@ describe("PropertyListing", () => {
     expect(gridOf(land!).style.getPropertyValue("--sticky-top")).toBe("var(--usable-top)");
     // Every later section does: its map lands on the DIVIDER, whose height
     // app.css derives from the divider's own declared parts.
+    // (`--listing-pinned-top` first: app.css's override for a section dressed
+    // as section 0, unset everywhere else.)
     expect(gridOf(improved!).style.getPropertyValue("--sticky-top")).toBe(
-      "var(--listing-divider-top)",
+      "var(--listing-pinned-top, var(--listing-divider-top))",
     );
     // Never missing, whichever it is — a missing variable makes `top` resolve
     // to `auto` and the map never pins at all.
