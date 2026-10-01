@@ -23,6 +23,9 @@
   //   the comp's 100px top pad, which lands its rule 20px under the 80px nav;
   //   the first divider (6909:1956, 40px pad) does not pin, and none pin on
   //   mobile — exactly what the prototype's STICKY_SCROLLS flags say.
+  //   Except Improved Projects under its own view (MarkUp, 2026-10-01): it is
+  //   then the page's first section, and app.css dresses it as Land — no
+  //   ground, 40px strip, a divider that does not pin, sand cards.
   // - The ground warms down the page. Stage A measured the gutter flat
   //   off-white to y≈2106, grading to sand by y≈2343 — inside the second
   //   section, not at any edge. A pinned divider with a flat ground would seam
@@ -284,11 +287,14 @@
    *
    * So the server now sends the right answer for the case it can know:
    * section 0's divider does not pin (its map lands on the declared usable
-   * top), every later one does (its map lands on the divider). Both come from
+   * top), every later one does (its map lands on the divider) — except one
+   * app.css dresses as section 0, which sets `--listing-pinned-top`. Both come from
    * app.css, which is where this site says where its usable top is.
    */
   const UNMEASURED_TOP = "var(--usable-top)";
-  const UNMEASURED_PINNED_TOP = "var(--listing-divider-top)";
+  // `--listing-pinned-top` is app.css's override for a later section that is
+  // dressed as section 0 (Improved Projects under its own view).
+  const UNMEASURED_PINNED_TOP = "var(--listing-pinned-top, var(--listing-divider-top))";
   const unmeasuredTop = (i: number) => (i > 0 ? UNMEASURED_PINNED_TOP : UNMEASURED_TOP);
 
   let dividerEls = $state<(HTMLElement | undefined)[]>([]);
@@ -334,7 +340,10 @@
       // correctly-rendered no-JS page the moment hydration ran with a
       // divider it could not yet measure.
       const measured = el ? el.getBoundingClientRect().height : 0;
-      if (measured > 0) return measured;
+      // A later divider dressed as section 0's does not pin either (app.css:
+      // Improved Projects under its own view, MarkUp 2026-10-01), so the
+      // cascade decides and not `i`; below `lg` none pins.
+      if (measured > 0) return getComputedStyle(el!).position === "sticky" ? measured : usableTop();
       return i > 0 ? undefined : usableTop();
     });
   }
