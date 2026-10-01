@@ -728,6 +728,11 @@ test.describe("a pressed pin, with the fleet's reduced-motion emulation lifted",
     // build, a press now costs three complete arcs (gaps 532ms and 648ms)
     // where it used to cost one.
     //
+    // (Back to one since 2026-10-01: the arcs on the way were the designer's
+    // "bounce", and the camera now flies straight to the pressed listing.
+    // That claim is property-map-press-direct.spec.ts's; this one still
+    // guards the arcs.)
+    //
     // PER MAP, as the production spec has it (#139): two flights to different
     // sections' maps are two cameras, and pooled, a flight to one inside the
     // other's 500ms would read as an arc abandoned.

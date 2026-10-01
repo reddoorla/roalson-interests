@@ -129,6 +129,7 @@
     PIN_HOLE,
     PIN_PATH,
     PIN_VIEWBOX,
+    PRESS_HOLD_MAX_MS,
     wheelRun,
     type Camera,
     type MapCluster,
@@ -195,10 +196,15 @@
      *  copy of it drawn over the map, and worse, a second place a listing can
      *  be "open". There the pin's job is to point AT the card, so the caller
      *  passes `onselect` and scrolls it into view; the centre rule then makes
-     *  it active, and the camera follows from that one mechanism rather than
-     *  from a press. On the homepage band there is no card beside the map at
-     *  all, so the sheet is the only detail there is and it stays. */
-    onselect?: (id: string) => void;
+     *  it active. On the homepage band there is no card beside the map at
+     *  all, so the sheet is the only detail there is and it stays.
+     *
+     *  ANSWER `true` when the press is now travelling to `active` — the card
+     *  is on its way to the centre line — and the camera goes straight to
+     *  that listing instead of through every card the scroll crosses (see
+     *  `heading`). Anything else and the camera waits for `active`, as it
+     *  always did. */
+    onselect?: (id: string) => boolean | void;
     /**
      * WHETHER A VISITOR MAY DRIVE THIS MAP AT ALL. True — the default, and
      * what `/properties` always gets — or false, where the map is a picture
@@ -599,6 +605,82 @@
     clearTimeout(flightTimer);
     flightTimer = undefined;
   }
+
+  /**
+   * THE LISTING A PIN PRESS IS TAKING THE PAGE TO, while the page gets there,
+   * or null (MarkUp, 2026-10-01: "when I click on a point on the map, it
+   * bounces around before returning to the same point").
+   *
+   * A press on /properties smooth-scrolls its card to the centre line, and the
+   * centre rule reports every card that scroll crosses. The camera took the
+   * FIRST crossed card as its destination, refused the rest while that arc was
+   * in the air (`in-flight`), then flew on to the pressed listing. Measured on
+   * /dev/properties at 1440x900, motion allowed, pressed from scrollY 0: the
+   * IH-35 pin sent the camera to potranco-road and then ih-35-new-braunfels,
+   * the Castroville pin to fm-1560-galm and then hwy-90-castroville. Away and
+   * back: the bounce.
+   *
+   * So while this is set it is the CAMERA's listing in place of `active`. It is
+   * not `active`, which is the line centreWatch.ts draws: the garnet card, the
+   * dimmed markers and `drivenAt` still read the one rule, and nothing here
+   * suspends it. The press names only where the camera is going, the one thing
+   * certain the instant a pin is pressed, because the scroll is going there
+   * too. The two cannot flick between each other: the camera does not consult
+   * the rule again until the rule agrees, or the press has stopped travelling:
+   *
+   *  - `active` reaches it (the camera is already there: `arrived`);
+   *  - the scroll ends (`scrollend`), or a visitor gesture takes over the page
+   *    or the map, and the rule's answer stands again;
+   *  - another press replaces it;
+   *  - or PRESS_HOLD_MAX_MS passes, for an engine with no `scrollend`.
+   *
+   * Only where the caller says the press travels to `active` (`onselect`
+   * answers true). Below `lg` a press turns a carousel and no centre rule runs,
+   * so a hold there would fly to the listing and then back to MAP_HOME.
+   *
+   * PER MAP, its own listeners and its own timer — #126's finding kept: the
+   * press suspension it removed was keyed per section over timers shared by
+   * every section, and froze one map with another section's press.
+   */
+  let heading = $state<string | null>(null);
+  let headingEnds: (() => void) | null = null;
+
+  /** The press's listing is no longer the camera's. Idempotent. */
+  function endHeading() {
+    headingEnds?.();
+    headingEnds = null;
+    heading = null;
+  }
+
+  /** A press is taking the page to `id`, so the camera goes there now. */
+  function beginHeading(id: string) {
+    endHeading();
+    heading = id;
+    const timer = setTimeout(endHeading, PRESS_HOLD_MAX_MS);
+    // Capture and passive: these only listen. Attached AFTER the press, so its
+    // own pointerdown is already over.
+    const opts = { capture: true, passive: true } as const;
+    const gestures = ["wheel", "touchstart", "pointerdown", "keydown"] as const;
+    for (const type of gestures) window.addEventListener(type, endHeading, opts);
+    // The PAGE's scroll ending, not any scroller's: a capture listener on the
+    // window also hears an inner element's (non-bubbling) `scrollend`.
+    const scrolled = (e: Event) => {
+      if (e.target === document || e.target === window) endHeading();
+    };
+    window.addEventListener("scrollend", scrolled, opts);
+    headingEnds = () => {
+      clearTimeout(timer);
+      for (const type of gestures) window.removeEventListener(type, endHeading, opts);
+      window.removeEventListener("scrollend", scrolled, opts);
+    };
+  }
+
+  // The centre rule came round to the press: nothing left to hold.
+  $effect(() => {
+    if (heading !== null && active === heading) untrack(endHeading);
+  });
+  // And a map going away takes its listeners with it.
+  $effect(() => endHeading);
 
   /**
    * THE NAVIGATION HANDLERS THIS MAP WAS BUILT WITH, read off the instance the
@@ -1453,19 +1535,30 @@
       // would be a second mechanism racing the first. So this only reports the
       // press; on /properties the caller scrolls that card to the centre and
       // the centre rule does the rest.
+      //
+      // What it MAY do is send the camera ahead of the scroll, when the caller
+      // answers that the press travels to `active` — see `heading`.
       const report = onselect;
       if (report) {
         selected = null;
+        // No hold under reduced motion: the scroll is instant, so it crosses
+        // nothing, and its `scrollend` could land before the centre rule
+        // reports and jump the camera back for a frame.
+        const reported = () => {
+          if (report(point.id) === true && point.id !== active && !$reducedMotion)
+            beginHeading(point.id);
+          else endHeading();
+        };
         // Pressed inside the expanded overlay: close it onto the card (D4).
         // The report waits a tick so the scroll lock is off and the card is
         // back in flow when the caller scrolls it into view.
         if (expanded) {
           collapsingForPin = true;
           expanded = false;
-          void tick().then(() => report(point.id));
+          void tick().then(reported);
           return;
         }
-        report(point.id);
+        reported();
         return;
       }
       selected = point;
@@ -1622,7 +1715,8 @@
     // reporting potranco-road, hwy-90-castroville, ih-35-new-braunfels.
     const size = box;
     const state = {
-      active,
+      // A travelling press's listing, where there is one — see `heading`.
+      active: heading ?? active,
       points,
       box: size,
       frame,

@@ -12505,3 +12505,90 @@ Now each map holds `heading` while its press scroll runs, and the camera targets
 
 - The local `pnpm verify` runs were not clean evidence. Three suites and a subagent shared one container. The subagent's `pkill -f vite` killed another worktree's dev server mid-run, which produced 196 ECONNREFUSED failures. Two `featured-band-live` motion tests fail identically on untouched `main` here.
 - CI on each PR was the authority.
+
+## 2026-10-01 — A pressed pin sends the camera straight to its listing (`fix/markup-map-press`)
+
+The designer, on a MarkUp pin over /properties at desktop width: "when I click
+on a point on the map, it bounces around before returning to the same point."
+This is #136 coming back. #136 measured the cost of #127/#128's flight rule (a
+press goes from one flight to three) and was closed "keep the three flights …
+reopen only if someone reports the press as janky". This report is that.
+
+**The mechanism, reproduced before any code changed.** A press calls
+`revealCard`, which smooth-scrolls the card to the centre line, and the centre
+rule reports every card the glide crosses. The camera flew to the FIRST crossed
+card, refused the rest while that arc was in the air (`in-flight`), then flew
+on to the pressed listing. So the visitor pressed X and the camera went to Y and
+back to X. Camera targets after the press, through `camera-probe.ts`, at
+1440x900 with motion allowed, pressed from scrollY 0:
+
+- `/dev/properties`, IH-35 pin: `[potranco-road, ih-35-new-braunfels]` on one
+  run and `[fm-1560-galm, ih-35-new-braunfels]` on another. Castroville pin:
+  `[fm-1560-galm, hwy-90-castroville]`. Glides of 1146px/560–637ms and
+  884px/506–508ms.
+- Production build of `/properties`, the land section's last pin (card 16 of
+  17): three flights, the first two to listings the glide passed. The middle
+  pin (card 10): three flights. Glides 5193px in 1230–1319ms and 3296px in
+  1011–1068ms.
+
+After the fix, every one of those is a single flight to the pressed listing.
+
+**The fix lives at the camera, per map.** PropertyMap keeps `heading`: the
+listing a travelling press is taking the page to. While it is set, the camera
+effect hands `cameraMove` that id in place of `active`. Nothing else reads it,
+so the garnet card, the dimmed markers, `drivenAt` and the centre rule are
+unchanged. The hold ends at whichever comes first:
+
+- the rule reports the same id;
+- `scrollend`;
+- a wheel, touch, pointerdown or keydown anywhere;
+- a second press;
+- `PRESS_HOLD_MAX_MS` (2000), a backstop for engines with no `scrollend`,
+  sized against the 1230–1319ms longest real press.
+
+Only the caller knows whether the press will ever reach `active`, so `onselect`
+now answers it. `revealCard` returns true on the centre-line path and false on
+the carousel path. Below `lg` the centre rule does not run, and a hold there
+would fly to the listing and then back to MAP_HOME at the cap.
+
+**What #126 found is kept.** That fix removed a press special-case from
+PropertyListing for two reasons. It was the wrong place: it suspended the RULE,
+and every other smooth scroll chains the same way. And its timers were shared
+across sections, so one map froze on another section's press. `heading`
+suspends nothing in the rule, ordinary scrolling still goes through
+`in-flight` exactly as before, and the listeners and timer belong to each map
+instance. The cross-section test in the production spec stays green.
+
+**Tests.** `tests/interaction/property-map-press-direct.spec.ts` asserts that
+every camera command between the press and settling names the pressed listing.
+It runs with motion allowed (the harness's `reduce` makes the press instant and
+makes the test vacuous), and it was red on `origin/main` before green with the
+fix. Its 390 case asserts that a carousel press moves no camera through the
+cap. The production spec's press case now asserts the destinations as well as
+the arcs: red on `origin/main` (`longitudes [-98.7301826, -98.0289331,
+-97.8487066]`), green with the fix. Nine unit cases in
+`PropertyMap.camera.svelte.test.ts` cover the hold and each way it ends. One of
+them checks that an inner scroller's `scrollend` does not end it, since a
+capture listener on the window hears those too.
+
+Mutations, each run against the tests named and each red:
+
+| mutation                           | tests           | result                  |
+| ---------------------------------- | --------------- | ----------------------- |
+| camera ignores `heading`           | unit / dev spec | 7 of 8 red / 2 of 2 red |
+| any element's `scrollend` releases | unit            | 1 red                   |
+| `revealCard` answers false         | dev spec        | 2 of 2 red              |
+| no `scrollend` release             | unit            | 1 red                   |
+| no release when the rule agrees    | unit            | 1 red                   |
+| no gesture release                 | unit            | 2 red                   |
+| no cap                             | unit            | 2 red                   |
+| carousel path answers true         | dev spec at 390 | 1 red                   |
+| `origin/main` src                  | prod press case | red                     |
+
+**Honest accounting.**
+
+- Chromium only. Safari's `scrollend` support was not checked here. Without
+  it, the hold still ends when the rule reports the pressed listing, or at the
+  cap.
+- One unrelated red in the 137-test dev run: the homepage band's credit
+  hand-over premise. It passed 24 of 24 alone. That map has no `onselect`.
