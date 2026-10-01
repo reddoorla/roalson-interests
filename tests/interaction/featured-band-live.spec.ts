@@ -285,7 +285,7 @@ test.describe("keyboard focus", () => {
     const count = await page.locator(SLIDES).count();
     const next = page.getByRole("button", { name: "Next slide" });
 
-    const all = page.getByRole("link", { name: "All properties" });
+    const all = page.getByRole("link", { name: "See all properties" });
     await next.focus();
     await page.keyboard.press("Tab");
     await expect(all, "Tab goes on to ALL, the last of the controls").toBeFocused();

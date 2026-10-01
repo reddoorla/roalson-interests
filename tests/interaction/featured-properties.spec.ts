@@ -516,7 +516,7 @@ test.describe("where the comp draws it", () => {
     }
   });
 
-  test("390: map, photo, bar, [eyebrow | controls], text", async ({ browser }) => {
+  test("390: map, photo, bar, eyebrow, controls, text", async ({ browser }) => {
     const { context, page } = await moving(browser, viewportFor(390, 844));
     try {
       await page.goto(HOME);
@@ -535,14 +535,17 @@ test.describe("where the comp draws it", () => {
       expect(g.slot.display).toBe("block");
       expect(g.photo.width / g.photo.height).toBeCloseTo(390 / 227.8, 2);
       expect(g.bar!.top - g.photo.bottom).toBeCloseTo(20, 0);
-      // comp: 10 between the bar and the chrome row at 390 (20 at 1440)
-      expect(g.controls!.top - g.bar!.bottom).toBeCloseTo(10, 0);
-      // the eyebrow's CAP top is flush with the controls' top edge, not centred
-      expect(g.eyebrow.top + H4_TRIM).toBeCloseTo(g.controls!.top, 0);
-      // controls right-aligned on the panel's padding; Pause, the arrows and
-      // ALL (2026-10-01) make them 190
-      expect(g.card.width - g.controls!.right).toBeCloseTo(20, 0);
-      expect(g.controls!.width).toBeCloseTo(190, 0);
+      // comp: 10 between the bar and the chrome row at 390 (20 at 1440); the
+      // eyebrow's CAP top starts it.
+      expect(g.eyebrow.top + H4_TRIM - g.bar!.bottom).toBeCloseTo(10, 0);
+      // Pause, the arrows and SEE ALL (2026-10-01) are 238, wider than a
+      // phone's column can share with "PROPERTIES": the eyebrow takes one line
+      // and the controls the row under it, on the panel's 20.
+      expect(g.eyebrow.height - 2 * H4_TRIM, "one line").toBeLessThan(15);
+      expect(g.controls!.top).toBeGreaterThanOrEqual(g.eyebrow.bottom - H4_TRIM);
+      expect(g.controls!.left).toBeCloseTo(20, 0);
+      // three 40px circles, SEE ALL, and 10 between each
+      expect(g.controls!.width).toBeCloseTo(150 + g.portfolio!.width, 0);
       // text 20 under the row
       expect(g.text.top - g.controls!.bottom).toBeCloseTo(20, 0);
       expect(g.overflowX).toBeLessThanOrEqual(0);
@@ -551,15 +554,12 @@ test.describe("where the comp draws it", () => {
     }
   });
 
-  test("at 360 the eyebrow WRAPS beside the 190px controls; at 320 the controls take their own row", async ({
+  test("at 360 and 320 the controls take their own row under the eyebrow; nothing collides", async ({
     browser,
   }) => {
-    // The decision #32 asked for, with ALL in the row (2026-10-01). Pause,
-    // the arrows and ALL are 190; "FEATURED PROPERTIES" breaks onto two lines
-    // INSIDE the 40px row down to 360, so the text below does not move. At
-    // 320 the row's longest word ("PROPERTIES", 94) and the 190 no longer fit
-    // the 280 column, so the row wraps — the eyebrow above, the controls under
-    // it — rather than running the word under the arrows.
+    // With SEE ALL the controls are 238 (2026-10-01): on every phone the
+    // eyebrow takes one line and the controls the row under it, rather than
+    // running "PROPERTIES" under the arrows.
     for (const width of [360, 320]) {
       const { context, page } = await moving(browser, viewportFor(width, 780));
       try {
@@ -574,25 +574,19 @@ test.describe("where the comp draws it", () => {
           const C = h.closest("[data-featured-card]")!.getBoundingClientRect();
           return Math.max(...[...r.getClientRects()].map((l) => l.right)) - C.left;
         });
-        expect(g.controls!.width, `${width}`).toBeCloseTo(190, 0);
-        expect(g.overflowX, `${width}`).toBeLessThanOrEqual(0);
-        if (width === 360) {
-          expect(g.eyebrow.height, `${width}: two lines`).toBeGreaterThan(40);
-          expect(inked, `${width}: the words clear the controls`).toBeLessThanOrEqual(
-            g.controls!.left - 19,
-          );
-          expect(g.eyebrow.bottom - H4_TRIM, `${width}`).toBeLessThanOrEqual(g.controls!.bottom);
-        } else {
-          expect(
-            g.controls!.top,
-            `${width}: the controls under the eyebrow`,
-          ).toBeGreaterThanOrEqual(g.eyebrow.bottom);
-          expect(g.controls!.left, `${width}`).toBeCloseTo(20, 0);
-          expect(inked, `${width}: one line, inside the column`).toBeLessThanOrEqual(
-            g.card.width - 20,
-          );
-        }
+        expect(g.controls!.width, `${width}`).toBeCloseTo(150 + g.portfolio!.width, 0);
+        expect(g.controls!.top, `${width}: under the eyebrow`).toBeGreaterThanOrEqual(
+          g.eyebrow.bottom - H4_TRIM,
+        );
+        expect(g.controls!.left, `${width}`).toBeCloseTo(20, 0);
+        expect(g.controls!.right, `${width}: inside the column`).toBeLessThanOrEqual(
+          g.card.width - 20,
+        );
+        expect(inked, `${width}: the eyebrow inside the column`).toBeLessThanOrEqual(
+          g.card.width - 20,
+        );
         expect(g.text.top - g.controls!.bottom, `${width}`).toBeCloseTo(20, 0);
+        expect(g.overflowX, `${width}`).toBeLessThanOrEqual(0);
       } finally {
         await context.close();
       }
@@ -966,7 +960,7 @@ test.describe("rotation", () => {
       // Tab goes on to ALL, the last of the controls (2026-10-01), and then
       // INTO the slide that is on stage — its LEARN MORE — not one off it.
       await page.keyboard.press("Tab");
-      await expect(page.getByRole("link", { name: "All properties" })).toBeFocused();
+      await expect(page.getByRole("link", { name: "See all properties" })).toBeFocused();
       await page.keyboard.press("Tab");
       await expect(
         page.locator(`${CARD} [data-featured-slide]:not([inert]) a`),
@@ -3317,9 +3311,9 @@ test.describe("the portfolio button", () => {
         await page.goto(HOME);
         await adopted(page);
         const card = page.locator(CARD);
-        const all = card.getByRole("link", { name: "All properties" });
+        const all = card.getByRole("link", { name: "See all properties" });
         await expect(all).toBeVisible();
-        await expect(all).toHaveText("All");
+        await expect(all).toHaveText("See all");
         await expect(all).toHaveAttribute("href", "/properties");
         const [a, n, c] = await Promise.all([
           all.boundingBox(),
@@ -3327,8 +3321,11 @@ test.describe("the portfolio button", () => {
           card.boundingBox(),
         ]);
         const at = JSON.stringify({ width, a, n });
-        expect(a!.width, at).toBeCloseTo(40, 0);
+        // A square button like LEARN MORE, not one more circle (2026-10-01):
+        // it is a link, and reads as one.
         expect(a!.height, at).toBeCloseTo(40, 0);
+        expect(a!.width, at).toBeGreaterThan(60);
+        await expect(all).toHaveCSS("border-radius", "0px");
         expect(a!.y, `${at}: on the arrows' line`).toBeCloseTo(n!.y, 0);
         expect(a!.x - (n!.x + n!.width), `${at}: 10 after Next`).toBeCloseTo(10, 0);
         // In the CARD, which is the card's column — never the map's.
@@ -3355,7 +3352,7 @@ test.describe("the portfolio button", () => {
       await page.goto("/dev/a11y-fixtures");
       const card = page.locator(CARD).nth(1);
       await settledForAudit(page, card);
-      const all = card.getByRole("link", { name: "All properties" });
+      const all = card.getByRole("link", { name: "See all properties" });
       const [c, p] = await Promise.all([card.boundingBox(), all.boundingBox()]);
       expect(c!.width, "the wrapper squeezes the card").toBeLessThan(640);
       const text = await card.evaluate((el) =>
@@ -3592,7 +3589,7 @@ test.describe("the other states", () => {
       // this band draws of its own, server-rendered like everything else here,
       // so a visitor without the bundle still has a way to all of them (#47).
       // It is a plain <a> in the markup: nothing about it waits on hydration.
-      const portfolio = card.getByRole("link", { name: "All properties", exact: true });
+      const portfolio = card.getByRole("link", { name: "See all properties", exact: true });
       await expect(portfolio).toBeVisible();
       await expect(portfolio).toHaveAttribute("href", "/properties");
       // The map's own links go to Google Maps by design (#13), and they are
