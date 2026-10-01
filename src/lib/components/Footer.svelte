@@ -144,14 +144,15 @@
     <div class="lg:grid lg:grid-cols-[397fr_847fr] lg:gap-9">
       {#if cta}
         <div class="lg:col-start-2 lg:row-start-1">
-          <!-- H1's size on an h2: it is the band's headline, not the page's.
-               Still 66/80 at 390, as drawn (four lines there). Below 360 its
-               longest line — "to serving", 294px in the comp and 297 as
-               Chromium sets it — no longer fits the column, and the body clips
-               overflow, so it steps down to H2 rather than lose a letter (WCAG
-               1.4.10 asks for 320). `break-words` is for a fallback face wider
-               than the real one: a broken word, never a clipped one. -->
-          <h2 class="t-h1 max-[359px]:t-h2 break-words text-primary">
+          <!-- H1's size on an h2 from `sm`: it is the band's headline, not the
+               page's. Below `sm` it is H2, the size of the homepage's
+               "Representing Your Best Interests" (MarkUp, 2026-10-01: "on
+               mobile, change to same size"). The comp drew 66/80 at 390, four
+               lines; H2 also keeps "to serving" (297px at H1) inside a 280px
+               column at 320, which is why it stepped down there before.
+               `break-words` is for a fallback face wider than the real one: a
+               broken word, never a clipped one. -->
+          <h2 class="t-h2 sm:t-h1 break-words text-primary">
             <!-- One <br> per drawn break, with a real space after it: the comp
                  breaks the line with U+2028, which is not shipped, and a
                  reader that ignores the <br> must not get "forwardto". -->

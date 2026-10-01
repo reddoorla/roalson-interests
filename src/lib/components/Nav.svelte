@@ -243,30 +243,37 @@
     "motion-reduce:transition-none group-active:scale-90 group-active:opacity-70 " +
     "group-data-[pressed]:scale-90 group-data-[pressed]:opacity-70";
 
-  // A 44px target around a 20×16 glyph, pulled into the gutter so the edge the
-  // eye reads — not the target's — lands on the comp's x=1360 / x=370: the
-  // GLYPH's, 12px in; on the photograph the disc's, 2px in, the glyph centred
-  // in it. The Close takes the same pull, so it sits where the trigger was.
-  const ICON_BUTTON = (onPhoto: boolean) =>
-    `group ${onPhoto ? "-mr-0.5" : "-mr-3"} flex min-h-11 min-w-11 items-center justify-center`;
-  // The trigger's 40px garnet disc on a photograph (`onPhoto`), ringed in sand
-  // like the CTA beside it, with the focus ring pulled inside it. Always
-  // drawn, transparent off the photograph, so it fades with the bar.
+  // A 44px target around a 20×16 glyph, pulled 12px into the gutter so the
+  // GLYPH's edge, not the target's, lands on the comp's x=1360 / x=370. ONE
+  // pull in every state (MarkUp, 2026-10-01: "can this stay in the same
+  // position instead of moving after you scroll?"). Over the photograph it
+  // was 2px, so the disc's edge stood on the gutter, and the trigger and the
+  // CTA beside it slid 10px at the gate. Now the disc is centred on the glyph
+  // where the glyph always is, and runs 10px past the gutter on the photo.
+  // The Close takes the same pull, so it sits where the trigger was.
+  const ICON_BUTTON = "group -mr-3 flex min-h-11 min-w-11 items-center justify-center";
+  // The trigger's 40px garnet disc on a photograph (`onPhoto`), with the
+  // focus ring pulled inside it. No sand ring (MarkUp, 2026-10-01: "remove
+  // white outline"); the border stays, in the disc's own garnet, so the disc
+  // is the same size. Always drawn, transparent off the photograph, so it
+  // fades with the bar.
   const ICON_DISC = (on: boolean) =>
     "relative isolate before:absolute before:inset-0.5 before:-z-10 before:rounded-full before:border " +
     "before:border-solid before:transition-colors before:duration-300 before:content-[''] " +
     (on
-      ? "rounded-full before:border-light before:bg-primary focus-visible:outline-offset-[-5px]"
+      ? "rounded-full before:border-primary before:bg-primary focus-visible:outline-offset-[-5px]"
       : "before:border-transparent before:bg-transparent");
 
-  // CONTACT US on the photograph, and the scripting-off links beside it.
-  const PHOTO_CHIP = "bg-primary focus-visible:outline-offset-[-5px]";
+  // CONTACT US on the photograph, and the scripting-off links beside it. Its
+  // border is the chip's own garnet, not the light tone's sand, for the same
+  // MarkUp pin; `!` because both colours are BrandButton tone utilities of
+  // equal weight.
+  const PHOTO_CHIP = "border-primary! bg-primary focus-visible:outline-offset-[-5px]";
 
-  // Both forms of the trigger. The pull glides with the disc's fade, so the
-  // controls do not hop 10px at the gate.
+  // Both forms of the trigger.
   const trigger = $derived(
-    `${ICON_BUTTON(onPhoto)} ${ICON_DISC(onPhoto)} duration-300 ` +
-      "transition-[color,outline-color,margin-right] motion-reduce:transition-colors " +
+    `${ICON_BUTTON} ${ICON_DISC(onPhoto)} duration-300 ` +
+      "transition-[color,outline-color] motion-reduce:transition-colors " +
       (floating ? "text-light" : "text-primary"),
   );
 
@@ -489,7 +496,7 @@
       <button
         type="button"
         data-autofocus
-        class="{ICON_BUTTON(onPhoto)} text-light"
+        class="{ICON_BUTTON} text-light"
         onclick={closeMenu}
         aria-label="Close menu"
         aria-expanded={isMenuOpen}
@@ -506,10 +513,11 @@
     <div
       class="mx-auto grid w-full max-w-[1440px] flex-1 content-center gap-y-10 px-5 pt-10 pb-[70px] sm:px-8 lg:grid-cols-[397fr_847fr] lg:gap-x-9 lg:pb-20 xl:px-20"
     >
-      <!-- The dialog is already named "Menu"; this is the comp's eyebrow over
-           a heading, for the eye only. -->
-      <p class="t-h5 text-dust" aria-hidden="true">Menu</p>
-      <ul class="flex flex-col gap-10 lg:gap-12">
+      <!-- No "MENU" eyebrow in column 1 (MarkUp, 2026-10-01: "remove the
+           menu text"); the dialog is still named "Menu". `lg:col-start-2`
+           keeps the links on the listing column the eyebrow used to push
+           them to. -->
+      <ul class="flex flex-col gap-10 lg:col-start-2 lg:gap-12">
         {#each items as item, i (i)}
           <li in:fly={{ y: 24, delay: 60 + i * 60, duration: 400 }}>
             {#if item.href}
