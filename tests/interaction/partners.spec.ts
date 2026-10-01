@@ -180,20 +180,22 @@ test("at 1440 the band keeps the comp's rhythm and its text stands on the site's
 
   const g = await geometry(page);
   expect(g.ground).toBe(OFF_WHITE);
-  near(g.height, 556, "band height (6802:1472)");
+  near(g.height, 551, "band height (6802:1472, less the MarkUp round's 5)");
 
-  // Left column: eyebrow, the rule 40 under its cap top, the first card 70 under.
-  const eyebrowTop = g.eyebrow.top + TRIM.h5;
+  // Left column: eyebrow, the rule 38 under its cap top, the first card 65
+  // under — the comp's 40 and 70 with the space either side of the rule cut
+  // 10% (MarkUp, 2026-10-01) and the eyebrow at H4's 9px cap.
+  const eyebrowTop = g.eyebrow.top + TRIM.h4;
   near(eyebrowTop, 80, "eyebrow cap top");
   near(g.eyebrow.left, 80, "eyebrow left");
-  near(g.rule.top - eyebrowTop, 40, "rule under the eyebrow");
+  near(g.rule.top - eyebrowTop, 38, "rule under the eyebrow");
   // Its paint and weight are the pixel-row test's, at 1x and 2x.
   near(g.rule.width, 371, "the rule is the column's width");
   near(g.list.top, g.rule.top, "…and takes no room: the list starts where it does");
   near(g.list.width, 371, "left column width (6802:1474)");
 
   expect(g.cards.length).toBe(2);
-  near(g.cards[0].card.top - eyebrowTop, 70, "first card under the eyebrow");
+  near(g.cards[0].card.top - eyebrowTop, 65, "first card under the eyebrow");
   near(g.cards[1].card.top - g.cards[0].card.bottom, 20, "gap between cards");
   for (const c of g.cards) {
     near(c.card.width, 371, "card width");
@@ -240,7 +242,7 @@ test("at 390 the cards come first, the links share a line, and they wrap below i
   await expect(page.locator(`${band} > div`)).toHaveCSS("padding-left", "20px");
 
   const g = await geometry(page);
-  near(g.height, 1161, "band height (6994:829)");
+  near(g.height, 1156, "band height (6994:829, less the MarkUp round's 5)");
   near(g.rule.width, 350, "the rule is the column's width");
   near(g.list.width, 350, "…and so are the cards");
   expect(g.list.bottom, "cards above the headline").toBeLessThan(g.headline.top);
@@ -381,7 +383,7 @@ test("with no headshot — the launch state — the panel is the whole card, at 
   await page.goto(LAUNCH);
   await layOutAt(page, 1440);
   const g = await geometry(page);
-  near(g.height, 556, "band height is unchanged");
+  near(g.height, 551, "band height is unchanged");
   for (const c of g.cards) {
     expect(c.photo, "no photo box").toBeNull();
     near(c.panel.width, c.card.width, "panel spans the card");
