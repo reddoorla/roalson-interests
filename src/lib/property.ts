@@ -144,6 +144,10 @@ export interface PropertyPackage {
   /** e.g. "14.4 MB" — shown beside the link because these PDFs run to 14 MB
    *  and a visitor on a phone deserves to know before tapping. */
   size: string | null;
+  /** The name the file is saved under: the upload's own name as Prismic
+   *  keeps it (all 22 live packages carry one), never the CDN path's `<id>_`
+   *  prefix. */
+  filename: string;
 }
 
 const megabytes = new Intl.NumberFormat("en-US", { maximumFractionDigits: 1 });
@@ -157,6 +161,7 @@ export function propertyPackage(property: PropertyDocument): PropertyPackage | n
   return {
     url: pdf.url,
     size: bytes > 0 ? `${megabytes.format(Math.max(bytes / 1e6, 0.1))} MB` : null,
+    filename: pdf.name || "property-package.pdf",
   };
 }
 
