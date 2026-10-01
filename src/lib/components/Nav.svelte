@@ -513,10 +513,11 @@
     <div
       class="mx-auto grid w-full max-w-[1440px] flex-1 content-center gap-y-10 px-5 pt-10 pb-[70px] sm:px-8 lg:grid-cols-[397fr_847fr] lg:gap-x-9 lg:pb-20 xl:px-20"
     >
-      <!-- The dialog is already named "Menu"; this is the comp's eyebrow over
-           a heading, for the eye only. -->
-      <p class="t-h5 text-dust" aria-hidden="true">Menu</p>
-      <ul class="flex flex-col gap-10 lg:gap-12">
+      <!-- No "MENU" eyebrow in column 1 (MarkUp, 2026-10-01: "remove the
+           menu text"); the dialog is still named "Menu". `lg:col-start-2`
+           keeps the links on the listing column the eyebrow used to push
+           them to. -->
+      <ul class="flex flex-col gap-10 lg:col-start-2 lg:gap-12">
         {#each items as item, i (i)}
           <li in:fly={{ y: 24, delay: 60 + i * 60, duration: 400 }}>
             {#if item.href}
