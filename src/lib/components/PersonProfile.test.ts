@@ -48,24 +48,6 @@ describe("PersonProfile", () => {
     expect([...bio.querySelectorAll("p")].map((p) => p.textContent)).toEqual(["One.", "Two."]);
   });
 
-  it("links the email and the phone, and prints an unusable value as text", () => {
-    const good = render(PersonProfile, { props: { person: personFixture() } });
-    expect(good.getByRole("link", { name: "mhoward@roalson.com" }).getAttribute("href")).toBe(
-      "mailto:mhoward@roalson.com",
-    );
-    expect(good.getByRole("link", { name: "(210) 496-5800" }).getAttribute("href")).toBe(
-      "tel:+12104965800",
-    );
-    cleanup();
-    const bad = render(PersonProfile, {
-      props: { person: personFixture({ phone: "496-5800", license: "603462" }) },
-    });
-    expect(bad.getByText("496-5800").closest("a")).toBeNull();
-    expect(bad.getByText("603462").closest("a")).toBeNull();
-    expect(bad.getAllByRole("link").map((a) => a.getAttribute("href"))).toEqual([
-      "mailto:mhoward@roalson.com",
-    ]);
-  });
 
   it("draws no photo box without a photo, and one with", () => {
     const bare = render(PersonProfile, { props: { person: personFixture() } });

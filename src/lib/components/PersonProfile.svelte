@@ -14,6 +14,8 @@
   import type { PersonDocument } from "../../prismicio-types";
   import RichTextBody from "$lib/components/RichTextBody.svelte";
   import { emailHref, isPlaceholderBio, personDisplayName, phoneHref } from "$lib/person";
+  import DefaultButton from "./DefaultButton.svelte";
+  import BrandButton from "./BrandButton.svelte";
 
   let { person }: { person: PersonDocument } = $props();
 
@@ -37,7 +39,9 @@
   aria-labelledby="person-name"
   class="mx-auto max-w-[1440px] px-5 pt-10 pb-20 text-primary sm:px-8 xl:px-20"
 >
+<BrandButton class="mb-6" href="/">Go Back</BrandButton>
   <div class="flex flex-col gap-[60px] lg:grid lg:grid-cols-[397fr_847fr] lg:gap-9">
+  
     {#if hasPhoto}
       <!-- The wireframe's headshot column, capped at the partner band's 371.
            The srcset stops at the file's real width (#73: Bart's is 140px). -->

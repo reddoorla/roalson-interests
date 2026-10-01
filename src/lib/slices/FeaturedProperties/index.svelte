@@ -129,6 +129,7 @@
   import { linkResolver } from "$lib/prismicio";
   import { CAMERA_FLIGHT_MS, slidePoints } from "$lib/property-map";
   import { DEFAULT_IMAGE_WIDTHS, imgix, srcset } from "$lib/utils/image";
+  import ArrowRight from "$components/ArrowRight.svelte";
 
   let { slice }: { slice: Content.FeaturedPropertiesSlice } = $props();
 
@@ -689,10 +690,11 @@
             {#if portfolio}
               <BrandButton
                 data-featured-portfolio
+                class="border-0"
                 href={portfolio.href}
                 target={portfolio.blank ? "_blank" : undefined}
                 rel={portfolio.blank ? "noopener noreferrer" : undefined}
-                aria-label="See all {portfolio.text.toLowerCase()}">See all</BrandButton
+                aria-label="See all {portfolio.text.toLowerCase()}">See all <ArrowRight/></BrandButton
               >
             {/if}
           </div>
