@@ -263,14 +263,15 @@ describe("Nav — the homepage's gated wordmark", () => {
     const { getByRole, getByLabelText, unmount } = render(Nav, gatedProps);
     const menu = getByLabelText("Open menu");
     const contact = getByRole("link", { name: "Contact us" });
-    expect(classes(menu)).toContain("before:bg-primary");
+    // At 75% on the hero (operator, 2026-10-01).
+    expect(classes(menu)).toContain("before:bg-primary/75");
     expect(classes(menu)).toContain("focus-visible:outline-offset-[-5px]");
-    expect(resting(contact)).toContain("bg-primary");
+    expect(resting(contact)).toContain("bg-primary/75");
 
     await scrollTo(448);
     expect(classes(menu)).toContain("before:bg-transparent");
-    expect(classes(menu)).not.toContain("before:bg-primary");
-    expect(resting(contact)).not.toContain("bg-primary");
+    expect(classes(menu)).not.toContain("before:bg-primary/75");
+    expect(resting(contact)).not.toContain("bg-primary/75");
     unmount();
 
     await scrollTo(0);

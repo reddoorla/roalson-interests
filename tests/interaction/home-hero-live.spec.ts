@@ -2,7 +2,19 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 import sharp from "sharp";
 import { gutter, measuresGutter, viewportFor } from "./gutter";
 import { hydrated } from "./hydrated";
-import { GARNET } from "./palette";
+
+/** The hero's control grounds, garnet at 75% (operator, 2026-10-01), as this
+ *  browser computes the class: Tailwind mixes the alpha in oklab, so the
+ *  string is read off a probe, never typed. */
+const garnet75 = (page: Page) =>
+  page.evaluate(() => {
+    const probe = document.createElement("div");
+    probe.className = "bg-primary/75";
+    document.body.append(probe);
+    const colour = getComputedStyle(probe).backgroundColor;
+    probe.remove();
+    return colour;
+  });
 
 // THE REVISED HERO BAND ON THE ROUTE THE SITE SERVES (`/`), so it runs on a
 // production build too:
@@ -315,8 +327,11 @@ for (const [width, height] of [
     });
     const discAt = JSON.stringify(disc);
     expect(disc.width, `premise: the disc is drawn ${discAt}`).toBe(40);
-    expect(disc.ground, discAt).toBe(GARNET);
-    expect(disc.ring, `no sand ring around the disc ${discAt}`).toBe(GARNET);
+    // Garnet at 75% on the hero (operator, 2026-10-01), and no ring of its own.
+    const GARNET_75 = await garnet75(page);
+    expect(GARNET_75, "premise: the probe read an alpha").toMatch(/\/ 0\.75\)$/);
+    expect(disc.ground, discAt).toBe(GARNET_75);
+    expect(disc.ring, `no sand ring around the disc ${discAt}`).toBe("rgba(0, 0, 0, 0)");
     expect(
       Math.abs(disc.glyphRight - disc.gutter),
       `the glyph ends on the gutter ${discAt}`,
@@ -338,7 +353,11 @@ for (const [width, height] of [
       test.info().annotations.push({ type: `cta@${width}`, description: JSON.stringify(text) });
       expect(text.pixels, "the CTA's label was found").toBeGreaterThan(100);
       expect(text.worst, "CONTACT US against its ground (WCAG 1.4.3)").toBeGreaterThanOrEqual(4.5);
-      await expect(cta, "no sand outline around CONTACT US").toHaveCSS("border-top-color", GARNET);
+      await expect(cta, "no sand outline around CONTACT US").toHaveCSS(
+        "border-top-color",
+        "rgba(0, 0, 0, 0)",
+      );
+      await expect(cta, "its ground is garnet at 75%").toHaveCSS("background-color", GARNET_75);
     } else expect(width, "the CTA is hidden only below sm").toBeLessThan(640);
 
     const ring = await ringOf(page, menu);

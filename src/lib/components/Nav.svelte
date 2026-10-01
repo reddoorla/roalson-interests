@@ -257,18 +257,27 @@
   // white outline"); the border stays, in the disc's own garnet, so the disc
   // is the same size. Always drawn, transparent off the photograph, so it
   // fades with the bar.
+  //
+  // ON THE HERO THE GROUNDS ARE 75% (operator, 2026-10-01: "start nav opacity
+  // at 75 when on the hero, back to full everywhere else"): the disc here and
+  // the CTA chip below, so the photograph shows through a little. The border
+  // goes transparent rather than 75% too: the ground already paints under it,
+  // and a 75% border over a 75% ground would draw a 94% ring. Sand on garnet
+  // at 75% over a PURE WHITE pixel is 4.57:1, so the chip's label still clears
+  // AA wherever the photo is brightest; home-hero-live.spec.ts measures it.
+  // Off the photograph the bar is its solid off-white and every control full.
   const ICON_DISC = (on: boolean) =>
     "relative isolate before:absolute before:inset-0.5 before:-z-10 before:rounded-full before:border " +
     "before:border-solid before:transition-colors before:duration-300 before:content-[''] " +
     (on
-      ? "rounded-full before:border-primary before:bg-primary focus-visible:outline-offset-[-5px]"
+      ? "rounded-full before:border-transparent before:bg-primary/75 focus-visible:outline-offset-[-5px]"
       : "before:border-transparent before:bg-transparent");
 
-  // CONTACT US on the photograph, and the scripting-off links beside it. Its
-  // border is the chip's own garnet, not the light tone's sand, for the same
-  // MarkUp pin; `!` because both colours are BrandButton tone utilities of
-  // equal weight.
-  const PHOTO_CHIP = "border-primary! bg-primary focus-visible:outline-offset-[-5px]";
+  // CONTACT US on the photograph, and the scripting-off links beside it. No
+  // sand border (the same MarkUp pin) and no border of its own: the 75%
+  // ground paints under a transparent one. `!` because the light tone's
+  // `border-light` is a BrandButton utility of equal weight.
+  const PHOTO_CHIP = "border-transparent! bg-primary/75 focus-visible:outline-offset-[-5px]";
 
   // Both forms of the trigger.
   const trigger = $derived(
