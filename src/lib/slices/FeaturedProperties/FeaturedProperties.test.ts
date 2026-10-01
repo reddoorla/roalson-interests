@@ -1232,27 +1232,29 @@ describe("FeaturedProperties slice", () => {
       const { getByRole } = render(FeaturedProperties, {
         props: { slice: featuredPropertiesFixture() },
       });
-      const link = getByRole("link", { name: "Properties" });
+      const link = getByRole("link", { name: "All properties" });
       expect(link.getAttribute("href")).toBe("/properties");
     });
 
-    it("is INSIDE the card and outside every slide, and is the band's last link", () => {
-      // The condition on the restoration. Inside the card is inside the card's
-      // COLUMN — the removal's second reason was that the old one parked a
-      // control in the column reserved for the map (#13). Outside every slide
-      // is the carousel's contract: a slide that turns away goes `inert`, so a
-      // control inside one goes with it (#34).
+    it("is INSIDE the card, outside every slide, and the last of the controls", () => {
+      // Inside the card is inside the card's COLUMN — the column reserved for
+      // the map (#13) gets no control. Outside every slide is the carousel's
+      // contract: a slide that turns away goes `inert`, and a control inside
+      // one goes with it (#34). Since 2026-10-01 (operator, on Nicole's MarkUp
+      // pin) it is the ALL circle after Next, not a PROPERTIES button on
+      // LEARN MORE's line — and NOT inside the arrows' `data-js-only` row, so
+      // it is drawn with no script and with one listing (#47).
       for (const slice of [featuredPropertiesFixture(), featuredLaunchFixture()]) {
-        const { container, getByRole, unmount } = render(FeaturedProperties, { props: { slice } });
-        const link = getByRole("link", { name: "Properties" });
+        const { getByRole, unmount } = render(FeaturedProperties, { props: { slice } });
+        const link = getByRole("link", { name: "All properties" });
+        expect(link.textContent?.trim()).toBe("All");
         expect(link.closest("[data-featured-card]")).not.toBeNull();
         expect(link.closest("[data-featured-slide]")).toBeNull();
         expect(link.closest("[data-map-slot]")).toBeNull();
-        // "all of them" follows "these three": after the last slide in the DOM.
-        const lastSlide = slidesOf(container).at(-1)!;
-        expect(
-          lastSlide.compareDocumentPosition(link) & Node.DOCUMENT_POSITION_FOLLOWING,
-        ).toBeTruthy();
+        expect(link.closest("[data-js-only]")).toBeNull();
+        const controls = link.closest("[data-featured-controls]")!;
+        expect(controls, "in the controls row").not.toBeNull();
+        expect(controls.lastElementChild, "the last of the controls").toBe(link);
         unmount();
       }
     });
@@ -1267,15 +1269,20 @@ describe("FeaturedProperties slice", () => {
       const { getByRole } = render(FeaturedProperties, {
         props: { slice: featuredLaunchFixture() },
       });
-      const link = getByRole("link", { name: "Properties" });
+      const link = getByRole("link", { name: "All properties" });
       for (
         let el: HTMLElement | null = link;
         el && el.dataset.sliceType !== "featured_properties";
         el = el.parentElement
       ) {
-        expect(el.className.split(/\s+/).filter((c) => /(^|:)(absolute|fixed)$/.test(c))).toEqual(
-          [],
-        );
+        // `before:absolute` is the arrows' 3px hit ring, a pseudo-element on the
+        // control itself, not an ancestor laid over the card.
+        expect(
+          el.className
+            .split(/\s+/)
+            .filter((c) => !/^(before|after):/.test(c))
+            .filter((c) => /(^|:)(absolute|fixed)$/.test(c)),
+        ).toEqual([]);
         expect(el.className).not.toContain("inset-0");
       }
     });
@@ -1288,7 +1295,7 @@ describe("FeaturedProperties slice", () => {
       const { getByRole } = render(FeaturedProperties, {
         props: { slice: featuredLaunchFixture() },
       });
-      const link = getByRole("link", { name: "Properties" });
+      const link = getByRole("link", { name: "All properties" });
       expect(link.className).toContain("border-primary");
       expect(link.className).toContain("text-primary");
       expect(link.className).not.toContain("border-background");
@@ -1306,7 +1313,7 @@ describe("FeaturedProperties slice", () => {
         });
         // By its slot, not only by its name: with the label blanked, a check
         // for the name "Properties" alone would pass whatever was drawn.
-        expect(queryByRole("link", { name: "Properties" }), JSON.stringify(primary)).toBeNull();
+        expect(queryByRole("link", { name: "All properties" }), JSON.stringify(primary)).toBeNull();
         expect(
           container.querySelector("[data-featured-portfolio]"),
           JSON.stringify(primary),
@@ -1317,12 +1324,12 @@ describe("FeaturedProperties slice", () => {
 
     it("stays with the band in the one-slide state, and goes with it in the empty one", () => {
       const one = render(FeaturedProperties, { props: { slice: featuredLaunchFixture() } });
-      expect(one.getByRole("link", { name: "Properties" })).toBeTruthy();
+      expect(one.getByRole("link", { name: "All properties" })).toBeTruthy();
       one.unmount();
       const none = render(FeaturedProperties, {
         props: { slice: featuredPropertiesFixture({ properties: [] }) },
       });
-      expect(none.queryByRole("link", { name: "Properties" })).toBeNull();
+      expect(none.queryByRole("link", { name: "All properties" })).toBeNull();
     });
 
     it("leaves every OTHER link in the band a slide's own LEARN MORE", () => {

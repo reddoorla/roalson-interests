@@ -195,7 +195,7 @@ test.describe("hydration", () => {
   test("…and the listener DOES hear one when the served markup is broken on purpose", async ({
     page,
   }) => {
-    // THE INSTRUMENT, PROVEN. A stray element at the head of the card's chrome
+    // THE INSTRUMENT, PROVEN. A stray element at the head of the card's controls row
     // is a server/client structure mismatch Svelte must report — as
     // "[svelte] hydration_mismatch" in dev and as the bare
     // https://svelte.dev/e/hydration_mismatch in production. If this ever
@@ -203,7 +203,7 @@ test.describe("hydration", () => {
     await page.route(HOME, async (route) => {
       const response = await route.fetch();
       const body = (await response.text()).replace(
-        /(<div[^>]*data-featured-chrome[^>]*>)/,
+        /(<div[^>]*data-featured-controls[^>]*>)/,
         "$1<i data-injected></i>",
       );
       expect(body, "premise: the injection found its target").toContain("data-injected");
@@ -285,10 +285,13 @@ test.describe("keyboard focus", () => {
     const count = await page.locator(SLIDES).count();
     const next = page.getByRole("button", { name: "Next slide" });
 
+    const all = page.getByRole("link", { name: "All properties" });
     await next.focus();
     await page.keyboard.press("Tab");
+    await expect(all, "Tab goes on to ALL, the last of the controls").toBeFocused();
+    await page.keyboard.press("Tab");
     const link = page.locator(`${SLIDES}:not([inert]) a`).first();
-    await expect(link, "Tab goes from the controls into the slide on stage").toBeFocused();
+    await expect(link, "…then into the slide on stage").toBeFocused();
     const linkName = (await link.textContent())!.trim();
 
     await page.keyboard.press("ArrowRight");
@@ -296,6 +299,8 @@ test.describe("keyboard focus", () => {
       .poll(() => focusAnd(page))
       .toEqual({ focus: linkName, inCard: true, status: `Slide 1 of ${count}`, live: "polite" });
 
+    await page.keyboard.press("Shift+Tab");
+    await expect(all).toBeFocused();
     await page.keyboard.press("Shift+Tab");
     await expect(next).toBeFocused();
     await page.keyboard.press("ArrowRight");
@@ -312,10 +317,11 @@ test.describe("keyboard focus", () => {
     // it is `visible`. Under the harness's reduced motion app.css's 0.01ms
     // rule puts the slide's `visibility` on a transition that Chromium
     // resolves two frames late (measured: `hidden` at +26 and +30ms, `visible`
-    // by +130), and a Tab inside that window skips the hidden link for the
-    // portfolio button — 4 of 5 runs. The 0.01ms class (#93, #170); two
-    // frames is under any human's keypress.
+    // by +130). The 0.01ms class (#93, #170); two frames is under any
+    // human's keypress. From Next, ALL comes first (2026-10-01).
     await expect(page.locator(`${SLIDES}:not([inert])`)).toHaveCSS("visibility", "visible");
+    await page.keyboard.press("Tab");
+    await expect(all).toBeFocused();
     await page.keyboard.press("Tab");
     await expect(page.locator(`${SLIDES}:not([inert]) a`).first()).toBeFocused();
     expect((await focusAnd(page)).focus).not.toBe(linkName);
@@ -344,6 +350,7 @@ test.describe("keyboard focus", () => {
 
       await page.keyboard.press("Tab"); // Previous
       await page.keyboard.press("Tab"); // Next
+      await page.keyboard.press("Tab"); // ALL
       await page.keyboard.press("Tab"); // the slide on stage's link
       const link = page.locator(`${SLIDES}:not([inert]) a`).first();
       await expect(link).toBeFocused();

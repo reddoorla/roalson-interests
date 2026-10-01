@@ -347,11 +347,11 @@ const geometry = (page: Page) =>
         photo: rel(active.querySelector("img")!.parentElement)!,
         bar: rel(card.querySelector("[data-carousel-progress]")),
         eyebrow: rel(card.querySelector("h2"))!,
-        controls: rel(card.querySelector("div[data-js-only]:has(> button)")),
+        controls: rel(card.querySelector("[data-featured-controls]")),
         text: rel(active.querySelector("h3")!.parentElement!.parentElement)!,
         sizeLine: rel(active.querySelector("p.t-h4"))!,
         button: rel(active.querySelector("a"))!,
-        portfolio: rel(card.querySelector("[data-featured-portfolio] a")),
+        portfolio: rel(card.querySelector("[data-featured-portfolio]")),
         slot: {
           display: getComputedStyle(slot).display,
           right: slot.getBoundingClientRect().right - C.left,
@@ -539,9 +539,10 @@ test.describe("where the comp draws it", () => {
       expect(g.controls!.top - g.bar!.bottom).toBeCloseTo(10, 0);
       // the eyebrow's CAP top is flush with the controls' top edge, not centred
       expect(g.eyebrow.top + H4_TRIM).toBeCloseTo(g.controls!.top, 0);
-      // controls right-aligned on the panel's padding; Pause makes them 140
+      // controls right-aligned on the panel's padding; Pause, the arrows and
+      // ALL (2026-10-01) make them 190
       expect(g.card.width - g.controls!.right).toBeCloseTo(20, 0);
-      expect(g.controls!.width).toBeCloseTo(140, 0);
+      expect(g.controls!.width).toBeCloseTo(190, 0);
       // text 20 under the row
       expect(g.text.top - g.controls!.bottom).toBeCloseTo(20, 0);
       expect(g.overflowX).toBeLessThanOrEqual(0);
@@ -550,14 +551,15 @@ test.describe("where the comp draws it", () => {
     }
   });
 
-  test("at 360 and 320 the eyebrow WRAPS beside the 140px controls; nothing collides or moves", async ({
+  test("at 360 the eyebrow WRAPS beside the 190px controls; at 320 the controls take their own row", async ({
     browser,
   }) => {
-    // The decision #32 asked for. "FEATURED PROPERTIES" is 176.6 wide; with
-    // Pause the controls are 140, so under 377 they no longer fit on one line
-    // with the 20 gap. The eyebrow breaks onto two lines (34.2 tall) INSIDE
-    // the 40px row, so the text below does not move — rather than the controls
-    // dropping to their own row and costing every phone 60px.
+    // The decision #32 asked for, with ALL in the row (2026-10-01). Pause,
+    // the arrows and ALL are 190; "FEATURED PROPERTIES" breaks onto two lines
+    // INSIDE the 40px row down to 360, so the text below does not move. At
+    // 320 the row's longest word ("PROPERTIES", 94) and the 190 no longer fit
+    // the 280 column, so the row wraps — the eyebrow above, the controls under
+    // it — rather than running the word under the arrows.
     for (const width of [360, 320]) {
       const { context, page } = await moving(browser, viewportFor(width, 780));
       try {
@@ -566,13 +568,31 @@ test.describe("where the comp draws it", () => {
         await page.locator(BAND).scrollIntoViewIfNeeded();
         await holdClock(page);
         const g = await geometry(page);
-        expect(g.eyebrow.height, `${width}: two lines`).toBeGreaterThan(40);
-        expect(g.eyebrow.right, `${width}`).toBeLessThanOrEqual(g.controls!.left - 19);
-        // two trimmed lines are 34.2: still inside the 40px controls row
-        expect(g.eyebrow.bottom - H4_TRIM, `${width}`).toBeLessThanOrEqual(g.controls!.bottom);
-        expect(g.text.top - g.controls!.bottom, `${width}`).toBeCloseTo(20, 0);
-        expect(g.controls!.width, `${width}`).toBeCloseTo(140, 0);
+        const inked = await page.locator(`${CARD} h2`).evaluate((h) => {
+          const r = document.createRange();
+          r.selectNodeContents(h);
+          const C = h.closest("[data-featured-card]")!.getBoundingClientRect();
+          return Math.max(...[...r.getClientRects()].map((l) => l.right)) - C.left;
+        });
+        expect(g.controls!.width, `${width}`).toBeCloseTo(190, 0);
         expect(g.overflowX, `${width}`).toBeLessThanOrEqual(0);
+        if (width === 360) {
+          expect(g.eyebrow.height, `${width}: two lines`).toBeGreaterThan(40);
+          expect(inked, `${width}: the words clear the controls`).toBeLessThanOrEqual(
+            g.controls!.left - 19,
+          );
+          expect(g.eyebrow.bottom - H4_TRIM, `${width}`).toBeLessThanOrEqual(g.controls!.bottom);
+        } else {
+          expect(
+            g.controls!.top,
+            `${width}: the controls under the eyebrow`,
+          ).toBeGreaterThanOrEqual(g.eyebrow.bottom);
+          expect(g.controls!.left, `${width}`).toBeCloseTo(20, 0);
+          expect(inked, `${width}: one line, inside the column`).toBeLessThanOrEqual(
+            g.card.width - 20,
+          );
+        }
+        expect(g.text.top - g.controls!.bottom, `${width}`).toBeCloseTo(20, 0);
       } finally {
         await context.close();
       }
@@ -943,8 +963,10 @@ test.describe("rotation", () => {
       await expect(photo).toHaveCSS("transition-duration", "0.5s");
       await expect(photo).toHaveCSS("opacity", "1");
 
-      // Tab goes on INTO the slide that is on stage — its LEARN MORE — and
-      // not into one that is off it.
+      // Tab goes on to ALL, the last of the controls (2026-10-01), and then
+      // INTO the slide that is on stage — its LEARN MORE — not one off it.
+      await page.keyboard.press("Tab");
+      await expect(page.getByRole("link", { name: "All properties" })).toBeFocused();
       await page.keyboard.press("Tab");
       await expect(
         page.locator(`${CARD} [data-featured-slide]:not([inert]) a`),
@@ -3282,39 +3304,37 @@ test.describe("motion", () => {
 });
 
 test.describe("the portfolio button", () => {
-  // Removed on 2026-09-21 for three reasons and restored by the operator's call
-  // the same day on one condition — the card's own column, never a band-wide
-  // overlay. These are the reasons, as numbers.
-  test("1440 and 1280: it is in the CARD, clear of the map column, and level with LEARN MORE", async ({
+  // Since 2026-10-01 (operator, answering Nicole's MarkUp pin) it is the ALL
+  // circle at the end of the controls row, not a PROPERTIES button on LEARN
+  // MORE's line. It is still the card's own column, never a band-wide overlay
+  // (the 2026-09-21 condition), so the overlay and contrast cases below stand.
+  test("1440 and 1280: it is the last of the controls — 10 right of Next, their size, their line", async ({
     browser,
   }) => {
-    // THE OLD COMPLAINT, closed. It used to sit on the band's floor at
-    // `lg:pb-[43px]` — the ARROWS' line — so it was 3px under LEARN MORE at
-    // 1440 on launch day and 12 at 1280. It is pinned to the text column's
-    // bottom edge now (the card's 40px foot padding, the slide's own `mb-10`),
-    // which is exactly where LEARN MORE lands whenever the slide's text is what
-    // sizes the panel — every one-listing state, which is the state this site
-    // ships. Measured 0.00 at both widths.
     for (const width of [1440, 1280]) {
       const { context, page } = await moving(browser, viewportFor(width));
       try {
-        await page.goto(`${HOME}?featured=one`);
-        await page.locator(`${CARD} [data-featured-portfolio]`).waitFor();
+        await page.goto(HOME);
+        await adopted(page);
+        const card = page.locator(CARD);
+        const all = card.getByRole("link", { name: "All properties" });
+        await expect(all).toBeVisible();
+        await expect(all).toHaveText("All");
+        await expect(all).toHaveAttribute("href", "/properties");
+        const [a, n, c] = await Promise.all([
+          all.boundingBox(),
+          card.getByRole("button", { name: "Next slide" }).boundingBox(),
+          card.boundingBox(),
+        ]);
+        const at = JSON.stringify({ width, a, n });
+        expect(a!.width, at).toBeCloseTo(40, 0);
+        expect(a!.height, at).toBeCloseTo(40, 0);
+        expect(a!.y, `${at}: on the arrows' line`).toBeCloseTo(n!.y, 0);
+        expect(a!.x - (n!.x + n!.width), `${at}: 10 after Next`).toBeCloseTo(10, 0);
+        // In the CARD, which is the card's column — never the map's.
+        expect(a!.x, at).toBeGreaterThan(c!.x);
+        expect(a!.x + a!.width, at).toBeLessThan(c!.x + c!.width);
         const g = await geometry(page);
-        expect(g.portfolio, `drawn at ${width}`).not.toBeNull();
-        // In the CARD, which is the card's column — the reserved map column is
-        // the other one, and the reason the old placement was removed.
-        expect(g.portfolio!.left, `${width}: not in the map column`).toBeGreaterThan(0);
-        expect(g.card.width - g.portfolio!.right, `${width}: on the card's 20`).toBeCloseTo(20, 0);
-        expect(g.slot.right, `${width}: flush against the card's left edge`).toBeCloseTo(0, 0);
-        // Level with LEARN MORE, to the pixel, at both widths.
-        expect(
-          g.portfolio!.bottom - g.button.bottom,
-          `${width}: level with LEARN MORE`,
-        ).toBeCloseTo(0, 1);
-        expect(g.card.height - g.portfolio!.bottom, `${width}: the card's 40`).toBeCloseTo(40, 0);
-        // …and clear of it: the two never share a pixel of x.
-        expect(g.portfolio!.left, `${width}: clear of LEARN MORE`).toBeGreaterThan(g.button.right);
         expect(g.overflowX, `${width}`).toBeLessThanOrEqual(0);
       } finally {
         await context.close();
@@ -3322,53 +3342,25 @@ test.describe("the portfolio button", () => {
     }
   });
 
-  test("a card too narrow for both buttons drops it to its own row rather than over the text", async ({
+  test("a squeezed card: it paints over no word, and axe measures every one", async ({
     browser,
   }) => {
-    // WHY THE QUERY IS ON THE CARD AND NOT THE VIEWPORT. /dev/a11y-fixtures
-    // renders this band inside a `max-w-3xl` wrapper, so at a 1455 viewport the
-    // card is 425.89 — and on LEARN MORE's line this button landed ACROSS it
-    // (left 236.42 against LEARN MORE's right 355.13). Axe answered the launch
-    // band 9 measured / 1 INCOMPLETE, which is the bgOverlap defect the button
-    // was removed for, reintroduced by the placement that fixed the alignment.
-    // A viewport media query cannot see it. `@container` can.
+    // /dev/a11y-fixtures renders this band inside a `max-w-3xl` wrapper, so
+    // the card is ~426 wide at a 1455 viewport. The PROPERTIES button once
+    // landed ACROSS LEARN MORE there (the bgOverlap defect); the ALL circle
+    // lives in the controls row, and this holds that nothing in the card is
+    // under it.
     const { context, page } = await moving(browser, viewportFor(1440));
     try {
       await page.goto("/dev/a11y-fixtures");
       const card = page.locator(CARD).nth(1);
-      // The settled state, and the correction #142 asked for. What stood here
-      // read the card the instant the document had loaded, which in 10 of 16
-      // measured runs was BEFORE hydration: the assertions below were being
-      // made against the server's markup, and the three runs that lost that
-      // race met a card at opacity 0 — `color-contrast` absent from `passes`
-      // altogether, and `passes.find(...)!.nodes.length` a TypeError.
       await settledForAudit(page, card);
-
-      const learn = card.getByRole("link", { name: /Learn more/ });
-      const portfolio = card.getByRole("link", { name: "Properties", exact: true });
-      // Read after the scroll, not before: every assertion below is one box
-      // against another, so the frame they share only has to be the same one.
-      const [c, l, p] = await Promise.all([
-        card.boundingBox(),
-        learn.boundingBox(),
-        portfolio.boundingBox(),
-      ]);
+      const all = card.getByRole("link", { name: "All properties" });
+      const [c, p] = await Promise.all([card.boundingBox(), all.boundingBox()]);
       expect(c!.width, "the wrapper squeezes the card").toBeLessThan(640);
-
-      // THE TITLE'S CLAIM, MEASURED AS GEOMETRY, because that is what it is
-      // about. What stood here made it entirely through axe's contrast count,
-      // and a count of the nodes axe HAPPENED TO RESOLVE is a bad proxy for
-      // "the button is not over the text": the count moves with the frame the
-      // audit landed in (#142) and it cannot say WHICH node was covered.
-      //
-      // ITS OWN ROW, UNDER THE TEXT: the button's box shares no pixel with any
-      // word in the card. `row-start-4` — the placement this `@container`
-      // query replaced — put it at left 236.42 against LEARN MORE's right
-      // 355.13 on LEARN MORE's own line, so this is the assertion that goes
-      // red on a revert, by 118.71px of overlap, naming the element it lands on.
       const text = await card.evaluate((el) =>
         [...el.querySelectorAll<HTMLElement>("h2, h3, p, li, a")]
-          .filter((n) => !n.closest("[data-featured-portfolio]") && n.textContent?.trim())
+          .filter((n) => !n.hasAttribute("data-featured-portfolio") && n.textContent?.trim())
           .map((n) => {
             const b = n.getBoundingClientRect();
             return {
@@ -3387,18 +3379,9 @@ test.describe("the portfolio button", () => {
       );
       expect(
         overlapping.map((t) => t.tag),
-        "the button is painted over these",
+        "the circle is painted over these",
       ).toEqual([]);
-      // …and below, not merely clear of: the row IS the claim, and a button
-      // that cleared the words by sitting in the margin beside them would pass
-      // the line above.
-      expect(p!.y, "below LEARN MORE").toBeGreaterThanOrEqual(l!.y + l!.height);
-      expect(p!.x - c!.x, "on the card's 20").toBeCloseTo(20, 0);
 
-      // AND THE CONSEQUENCE THE BUTTON WAS ONCE REMOVED FOR, which geometry
-      // alone cannot reach: axe can still MEASURE every word on this card.
-      // An element painted over text does not move it — it makes its contrast
-      // unknowable, which axe answers with an INCOMPLETE rather than a ratio.
       await card.evaluate((el) => el.setAttribute("data-narrow-scope", ""));
       const results = await axe(page).include("[data-narrow-scope]").analyze();
       const { measured, unmeasured } = contrastOf(results as never);
@@ -3406,13 +3389,7 @@ test.describe("the portfolio button", () => {
         unmeasured.map((n) => n.html.slice(0, 60)),
         "axe could not measure these",
       ).toEqual([]);
-      // Over the SUM, never over `passes` alone. Which side of the line a node
-      // lands on is timing-dependent — this very file records the split going
-      // both ways at :1288 and :1331 — but every node axe looked at is in one
-      // list or the other, so the total is what a settled card makes stable.
-      // The emptiness asserted above is what keeps this from being satisfied by
-      // ten incompletes: the two lines together say ten nodes, all resolved.
-      expect(measured.length + unmeasured.length, "nine and this one, on a 425.89 card too").toBe(
+      expect(measured.length + unmeasured.length, "nine and this one, on a squeezed card too").toBe(
         10,
       );
     } finally {
@@ -3615,7 +3592,7 @@ test.describe("the other states", () => {
       // this band draws of its own, server-rendered like everything else here,
       // so a visitor without the bundle still has a way to all of them (#47).
       // It is a plain <a> in the markup: nothing about it waits on hydration.
-      const portfolio = card.getByRole("link", { name: "Properties", exact: true });
+      const portfolio = card.getByRole("link", { name: "All properties", exact: true });
       await expect(portfolio).toBeVisible();
       await expect(portfolio).toHaveAttribute("href", "/properties");
       // The map's own links go to Google Maps by design (#13), and they are
