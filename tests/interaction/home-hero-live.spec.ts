@@ -293,8 +293,9 @@ for (const [width, height] of [
       3,
     );
 
-    // The disc's edge stands on the gutter, as the glyph's does off the photo,
-    // with the glyph centred in it and the target still 44px.
+    // The GLYPH's edge stands on the gutter, as it does off the photo, so
+    // nothing moves at the gate (MarkUp, 2026-10-01); the disc is centred on
+    // it, 10px past the gutter, with no sand ring, and the target still 44px.
     const disc = await menu.evaluate((el) => {
       const row = el.closest("nav")!.firstElementChild!;
       const before = getComputedStyle(el, "::before");
@@ -305,6 +306,8 @@ for (const [width, height] of [
         right: box.right - parseFloat(before.right),
         width: parseFloat(before.width),
         ground: before.backgroundColor,
+        ring: before.borderTopColor,
+        glyphRight: svg.right,
         target: box.width,
         glyph: (svg.left + svg.right) / 2,
         gutter: row.getBoundingClientRect().right - parseFloat(getComputedStyle(row).paddingRight),
@@ -313,9 +316,14 @@ for (const [width, height] of [
     const discAt = JSON.stringify(disc);
     expect(disc.width, `premise: the disc is drawn ${discAt}`).toBe(40);
     expect(disc.ground, discAt).toBe(GARNET);
+    expect(disc.ring, `no sand ring around the disc ${discAt}`).toBe(GARNET);
     expect(
-      Math.abs(disc.right - disc.gutter),
-      `the disc ends on the gutter ${discAt}`,
+      Math.abs(disc.glyphRight - disc.gutter),
+      `the glyph ends on the gutter ${discAt}`,
+    ).toBeLessThanOrEqual(1);
+    expect(
+      Math.abs(disc.right - disc.gutter - 10),
+      `the disc runs 10 past it ${discAt}`,
     ).toBeLessThanOrEqual(1);
     expect(Math.abs(disc.glyph - (disc.left + disc.right) / 2), discAt).toBeLessThanOrEqual(1);
     expect(disc.target, discAt).toBe(44);
@@ -330,6 +338,7 @@ for (const [width, height] of [
       test.info().annotations.push({ type: `cta@${width}`, description: JSON.stringify(text) });
       expect(text.pixels, "the CTA's label was found").toBeGreaterThan(100);
       expect(text.worst, "CONTACT US against its ground (WCAG 1.4.3)").toBeGreaterThanOrEqual(4.5);
+      await expect(cta, "no sand outline around CONTACT US").toHaveCSS("border-top-color", GARNET);
     } else expect(width, "the CTA is hidden only below sm").toBeLessThan(640);
 
     const ring = await ringOf(page, menu);
@@ -348,5 +357,35 @@ for (const [width, height] of [
       expect(ctaRing.atThree, "the CTA's ring moves 40+ pixels by 3:1").toBeGreaterThanOrEqual(40);
       expect(ctaRing.median, "and most of what it changes").toBeGreaterThanOrEqual(3);
     }
+  });
+}
+
+for (const [width, height] of [
+  [390, 844],
+  [1440, 900],
+] as const) {
+  test(`the bar's controls hold still when the page scrolls past the hero (${width})`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height });
+    await page.goto(HOME);
+    await hydrated(page);
+    const bar = page.getByRole("navigation", { name: "Primary" });
+    await expect(bar, "premise: the bar floats over the hero").toHaveAttribute("data-floating", "");
+    const menu = bar.getByRole("button", { name: "Open menu" });
+    const cta = bar.getByRole("link", { name: "Contact us" });
+    const boxes = async () => ({
+      menu: await menu.boundingBox(),
+      glyph: await menu.locator("svg").boundingBox(),
+      cta: (await cta.isVisible()) ? await cta.boundingBox() : null,
+    });
+    const before = await boxes();
+    await page.evaluate(() => window.scrollTo({ top: 3000, behavior: "instant" }));
+    await expect(bar, "premise: the bar has taken its ground").not.toHaveAttribute(
+      "data-floating",
+      "",
+    );
+    await page.waitForTimeout(400);
+    expect(await boxes()).toEqual(before);
   });
 }
