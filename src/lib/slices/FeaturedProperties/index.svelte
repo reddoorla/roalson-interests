@@ -120,7 +120,7 @@
 
   import { animateIn } from "$lib/actions/animateIn";
   import BrandButton from "$lib/components/BrandButton.svelte";
-  import CarouselArrows from "$lib/components/CarouselArrows.svelte";
+  import CarouselArrows, { ARROW_SHAPE, ARROW_TONES } from "$lib/components/CarouselArrows.svelte";
   import CarouselProgress from "$lib/components/CarouselProgress.svelte";
   import PropertyMap from "$lib/components/PropertyMap.svelte";
   import { createCarousel } from "$lib/carousel.svelte";
@@ -658,12 +658,42 @@
              same pair for the same reason. -->
         <div
           data-featured-chrome
-          class="relative z-[2] col-start-1 row-start-3 mx-5 mt-[10px] flex items-start
-            justify-between gap-5 lg:row-span-2 lg:row-start-3 lg:mt-5 lg:mr-0 lg:mb-[43px]
+          class="relative z-[2] col-start-1 row-start-3 mx-5 mt-[10px] flex flex-wrap items-start
+            justify-between gap-5 lg:flex-nowrap lg:row-span-2 lg:row-start-3 lg:mt-5 lg:mr-0 lg:mb-[43px]
             lg:h-auto lg:min-h-[200px] lg:flex-col"
         >
-          <h2 id="{uid}-heading" class="t-h4 min-w-0">{heading}</h2>
-          <CarouselArrows {carousel} />
+          <h2 id="{uid}-heading" class="t-h4 min-w-min grow basis-0 lg:grow-0 lg:basis-auto">
+            {heading}
+          </h2>
+          <!-- The row WRAPS where the eyebrow's longest word cannot sit beside the
+               four controls (190px): under about 360, where "PROPERTIES" would
+               otherwise run under them. `min-w-min` is what lets it wrap
+               instead of shrinking the heading past its own word.
+
+               THE BAND'S OWN LINK TO THE REST OF THE PORTFOLIO, as the last of
+               the controls (operator, 2026-10-01, answering Nicole's MarkUp
+               pin: "eliminate the properties button, and add an 'all' button
+               next to the slideshow controls"). It was a PROPERTIES button on
+               LEARN MORE's line; now it is the arrows' own 40px circle reading
+               ALL, named for where it goes. OUTSIDE CarouselArrows, whose row
+               is `data-js-only`: this is a plain link, drawn with no script and
+               with one listing, and with no bundle it is the way to every
+               listing the band cannot turn to (#47). Inside the card and
+               outside every slide, so it never goes `inert` with one, and the
+               carousel's handlers treat it as a control. -->
+          <div data-featured-controls class="flex items-center gap-[10px]">
+            <CarouselArrows {carousel} />
+            {#if portfolio}
+              <a
+                data-featured-portfolio
+                href={portfolio.href}
+                target={portfolio.blank ? "_blank" : undefined}
+                rel={portfolio.blank ? "noopener noreferrer" : undefined}
+                aria-label="All {portfolio.text.toLowerCase()}"
+                class="{ARROW_SHAPE} {ARROW_TONES.garnet} t-h6">All</a
+              >
+            {/if}
+          </div>
         </div>
 
         <!-- The bar's 2px and the 20 above it are held whether or not there is a
@@ -693,7 +723,7 @@
                  that window held open: axe resolved 2 of the card's 7 text
                  nodes on a Previous turn and answered `bgOverlap` for the other
                  five; 7 of 7 on a Next. With the slide raised: 7 of 7 both ways.
-                 (The chrome, the bar and the portfolio button are `z-[2]`, so
+                 (The chrome, the bar and the ALL link in it are `z-[2]`, so
                  they still sit over any slide.) -->
             <!-- 928 × 542 at 1440 and 390 × 227.8 at 390: one ratio. Every slide
                  is in the DOM and the band starts below the fold at both widths,
@@ -776,72 +806,6 @@
             </div>
           </div>
         {/each}
-
-        {#if portfolio}
-          <!-- THE BAND'S OWN LINK TO THE REST OF THE PORTFOLIO. Restored after
-               review removed it (operator call, 2026-09-21), and NOT where it
-               was: it used to be a `lg:absolute lg:inset-0` overlay across the
-               whole band, which parked it on the RESERVED MAP COLUMN (#13) and
-               made axe answer `color-contrast` with `bgOverlap` for every word
-               in the card under it — 1 node measured and 9 incomplete at 1440
-               on the one-listing state. It is a grid item in the CARD now, so
-               there is no overlay and nothing is painted over anything.
-
-               ON LEARN MORE'S OWN LINE, not the arrows'. It is pinned to the
-               text column's bottom edge — the card's 40px foot padding, the
-               same `mb-10` the slide's text block carries — and right-aligned
-               on the card's 20, so it clears the arrows (bottom-LEFT, 43 above
-               the foot) and clears LEARN MORE (bottom-left of the text
-               column). Where the slide's own text is what sizes the panel,
-               which is every one-listing state, that puts the two buttons'
-               bottoms on one line to the pixel. Where the chrome's 200px floor
-               or a TALLER SIBLING SLIDE sizes it instead, the active slide's
-               LEARN MORE floats above that edge by the difference and no
-               static placement can follow it.
-
-               THE 40rem IS A COLLISION, MEASURED, AND IT IS THE CARD'S WIDTH
-               AND NOT THE VIEWPORT'S. In the two-column layout the text column
-               starts at 0.446 × the card, so clearance between LEARN MORE's
-               right edge and this button's left edge falls linearly with it:
-               158.86 at a 927 card (1440), 98.50 at 818.06 (1280), 40.26 at
-               712.88 (1100), 11.58 at 661.13 (1024) — 0 at about 640. Below
-               that they overlap, and an element painted over text is the
-               `bgOverlap` defect this button was removed for in the first
-               place: rendered inside /dev/a11y-fixtures' `max-w-3xl` wrapper,
-               which squeezes the card to 425.89, the row-4 placement put this
-               button across LEARN MORE (left 236.42 against its right 355.13)
-               and axe answered the launch band with 9 measured and 1
-               INCOMPLETE. A viewport media query cannot see that — the
-               viewport there is 1440 — so the query is on the CARD
-               (`@container`), and under 40rem the button takes its own row
-               under the text instead. That is also what every phone gets (390
-               at 390), where the single-column card puts LEARN MORE's left
-               edge on the same 20 as this button's.
-
-               `row-start-5` is a row the four-row grid did not have; over
-               40rem the button moves into row 4 and row 5 collapses to
-               nothing, so the comp's 285 panel and the arrows' 43 above the
-               card's foot are untouched at every width the site is drawn at.
-               Focus landing here stops the clock and ArrowLeft/Right turn the
-               slide, both for free: the primitive's handlers sit on the region
-               and treat anything in it that is not inside a slide as a
-               control (see carousel.svelte.ts — "a consumer's own control
-               (dots, a 'view all' link in the header) gets the keys"). -->
-          <div
-            data-featured-portfolio
-            class="relative z-[2] col-span-full row-start-5 mx-5 mb-10 justify-self-start
-              @min-[40rem]:row-start-4 @min-[40rem]:self-end @min-[40rem]:justify-self-end"
-          >
-            <BrandButton
-              href={portfolio.href}
-              arrow
-              target={portfolio.blank ? "_blank" : undefined}
-              rel={portfolio.blank ? "noopener noreferrer" : undefined}
-            >
-              {portfolio.text}
-            </BrandButton>
-          </div>
-        {/if}
       </div>
 
       {#if carousel.enabled}
