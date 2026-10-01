@@ -35,9 +35,16 @@
   // photo. CarouselProgress.test.ts recomputes every ratio above from app.css
   // and these strings. On a 2px line #3d0707 for #652323 is not a visible
   // change; the track going from near-invisible to visible is, and is the point.
+  //
+  // WHILE IT TIMES A SLIDE, THE TRACK IS 20% (MarkUp, 2026-10-01: "drop down
+  // back color to 20% opacity", the unfilled part of the homepage bar). Then
+  // the bar is a countdown, not the only "2 of 3": the arrows and the slide
+  // itself say where you are, and the fill still clears 3:1 against both track
+  // and ground. The 3:1 track above stays wherever the bar draws `position`,
+  // which is where its far end is information.
   export const PROGRESS_TONES = {
-    garnet: { fill: "bg-dark", track: "bg-dark/53" },
-    cream: { fill: "bg-background", track: "bg-background/44" },
+    garnet: { fill: "bg-dark", track: "bg-dark/53", timedTrack: "bg-dark/20" },
+    cream: { fill: "bg-background", track: "bg-background/44", timedTrack: "bg-background/20" },
   } as const;
 </script>
 
@@ -180,8 +187,9 @@
     data-js-only
     data-carousel-progress={timed ? "timed" : "position"}
     data-carousel-quiet={quiet ? "" : undefined}
-    class="relative h-0.5 w-full overflow-hidden {quiet ? 'invisible' : ''} {PROGRESS_TONES[tone]
-      .track} {passedClasses}"
+    class="relative h-0.5 w-full overflow-hidden {quiet ? 'invisible' : ''} {timed
+      ? PROGRESS_TONES[tone].timedTrack
+      : PROGRESS_TONES[tone].track} {passedClasses}"
   >
     <div
       data-carousel-fill={handover

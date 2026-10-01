@@ -322,6 +322,18 @@ describe("CarouselProgress", () => {
     expect(bar(container).className).toContain(PROGRESS_TONES.cream.track);
     expect(fill(container).className.split(/\s+/)).toContain(PROGRESS_TONES.cream.fill);
   });
+
+  it("draws a 20% track while it times a slide, and the 3:1 track where it draws position (MarkUp, 2026-10-01)", () => {
+    const timed = render(CarouselFixture, { count: 3, autoplay: DWELL });
+    const timedBar = bar(timed.container);
+    expect(timedBar.dataset.carouselProgress).toBe("timed");
+    expect(timedBar.className.split(/\s+/)).toContain("bg-dark/20");
+    expect(timedBar.className.split(/\s+/)).not.toContain(PROGRESS_TONES.garnet.track);
+    timed.unmount();
+    const still = render(CarouselFixture, { count: 3 });
+    expect(bar(still.container).dataset.carouselProgress).toBe("position");
+    expect(bar(still.container).className.split(/\s+/)).toContain(PROGRESS_TONES.garnet.track);
+  });
 });
 
 // ── the colours, recomputed ─────────────────────────────────────────────────
@@ -425,6 +437,20 @@ describe("CarouselProgress tones", () => {
       worst(PROGRESS_TONES.garnet.fill, PROGRESS_TONES.garnet.track),
     );
   });
+
+  // The timed track gives up track:ground (it is a countdown, not the only
+  // "2 of 3"); the fill must still read against both what is left and the card.
+  it.each(cases)(
+    "$tone on bg-$ground while timed: the fill clears 3:1 against the 20% track",
+    ({ tone, ground }) => {
+      const g = token(ground);
+      const fillRgb = painted(PROGRESS_TONES[tone].fill, g);
+      const trackRgb = painted(PROGRESS_TONES[tone].timedTrack, g);
+      expect(PROGRESS_TONES[tone].timedTrack).toMatch(/\/20$/);
+      expect(contrast(fillRgb, trackRgb)).toBeGreaterThanOrEqual(NON_TEXT);
+      expect(contrast(fillRgb, g)).toBeGreaterThanOrEqual(NON_TEXT);
+    },
+  );
 
   it("covers every tone the component ships", () => {
     expect(Object.keys(GROUNDS).sort()).toEqual(Object.keys(PROGRESS_TONES).sort());

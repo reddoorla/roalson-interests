@@ -240,14 +240,15 @@ test.describe("the production CSS", () => {
       return out;
     });
 
-  test("the bar's two track alphas and the arrows' hover utilities are in the bundle — and the hover paints", async ({
+  test("the bar's track alphas and the arrows' hover utilities are in the bundle — and the hover paints", async ({
     page,
   }) => {
     await page.goto(HOME);
     await adopted(page);
     const all = await selectors(page);
     expect(all.length, "read the page's own stylesheets").toBeGreaterThan(100);
-    for (const cls of ["bg-dark\\/53", "bg-background\\/44"])
+    // Position's 3:1 tracks and the timed bar's 20% ones (MarkUp, 2026-10-01).
+    for (const cls of ["bg-dark\\/53", "bg-background\\/44", "bg-dark\\/20", "bg-background\\/20"])
       expect(all, `.${cls}`).toContain(`.${cls}`);
     for (const cls of [
       "not-aria-disabled\\:hover\\:bg-primary",
