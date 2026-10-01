@@ -460,6 +460,17 @@ test.describe("no arc is abandoned: a flight lands before the next one leaves", 
   // the journal and in an issue rather than hidden here: the camera now visits
   // the listings the page really passes through on the way, instead of
   // arriving after the fact.
+  //
+  // SUPERSEDED 2026-10-01, by the designer: "when I click on a point on the
+  // map, it bounces around before returning to the same point". Visiting the
+  // listings on the way WAS the bounce — pin X pressed, camera to Y, then back
+  // to X. Measured on a production build at 1440x900 before the fix, the last
+  // land pin (card 16 of 17) from scrollY 0: three flights, to two listings
+  // the glide passed and then to the pressed one. The camera now flies to the
+  // pressed listing at once and holds it until the centre rule agrees
+  // (PropertyMap's `heading`; the RULE is still not a special case of
+  // anything). After: one flight, to card 16. So this asserts the
+  // DESTINATIONS as well as the arcs.
   test("and a pressed pin is no longer a special case of anything", async ({ page }) => {
     test.setTimeout(180_000);
     await atTheTop(page);
@@ -504,6 +515,22 @@ test.describe("no arc is abandoned: a flight lands before the next one leaves", 
         `the press sent a second flight ${gaps[0]!.gap}ms into a ${CAMERA_FLIGHT_MS}ms arc`,
       ).toBeGreaterThanOrEqual(FLIGHT_FLOOR_MS);
     expect(await onCentreLine(section)).toBe(target);
+    // …and every one of them went to the pressed listing: the camera settled
+    // there, and no command on the way named anywhere else. (Longitudes to 4
+    // places: `mapCentre` reads 5, and the listings are kilometres apart.)
+    await cameraAtRest(page, landMap);
+    const settled = await mapCentre(page, landMap);
+    const log = await cameraLog(page);
+    const went = [...log.fly, ...log.ease, ...log.jump]
+      .filter((c) => c.m === landMap && c.center)
+      .sort((a, b) => a.t - b.t)
+      .map((c) => c.center![0]);
+    for (const lng of went)
+      expect(
+        lng,
+        `the press sent the camera somewhere other than ${target} on the way ` +
+          `(longitudes [${went.join(", ")}], settled ${settled.lng})`,
+      ).toBeCloseTo(settled.lng, 4);
   });
 });
 

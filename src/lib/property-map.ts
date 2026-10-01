@@ -564,6 +564,23 @@ export function fitCamera(
 export const CAMERA_FLIGHT_MS = 500;
 
 /**
+ * THE LONGEST A PIN PRESS MAY HOLD THE CAMERA ON ITS OWN LISTING, in ms, ahead
+ * of the centre rule (PropertyMap.svelte's `heading`). A backstop, not the
+ * clock: the hold ends when the rule reports the pressed listing, or at the
+ * scroll's own `scrollend`, or at a visitor's gesture. This is for an engine
+ * with no `scrollend` and a press whose card never reaches the line.
+ *
+ * Measured on a production build of /properties at 1440x900, motion allowed,
+ * pressing from scrollY 0: the land section's LAST pin (card 16 of 17) glides
+ * 5193px in 1230ms, its middle one (card 10) 3296px in 1011ms. That is the
+ * longest press the page has, so 2000 outlasts it with room for a slow frame.
+ * Past the cap the camera only returns to following the rule: too short costs
+ * the bounce back, too long a camera that lingers on the pressed listing after
+ * a scroll the hold could not see end.
+ */
+export const PRESS_HOLD_MAX_MS = 2000;
+
+/**
  * The point `active` names.
  *
  * Three answers, and they are three different situations rather than two:

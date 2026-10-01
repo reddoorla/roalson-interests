@@ -362,7 +362,12 @@
    *  see centreWatch.ts for why a press may not name the active listing
    *  itself.
    *
-   *  AND THAT IS ALL IT DOES. This function used to also suspend the centre
+   *  AND THAT IS ALL IT DOES TO THE PAGE. Its answer — true when the card is
+   *  now travelling to the centre line — lets the map send its camera there
+   *  at once instead of through the cards the glide crosses (PropertyMap's
+   *  `heading`; it holds back nothing on this page).
+   *
+   *  This function used to also suspend the centre
    *  rule for the length of the scroll, because a smooth scroll crosses every
    *  card between here and there and the camera was handed a new destination
    *  at each one — measured at 1440x900 with motion allowed, pressing the
@@ -401,9 +406,9 @@
    *  `scroll-behavior: smooth` and app.css zeroes that under
    *  `prefers-reduced-motion: reduce`, so this line does not decide whether it
    *  glides. (Optional call: jsdom does not implement it.) */
-  function revealCard(sectionIndex: number, id: string) {
+  function revealCard(sectionIndex: number, id: string): boolean {
     const list = listEls[sectionIndex];
-    if (!list) return;
+    if (!list) return false;
     // Below `lg` the list is a carousel (#14) and the card is probably off
     // stage — invisible and inert in the same grid cell as the one on it —
     // so scrolling "to" it would show the wrong listing. The press turns the
@@ -414,14 +419,19 @@
         child instanceof HTMLElement && child.dataset.centreId !== undefined,
     );
     const card = cards.find((child) => child.dataset.centreId === id);
-    if (!card) return;
+    if (!card) return false;
     const carousel = carousels[sections[sectionIndex]?.id ?? ""];
     if (carousel?.enabled) {
       carousel.goTo(cards.indexOf(card));
       list.scrollIntoView?.({ block: "nearest" });
-      return;
+      return false;
     }
     card.scrollIntoView?.({ block: "center" });
+    // The card is on its way to the centre line, so the map may send its
+    // camera there now rather than through every card the glide crosses
+    // (PropertyMap's `heading`). Only here: a carousel's press reaches no
+    // centre rule.
+    return true;
   }
 </script>
 

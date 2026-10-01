@@ -6,6 +6,7 @@ import PropertyMap from "./PropertyMap.svelte";
 import {
   CAMERA_FLIGHT_MS,
   frameFor,
+  PRESS_HOLD_MAX_MS,
   MAP_HOME,
   MAP_MAX_ZOOM,
   type MapPoint,
@@ -290,7 +291,12 @@ function stubObservers(box = { width: 397, height: 595 }) {
  */
 async function booted(
   active: string,
-  more: { interactive?: boolean; activeBy?: "visitor" | "auto"; onengage?: () => void } = {},
+  more: {
+    interactive?: boolean;
+    activeBy?: "visitor" | "auto";
+    onengage?: () => void;
+    onselect?: (id: string) => boolean | void;
+  } = {},
 ) {
   stubObservers();
   const props: {
@@ -300,6 +306,7 @@ async function booted(
     interactive?: boolean;
     activeBy?: "visitor" | "auto";
     onengage?: () => void;
+    onselect?: (id: string) => boolean | void;
   } = $state({
     points,
     label: "Land",
@@ -1223,5 +1230,123 @@ describe("the +/− buttons are the visitor's zoom (P3)", () => {
     const { record, view } = await booted("a", { interactive: false });
     press(view, "zoom-in");
     expect(eases(record)).toHaveLength(0);
+  });
+});
+
+describe("a pressed pin sends the camera straight to its listing (MarkUp, 2026-10-01)", () => {
+  // The press smooth-scrolls its card to the centre line, and the centre rule
+  // reports every card on the way. These cases stand for that scroll by
+  // changing `active` through the crossed listings on the test's clock, a
+  // flight's length apart, which is what made the camera visit each one.
+  const lngOf = (id: string) => points.find((p) => p.id === id)!.lng;
+  const pressPin = (container: HTMLElement, id: string) => {
+    const pin = container.querySelector<HTMLButtonElement>(`[data-map-pin="${id}"]`);
+    expect(pin, `${id} has a pin of its own to press`).not.toBeNull();
+    pin!.click();
+    flushSync();
+  };
+  /** Drive the centre rule through `ids`, each held for `dwell` ms. */
+  const cross = (
+    props: { active: string | null },
+    ids: string[],
+    dwell = CAMERA_FLIGHT_MS + 20,
+  ) => {
+    for (const id of ids) {
+      props.active = id;
+      flushSync();
+      elapse(dwell);
+    }
+  };
+
+  it("one flight, to the pressed listing, however many cards the scroll crosses", async () => {
+    const seen: string[] = [];
+    const { props, record, view } = await booted("a", {
+      onselect: (id) => {
+        seen.push(id);
+        return true;
+      },
+    });
+    pressPin(view.container, "e");
+    expect(seen, "the press was still reported to the caller").toEqual(["e"]);
+    expect(flights(record), "the camera left at the press").toHaveLength(1);
+    expect(flights(record)[0]!.center[0]).toBeCloseTo(lngOf("e"), 6);
+
+    // THE BOUNCE, as it was: b, c, d each became active on the way to e, and
+    // the camera flew to the first of them before coming back. 300ms apart,
+    // inside PRESS_HOLD_MAX_MS, so it is the rule reaching e that lets go
+    // below and not the cap.
+    cross(props, ["b", "c", "d", "e"], 300);
+    expect(
+      flights(record).map((f) => f.center[0]),
+      "no listing on the way was ever a destination",
+    ).toEqual([lngOf("e")]);
+
+    // And the rule has the camera back the moment it agreed: the next card is
+    // followed as ever, with no scroll ending and no cap passing first.
+    props.active = "f";
+    flushSync();
+    expect(flights(record)).toHaveLength(2);
+    expect(flights(record)[1]!.center[0]).toBeCloseTo(lngOf("f"), 6);
+  });
+
+  it("a caller that does not answer true leaves the camera to the centre rule — the control", async () => {
+    // Below `lg` the press turns a carousel and nothing reaches `active`.
+    const { props, record, view } = await booted("a", { onselect: () => false });
+    pressPin(view.container, "e");
+    expect(record.commands, "the press moved no camera").toHaveLength(0);
+    cross(props, ["b", "c", "d", "e"]);
+    expect(flights(record)[0]!.center[0], "and the crossings drive it, as before").toBeCloseTo(
+      lngOf("b"),
+      6,
+    );
+  });
+
+  for (const [what, end] of [
+    // A viewport scroll's `scrollend` is fired at the document, and bubbles.
+    ["the scroll ends", () => document.dispatchEvent(new Event("scrollend", { bubbles: true }))],
+    ["a wheel takes the page over", () => window.dispatchEvent(new WheelEvent("wheel"))],
+    ["a key takes the page over", () => window.dispatchEvent(new KeyboardEvent("keydown"))],
+    ["the cap passes", () => elapse(PRESS_HOLD_MAX_MS)],
+  ] as const) {
+    it(`lets go when ${what} short of the pressed card, and follows the rule from there`, async () => {
+      const { props, record, view } = await booted("a", { onselect: () => true });
+      pressPin(view.container, "e");
+      cross(props, ["c"]);
+      expect(flights(record), "held on the pressed listing").toHaveLength(1);
+      end();
+      flushSync();
+      elapse(CAMERA_FLIGHT_MS + 20);
+      expect(flights(record), "then back on the centre rule's answer").toHaveLength(2);
+      expect(flights(record)[1]!.center[0]).toBeCloseTo(lngOf("c"), 6);
+    });
+  }
+
+  it("an inner scroller's `scrollend` is not the page's, and lets nothing go", async () => {
+    const { props, record, view } = await booted("a", { onselect: () => true });
+    pressPin(view.container, "e");
+    cross(props, ["c"]);
+    view.container.dispatchEvent(new Event("scrollend"));
+    elapse(CAMERA_FLIGHT_MS + 20);
+    expect(flights(record), "still held on the pressed listing").toHaveLength(1);
+  });
+
+  it("holds for no longer than the cap, and not a moment less", async () => {
+    const { props, record, view } = await booted("a", { onselect: () => true });
+    pressPin(view.container, "e");
+    props.active = "c";
+    flushSync();
+    elapse(PRESS_HOLD_MAX_MS - 1);
+    expect(flights(record), "a millisecond short of the cap, still held").toHaveLength(1);
+    elapse(1);
+    expect(flights(record)).toHaveLength(2);
+  });
+
+  it("a second press replaces the first", async () => {
+    const { props, record, view } = await booted("a", { onselect: () => true });
+    pressPin(view.container, "e");
+    elapse(CAMERA_FLIGHT_MS + 20);
+    pressPin(view.container, "b");
+    cross(props, ["c", "d"]);
+    expect(flights(record).map((f) => f.center[0])).toEqual([lngOf("e"), lngOf("b")]);
   });
 });

@@ -48,6 +48,13 @@
  * press is not a special case of anything, and this file is back to one job:
  * say which card is on the line, whenever the browser can see it.
  *
+ * (The coalescing still sent a press's camera to the FIRST card the scroll
+ * crossed and then back: the designer's "bounces around before returning to
+ * the same point", 2026-10-01. So the camera now flies to a pressed listing at
+ * once and does not consult this rule again until it agrees — PropertyMap's
+ * `heading`. That is a destination for the camera, not an answer here: this
+ * rule, the garnet card and every other scroll are untouched by it.)
+ *
  * DESKTOP ONLY, AND NOT MERELY HIDDEN. The map only pins from `lg` (see
  * PropertyListing.svelte for why a phone does not spend a quarter of its
  * viewport on one), so below that there is nothing for this to drive and it
