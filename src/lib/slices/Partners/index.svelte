@@ -130,12 +130,13 @@
         <div class="sm:max-w-[371px]">
           {#if eyebrow}
             <!-- A <p>, not a heading (ruling G11a): the band's h2 is the
-                 headline. Eyebrows take H5 (approved call 2 — the comp's Area
-                 Normal is template bleed). H5's cap box is 8 where the comp's
-                 substitute font reports 10, so the space under it is 32, not
-                 30: the RULE stays 40 below the eyebrow's top and the first
-                 card 70 below it, which is where the comp has them. -->
-            <p id="{uid}-eyebrow" class="t-h5 text-primary">{eyebrow}</p>
+                 headline. H4, the featured band's "FEATURED PROPERTIES" size
+                 (MarkUp, 2026-10-01: "same style as FEATURED PROPERTIES"); it
+                 was H5 under approved call 2. The space over the rule is 29
+                 and under it 27, the 32 and 30 the comp's rhythm gave less
+                 10% (same round): the rule 38 below the eyebrow's cap top and
+                 the first card 65 below it. -->
+            <p id="{uid}-eyebrow" class="t-h4 text-primary">{eyebrow}</p>
           {/if}
           {#if partners.length > 0}
             <!-- The rule is the comp's 0.5px garnet stroke (6820:120), and it
@@ -149,8 +150,8 @@
                  50% blend. So up to 1.5dppx the box is NOT scaled and paints
                  garnet at half alpha instead: one device row of the blend
                  (#53). `-mb-px` gives its one pixel back, so like the comp's
-                 zero-height line it takes no room and the 30 under it stays
-                 30. It is the column's width — the comp's 374 in a 371 column
+                 zero-height line it takes no room and the 27 under it stays
+                 27. It is the column's width — the comp's 374 in a 371 column
                  is 3px of drift from the band above.
 
                  An ELEMENT, where HomeHero's was a `before:` on its list — and
@@ -164,12 +165,12 @@
               aria-hidden="true"
               class="-mb-px h-px origin-top scale-y-50 bg-primary
                 [@media(max-resolution:1.5dppx)]:scale-y-100
-                [@media(max-resolution:1.5dppx)]:bg-primary/50 {eyebrow ? 'mt-8' : ''}"
+                [@media(max-resolution:1.5dppx)]:bg-primary/50 {eyebrow ? 'mt-[29px]' : ''}"
             ></div>
             <ul
               data-partners-list
               aria-labelledby={eyebrow ? `${uid}-eyebrow` : undefined}
-              class="flex flex-col gap-5 pt-[30px]"
+              class="flex flex-col gap-5 pt-[27px]"
             >
               <!-- Index-keyed: nothing on a row is unique by contract. -->
               {#each partners as partner, i (i)}

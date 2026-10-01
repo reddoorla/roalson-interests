@@ -24,6 +24,8 @@ const LIGHT = "/dev/property";
 /** Half the leading the ramp trims off `t-h1` (80 line, 44 cap box). The comp
  *  measures from the CAP box, CSS from the line box. */
 const H1_TRIM = 18;
+/** The same for `t-h2` (48 line, 25 cap box). */
+const H2_TRIM = 11.5;
 
 const footerH = (page: Page) =>
   page.evaluate(() => document.documentElement.style.getPropertyValue("--footer-h"));
@@ -134,12 +136,13 @@ test("at 390 the order flips — headline, 100px, then the wordmark block", asyn
   await hydrated(page);
   await page.setViewportSize({ width: 390, height: 844 });
   await expect(page.locator("footer > div")).toHaveCSS("padding-left", "20px");
-  // Still H1 at this width, as drawn: four lines of 80.
-  await expect(page.locator("footer h2")).toHaveCSS("font-size", "66px");
-  await expect.poll(async () => (await geometry(page)).headline.height).toBe(320);
+  // H2 below `sm` (MarkUp, 2026-10-01), the homepage's "Representing Your
+  // Best Interests" size: two lines of 48, where the comp drew four of 80.
+  await expect(page.locator("footer h2")).toHaveCSS("font-size", "38px");
+  await expect.poll(async () => (await geometry(page)).headline.height).toBe(96);
 
   const g = await geometry(page);
-  expect(g.headline.top + H1_TRIM).toBeCloseTo(60, 0);
+  expect(g.headline.top + H2_TRIM).toBeCloseTo(60, 0);
   expect(g.headline.bottom, "headline above the wordmark").toBeLessThan(g.wordmark.top);
   expect(g.buttons[0].top, "both buttons on one row").toBe(g.buttons[1].top);
   expect(g.wordmark.top - g.buttons[0].bottom).toBeCloseTo(100, 0);
