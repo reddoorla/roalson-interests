@@ -1232,7 +1232,7 @@ describe("FeaturedProperties slice", () => {
       const { getByRole } = render(FeaturedProperties, {
         props: { slice: featuredPropertiesFixture() },
       });
-      const link = getByRole("link", { name: "All properties" });
+      const link = getByRole("link", { name: "See all properties" });
       expect(link.getAttribute("href")).toBe("/properties");
     });
 
@@ -1246,8 +1246,8 @@ describe("FeaturedProperties slice", () => {
       // it is drawn with no script and with one listing (#47).
       for (const slice of [featuredPropertiesFixture(), featuredLaunchFixture()]) {
         const { getByRole, unmount } = render(FeaturedProperties, { props: { slice } });
-        const link = getByRole("link", { name: "All properties" });
-        expect(link.textContent?.trim()).toBe("All");
+        const link = getByRole("link", { name: "See all properties" });
+        expect(link.textContent?.trim()).toBe("See all");
         expect(link.closest("[data-featured-card]")).not.toBeNull();
         expect(link.closest("[data-featured-slide]")).toBeNull();
         expect(link.closest("[data-map-slot]")).toBeNull();
@@ -1269,7 +1269,7 @@ describe("FeaturedProperties slice", () => {
       const { getByRole } = render(FeaturedProperties, {
         props: { slice: featuredLaunchFixture() },
       });
-      const link = getByRole("link", { name: "All properties" });
+      const link = getByRole("link", { name: "See all properties" });
       for (
         let el: HTMLElement | null = link;
         el && el.dataset.sliceType !== "featured_properties";
@@ -1295,7 +1295,7 @@ describe("FeaturedProperties slice", () => {
       const { getByRole } = render(FeaturedProperties, {
         props: { slice: featuredLaunchFixture() },
       });
-      const link = getByRole("link", { name: "All properties" });
+      const link = getByRole("link", { name: "See all properties" });
       expect(link.className).toContain("border-primary");
       expect(link.className).toContain("text-primary");
       expect(link.className).not.toContain("border-background");
@@ -1313,7 +1313,10 @@ describe("FeaturedProperties slice", () => {
         });
         // By its slot, not only by its name: with the label blanked, a check
         // for the name "Properties" alone would pass whatever was drawn.
-        expect(queryByRole("link", { name: "All properties" }), JSON.stringify(primary)).toBeNull();
+        expect(
+          queryByRole("link", { name: "See all properties" }),
+          JSON.stringify(primary),
+        ).toBeNull();
         expect(
           container.querySelector("[data-featured-portfolio]"),
           JSON.stringify(primary),
@@ -1324,12 +1327,12 @@ describe("FeaturedProperties slice", () => {
 
     it("stays with the band in the one-slide state, and goes with it in the empty one", () => {
       const one = render(FeaturedProperties, { props: { slice: featuredLaunchFixture() } });
-      expect(one.getByRole("link", { name: "All properties" })).toBeTruthy();
+      expect(one.getByRole("link", { name: "See all properties" })).toBeTruthy();
       one.unmount();
       const none = render(FeaturedProperties, {
         props: { slice: featuredPropertiesFixture({ properties: [] }) },
       });
-      expect(none.queryByRole("link", { name: "All properties" })).toBeNull();
+      expect(none.queryByRole("link", { name: "See all properties" })).toBeNull();
     });
 
     it("leaves every OTHER link in the band a slide's own LEARN MORE", () => {

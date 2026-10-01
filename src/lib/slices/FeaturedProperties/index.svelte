@@ -120,7 +120,7 @@
 
   import { animateIn } from "$lib/actions/animateIn";
   import BrandButton from "$lib/components/BrandButton.svelte";
-  import CarouselArrows, { ARROW_SHAPE, ARROW_TONES } from "$lib/components/CarouselArrows.svelte";
+  import CarouselArrows from "$lib/components/CarouselArrows.svelte";
   import CarouselProgress from "$lib/components/CarouselProgress.svelte";
   import PropertyMap from "$lib/components/PropertyMap.svelte";
   import { createCarousel } from "$lib/carousel.svelte";
@@ -666,16 +666,19 @@
             {heading}
           </h2>
           <!-- The row WRAPS where the eyebrow's longest word cannot sit beside the
-               four controls (190px): under about 360, where "PROPERTIES" would
-               otherwise run under them. `min-w-min` is what lets it wrap
-               instead of shrinking the heading past its own word.
+               controls (238px with SEE ALL): on every phone, where the eyebrow
+               takes one line and the controls the row under it, since
+               "PROPERTIES" (94) + 20 + 238 is wider than a 390 column's 310.
+               `min-w-min` is what lets it wrap instead of shrinking the heading
+               past its own word. From `lg` the chrome is a column.
 
                THE BAND'S OWN LINK TO THE REST OF THE PORTFOLIO, as the last of
                the controls (operator, 2026-10-01, answering Nicole's MarkUp
                pin: "eliminate the properties button, and add an 'all' button
                next to the slideshow controls"). It was a PROPERTIES button on
-               LEARN MORE's line; now it is the arrows' own 40px circle reading
-               ALL, named for where it goes. OUTSIDE CarouselArrows, whose row
+               LEARN MORE's line; now it is SEE ALL beside the arrows — a square
+               BrandButton like LEARN MORE, not a circle, so it reads as a LINK
+               rather than one more control (operator, same day). OUTSIDE CarouselArrows, whose row
                is `data-js-only`: this is a plain link, drawn with no script and
                with one listing, and with no bundle it is the way to every
                listing the band cannot turn to (#47). Inside the card and
@@ -684,13 +687,12 @@
           <div data-featured-controls class="flex items-center gap-[10px]">
             <CarouselArrows {carousel} />
             {#if portfolio}
-              <a
+              <BrandButton
                 data-featured-portfolio
                 href={portfolio.href}
                 target={portfolio.blank ? "_blank" : undefined}
                 rel={portfolio.blank ? "noopener noreferrer" : undefined}
-                aria-label="All {portfolio.text.toLowerCase()}"
-                class="{ARROW_SHAPE} {ARROW_TONES.garnet} t-h6">All</a
+                aria-label="See all {portfolio.text.toLowerCase()}">See all</BrandButton
               >
             {/if}
           </div>
