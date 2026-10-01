@@ -3497,7 +3497,7 @@ test.describe("the other states", () => {
       await expect(band).toHaveAttribute("data-featured-picked", "3");
       await expect(band).toHaveAttribute("data-featured-shown", "1");
       await expect(band.locator('[role="region"]')).toHaveCount(0);
-      await expect(band.locator("button")).toHaveCount(0);
+      await expect(band.locator("button")).toHaveCount(1);
       await expect(band.locator("[data-carousel-progress]")).toHaveCount(0);
       // The landmark's name moves to the <section>.
       await expect(page.getByRole("region", { name: "Featured Properties" })).toHaveCount(1);
