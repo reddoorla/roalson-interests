@@ -114,6 +114,7 @@
               href={pkg.url}
               download={pkg.filename}
               downloadGlyph
+              class="aria-busy:cursor-wait aria-busy:opacity-60"
               onclick={saveOnClick(pkg.filename)}
             >
               Property package

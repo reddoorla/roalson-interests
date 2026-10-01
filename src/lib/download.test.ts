@@ -54,6 +54,27 @@ describe("saveOnClick", () => {
     expect(assign).not.toHaveBeenCalled();
   });
 
+  it("saves once however often it is pressed while the fetch is in flight", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(new Blob(["%PDF"]), { status: 200 })),
+    );
+    const link = document.createElement("a");
+    link.href = URL_;
+    document.body.append(link);
+    link.addEventListener("click", saveOnClick("p.pdf"));
+    const click = () =>
+      link.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true, button: 0 }));
+    click();
+    expect(link.getAttribute("aria-busy")).toBe("true");
+    click();
+    await settle();
+    await settle();
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(saved).toHaveLength(1);
+    expect(link.hasAttribute("aria-busy")).toBe(false);
+  });
+
   it("goes to the file when the fetch fails, so a press never does nothing", async () => {
     vi.stubGlobal(
       "fetch",

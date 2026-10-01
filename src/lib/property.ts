@@ -145,7 +145,8 @@ export interface PropertyPackage {
    *  and a visitor on a phone deserves to know before tapping. */
   size: string | null;
   /** The name the file is saved under: the upload's own name as Prismic
-   *  keeps it, never the CDN path's `<id>_` prefix. */
+   *  keeps it (all 22 live packages carry one), never the CDN path's `<id>_`
+   *  prefix. */
   filename: string;
 }
 
@@ -160,7 +161,7 @@ export function propertyPackage(property: PropertyDocument): PropertyPackage | n
   return {
     url: pdf.url,
     size: bytes > 0 ? `${megabytes.format(Math.max(bytes / 1e6, 0.1))} MB` : null,
-    filename: pdf.name || decodeURIComponent(pdf.url.split("/").pop() ?? "property-package.pdf"),
+    filename: pdf.name || "property-package.pdf",
   };
 }
 

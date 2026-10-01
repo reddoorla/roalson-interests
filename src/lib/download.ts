@@ -32,8 +32,11 @@ export function saveOnClick(filename: string) {
       return;
     const link = event.currentTarget;
     if (!(link instanceof HTMLAnchorElement)) return;
-    const url = link.href;
     event.preventDefault();
+    // One save per press: a 14 MB package takes seconds, and a second press
+    // while it is in flight would save it twice ("… (1).pdf").
+    if (link.hasAttribute("aria-busy")) return;
+    const url = link.href;
     link.setAttribute("aria-busy", "true");
     void fetch(url)
       .then((response) => {
@@ -48,7 +51,7 @@ export function saveOnClick(filename: string) {
         document.body.append(save);
         save.click();
         save.remove();
-        setTimeout(() => URL.revokeObjectURL(href), 1000);
+        setTimeout(() => URL.revokeObjectURL(href), 40_000);
       })
       .catch(() => window.location.assign(url))
       .finally(() => link.removeAttribute("aria-busy"));
