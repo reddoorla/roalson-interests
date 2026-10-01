@@ -680,7 +680,8 @@ async function scriptlessBar(browser: Browser, width: number) {
 test("with scripting off the homepage's links are the CTA's chips, clear of the wordmark's halo", async ({
   browser,
 }) => {
-  const chip = { height: 40, ground: GARNET, border: `1px solid ${SAND}` };
+  // No sand outline since MarkUp, 2026-10-01: the chip is garnet edge to edge.
+  const chip = { height: 40, ground: GARNET, border: `1px solid ${GARNET}` };
 
   const narrow = await scriptlessBar(browser, 390);
   const at390 = JSON.stringify(narrow);

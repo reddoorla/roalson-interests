@@ -48,7 +48,7 @@ describe("Partners slice — the band", () => {
     const { container, getAllByRole } = render(Partners, { props: { slice: partnersFixture() } });
     const eyebrow = section(container).querySelector("p")!;
     expect(eyebrow.textContent).toBe("Our legacy");
-    expect(eyebrow.className).toContain("t-h5");
+    expect(eyebrow.className).toContain("t-h4");
     expect(eyebrow.className).toContain("text-primary");
     // The cards come first in the DOM, so a partner's name must not be a
     // heading: an h3 ahead of this band's h2 belongs, in the outline, to the
