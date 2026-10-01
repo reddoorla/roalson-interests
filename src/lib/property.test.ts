@@ -182,6 +182,7 @@ describe("propertyPackage", () => {
     expect(propertyPackage(propertyFixture())).toEqual({
       url: "/fixture-package.pdf",
       size: "6.2 MB",
+      filename: "25331 IH 10 West package.pdf",
     });
   });
 

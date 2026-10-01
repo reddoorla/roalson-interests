@@ -19,6 +19,7 @@
   import type { PropertyDocument } from "../../prismicio-types";
   import ArrowRight from "$lib/components/ArrowRight.svelte";
   import BrandButton from "$lib/components/BrandButton.svelte";
+  import { saveOnClick } from "$lib/download";
   import {
     isPastProject,
     mapsUrl,
@@ -109,7 +110,12 @@
       {#if pkg || map}
         <div class="flex flex-wrap items-center gap-2.5">
           {#if pkg}
-            <BrandButton href={pkg.url} arrow>
+            <BrandButton
+              href={pkg.url}
+              download={pkg.filename}
+              downloadGlyph
+              onclick={saveOnClick(pkg.filename)}
+            >
               Property package
               <span class="sr-only">(PDF{pkg.size ? `, ${pkg.size}` : ""})</span>
             </BrandButton>
