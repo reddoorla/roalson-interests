@@ -153,7 +153,7 @@ test("at 390 the order flips — headline, 100px, then the wordmark block", asyn
   expect(g.rights.left).toBeCloseTo(g.contentLeft, 0);
 });
 
-test("at 320 the headline steps down to H2 instead of losing a letter to the body's clip", async ({
+test("at 320 the H2 headline fits its 280 column instead of losing a letter to the body's clip", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 320, height: 640 });

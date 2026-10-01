@@ -25,7 +25,8 @@
   //   `photo` is the field a real one goes in; EMPTY, the card has no photo box
   //   at all and the sand panel takes the full card width, which is the call
   //   PropertyCard already made for a listing with no photo. The card keeps
-  //   the comp's 153px height either way, so the band stays 556 tall at 1440.
+  //   the comp's 153px height either way, so the band stays 551 tall at 1440
+  //   (the comp's 556 less the 2026-10-01 MarkUp trim).
   // - The founder's garnet row (6822:457) is HIDDEN at every width. Not built.
   // - No buttons are drawn under the body. `buttons` is modelled because the
   //   batch asked for it, and renders nothing while it is empty.
