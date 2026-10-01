@@ -1541,8 +1541,13 @@
       const report = onselect;
       if (report) {
         selected = null;
+        // No hold under reduced motion: the scroll is instant, so it crosses
+        // nothing, and its `scrollend` could land before the centre rule
+        // reports and jump the camera back for a frame.
         const reported = () => {
-          if (report(point.id) === true && point.id !== active) beginHeading(point.id);
+          if (report(point.id) === true && point.id !== active && !$reducedMotion)
+            beginHeading(point.id);
+          else endHeading();
         };
         // Pressed inside the expanded overlay: close it onto the card (D4).
         // The report waits a tick so the scroll lock is off and the card is
