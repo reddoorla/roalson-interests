@@ -12470,6 +12470,7 @@ The one thing still open is the scripting-off chips wrapping at 390 before the w
 An overnight worker cleared the design-review round Nicole posted at 00:57Z. There were 12 unresolved pins across two boards, "Roalson Homepage" (9) and "Roalson Properties" (3). The comments alone were ambiguous, so every pin's screenshot was fetched. The pins' x/y percentages do not line up with their screenshots: "remove the menu text" sits at 4%/3%, but the MENU eyebrow is at 9%/40% of its frame. Read a pin by its screenshot and comment, never by its coordinates.
 
 **#240 (`b7a96e1`): four homepage pins.**
+
 - The Partners eyebrow ("OUR LEGACY") went from `t-h5` to `t-h4`, the featured band's size: 12px to 14px.
 - The space either side of its hairline went from 32/30 to 29/27, the "10%" asked for. The band is now 551 tall at 1440, down from 556, and 1156 at 390, down from 1161.
 - The footer headline is `t-h2` below `sm`, the size of "Representing Your Best Interests". Before, it was H1 down to 360px.
@@ -12478,11 +12479,13 @@ An overnight worker cleared the design-review round Nicole posted at 00:57Z. The
 **A consequence of #240, accepted rather than worked around.** The H2 headline makes the 390 footer 812 tall in an 844 window, so it no longer covers the 240px pinned photo band completely at the very end of the homepage: the band's top 32px shows above it. That was not a regression in kind. The 800px band's top has always shown above the ~512px footer at 1440, and the phone's full cover was only ever a side effect of a tall footer. `photo-band.spec.ts` caught it, the only real red among the five a loaded local run threw up. Its 390 test now asserts that the footer ends on the viewport's foot. If full cover on phones matters, `min-height: 100vh` on that page's footer is the lever.
 
 **#241 (`35a35c1`): three pins** ("can this stay in the same position…", and "remove white outline" twice).
+
 - Over the hero photograph the menu trigger took a 2px pull, everywhere else a 12px one. It and CONTACT US therefore slid 10px at the gate, which the old comment called "gliding". The pull is now 12px in every state: the glyph never moves, and the garnet disc over the photo is centred on it, 10px past the gutter.
 - The disc's ring and the CTA chip's border are garnet, not sand, over the photo.
 - A new hold-still test compares the boxes across the gate at 390 and 1440. It went red on the old pull.
 
 **#242 (draft, held): "Improved Projects" under its own tab is dressed as Land.** Under its own view, Improved is the page's first section but kept the second section's dressing: sand ground, 100px gradient strip, a divider that pins. That is "the background changes and the title moves down". The fix is CSS keyed to `data-view` / `:target`, so it holds with no script too.
+
 - Round 1 found that the cards kept the cream tone, the same colour as the new ground, and that with no script the map stayed offset for a pinned divider (145.4 against 100).
 - Round 2 found that a unit test still expected the old fallback string, and that the carousel's photo-less photo box missed the re-tone, because it was selected by `:has(> img)`.
 
@@ -12493,10 +12496,12 @@ Two dirty rounds is the stop rule, so it waits for the operator, fixed and green
 Now each map holds `heading` while its press scroll runs, and the camera targets it. `active` is untouched, so the operator's rule ("only the viewport centre sets `active`") stands. #136 was closed on 09-28 as "keep the three flights … reopen only if someone reports the press as janky", and this pin is that report. That is why it is the operator's to merge, not the worker's.
 
 **Left open on MarkUp, for the operator, Erik or Nicole:**
+
 - **Homepage #4:** Nicole asks Erik whether the featured band's PROPERTIES button should stay.
 - **Homepage #3:** "Drop down back color to 20% opacity" names no dropdown. Nothing on the page is one. The likeliest reading is the map panel's solid garnet ground: in Nicole's screenshots the homepage map never drew its tiles, so she saw a maroon box.
 - **Properties #3:** "should the property package button be an arrow or a download button?"
 
 **Honest accounting.**
+
 - The local `pnpm verify` runs were not clean evidence. Three suites and a subagent shared one container. The subagent's `pkill -f vite` killed another worktree's dev server mid-run, which produced 196 ECONNREFUSED failures. Two `featured-band-live` motion tests fail identically on untouched `main` here.
 - CI on each PR was the authority.
