@@ -144,8 +144,10 @@
   // change the highlighted box as we scroll"). The comp features the FIRST
   // listing of each active section. Once the map's camera followed the centre
   // line, a highlight nailed to card 0 disagreed with the map. So the same
-  // `activeIds[section.id]` the map is handed picks the featured card. There
-  // is no second source of truth: not a press, not focus, not a hover.
+  // `activeIds[section.id]` the map is handed picks the featured card. A press
+  // and focus do not set it. A hover does (Erik, 2026-10-02): a mouse resting
+  // on a card for HOVER_DWELL_MS writes the same `activeIds`, see
+  // hoverActivate.ts — the same state, not a second one.
   //
   // `featured` is colour only (PropertyCard's TONES), so the highlight moves
   // without moving the column; active-card-highlight.spec.ts measures every
@@ -197,6 +199,7 @@
   import { onMount } from "svelte";
 
   import { centreWatch } from "$lib/actions/centreWatch";
+  import { hoverActivate } from "$lib/actions/hoverActivate";
   import { brandButtonBase, brandButtonPadding } from "$lib/components/BrandButton.svelte";
   import CarouselArrows from "$lib/components/CarouselArrows.svelte";
   import CarouselProgress from "$lib/components/CarouselProgress.svelte";
@@ -618,6 +621,11 @@
                 use:centreWatch={{
                   minWidth: LG,
                   enabled: points.length > 0,
+                  onactive: (id) => (activeIds[section.id] = id),
+                }}
+                use:hoverActivate={{
+                  minWidth: LG,
+                  enabled: points.length > 0 && !on,
                   onactive: (id) => (activeIds[section.id] = id),
                 }}
                 role={on ? "none" : undefined}

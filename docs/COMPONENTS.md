@@ -19,6 +19,7 @@ source. It is the fastest way to recognise what a thing does.
 | --- | --- | --- | --- |
 | [`animateIn.ts`](../src/lib/actions/animateIn.ts) | `animateIn` | 37 |  |
 | [`centreWatch.ts`](../src/lib/actions/centreWatch.ts) | `CENTRE_ID`, `CENTRE_BAND`, `centreWatch` | 9 | Which child of a list the viewport is looking AT — the one whose box crosses the horizontal line through the middle of the screen (#13 follow-up) |
+| [`hoverActivate.ts`](../src/lib/actions/hoverActivate.ts) | `HOVER_DWELL_MS`, `FINE_HOVER`, `hoverActivate` | 10 | Hover-to-activate for a list of `data-centre-id` children: a mouse that rests on one for HOVER_DWELL_MS reports it, on fine-pointer hover devices only, ignoring touch, pen and the pointer events a scroll fires under a still mouse |
 | [`trapFocus.ts`](../src/lib/actions/trapFocus.ts) | `trapFocus` | 24 | Focus management for modal overlays (WCAG 2.4.3 focus order + 2.1.2 no keyboard trap). Apply with `use:trapFocus` to an overlay element that is gated by an `{#if}` block, so the action's mount/destroy lifecycle matches open/close |
 | [`canvas-top.ts`](../src/lib/canvas-top.ts) | `CANVAS_TOP_COLORS`, `CANVAS_TOP_HEX`, `CANVAS_TOP_DEFAULT_HEX`, `canvasTopRule`, `canvasTopStyleTag`, `canvasTopThemeColor` | 8 | The colour a route shows ABOVE the top of its own document — what a rubber-band overscroll at the top of the page pulls away to reveal — and, on Safari, the tint the browser puts on its own toolbar |
 | [`carousel.svelte.ts`](../src/lib/carousel.svelte.ts) | `createCarousel` | 65 | Headless carousel / slideshow state — index, loop, autoplay, pause and a progress-bar value, all on ONE clock — for markup Slider.svelte's layout cannot hold (controls INSIDE the slide's panel, a 2px progress bar, a list that is only a carousel below `lg`). It owns no markup and no layout: it hands back state, commands, and attribute bags to spread, so the right ARIA is the easy path |
@@ -111,4 +112,4 @@ source. It is the fastest way to recognise what a thing does.
 | [`vimeo.ts`](../src/lib/utils/vimeo.ts) | `checkVimeoVideo`, `parseVimeoId` | 11 | True when the Vimeo video exists and is embeddable (oEmbed responds 200) |
 | [`vimeoBackground.svelte.ts`](../src/lib/utils/vimeoBackground.svelte.ts) | `VIMEO_PLAYER_ORIGIN`, `backgroundEmbedSrc`, `VimeoBackground` | 5 | The gate, the heartbeat and the pause flag behind every chrome-less Vimeo background embed in this repo — lifted OUT of VimeoBanner.svelte so the homepage hero could have all three without taking VimeoBanner's markup with them |
 
-93 modules, 984 tests behind them.
+94 modules, 994 tests behind them.
