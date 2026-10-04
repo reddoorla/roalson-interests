@@ -11,17 +11,64 @@ afterEach(() => cleanup());
 const DEFAULT_PALETTE =
   /\b(?:slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-\d{2,3}\b/;
 
-/** The theme's colours, read from app.css (cwd-relative: under jsdom
- *  `import.meta.url` is not a file: URL — see theme-contrast.test.ts). */
+/** app.css, cwd-relative: under jsdom `import.meta.url` is not a file: URL —
+ *  see theme-contrast.test.ts. */
+const CSS = readFileSync(resolve(process.cwd(), "src/app.css"), "utf8");
+
+/** app.css's `@theme` block. */
+const THEME_BODY = /@theme\s*\{([\s\S]*?)\n\}/.exec(CSS)?.[1] ?? "";
+
+/** The theme's colours, read from app.css. */
 const THEME: Record<string, string> = (() => {
-  const css = readFileSync(resolve(process.cwd(), "src/app.css"), "utf8");
-  const body = /@theme\s*\{([\s\S]*?)\n\}/.exec(css)?.[1] ?? "";
   const out: Record<string, string> = {};
-  for (const m of body.matchAll(/--color-([a-z0-9-]+):\s*(#[0-9a-f]{6}|white|black)\s*;/gi)) {
+  for (const m of THEME_BODY.matchAll(/--color-([a-z0-9-]+):\s*(#[0-9a-f]{6}|white|black)\s*;/gi)) {
     out[m[1]] = m[2] === "white" ? "#ffffff" : m[2] === "black" ? "#000000" : m[2];
   }
   return out;
 })();
+
+/** A CSS length in px; a rem is the root's 16px. */
+const toPx = (value: string, unit: string) => Number(value) * (unit === "rem" ? 16 : 1);
+
+/** Font sizes in px by class: Tailwind's named `text-*` scale (rem), as app.css's
+ *  `@theme` may override it, and the type ramp's `@utility t-*` blocks. */
+const RAMP: Record<string, number> = {
+  ...Object.fromEntries(
+    Object.entries({
+      xs: 0.75,
+      sm: 0.875,
+      base: 1,
+      lg: 1.125,
+      xl: 1.25,
+      "2xl": 1.5,
+      "3xl": 1.875,
+      "4xl": 2.25,
+      "5xl": 3,
+      "6xl": 3.75,
+      "7xl": 4.5,
+      "8xl": 6,
+      "9xl": 8,
+    }).map(([name, rem]) => [`text-${name}`, rem * 16]),
+  ),
+  ...Object.fromEntries(
+    [...THEME_BODY.matchAll(/--text-([a-z0-9]+):\s*([\d.]+)(px|rem)\s*;/g)].map((m) => [
+      `text-${m[1]}`,
+      toPx(m[2], m[3]),
+    ]),
+  ),
+  ...Object.fromEntries(
+    [...CSS.matchAll(/@utility (t-[a-z0-9-]+)\s*\{[^}]*?font-size:\s*([\d.]+)(px|rem)/g)].map(
+      (m) => [m[1], toPx(m[2], m[3])],
+    ),
+  ),
+};
+
+/** The font size a resting class sets, in px: a named size (its `/leading`
+ *  modifier dropped) or an arbitrary `text-[16px]` / `text-[1rem]`. */
+const fontSize = (cls: string): number | undefined => {
+  const arbitrary = /^text-\[([\d.]+)(px|rem)\]$/.exec(cls);
+  return arbitrary ? toPx(arbitrary[1], arbitrary[2]) : RAMP[cls.replace(/\/[^/]+$/, "")];
+};
 
 /** WCAG 2.x contrast between two #rrggbb values. */
 function contrast(a: string, b: string): number {
@@ -93,18 +140,6 @@ describe("Field", () => {
 
 // The control's skin, which had two defects a class list cannot show you.
 describe("Field styling", () => {
-  it("gives the input and the textarea the SAME classes", () => {
-    // They carried two copy-pasted class lists, which is exactly how a fix
-    // lands on one control and not the other — the invisible border below had
-    // to be changed in two places.
-    const input = render(Field, { name: "a", label: "A" });
-    const inputClass = input.getByLabelText("A").getAttribute("class");
-    input.unmount();
-
-    const area = render(Field, { name: "b", label: "B", type: "textarea" });
-    expect(area.getByLabelText("B").getAttribute("class")).toBe(inputClass);
-  });
-
   it("draws a resting border that clears the 3:1 non-text minimum on every light ground", () => {
     // WCAG 1.4.11 wants 3:1 for a control's boundary. The template's first
     // border was its `--color-light`, 1.20:1 on white: invisible boxes, and a
@@ -112,47 +147,35 @@ describe("Field styling", () => {
     // over — sand (`border-light`) is 1.09:1 on the off-white page and dust
     // 2.01:1 — so the border's token is MEASURED here against app.css rather
     // than named: garnet is 10.25 / 11.55 / 9.38:1.
-    const { getByLabelText } = render(Field, { name: "a", label: "A" });
-    const cls = getByLabelText("A").getAttribute("class") ?? "";
-    const resting = cls.split(/\s+/).filter((c) => !c.includes(":"));
-    const borders = resting
-      .map((c) => /^border-([a-z]+)$/.exec(c)?.[1])
-      .filter((token): token is string => !!token && token in THEME);
-    expect(borders, "exactly one resting border colour").toHaveLength(1);
-    for (const ground of ["background", "white", "light"]) {
-      expect(
-        contrast(THEME[borders[0]], THEME[ground]),
-        `border-${borders[0]} on bg-${ground}`,
-      ).toBeGreaterThanOrEqual(3);
+    for (const type of ["text", "textarea"] as const) {
+      const { getByLabelText, unmount } = render(Field, { name: "a", label: "A", type });
+      const cls = getByLabelText("A").getAttribute("class") ?? "";
+      unmount();
+      const resting = cls.split(/\s+/).filter((c) => !c.includes(":"));
+      const borders = resting
+        .map((c) => /^border-([a-z]+)$/.exec(c)?.[1])
+        .filter((token): token is string => !!token && token in THEME);
+      expect(borders, `exactly one resting border colour on the ${type}`).toHaveLength(1);
+      for (const ground of ["background", "white", "light"]) {
+        expect(
+          contrast(THEME[borders[0]], THEME[ground]),
+          `${type}: border-${borders[0]} on bg-${ground}`,
+        ).toBeGreaterThanOrEqual(3);
+      }
     }
   });
 
-  it("is square and 1px, like the comp's only outlined control", () => {
-    // The comp draws no field anywhere, so the field is `button dark`
-    // (4840:368) without a label: a 1px garnet stroke, no radius, no fill.
-    const { getByLabelText } = render(Field, { name: "a", label: "A" });
-    const resting = (getByLabelText("A").getAttribute("class") ?? "").split(/\s+/);
-    expect(resting).toContain("border");
-    expect(resting.filter((c) => /^border-\d/.test(c))).toEqual([]);
-    expect(resting.filter((c) => c.includes("rounded"))).toEqual([]);
-    expect(resting).toContain("bg-transparent");
-  });
-
-  it("sets what is typed in Body 1 — never below 16px, or iOS Safari zooms on focus", () => {
-    const { getByLabelText } = render(Field, { name: "a", label: "A" });
-    const cls = (getByLabelText("A").getAttribute("class") ?? "").split(/\s+/);
-    expect(cls).toContain("t-body-1");
-    expect(cls.filter((c) => /^(t-body-2|t-h[1-6]|text-(xs|sm))$/.test(c))).toEqual([]);
-  });
-
-  it("turns the focus ring to the error colour with the border, not only the border", () => {
-    // Two variants on the ring so it beats `focus:ring-primary` on specificity
-    // rather than on stylesheet order. tests/interaction/contact.spec.ts reads
-    // the painted colour; this holds the class the cascade needs.
-    const { getByLabelText } = render(Field, { name: "a", label: "A", error: "Required" });
-    const cls = (getByLabelText("A").getAttribute("class") ?? "").split(/\s+/);
-    expect(cls).toContain("aria-invalid:border-error");
-    expect(cls).toContain("aria-invalid:focus:ring-error");
+  it("sets what is typed at 16px or more, or iOS Safari zooms on focus", () => {
+    for (const type of ["text", "textarea"] as const) {
+      const { getByLabelText, unmount } = render(Field, { name: "a", label: "A", type });
+      const resting = (getByLabelText("A").getAttribute("class") ?? "")
+        .split(/\s+/)
+        .filter((c) => !c.includes(":"));
+      unmount();
+      const sizes = resting.flatMap((c) => fontSize(c) ?? []);
+      expect(sizes, `the ${type}'s resting type size`).not.toEqual([]);
+      for (const px of sizes) expect(px, type).toBeGreaterThanOrEqual(16);
+    }
   });
 
   it("spends only theme tokens — nothing from Tailwind's default palette", () => {
@@ -174,24 +197,6 @@ describe("Field styling", () => {
     expect(area.container.innerHTML).not.toMatch(DEFAULT_PALETTE);
   });
 
-  it("labels in the ramp's H6 and explains in Body 2", () => {
-    const { container, getByText } = render(Field, {
-      name: "a",
-      label: "A",
-      description: "Help",
-      error: "Required",
-    });
-    expect(container.querySelector("label")?.className.split(/\s+/)).toEqual(
-      expect.arrayContaining(["t-h6", "text-primary"]),
-    );
-    expect(getByText("Help").className.split(/\s+/)).toEqual(
-      expect.arrayContaining(["t-body-2", "text-secondary"]),
-    );
-    expect(getByText("Required").className.split(/\s+/)).toEqual(
-      expect.arrayContaining(["t-body-2", "text-error"]),
-    );
-  });
-
   it("keeps the forced-colors outline fallback on focus (Tailwind v4)", () => {
     // In Tailwind v4 `outline-none` resolves to `outline-style: none` and takes
     // the forced-colors fallback with it; `outline-hidden` keeps the 2px
@@ -199,9 +204,8 @@ describe("Field styling", () => {
     // colours the ring is dropped by the engine, so that outline is the only
     // focus affordance left.
     const { getByLabelText } = render(Field, { name: "a", label: "A" });
-    const cls = getByLabelText("A").getAttribute("class") ?? "";
-    expect(cls).toContain("focus:outline-hidden");
-    expect(cls).not.toContain("focus:outline-none");
+    const cls = (getByLabelText("A").getAttribute("class") ?? "").split(/\s+/);
+    expect(cls.filter((c) => /(^|:)outline-none$/.test(c))).toEqual([]);
   });
 });
 
@@ -226,7 +230,7 @@ describe("Field autofocus", () => {
 
   it("applies to the textarea as well as the input", () => {
     // The two controls are a standing source of one-sided fixes in this
-    // component (see "gives the input and the textarea the SAME classes").
+    // component.
     const { getByLabelText } = render(Field, {
       name: "msg",
       label: "Message",

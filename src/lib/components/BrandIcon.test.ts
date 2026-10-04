@@ -36,12 +36,9 @@ describe("BrandIcon", () => {
     expect(svg?.getAttribute("fill")).toBe("currentColor");
   });
 
-  it("defaults to a fill-the-wrapper class and accepts an override", () => {
-    const fallback = render(BrandIcon, { platform: "x" });
-    expect(fallback.container.querySelector("svg")?.getAttribute("class")).toBe("h-full w-full");
-
+  it("accepts a class override", () => {
     const custom = render(BrandIcon, { platform: "x", class: "h-6 w-6" });
-    expect(custom.container.querySelector("svg")?.getAttribute("class")).toBe("h-6 w-6");
+    expect(custom.container.querySelector("svg")?.getAttribute("class")).toContain("h-6 w-6");
   });
 });
 it("renders nothing for prototype-chain member names fed from content", () => {

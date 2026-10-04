@@ -32,7 +32,7 @@
   // The track is an ALPHA of the fill rather than a fourth and fifth token, so
   // one class serves every ground of its tone; the passing windows are 47–60%
   // and 42–46%. It must therefore sit on the flat card ground, never over a
-  // photo. CarouselProgress.test.ts recomputes every ratio above from app.css
+  // photo. CarouselProgress.test.ts recomputes the table's ratios from app.css
   // and these strings. On a 2px line #3d0707 for #652323 is not a visible
   // change; the track going from near-invisible to visible is, and is the point.
   //

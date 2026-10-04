@@ -531,8 +531,7 @@
   // flush happens to resolve style first — with the read removed, slide 1
   // still read 0.02deg on every frame of its first dwell (Chromium,
   // 2026-09-30) — so no browser test can tell the read is there. It stays so
-  // that the priming does not depend on what else hydrates alongside it;
-  // FeaturedProperties.test.ts pins the order.
+  // that the priming does not depend on what else hydrates alongside it.
   $effect(() => {
     if (!carousel.hydrated || !carousel.eligible) {
       primed = false;
@@ -694,7 +693,8 @@
                 href={portfolio.href}
                 target={portfolio.blank ? "_blank" : undefined}
                 rel={portfolio.blank ? "noopener noreferrer" : undefined}
-                aria-label="See all {portfolio.text.toLowerCase()}">See all <ArrowRight/></BrandButton
+                aria-label="See all {portfolio.text.toLowerCase()}"
+                >See all <ArrowRight /></BrandButton
               >
             {/if}
           </div>

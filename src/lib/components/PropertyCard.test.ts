@@ -18,15 +18,17 @@ describe("PropertyCard", () => {
     expect(link.getAttribute("href")).toBe("/properties/25331-ih-10-west");
   });
 
-  it("renders a sold listing with no link at all — its card is unlinked, as the comp draws it", () => {
+  it("renders a sold listing unlinked — its card does not lead to its page, as the comp draws it", () => {
     const { queryAllByRole } = render(PropertyCard, {
       props: { property: propertyFixture({ status: "Sold" }) },
     });
-    expect(queryAllByRole("link")).toEqual([]);
+    expect(queryAllByRole("link").map((a) => a.getAttribute("href"))).not.toContain(
+      "/properties/25331-ih-10-west",
+    );
   });
 
   it("shows a past project as photo, address and bullets only — no badges, size or link", () => {
-    const { container, getByRole, queryAllByRole, queryByRole, queryByText } = render(
+    const { container, getAllByRole, getByRole, queryAllByRole, queryByRole, queryByText } = render(
       PropertyCard,
       {
         props: {
@@ -38,36 +40,14 @@ describe("PropertyCard", () => {
     );
     expect(container.querySelector("img")).not.toBeNull();
     expect(getByRole("heading", { level: 3 }).textContent).toBe("25331 IH 10 West");
-    expect(container.querySelectorAll("ul.list-disc li")).toHaveLength(2);
-    expect(queryAllByRole("link")).toEqual([]);
+    expect(getAllByRole("listitem").map((li) => li.textContent)).toContain(
+      "New ownership and property management!",
+    );
+    expect(queryAllByRole("link").map((a) => a.getAttribute("href"))).not.toContain(
+      "/properties/25331-ih-10-west",
+    );
     expect(queryByRole("list", { name: "Listing status" })).toBeNull();
     expect(queryByText("Up to 16,700 SF")).toBeNull();
-  });
-
-  it("is the garnet card when featured and the flat card otherwise, button tone to match", () => {
-    const featured = render(PropertyCard, {
-      props: { property: propertyFixture(), variant: "featured" },
-    });
-    const article = featured.container.querySelector("article")!;
-    expect(article.className).toMatch(/\bbg-primary\b/);
-    expect(article.className).toMatch(/\btext-background\b/);
-    expect(featured.getByRole("link").className).toMatch(/\bborder-background\b/);
-    cleanup();
-    const flat = render(PropertyCard, { props: { property: propertyFixture() } });
-    const flatArticle = flat.container.querySelector("article")!;
-    expect(flatArticle.className).toMatch(/\bbg-background\b/);
-    expect(flatArticle.className).not.toMatch(/\bbg-primary\b/);
-    expect(flat.getByRole("link").className).toMatch(/\bborder-primary\b/);
-  });
-
-  it("takes sand on request — the flat card's tone on the off-white first section", () => {
-    const { container, getByRole } = render(PropertyCard, {
-      props: { property: propertyFixture(), variant: "sand" },
-    });
-    const article = container.querySelector("article")!;
-    expect(article.className).toMatch(/\bbg-light\b/);
-    expect(article.className).toMatch(/\btext-primary\b/);
-    expect(getByRole("link").className).toMatch(/\bborder-primary\b/);
   });
 
   it("announces Under Contract and New, and marks nothing on a plain available listing", () => {
@@ -83,29 +63,19 @@ describe("PropertyCard", () => {
     expect(plain.queryByRole("list", { name: "Listing status" })).toBeNull();
   });
 
-  it("shows the photo beside the panel only when there is one — no empty box for the common case", () => {
+  it("shows the photo only when there is one", () => {
     const withPhoto = render(PropertyCard, { props: { property: propertyFixture() } });
     expect(withPhoto.container.querySelector("img")).not.toBeNull();
-    expect(withPhoto.container.querySelector(".md\\:w-1\\/2")).not.toBeNull();
     cleanup();
     const without = render(PropertyCard, {
       props: { property: propertyFixture({ feature_image: {} }) },
     });
     expect(without.container.querySelector("img")).toBeNull();
-    expect(without.container.querySelector(".aspect-\\[423\\.5\\/267\\.5\\]")).toBeNull();
   });
 
-  it("stacks the photo above the text in the column layout, at every width", () => {
-    const { container } = render(PropertyCard, {
-      props: { property: propertyFixture(), layout: "column" },
-    });
-    expect(container.querySelector("article")!.className).not.toMatch(/md:flex-row/);
-    expect(container.querySelector(".md\\:w-1\\/2")).toBeNull();
-  });
-
-  it("lists the size line over the title and the highlights as bullets, each only when filled", () => {
+  it("shows the size line and the highlights as bullets, each only when filled", () => {
     const full = render(PropertyCard, { props: { property: propertyFixture() } });
-    expect(full.getByText("Up to 16,700 SF").className).toMatch(/\bt-h4\b/);
+    expect(full.getByText("Up to 16,700 SF")).not.toBeNull();
     expect(full.getAllByRole("listitem").map((li) => li.textContent)).toContain(
       "New ownership and property management!",
     );

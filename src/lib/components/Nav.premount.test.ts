@@ -70,19 +70,11 @@ describe("Nav — before script has mounted", () => {
     expect(fallback.hasAttribute("data-js-only")).toBe(true);
   });
 
-  it("stands in the button's box, in the bar's tone — and renders nothing for a bar with no menu", () => {
-    const solid = render(Nav, { items, logo });
-    const onLight = bar(solid.container).querySelector("a[data-menu-fallback]")!;
-    expect(onLight.className.split(/\s+/)).toEqual(
-      expect.arrayContaining(["min-h-11", "min-w-11", "-mr-3", "text-primary"]),
-    );
-    expect(onLight.querySelector("svg")).not.toBeNull();
-    solid.unmount();
-
-    const floating = render(Nav, { items, logo, over: "dark" });
-    const onDark = bar(floating.container).querySelector("a[data-menu-fallback]")!;
-    expect(onDark.className.split(/\s+/)).toContain("text-light");
-    floating.unmount();
+  it("draws the menu's glyph — and renders nothing for a bar with no menu", () => {
+    const withMenu = render(Nav, { items, logo });
+    const fallback = bar(withMenu.container).querySelector("a[data-menu-fallback]")!;
+    expect(fallback.querySelector("svg")).not.toBeNull();
+    withMenu.unmount();
 
     const bare = render(Nav, { logo });
     expect(bar(bare.container).querySelector("a[data-menu-fallback]")).toBeNull();

@@ -29,24 +29,12 @@ const sectionOf = (page: Page, id: string) =>
   page.locator(`section[aria-labelledby="listing-${id}"]`);
 const tabOf = (page: Page, id: string) => page.locator(`[data-view-tab="${id}"]`);
 
-/** A token as a COMPUTED colour, never a typed rgb(): the palette is moving. */
-const token = (page: Page, name: string) =>
-  page.evaluate((n) => {
-    const probe = document.createElement("div");
-    probe.style.color = `var(${n})`;
-    document.body.append(probe);
-    const colour = getComputedStyle(probe).color;
-    probe.remove();
-    return colour;
-  }, name);
-
 async function noScript(browser: Browser) {
   const context = await browser.newContext({ javaScriptEnabled: false, viewport: WIDE });
   return { context, page: await context.newPage() };
 }
 
 async function expectView(page: Page, view: "land" | "improved" | "all") {
-  const garnet = await token(page, "--color-primary");
   for (const id of ["land", "improved"]) {
     const shown = view === "all" || view === id;
     await (shown
@@ -57,20 +45,18 @@ async function expectView(page: Page, view: "land" | "improved" | "all") {
   if ((await sectionOf(page, "past").count()) > 0) {
     await expect(sectionOf(page, "past"), "Past Projects shows under every view").toBeVisible();
   }
-  // Polled: the tabs' colours transition (0.01ms under the harness's reduce),
-  // so a read in the click's own frame still returns the old ground.
+  // Hydrated, aria-current says which tab is selected; with no script the
+  // tab's name does, and listing-views-name.spec.ts reads that.
+  if ((await page.locator("html[data-hydrated]").count()) === 0) return;
   for (const id of ["land", "improved", "all"]) {
-    await expect
-      .poll(
-        async () =>
-          (await tabOf(page, id).evaluate((el) => getComputedStyle(el).backgroundColor)) === garnet,
-        { message: `tab ${id} selected under ${view}` },
-      )
-      .toBe(id === view);
+    const message = `tab ${id} selected under ${view}`;
+    await (id === view
+      ? expect(tabOf(page, id), message).toHaveAttribute("aria-current", "true")
+      : expect(tabOf(page, id), message).not.toHaveAttribute("aria-current"));
   }
 }
 
-test.describe("with no script", () => {
+test.describe("with no script", { tag: "@smoke" }, () => {
   test.skip(PREVIEW, NO_FIXTURE);
 
   test("a shared #improved link is filtered on first paint, and does not scroll", async ({
@@ -135,7 +121,7 @@ test.describe("hydrated", () => {
     expect(Math.abs(after - before), "and draws there again").toBeLessThan(1);
   });
 
-  test("the skip link does not reset the view", async ({ page }) => {
+  test("the skip link does not reset the view", { tag: "@smoke" }, async ({ page }) => {
     await page.goto(FIXTURE);
     await hydrated(page);
     await tabOf(page, "improved").click();
@@ -146,7 +132,7 @@ test.describe("hydrated", () => {
     await expectView(page, "improved");
   });
 
-  test("a client navigation to #land is filtered", async ({ page }) => {
+  test("a client navigation to #land is filtered", { tag: "@smoke" }, async ({ page }) => {
     await page.goto("/dev/a11y-fixtures");
     await hydrated(page);
     await page.evaluate((href) => {
@@ -162,7 +148,7 @@ test.describe("hydrated", () => {
     await expectView(page, "land");
   });
 
-  test("axe passes on every view", async ({ page }) => {
+  test("axe passes on every view", { tag: "@smoke" }, async ({ page }) => {
     await page.goto(FIXTURE);
     await hydrated(page);
     for (const view of ["land", "improved", "all"] as const) {
@@ -180,7 +166,7 @@ test.describe("hydrated", () => {
   });
 });
 
-test.describe("live", () => {
+test.describe("live", { tag: "@smoke" }, () => {
   test.skip(!PREVIEW, "the real portfolio is read on the production build");
 
   test("/properties#land is filtered with no script", async ({ browser }) => {

@@ -14,20 +14,18 @@ describe("PropertyDetail", () => {
     expect(h1s[0].textContent).toBe("25331 IH 10 West");
   });
 
-  it("gives the panel the full width when a listing has no photo — the common case", () => {
-    const { container, queryByRole } = render(PropertyDetail, {
+  it("renders no photo when a listing has none — the common case", () => {
+    const { queryByRole } = render(PropertyDetail, {
       props: { property: propertyFixture({ feature_image: {} }) },
     });
     expect(queryByRole("img")).toBeNull();
-    expect(container.querySelector(".lg\\:grid-cols-2")).toBeNull();
   });
 
-  it("sets the photo beside the panel when there is one", () => {
-    const { container, getByRole } = render(PropertyDetail, {
+  it("shows the photo, with its alt text, when there is one", () => {
+    const { getByRole } = render(PropertyDetail, {
       props: { property: propertyFixture() },
     });
     expect(getByRole("img").getAttribute("alt")).toContain("limestone office building");
-    expect(container.querySelector(".lg\\:grid-cols-2")).not.toBeNull();
   });
 
   it("links back to the listing", () => {
@@ -74,16 +72,10 @@ describe("PropertyDetail", () => {
     expect(link.textContent).toContain("(PDF, 6.2 MB)");
   });
 
-  it("saves the package under its own name, with the download mark and not the arrow", () => {
+  it("saves the package under its own name", () => {
     const { getByRole } = render(PropertyDetail, { props: { property: propertyFixture() } });
     const link = getByRole("link", { name: /Property package/ });
     expect(link.getAttribute("download")).toBe("25331 IH 10 West package.pdf");
-    const glyph = link.querySelector("svg")!;
-    expect(glyph.querySelector("rect"), "the download mark's bar").not.toBeNull();
-    expect(
-      glyph.querySelector('g[transform*="rotate(90)"]'),
-      "its arrow points down",
-    ).not.toBeNull();
   });
 
   it("opens the map in a new tab and says so", () => {

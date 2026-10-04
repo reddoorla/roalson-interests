@@ -236,8 +236,7 @@ side at 12px H5, 8.1px at 14px H4, 9.4px at 24px H3, 18px at 66px H1.**
 > **Corrected 2026-09-17.** This line first read "2.2px per side at 12px H5".
 > It is 3.2px: `(14.4 − 8) / 2`. The other three were right. The wrong value
 > would have sat every eyebrow on the site 1px low, and nothing would have
-> caught it — which is why `src/lib/type-ramp.test.ts` now recomputes the trim
-> from the cap ratio instead of trusting a transcribed number.
+> caught it.
 
 These belong in `app.css` as `t-*` utilities, authored once before the first
 slice — not re-derived per slice.

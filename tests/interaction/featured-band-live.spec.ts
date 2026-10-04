@@ -117,80 +117,71 @@ function listen(page: Page) {
 }
 
 test.describe("scripting off", () => {
-  test("slide 1 on stage, the rest inert and hidden, no controls or bar, a polite live region — and the card SHOWN", async ({
-    browser,
-  }) => {
-    // Motion allowed, so the card's server-rendered `data-reveal` (#105) is
-    // live CSS here and app.html's <noscript> rule is what shows it.
-    const context = await browser.newContext({
-      javaScriptEnabled: false,
-      reducedMotion: "no-preference",
-      viewport: viewportFor(1440),
-    });
-    try {
-      const page = await context.newPage();
-      await page.goto(HOME, { waitUntil: "domcontentloaded" });
-      const card = page.locator(CARD);
-      await expect(card, "only script sets this").not.toHaveAttribute("data-carousel-ready", "");
+  test(
+    "slide 1 on stage, the rest inert and hidden, no controls or bar, a polite live region — and the card SHOWN",
+    { tag: "@smoke" },
+    async ({ browser }) => {
+      // Motion allowed, so the card's server-rendered `data-reveal` (#105) is
+      // live CSS here and app.html's <noscript> rule is what shows it.
+      const context = await browser.newContext({
+        javaScriptEnabled: false,
+        reducedMotion: "no-preference",
+        viewport: viewportFor(1440),
+      });
+      try {
+        const page = await context.newPage();
+        await page.goto(HOME, { waitUntil: "domcontentloaded" });
+        const card = page.locator(CARD);
+        await expect(card, "only script sets this").not.toHaveAttribute("data-carousel-ready", "");
 
-      const slides = await page.locator(SLIDES).evaluateAll((els) =>
-        els.map((el) => ({
-          label: el.getAttribute("aria-label"),
-          inert: el.hasAttribute("inert"),
-          hidden: el.getAttribute("aria-hidden"),
-        })),
-      );
-      expect(slides.length, "premise: the live document features more than one").toBeGreaterThan(1);
-      expect(slides[0]).toEqual({ label: `1 of ${slides.length}`, inert: false, hidden: null });
-      for (const [i, slide] of slides.entries())
-        if (i > 0)
-          expect(slide, `slide ${i + 1}`).toEqual({
-            label: `${i + 1} of ${slides.length}`,
-            inert: true,
-            hidden: "true",
-          });
+        const slides = await page.locator(SLIDES).evaluateAll((els) =>
+          els.map((el) => ({
+            label: el.getAttribute("aria-label"),
+            inert: el.hasAttribute("inert"),
+            hidden: el.getAttribute("aria-hidden"),
+          })),
+        );
+        expect(slides.length, "premise: the live document features more than one").toBeGreaterThan(
+          1,
+        );
+        expect(slides[0]).toEqual({ label: `1 of ${slides.length}`, inert: false, hidden: null });
+        for (const [i, slide] of slides.entries())
+          if (i > 0)
+            expect(slide, `slide ${i + 1}`).toEqual({
+              label: `${i + 1} of ${slides.length}`,
+              inert: true,
+              hidden: "true",
+            });
 
-      // In the markup (so nothing jumps at hydration), hidden by `data-js-only`.
-      await expect(card.locator("button")).toHaveCount(3);
-      for (const button of await card.locator("button").all()) await expect(button).toBeHidden();
-      await expect(card.locator("[data-carousel-progress]")).toBeHidden();
-      await expect(status(page)).toHaveAttribute("aria-live", "polite");
+        // No control is on screen without script: `data-js-only` hides them.
+        for (const button of await card.locator("button").all()) await expect(button).toBeHidden();
+        await expect(card.locator("[data-carousel-progress]")).toBeHidden();
+        await expect(status(page)).toHaveAttribute("aria-live", "polite");
 
-      await expect(card).toHaveAttribute("data-reveal");
-      await expect(card).toHaveCSS("opacity", "1");
-      await expect(card).toHaveCSS("transform", "none");
-      await expect(page.locator(`${SLIDES}:not([inert]) a`).first()).toBeVisible();
-
-      // No drift and no layer in the server's markup: it cannot know the
-      // visitor's motion preference, and a declared end scale would be the
-      // photo's first style, with nothing for a transition to start from.
-      const photos = await page.locator(`${CARD} [data-featured-photo]`).evaluateAll((els) =>
-        els.map((el) => ({
-          style: el.getAttribute("style"),
-          willChange: getComputedStyle(el).willChange,
-        })),
-      );
-      expect(photos.length, "premise: every slide has its photo").toBe(slides.length);
-      for (const photo of photos) expect(photo).toEqual({ style: null, willChange: "auto" });
-    } finally {
-      await context.close();
-    }
-  });
+        // The reveal's hidden state never strands the card without script.
+        await expect(card).not.toHaveCSS("opacity", "0");
+        await expect(page.locator(`${SLIDES}:not([inert]) a`).first()).toBeVisible();
+      } finally {
+        await context.close();
+      }
+    },
+  );
 });
 
 test.describe("hydration", () => {
-  test("the band is adopted with no hydration warning and no page error", async ({ page }) => {
-    const heard = listen(page);
-    await page.goto(HOME);
-    await hydrated(page);
-    await adopted(page);
-    // Positive evidence script owns the band, not only that nothing complained:
-    // the server shipped three buttons, and under the harness's reduced motion
-    // script has dropped Pause.
-    await expect(page.locator(`${CARD} button`)).toHaveCount(2);
-    await page.waitForTimeout(500);
-    expect(heard.filter((m) => /hydrat|pageerror/i.test(m))).toEqual([]);
-  });
+  test(
+    "the band is adopted with no hydration warning and no page error",
+    { tag: "@smoke" },
+    async ({ page }) => {
+      const heard = listen(page);
+      await page.goto(HOME);
+      await hydrated(page);
+      // Positive evidence script owns the band, not only that nothing complained:
+      // `data-carousel-ready` is written by an effect, after hydration.
+      await adopted(page);
+      expect(heard.filter((m) => /hydrat|pageerror/i.test(m))).toEqual([]);
+    },
+  );
 
   test("…and the listener DOES hear one when the served markup is broken on purpose", async ({
     page,

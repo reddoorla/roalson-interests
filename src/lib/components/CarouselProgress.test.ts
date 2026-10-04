@@ -35,35 +35,27 @@ const scale = (container: HTMLElement) =>
   Number(/scaleX\(([^)]+)\)/.exec(fill(container).getAttribute("style") ?? "")?.[1]);
 
 describe("CarouselProgress", () => {
-  it("is the comp's 2px line, and says nothing to assistive tech", () => {
+  it("says nothing to assistive tech, and is hidden from a browser with no script", () => {
     const { container } = render(CarouselFixture, { count: 3 });
-    const classes = bar(container).className.split(/\s+/);
-    expect(classes).toContain("h-0.5");
-    expect(classes).toContain("w-full");
-    expect(classes).toContain("overflow-hidden");
     expect(bar(container).getAttribute("aria-hidden")).toBe("true");
     expect(bar(container).hasAttribute("data-js-only")).toBe(true);
-    expect(fill(container).className).toContain("origin-left");
   });
 
   it("ships QUIET and goes live only when an effect has run (#47)", () => {
-    // The arrows' rule and the arrows' test (CarouselArrows.test.ts): the bar
-    // keeps its 2px of the row from the server's markup on, but a line that
-    // cannot move is not shown as if it could.
+    // The arrows' rule and the arrows' test (CarouselArrows.test.ts): a line
+    // that cannot move is not shown as if it could.
     const target = document.createElement("div");
     document.body.append(target);
     const app = mount(CarouselFixture, { target, props: { count: 3, autoplay: DWELL } });
     try {
-      const line = bar(target);
-      expect(line.hasAttribute("data-carousel-quiet")).toBe(true);
-      const classes = line.className.split(/\s+/);
-      expect(classes).toContain("invisible");
-      expect(classes, "the 2px is still reserved").toContain("h-0.5");
-      expect(classes).not.toContain("hidden");
+      expect(bar(target).hasAttribute("data-carousel-quiet")).toBe(true);
+      expect(bar(target).classList.contains("invisible")).toBe(true);
 
       flushSync();
       expect(bar(target).hasAttribute("data-carousel-quiet"), "script adopted it").toBe(false);
-      expect(bar(target).className.split(/\s+/)).not.toContain("invisible");
+      expect(bar(target).classList.contains("invisible"), "stranded hidden after hydration").toBe(
+        false,
+      );
     } finally {
       unmount(app);
       target.remove();
@@ -86,15 +78,6 @@ describe("CarouselProgress", () => {
 
     await advance(DWELL / 2);
     expect(scale(container)).toBeCloseTo(0.5, 10);
-    // No easing on top of the clock — the VALUE the clock draws is `scaleX`,
-    // and a transition on it would keep moving after a pause. The bar does
-    // fade at a handover (see below), so the assertion is no longer "no
-    // transition at all": it is that nothing eases the transform, and that
-    // mid-dwell the fade is parked at 0ms with the fill fully opaque.
-    expect(fill(container).className).not.toContain("transition-transform");
-    expect(fill(container).className.split(/\s+/)).toContain("transition-opacity");
-    expect(fill(container).className.split(/\s+/)).toContain("opacity-100");
-    expect(fill(container).getAttribute("style")).toContain("transition-duration: 0ms");
     expect(fill(container).dataset.carouselFill).toBe("timed");
 
     await fireEvent.click(getByLabelText("Pause slides"));
@@ -119,8 +102,7 @@ describe("CarouselProgress", () => {
   // with no width: measured on a production build, painted width 0.00px for
   // every frame of the handover while opacity went 1.000 -> 0.102. The fill
   // now HOLDS 1 through the handover, which is what the clock last said
-  // (a handover only ever follows a completed dwell). The transform is still
-  // never eased — the case above proves that — so there is still one clock.
+  // (a handover only ever follows a completed dwell).
 
   it("dissolves the fill across the consumer's settle when the CLOCK turns", async () => {
     vi.useFakeTimers();
@@ -129,31 +111,22 @@ describe("CarouselProgress", () => {
       props: { count: 3, autoplay: DWELL, settle: SETTLE },
     });
 
-    // Mid-dwell: opaque, and the fade parked at 0ms so nothing is pending.
     await advance(DWELL / 2);
     expect(fill(container).dataset.carouselFill).toBe("timed");
-    expect(fill(container).getAttribute("style")).toContain("transition-duration: 0ms");
 
     // The frame the clock turns the slide.
     await advance(DWELL / 2);
     expect(fill(container).dataset.carouselFill).toBe("handover");
-    expect(fill(container).className.split(/\s+/)).toContain("opacity-0");
-    // The fade lasts exactly the carousel's own settle — not a number written
-    // into this component, which would drift from whatever the consumer uses.
-    expect(fill(container).getAttribute("style")).toContain(`transition-duration: ${SETTLE}ms`);
-    // …and the fill is AT FULL WIDTH while it fades. This is the assertion the
+    // The fill is AT FULL WIDTH while it fades. This is the assertion the
     // first version got backwards: it asserted `scale === 0`, which is exactly
     // the state in which the fade cannot be seen at all.
     expect(scale(container), "a fading fill with no width paints nothing").toBe(1);
 
     // The handover ends with the settle: the value returns to the clock, which
-    // is at the start of a fresh dwell, and the fill comes back opaque at
-    // 0ms — at scaleX(0) there is nothing to watch arrive.
+    // is at the start of a fresh dwell.
     await advance(SETTLE);
     expect(scale(container)).toBeLessThan(0.1);
     expect(fill(container).dataset.carouselFill).toBe("timed");
-    expect(fill(container).className.split(/\s+/)).toContain("opacity-100");
-    expect(fill(container).getAttribute("style")).toContain("transition-duration: 0ms");
   });
 
   // ── a visitor's turn (#146) ─────────────────────────────────────────────
@@ -163,8 +136,6 @@ describe("CarouselProgress", () => {
   // cases here pinned that snap. The fill now fades out at the width it was
   // DRAWN at — never full, which would be a count nobody finished — and is held
   // at opacity 0 for as long as the turn's settle lasts.
-
-  const classes = (container: HTMLElement) => fill(container).className.split(/\s+/);
 
   it("a VISITOR's turn with the clock stopped fades the fill it found, and holds it out", async () => {
     // jsdom's `click` dispatches no focus, so the Pause stands in for the
@@ -184,18 +155,15 @@ describe("CarouselProgress", () => {
     // The width it was drawn at, not 0: a fade on a box with no width paints
     // nothing (the handover's lesson, above).
     expect(scale(container), "the fill keeps the width it was drawn at").toBe(found);
-    expect(classes(container)).toContain("opacity-0");
-    expect(fill(container).getAttribute("style")).toContain(`transition-duration: ${SETTLE}ms`);
 
     // Ten laps later, with nothing running: still out. No timer brings back
     // a count the turn abandoned.
     await advance(10 * (DWELL + SETTLE));
     expect(fill(container).dataset.carouselFill).toBe("departing");
-    expect(classes(container)).toContain("opacity-0");
     expect(scale(container)).toBe(found);
 
     // Play runs the settle down on the clock, and only then does the fill
-    // come back, opaque at 0ms and at the top of a fresh dwell — never full.
+    // come back, at the top of a fresh dwell — never full.
     await fireEvent.click(getByLabelText("Play slides"));
     for (let t = 0; t < SETTLE - FRAME; t += FRAME) {
       expect(fill(container).dataset.carouselFill, `${t}ms into the settle`).toBe("departing");
@@ -203,8 +171,6 @@ describe("CarouselProgress", () => {
     }
     await advance(2 * FRAME);
     expect(fill(container).dataset.carouselFill).toBe("timed");
-    expect(classes(container)).toContain("opacity-100");
-    expect(fill(container).getAttribute("style")).toContain("transition-duration: 0ms");
     expect(scale(container)).toBeLessThan(0.05);
   });
 
@@ -227,13 +193,11 @@ describe("CarouselProgress", () => {
     for (let t = 0; t < SETTLE - FRAME; t += FRAME) {
       expect(fill(container).dataset.carouselFill, `${t}ms into the settle`).toBe("departing");
       expect(scale(container), `${t}ms into the settle`).toBe(found);
-      expect(classes(container)).toContain("opacity-0");
       await advance(FRAME);
     }
     // …and the clock WAS running over it: the restarted dwell fills from 0.
     await advance(DWELL / 4);
     expect(fill(container).dataset.carouselFill).toBe("timed");
-    expect(classes(container)).toContain("opacity-100");
     expect(scale(container)).toBeGreaterThan(0.1);
     expect(scale(container)).toBeLessThan(0.5);
   });
@@ -253,7 +217,6 @@ describe("CarouselProgress", () => {
     // would cut the running fade to a zero-width box.
     expect(fill(container).dataset.carouselFill).toBe("departing");
     expect(scale(container)).toBe(found);
-    expect(fill(container).getAttribute("style")).toContain(`transition-duration: ${SETTLE}ms`);
   });
 
   it("a visitor's turn inside a CLOCK handover keeps the full bar that is fading", async () => {
@@ -264,13 +227,12 @@ describe("CarouselProgress", () => {
     });
     await advance(DWELL + 4 * FRAME);
     expect(fill(container).dataset.carouselFill).toBe("handover");
-    const style = fill(container).getAttribute("style");
+    expect(scale(container)).toBe(1);
     await fireEvent.click(getByLabelText("Next slide"));
-    // Same width, same class, same duration: the transition already running
-    // is left alone rather than restarted or cut.
+    // Same width: the fade already running is left alone rather than cut to
+    // a box with no width.
     expect(fill(container).dataset.carouselFill).toBe("departing");
-    expect(fill(container).getAttribute("style")).toBe(style);
-    expect(classes(container)).toContain("opacity-0");
+    expect(scale(container)).toBe(1);
   });
 
   it("never dissolves in position mode, where there is no handover to draw", async () => {
@@ -288,9 +250,6 @@ describe("CarouselProgress", () => {
     await fireEvent.click(getByLabelText("Next slide"));
     await advance(3 * DWELL);
     expect(fill(container).dataset.carouselFill).toBe("position");
-    // Position mode eases the TRANSFORM instead, and has no opacity of its own.
-    expect(fill(container).className).toContain("transition-transform");
-    expect(fill(container).className).not.toContain("opacity-");
   });
 
   it("draws position where nothing is timing out", async () => {
@@ -302,7 +261,6 @@ describe("CarouselProgress", () => {
     await fireEvent.click(getByLabelText("Previous slide"));
     await fireEvent.click(getByLabelText("Previous slide")); // wraps to the last
     expect(scale(container)).toBe(1);
-    expect(fill(container).className).toContain("transition-transform");
   });
 
   it("falls back to position under reduced motion instead of a dead empty track", () => {
@@ -323,12 +281,11 @@ describe("CarouselProgress", () => {
     expect(fill(container).className.split(/\s+/)).toContain(PROGRESS_TONES.cream.fill);
   });
 
-  it("draws a 20% track while it times a slide, and the 3:1 track where it draws position (MarkUp, 2026-10-01)", () => {
+  it("draws the timed track while it times a slide, and the 3:1 track where it draws position", () => {
     const timed = render(CarouselFixture, { count: 3, autoplay: DWELL });
     const timedBar = bar(timed.container);
     expect(timedBar.dataset.carouselProgress).toBe("timed");
-    expect(timedBar.className.split(/\s+/)).toContain("bg-dark/20");
-    expect(timedBar.className.split(/\s+/)).not.toContain(PROGRESS_TONES.garnet.track);
+    expect(timedBar.className.split(/\s+/)).toContain(PROGRESS_TONES.garnet.timedTrack);
     timed.unmount();
     const still = render(CarouselFixture, { count: 3 });
     expect(bar(still.container).dataset.carouselProgress).toBe("position");
@@ -407,46 +364,14 @@ describe("CarouselProgress tones", () => {
     },
   );
 
-  // The premise this test used to state — "garnet leaves no room for ANY
-  // track" on sand, 8.87:1 against the 9:1 three 3:1 steps need — stopped
-  // being true on 2026-09-28, when sand went from #e8e1d1 to #eae7e4 and garnet
-  // on it rose to 9.38:1. The comp's garnet is now FEASIBLE on the homepage
-  // card, at exactly two alphas, and `dark` is kept because it has margin the
-  // comp's colour does not. That is a claim about numbers, so it is measured.
-  it("keeps `dark`: the comp's garnet clears 3:1 on sand only at 55–56%, and with less margin", () => {
-    const sand = token("light");
-    // Dust, the comp's track, is still a fill that vanishes on sand.
-    expect(contrast(token("dust"), sand)).toBeLessThan(NON_TEXT);
-    // Three colours each 3:1 apart need 9:1 between the outer two — and
-    // garnet on today's sand has it, where on the old sand it did not.
-    expect(contrast(token("primary"), sand)).toBeGreaterThanOrEqual(NON_TEXT * NON_TEXT);
-    // …searched, not just argued: the alphas of garnet that work on the card.
-    const clears = (pct: number) => {
-      const track = painted(`bg-primary/${pct}`, sand);
-      return contrast(token("primary"), track) >= NON_TEXT && contrast(track, sand) >= NON_TEXT;
-    };
-    const passing = Array.from({ length: 99 }, (_, i) => i + 1).filter(clears);
-    expect(passing).toEqual([55, 56]);
-    // And the shipped tone beats the best of them on the one ground they share.
-    const worst = (fill: string, track: string) => {
-      const f = painted(fill, sand);
-      const t = painted(track, sand);
-      return Math.min(contrast(f, t), contrast(t, sand));
-    };
-    expect(worst("bg-primary", "bg-primary/55")).toBeLessThan(
-      worst(PROGRESS_TONES.garnet.fill, PROGRESS_TONES.garnet.track),
-    );
-  });
-
   // The timed track gives up track:ground (it is a countdown, not the only
   // "2 of 3"); the fill must still read against both what is left and the card.
   it.each(cases)(
-    "$tone on bg-$ground while timed: the fill clears 3:1 against the 20% track",
+    "$tone on bg-$ground while timed: the fill clears 3:1 against the timed track",
     ({ tone, ground }) => {
       const g = token(ground);
       const fillRgb = painted(PROGRESS_TONES[tone].fill, g);
       const trackRgb = painted(PROGRESS_TONES[tone].timedTrack, g);
-      expect(PROGRESS_TONES[tone].timedTrack).toMatch(/\/20$/);
       expect(contrast(fillRgb, trackRgb)).toBeGreaterThanOrEqual(NON_TEXT);
       expect(contrast(fillRgb, g)).toBeGreaterThanOrEqual(NON_TEXT);
     },

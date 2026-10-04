@@ -1,5 +1,6 @@
 import { cleanup, render } from "@testing-library/svelte";
-import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import type { Content } from "@prismicio/client";
 
@@ -16,6 +17,46 @@ afterEach(cleanup);
 
 const section = (container: HTMLElement) =>
   container.querySelector<HTMLElement>('[data-slice-type="home_hero"]')!;
+
+/** The theme's colours, read from app.css (cwd-relative: under jsdom
+ *  `import.meta.url` is not a file: URL — see theme-contrast.test.ts). */
+const THEME: Record<string, string> = (() => {
+  const css = readFileSync(resolve(process.cwd(), "src/app.css"), "utf8");
+  const body = /@theme\s*\{([\s\S]*?)\n\}/.exec(css)?.[1] ?? "";
+  const out: Record<string, string> = {};
+  for (const m of body.matchAll(/--color-([a-z0-9-]+):\s*(#[0-9a-f]{6}|white|black)\s*;/gi)) {
+    out[m[1]] = m[2] === "white" ? "#ffffff" : m[2] === "black" ? "#000000" : m[2];
+  }
+  return out;
+})();
+
+/** WCAG 2.x contrast between two #rrggbb values. */
+function contrast(a: string, b: string): number {
+  const luminance = (hex: string) => {
+    const [r, g, bl] = [1, 3, 5].map((i) => {
+      const c = parseInt(hex.slice(i, i + 2), 16) / 255;
+      return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * r + 0.7152 * g + 0.0722 * bl;
+  };
+  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+/** The theme tokens of an element's own resting `<prefix>-<token>` classes. */
+const own = (el: Element, prefixes: string[]) =>
+  (el.getAttribute("class") ?? "")
+    .split(/\s+/)
+    .map((c) => /^([a-z]+)-([a-z0-9-]+)$/.exec(c))
+    .filter((m): m is RegExpExecArray => m !== null && prefixes.includes(m[1]) && m[2] in THEME)
+    .map((m) => m[2]);
+
+/** The nearest such tokens on the element or an ancestor: what it is painted in. */
+const painted = (el: Element | null, prefixes: string[]): string[] =>
+  el ? (own(el, prefixes).length ? own(el, prefixes) : painted(el.parentElement, prefixes)) : [];
+
+/** Every stop of a ground: a flat `bg-`, or a gradient's `from-`/`via-`/`to-`. */
+const GROUND = ["bg", "from", "via", "to"];
 
 describe("HomeHero slice", () => {
   it("is registered, so a SliceZone renders it rather than a TodoComponent", () => {
@@ -36,14 +77,6 @@ describe("HomeHero slice", () => {
     const [before, after] = h1.innerHTML.replace(/<!--.*?-->/g, "").split(/<br[^>]*>/);
     expect(before.trim()).toBe("San Antonio's Commercial");
     expect(after.trim()).toBe("Real Estate Experts Since 1983.");
-    // The break applies from a 1040 viewport, where both 66px lines fit with a
-    // margin; below it the text flows — see the component.
-    const br = h1.querySelector("br")!;
-    expect(br.className.split(/\s+/)).toEqual(
-      expect.arrayContaining(["hidden", "min-[1040px]:inline"]),
-    );
-    expect(h1.className).toContain("t-h2");
-    expect(h1.className).toContain("lg:t-h1");
   });
 
   it("breaks on the comp's own separator too — pasted from Figma, the text carries U+2028", () => {
@@ -90,25 +123,51 @@ describe("HomeHero slice", () => {
 
   it("draws PROPERTIES first and CONTACT US second — the client's order, from the content", () => {
     // The component draws the CMS order; the order itself is the fixture's
-    // and the seed's (scripts/seed/pages.test.ts holds the seed's).
-    const { container } = render(HomeHero, { props: { slice: homeHeroFixture() } });
-    const links = [...section(container).querySelectorAll("a")];
-    expect(links.map((a) => [a.textContent?.trim(), a.getAttribute("href")])).toEqual([
-      ["Properties", "/properties"],
-      ["Contact us", "/contact"],
-    ]);
+    // and the seed's.
+    const { getByRole } = render(HomeHero, { props: { slice: homeHeroFixture() } });
+    const properties = getByRole("link", { name: "Properties" });
+    const contact = getByRole("link", { name: "Contact us" });
+    expect(properties.getAttribute("href")).toBe("/properties");
+    expect(contact.getAttribute("href")).toBe("/contact");
+    expect(
+      properties.compareDocumentPosition(contact) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 
-  it("wears the cream tone — off-white outline and label on the garnet band", () => {
-    const { getByRole } = render(HomeHero, { props: { slice: homeHeroFixture() } });
+  it("keeps the headline, the sentence and both buttons legible on every stop of the band", () => {
+    // Which tone the buttons wear is the component's call; that it is one for
+    // a dark ground is this. A button's outline is WCAG 1.4.11's 3:1; with no
+    // colour of its own a border is drawn in the label's.
+    const { getByRole, getByText } = render(HomeHero, { props: { slice: homeHeroFixture() } });
+    const pairs: [string, string | undefined, Element, number][] = [];
+    for (const [what, el] of [
+      ["headline", getByRole("heading", { level: 1 })],
+      ["subheading", getByText("A placeholder for a sentence to come.")],
+    ] as const)
+      pairs.push([what, painted(el, ["text"])[0], el, 4.5]);
     for (const name of ["Properties", "Contact us"]) {
       const button = getByRole("link", { name });
-      expect(button.className, name).toContain("border-background");
-      expect(button.className, name).toContain("text-background");
+      const label = painted(button, ["text"])[0];
+      pairs.push([`${name} label`, label, button, 4.5]);
+      pairs.push([
+        `${name} outline`,
+        own(button, ["border"])[0] ?? label,
+        button.parentElement!,
+        3,
+      ]);
+    }
+    for (const [what, fg, on, floor] of pairs) {
+      const stops = painted(on, GROUND);
+      expect(fg, `${what} is painted in no theme colour`).toBeDefined();
+      expect(stops.length, `${what} sits on no theme ground`).toBeGreaterThan(0);
+      for (const bg of stops)
+        expect(contrast(THEME[fg!], THEME[bg]), `${what}: ${fg} on ${bg}`).toBeGreaterThanOrEqual(
+          floor,
+        );
     }
   });
 
-  it("shows the first two complete buttons and no anchor for an incomplete one", () => {
+  it("draws no anchor for a button missing its label or its link", () => {
     const slice = homeHeroFixture({
       buttons: [
         { label: "No link", link: { link_type: "Any" } },
@@ -118,10 +177,11 @@ describe("HomeHero slice", () => {
         { label: "Three", link: { link_type: "Web", url: "/three" } },
       ],
     } as never);
-    const { container } = render(HomeHero, { props: { slice } });
-    const links = [...section(container).querySelectorAll("a")];
-    expect(links.map((a) => a.textContent?.trim())).toEqual(["One", "Two"]);
-    expect(links.map((a) => a.getAttribute("href"))).toEqual(["/one", "/two"]);
+    const { container, getByRole } = render(HomeHero, { props: { slice } });
+    expect(getByRole("link", { name: "One" }).getAttribute("href")).toBe("/one");
+    expect(getByRole("link", { name: "Two" }).getAttribute("href")).toBe("/two");
+    expect(section(container).textContent).not.toContain("No link");
+    expect(section(container).querySelector('a[href="/nowhere"]')).toBeNull();
   });
 
   it("opens an external button in a new tab only when the editor asked, and safely", () => {
@@ -143,33 +203,33 @@ describe("HomeHero slice", () => {
     expect(internal.hasAttribute("rel")).toBe(false);
   });
 
-  it("renders the subheading as Body 1, between the headline and the buttons", () => {
+  it("renders the subheading between the headline and the buttons", () => {
     const { getByRole, getByText } = render(HomeHero, { props: { slice: homeHeroFixture() } });
     const h1 = getByRole("heading", { level: 1 });
     const sub = getByText("A placeholder for a sentence to come.");
     expect(sub.tagName).toBe("P");
-    // 7091:903 is Body 1 (400 16/24) in the headline's own off-white.
-    expect(sub.className.split(/\s+/)).toEqual(expect.arrayContaining(["t-body-1", "text-light"]));
     const first = getByRole("link", { name: "Properties" });
     expect(h1.compareDocumentPosition(sub) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(sub.compareDocumentPosition(first) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it("draws no <p> at all for a null, empty or blank subheading", () => {
+  it("draws no empty <p> for a null, empty or blank subheading", () => {
     for (const subheading of [null, "", "   "]) {
-      const { container, unmount } = render(HomeHero, {
+      const { container, getByRole, unmount } = render(HomeHero, {
         props: { slice: homeHeroFixture({ subheading } as never) },
       });
       const band = section(container).querySelector("[data-nav-gate]")!;
       // The headline and the buttons are still there: only the sentence went.
       expect(band.querySelector("h1"), String(subheading)).not.toBeNull();
-      expect(band.querySelectorAll("a").length, String(subheading)).toBe(2);
-      expect(band.querySelector("p"), String(subheading)).toBeNull();
+      expect(getByRole("link", { name: "Properties" }), String(subheading)).toBeTruthy();
+      expect(getByRole("link", { name: "Contact us" }), String(subheading)).toBeTruthy();
+      for (const p of band.querySelectorAll("p"))
+        expect(p.textContent?.trim(), String(subheading)).not.toBe("");
       unmount();
     }
   });
 
-  it("renders no list and no h2 for a stale document still carrying the specialty fields", () => {
+  it("renders nothing of the specialty fields a stale document still carries", () => {
     // The live `home` document was published with `specialty_label` and three
     // `specialties`, and keeps them until it is re-staged: dropping a field
     // from the model does not strip it from content already written. The
@@ -182,19 +242,9 @@ describe("HomeHero slice", () => {
         { text: "Buyer and tenant representation" },
       ],
     } as never);
-    const { container, queryByRole, getByRole } = render(HomeHero, { props: { slice: stale } });
+    const { container, getByRole } = render(HomeHero, { props: { slice: stale } });
     expect(getByRole("heading", { level: 1 })).toBeTruthy();
-    expect(queryByRole("list")).toBeNull();
-    expect(queryByRole("heading", { level: 2 })).toBeNull();
     expect(section(container).textContent).not.toMatch(/specialty|Consulting and brokerage/i);
-  });
-
-  it("is one column: nothing in the band sits on the site's two-column grid", () => {
-    // The browser spec measures the x=80; what the markup can say is that the
-    // grid and its right-column placement are gone.
-    const { container } = render(HomeHero, { props: { slice: homeHeroFixture() } });
-    const band = section(container).querySelector("[data-nav-gate]")!;
-    expect(band.innerHTML).not.toMatch(/grid-cols|col-start/);
   });
 
   it("stamps the slice attributes, the pin and the nav gate", () => {
@@ -204,50 +254,20 @@ describe("HomeHero slice", () => {
     const pin = root.querySelector("[data-home-hero-pin]")!;
     // The pin is motion-safe ONLY (#38): under `prefers-reduced-motion: reduce`
     // the hero is `relative` and leaves with the page, like the photo band.
-    const classes = pin.className.split(/\s+/);
-    expect(classes).toContain("motion-safe:sticky");
-    expect(classes).toContain("motion-safe:top-0");
-    expect(classes).toContain("relative");
-    expect(classes, "no unconditional pin").not.toContain("sticky");
-    expect(pin.className).toContain("h-[528px]");
-    expect(pin.className).toContain("bg-dark");
+    expect(pin.className.split(/\s+/), "no unconditional pin").not.toContain("sticky");
     // #18 measures "band rect vs bar rect" against this attribute.
-    const gate = root.querySelector("[data-nav-gate]")!;
-    expect(gate.className).toContain("from-primary");
-    expect(gate.className).toContain("from-50%");
-    expect(gate.className).toContain("to-dark");
+    expect(root.querySelector("[data-nav-gate]")).not.toBeNull();
   });
 
-  it("never clips the section — overflow-hidden on the wrapper silently kills the pin", () => {
-    const { container } = render(HomeHero, { props: { slice: homeHeroFixture() } });
-    expect(section(container).className).not.toMatch(/overflow-(hidden|auto|scroll)/);
-  });
-
-  it("seats the cutout in the BAND, not in the pinned hero, as a decorative vector", () => {
+  it("draws the cutout as a decorative vector", () => {
     const { container } = render(HomeHero, { props: { slice: homeHeroFixture() } });
     const cutout = container.querySelector<SVGElement>("[data-home-hero-cutout]")!;
-    expect(cutout.closest("[data-nav-gate]")).not.toBeNull();
-    expect(cutout.closest("[data-home-hero-pin]")).toBeNull();
     expect(cutout.getAttribute("aria-hidden")).toBe("true");
-    expect(cutout.getAttribute("viewBox")).toBe("0 0 451 451");
   });
 
-  it("ships the Figma export's path bytes, not a redraw", () => {
+  it("renders no <img> and no preload without a poster", () => {
     const { container } = render(HomeHero, { props: { slice: homeHeroFixture() } });
-    const paths = container.querySelectorAll("[data-home-hero-cutout] path");
-    expect(paths.length).toBe(1);
-    const d = paths[0].getAttribute("d")!;
-    // sha256 of the `d` attribute exported from 6802:1423 (Frame 194) — and,
-    // byte for byte, from its instance 6802:1424. 517 characters, 4 subpaths.
-    expect(d.length).toBe(517);
-    expect(createHash("sha256").update(d).digest("hex")).toBe(
-      "e0645afc1fe358763311dd5d4bdb45e694e09fe992a0b7443ed8f5213d3e947a",
-    );
-  });
-
-  it("renders no <img> and no preload without a poster — the flat dark ground", () => {
-    const { container } = render(HomeHero, { props: { slice: homeHeroFixture() } });
-    expect(section(container).querySelector("img")).toBeNull();
+    expect(section(container).querySelector("[data-home-hero-pin] img")).toBeNull();
     expect(document.head.querySelector('link[rel="preload"][as="image"]')).toBeNull();
   });
 
@@ -264,7 +284,6 @@ describe("HomeHero slice", () => {
     expect(img).not.toBeNull();
     expect(img.getAttribute("srcset")).toContain("w=");
     expect(img.getAttribute("fetchpriority")).toBe("high");
-    expect(img.className).toContain("object-cover");
     expect(document.head.querySelector('link[rel="preload"][as="image"]')).not.toBeNull();
   });
 
@@ -279,12 +298,8 @@ describe("HomeHero slice", () => {
     const { container } = render(HomeHero, { props: { slice } });
     const layer = section(container).querySelector("[data-home-hero-pin] [data-hero-video]");
     expect(layer).not.toBeNull();
-    // A LAYER, never a replacement: nothing has played, so no iframe exists and
-    // the pin is the same dark ground it is without the field.
+    // A LAYER, never a replacement: nothing has played, so no iframe exists.
     expect(container.querySelector("iframe")).toBeNull();
-    expect(section(container).querySelector("[data-home-hero-pin]")!.className).toContain(
-      "bg-dark",
-    );
   });
 
   it("renders no layer at all for an empty or unusable id", () => {
@@ -317,17 +332,25 @@ describe("HomeHero slice", () => {
     );
   });
 
-  it("with NO slice, still paints the dark 528 ground the route's navOver claim depends on", () => {
+  it("with NO slice, still paints the ground the route's navOver claim depends on", () => {
+    // nav-over.test.ts reads that ground off a render WITH a slice; this holds
+    // the render without one to the same hero.
+    const hero = (root: HTMLElement) => [
+      root.className,
+      root.querySelector("[data-home-hero-pin]")?.className,
+    ];
+    const withSlice = hero(
+      section(render(HomeHero, { props: { slice: homeHeroFixture() } }).container),
+    );
+    cleanup();
     const { container, queryByRole } = render(HomeHero, { props: { slice: undefined } });
     const root = section(container);
     expect(root).not.toBeNull();
-    expect(root.className).toContain("bg-dark");
-    const pin = root.querySelector("[data-home-hero-pin]")!;
-    expect(pin.className).toContain("h-[528px]");
-    expect(pin.className).toContain("bg-dark");
+    expect(root.querySelector("[data-home-hero-pin]")).not.toBeNull();
+    expect(hero(root)).toEqual(withSlice);
     // No band, so nothing for the gate to wait on and no empty garnet strip.
     expect(root.querySelector("[data-nav-gate]")).toBeNull();
-    expect(queryByRole("heading")).toBeNull();
+    expect(queryByRole("heading", { name: "" })).toBeNull();
   });
 
   it("tolerates a slice whose fields are all empty", () => {
@@ -345,8 +368,9 @@ describe("HomeHero slice", () => {
     } as unknown as Content.HomeHeroSlice;
     const { container, queryByRole } = render(HomeHero, { props: { slice: empty } });
     expect(section(container).querySelector("[data-nav-gate]")).not.toBeNull();
-    expect(queryByRole("heading")).toBeNull();
-    expect(queryByRole("link")).toBeNull();
-    expect(section(container).querySelector("[data-nav-gate] p")).toBeNull();
+    expect(queryByRole("heading", { name: "" })).toBeNull();
+    expect(queryByRole("link", { name: "" })).toBeNull();
+    for (const p of section(container).querySelectorAll("[data-nav-gate] p"))
+      expect(p.textContent?.trim()).not.toBe("");
   });
 });

@@ -1,0 +1,57 @@
+name: nightly
+
+on:
+  schedule:
+    - cron: "17 10 * * *"
+  workflow_dispatch:
+    inputs:
+      script:
+        description: "Which Playwright tier to run"
+        type: choice
+        options:
+          - test:nightly
+          - test:e2e
+          - test:scaffold
+        default: test:nightly
+
+concurrency:
+  group: nightly
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  playwright:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: pnpm/action-setup@0977fd99725f1db4007ccb2928dbb4e90d06cc86 # v6.0.10
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: sudo rm -f /etc/apt/sources.list.d/google-chrome.list
+      - run: pnpm exec playwright install --with-deps chromium
+
+      - name: Playwright (${{ inputs.script || 'test:nightly' }})
+        env:
+          SCRIPT: ${{ inputs.script || 'test:nightly' }}
+          PLAYWRIGHT_HTML_OPEN: never
+        run: pnpm run "$SCRIPT" --reporter=github,html
+
+      - if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: playwright-${{ github.run_id }}
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
+          retention-days: 14

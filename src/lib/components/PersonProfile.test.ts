@@ -8,19 +8,14 @@ import PersonProfile from "./PersonProfile.svelte";
 afterEach(cleanup);
 
 describe("PersonProfile", () => {
-  it("has one h1, the person's name, on the site's grid", () => {
+  it("has one h1, the person's name, and names the article by it", () => {
     const { getAllByRole, container } = render(PersonProfile, {
       props: { person: personFixture({ credentials: "CCIM" }) },
     });
-    const headings = getAllByRole("heading");
-    expect(headings.map((h) => h.tagName)).toEqual(["H1"]);
-    expect(headings[0].textContent).toBe("Matt Howard, CCIM");
-    expect(container.querySelector("article")!.getAttribute("aria-labelledby")).toBe(
-      headings[0].id,
-    );
-    expect(container.querySelector(".lg\\:grid")!.className).toContain(
-      "lg:grid-cols-[397fr_847fr]",
-    );
+    const h1s = getAllByRole("heading", { level: 1 });
+    expect(h1s).toHaveLength(1);
+    expect(h1s[0].textContent).toBe("Matt Howard, CCIM");
+    expect(container.querySelector("article")!.getAttribute("aria-labelledby")).toBe(h1s[0].id);
   });
 
   it("marks a placeholder biography — and only a placeholder", () => {
@@ -48,6 +43,24 @@ describe("PersonProfile", () => {
     expect([...bio.querySelectorAll("p")].map((p) => p.textContent)).toEqual(["One.", "Two."]);
   });
 
+  it("links the email and the phone, and prints an unusable value as text", () => {
+    const good = render(PersonProfile, { props: { person: personFixture() } });
+    expect(good.getByRole("link", { name: "mhoward@roalson.com" }).getAttribute("href")).toBe(
+      "mailto:mhoward@roalson.com",
+    );
+    expect(good.getByRole("link", { name: "(210) 496-5800" }).getAttribute("href")).toBe(
+      "tel:+12104965800",
+    );
+    cleanup();
+    const bad = render(PersonProfile, {
+      props: { person: personFixture({ phone: "496-5800", license: "603462" }) },
+    });
+    expect(bad.getByText("496-5800").closest("a")).toBeNull();
+    expect(bad.getByText("603462").closest("a")).toBeNull();
+    const hrefs = bad.getAllByRole("link").map((a) => a.getAttribute("href") ?? "");
+    expect(hrefs).toContain("mailto:mhoward@roalson.com");
+    expect(hrefs.filter((href) => href.startsWith("tel:"))).toEqual([]);
+  });
 
   it("draws no photo box without a photo, and one with", () => {
     const bare = render(PersonProfile, { props: { person: personFixture() } });

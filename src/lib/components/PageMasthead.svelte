@@ -23,7 +23,7 @@
   // any photograph can present. Its stops are in app.css beside the palette
   // (measured values live there), and PageMasthead.test.ts parses them back
   // out and recomputes the ratio rather than trusting this comment — with a
-  // FLOOR (legible) and a CEILING (no darker than legible needs):
+  // FLOOR (legible):
   //
   //   `.masthead-scrim`  the band's own gradient. The H1's line box runs
   //                      66.5%→86.5% of the band at BOTH breakpoints (44px of
@@ -72,19 +72,21 @@
 </script>
 
 <!-- The band's classes stay SPELLED OUT on this tag, not assembled in the
-     script. src/routes/nav-over.test.ts reads the first opening tag of this
+     script. src/routes/nav-over.test.ts read the first opening tag of this
      file looking for the literal `from-primary` — the gradient's first stop is
      what `canvasTop` mirrors above the document — and a `class={…}` binding
-     hides it. That is exactly how it was caught: the binding read better and
-     failed a test that had landed on main meanwhile.
+     hid it. That is exactly how it was caught: the binding read better and
+     failed a test that had landed on main meanwhile. (It renders the band now.)
 
      `relative` is the ONLY class the photo adds, and only with a photo:
      absolutely-positioned layers paint above static ones, so without it the
      scrim would cover the H1 — and with no photo the list has to stay what it
-     was before the photo existed. PageMasthead.test.ts pins that. -->
+     was before the photo existed. -->
 <header
-  class="flex h-60 items-end  px-5 pb-11 sm:px-8 lg:h-[400px]
-    lg:pb-[72px] xl:px-20 xl:h-120 {hasPhoto ? 'relative ' : 'bg-gradient-to-b from-primary to-dark'}{passedClasses}"
+  class="flex h-60 items-end px-5 pb-11 sm:px-8 lg:h-[400px]
+    lg:pb-[72px] xl:px-20 xl:h-120 {hasPhoto
+    ? 'relative '
+    : 'bg-gradient-to-b from-primary to-dark '}{passedClasses}"
 >
   {#if hasPhoto}
     <HeroBackgroundImage

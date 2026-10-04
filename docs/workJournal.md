@@ -12611,3 +12611,65 @@ The held PRs landed on the operator's word, as #242 and #243, along with #245, t
 **The nav at 75% on the hero** (operator, unprompted by a pin), #247. The CONTACT US chip and the menu disc are garnet at 75% over the photograph, with transparent borders so no 94% ring forms. Sand on that ground over a pure-white pixel is 4.57:1, and the pixel contrast tests pass at six widths. Tailwind v4 computes `bg-primary/75` as an `oklab(...)` string, so the specs read it off a probe element rather than typing an `rgba`.
 
 **Process, twice over.** `pkill -f <pattern>` and `ps | grep | kill` both matched the calling shell's own command line and killed it (exit 144). The dev server's PID now goes in a file when it is started.
+
+## 2026-10-04 — Hovering a listing card makes it the active listing; contact recipients pinned to the launch checklist (`fix/properties-hover-activate`)
+
+**Hover activation (Erik, 2026-10-02, after Pinthouse's menu).** A mouse resting on a /properties card for 200ms now writes the same `activeIds[section.id]` the centre rule writes, so the garnet card, the camera and the dimmed markers follow it. PropertyListing's header used to say "There is no second source of truth: not a press, not focus, not a hover". The single source still holds: there are now two writers to one state, not a second state. The header now says so. The logic is `$lib/actions/hoverActivate.ts` and is not folded into `centreWatch`, whose header is explicit that it has one job.
+
+Why 200ms: the cards are 220–284px tall. A move from the map to a card further down crosses one or two of them at well under 200ms each, and every new card restarts the timer, so only the card the mouse settles on is reported. Past about 250ms it reads as sluggish next to the 500ms flight. The camera's `in-flight` refusal still coalesces flights, so no flight-coalescing was added here.
+
+Two guards, and what proves each. (1) `pointerType === "mouse"` inside a `(hover: hover) and (pointer: fine)` + `min-width: 1024px` query, also off while a carousel is on: touch is untouched. (2) A pointermove at the same clientX/clientY as the last is ignored, and a scroll cancels a pending dwell. That is meant to stop a wheel turning under a still cursor from handing the card to whatever scrolled beneath it. **Correction made on contact with the browser:** headless Chromium sends NO pointermove after a wheel under a still mouse, and none on a tap. So the browser test I wrote for (2), and a tap test for (1), both stayed green with their guard deleted. The tap test was removed. The wheel test was kept and renamed to what it does prove: after a hover, the centre line takes the card back. Guards (1) and (2) are proven only by the unit tests, which do go red when either is deleted. Deleting the action turns both browser tests red.
+
+**Contact form recipients.** Nothing in this repo picks who gets /contact mail. reddoor-maintenance `resolveRecipients` reads Roalson's Turso row: Status `building` means the operator only, which is why Tucker gets the test leads. A single Point of Contact cannot reach two people, so the change is `Notify Routing` = `{"field":"inquiry","routes":{},"default":["mhoward@roalson.com","bwilson@roalson.com"]}`. `field` must be non-empty and `routes` present, or the parser returns null and silently falls back to the single POC. It is inert until the Launch report sets `maintained`. Nothing was changed. I added this as a section D line on #235, with a comment carrying the verification command. The addresses are #160's (public on roalson.com and in the Figma wireframe), not anything said in Discord, so the line asks for Erik's confirmation. I did not read the live Turso row; that access was denied in this session.
+
+**Profile back button.** Left alone on #251. The PR body proposes a version for Tucker that uses `afterNavigate`'s `from` (client navigations don't update `document.referrer`), then a same-origin referrer, then `/`, and calls `history.back()` so the homepage's scroll position comes back.
+
+**Verify, honestly.** prettier, eslint, svelte-check, build and the a11y audit (0 violations, 8 routes) pass. Unit tests: 1752 pass and 2 fail in `download.test.ts`. Those two fail identically on a clean `origin/main` worktree in this Node 22 container; CI pins Node 24. Filed as #252. The smoke suite had 360 passing and 98 failing in this sandbox. All 54 `property-map.spec.ts` failures fail identically on `origin/main` (diffed by test title), and they need tiles, fonts and photos this container can't fetch. My two new specs pass. Playwright here wanted chromium_headless_shell-1234 and only 1194 is installed, so I symlinked it. That works, but it's the reason any measurement from this container is Chromium-1194's.
+
+**Later the same day: the back-button proposal is withdrawn.** Tucker: the back button "should just go to home, there's no other way a user could get there other than direct navigation". A profile is reached only from the homepage's partner band or by typing the URL, so `/` is always where the visitor came from. #251's `href="/"` stands. The `afterNavigate` / referrer / `history.back()` version described above solved a navigation path this site doesn't have.
+
+## 2026-10-04 — Tests build; they don't freeze: a `@smoke` gate, a nightly tier, and the design pins out of the unit gate (`claude/trusting-hawking-aauv3f`)
+
+The developer's ask, verbatim from the session: tests "have been useful to you in autonomously building, but those tests should be used to build not to freeze". The evidence was #251. A taller masthead (`xl:h-120`), a Go Back button on the profile and an arrow on SEE ALL cost five gutted tests, among them `expect(true)` stubs and the deletion of a real contract (the profile's email and phone links), and not one of the reds was a bug. On `main` those three edits turn 7 unit tests red (six PageMasthead class-list cases and the PersonProfile href list) and `contact.spec.ts:106` red (`near(g.masthead.height, 400)`). On this branch the same edits pass all 1,642 unit tests and all 60 `@smoke` tests that run. #251 itself went red on prettier alone, in 20 seconds, before any test ran.
+
+**What a red now means.** Every Playwright spec still exists (463 tests) but only 66 are tagged `@smoke`, of which 60 run on CI's dev server; `pnpm test` runs those plus vitest. `test:nightly` runs 19 map, carousel and motion spec files from `nightly.yml` and blocks nothing. `test:scaffold` is everything not `@smoke`, on demand. CLAUDE.md carries the rule and the tier table. A `@smoke` test may hold no fixed sleep, frame count, animation window, `boundingBox`/`near()`, computed colour or size, or element count a new button would change. Where a tagged test carried such a pin, the pin moved to an untagged variant in the same file, so the scaffold kept it.
+
+**Measured, in this container** (4 vCPU, the proxy CA in Chromium's NSS store):
+
+|                        | before (`main`)                        | after                                      |
+| ---------------------- | -------------------------------------- | ------------------------------------------ |
+| Playwright in the gate | 463 tests, 15.6 min, 455 passed, 1 red | 60 run, 6 skip, 47–64 s, 3 of 3 runs green |
+| `pnpm verify`          | not run whole                          | 194 s, exit 0                              |
+| unit tests             | 1,744 in 27,712 lines                  | 1,642 in 26,031 lines                      |
+
+On GitHub's runner the whole `ci / ci` job for this branch (install, prettier, eslint, svelte-check, build, the a11y audit, vitest, `@smoke`) took 3 min 33 s, 19:21:12 to 19:24:45 UTC on `c5db79b`.
+
+The one red on `main` was `featured-properties.spec.ts:2869`, #202's rAF count, under the load of this session's own agents: the issue reproducing itself. CI on `main` had drifted from ~11 min (late September) to 15–27 min per PR, retries 2.
+
+**A gate that still catches bugs.** Four real regressions planted in a clean worktree, each reverted after:
+
+| planted bug                                    | unit   | `@smoke` |
+| ---------------------------------------------- | ------ | -------- |
+| contact `name="email"` → `"mail"`              | 1 red  | 2 red    |
+| the menu button loses `aria-label="Open menu"` | 14 red | 3 red    |
+| `emailHref` drops the address                  | 6 red  | green    |
+| SEE ALL `href` → `#`                           | 1 red  | 1 red    |
+
+**Belief corrected on contact.** Early in the session I told the developer that many tests restate the code. That was wrong. A file-by-file audit put ~75% of the unit lines on real behaviour (carousel, focus trap, camera state machine, seed safety, data transforms), with no bare `expect()` anywhere. The friction was ~14% design pins sitting inside otherwise good files, plus ~3% that read `.svelte`/`.css` as text and held a scraped number to a literal (PageMasthead's `lg:h-[…px]` regex, `type-ramp.test.ts`), so one design edit cost two. The net cut is 1,681 unit lines, not the ~4,700 the audit's categories added up to, because several pins were rewritten into properties (contrast as `>= 4.5` at every breakpoint read from the rendered classes; tap targets `>= 24px` by size or padding; an href list as containment). Only `type-ramp.test.ts` was deleted whole. Playwright lost no tests; its CI time came from the 463-test gate, and the map specs alone were 30% of the suite's test-seconds.
+
+**Another wrong first reading.** The first local baseline showed 106 reds. All were `ERR_CERT_AUTHORITY_INVALID` on Prismic images and Google Fonts: this container's Chromium did not trust the egress proxy. With the CA imported, 455 of 456 ran green. Reading the error before counting the reds saved a false finding that the suite was rotten.
+
+**Tailwind scans test files.** The shipped JS is unchanged (the only differing chunk is SvelteKit's per-build `__sveltekit_*` id), but the CSS is not: 4 utilities left the bundle (`antialiased`, `bg-primary/55`, `focus-visible:outline-background`, `size-[153px]`) and 7 entered (`bg-[#652323]`, `text-light/90` and others from new test code). None of the four is in site source, literal or composed. The coupling is real, though: a class built dynamically in a component and spelled literally only in a test would vanish from the CSS when the test is deleted.
+
+**Comments that cited deleted tests.** About 20 source and doc comments claimed coverage this change removed (e.g. "PageMasthead.test.ts pins that", "map-marker-contrast.test.ts asserts it is exactly the floor"). They were cut to what is still true, comment text only. `src/lib/components/carousel-arrows.figma/{l,r}-arrow.svg` now has no reader; it stays as the comp's export.
+
+**Not done.**
+
+- **A pre-commit `prettier --write` hook.** It would have kept #251 green. Installing git hooks was refused by this session's permission policy, so it waits on the developer.
+- **The nightly runs on the dev server**, so `property-map-camera-prod` still never tests the shipped bundle (#255, beside #213).
+- **Gaps in the masthead contrast check.** It measures one line of title, and nothing reads an `opacity` on the scrim or the h1 (#254).
+- **A missing space on #251's branch:** `'…to-dark'{passedClasses}` would fuse into `to-darkmb-10` if a caller ever passes `class`. That one is reported to the developer, not fixed here.
+
+The pre-commit hook is a decision for the developer, so it has no issue.
+
+The flaky-test issues whose tests left the gate (#190, #197, #200, #202, #203, #214, #217) close with this PR, and so does #221, whose test now counts only the carousel's named controls.
