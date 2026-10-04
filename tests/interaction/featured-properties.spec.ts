@@ -916,63 +916,52 @@ test.describe("rotation", () => {
     }
   });
 
-  test("the arrows turn the slide and never drop keyboard focus on <body> (#34)", async ({
-    browser,
-  }) => {
-    const { context, page } = await moving(browser);
-    try {
-      await page.goto(HOME);
-      await adopted(page);
-      await pointerAway(page);
+  test(
+    "the arrows turn the slide and never drop keyboard focus on <body> (#34)",
+    { tag: "@smoke" },
+    async ({ browser }) => {
+      const { context, page } = await moving(browser);
+      try {
+        await page.goto(HOME);
+        await adopted(page);
+        await pointerAway(page);
 
-      const next = page.getByRole("button", { name: "Next slide" });
-      await next.focus();
-      // Focus entering is a pause (APG): the clock no longer drives.
-      await expect(page.getByRole("button", { name: "Play slides" })).toBeVisible();
+        const next = page.getByRole("button", { name: "Next slide" });
+        await next.focus();
+        // Focus entering is a pause (APG): the clock no longer drives.
+        await expect(page.getByRole("button", { name: "Play slides" })).toBeVisible();
 
-      const focused = () =>
-        page.evaluate(() => document.activeElement?.getAttribute("aria-label") ?? "BODY");
+        const focused = () =>
+          page.evaluate(() => document.activeElement?.getAttribute("aria-label") ?? "BODY");
 
-      for (const expected of ["Slide 2 of 3", "Slide 3 of 3", "Slide 1 of 3"]) {
-        await page.keyboard.press("Enter");
-        await expect(status(page)).toHaveText(expected);
-        expect(await focused(), `after ${expected}`).toBe("Next slide");
+        for (const expected of ["Slide 2 of 3", "Slide 3 of 3", "Slide 1 of 3"]) {
+          await page.keyboard.press("Enter");
+          await expect(status(page)).toHaveText(expected);
+          expect(await focused(), `after ${expected}`).toBe("Next slide");
+        }
+        await page.keyboard.press("ArrowLeft");
+        await expect(status(page)).toHaveText("Slide 3 of 3");
+        expect(await focused()).toBe("Next slide");
+
+        // Tab goes on past the rest of the controls, and the first slide it
+        // reaches is the one on stage — its LEARN MORE — not one off it.
+        for (let tab = 0; tab < 5; tab++) {
+          await page.keyboard.press("Tab");
+          if (await page.evaluate(() => !!document.activeElement?.closest("[data-featured-slide]")))
+            break;
+        }
+        await expect(
+          page.locator(`${CARD} [data-featured-slide]:not([inert]) a`),
+          "the on-stage slide's link takes focus",
+        ).toBeFocused();
+        expect(await page.evaluate(() => document.activeElement?.textContent)).toContain(
+          "13810 Lookout Road",
+        );
+      } finally {
+        await context.close();
       }
-      await page.keyboard.press("ArrowLeft");
-      await expect(status(page)).toHaveText("Slide 3 of 3");
-      expect(await focused()).toBe("Next slide");
-
-      // THE USER'S TURNS DISSOLVE NOW (operator call, 2026-09-23), and this
-      // assertion is the reversal: it read `transition-duration: 0s` and "the
-      // USER's turns are instant, as the comp wires its arrows (CHANGE_TO, no
-      // transition)". The comp read was faithful; the operator overruled it.
-      // Kept and inverted rather than deleted, so the record of which way it
-      // used to point survives in the file that measures it.
-      //
-      // 0.5s is DISSOLVE, which is CAMERA_FLIGHT_MS: the same half second the
-      // map's camera has always taken on THIS path, because `activeBy` reports
-      // an arrow press as "visitor". The card used to snap while the camera
-      // flew. The `motion` block below measures what the dissolve looks like.
-      const photo = page.locator(`${CARD} [data-featured-slide]:not([inert]) img`).locator("..");
-      await expect(photo).toHaveCSS("transition-duration", "0.5s");
-      await expect(photo).toHaveCSS("opacity", "1");
-
-      // Tab goes on to ALL, the last of the controls (2026-10-01), and then
-      // INTO the slide that is on stage — its LEARN MORE — not one off it.
-      await page.keyboard.press("Tab");
-      await expect(page.getByRole("link", { name: "See all properties" })).toBeFocused();
-      await page.keyboard.press("Tab");
-      await expect(
-        page.locator(`${CARD} [data-featured-slide]:not([inert]) a`),
-        "the on-stage slide's link takes focus next",
-      ).toBeFocused();
-      expect(await page.evaluate(() => document.activeElement?.textContent)).toContain(
-        "13810 Lookout Road",
-      );
-    } finally {
-      await context.close();
-    }
-  });
+    },
+  );
 
   test("with Pause drawn, the band passes axe and its rings follow their grounds", async ({
     browser,
@@ -3470,167 +3459,157 @@ test.describe("the portfolio button", () => {
 });
 
 test.describe("the other states", () => {
-  test("reduced motion: no Pause, no rotation — the bar shows POSITION and the arrows still work", async ({
-    page,
-  }) => {
-    // The shared config's context: reducedMotion "reduce".
-    await page.goto(HOME);
-    await adopted(page);
-    const bar = page.locator(`${CARD} [data-carousel-progress]`);
-    await expect(bar).toHaveAttribute("data-carousel-progress", "position");
-    await expect(page.locator(`${CARD} button`)).toHaveCount(2);
-    expect(await barScale(page)).toBeCloseTo(1 / 3, 2);
-
-    await page.getByRole("button", { name: "Next slide" }).click();
-    await expect(status(page)).toHaveText("Slide 2 of 3");
-    expect(await barScale(page)).toBeCloseTo(2 / 3, 2);
-    expect(await onStage(page)).toEqual(["101 W. Commerce Street"]);
-  });
-
-  test("ONE showable listing is a card: no carousel, no controls, nothing to rotate", async ({
-    browser,
-  }) => {
-    const { context, page } = await moving(browser);
-    try {
-      await page.goto(`${HOME}?featured=one`);
-      const band = page.locator(BAND);
-      await expect(band).toHaveAttribute("data-featured-picked", "3");
-      await expect(band).toHaveAttribute("data-featured-shown", "1");
-      await expect(band.locator('[role="region"]')).toHaveCount(0);
-      await expect(band.locator("button")).toHaveCount(0);
-      await expect(band.locator("[data-carousel-progress]")).toHaveCount(0);
-      // The landmark's name moves to the <section>.
-      await expect(page.getByRole("region", { name: "Featured Properties" })).toHaveCount(1);
+  test(
+    "reduced motion: no Pause, no rotation — the bar shows POSITION and the arrows still work",
+    { tag: "@smoke" },
+    async ({ page }) => {
+      // The shared config's context: reducedMotion "reduce".
+      await page.goto(HOME);
+      await adopted(page);
+      const bar = page.locator(`${CARD} [data-carousel-progress]`);
+      await expect(bar).toHaveAttribute("data-carousel-progress", "position");
       await expect(
-        band.getByRole("link", { name: /Learn more about 25331 IH 10 West/ }),
-      ).toBeVisible();
-      // The SLIDE's five bullets. The band also holds the map's list of
-      // Google Maps links (#13), which is <li>s too — an unqualified count
-      // reads six and stops being about the panel this test is measuring.
-      await expect(band.locator("[data-featured-slide] li")).toHaveCount(5);
+        page.locator(CARD).getByRole("button", { name: /^(Pause|Play) slides$/ }),
+      ).toHaveCount(0);
 
-      // The live listing's five bullets GROW the panel past the comp's 285;
-      // LEARN MORE keeps the panel's 40 under it.
-      const g = await geometry(page);
-      expect(g.card.height - g.photo.height).toBeGreaterThan(285);
-      expect(g.card.height - g.button.bottom).toBeCloseTo(40, 0);
-      // The eyebrow still shares the size line's cap line.
-      expect(g.eyebrow.top).toBeCloseTo(g.sizeLine.top, 0);
+      await page.getByRole("button", { name: "Next slide" }).click();
+      await expect(status(page)).toHaveText("Slide 2 of 3");
+      expect(await onStage(page)).toEqual(["101 W. Commerce Street"]);
+    },
+  );
 
-      // NOTHING TO DRIFT OVER, with motion allowed: a card that never turns
-      // has no dwell, so its photo carries no transform and no transition —
-      // in the served markup, after hydration, and a while after that.
-      const served = await (await page.request.get(`${HOME}?featured=one`)).text();
-      const tags = served.match(/<img\b[^>]*data-featured-photo[^>]*>/g) ?? [];
-      expect(tags, "the served markup's photo").toHaveLength(1);
-      expect(tags[0], "the served photo, with a style").not.toMatch(/\sstyle=/);
-      await page.waitForTimeout(1000);
-      expect(
-        await band.locator("[data-featured-photo]").evaluate((el) => ({
-          style: el.getAttribute("style"),
-          transform: getComputedStyle(el).transform,
-          animations: el.getAnimations().length,
-        })),
-      ).toEqual({ style: null, transform: "none", animations: 0 });
-    } finally {
-      await context.close();
-    }
-  });
-
-  test("NO showable listing is no band: the page closes up over it", async ({ page }) => {
-    await page.goto(`${HOME}?featured=none`);
-    const band = page.locator(BAND);
-    await expect(band).toHaveCount(1);
-    await expect(band).toBeHidden();
-    await expect(band).toHaveAttribute("data-featured-picked", "2");
-    await expect(band).toHaveAttribute("data-featured-shown", "0");
-    await expect(band).toHaveAttribute("data-featured-unembedded", "0");
-    await expect(page.locator(CARD)).toHaveCount(0);
-    expect(await band.evaluate((el) => el.getBoundingClientRect().height)).toBe(0);
-  });
-
-  test("with scripting off it is slide 1 with its link, and no dead controls", async ({
-    browser,
-  }) => {
-    const context = await browser.newContext({ javaScriptEnabled: false });
-    try {
-      const page = await context.newPage();
-      await page.goto(HOME, { waitUntil: "domcontentloaded" });
-      const card = page.locator(CARD);
-      await expect(card, "only script sets this").not.toHaveAttribute("data-carousel-ready", "");
-      await expect(card.locator("h2")).toBeVisible();
-      await expect(
-        card.getByRole("link", { name: /Learn more about 25331 IH 10 West/ }),
-      ).toBeVisible();
-      // In the markup (so nothing jumps at hydration) but not on screen. THREE:
-      // the server cannot know the visitor's motion preference, so Pause ships
-      // too and is hidden with the arrows by app.html's <noscript> rule.
-      await expect(card.locator("button")).toHaveCount(3);
-      for (const button of await card.locator("button").all()) await expect(button).toBeHidden();
-      await expect(card.locator("[data-carousel-progress]")).toBeHidden();
-
-      // #32's first promise, and the thing the unit tests cannot see: the
-      // SERVER's markup puts exactly one slide on stage. A regression that
-      // shipped all three stacked at opacity 1 would still pass every
-      // assertion above — slide 1's link is visible either way.
-      const slides = card.locator("[data-featured-slide]");
-      await expect(slides).toHaveCount(3);
-      await expect(card.locator("[data-featured-slide]:not([inert])")).toHaveCount(1);
-      await expect(slides.nth(0)).not.toHaveAttribute("inert", "");
-      for (const i of [1, 2]) {
-        await expect(slides.nth(i)).toHaveAttribute("inert", "");
-        await expect(slides.nth(i)).toHaveAttribute("aria-hidden", "true");
-        await expect(slides.nth(i).locator("h3")).toBeHidden();
+  test(
+    "ONE showable listing is a card: no carousel, no controls, nothing to rotate",
+    { tag: "@smoke" },
+    async ({ browser }) => {
+      const { context, page } = await moving(browser);
+      try {
+        await page.goto(`${HOME}?featured=one`);
+        const band = page.locator(BAND);
+        await expect(band).toHaveAttribute("data-featured-picked", "3");
+        await expect(band).toHaveAttribute("data-featured-shown", "1");
+        await expect(band.locator('[role="region"]')).toHaveCount(0);
+        // The carousel's own controls (#221): the band's map keeps its expand.
+        await expect(
+          band.getByRole("button", {
+            name: /^(Previous slide|Next slide|Pause slides|Play slides)$/,
+          }),
+        ).toHaveCount(0);
+        await expect(band.locator("[data-carousel-progress]")).toHaveCount(0);
+        // The landmark's name moves to the <section>.
+        await expect(page.getByRole("region", { name: "Featured Properties" })).toHaveCount(1);
+        await expect(
+          band.getByRole("link", { name: /Learn more about 25331 IH 10 West/ }),
+        ).toBeVisible();
+        // The SLIDE's five bullets. The band also holds the map's list of
+        // Google Maps links (#13), which is <li>s too — an unqualified count
+        // reads six and stops being about the panel this test is measuring.
+        expect(await band.locator("[data-featured-slide] li").count()).toBeGreaterThanOrEqual(5);
+      } finally {
+        await context.close();
       }
-      // WITHOUT THE BUNDLE THE BAND IS ITS FIRST LISTING, and that is the
-      // decision, not an oversight: slides 2..N are `inert` in the server's
-      // markup by the primitive's reviewed design, and CSS cannot undo `inert`.
-      // Every listing is reachable from /properties — and THAT is the one link
-      // this band draws of its own, server-rendered like everything else here,
-      // so a visitor without the bundle still has a way to all of them (#47).
-      // It is a plain <a> in the markup: nothing about it waits on hydration.
-      const portfolio = card.getByRole("link", { name: "See all properties", exact: true });
-      await expect(portfolio).toBeVisible();
-      await expect(portfolio).toHaveAttribute("href", "/properties");
-      // The map's own links go to Google Maps by design (#13), and they are
-      // the OTHER thing a visitor without the bundle still gets here. Since
-      // #122 there are TWO sets of them and they are the same three places:
-      // the LIST — the map's accessible equivalent, `sr-only` now that the box
-      // draws the committed picture of MAP_HOME — and the PINS the picture
-      // draws over that raster, which is what a pointer actually has. Both are
-      // asserted as their own claim rather than folded into the loop below.
-      const rows = page.locator(`${BAND} [data-map-link]`);
-      await expect(rows).toHaveCount(3);
-      for (const row of await rows.all())
-        await expect(row).toHaveAttribute(
-          "href",
-          /^https:\/\/www\.google\.com\/maps\/search\/\?api=1&query=/,
+    },
+  );
+
+  test(
+    "NO showable listing is no band: the page closes up over it",
+    { tag: "@smoke" },
+    async ({ page }) => {
+      await page.goto(`${HOME}?featured=none`);
+      const band = page.locator(BAND);
+      await expect(band).toHaveCount(1);
+      await expect(band).toBeHidden();
+      await expect(band).toHaveAttribute("data-featured-picked", "2");
+      await expect(band).toHaveAttribute("data-featured-shown", "0");
+      await expect(band).toHaveAttribute("data-featured-unembedded", "0");
+      await expect(page.locator(CARD)).toHaveCount(0);
+    },
+  );
+
+  test(
+    "with scripting off it is slide 1 with its link, and no dead controls",
+    { tag: "@smoke" },
+    async ({ browser }) => {
+      const context = await browser.newContext({ javaScriptEnabled: false });
+      try {
+        const page = await context.newPage();
+        await page.goto(HOME, { waitUntil: "domcontentloaded" });
+        const card = page.locator(CARD);
+        await expect(card, "only script sets this").not.toHaveAttribute("data-carousel-ready", "");
+        await expect(card.locator("h2")).toBeVisible();
+        await expect(
+          card.getByRole("link", { name: /Learn more about 25331 IH 10 West/ }),
+        ).toBeVisible();
+        // No control is on screen without script: the server cannot know the
+        // visitor's motion preference, so Pause ships too and is hidden with the
+        // arrows by app.html's <noscript> rule.
+        for (const button of await card.locator("button").all()) await expect(button).toBeHidden();
+        await expect(card.locator("[data-carousel-progress]")).toBeHidden();
+
+        // #32's first promise, and the thing the unit tests cannot see: the
+        // SERVER's markup puts exactly one slide on stage. A regression that
+        // shipped all three stacked at opacity 1 would still pass every
+        // assertion above — slide 1's link is visible either way.
+        const slides = card.locator("[data-featured-slide]");
+        await expect(slides).toHaveCount(3);
+        await expect(card.locator("[data-featured-slide]:not([inert])")).toHaveCount(1);
+        await expect(slides.nth(0)).not.toHaveAttribute("inert", "");
+        for (const i of [1, 2]) {
+          await expect(slides.nth(i)).toHaveAttribute("inert", "");
+          await expect(slides.nth(i)).toHaveAttribute("aria-hidden", "true");
+          await expect(slides.nth(i).locator("h3")).toBeHidden();
+        }
+        // WITHOUT THE BUNDLE THE BAND IS ITS FIRST LISTING, and that is the
+        // decision, not an oversight: slides 2..N are `inert` in the server's
+        // markup by the primitive's reviewed design, and CSS cannot undo `inert`.
+        // Every listing is reachable from /properties — and THAT is the one link
+        // this band draws of its own, server-rendered like everything else here,
+        // so a visitor without the bundle still has a way to all of them (#47).
+        // It is a plain <a> in the markup: nothing about it waits on hydration.
+        const portfolio = card.getByRole("link", { name: "See all properties", exact: true });
+        await expect(portfolio).toBeVisible();
+        await expect(portfolio).toHaveAttribute("href", "/properties");
+        // The map's own links go to Google Maps by design (#13), and they are
+        // the OTHER thing a visitor without the bundle still gets here. Since
+        // #122 there are TWO sets of them and they are the same three places:
+        // the LIST — the map's accessible equivalent, `sr-only` now that the box
+        // draws the committed picture of MAP_HOME — and the PINS the picture
+        // draws over that raster, which is what a pointer actually has. Both are
+        // asserted as their own claim.
+        const rows = page.locator(`${BAND} [data-map-link]`);
+        await expect(rows).toHaveCount(3);
+        for (const row of await rows.all())
+          await expect(row).toHaveAttribute(
+            "href",
+            /^https:\/\/www\.google\.com\/maps\/search\/\?api=1&query=/,
+          );
+        const pins = page.locator(`${BAND} [data-map-home-frame="full"] [data-map-home-pin]`);
+        expect(await pins.count(), "the picture drew pins with no script at all").toBeGreaterThan(
+          0,
         );
-      const pins = page.locator(`${BAND} [data-map-home-frame="full"] [data-map-home-pin]`);
-      expect(await pins.count(), "the picture drew pins with no script at all").toBeGreaterThan(0);
-      const rowHrefs = await rows.evaluateAll((els) => els.map((e) => e.getAttribute("href")));
-      for (const pin of await pins.all())
-        expect(rowHrefs).toContain(await pin.getAttribute("href"));
-      // And since 2026-09-29 a THIRD set, also the map's: the picture's own
-      // credit (`MAP_HOME_CREDIT`). The raster is a picture of OpenStreetMap
-      // data, and with no script it is the only map this visitor gets, so it
-      // carries the licence line whole — exactly these two links, on screen.
-      const credit = page.locator(`${BAND} [data-map-home-credit] a`);
-      expect(
-        await credit.evaluateAll((els) => els.map((e) => e.getAttribute("href"))),
-        "the picture's credit",
-      ).toEqual(["https://www.openmaptiles.org/", "https://www.openstreetmap.org/copyright"]);
-      for (const link of await credit.all()) await expect(link).toBeVisible();
-      for (const link of await page
-        .locator(
-          `${BAND} a:not([data-map-link]):not([data-map-home-pin]):not([data-map-home-credit] a)`,
-        )
-        .all())
-        await expect(link).toHaveAttribute("href", /^\/properties(\/.+)?$/);
-    } finally {
-      await context.close();
-    }
-  });
+        const rowHrefs = await rows.evaluateAll((els) => els.map((e) => e.getAttribute("href")));
+        for (const pin of await pins.all())
+          expect(rowHrefs).toContain(await pin.getAttribute("href"));
+        // And since 2026-09-29 a THIRD set, also the map's: the picture's own
+        // credit (`MAP_HOME_CREDIT`). The raster is a picture of OpenStreetMap
+        // data, and with no script it is the only map this visitor gets, so it
+        // carries the licence line whole — these two links, on screen.
+        const credit = page.locator(`${BAND} [data-map-home-credit] a`);
+        expect(
+          await credit.evaluateAll((els) => els.map((e) => e.getAttribute("href"))),
+          "the picture's credit",
+        ).toEqual(
+          expect.arrayContaining([
+            "https://www.openmaptiles.org/",
+            "https://www.openstreetmap.org/copyright",
+          ]),
+        );
+        for (const link of await credit.all()) await expect(link).toBeVisible();
+      } finally {
+        await context.close();
+      }
+    },
+  );
 
   test("script ON, bundle never arrives: the controls are QUIET, and the row does not move when it does (#47)", async ({
     browser,

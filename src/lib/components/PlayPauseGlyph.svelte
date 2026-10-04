@@ -11,7 +11,7 @@
   // ships, and the copies would drift the first time either box changed.
   // Extracted verbatim from CarouselArrows — the paths, the 25 box, the
   // `aria-hidden`/`focusable` pair and the `currentColor` fill are all
-  // unchanged, so CarouselArrows.test.ts's path-count assertions still measure
+  // unchanged, so CarouselArrows.test.ts's path-count assertions still measured
   // the same DOM.
   interface Props {
     /** True draws PLAY (the triangle) — i.e. what pressing it will do next. */

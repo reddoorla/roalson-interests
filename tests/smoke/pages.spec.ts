@@ -36,32 +36,38 @@ function attachConsoleWatcher(page: Page, extraAllowed: RegExp[] = []) {
 }
 
 for (const route of smokeRoutes) {
-  test(`${route.path} (${route.name}) loads with no console errors`, async ({ page }) => {
-    const expectedStatus = route.expectStatus ?? 200;
-    // A route whose expected status IS an error (e.g. "/" on the placeholder
-    // starter, see tests/smoke/routes.ts) makes the browser log "Failed to
-    // load resource: ... <status>" for the document itself — expected, not a
-    // bug. Same allowance as the dedicated 404-page test below.
-    const errors = attachConsoleWatcher(
-      page,
-      expectedStatus >= 400 ? [new RegExp(`Failed to load resource.*${expectedStatus}`, "i")] : [],
-    );
-    const response = await page.goto(route.path, {
-      waitUntil: "domcontentloaded",
-    });
-    expect(response?.status(), `HTTP status for ${route.path}`).toBe(expectedStatus);
-    if (route.hydrationMarker) {
-      // The marker waits on hydration, so it gets the cold-compile budget.
-      await expect(
-        page.locator(route.hydrationMarker),
-        `hydration marker "${route.hydrationMarker}" on ${route.path}`,
-      ).toBeVisible({ timeout: HYDRATION_TIMEOUT });
-    }
-    expect(errors, `console errors on ${route.path}`).toEqual([]);
-  });
+  test(
+    `${route.path} (${route.name}) loads with no console errors`,
+    { tag: "@smoke" },
+    async ({ page }) => {
+      const expectedStatus = route.expectStatus ?? 200;
+      // A route whose expected status IS an error (e.g. "/" on the placeholder
+      // starter, see tests/smoke/routes.ts) makes the browser log "Failed to
+      // load resource: ... <status>" for the document itself — expected, not a
+      // bug. Same allowance as the dedicated 404-page test below.
+      const errors = attachConsoleWatcher(
+        page,
+        expectedStatus >= 400
+          ? [new RegExp(`Failed to load resource.*${expectedStatus}`, "i")]
+          : [],
+      );
+      const response = await page.goto(route.path, {
+        waitUntil: "domcontentloaded",
+      });
+      expect(response?.status(), `HTTP status for ${route.path}`).toBe(expectedStatus);
+      if (route.hydrationMarker) {
+        // The marker waits on hydration, so it gets the cold-compile budget.
+        await expect(
+          page.locator(route.hydrationMarker),
+          `hydration marker "${route.hydrationMarker}" on ${route.path}`,
+        ).toBeVisible({ timeout: HYDRATION_TIMEOUT });
+      }
+      expect(errors, `console errors on ${route.path}`).toEqual([]);
+    },
+  );
 }
 
-test("404 page renders the custom error component", async ({ page }) => {
+test("404 page renders the custom error component", { tag: "@smoke" }, async ({ page }) => {
   // The browser logs a top-level "Failed to load resource: 404" for the page
   // itself — expected on a 404 route, not a bug. Allow it here.
   const errors = attachConsoleWatcher(page, [/Failed to load resource.*404/i]);
@@ -81,18 +87,22 @@ test("404 page renders the custom error component", async ({ page }) => {
 
 // The client struck "Total" from the listing price (Figma 1838699126). Every
 // listing page /properties links, as the build served it.
-test("no listing page says Total price, and the price row is there", async ({ request }) => {
-  test.skip(isPlaceholderRepo, "no listings before Prismic is wired");
-  const index = await (await request.get("/properties")).text();
-  const paths = new Set([...index.matchAll(/href="(\/properties\/[^"#?]+)"/g)].map((m) => m[1]));
-  expect(paths.size, "listing links on /properties").toBeGreaterThan(0);
-  let priced = 0;
-  for (const path of paths) {
-    const response = await request.get(path);
-    expect(response.status(), path).toBe(200);
-    const html = await response.text();
-    expect(/.{0,40}total price.{0,40}/i.exec(html)?.[0] ?? null, path).toBeNull();
-    if (/<dt[^>]*>Price<\/dt>/.test(html)) priced++;
-  }
-  expect(priced, "listing pages with a Price row").toBeGreaterThan(0);
-});
+test(
+  "no listing page says Total price, and the price row is there",
+  { tag: "@smoke" },
+  async ({ request }) => {
+    test.skip(isPlaceholderRepo, "no listings before Prismic is wired");
+    const index = await (await request.get("/properties")).text();
+    const paths = new Set([...index.matchAll(/href="(\/properties\/[^"#?]+)"/g)].map((m) => m[1]));
+    expect(paths.size, "listing links on /properties").toBeGreaterThan(0);
+    let priced = 0;
+    for (const path of paths) {
+      const response = await request.get(path);
+      expect(response.status(), path).toBe(200);
+      const html = await response.text();
+      expect(/.{0,40}total price.{0,40}/i.exec(html)?.[0] ?? null, path).toBeNull();
+      if (/<dt[^>]*>Price<\/dt>/.test(html)) priced++;
+    }
+    expect(priced, "listing pages with a Price row").toBeGreaterThan(0);
+  },
+);

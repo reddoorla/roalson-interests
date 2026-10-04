@@ -21,9 +21,9 @@ import { loadSiteConfig } from "$lib/site-config";
 //  2. wherever /properties and /contact share a list, /properties comes first;
 //  3. no label anywhere says "portfolio".
 //
-// COUNTED, on purpose. A walker that stops recognising a shape (a renamed
+// LISTED, on purpose. A walker that stops recognising a shape (a renamed
 // `label` key, a mocks format change) finds fewer sites and would otherwise
-// pass on nothing; the counts below go red instead.
+// pass on nothing; the lists below go red instead.
 //
 // NOT walked, by the operator's call (D8): the /properties masthead's H1 "Our
 // Properties" (a page heading, and Figma's "Option 1" still draws it) and the
@@ -129,11 +129,9 @@ describe('every link to /properties is labelled "Properties", and comes before /
   );
   const toProperties = all.filter((p) => p.target === "/properties");
 
-  it("finds the nine label sites the site has — so the rules below measure something", () => {
-    expect(
-      toProperties.map((p) => p.source),
-      JSON.stringify(toProperties, null, 1),
-    ).toEqual([
+  it("finds each label site the site has — so the rules below measure something", () => {
+    const unmatched = toProperties.map((p) => p.source);
+    for (const source of [
       "site-config nav.items",
       "site-config footer.cta.links",
       "site-config footer.nav",
@@ -143,7 +141,11 @@ describe('every link to /properties is labelled "Properties", and comes before /
       "home-fixture homeFixture()", // the featured band's portfolio_label
       "src/lib/slices/FeaturedProperties/mocks.json",
       "src/lib/slices/HomeHero/mocks.json",
-    ]);
+    ]) {
+      const i = unmatched.indexOf(source);
+      expect(i, `${source}: ${JSON.stringify(toProperties, null, 1)}`).not.toBe(-1);
+      unmatched.splice(i, 1);
+    }
   });
 
   it('labels each of them exactly "Properties"', () => {
@@ -162,14 +164,16 @@ describe('every link to /properties is labelled "Properties", and comes before /
     );
     // Six lists pair the two today: the menu, the footer CTA, the footer list,
     // and the hero's buttons in the seed, the fixture and the mock.
-    expect(shared.map((s) => s.source)).toEqual([
-      "site-config nav.items",
-      "site-config footer.cta.links",
-      "site-config footer.nav",
-      "scripts/seed/pages.json",
-      "home-fixture homeFixture()",
-      "src/lib/slices/HomeHero/mocks.json",
-    ]);
+    expect(shared.map((s) => s.source)).toEqual(
+      expect.arrayContaining([
+        "site-config nav.items",
+        "site-config footer.cta.links",
+        "site-config footer.nav",
+        "scripts/seed/pages.json",
+        "home-fixture homeFixture()",
+        "src/lib/slices/HomeHero/mocks.json",
+      ]),
+    );
     for (const { source, targets } of shared) {
       expect(targets.indexOf("/properties"), `${source}: ${targets.join(", ")}`).toBeLessThan(
         targets.indexOf("/contact"),

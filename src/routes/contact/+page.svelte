@@ -86,7 +86,7 @@
 
   <PageMasthead> must stay the FIRST tag: src/routes/nav-over.test.ts reads the
   first tag after the script and comments to check the route's `navOver: "dark"`
-  claim. A {#snippet} declared above it would become "the first band".
+  claim.
 
   No second <main>: the layout owns main#main-content.
 -->

@@ -228,95 +228,104 @@ test("--footer-h is the footer's own height, follows a resize, and paints above 
   await expect(page.locator("footer")).toHaveCSS("z-index", "10");
 });
 
-test("with scripting off the footer is whole, and --footer-h is simply unset", async ({
-  browser,
-}) => {
-  const context = await browser.newContext({ javaScriptEnabled: false });
-  try {
-    const page = await context.newPage();
-    await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto(LIGHT, { waitUntil: "domcontentloaded" });
-    const footer = page.locator("footer");
-    await expect(footer.locator("#footer-nav a")).toHaveText(["Properties", "Contact us"]);
-    await expect(footer.locator("address")).toContainText("San Antonio, TX 78258");
-    await expect(footer.getByRole("heading", { level: 2 })).toBeVisible();
-    // A reader of the property must fall back to 0 — nothing ever wrote it.
-    // Read from where Footer.svelte WRITES it, not grepped out of the page: the
-    // dev server inlines app.css into the document, and since the photo band
-    // that stylesheet reads the property by name (`var(--footer-h, 0px)`), so
-    // the string is in every page whether or not anything set it.
-    const written = await page.evaluate(() => ({
-      inline: document.documentElement.getAttribute("style") ?? "",
-      computed: getComputedStyle(document.documentElement).getPropertyValue("--footer-h"),
-    }));
-    expect(written.inline).not.toContain("--footer-h");
-    expect(written.computed).toBe("");
-  } finally {
-    await context.close();
-  }
-});
-
-test("#footer-nav is a jump target that lands clear of the pinned bar — script or no script", async ({
-  browser,
-}) => {
-  // A short viewport, so the page can scroll far enough for the margin to be
-  // what decides where the list lands (the footer is ~513 tall).
-  for (const javaScriptEnabled of [true, false]) {
-    const context = await browser.newContext({
-      javaScriptEnabled,
-      reducedMotion: "reduce",
-      viewport: { width: 1440, height: 400 },
-    });
+test(
+  "with scripting off the footer is whole, and --footer-h is simply unset",
+  { tag: "@smoke" },
+  async ({ browser }) => {
+    const context = await browser.newContext({ javaScriptEnabled: false });
     try {
       const page = await context.newPage();
-      await page.goto(`${LIGHT}#footer-nav`, {
-        waitUntil: javaScriptEnabled ? "load" : "domcontentloaded",
-      });
-      if (javaScriptEnabled) await hydrated(page);
-      // NOT a hydration wait, though it is spelled like one: this page's ground
-      // is light, so the server ships the bar already pinned and this is true
-      // with script off too. It is the claim the landing below is measured
-      // against.
-      const bar = page.locator('nav[aria-label="Primary"]');
-      await expect(bar).toHaveCSS("position", "fixed");
-      const read = () =>
-        page.evaluate(() => ({
-          list: document.querySelector("#footer-nav")!.getBoundingClientRect().top,
-          bar: document.querySelector('nav[aria-label="Primary"]')!.getBoundingClientRect().bottom,
-        }));
-      const label = `javaScriptEnabled=${javaScriptEnabled}`;
-      await expect.poll(async () => (await read()).list, label).toBeLessThan(400);
-      await expect
-        .poll(async () => {
-          const at = await read();
-          return at.list - at.bar;
-        }, label)
-        .toBeGreaterThanOrEqual(0);
+      await page.setViewportSize({ width: 1440, height: 900 });
+      await page.goto(LIGHT, { waitUntil: "domcontentloaded" });
+      const footer = page.locator("footer");
+      await expect(footer.locator("#footer-nav a")).toContainText(["Properties", "Contact us"]);
+      await expect(footer.locator("address")).toContainText("San Antonio, TX 78258");
+      await expect(footer.getByRole("heading", { level: 2 })).toBeVisible();
+      // A reader of the property must fall back to 0 — nothing ever wrote it.
+      // Read from where Footer.svelte WRITES it, not grepped out of the page: the
+      // dev server inlines app.css into the document, and since the photo band
+      // that stylesheet reads the property by name (`var(--footer-h, 0px)`), so
+      // the string is in every page whether or not anything set it.
+      const written = await page.evaluate(() => ({
+        inline: document.documentElement.getAttribute("style") ?? "",
+        computed: getComputedStyle(document.documentElement).getPropertyValue("--footer-h"),
+      }));
+      expect(written.inline).not.toContain("--footer-h");
+      expect(written.computed).toBe("");
     } finally {
       await context.close();
     }
-  }
-});
+  },
+);
 
-test("the footer has no axe violations, and its contrast was actually measured", async ({
-  page,
-}) => {
-  await page.goto(LISTING);
-  await hydrated(page);
-  const results = await axe(page)
-    .include("footer")
-    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
-    .analyze();
+test(
+  "#footer-nav is a jump target that lands clear of the pinned bar — script or no script",
+  { tag: "@smoke" },
+  async ({ browser }) => {
+    // A short viewport, so the page can scroll far enough for the margin to be
+    // what decides where the list lands (the footer is ~513 tall).
+    for (const javaScriptEnabled of [true, false]) {
+      const context = await browser.newContext({
+        javaScriptEnabled,
+        reducedMotion: "reduce",
+        viewport: { width: 1440, height: 400 },
+      });
+      try {
+        const page = await context.newPage();
+        await page.goto(`${LIGHT}#footer-nav`, {
+          waitUntil: javaScriptEnabled ? "load" : "domcontentloaded",
+        });
+        if (javaScriptEnabled) await hydrated(page);
+        // NOT a hydration wait, though it is spelled like one: this page's ground
+        // is light, so the server ships the bar already pinned and this is true
+        // with script off too. It is the claim the landing below is measured
+        // against.
+        const bar = page.locator('nav[aria-label="Primary"]');
+        await expect(bar).toHaveCSS("position", "fixed");
+        const read = () =>
+          page.evaluate(() => ({
+            list: document.querySelector("#footer-nav")!.getBoundingClientRect().top,
+            bar: document.querySelector('nav[aria-label="Primary"]')!.getBoundingClientRect()
+              .bottom,
+          }));
+        const label = `javaScriptEnabled=${javaScriptEnabled}`;
+        await expect.poll(async () => (await read()).list, label).toBeLessThan(400);
+        await expect
+          .poll(async () => {
+            const at = await read();
+            return at.list - at.bar;
+          }, label)
+          .toBeGreaterThanOrEqual(0);
+      } finally {
+        await context.close();
+      }
+    }
+  },
+);
 
-  // The two halves tests/a11y/fixtures.spec.ts insists on: a rule that threw
-  // is not a pass, and an empty `violations` must not mean "never looked".
-  const crashed = results.incomplete.flatMap((rule) =>
-    rule.nodes.flatMap((node) =>
-      [...node.any, ...node.all, ...node.none].filter((check) => check.id === "error-occurred"),
-    ),
-  );
-  expect(crashed).toEqual([]);
-  const contrast = results.passes.find((rule) => rule.id === "color-contrast");
-  expect(contrast?.nodes.length ?? 0, "color-contrast measured no footer text").toBeGreaterThan(5);
-  expect(results.violations).toEqual([]);
-});
+test(
+  "the footer has no axe violations, and its contrast was actually measured",
+  { tag: "@smoke" },
+  async ({ page }) => {
+    await page.goto(LISTING);
+    await hydrated(page);
+    const results = await axe(page)
+      .include("footer")
+      .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
+      .analyze();
+
+    // The two halves tests/a11y/fixtures.spec.ts insists on: a rule that threw
+    // is not a pass, and an empty `violations` must not mean "never looked".
+    const crashed = results.incomplete.flatMap((rule) =>
+      rule.nodes.flatMap((node) =>
+        [...node.any, ...node.all, ...node.none].filter((check) => check.id === "error-occurred"),
+      ),
+    );
+    expect(crashed).toEqual([]);
+    const contrast = results.passes.find((rule) => rule.id === "color-contrast");
+    expect(contrast?.nodes.length ?? 0, "color-contrast measured no footer text").toBeGreaterThan(
+      5,
+    );
+    expect(results.violations).toEqual([]);
+  },
+);

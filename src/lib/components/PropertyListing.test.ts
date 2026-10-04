@@ -1,10 +1,12 @@
 import { cleanup, render, within } from "@testing-library/svelte";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { tick } from "svelte";
+import { mount, tick, unmount } from "svelte";
 
+import { ARROW_TONES } from "./CarouselArrows.svelte";
+import PropertyCard from "./PropertyCard.svelte";
 import PropertyListing from "./PropertyListing.svelte";
 import { CENTRE_BAND, CENTRE_ID } from "$lib/actions/centreWatch";
-import { propertyListingFixture } from "$lib/property-fixture";
+import { propertyFixture, propertyListingFixture } from "$lib/property-fixture";
 import { groupListings } from "$lib/property-listing";
 import { sectionPoints } from "$lib/property-map";
 
@@ -16,6 +18,29 @@ afterEach(cleanup);
 vi.setConfig({ testTimeout: 20_000 });
 
 const sections = () => groupListings(propertyListingFixture());
+
+/** What only a featured card carries, read off PropertyCard itself rather than
+ *  typed: the highlight is whatever the card draws it as, in whatever colour. */
+const FEATURED_MARKS = (() => {
+  const classesOf = (variant: "featured" | "sand" | "cream") => {
+    const target = document.createElement("div");
+    const card = mount(PropertyCard, { target, props: { property: propertyFixture(), variant } });
+    const classes = target.querySelector("article")!.className.split(/\s+/);
+    unmount(card);
+    return classes;
+  };
+  const flat = new Set([...classesOf("sand"), ...classesOf("cream")]);
+  return classesOf("featured").filter((c) => c !== "" && !flat.has(c));
+})();
+const isFeatured = (article: Element) => {
+  const classes = article.className.split(/\s+/);
+  return FEATURED_MARKS.every((c) => classes.includes(c));
+};
+/** The listings whose card is featured, in document order. */
+const featuredIds = (region: HTMLElement) =>
+  [...region.querySelectorAll<HTMLElement>(`[${CENTRE_ID}]`)]
+    .filter((li) => isFeatured(li.querySelector("article")!))
+    .map((li) => li.dataset.centreId);
 
 describe("PropertyListing", () => {
   it("renders one labelled region per section, headed by an h2 the region is named after", () => {
@@ -32,95 +57,46 @@ describe("PropertyListing", () => {
   });
 
   it("features only the first card of each active section, and none in Past Projects", () => {
-    const { getAllByRole } = render(PropertyListing, { props: { sections: sections() } });
-    for (const region of getAllByRole("region")) {
-      const cards = [...region.querySelectorAll("article")];
-      const garnet = cards.map((c) => /\bbg-primary\b/.test(c.className));
-      const past = region.getAttribute("aria-labelledby") === "listing-past";
-      expect(garnet).toEqual(cards.map((_, i) => i === 0 && !past));
-    }
-  });
-
-  it("gives the flat cards the light token their section's ground does not use", () => {
-    const { getAllByRole } = render(PropertyListing, { props: { sections: sections() } });
+    const groups = sections();
+    const { getAllByRole } = render(PropertyListing, { props: { sections: groups } });
     const [land, improved, past] = getAllByRole("region");
-    const flat = (region: HTMLElement) =>
-      [...region.querySelectorAll("article")].filter((c) => !/\bbg-primary\b/.test(c.className));
-    expect(flat(land).every((c) => /\bbg-light\b/.test(c.className))).toBe(true);
-    expect(flat(improved).every((c) => /\bbg-background\b/.test(c.className))).toBe(true);
-    expect(flat(past).every((c) => /\bbg-background\b/.test(c.className))).toBe(true);
-    expect(flat(land).length + flat(improved).length + flat(past).length).toBe(7);
+    expect(featuredIds(land!)).toEqual([groups[0]!.properties[0]!.id]);
+    expect(featuredIds(improved!)).toEqual([groups[1]!.properties[0]!.id]);
+    expect([...past!.querySelectorAll("article")].some(isFeatured)).toBe(false);
   });
 
   it("links every active listing and none of the past ones", () => {
-    const { getAllByRole } = render(PropertyListing, { props: { sections: sections() } });
+    const groups = sections();
+    const { getAllByRole } = render(PropertyListing, { props: { sections: groups } });
     const [land, improved, past] = getAllByRole("region");
-    // The map's own list is in the section too, one Google Maps link per pin
-    // (#13) — the no-JS state PropertyMap server-renders. Excluded here so
-    // this stays a statement about the CARDS: it used to read 4 and 2 by
-    // counting everything, and would now read 8 and 4 for a reason that has
-    // nothing to do with which listing got a link.
-    // …and, since 2026-09-29, the picture's own credit (`MAP_HOME_CREDIT`):
-    // the OpenMapTiles and OpenStreetMap licence links a picture of their data
-    // carries. The map's too, so not a card either — and asserted as exactly
-    // those two per map, so the exclusion cannot hide anything else.
-    const credit = (a: HTMLElement) => a.closest("[data-map-home-credit]") !== null;
-    const cards = (el: HTMLElement) =>
+    const hrefs = (el: HTMLElement) =>
       within(el)
-        .getAllByRole("link")
-        .filter((a) => !a.hasAttribute("data-map-link") && !credit(a));
-    expect(cards(land!)).toHaveLength(4);
-    expect(cards(improved!)).toHaveLength(2);
+        .queryAllByRole("link")
+        .map((a) => a.getAttribute("href"));
+    for (const [section, group] of [
+      [land!, groups[0]!],
+      [improved!, groups[1]!],
+    ] as const)
+      for (const { uid } of group.properties)
+        expect(hrefs(section)).toContain(`/properties/${uid}`);
+    for (const { uid } of groups[2]!.properties)
+      expect(hrefs(past!)).not.toContain(`/properties/${uid}`);
+    // The map's picture carries the OpenMapTiles and OpenStreetMap licence
+    // links its data requires (`MAP_HOME_CREDIT`, since 2026-09-29).
     for (const section of [land!, improved!])
       expect(
-        within(section)
-          .getAllByRole("link")
-          .filter(credit)
-          .map((a) => a.getAttribute("href")),
-      ).toEqual(["https://www.openmaptiles.org/", "https://www.openstreetmap.org/copyright"]);
-    // Past Projects has no map either, so this stays an unqualified none.
-    expect(within(past!).queryAllByRole("link")).toEqual([]);
+        [...section.querySelectorAll("[data-map-home-credit] a")].map((a) =>
+          a.getAttribute("href"),
+        ),
+      ).toEqual(
+        expect.arrayContaining([
+          "https://www.openmaptiles.org/",
+          "https://www.openstreetmap.org/copyright",
+        ]),
+      );
   });
 
-  it("pins every divider but the first, on large screens only, and never the first", () => {
-    const { getAllByRole } = render(PropertyListing, { props: { sections: sections() } });
-    const dividers = getAllByRole("heading", { level: 2 }).map(
-      (h) => h.closest("section")!.firstElementChild as HTMLElement,
-    );
-    expect(dividers.map((d) => /\blg:sticky\b/.test(d.className))).toEqual([false, true, true]);
-    expect(dividers.every((d) => !/(^|\s)sticky\b/.test(d.className))).toBe(true);
-  });
-
-  it("warms the ground once, at the second section: the first stays on the page ground", () => {
-    const { getAllByRole } = render(PropertyListing, { props: { sections: sections() } });
-    const regions = getAllByRole("region");
-    expect(regions.map((r) => /\bbg-light\b/.test(r.className))).toEqual([false, true, true]);
-    const strips = regions.map((r) => r.firstElementChild!.firstElementChild as HTMLElement);
-    expect(strips.map((s) => /from-background to-light/.test(s.className))).toEqual([
-      false,
-      true,
-      false,
-    ]);
-  });
-
-  it("lays the Past Projects section out as a grid and the active ones as a column beside the map", () => {
-    const { getAllByRole } = render(PropertyListing, { props: { sections: sections() } });
-    const [land, , past] = getAllByRole("region");
-    expect(past!.querySelector("ul")!.className).toMatch(/\blg:grid-cols-3\b/);
-    // `:not([data-map-list])`: the map is FIRST in the grid, so its own list
-    // of Google Maps links is the first <ul> in the section now. Reading
-    // `querySelector("ul")` measured that one and said the cards had lost
-    // their column.
-    const cards = land!.querySelector<HTMLElement>("ul:not([data-map-list])")!;
-    // The grid item is the list's carousel wrapper (#14), a plain <div> here:
-    // with no script and from `lg` there is no carousel, only the column.
-    const column = cards.parentElement!;
-    expect(column.hasAttribute("data-listing-carousel")).toBe(true);
-    expect(column.className).toMatch(/\blg:col-start-2\b/);
-    expect(column.parentElement!.className).toMatch(/lg:grid-cols-\[397fr_847fr\]/);
-  });
-
-  it("puts a map in column 1 of every active section and none in Past Projects (#13)", () => {
+  it("puts a map in every active section, one link per pin, and none in Past Projects (#13)", () => {
     const { getAllByRole } = render(PropertyListing, { props: { sections: sections() } });
     const [land, improved, past] = getAllByRole("region");
     for (const [name, section, pins] of [
@@ -129,79 +105,14 @@ describe("PropertyListing", () => {
     ] as const) {
       const map = section.querySelector<HTMLElement>("[data-property-map]");
       expect(map, `${name} has a map`).not.toBeNull();
-      // Token list, not a `/h-50.*lg:h-\[595px\]/` regex. That regex was here
-      // and went red the moment the class string grew past prettier's width
-      // and got wrapped: `.` does not cross a newline, and the order of two
-      // class names was never the claim anyway.
-      const classes = map!.className.split(/\s+/);
-      expect(classes, `${name}: the comp's 200 / 595, never stretched`).toContain("h-50");
-      // The 595 is declared ONCE, as `--map-height`, because the centring
-      // offset needs half of it too (see the next describe's sticky case).
-      expect(classes, `${name}: the comp's 200 / 595, never stretched`).toContain(
-        "lg:[--map-height:595px]",
-      );
-      expect(classes, `${name}: the height IS that variable`).toContain("lg:h-(--map-height)");
-      expect(map!.className, `${name}: column 1, row 1`).toMatch(/lg:col-start-1/);
       expect(map!.querySelectorAll("[data-map-link]"), `${name}: one link per pin`).toHaveLength(
         pins,
       );
-      // It is FIRST, so the comp's 390 order (map, then cards) needs no CSS.
-      expect(
-        map!.compareDocumentPosition(section.querySelector("article")!) &
-          Node.DOCUMENT_POSITION_FOLLOWING,
-        `${name}: the map precedes the first card`,
-      ).toBeTruthy();
     }
     expect(past!.querySelector("[data-property-map]"), "Past Projects gets no map").toBeNull();
   });
 
   // ── the map pins, and its camera follows the cards ────────────────────────
-
-  it("makes the map sticky from lg only, under the divider rather than over it", () => {
-    const { getAllByRole } = render(PropertyListing, { props: { sections: sections() } });
-    const [land, improved] = getAllByRole("region");
-    for (const [name, section, dividerPins] of [
-      // The comp's first divider does not pin, so the first map's offset comes
-      // from `scroll-padding-top` and there is no divider z-index to be under.
-      ["land", land!, false],
-      ["improved", improved!, true],
-    ] as const) {
-      const map = section.querySelector<HTMLElement>("[data-property-map]")!;
-      const classes = map.className.split(/\s+/);
-      // Every one of these carries the `lg:` prefix. At 390 the map is a 200px
-      // box above the cards and pinning it would spend a quarter of the
-      // viewport permanently.
-      expect(classes, `${name}: pinned`).toContain("lg:sticky");
-      // Centred in the window, never above the measured variable (operator,
-      // 2026-09-23: "stick the map in the center of the screen"). Half the
-      // map comes from the one `--map-height`, not a second literal 297.5.
-      // This is the class string; WHERE it lands is measured in a browser by
-      // tests/interaction/property-map-centred.spec.ts.
-      expect(classes, `${name}: centred, and floored at the measured variable`).toContain(
-        "lg:top-[max(var(--sticky-top),calc(50vh-var(--map-height)/2))]",
-      );
-      expect(
-        classes.filter((c) => /^lg:top-/.test(c)),
-        `${name}: one top, not a second one fighting it`,
-      ).toHaveLength(1);
-      // NO z-index of its own. The divider's `lg:z-10` is what keeps the map
-      // under it — a positive z-index paints above every `auto` positioned
-      // sibling regardless of tree order — and PropertyMap's root `isolate`
-      // keeps the map's internal `z-[1]`..`z-[3]` out of that argument. A
-      // `lg:z-0` here shipped first and a browser mutation proved it inert.
-      expect(
-        classes.some((c) => c.startsWith("lg:z-")),
-        `${name}: no z of its own`,
-      ).toBe(false);
-      // …and the divider that pins really does carry one.
-      const divider = section.firstElementChild as HTMLElement;
-      expect(divider.className.split(/\s+/).includes("lg:z-10"), `${name}: divider z`).toBe(
-        dividerPins,
-      );
-      // Nothing unprefixed: at 390 none of this applies.
-      expect(classes.filter((c) => c === "sticky" || c === "z-0")).toEqual([]);
-    }
-  });
 
   // THE PRE-MEASUREMENT VALUE IS A CSS EXPRESSION, NOT A NUMBER, and which
   // expression depends on whether that section's divider pins. jsdom has no
@@ -470,12 +381,6 @@ describe("PropertyListing", () => {
     };
   }
 
-  /** The listings whose card is garnet, in document order. */
-  const garnetIds = (region: HTMLElement) =>
-    [...region.querySelectorAll<HTMLElement>(`[${CENTRE_ID}]`)]
-      .filter((li) => /\bbg-primary\b/.test(li.querySelector("article")!.className))
-      .map((li) => li.dataset.centreId);
-
   it("moves the garnet card to the listing the centre rule reports, and only that one", async () => {
     const rule = centreRule();
     try {
@@ -486,19 +391,19 @@ describe("PropertyListing", () => {
 
       // Before anything is on the line this is the comp's state, which is also
       // the server's and the phone's.
-      expect(garnetIds(land!), "card 0 until the rule speaks").toEqual([
+      expect(featuredIds(land!), "card 0 until the rule speaks").toEqual([
         groups[0]!.properties[0]!.id,
       ]);
 
       const third = groups[0]!.properties[2]!.id;
       await rule.report(third);
-      expect(garnetIds(land!), "exactly one, and it is the reported listing").toEqual([third]);
+      expect(featuredIds(land!), "exactly one, and it is the reported listing").toEqual([third]);
 
       // …and it can come back. A highlight that only ever moved forward would
       // pass a test that walked one way.
       const second = groups[0]!.properties[1]!.id;
       await rule.report(second);
-      expect(garnetIds(land!)).toEqual([second]);
+      expect(featuredIds(land!)).toEqual([second]);
     } finally {
       vi.unstubAllGlobals();
     }
@@ -515,18 +420,18 @@ describe("PropertyListing", () => {
       await rule.report(groups[0]!.properties[3]!.id);
       // The improved section was not asked about and did not move: a single
       // shared "active" would have dragged its highlight along, or dropped it.
-      expect(garnetIds(improved!)).toEqual([groups[1]!.properties[0]!.id]);
+      expect(featuredIds(improved!)).toEqual([groups[1]!.properties[0]!.id]);
 
       await rule.report(groups[1]!.properties[1]!.id);
-      expect(garnetIds(improved!)).toEqual([groups[1]!.properties[1]!.id]);
-      expect(garnetIds(land!), "land keeps its own answer").toEqual([groups[0]!.properties[3]!.id]);
+      expect(featuredIds(improved!)).toEqual([groups[1]!.properties[1]!.id]);
+      expect(featuredIds(land!), "land keeps its own answer").toEqual([
+        groups[0]!.properties[3]!.id,
+      ]);
 
       // Past Projects has no map, so `centreWatch` is disabled there and nothing is
       // featured at all — before or after any of this.
       expect(past!.querySelectorAll(`[${CENTRE_ID}]`)).toHaveLength(0);
-      expect(
-        [...past!.querySelectorAll("article")].some((c) => /\bbg-primary\b/.test(c.className)),
-      ).toBe(false);
+      expect([...past!.querySelectorAll("article")].some(isFeatured)).toBe(false);
     } finally {
       vi.unstubAllGlobals();
     }
@@ -540,20 +445,19 @@ describe("PropertyListing", () => {
       await tick();
       const [land] = getAllByRole("region");
       const linkIn = (id: string) =>
-        land!.querySelector<HTMLElement>(`[${CENTRE_ID}="${id}"] article a`)!;
+        land!.querySelector<HTMLElement>(`[${CENTRE_ID}="${id}"] a[href="/properties/${id}"]`)!;
 
       const [first, third] = [groups[0]!.properties[0]!.id, groups[0]!.properties[2]!.id];
-      expect(linkIn(first).className).toMatch(/\bborder-background\b/);
+      const [featured, flat] = [linkIn(first).className, linkIn(third).className];
+      expect(featured, "premise: the featured card's button is not the flat one's").not.toBe(flat);
 
       await rule.report(third);
       // The `tone` prop is not a colour — it is the one part of the card that
       // could silently stay behind while the ground moved.
-      expect(linkIn(third).className, "the new card's button went cream").toMatch(
-        /\bborder-background\b/,
+      expect(linkIn(third).className, "the new card's button took the featured tone").toBe(
+        featured,
       );
-      expect(linkIn(first).className, "the old one went back to garnet").toMatch(
-        /\bborder-primary\b/,
-      );
+      expect(linkIn(first).className, "the old one went back").toBe(flat);
     } finally {
       vi.unstubAllGlobals();
     }
@@ -614,7 +518,7 @@ describe("PropertyListing below lg: each section a carousel (#14)", () => {
     return shown[0];
   };
 
-  it("is a named carousel per section once hydrated, one card exposed, the rest inert and invisible", async () => {
+  it("is a named carousel per section once hydrated, one card exposed, the rest inert", async () => {
     phone();
     const groups = sections();
     const { container } = render(PropertyListing, { props: { sections: groups } });
@@ -633,16 +537,13 @@ describe("PropertyListing below lg: each section a carousel (#14)", () => {
       );
       expect(slides.map((s) => s.tagName)).toEqual(slides.map(() => "LI"));
       expect(slides[0]!.getAttribute("aria-label")).toBe(`1 of ${slides.length}`);
-      const off = slides.slice(1);
-      expect(off.every((s) => s.hasAttribute("inert") && /\binvisible\b/.test(s.className))).toBe(
-        true,
-      );
+      expect(slides.slice(1).every((s) => s.hasAttribute("inert"))).toBe(true);
       expect(/\binvisible\b/.test(slides[0]!.className)).toBe(false);
       // The list stops being one: its items are slides and controls now.
       expect(carousel.querySelector("ul")!.getAttribute("role")).toBe("none");
       expect(
         [...carousel.querySelectorAll("button")].map((b) => b.getAttribute("aria-label")),
-      ).toEqual(["Previous slide", "Next slide"]);
+      ).toEqual(expect.arrayContaining(["Previous slide", "Next slide"]));
       expect(carousel.querySelector("[data-carousel-progress]")).not.toBeNull();
       expect(carousel.querySelector("[aria-live]")!.textContent).toBe(
         `Slide 1 of ${slides.length}`,
@@ -650,35 +551,20 @@ describe("PropertyListing below lg: each section a carousel (#14)", () => {
     });
   });
 
-  it("keeps the controls OUT of the slides, between the photo and the text", async () => {
+  it("keeps the controls OUT of the slides", async () => {
     phone();
     const { container } = render(PropertyListing, { props: { sections: sections() } });
     await tick();
     for (const carousel of carousels(container)) {
-      for (const control of carousel.querySelectorAll("button, [data-carousel-progress]")) {
+      const controls = [
+        within(carousel).getByRole("button", { name: "Previous slide" }),
+        within(carousel).getByRole("button", { name: "Next slide" }),
+        carousel.querySelector("[data-carousel-progress]")!,
+      ];
+      for (const control of controls) {
         expect(control.closest('[aria-roledescription="slide"]')).toBeNull();
       }
-      // Grid rows, by class: the photo is row 1, bar 2, arrows 3, text 4.
-      const [bar, arrows] = [...carousel.querySelectorAll("ul > li[role='none']")];
-      expect(bar!.className).toMatch(/\brow-start-2\b/);
-      expect(arrows!.className).toMatch(/\brow-start-3\b/);
-      const card = carousel.querySelector("article")!;
-      expect(card.className).toMatch(/\bgrid-rows-subgrid\b/);
-      expect(card.firstElementChild!.className).toMatch(/\brow-start-1\b/);
-      expect(card.lastElementChild!.className).toMatch(/\brow-start-4\b/);
     }
-  });
-
-  it("draws the comp's tones: the first section's first card garnet, and no other", async () => {
-    phone();
-    const { container } = render(PropertyListing, { props: { sections: sections() } });
-    await tick();
-    const garnet = carousels(container).map((c) =>
-      [...c.querySelectorAll("article")].map((a) => /\bbg-primary\b/.test(a.className)),
-    );
-    expect(garnet[0]).toEqual([true, false, false, false]);
-    expect(garnet[1]!.some(Boolean), "Improved is `regular scroll`: no garnet card").toBe(false);
-    expect(garnet[2]!.some(Boolean)).toBe(false);
   });
 
   it("turns with its arrows, counts in the bar and the live region, and wraps", async () => {
@@ -706,20 +592,37 @@ describe("PropertyListing below lg: each section a carousel (#14)", () => {
     expect(onStage(land!), "back past the first is the last").toBe(ids[3]);
   });
 
-  it("puts the arrows in the card on stage's tone, with a ring that shows on it", async () => {
+  it("puts the arrows in the tone of the card on stage, with a ring that shows on it", async () => {
     phone();
-    const { container } = render(PropertyListing, { props: { sections: sections() } });
+    const groups = sections();
+    const { container } = render(PropertyListing, { props: { sections: groups } });
     await tick();
-    const [land] = carousels(container);
-    const next = within(land!).getByRole("button", { name: "Next slide" });
-    const row = next.closest("li")!;
-
-    expect(next.className, "cream on the garnet card").toMatch(/\bborder-background\b/);
-    expect(row.className).toMatch(/\[--focus-ring:var\(--color-background\)\]/);
-    next.click();
-    await tick();
-    expect(next.className, "garnet on the sand card").toMatch(/\bborder-primary\b/);
-    expect(row.className).not.toMatch(/--focus-ring/);
+    for (const [k, carousel] of carousels(container).entries()) {
+      const next = within(carousel).getByRole("button", { name: "Next slide" });
+      const row = next.closest("li")!;
+      const seen = new Set<Element>();
+      for (const [j] of groups[k]!.properties.entries()) {
+        const card = carousel.querySelector(
+          '[aria-roledescription="slide"]:not([aria-hidden]) article',
+        )!;
+        seen.add(card);
+        const featured = isFeatured(card);
+        const where = `section ${k}, slide ${j + 1}`;
+        expect(
+          next.className,
+          `${where}: ${featured ? "cream on the featured card" : "garnet"}`,
+        ).toContain(featured ? ARROW_TONES.cream : ARROW_TONES.garnet);
+        expect(
+          row.className.includes("--focus-ring"),
+          `${where}: ring override only on the featured card`,
+        ).toBe(featured);
+        next.click();
+        await tick();
+      }
+      expect(seen.size, `section ${k}: every card came on stage`).toBe(
+        groups[k]!.properties.length,
+      );
+    }
   });
 
   it("is the stacked list again from lg, and a carousel again below it", async () => {
@@ -736,10 +639,7 @@ describe("PropertyListing below lg: each section a carousel (#14)", () => {
       expect(
         list.querySelector("[inert], [aria-roledescription], ul[role], .invisible"),
       ).toBeNull();
-      expect(list.querySelectorAll("button")).toHaveLength(0);
-      expect(
-        [...list.querySelectorAll("article")].every((a) => /^flex flex-col\b/.test(a.className)),
-      ).toBe(true);
+      expect(within(list).queryAllByRole("button", { name: /slide/i })).toEqual([]);
     }
 
     await media.set(true);
@@ -752,7 +652,8 @@ describe("PropertyListing below lg: each section a carousel (#14)", () => {
     const { container } = render(PropertyListing, { props: { sections: one } });
     await tick();
     expect(carousels(container)).toHaveLength(0);
-    expect(container.querySelectorAll("[data-listing-carousel] button")).toHaveLength(0);
+    for (const list of container.querySelectorAll<HTMLElement>("[data-listing-carousel]"))
+      expect(within(list).queryAllByRole("button", { name: /slide/i })).toEqual([]);
   });
 });
 

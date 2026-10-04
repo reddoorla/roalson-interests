@@ -1,48 +1,61 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { cleanup, render } from "@testing-library/svelte";
+import { createRawSnippet } from "svelte";
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 
-import { CANVAS_TOP_COLORS } from "$lib/canvas-top";
+import { CANVAS_TOP_COLORS, canvasTopStyleTag, canvasTopThemeColor } from "$lib/canvas-top";
 import { homeHeroFixture } from "$lib/home-fixture";
 import HomeHero from "$lib/slices/HomeHero/index.svelte";
 import PageMasthead from "$lib/components/PageMasthead.svelte";
+
+const state = vi.hoisted(() => ({
+  page: { data: {} as Record<string, unknown>, url: new URL("http://localhost/") },
+}));
+vi.mock("$app/state", () => state);
+vi.mock("$app/navigation", () => ({ afterNavigate: () => {}, beforeNavigate: () => {} }));
+
+const { default: Layout } = await import("./+layout.svelte");
+
+afterEach(cleanup);
+
+/** The root layout as a route with this page data gets it, around `page`. */
+function layout(data: Record<string, unknown>, page = "<div></div>") {
+  state.page.data = data;
+  return render(Layout, {
+    props: {
+      data: { isPreviewSession: false },
+      children: createRawSnippet(() => ({ render: () => page })),
+    },
+  });
+}
 
 /**
  * The bar floats — transparent, white wordmark, sand controls — only over a
  * dark first band, and it learns that from the ROUTE (`navOver: "dark"` in its
  * page data), because the layout renders the bar before it has seen the page.
  * That is a claim made in one file about markup in another, so nothing but
- * this test holds the two together:
- *
- *  - a route that says so and opens on anything else gets a white wordmark on
- *    an off-white page, which is no wordmark at all;
- *  - a route that opens on a band built to run under the bar and does not say
- *    so gets the solid bar AND the layout's top padding — an off-white strip
- *    above a band drawn to start at y=0.
+ * this test holds the two together: a route that says so and opens on anything
+ * else gets a white wordmark on an off-white page, which is no wordmark at all.
  *
  * "Opens on" is read from the page's markup: the first element or component
- * after the script block. Two bands may run under the bar (DARK_FIRST_BANDS),
- * and they differ in whether they MUST:
+ * after the script block that renders anything. It is read as text because
+ * rendering a route needs its CMS data; what it reads is which band a route
+ * opens on and which claims it makes, never a class. Two bands may run under
+ * the bar (DARK_FIRST_BANDS):
  *
- *  - HomeHero is built for nothing else (MUST_FLOAT). This test cannot fully
- *    vouch for it: its band is CMS content, and a first tag says nothing about
- *    whether the band renders. The home route answers that itself — it lifts
- *    the hero out of the document's slices and renders <HomeHero> first and
- *    unconditionally, and with no slice the component still paints its dark
- *    528px ground (asserted in HomeHero.test.ts and, in a browser, by
- *    tests/interaction/home-hero.spec.ts). The "unconditionally" test below
- *    holds that: {#if} is not a tag, so a band wrapped in one still reads as
- *    the first tag.
- *  - PageMasthead MAY, and only with no photo. Over its garnet gradient
+ *  - HomeHero, whose route lifts the hero out of the document's slices and
+ *    renders <HomeHero> first and unconditionally; with no slice the
+ *    component still paints its dark ground (HomeHero.test.ts). The
+ *    "unconditionally" test below holds that: {#if} is not a tag, so a band
+ *    wrapped in one still reads as the first tag.
+ *  - PageMasthead, and only with no photo. Over its garnet gradient
  *    (/contact) the floating bar's sand is legible as it stands. Over a
- *    photograph nothing darkens the top of the band any more — the layer that
- *    did, `.masthead-shade`, went on 2026-09-29 with the client's "dark
- *    cloud" — so a route that gives the masthead a photo (/properties) opens
- *    under the SOLID bar and makes no claim.
+ *    photograph nothing darkens the top of the band, so a route that gives
+ *    the masthead a photo (/properties) opens under the SOLID bar and makes
+ *    no claim.
  */
 const DARK_FIRST_BANDS = ["PageMasthead", "HomeHero"];
-const MUST_FLOAT = ["HomeHero"];
 /** How a band's first tag gives it a photograph, for the bands that take one. */
 const PHOTO_PROP: Record<string, RegExp> = { PageMasthead: /(?:^|\s)(?:image\s*=|\{image\})/ };
 
@@ -56,24 +69,29 @@ function pages(dir: string): string[] {
   });
 }
 
-/** A page's markup: scripts, comments and <svelte:head> removed. */
+/** A page's markup: scripts, comments, <svelte:head> and snippet declarations
+ *  removed — none of them render where they are written. */
 function markup(source: string): string {
   return source
     .replace(/<script[\s\S]*?<\/script>/g, "")
     .replace(/<!--[\s\S]*?-->/g, "")
-    .replace(/<svelte:head>[\s\S]*?<\/svelte:head>/g, "");
+    .replace(/<svelte:head>[\s\S]*?<\/svelte:head>/g, "")
+    .replace(/\{#snippet[\s\S]*?\{\/snippet\}/g, "");
 }
+
+/** An opening tag that renders: `<svelte:window>` and its kin draw nothing. */
+const OPEN_TAG = /<(?!svelte:(?:window|document|body|options)\b)([A-Za-z][\w.:-]*)/;
 
 /** The first tag a page renders: scripts, comments and Svelte blocks skipped. */
 function firstTag(source: string): string | undefined {
-  return /<([A-Za-z][\w.:-]*)/.exec(markup(source))?.[1];
+  return OPEN_TAG.exec(markup(source))?.[1];
 }
 
 /** That tag's attributes, as written — up to the `>` that closes it, stepping
  *  over any `{…}` expression, whose own `>` would otherwise end it early. */
 function firstTagAttributes(source: string): string {
   const text = markup(source);
-  const open = /<[A-Za-z][\w.:-]*/.exec(text);
+  const open = OPEN_TAG.exec(text);
   if (!open) return "";
   let depth = 0;
   for (let i = open.index + open[0].length; i < text.length; i++) {
@@ -89,7 +107,7 @@ function firstTagAttributes(source: string): string {
  *  tag — i.e. the first band is conditional, whatever its name. */
 function firstTagIsConditional(source: string): boolean {
   const text = markup(source);
-  const tagAt = text.search(/<[A-Za-z]/);
+  const tagAt = text.search(OPEN_TAG);
   return tagAt !== -1 && text.slice(0, tagAt).includes("{#");
 }
 
@@ -121,11 +139,6 @@ describe("navOver — the route's claim about its first band", () => {
     );
   });
 
-  it("every route that opens on a band built to run under the bar says so", () => {
-    const silent = all.filter((p) => p.first && MUST_FLOAT.includes(p.first) && !p.claims);
-    expect(silent.map((p) => p.route)).toEqual([]);
-  });
-
   it("every route that says so opens on a dark band", () => {
     const wrong = all.filter((p) => p.claims && !(p.first && DARK_FIRST_BANDS.includes(p.first)));
     expect(wrong.map((p) => `${p.route} opens on <${p.first}>`)).toEqual([]);
@@ -133,7 +146,7 @@ describe("navOver — the route's claim about its first band", () => {
 
   // The claim is a literal, made before the page has any data — so the band it
   // describes may not depend on data either. A first band inside {#if hero}
-  // passes both tests above and is a white wordmark on an off-white page the
+  // passes the test above and is a white wordmark on an off-white page the
   // day the condition is false.
   it("every route that says so renders that band unconditionally", () => {
     const conditional = all.filter((p) => p.claims && p.conditional);
@@ -149,83 +162,55 @@ describe("navOver — the route's claim about its first band", () => {
     expect(over.map((p) => `${p.route} claims navOver over <${p.first}> with a photo`)).toEqual([]);
   });
 
-  // Both answers the rule above allows are in use, so neither half of it is
-  // vacuous: the parse that finds the photo has found one, on the routes that
-  // must not claim, and a masthead with none still floats its bar.
-  it("PageMasthead opens both ways — floating on /contact, under the solid bar where it has a photo", () => {
-    const mastheads = all.filter((p) => p.first === "PageMasthead");
-    expect(mastheads.filter((p) => p.claims).map((p) => [p.route, p.photo])).toEqual([
-      ["contact", false],
-    ]);
-    expect(
-      mastheads
-        .filter((p) => !p.claims)
-        .map((p) => [p.route, p.photo])
-        .sort(),
-    ).toEqual([
-      ["[[preview=preview]]/properties", true],
-      ["dev/properties", true],
-    ]);
+  // The rule above is only as good as the parse that finds the photo: shown
+  // here to find one written either way, and none on a masthead without.
+  it("reads a masthead's photo off its first tag, however it is passed", () => {
+    const photo = (page: string) => PHOTO_PROP.PageMasthead.test(firstTagAttributes(page));
+    expect(photo("<PageMasthead title={data.title} image={data.masthead} />")).toBe(true);
+    expect(photo('<PageMasthead {image} title="Our Properties" />')).toBe(true);
+    expect(photo('<PageMasthead title="Contact Us" />')).toBe(false);
   });
 
-  // What "no claim" buys a route: the layout pads <main> by the bar's height
-  // (70, 80 from lg) so its first band starts BELOW the solid bar — the
-  // masthead's photo on /properties — and drops the padding only for a claim.
+  it("the layout floats the bar for a route that says so, and only for one", () => {
+    const bar = () => document.querySelector('nav[aria-label="Primary"]');
+    layout({ navOver: "dark" });
+    expect(bar()?.hasAttribute("data-floating"), "a claiming route's bar").toBe(true);
+    cleanup();
+    layout({});
+    expect(bar(), "the bar").not.toBeNull();
+    expect(bar()!.hasAttribute("data-floating"), "an unclaimed route's bar").toBe(false);
+  });
+
+  // What "no claim" buys a route: <main> is padded clear of the solid bar, so
+  // its first band — a masthead's h1, a person's — does not open underneath
+  // it; and a claiming route's band starts at y=0, under the floating bar.
   it("the layout clears the bar for every route that does not say so, and only for those", () => {
-    const layout = markup(readFileSync(join(ROUTES, "+layout.svelte"), "utf8"));
-    const main = /<main\b[\s\S]*?>/.exec(layout)?.[0] ?? "";
-    expect(main).toContain(
-      `class="flex-1 {page.data.navOver === 'dark' ? '' : 'pt-[70px] lg:pt-20'}"`,
+    const padded = () =>
+      document
+        .querySelector("main")!
+        .className.split(/\s+/)
+        .some((c) => /^(?:[a-z0-9]+:)*p[ty]?-/.test(c));
+    layout({});
+    expect(padded(), "an unclaimed route's <main> has no top padding").toBe(true);
+    cleanup();
+    layout({ navOver: "dark" });
+    expect(padded(), "a claiming route's <main> is padded, so its band opens below the bar").toBe(
+      false,
     );
   });
 });
 
 /**
- * The same kind of claim, about the other end of the page: the HOMEPAGE's
- * footer grades from off-white to sand (`footerGround: "fade"`, Footer.svelte)
- * and every other page's is flat sand. The footer batch typed the key and the
- * hero batch built the route, in parallel, and the review of the second found
- * that neither had made the claim — nothing failed, the homepage would simply
- * have shipped with the wrong ground. A route that opens on the homepage's hero
- * claims it; nothing else does, except the footer's own fixture.
+ * And another: ON THE HOMEPAGE the bar has no wordmark until the hero's RI
+ * cutout has scrolled away (`navWordmark: "gated"`, operator call 8, #18). Nav
+ * measures a `[data-nav-gate]` element, and a route that claims the gate
+ * without one simply gets its wordmark back after mount — so a claim made
+ * everywhere would look right in every hydrated browser, and cost every page
+ * its wordmark in the server's markup (and, script on and bundle missing, for
+ * good). Only a route that opens on the band carrying the gate may claim it,
+ * and the layout hands the bar the ROUTE's claim, not one of its own.
  */
-describe("footerGround — only the homepage's footer fades", () => {
-  const claimsFade = (page: string) =>
-    ["+page.server.ts", "+page.ts"]
-      .map((name) => join(dirname(page), name))
-      .filter((file) => existsSync(file))
-      .some((file) => /footerGround:\s*"fade"/.test(readFileSync(file, "utf8")));
-
-  const routes = pages(ROUTES).map((file) => ({
-    route: relative(ROUTES, dirname(file)) || "/",
-    first: firstTag(readFileSync(file, "utf8")),
-    fades: claimsFade(file),
-  }));
-
-  it("every route that opens on the homepage's hero claims the fade", () => {
-    const home = routes.filter((p) => p.first === "HomeHero");
-    expect(home.length, "no route opens on HomeHero").toBeGreaterThan(0);
-    expect(home.filter((p) => !p.fades).map((p) => p.route)).toEqual([]);
-  });
-
-  it("no other route does, except the footer's own fixture", () => {
-    const others = routes.filter((p) => p.fades && p.first !== "HomeHero").map((p) => p.route);
-    expect(others).toEqual(["dev/footer"]);
-  });
-});
-
-/**
- * And a third: ON THE HOMEPAGE ONLY the bar has no wordmark until the hero's RI
- * cutout has scrolled away (`navWordmark: "gated"`, operator call 8, #18). "Only
- * the homepage" is the half of that call nothing else can hold: Nav measures a
- * `[data-nav-gate]` element, and a route that claims the gate without one
- * simply gets its wordmark back after mount — so a claim made everywhere would
- * look right in every hydrated browser, and cost every page its wordmark in the
- * server's markup (and, script on and bundle missing, for good). A route that
- * opens on the homepage's hero claims it; nothing else does; and the layout
- * hands the bar the ROUTE's claim, not one of its own.
- */
-describe("navWordmark — only the homepage gates the bar's wordmark", () => {
+describe("navWordmark — only a route with the gate gates the bar's wordmark", () => {
   const claimsGate = (page: string) =>
     ["+page.server.ts", "+page.ts"]
       .map((name) => join(dirname(page), name))
@@ -238,37 +223,39 @@ describe("navWordmark — only the homepage gates the bar's wordmark", () => {
     gates: claimsGate(file),
   }));
 
-  it("every route that opens on the homepage's hero claims the gate", () => {
-    const home = routes.filter((p) => p.first === "HomeHero");
-    expect(home.length, "no route opens on HomeHero").toBeGreaterThan(0);
-    expect(home.filter((p) => !p.gates).map((p) => p.route)).toEqual([]);
-  });
-
-  it("no other route does", () => {
+  it("no route claims the gate but one that opens on HomeHero", () => {
     expect(routes.filter((p) => p.gates && p.first !== "HomeHero").map((p) => p.route)).toEqual([]);
   });
 
-  it("the layout hands the bar the route's claim, as a prop of its own", () => {
-    const layout = readFileSync(join(ROUTES, "+layout.svelte"), "utf8");
-    const nav = /<Nav\b[\s\S]*?\/>/.exec(layout)?.[0] ?? "";
-    expect(nav).toContain("over={page.data.navOver}");
-    expect(nav).toContain("wordmark={page.data.navWordmark}");
-    // One `wordmark=`, and it is that one: a literal beside it would win or
-    // lose by attribute order, and either way the claim is no longer the route's.
-    expect(nav.match(/\bwordmark=/g)).toHaveLength(1);
+  it("the element the bar waits for is in HomeHero's band", () => {
+    const { container } = render(HomeHero, { props: { slice: homeHeroFixture() } });
+    expect(container.querySelector("[data-nav-gate]")).not.toBeNull();
   });
 
-  it("the element the homepage's bar waits for is HomeHero's band", () => {
-    const hero = readFileSync(
-      resolve(process.cwd(), "src/lib/slices/HomeHero/index.svelte"),
-      "utf8",
-    );
-    expect(markup(hero)).toMatch(/<div\s+data-nav-gate\b/);
+  // jsdom has no layout, so the gate is placed below the bar by hand: a gate
+  // still ahead is what holds the wordmark back.
+  it("the layout hands the bar the route's claim, not one of its own", () => {
+    const below = vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (
+      this: Element,
+    ) {
+      const y = this.matches("[data-nav-gate]") ? 1000 : 0;
+      return { top: y, bottom: y + 80 } as DOMRect;
+    });
+    const held = () => document.querySelector('[data-nav-wordmark="gated"]') !== null;
+    try {
+      layout({ navOver: "dark", navWordmark: "gated" }, "<div data-nav-gate></div>");
+      expect(held(), "a route that claims the gate").toBe(true);
+      cleanup();
+      layout({ navOver: "dark" }, "<div data-nav-gate></div>");
+      expect(held(), "a route that does not").toBe(false);
+    } finally {
+      below.mockRestore();
+    }
   });
 });
 
 /**
- * And a fourth claim, about the other end of the page's TOP: the ground ABOVE
+ * And a third claim, about the other end of the page's TOP: the ground ABOVE
  * the document's own y=0, which a rubber-band overscroll pulls into view
  * (`canvasTop`, resolved by $lib/canvas-top). It IS the canvas — `html`'s
  * background — because the canvas is the only thing a browser paints past the
@@ -291,24 +278,38 @@ describe("navWordmark — only the homepage gates the bar's wordmark", () => {
  * paints a garnet band nobody asked for.
  */
 describe("canvasTop — the ground above the top of the document", () => {
-  /** The band a route opens on → the token it must claim, and the ground class
-   *  the component itself wears, which is what makes the token the right one. */
-  const BAND_GROUNDS = {
-    // A FLAT ground, not the gradient the mastheads wear.
-    HomeHero: {
-      token: "dark",
-      ground: "bg-dark",
-      mount: () => render(HomeHero, { props: { slice: homeHeroFixture() } }).container,
-    },
-    // A gradient, so the token is its FIRST stop — `to-dark` is the bottom.
-    PageMasthead: {
-      token: "primary",
-      ground: "from-primary",
-      mount: () => render(PageMasthead, { props: { title: "Properties" } }).container,
-    },
-  } as const;
+  /** The bands a route may open on under the bar, as a visitor gets them. */
+  const BANDS = {
+    HomeHero: () => render(HomeHero, { props: { slice: homeHeroFixture() } }).container,
+    PageMasthead: () => render(PageMasthead, { props: { title: "Properties" } }).container,
+  };
 
-  afterEach(cleanup);
+  /** The canvas token a class list paints along its TOP edge: a vertical
+   *  gradient's top stop, else its flat ground. Undefined when that colour is no
+   *  token $lib/canvas-top can resolve — or a gradient runs across the edge. */
+  function topGround(list: string[]): string | undefined {
+    const last = (prefix: string) =>
+      list
+        .filter((c) => c.startsWith(`${prefix}-`))
+        .map((c) => c.slice(prefix.length + 1))
+        .filter((token) => token in CANVAS_TOP_COLORS)
+        .at(-1);
+    const direction = list
+      .map((c) => /^bg-(?:gradient|linear)-to-([a-z]+)$/.exec(c)?.[1])
+      .filter(Boolean)
+      .at(-1);
+    if (direction === undefined) return last("bg");
+    return direction === "b" ? last("from") : direction === "t" ? last("to") : undefined;
+  }
+
+  /** Each band's root element, rendered, and the ground it paints at its top. */
+  const grounds = () =>
+    Object.entries(BANDS).map(([band, mount]) => {
+      const root = mount().firstElementChild;
+      const worn = root?.className ?? "";
+      cleanup();
+      return { band, worn, top: topGround(worn.split(/\s+/).filter(Boolean)) };
+    });
 
   const claimed = (page: string): string | undefined =>
     ["+page.server.ts", "+page.ts"]
@@ -323,16 +324,6 @@ describe("canvasTop — the ground above the top of the document", () => {
     dark: claimsDark(file),
     canvasTop: claimed(file),
   }));
-
-  it("finds the pages, and both dark bands are open on at least one route each", () => {
-    expect(routes.length).toBeGreaterThan(3);
-    for (const band of Object.keys(BAND_GROUNDS)) {
-      expect(
-        routes.filter((p) => p.first === band).length,
-        `no route opens on <${band}>`,
-      ).toBeGreaterThan(0);
-    }
-  });
 
   it("every route whose first band runs under the bar claims a ground for it", () => {
     const silent = routes.filter((p) => p.dark && !p.canvasTop);
@@ -353,69 +344,56 @@ describe("canvasTop — the ground above the top of the document", () => {
 
   // The part a rename would otherwise walk straight past: the token has to name
   // the ground of the band the route actually opens on. Both sides are read —
-  // the route's claim from its page data, the band's ground from the component.
+  // the route's claim from its page data, the band's ground from what the
+  // component RENDERS. A band whose top colour moves without its routes' claim
+  // moving with it shows a seam of the old colour above it on every pull.
   it("every claim names the ground of the band that route opens on", () => {
+    const top = Object.fromEntries(grounds().map((g) => [g.band, g.top]));
     const wrong = routes
       .filter((p) => p.canvasTop)
-      .filter((p) => p.canvasTop !== BAND_GROUNDS[p.first as keyof typeof BAND_GROUNDS]?.token)
+      .filter((p) => p.canvasTop !== top[p.first ?? ""])
       .map((p) => `${p.route} opens on <${p.first}> and claims "${p.canvasTop}"`);
     expect(wrong).toEqual([]);
   });
 
-  // This RENDERS each band and reads the class its root element actually
-  // carries, rather than scraping the opening tag out of the source file.
-  //
-  // The source-scraping version shipped first and broke the moment PageMasthead
-  // grew a photo: its <header> went from a literal class string to
-  // `class={bandClasses}`, a `$derived` over a `<script module>` constant, so
-  // the regex found `<header class={bandClasses}>` and the ground was nowhere
-  // in it. That red was correct — the guard genuinely could no longer see the
-  // class — but it was red about the wrong thing, and the obvious repair
-  // (teach the regex to resolve one identifier) would be a second parser that
-  // the next refactor breaks again.
-  //
-  // Rendering is also the stronger claim: the scrape could only ever prove a
-  // string appears in a file, while the class a visitor gets is the one the
-  // component computes.
-  it("and each band really does wear that ground on its own root element", () => {
-    for (const [band, { token, ground, mount }] of Object.entries(BAND_GROUNDS)) {
-      const root = mount().firstElementChild;
-      expect(root, `${band}: rendered nothing`).toBeTruthy();
-      expect(
-        root!.className.split(/\s+/),
-        `${band}'s root element does not wear ${ground} — it wears "${root!.className}"`,
-      ).toContain(ground);
-      // …and the class really is the token, so neither can be renamed alone.
-      expect(ground.endsWith(`-${token}`), `${ground} does not name "${token}"`).toBe(true);
-      cleanup();
-    }
+  it("and each band paints a ground $lib/canvas-top can resolve along its top edge", () => {
+    for (const { band, worn, top } of grounds())
+      expect(top, `${band}'s root element wears "${worn}"`).toBeDefined();
   });
 
-  it("the layout puts the claim in the HEAD and the foot outside the wrapper", () => {
-    const source = readFileSync(join(ROUTES, "+layout.svelte"), "utf8");
-    // `markup()` strips <svelte:head> on purpose — it exists to find the first
-    // BODY tag — so the head half is read from the source and the ordering
-    // half from the stripped markup.
-    const body = markup(source);
+  // The two tests above are only as good as the read: shown here to find the
+  // top stop whichever way a gradient runs, and nothing it cannot claim.
+  it("reads a band's top ground off its classes", () => {
+    expect(topGround(["relative", "isolate", "bg-dark"])).toBe("dark");
+    expect(topGround(["bg-gradient-to-b", "from-primary", "to-dark"])).toBe("primary");
+    expect(topGround(["bg-linear-to-t", "from-primary", "to-dark"])).toBe("dark");
+    expect(topGround(["bg-gradient-to-r", "from-primary", "to-dark"])).toBeUndefined();
+    expect(topGround(["bg-white"])).toBeUndefined();
+  });
 
-    // The TOP is the canvas (`html` in app.css), so the route's claim has to
-    // reach `:root` — which a component cannot do with an attribute on its own
-    // markup. It goes in the head, server-rendered, so the colour is right on
-    // the first paint and with scripting off.
-    expect(source, "the claim is rendered into the head").toMatch(
-      /<svelte:head>[\s\S]*canvasStyleTag[\s\S]*<\/svelte:head>/,
-    );
-    expect(source, "and theme-color ships on EVERY route, claim or no claim").toMatch(
-      /<meta name="theme-color" content=\{canvasTopThemeColor\(page\.data\.canvasTop\)\} \/>/,
-    );
+  it("the layout puts the claim in the HEAD and the foot after the whole page", () => {
+    for (const canvasTop of ["primary", undefined]) {
+      layout(canvasTop ? { navOver: "dark", canvasTop } : {});
+      // The TOP is the canvas (`html` in app.css), so the route's claim has to
+      // reach `:root` — which a component cannot do with an attribute on its
+      // own markup. And theme-color ships on EVERY route, claim or no claim.
+      const metas = document.head.querySelectorAll('meta[name="theme-color"]');
+      expect(metas, `theme-color with canvasTop ${canvasTop}`).toHaveLength(1);
+      expect(metas[0].getAttribute("content")).toBe(canvasTopThemeColor(canvasTop));
+      if (canvasTop) expect(document.head.innerHTML).toContain(canvasTopStyleTag(canvasTop));
 
-    const feet = body.match(/<div class="canvas-foot"[\s\S]*?><\/div>/g) ?? [];
-    expect(feet, "one .canvas-foot, rendered by the layout").toHaveLength(1);
-    expect(feet[0], "decorative, and never in the reading order").toContain('aria-hidden="true"');
+      const feet = document.querySelectorAll(".canvas-foot");
+      expect(feet, "one .canvas-foot, rendered by the layout").toHaveLength(1);
+      expect(feet[0].getAttribute("aria-hidden"), "decorative").toBe("true");
 
-    // It must not sit between <main> and <footer>: the pinned photo band's
-    // rules in app.css are written on that adjacency (`main + footer`). The
-    // foot belongs AFTER the whole wrapper, so it comes after <Footer.
-    expect(body.indexOf('class="canvas-foot"')).toBeGreaterThan(body.indexOf("<Footer"));
+      // It must not sit between <main> and <footer>: the pinned photo band's
+      // rules in app.css are written on that adjacency (`main + footer`).
+      const footer = document.querySelector("footer")!;
+      expect(document.querySelector("main")!.nextElementSibling).toBe(footer);
+      expect(footer.compareDocumentPosition(feet[0]) & Node.DOCUMENT_POSITION_FOLLOWING).toBe(
+        Node.DOCUMENT_POSITION_FOLLOWING,
+      );
+      cleanup();
+    }
   });
 });

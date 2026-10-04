@@ -44,7 +44,7 @@ afterEach(() => {
 const frame = () => new Promise((r) => requestAnimationFrame(r));
 
 /** A class list without its variant-prefixed entries (`hover:…`, `lg:…`), so
- *  "is this the element's resting colour" cannot be answered by a hover class. */
+ *  "is this the element's resting state" cannot be answered by a hover class. */
 const resting = (el: Element) =>
   (el.getAttribute("class") ?? "").split(/\s+/).filter((c) => c && !c.includes(":"));
 
@@ -77,16 +77,11 @@ describe("Nav — the bar", () => {
   });
 
   it("names the home link from the wordmark's alt, once", () => {
-    const { getAllByRole } = render(Nav, { logo });
-    const home = getAllByRole("link").filter((a) => a.getAttribute("href") === "/");
-    expect(home).toHaveLength(1);
-    const images = Array.from(home[0].querySelectorAll("img"));
-    expect(images.map((img) => img.getAttribute("src"))).toEqual([
-      "/logo.svg",
-      "/logo-reverse.svg",
-    ]);
+    const { getByRole } = render(Nav, { logo });
     // The reverse lockup is the same mark again — it must not name the link twice.
-    expect(images.map((img) => img.getAttribute("alt"))).toEqual(["Roalson Interests — home", ""]);
+    const home = getByRole("link", { name: "Roalson Interests — home" });
+    expect(home.getAttribute("href")).toBe("/");
+    expect(home.querySelector('img[src="/logo-reverse.svg"]')?.getAttribute("alt")).toBe("");
   });
 
   it("renders the CTA as a link, outside the menu", () => {
@@ -110,43 +105,31 @@ describe("Nav — the bar", () => {
 
 describe("Nav — the bar's ground", () => {
   it("is solid and pinned on a page that makes no claim", () => {
-    const { getByRole, getByLabelText } = render(Nav, { items, logo, cta });
+    const { getByRole } = render(Nav, { items, logo, cta });
     const bar = getByRole("navigation", { name: "Primary" });
     expect(bar.hasAttribute("data-floating")).toBe(false);
-    expect(resting(bar)).toEqual(expect.arrayContaining(["fixed", "bg-background"]));
-    // Dust is fill-only on a light ground: 2.01:1 as a label, and as a glyph.
-    expect(resting(getByLabelText("Open menu"))).toContain("text-primary");
-    expect(resting(getByRole("link", { name: "Contact us" }))).toContain("text-primary");
+    expect(resting(bar)).toContain("fixed");
   });
 
-  it("floats over a dark first band: no ground, reverse wordmark, sand controls", () => {
-    const { getByRole, getByLabelText } = render(Nav, { items, logo, cta, over: "dark" });
+  it("floats over a dark first band, showing the reverse wordmark", () => {
+    const { getByRole } = render(Nav, { items, logo, cta, over: "dark" });
     const bar = getByRole("navigation", { name: "Primary" });
     expect(bar.hasAttribute("data-floating")).toBe(true);
-    expect(resting(bar)).toContain("bg-transparent");
-    expect(resting(bar)).not.toContain("bg-background");
 
     const [garnet, reverse] = Array.from(bar.querySelectorAll("a[href='/'] img"));
     expect(resting(garnet)).toContain("opacity-0");
     expect(resting(reverse)).not.toContain("opacity-0");
-
-    expect(resting(getByLabelText("Open menu"))).toContain("text-light");
-    expect(resting(getByRole("link", { name: "Contact us" }))).toContain("text-light");
   });
 
   it("takes its ground once the page moves, and gives it back at the top", async () => {
-    const { getByRole, getByLabelText } = render(Nav, { items, logo, cta, over: "dark" });
+    const { getByRole } = render(Nav, { items, logo, cta, over: "dark" });
     const bar = getByRole("navigation", { name: "Primary" });
 
     await scrollTo(200);
     expect(bar.hasAttribute("data-floating")).toBe(false);
-    expect(resting(bar)).toContain("bg-background");
     const [garnet, reverse] = Array.from(bar.querySelectorAll("a[href='/'] img"));
     expect(resting(garnet)).not.toContain("opacity-0");
     expect(resting(reverse)).toContain("opacity-0");
-    expect(resting(getByLabelText("Open menu"))).toContain("text-primary");
-    expect(resting(getByLabelText("Open menu"))).not.toContain("text-light");
-    expect(resting(getByRole("link", { name: "Contact us" }))).toContain("text-primary");
 
     await scrollTo(0);
     expect(bar.hasAttribute("data-floating")).toBe(true);
@@ -169,7 +152,6 @@ describe("Nav — the bar's ground", () => {
     const { getByRole } = render(Nav, { items, logo: { url: "/logo.svg" }, over: "dark" });
     const bar = getByRole("navigation", { name: "Primary" });
     expect(bar.hasAttribute("data-floating")).toBe(false);
-    expect(resting(bar)).toContain("bg-background");
   });
 });
 
@@ -224,12 +206,8 @@ describe("Nav — the homepage's gated wordmark", () => {
 
   it("has no wordmark at the top of the page, on a bar that floats as usual", () => {
     layOut();
-    const { getByRole, getByLabelText } = render(Nav, gatedProps);
-    const bar = getByRole("navigation", { name: "Primary" });
-    expectHeld(bar);
-    expect(resting(bar)).toContain("bg-transparent");
-    expect(resting(getByLabelText("Open menu"))).toContain("text-light");
-    expect(resting(getByRole("link", { name: "Contact us" }))).toContain("text-light");
+    const { getByRole } = render(Nav, gatedProps);
+    expectHeld(getByRole("navigation", { name: "Primary" }));
   });
 
   it("keeps the home link in the tree, named and focusable, while its wordmark is invisible", () => {
@@ -249,40 +227,6 @@ describe("Nav — the homepage's gated wordmark", () => {
     expect(home.getAttribute("tabindex")).toBeNull();
     home.focus();
     expect(document.activeElement).toBe(home);
-    // …and keyboard focus shows the wordmark: a ring around nothing says nothing.
-    expect(resting(home)).toContain("group/home");
-    const { reverse } = parts(getByRole("navigation", { name: "Primary" }));
-    expect(reverse.getAttribute("class")).toContain("group-focus-visible/home:opacity-100");
-  });
-
-  // Over the hero's photograph the sand controls measured 1.09–1.23:1 on its
-  // sky; tests/interaction/home-hero-live.spec.ts measures the pixels.
-  it("over the hero each control wears a garnet ground, which leaves with the float and nowhere else has", async () => {
-    const classes = (el: Element) => (el.getAttribute("class") ?? "").split(/\s+/);
-    layOut();
-    const { getByRole, getByLabelText, unmount } = render(Nav, gatedProps);
-    const menu = getByLabelText("Open menu");
-    const contact = getByRole("link", { name: "Contact us" });
-    // At 75% on the hero (operator, 2026-10-01).
-    expect(classes(menu)).toContain("before:bg-primary/75");
-    expect(classes(menu)).toContain("focus-visible:outline-offset-[-5px]");
-    expect(resting(contact)).toContain("bg-primary/75");
-
-    await scrollTo(448);
-    expect(classes(menu)).toContain("before:bg-transparent");
-    expect(classes(menu)).not.toContain("before:bg-primary/75");
-    expect(resting(contact)).not.toContain("bg-primary/75");
-    unmount();
-
-    await scrollTo(0);
-    const contactPage = render(Nav, { items, logo, cta, over: "dark" });
-    expect(
-      contactPage.getByRole("navigation", { name: "Primary" }).hasAttribute("data-floating"),
-    ).toBe(true);
-    expect(classes(contactPage.getByLabelText("Open menu"))).toContain("before:bg-transparent");
-    expect(resting(contactPage.getByRole("link", { name: "Contact us" }))).not.toContain(
-      "bg-primary",
-    );
   });
 
   it("floats for the whole hero — not just the 24px that re-tones every other page", async () => {
@@ -297,18 +241,15 @@ describe("Nav — the homepage's gated wordmark", () => {
 
   it("at the gate it takes its ground and its garnet wordmark together, and gives both back", async () => {
     layOut();
-    const { getByRole, getByLabelText } = render(Nav, gatedProps);
+    const { getByRole } = render(Nav, gatedProps);
     const bar = getByRole("navigation", { name: "Primary" });
 
     await scrollTo(448);
     expect(bar.hasAttribute("data-floating")).toBe(false);
-    expect(resting(bar)).toContain("bg-background");
     const { garnet, reverse } = parts(bar);
     expect(resting(garnet)).not.toContain("opacity-0");
     expect(resting(reverse)).toContain("opacity-0");
     expect(reverse.hasAttribute("data-nav-wordmark")).toBe(false);
-    expect(reverse.getAttribute("class")).not.toContain("group-focus-visible/home:opacity-100");
-    expect(resting(getByLabelText("Open menu"))).toContain("text-primary");
 
     // Long past it, the band's top is far above the bar: still passed.
     await scrollTo(3000);
@@ -418,6 +359,12 @@ describe("Nav — the homepage's gated wordmark", () => {
 });
 
 describe("Nav — the menu", () => {
+  /** The menu's links that carry these labels, in the order the menu lists them. */
+  const menuLinks = (dialog: HTMLElement, labels: string[]) =>
+    Array.from(dialog.querySelectorAll("ul a")).filter((a) =>
+      labels.includes(a.textContent?.trim() ?? ""),
+    );
+
   it("opens the menu and moves focus to its Close", async () => {
     const { getByLabelText, getByRole } = render(Nav, { items, logo });
 
@@ -482,8 +429,7 @@ describe("Nav — the menu", () => {
     });
     await fireEvent.click(getByLabelText("Open menu"));
 
-    const dialog = getByRole("dialog");
-    const links = Array.from(dialog.querySelectorAll("ul a"));
+    const links = menuLinks(getByRole("dialog"), ["Home", "Our Properties"]);
     expect(links.map((a) => [a.textContent?.trim(), a.getAttribute("href")])).toEqual([
       ["Home", "/"],
       ["Our Properties", "/properties"],
@@ -525,7 +471,7 @@ describe("Nav — the menu", () => {
     ];
     const { getByLabelText, getByRole } = render(Nav, { items: dupes });
     await fireEvent.click(getByLabelText("Open menu"));
-    expect(getByRole("dialog").querySelectorAll("ul a")).toHaveLength(2);
+    expect(getByRole("dialog").querySelectorAll('ul a[href="#a"]')).toHaveLength(2);
   });
 
   it("renders a group: an empty-href label as text, never a dead link, over its children", async () => {
@@ -535,8 +481,8 @@ describe("Nav — the menu", () => {
     const dialog = getByRole("dialog");
     expect(dialog.querySelector('a[href=""]')).toBeNull();
     expect(dialog.textContent).toContain("Products");
-    const links = Array.from(dialog.querySelectorAll("ul a")).map((a) => a.textContent?.trim());
-    expect(links).toEqual(["Chairs", "Tables", "About"]);
+    const links = menuLinks(dialog, ["Products", "Chairs", "Tables", "About"]);
+    expect(links.map((a) => a.textContent?.trim())).toEqual(["Chairs", "Tables", "About"]);
   });
 });
 

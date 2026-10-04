@@ -601,14 +601,12 @@ main > section.hero-band:first-child {
    why it lives here beside the palette rather than in a scoped <style> block.
    (Svelte's scoping also stamps its hash class onto the band itself, and the
    band with no photo has to stay byte-identical to what it was before the
-   photo existed. PageMasthead.test.ts pins that.)
+   photo existed.)
 
    Sized against a PURE WHITE photo pixel, not against the photo we happen to
    have: the picture is content an editor replaces, so the guarantee has to
    hold for whatever they upload next. PageMasthead.test.ts parses these stops
-   and recomputes the ratio, with a CEILING as well as a floor: a floor alone
-   let this band drift darker than its ink needed, and that was the client's
-   "too dark" (2026-09-24). tests/interaction/masthead-scrim.spec.ts samples
+   and recomputes the ratio. tests/interaction/masthead-scrim.spec.ts samples
    the painted pixels. The component's header comment carries the reasoning
    and the numbers measured on the real asset.
 

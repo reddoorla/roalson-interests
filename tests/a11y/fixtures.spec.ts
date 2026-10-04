@@ -7,7 +7,7 @@ const pages = [
 ];
 
 for (const { path, name } of pages) {
-  test(`${name} has no axe violations`, async ({ page }) => {
+  test(`${name} has no axe violations`, { tag: "@smoke" }, async ({ page }) => {
     // Audit under reduced-motion: the animate-in effects no-op (elements render
     // at full opacity immediately), so axe never samples a mid-fade element —
     // whose blended color would trip a spurious color-contrast violation. This

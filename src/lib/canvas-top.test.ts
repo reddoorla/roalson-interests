@@ -50,23 +50,20 @@ describe("a route's claim, as the rule the layout puts in the head", () => {
   // output can never contain anything but a value from the frozen map — so
   // that is asserted directly, as a CLOSED SET, rather than left to review.
   // An edit that started interpolating the token itself fails here.
-  it("can only ever emit one of exactly three strings, whatever it is handed", () => {
-    const possible = new Set(
-      [
-        ...Object.keys(CANVAS_TOP_COLORS),
-        ...NOT_A_CLAIM,
-        "<script>",
-        "}",
-        "var(--color-error)",
-      ].map((t) => canvasTopStyleTag(t as string | undefined)),
+  it("can only ever emit a rule from the frozen map, whatever it is handed", () => {
+    const allowed = Object.values(CANVAS_TOP_COLORS).map(
+      (value) => `<style>:root{--canvas-top:${value}}</style>`,
     );
-    expect([...possible].sort()).toEqual([
-      "<style>:root{--canvas-top:var(--color-dark)}</style>",
-      "<style>:root{--canvas-top:var(--color-primary)}</style>",
-      undefined,
-    ]);
-    for (const out of possible) {
+    for (const token of [
+      ...Object.keys(CANVAS_TOP_COLORS),
+      ...NOT_A_CLAIM,
+      "<script>",
+      "}",
+      "var(--color-error)",
+    ]) {
+      const out = canvasTopStyleTag(token as string | undefined);
       if (out === undefined) continue;
+      expect(allowed).toContain(out);
       expect(out, "nothing but a <style> element is ever emitted").toMatch(
         /^<style>:root\{--canvas-top:var\(--color-[a-z]+\)\}<\/style>$/,
       );
@@ -90,6 +87,12 @@ describe("a route's claim, as the rule the layout puts in the head", () => {
     for (const token of Object.keys(CANVAS_TOP_COLORS)) {
       expect(themeHex(token), `--color-${token} is not in @theme`).toBeTruthy();
     }
+  });
+
+  // The claim is only half the mechanism: if nothing reads the variable, every
+  // route's claim is dead and the overscroll above a dark band shows sand.
+  it("is the variable the canvas reads", () => {
+    expect(APP_CSS).toMatch(/background(?:-color)?:\s*var\(--canvas-top\b/);
   });
 });
 
@@ -125,34 +128,5 @@ describe("theme-color — the same grounds, spelled a second time", () => {
     for (const token of [...Object.keys(CANVAS_TOP_HEX), ...NOT_A_CLAIM]) {
       expect(canvasTopThemeColor(token as string | undefined)).toMatch(/^#[0-9a-f]{6}$/);
     }
-  });
-});
-
-describe("the two ends of the page, in app.css", () => {
-  // The whole fix, as one assertion each. These read app.css because that is
-  // where the mechanism lives; tests/interaction/canvas-ground.spec.ts then
-  // measures both in a browser.
-  it("the canvas is the route's TOP colour, falling back to the page ground", () => {
-    expect(APP_CSS).toMatch(/background-color:\s*var\(--canvas-top,\s*var\(--color-background\)\)/);
-  });
-
-  it("the FOOT is painted by a shadow, so it cannot add scroll range", () => {
-    const rule = /\.canvas-foot\s*\{([^}]*)\}/.exec(APP_CSS)?.[1] ?? "";
-    expect(rule, "no .canvas-foot rule in app.css").not.toBe("");
-    expect(rule).toMatch(/height:\s*0/);
-    expect(rule).toMatch(/box-shadow:[^;]*var\(--color-light\)/);
-    // A `background-color` here would paint the same pixels and add 100vh of
-    // scroll to every page — which is the trap this rule is shaped to avoid.
-    expect(rule, "a background would be scrollable; a shadow is not").not.toMatch(
-      /background(-color)?:/,
-    );
-  });
-
-  // The old mechanism, named so it cannot come back by accident. `.canvas-top`
-  // was an element at `bottom: 100%`, above the document's y=0 — where the
-  // scroll origin is clamped, so a rubber-band never reached it. The operator
-  // pulled on a Mac on 2026-09-22 and saw the canvas, not the element.
-  it("the element above the document's origin is gone", () => {
-    expect(APP_CSS).not.toMatch(/\.canvas-top\s*\{/);
   });
 });

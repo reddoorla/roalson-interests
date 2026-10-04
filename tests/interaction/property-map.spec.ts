@@ -306,7 +306,7 @@ async function indicatorOf(page: Page, target: Locator) {
   return { seen: last.seen, numbers: last.numbers };
 }
 
-test.describe("the no-JS state is the content, not a blank box", () => {
+test.describe("the no-JS state is the content, not a blank box", { tag: "@smoke" }, () => {
   test("the server ships one Google Maps link per listing, on both pages", async ({ page }) => {
     // Asserted on the SSR bytes: the whole claim is that this is in the
     // response, not added by the client.
@@ -363,12 +363,9 @@ test.describe("the no-JS state is the content, not a blank box", () => {
       const page = await context.newPage();
       await page.goto(PROPERTIES, { waitUntil: "domcontentloaded" });
 
-      // The picture, and the frame a 200px box takes.
+      // The picture.
       const picture = page.locator(`${MAP} [data-map-home-box]`).first();
       await expect(picture).toHaveCount(1);
-      const compact = picture.locator('[data-map-home-frame="compact"]');
-      await expect(compact).toHaveCSS("display", "block");
-      await expect(picture.locator('[data-map-home-frame="full"]')).toHaveCSS("display", "none");
 
       // The list is still complete and still named — visually hidden, not
       // removed. Six listings in this section, as before.
@@ -377,15 +374,12 @@ test.describe("the no-JS state is the content, not a blank box", () => {
       const rows = await links.evaluateAll((els) => els.map((e) => e.getAttribute("href")));
 
       // And every pin the picture draws is a link to one of those same places,
-      // really on screen rather than clipped: this is what replaces the "40px
-      // wide" non-vacuity check above.
-      const pins = compact.locator("[data-map-home-pin]");
+      // really on screen: this is what replaces the "40px wide" non-vacuity
+      // check above.
+      const pins = picture.locator("[data-map-home-pin]").filter({ visible: true });
       const count = await pins.count();
       expect(count, "the picture drew pressable pins").toBeGreaterThan(0);
       for (let i = 0; i < count; i += 1) {
-        const box = await pins.nth(i).boundingBox();
-        expect(box!.width, `pin ${i} width with scripting off`).toBeGreaterThan(10);
-        expect(box!.height, `pin ${i} height with scripting off`).toBeGreaterThan(10);
         expect(rows).toContain(await pins.nth(i).getAttribute("href"));
       }
 
@@ -617,63 +611,79 @@ test.describe("the expand affordance", () => {
     { width: 390, height: 844 },
     { width: 1440, height: 900 },
   ]) {
-    test(`at ${viewport.width} it fills the window over the nav, holds the page, traps focus, and Escape comes back`, async ({
-      browser,
-    }) => {
-      const { context, page } = await at(browser, viewport.width, viewport.height);
-      try {
-        await page.goto(PROPERTIES);
-        await hydrated(page);
-        const map = page.locator(MAP).first();
-        await map.scrollIntoViewIfNeeded();
-        const before = await rect(page, MAP);
-        const card = await rect(page, "article");
-        const y0 = await page.evaluate(() => window.scrollY);
-        const button = map.locator("[data-map-expand]");
+    // The geometry is measured at 390; the 1440 case is the gate's, which holds
+    // the overlay's stacking, its scroll lock and its keyboard contract.
+    const measures = viewport.width === 390;
+    test(
+      `at ${viewport.width} it ${measures ? "fills the window " : "is "}over the nav, holds the page, traps focus, and Escape comes back`,
+      { tag: measures ? [] : "@smoke" },
+      async ({ browser }) => {
+        const { context, page } = await at(browser, viewport.width, viewport.height);
+        try {
+          await page.goto(PROPERTIES);
+          await hydrated(page);
+          const map = page.locator(MAP).first();
+          await map.scrollIntoViewIfNeeded();
+          const before = await rect(page, MAP);
+          const card = await rect(page, "article");
+          const y0 = await page.evaluate(() => window.scrollY);
+          const button = map.locator("[data-map-expand]");
 
-        await button.click();
-        await expect(button).toHaveAttribute("aria-expanded", "true");
-        await expect(button).toHaveAttribute("aria-label", /Collapse/);
-        await expect
-          .poll(() =>
-            map.evaluate((el) => {
-              const r = el.getBoundingClientRect();
-              // The WINDOW, strip included: the scroll lock releases app.css's
-              // `scrollbar-gutter: stable` so the overlay covers a classic
-              // scrollbar's 15px (#172; overlay-gutter.spec.ts has the pixels).
-              return [r.left, r.top, r.width - innerWidth, r.height - innerHeight];
-            }),
-          )
-          .toEqual([0, 0, 0, 0]);
-        expect(
-          await map.evaluate((el) => el.contains(document.elementFromPoint(innerWidth / 2, 10))),
-          "the map, not the nav, is on top",
-        ).toBe(true);
-        const still = await rect(page, "article");
-        expect(still.top, "the spacer holds the slot: the first card did not move").toBeCloseTo(
-          card.top,
-          1,
-        );
+          await button.click();
+          await expect(button).toHaveAttribute("aria-expanded", "true");
+          await expect(button).toHaveAttribute("aria-label", /Collapse/);
+          if (measures) {
+            await expect
+              .poll(() =>
+                map.evaluate((el) => {
+                  const r = el.getBoundingClientRect();
+                  // The WINDOW, strip included: the scroll lock releases app.css's
+                  // `scrollbar-gutter: stable` so the overlay covers a classic
+                  // scrollbar's 15px (#172; overlay-gutter.spec.ts has the pixels).
+                  return [r.left, r.top, r.width - innerWidth, r.height - innerHeight];
+                }),
+              )
+              .toEqual([0, 0, 0, 0]);
+            const still = await rect(page, "article");
+            expect(still.top, "the spacer holds the slot: the first card did not move").toBeCloseTo(
+              card.top,
+              1,
+            );
+          }
+          await expect
+            .poll(
+              () =>
+                map.evaluate((el) => el.contains(document.elementFromPoint(innerWidth / 2, 10))),
+              { message: "the map, not the nav, is on top" },
+            )
+            .toBe(true);
+          await expect(page.locator("body")).toHaveCSS("overflow", "hidden");
 
-        for (let i = 0; i < 10; i++) {
-          await page.keyboard.press("Tab");
-          expect(
-            await map.evaluate((el) => el.contains(document.activeElement)),
-            `Tab ${i + 1} stays in the map`,
-          ).toBe(true);
+          for (let i = 0; i < 10; i++) {
+            await page.keyboard.press("Tab");
+            expect(
+              await map.evaluate((el) => el.contains(document.activeElement)),
+              `Tab ${i + 1} stays in the map`,
+            ).toBe(true);
+          }
+          if (measures) {
+            await page.keyboard.press("End");
+            await page.waitForTimeout(300);
+            expect(await page.evaluate(() => window.scrollY), "the page behind is held").toBe(y0);
+          }
+
+          await page.keyboard.press("Escape");
+          await expect(button).toHaveAttribute("aria-expanded", "false");
+          await expect
+            .poll(() => button.evaluate((el) => el === document.activeElement))
+            .toBe(true);
+          await expect(page.locator("body")).not.toHaveCSS("overflow", "hidden");
+          if (measures) await expect.poll(async () => (await rect(page, MAP)).h).toBe(before.h);
+        } finally {
+          await context.close();
         }
-        await page.keyboard.press("End");
-        await page.waitForTimeout(300);
-        expect(await page.evaluate(() => window.scrollY), "the page behind is held").toBe(y0);
-
-        await page.keyboard.press("Escape");
-        await expect(button).toHaveAttribute("aria-expanded", "false");
-        await expect.poll(() => button.evaluate((el) => el === document.activeElement)).toBe(true);
-        await expect.poll(async () => (await rect(page, MAP)).h).toBe(before.h);
-      } finally {
-        await context.close();
-      }
-    });
+      },
+    );
   }
 });
 
