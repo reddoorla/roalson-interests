@@ -263,8 +263,6 @@
                  wrapper would be a flex item costing a dead 30px gap. -->
             <TurnstileWidget />
 
-            <PrivacyNotice />
-
             <!-- A <button> wearing BrandButton (which is an <a>) through its
                  module exports. Outlined at rest, as every button in the comp
                  is. The sending state keeps label and ground at full strength
@@ -285,6 +283,8 @@
               {submitting ? "Sending…" : "Send message"}
               <ArrowRight />
             </button>
+
+            <PrivacyNotice />
           </form>
         {/if}
       </div>

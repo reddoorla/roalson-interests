@@ -21,7 +21,14 @@
   const owner = $derived(p.legalName?.trim() || "[client legal name]");
   const email = $derived(p.contactEmail?.trim() || "");
   const tracksAcrossSites = $derived(
-    s.forms || s.ga4 || s.vimeo || s.youtube || s.googleFonts || s.adobeFonts || s.turnstile,
+    s.forms ||
+      s.ga4 ||
+      s.vimeo ||
+      s.youtube ||
+      s.googleFonts ||
+      s.adobeFonts ||
+      s.openFreeMap ||
+      s.turnstile,
   );
   const effective = $derived(formatEffectiveDate(p.effectiveDate?.trim()) ?? "[effective date]");
 </script>
@@ -153,6 +160,12 @@
         <li data-testid="service-adobeFonts">
           Some fonts load from Adobe Fonts, so your browser sends your IP address to Adobe when a
           page loads.
+        </li>
+      {/if}
+      {#if s.openFreeMap}
+        <li data-testid="service-openFreeMap">
+          The property map loads its map tiles from OpenFreeMap, so your browser sends your IP
+          address to OpenFreeMap when a map is shown.
         </li>
       {/if}
       {#if s.vimeo}

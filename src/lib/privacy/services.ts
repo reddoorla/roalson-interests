@@ -3,7 +3,7 @@ export type SourceFile = { path: string; text: string };
 export type CspDirectives = Record<string, unknown>;
 
 export type EmbedService = "vimeo" | "youtube";
-export type FontService = "googleFonts" | "adobeFonts";
+export type FontService = "googleFonts" | "adobeFonts" | "openFreeMap";
 
 export type BuildServices = Record<EmbedService | FontService, boolean> & {
   forms: boolean;
@@ -19,6 +19,7 @@ export const SERVICE_HOSTS: Record<EmbedService | FontService, string[]> = {
   youtube: ["www.youtube.com", "youtube.com", "www.youtube-nocookie.com"],
   googleFonts: ["fonts.googleapis.com", "fonts.gstatic.com"],
   adobeFonts: ["use.typekit.net", "p.typekit.net"],
+  openFreeMap: ["tiles.openfreemap.org"],
 };
 
 const ANALYTICS_PATTERNS = [
@@ -89,6 +90,7 @@ export const CSP_FALLBACK: Record<EmbedService | FontService, string[]> = {
   youtube: ["frame-src", "child-src", "default-src"],
   googleFonts: ["style-src", "default-src"],
   adobeFonts: ["style-src", "default-src"],
+  openFreeMap: ["connect-src", "default-src"],
 };
 
 function listAdmits(value: unknown[], host: string): boolean {
@@ -133,6 +135,7 @@ export function deriveBuildServices(input: {
     youtube: embed("youtube"),
     googleFonts: font("googleFonts"),
     adobeFonts: font("adobeFonts"),
+    openFreeMap: font("openFreeMap"),
   };
 }
 

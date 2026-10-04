@@ -12,6 +12,7 @@ vi.mock("virtual:privacy-services", () => ({
     googleFonts: false,
     adobeFonts: false,
     newsletter: false,
+    openFreeMap: false,
   },
 }));
 

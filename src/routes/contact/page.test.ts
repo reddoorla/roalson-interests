@@ -216,4 +216,11 @@ describe("the contact form's privacy notice", () => {
     const link = container.querySelector("form [data-testid='privacy-notice'] a");
     expect(link?.getAttribute("href")).toBe("/privacy");
   });
+
+  it("comes after the submit button, so the pinned message-to-submit gap is unchanged", () => {
+    const { container } = render(ContactPage, props());
+    const submit = container.querySelector('form button[type="submit"]')!;
+    const notice = container.querySelector("form [data-testid='privacy-notice']")!;
+    expect(submit.compareDocumentPosition(notice) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
 });

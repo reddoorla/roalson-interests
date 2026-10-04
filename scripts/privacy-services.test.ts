@@ -85,6 +85,7 @@ describe("this site itself", () => {
       youtube: false,
       googleFonts: true,
       adobeFonts: false,
+      openFreeMap: true,
     });
   });
 });

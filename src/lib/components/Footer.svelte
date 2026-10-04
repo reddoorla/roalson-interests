@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { PRIVACY_PATH } from "$lib/privacy/policy";
   // The site's footer — the comp's last `Value Prop #1` band (6820:188 on the
   // Homepage at 1440, 6903:1117 on Properties; 6996:1026 / 6997:2055 at 390).
   // It is layout chrome, not a slice: the comp puts the same band on both page
@@ -46,6 +45,7 @@
   import { OFFICE, officeAddressLines } from "$lib/office";
   import { SITE_NAME } from "$lib/seo";
   import { FOOTER_NAV_ID, type FooterLink } from "$lib/site-config";
+  import { PRIVACY_PATH } from "$lib/privacy/policy";
 
   interface Props {
     /** The closing call to action: one string per drawn line, then its
@@ -235,22 +235,21 @@
             <!-- The label text sits directly in the <a>: an underline does not
                  propagate into an inline-block, and app.css makes every
                  <span> one. -->
-            <ul class="flex flex-col items-start gap-[10px]">
-              {#each legal as link, i (i)}
-                <li class="max-w-[298px]">
-                  <a {...linkAttrs(link.href)} class="underline hover:no-underline">
-                    {link.label}{#if isCrossOrigin(link.href) || isDocument(link.href)}<span
-                        class="sr-only"
-                      >
-                        (opens in a new tab)</span
-                      >{/if}
-                  </a>
-                </li>
-              {/each}
-              <li class="max-w-[298px]">
-                <a href={PRIVACY_PATH} class="underline hover:no-underline">Privacy Policy</a>
-              </li>
-            </ul>
+            {#if legal.length > 0}
+              <ul class="flex flex-col items-start gap-[10px]">
+                {#each legal as link, i (i)}
+                  <li class="max-w-[298px]">
+                    <a {...linkAttrs(link.href)} class="underline hover:no-underline">
+                      {link.label}{#if isCrossOrigin(link.href) || isDocument(link.href)}<span
+                          class="sr-only"
+                        >
+                          (opens in a new tab)</span
+                        >{/if}
+                    </a>
+                  </li>
+                {/each}
+              </ul>
+            {/if}
           </div>
         </div>
       </div>
@@ -259,7 +258,11 @@
         <!-- The same grid cell as the headline, pinned to its foot: level with
              the last TREC line at `lg`, under the wordmark block on mobile. -->
         <p class="t-body-2 mt-10 text-primary lg:col-start-2 lg:row-start-1 lg:mt-0 lg:self-end">
-          {rights}
+          {rights} · <a href={PRIVACY_PATH} class="underline hover:no-underline">Privacy Policy</a>
+        </p>
+      {:else}
+        <p class="t-body-2 mt-10 text-primary lg:col-start-2 lg:row-start-1 lg:mt-0 lg:self-end">
+          <a href={PRIVACY_PATH} class="underline hover:no-underline">Privacy Policy</a>
         </p>
       {/if}
     </div>

@@ -247,3 +247,23 @@ describe("withRuntime", () => {
     );
   });
 });
+
+describe("the property map's tile host", () => {
+  const map = src(
+    "src/lib/property-map.ts",
+    `export const MAP_TILE_HOST = "https://tiles.openfreemap.org";`,
+  );
+
+  it("is listed when the code loads tiles from it and connect-src admits it", () => {
+    expect(
+      derive([map], { "connect-src": ["self", "https://tiles.openfreemap.org"] }).openFreeMap,
+    ).toBe(true);
+  });
+
+  it("is not listed when connect-src blocks it, or when no code loads it", () => {
+    expect(derive([map], { "connect-src": ["self"] }).openFreeMap).toBe(false);
+    expect(derive([], { "connect-src": ["https://tiles.openfreemap.org"] }).openFreeMap).toBe(
+      false,
+    );
+  });
+});

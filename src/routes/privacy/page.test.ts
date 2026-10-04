@@ -13,6 +13,7 @@ const NONE: PrivacyServices = {
   youtube: false,
   googleFonts: false,
   adobeFonts: false,
+  openFreeMap: false,
   newsletter: false,
   turnstile: false,
 };
@@ -99,6 +100,7 @@ describe("the privacy page", () => {
       "ga4",
       "googleFonts",
       "adobeFonts",
+      "openFreeMap",
       "vimeo",
       "youtube",
       "netlify",
@@ -129,6 +131,7 @@ describe("the privacy page", () => {
       "youtube",
       "googleFonts",
       "adobeFonts",
+      "openFreeMap",
       "turnstile",
     ]) {
       expect(text(page({ [id]: true }).getByTestId("privacy-tracking")), id).toMatch(
