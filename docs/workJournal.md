@@ -12674,6 +12674,23 @@ The pre-commit hook is a decision for the developer, so it has no issue.
 
 The flaky-test issues whose tests left the gate (#190, #197, #200, #202, #203, #214, #217) close with this PR, and so does #221, whose test now counts only the carousel's named controls.
 
+## 2026-10-04 — The site carries a DRAFT `/privacy` page before launch adds GA4 (reddoor-maintenance#1055)
+
+The fleet privacy page (reddoor-starter#165, `f538398`) arrives here before launch, because the launch adds GA4, and GA4's terms require a posted policy that discloses it. The central `analytics-tag` recipe now refuses a site without one (reddoor-maintenance#1129). The code is the starter's, copied as landed. The page's service list is derived from this site's own code and its resolved CSP. Measured on this build, it lists the central forms, Google Fonts (`app.html` loads Atkinson Hyperlegible Next), Vimeo (the CSP's `frame-src` admits the player) and Netlify. GA4 joins when the recipe writes `src/hooks.client.ts`. The test that pins this site's list leaves `ga4` out on purpose, so that install does not have to edit it.
+
+Four things differ from the starter, each because this repo already had a rule or a service the starter does not use:
+
+- **Footer link.** The link sits on the rights line (`© <year> Roalson Interests · Privacy Policy`), rendered by `Footer.svelte`, not added to `footer.legal`. That list is pinned to exactly the two TREC PDFs whose wording TREC prescribes. The first version put the link as a third item under them. Review round 1 said that would push the band past the comp's 512.56px and break `footer.spec.ts`'s rights-line pins. A negative control did not bear that out: with the third item restored, the 1440 and 390 footer specs still passed. So that spec does not see an extra legal item. The rights line is still the placement that adds no height, so it stays there.
+- **DRAFT banner colours.** The banner uses `border-primary bg-light text-primary` (garnet on sand) rather than the starter's `amber-*`. `src/tailwind-sources.test.ts` refuses any default-palette utility.
+- **noindex.** `noindex` rides the hook this site already had: `isNoindexPage(pathname, page.data.noindex)`.
+- **Contact notice.** The notice comes after the submit button. Placed before it, the notice puts 80px between the message box and the button, against `contact.spec.ts`'s pinned 30. That spec is untagged, so CI does not run it. A negative control reproduced the 80, and the spec passes with the notice after the button.
+- **OpenFreeMap.** The property map loads its tiles from `tiles.openfreemap.org`, so every visitor's IP goes there. The starter's derivation had no rule for a map tile host. Here it is a code-driven service, on when `src/` loads the host and `connect-src` admits it. Review round 1 caught it. The starter will want the same rule the first time a starter site ships a map.
+
+**Not done here.**
+
+- `privacy.legalName`, `contactEmail` and `effectiveDate` in `site-config.json` are empty, so the page shows bracketed placeholders. None of the three values is anywhere in this repo. The footer's "Roalson Interests" is a brand, not necessarily the legal entity, and was not guessed at.
+- The text stays marked DRAFT, `noindex` and out of the sitemap until reddoor-maintenance BACKLOG item 45, a lawyer's review.
+
 ## 2026-10-04 — #256 landed, and #251 rides the new gate: one scaffold number moved, no test gutted (`working-session-changes`)
 
 > Follows 2026-10-04 — Tests build; they don't freeze.

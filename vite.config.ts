@@ -4,9 +4,10 @@ import { imagetools } from "@zerodevx/svelte-img/vite";
 import tailwindcss from "@tailwindcss/vite";
 
 import { claudeDirIgnore } from "./scripts/claude-dir-ignore.mjs";
+import { privacyServices } from "./scripts/privacy-services.ts";
 
 export default defineConfig({
-  plugins: [sveltekit(), imagetools(), tailwindcss()],
+  plugins: [sveltekit(), imagetools(), tailwindcss(), privacyServices()],
   // maplibre-gl is pre-bundled at dev-server START rather than discovered when
   // the first map mounts. It is only reached through a dynamic import (see
   // $lib/map-engine), so Vite would otherwise not find it during its initial

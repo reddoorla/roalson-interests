@@ -298,3 +298,22 @@ describe("Footer — the rights line", () => {
     expect(container.textContent).not.toContain("Company Name");
   });
 });
+
+describe("the footer's privacy link", () => {
+  it("links to the privacy page on the rights line, so the band keeps the comp's height", () => {
+    const { container } = render(Footer, { legal: LEGAL, owner: "Roalson Interests" });
+    const rights = [...container.querySelectorAll("footer p")].find((p) =>
+      p.textContent?.includes("©"),
+    );
+    expect(rights?.querySelector("a[href='/privacy']")).not.toBeNull();
+    expect(container.querySelectorAll("footer li a[href='/privacy']")).toHaveLength(0);
+    const link = container.querySelector("footer a[href='/privacy']");
+    expect(link?.textContent?.trim()).toBe("Privacy Policy");
+    expect(link?.getAttribute("target")).toBeNull();
+  });
+
+  it("links to the privacy page even with no legal documents", () => {
+    const { container } = render(Footer, {});
+    expect(container.querySelector("footer a[href='/privacy']")).not.toBeNull();
+  });
+});
