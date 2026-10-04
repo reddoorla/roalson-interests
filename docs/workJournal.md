@@ -12673,3 +12673,15 @@ The one red on `main` was `featured-properties.spec.ts:2869`, #202's rAF count, 
 The pre-commit hook is a decision for the developer, so it has no issue.
 
 The flaky-test issues whose tests left the gate (#190, #197, #200, #202, #203, #214, #217) close with this PR, and so does #221, whose test now counts only the carousel's named controls.
+
+## 2026-10-04 — #256 landed, and #251 rides the new gate: one scaffold number moved, no test gutted (`working-session-changes`)
+
+> Follows 2026-10-04 — Tests build; they don't freeze.
+
+#256 was squash-merged as `59a87a1`, pinned to the head CI had passed (`5616efd`). Then `main` was merged into #251 with a merge commit, because it is the developer's branch. The developer's three design edits kept: the taller masthead (`xl:h-120`, the gradient only without a photo, `blur-[1px]` on the photo), Go Back on the profile, and SEE ALL with `border-0` and an arrow. Every test edit on the branch gave way to #256's version: the `expect(true)` stubs, the deleted PersonProfile link test, the `toHaveCount(1)`, and the dropped masthead height.
+
+Three fixes in the edits themselves, none of them design. `'… to-dark'{passedClasses}` had no trailing space, so a caller passing `class` would have fused it into `to-darkmb-10`. An unused `DefaultButton` import came out. Prettier fixed the formatting, which is the only thing that turned #251 red on 2026-10-01.
+
+The new gate held on its first real customer. `pnpm verify` passed locally (1,653 unit, 60 `@smoke`), and `ci / ci` passed on `409a66c` in 2 min 54 s. The scaffold tier ran against the same edits: 397 of 398 green. The one red was `contact.spec.ts:106`, `masthead height: 480 vs 400`, which is exactly the number the design moved. It now reads 480 rather than being deleted, so the scaffold still measures the masthead the site has.
+
+**Left with the developer, not changed.** With a photo, the band no longer paints the garnet gradient under it. Until the photo decodes, or if it fails, the white h1 sits on the cream page behind the scrim alone. That is a design call, and the unit contrast gate measures the photo case only.
