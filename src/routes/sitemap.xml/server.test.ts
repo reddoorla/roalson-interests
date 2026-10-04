@@ -38,6 +38,10 @@ describe("GET /sitemap.xml", () => {
   // from the template's own chrome and returns 200, and it is `prerender =
   // false` (a form action cannot live on a prerendered route), so no
   // build-output census would have caught its absence either.
+  it("keeps the privacy page out while its policy is a DRAFT", async () => {
+    expect(await body()).not.toContain("/privacy");
+  });
+
   it("lists the filesystem-only /contact route", async () => {
     expect(await body()).toContain("<loc>https://example.com/contact</loc>");
   });

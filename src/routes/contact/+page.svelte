@@ -9,6 +9,7 @@
   import Field from "$lib/components/Field.svelte";
   import PageMasthead from "$lib/components/PageMasthead.svelte";
   import TurnstileWidget from "$lib/components/TurnstileWidget.svelte";
+  import PrivacyNotice from "$lib/components/PrivacyNotice.svelte";
   import { OFFICE, officeAddressLines, officeDirectionsUrl } from "$lib/office";
   import { reveal } from "$lib/utils/reveal";
   import type { ActionData, PageData } from "./$types";
@@ -261,6 +262,8 @@
                  NOT wrapped: with no sitekey it renders nothing, and an empty
                  wrapper would be a flex item costing a dead 30px gap. -->
             <TurnstileWidget />
+
+            <PrivacyNotice />
 
             <!-- A <button> wearing BrandButton (which is an <a>) through its
                  module exports. Outlined at rest, as every button in the comp

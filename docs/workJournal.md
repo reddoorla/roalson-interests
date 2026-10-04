@@ -12673,3 +12673,18 @@ The one red on `main` was `featured-properties.spec.ts:2869`, #202's rAF count, 
 The pre-commit hook is a decision for the developer, so it has no issue.
 
 The flaky-test issues whose tests left the gate (#190, #197, #200, #202, #203, #214, #217) close with this PR, and so does #221, whose test now counts only the carousel's named controls.
+
+## 2026-10-04 — The site carries a DRAFT `/privacy` page before launch adds GA4 (reddoor-maintenance#1055)
+
+The fleet privacy page (reddoor-starter#165, `f538398`) arrives here before launch, because the launch adds GA4, and GA4's terms require a posted policy that discloses it. The central `analytics-tag` recipe now refuses a site without one (reddoor-maintenance#1129). The code is the starter's, copied as landed. The page's service list is derived from this site's own code and its resolved CSP. Measured on this build, it lists the central forms, Google Fonts (`app.html` loads Atkinson Hyperlegible Next), Vimeo (the CSP's `frame-src` admits the player) and Netlify. GA4 joins when the recipe writes `src/hooks.client.ts`. The test that pins this site's list leaves `ga4` out on purpose, so that install does not have to edit it.
+
+Three things differ from the starter, each because this repo already had a rule:
+
+- **Footer link.** The link sits as a third item under the two TREC documents, rendered by `Footer.svelte`, not added to `footer.legal`. That list is pinned to exactly the two TREC PDFs whose wording TREC prescribes.
+- **DRAFT banner colours.** The banner uses `border-primary bg-light text-primary` (garnet on sand) rather than the starter's `amber-*`. `src/tailwind-sources.test.ts` refuses any default-palette utility.
+- **noindex.** `noindex` rides the hook this site already had: `isNoindexPage(pathname, page.data.noindex)`.
+
+**Not done here.**
+
+- `privacy.legalName`, `contactEmail` and `effectiveDate` in `site-config.json` are empty, so the page shows bracketed placeholders. None of the three values is anywhere in this repo. The footer's "Roalson Interests" is a brand, not necessarily the legal entity, and was not guessed at.
+- The text stays marked DRAFT, `noindex` and out of the sitemap until reddoor-maintenance BACKLOG item 45, a lawyer's review.

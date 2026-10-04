@@ -209,3 +209,11 @@ describe("the contact form's contract with the ingest action", () => {
     expect(mount?.closest("form")).toBe(container.querySelector("form"));
   });
 });
+
+describe("the contact form's privacy notice", () => {
+  it("sits inside the form and links to the privacy page", () => {
+    const { container } = render(ContactPage, props());
+    const link = container.querySelector("form [data-testid='privacy-notice'] a");
+    expect(link?.getAttribute("href")).toBe("/privacy");
+  });
+});

@@ -10,7 +10,14 @@ import config from "./site-config.json";
 export type NavItem = { label: string; href: string; children?: NavItem[] };
 export type FooterLink = { label: string; href: string };
 
+export type PrivacyConfig = {
+  legalName?: string;
+  contactEmail?: string;
+  effectiveDate?: string;
+};
+
 export type SiteConfig = {
+  privacy?: PrivacyConfig;
   nav: {
     /** `reverseUrl` is the same lockup for dark grounds — the bar floats over a
      *  dark first band only when it has one. `alt` names the home link.

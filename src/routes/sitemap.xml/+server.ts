@@ -1,3 +1,4 @@
+import { PRIVACY_PATH, PRIVACY_POLICY_DRAFT } from "$lib/privacy/policy";
 import { asLink, type PrismicDocument } from "@prismicio/client";
 
 import { isNetlifyMirrorHost } from "$lib/indexability";
@@ -24,7 +25,7 @@ export const prerender = false;
  *  slice simulator or /preview (see NOINDEX_PREFIXES in $lib/seo). */
 // Filesystem routes the CMS cannot see. /properties is the listing page — its
 // documents are discovered below, the page itself is not.
-const STATIC_ROUTES = ["/properties", "/contact"];
+const STATIC_ROUTES = ["/properties", "/contact", ...(PRIVACY_POLICY_DRAFT ? [] : [PRIVACY_PATH])];
 
 export const GET: RequestHandler = async ({ fetch, url }) => {
   const origin = url.origin;
