@@ -162,7 +162,7 @@ test("at 1440 both columns stand on the site's grid, and the fields keep the ski
   // The masthead runs under the bar from the top of <main>: the layout dropped
   // its top padding because the route CLAIMED the dark band.
   near(g.masthead.top, g.mainTop, "masthead starts where main does");
-  near(g.masthead.height, 400, "masthead height");
+  near(g.masthead.height, 480, "masthead height");
 
   // One vertical line through the site: the form column starts where the
   // masthead's H1 does. Compared with the H1, never with a number off the window.

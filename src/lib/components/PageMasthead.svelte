@@ -83,14 +83,16 @@
      scrim would cover the H1 — and with no photo the list has to stay what it
      was before the photo existed. -->
 <header
-  class="flex h-60 items-end bg-gradient-to-b from-primary to-dark px-5 pb-11 sm:px-8 lg:h-[400px]
-    lg:pb-[72px] xl:px-20 {hasPhoto ? 'relative ' : ''}{passedClasses}"
+  class="flex h-60 items-end px-5 pb-11 sm:px-8 lg:h-[400px]
+    lg:pb-[72px] xl:px-20 xl:h-120 {hasPhoto
+    ? 'relative '
+    : 'bg-gradient-to-b from-primary to-dark '}{passedClasses}"
 >
   {#if hasPhoto}
     <HeroBackgroundImage
       image={image as ImageField}
       {preload}
-      class="absolute bottom-0 left-0 h-full w-full object-cover object-[50%_70%]"
+      class="absolute bottom-0 left-0 h-full w-full object-cover object-[50%_70%] blur-[1px]"
     />
     <!-- Decorative: an `aria-hidden` box that exists only to darken pixels. -->
     <div class="masthead-scrim absolute inset-0" aria-hidden="true"></div>
