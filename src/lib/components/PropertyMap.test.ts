@@ -1361,8 +1361,8 @@ describe("the camera the page drives", () => {
   // written here would report "no flight" for a map that does not exist, which
   // is precisely the shape it would exist to catch.
   //
-  // It is measured in tests/interaction/property-map-camera.spec.ts ("a drag
-  // holds the view while the same listing is active, then lets go", step 3),
+  // It is measured in tests/interaction/property-map-camera.spec.ts ("and lets
+  // go the moment the page asks for a different listing, every time", step 2),
   // against a real MapLibre map and a real mouse drag.
 
   // WHO ASKED (#118 review, MAJOR 2). The suspension ends when the VISITOR

@@ -127,19 +127,22 @@ Netlify/Prismic prompts. To stand one up by hand instead:
 
 ## Scripts
 
-| Command             | Description                                                     |
-| ------------------- | --------------------------------------------------------------- |
-| `pnpm verify`       | **Everything CI runs, in CI's order** — run this before pushing |
-| `pnpm dev`          | Start dev server + Slice Machine                                |
-| `pnpm build`        | Production build, then the map's publish check (#120)           |
-| `pnpm preview`      | Preview production build                                        |
-| `pnpm check`        | Svelte type checking                                            |
-| `pnpm lint`         | Lint with ESLint + Prettier                                     |
-| `pnpm format`       | Auto-format with Prettier                                       |
-| `pnpm test:unit`    | Run unit tests with Vitest                                      |
-| `pnpm test:smoke`   | Run Playwright route/hydration smoke suite                      |
-| `pnpm test:a11y`    | Run the axe audit CI gates on (`reddoor-maint`)                 |
-| `pnpm slicemachine` | Start Slice Machine UI                                          |
+| Command              | Description                                                     |
+| -------------------- | --------------------------------------------------------------- |
+| `pnpm verify`        | **Everything CI runs, in CI's order** — run this before pushing |
+| `pnpm dev`           | Start dev server + Slice Machine                                |
+| `pnpm build`         | Production build, then the map's publish check (#120)           |
+| `pnpm preview`       | Preview production build                                        |
+| `pnpm check`         | Svelte type checking                                            |
+| `pnpm lint`          | Lint with ESLint + Prettier                                     |
+| `pnpm format`        | Auto-format with Prettier                                       |
+| `pnpm test:unit`     | Run unit tests with Vitest                                      |
+| `pnpm test:smoke`    | Run the `@smoke` Playwright tier, the one CI gates on           |
+| `pnpm test:nightly`  | Run the map and motion specs `nightly.yml` runs                 |
+| `pnpm test:scaffold` | Run every Playwright spec not tagged `@smoke`                   |
+| `pnpm test:e2e`      | Run every Playwright spec                                       |
+| `pnpm test:a11y`     | Run the axe audit CI gates on (`reddoor-maint`)                 |
+| `pnpm slicemachine`  | Start Slice Machine UI                                          |
 
 Lighthouse config lives in `lighthouserc.json` (it audits `/dev/a11y-fixtures`);
 it is not wired into CI — run it manually with `pnpm dlx @lhci/cli autorun` once

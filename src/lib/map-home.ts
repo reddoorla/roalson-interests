@@ -23,7 +23,7 @@
  * THE NUMBERS. Operator's call, 2026-09-22, from three framed options: centre
  * 29.62, -98.52 ("frame A"). The zooms were re-derived here from the 22 real
  * seeded coordinates (`scripts/seed/listings.json`) with this repo's own
- * `clusterPoints`, and `src/lib/property-map.test.ts` re-measures them:
+ * `clusterPoints`:
  *
  *                       in frame   own pin   inside a cluster
  *   full    z8.6        18 / 22    9         13

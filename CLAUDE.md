@@ -31,11 +31,11 @@ back button and an arrow on SEE ALL cost the developer five gutted tests
 (#251), and not one of the five reds was a bug. So the suite is tiered by what
 a red _means_:
 
-| Tier                | Command                                     | Runs                                   | Holds                                                                                                                                         |
-| ------------------- | ------------------------------------------- | -------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| Tier                | Command                                     | Runs                                    | Holds                                                                                                                                       |
+| ------------------- | ------------------------------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Gate** (contract) | `pnpm test` (vitest + Playwright `@smoke`)  | every PR, inside the required `ci / ci` | what a client would call a bug: links and their targets, the form, keyboard and focus, no-JS, accessible names, AA contrast, data, SEO, CSP |
-| **Nightly**         | `pnpm test:nightly`                         | `nightly.yml`, never blocks a merge    | map camera, carousel and band motion: real bugs live here (#243), but every assertion is a race against a clock                              |
-| **Scaffold**        | `pnpm test:scaffold` (`pnpm test:e2e`: all) | on demand, while building              | comp geometry, pixel and computed-style pins, the numbers a slice was built to                                                                |
+| **Nightly**         | `pnpm test:nightly`                         | `nightly.yml`, never blocks a merge     | map camera, carousel and band motion: real bugs live here (#243), but every assertion is a race against a clock                             |
+| **Scaffold**        | `pnpm test:scaffold` (`pnpm test:e2e`: all) | on demand, while building               | comp geometry, pixel and computed-style pins, the numbers a slice was built to                                                              |
 
 - **A human's design change wins.** When a size, spacing, colour that still
   passes AA, duration, border, or an added button or link turns a test red,

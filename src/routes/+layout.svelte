@@ -88,8 +88,8 @@
        two-entry map and returns `undefined` for everything else; the token
        itself is never interpolated. That is not left to review either:
        canvas-top.test.ts feeds it every token, every non-token, `<script>`,
-       a bare brace and a CSS-injection attempt, and asserts the set of
-       distinct outputs is EXACTLY three values. An edit that started
+       a bare brace and a CSS-injection attempt, and asserts every output is
+       a rule from the frozen map or nothing. An edit that started
        interpolating the token fails there, in milliseconds, with no browser.
 
        The obvious alternative is worse, not safer: a literal <style> written

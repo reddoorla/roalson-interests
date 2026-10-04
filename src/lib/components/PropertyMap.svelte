@@ -822,7 +822,7 @@
    * What it clears (#182, #188): the − target sat over the Seguin land pin
    * on 358–445px compact maps, and the whole credit chip over the downtown
    * cluster of 3 (#188 measured 265–545 on the live site; guard 2i's 224px
-   * chip gives 265–457) and over the Loop 1604 at Dove Canyon pin (265–608,
+   * chip gave 265–457) and over the Loop 1604 at Dove Canyon pin (265–608,
    * which no issue named). src/lib/property-map.test.ts's plan guard 2i walks
    * both frames' furniture at every compact width from 265 and finds none.
    *
@@ -2226,8 +2226,7 @@
            anchor-flipping problem at every edge. Google links out per the
            operator's ask; both are `target="_blank" rel="noopener noreferrer"`
            and neither costs a CSP change — a link navigation is not governed
-           by one, which tests/interaction/property-map.spec.ts measures rather
-           than asserts. -->
+           by one. -->
       <!-- `right-[54px]`: the control column's 44px targets on their 10px
            inset keep that strip, so the sheet's × is never under them.
            `pl-11` on a compact frame, for the same reason on the left: the

@@ -123,7 +123,7 @@ describe("HomeHero slice", () => {
 
   it("draws PROPERTIES first and CONTACT US second — the client's order, from the content", () => {
     // The component draws the CMS order; the order itself is the fixture's
-    // and the seed's (scripts/seed/pages.test.ts holds the seed's).
+    // and the seed's.
     const { getByRole } = render(HomeHero, { props: { slice: homeHeroFixture() } });
     const properties = getByRole("link", { name: "Properties" });
     const contact = getByRole("link", { name: "Contact us" });
