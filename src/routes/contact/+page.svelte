@@ -9,6 +9,7 @@
   import Field from "$lib/components/Field.svelte";
   import PageMasthead from "$lib/components/PageMasthead.svelte";
   import TurnstileWidget from "$lib/components/TurnstileWidget.svelte";
+  import PrivacyNotice from "$lib/components/PrivacyNotice.svelte";
   import { OFFICE, officeAddressLines, officeDirectionsUrl } from "$lib/office";
   import { reveal } from "$lib/utils/reveal";
   import type { ActionData, PageData } from "./$types";
@@ -282,6 +283,8 @@
               {submitting ? "Sending…" : "Send message"}
               <ArrowRight />
             </button>
+
+            <PrivacyNotice />
           </form>
         {/if}
       </div>

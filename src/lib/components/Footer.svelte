@@ -45,6 +45,7 @@
   import { OFFICE, officeAddressLines } from "$lib/office";
   import { SITE_NAME } from "$lib/seo";
   import { FOOTER_NAV_ID, type FooterLink } from "$lib/site-config";
+  import { PRIVACY_PATH } from "$lib/privacy/policy";
 
   interface Props {
     /** The closing call to action: one string per drawn line, then its
@@ -231,10 +232,10 @@
                  "Phone:" is a link distinguished from its sentence by nothing,
                  which is what axe's link-in-text-block reports. -->
             <a href={OFFICE.phone.href} class="hover:underline">Phone: {OFFICE.phone.display}</a>
+            <!-- The label text sits directly in the <a>: an underline does not
+                 propagate into an inline-block, and app.css makes every
+                 <span> one. -->
             {#if legal.length > 0}
-              <!-- The label text sits directly in the <a>: an underline does not
-                   propagate into an inline-block, and app.css makes every
-                   <span> one. -->
               <ul class="flex flex-col items-start gap-[10px]">
                 {#each legal as link, i (i)}
                   <li class="max-w-[298px]">
@@ -257,7 +258,11 @@
         <!-- The same grid cell as the headline, pinned to its foot: level with
              the last TREC line at `lg`, under the wordmark block on mobile. -->
         <p class="t-body-2 mt-10 text-primary lg:col-start-2 lg:row-start-1 lg:mt-0 lg:self-end">
-          {rights}
+          {rights} · <a href={PRIVACY_PATH} class="underline hover:no-underline">Privacy Policy</a>
+        </p>
+      {:else}
+        <p class="t-body-2 mt-10 text-primary lg:col-start-2 lg:row-start-1 lg:mt-0 lg:self-end">
+          <a href={PRIVACY_PATH} class="underline hover:no-underline">Privacy Policy</a>
         </p>
       {/if}
     </div>
