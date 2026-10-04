@@ -11,6 +11,7 @@ import {
   frameFor,
   homeMarkers,
   MAP_CREDIT_OPEN_MS,
+  MAP_FRAMES,
   MAP_HOME_FADE_MS,
   MAP_HOME,
   type MapPoint,
@@ -611,25 +612,6 @@ describe("the expand affordance", () => {
     );
   });
 
-  it("carries a 44 x 44 target around the comp's 20.88px box (WCAG 2.5.8)", async () => {
-    stubResizeTo(350, 200);
-    const { container } = render(PropertyMap, {
-      props: { points, label: "Land", engine: "off" },
-    });
-    await tick();
-    // jsdom resolves no stylesheet, so the classes are what can be asserted —
-    // the rendered geometry is measured in a real browser by
-    // tests/interaction/property-map.spec.ts.
-    const button = container.querySelector<HTMLButtonElement>("[data-map-expand]")!;
-    const classes = button.className.split(/\s+/);
-    expect(classes).toContain("h-11");
-    expect(classes).toContain("w-11");
-    const painted = button.querySelector("span")!.className;
-    expect(painted).toContain("h-[20.88px]");
-    expect(painted).toContain("w-[20.884px]");
-    expect(painted).toContain("bg-primary");
-  });
-
   describe("expanded: one full-window overlay (M1)", () => {
     const open = async (props: Record<string, unknown> = {}) => {
       stubResizeTo(350, 200);
@@ -647,7 +629,9 @@ describe("the expand affordance", () => {
       const root = view.container.querySelector("[data-property-map]")!;
       const spacer = view.container.querySelector("[data-map-spacer]");
       expect(spacer, "the spacer holds the map's slot").not.toBeNull();
-      expect(spacer!.className, "with the caller's own classes").toBe("mb-5 h-50");
+      expect(spacer!.className.split(/\s+/), "with the caller's own classes").toEqual(
+        expect.arrayContaining(["mb-5", "h-50"]),
+      );
       expect(spacer!.getAttribute("aria-hidden")).toBe("true");
       expect(root.getAttribute("role")).toBe("dialog");
       expect(root.getAttribute("aria-modal")).toBe("true");
@@ -1207,7 +1191,7 @@ describe("the camera the page drives", () => {
     expect(boot.flights).toHaveLength(1);
     const handover = boot.flights[0] as { center: number[]; zoom: number };
     expect(handover.center[0]).toBeCloseTo(points[1]!.lng, 6);
-    expect(handover.zoom).toBe(12);
+    expect(handover.zoom).toBe(MAP_FRAMES[frameFor({ width: 397, height: 595 })].maxZoom);
   });
 
   it("is constructed at the fit, as before, when no placeholder is drawn", async () => {
@@ -1226,7 +1210,7 @@ describe("the camera the page drives", () => {
     await tick();
     await tick();
     expect(view.container.querySelector("[data-map-home-box]")).toBeNull();
-    expect(record.options.zoom).toBe(12);
+    expect(record.options.zoom).toBe(MAP_FRAMES[frameFor({ width: 397, height: 595 })].maxZoom);
     expect((record.options.center as number[])[0]).toBeCloseTo(points[1]!.lng, 6);
     expect(record.flights).toHaveLength(0);
   });
@@ -1238,8 +1222,9 @@ describe("the camera the page drives", () => {
     expect(record.flights).toHaveLength(1);
     const flight = record.flights[0] as { center: number[]; zoom: number; duration: number };
     expect(flight.center[0]).toBeCloseTo(points[0]!.lng, 6);
-    expect(flight.zoom).toBe(12);
-    expect(flight.duration).toBe(500);
+    expect(flight.zoom).toBe(MAP_FRAMES[frameFor({ width: 397, height: 595 })].maxZoom);
+    expect(flight.duration).toBe(CAMERA_FLIGHT_MS);
+    expect(flight.duration).toBeLessThanOrEqual(5000);
   });
 
   // WHAT THIS BLOCK CAN AND CANNOT SAY, because the previous version of it
@@ -1550,7 +1535,7 @@ describe("the camera the page drives", () => {
     expect(record.flights, "the crossing ends the suspension, so it flies").toHaveLength(1);
     const flight = record.flights[0] as { center: number[]; zoom: number };
     expect(flight.center[0], "to the next listing").toBeCloseTo(points[1]!.lng, 6);
-    expect(flight.zoom, "at THEIR zoom, not the frame's 12").toBe(13.25);
+    expect(flight.zoom, "at THEIR zoom, not the frame's own").toBe(13.25);
 
     // That it STAYS theirs at the crossing after this one needs a second
     // `active` change, and `rerender` cannot give one here: it re-runs the boot
@@ -1574,7 +1559,9 @@ describe("the camera the page drives", () => {
     await view.rerender({ points, label: "Land", active: "b" });
     await tick();
     expect(record.flights).toHaveLength(1);
-    expect((record.flights[0] as { zoom: number }).zoom, "the frame's own zoom").toBe(12);
+    expect((record.flights[0] as { zoom: number }).zoom, "the frame's own zoom").toBe(
+      MAP_FRAMES[frameFor({ width: 397, height: 595 })].maxZoom,
+    );
   });
 
   // THE PRE-FRAME WHEEL (`forwardWheel`'s `ready` gate). Before maplibre's

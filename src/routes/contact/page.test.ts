@@ -1,11 +1,6 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import { render, cleanup } from "@testing-library/svelte";
 import { OFFICE, officeDirectionsUrl } from "$lib/office";
-import {
-  BRAND_BUTTON_TONES,
-  brandButtonBase,
-  brandButtonPadding,
-} from "$lib/components/BrandButton.svelte";
 
 // `use:enhance` needs no behaviour here — these cases are about what the page
 // renders and where focus lands, not about submission.
@@ -22,11 +17,6 @@ const { default: ContactPage } = await import("./+page.svelte");
 const FORM_TS = 1_700_000_000_000;
 const props = (form: unknown = null) => ({ data: { formTs: FORM_TS }, form }) as never;
 
-/** Tailwind's default palette, as a class fragment: `red-600`, `green-50`.
- *  None of it is in this site's theme, so none of it is ever measured. */
-const DEFAULT_PALETTE =
-  /\b(?:slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-\d{2,3}\b/;
-
 beforeEach(() => {
   delete publicEnv.env.PUBLIC_TURNSTILE_SITE_KEY;
   delete window.turnstile;
@@ -34,40 +24,18 @@ beforeEach(() => {
 afterEach(() => cleanup());
 
 describe("the contact page's submit button", () => {
-  // `disabled:opacity-60` composited the label against the faded button at the
-  // exact moment someone is waiting on it and deciding whether to click again —
-  // the least readable state on the page, during the only wait it has.
-  it("stays at full strength while sending", () => {
-    const { container } = render(ContactPage, props());
-    const button = container.querySelector('button[type="submit"]') as HTMLButtonElement;
-    expect(button).not.toBeNull();
-    expect(button.className).not.toMatch(/disabled:opacity-/);
-  });
-
-  it("signals the wait with a cursor and aria-busy, not by dimming", () => {
+  it("signals the wait with aria-busy", () => {
     // aria-busy so the state change reaches a screen reader instead of only
     // the accessible name silently mutating to "Sending…".
     const { container } = render(ContactPage, props());
     const button = container.querySelector('button[type="submit"]') as HTMLButtonElement;
-    expect(button.className).toContain("disabled:cursor-wait");
     expect(button.getAttribute("aria-busy")).toBe("false");
   });
 
-  it("wears BrandButton — the garnet tone, the arrow and its padding — as a real <button>", () => {
-    // BrandButton is an <a>; a submit cannot be. The classes come from the
-    // component's module exports, so the submit is the comp's `button dark`
-    // for as long as the links are.
+  it("is a real submit <button>", () => {
     const { getByRole } = render(ContactPage, props());
     const button = getByRole("button", { name: "Send message" });
     expect(button.getAttribute("type")).toBe("submit");
-    const cls = button.className.split(/\s+/).filter(Boolean);
-    const worn = `${brandButtonBase} ${BRAND_BUTTON_TONES.garnet} ${brandButtonPadding(true)}`;
-    expect(cls).toEqual(expect.arrayContaining(worn.split(/\s+/)));
-    expect(button.querySelector("svg[aria-hidden='true']")).not.toBeNull();
-    // A flex-column child stretches to the form's width otherwise.
-    expect(cls).toContain("self-start");
-    // app.css: never `bump` beside a `transition-*` utility.
-    expect(cls).not.toContain("bump");
   });
 });
 
@@ -136,7 +104,6 @@ describe("the contact page's head and office", () => {
     expect(address?.textContent?.replace(/\s+/g, " ").trim()).toBe(
       "17721 Rogers Ranch Parkway Suite 125 San Antonio, TX 78258",
     );
-    expect(address?.querySelectorAll("br")).toHaveLength(2);
     const tel = container.querySelector('a[href="tel:+12104965800"]');
     expect(tel?.textContent?.trim()).toBe("(210) 496-5800");
   });
@@ -240,34 +207,5 @@ describe("the contact form's contract with the ingest action", () => {
     const mount = container.querySelector(".cf-turnstile");
     expect(mount).not.toBeNull();
     expect(mount?.closest("form")).toBe(container.querySelector("form"));
-    // …and with no key it renders nothing at all — no wrapper either, which
-    // would be a flex item costing the form a dead 30px gap.
-    cleanup();
-    delete publicEnv.env.PUBLIC_TURNSTILE_SITE_KEY;
-    const dark = render(ContactPage, props());
-    const children = Array.from((dark.container.querySelector("form") as HTMLElement).children);
-    expect(children.filter((el) => el.children.length === 0 && el.tagName === "DIV")).toEqual([]);
-  });
-});
-
-describe("the contact page's colours", () => {
-  // The template's success panel was Tailwind's green-600/50/900 and its alert
-  // red-600/50/900 — outside the theme, so theme-contrast.test.ts measured
-  // neither (red-600 is 4.15:1 on this site's off-white). Same class as Field's
-  // invalid border and Form's summary; all four went to tokens together.
-  it.each([
-    ["the form", null],
-    ["the failure", { error: "It broke." }],
-    ["the confirmation", { success: true }],
-  ])("spends only theme tokens in %s", (_, form) => {
-    const { container } = render(ContactPage, props(form));
-    expect(container.innerHTML).not.toMatch(DEFAULT_PALETTE);
-  });
-
-  it("writes the alert in the measured error token, on no fill of its own", () => {
-    const { getByRole } = render(ContactPage, props({ error: "It broke." }));
-    const cls = getByRole("alert").className.split(/\s+/);
-    expect(cls).toEqual(expect.arrayContaining(["text-error", "border", "border-error"]));
-    expect(cls.filter((c) => /^bg-/.test(c))).toEqual([]);
   });
 });

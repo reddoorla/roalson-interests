@@ -1,42 +1,25 @@
 import { describe, it, expect } from "vitest";
 import { readdirSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { CANVAS_TOP_COLORS } from "$lib/canvas-top";
 
 // Focus styling in this template is opt-in per component: the buttons on the
 // fixtures page carry their own rings and everything else falls back to the
 // UA's 1px hairline, which is invisible on a dark nav or over a photo hero
-// (WCAG 2.4.7). There was no floor at all — `grep -a "focus-visible" src/app.css`
-// returned nothing. This asserts the floor exists, since a CSS cascade rule is
-// not reachable from jsdom, which resolves no stylesheets.
+// (WCAG 2.4.7). app.css lays a floor under all of it, and a CSS cascade rule
+// is not reachable from jsdom, which resolves no stylesheets — so the rings
+// are measured from the theme tokens here and in a browser by
+// tests/interaction/focus-ring.spec.ts.
 // Resolved from the project root, not `import.meta.url`: under the jsdom
 // environment vite serves this module over http, so `new URL(..., import.meta.url)`
 // is not a file: URL and readFileSync rejects it.
 const css = readFileSync(resolve(process.cwd(), "src/app.css"), "utf-8");
 
-const FLOOR_SELECTOR = ':where(a, button, summary, [tabindex]:not([tabindex="-1"])):focus-visible';
-
 describe("the keyboard-focus floor", () => {
-  it("gives every interactive element a visible outline on :focus-visible", () => {
-    // Located by string, then sliced to the closing brace. A regex for the
-    // selector is a trap here: `[^)]*` stops at the nested `)` inside
-    // `:not([tabindex="-1"])`, so it matches nothing however good the CSS is —
-    // which is exactly how a check that can only ever fail gets written.
-    const at = css.indexOf(FLOOR_SELECTOR);
-    expect(at, "no :focus-visible floor rule in app.css").toBeGreaterThan(-1);
-    const rule = css.slice(at, css.indexOf("}", at) + 1);
-    expect(rule).toMatch(/outline:\s*2px solid/);
-    // Garnet unless a ground says otherwise — see the next describe.
-    expect(rule).toContain("var(--focus-ring, var(--color-primary))");
-  });
-
-  // `:where()` contributes ZERO specificity, so the floor weighs one
-  // pseudo-class and every authored `focus-visible:ring-*` still wins twice
-  // over — higher specificity AND a later cascade layer. Written as a bare
-  // selector it would outrank the utilities it is meant to sit under.
-  it("is written with :where() so authored rings still win", () => {
-    expect(css).toContain(
-      ':where(a, button, summary, [tabindex]:not([tabindex="-1"])):focus-visible',
-    );
+  it("gives :focus-visible an outline in the ring colour its ground sets", () => {
+    const floor = /:focus-visible\s*\{([^}]*)\}/.exec(css)?.[1];
+    expect(floor, "no :focus-visible floor in app.css").toBeDefined();
+    expect(floor).toMatch(/outline(?:-color)?:[^;]*var\(--focus-ring\b/);
   });
 });
 
@@ -45,8 +28,6 @@ describe("the keyboard-focus floor", () => {
 // `--focus-ring` for its CHILDREN (an outline sits outside its element, on the
 // container's ground), and inheritance resolves to the nearest one.
 describe("the focus ring follows its ground", () => {
-  const DARK = ["primary", "dark", "black"] as const;
-  const LIGHT = ["background", "light", "white"] as const;
   /** Fills that are never a container's ground. `dust` was the buttons' hover
    *  fill until the operator moved their light colour to the tan on 2026-09-22;
    *  HomeHero's half-pixel rule was its last `bg-dust` in src/, until the
@@ -56,16 +37,30 @@ describe("the focus ring follows its ground", () => {
    *  is ever focused on it. */
   const NOT_A_GROUND = ["dust", "secondary", "transparent", "current"] as const;
 
-  /** The rule that sets a value: from the `:where(` that opens its selector
-   *  to its closing brace — not from the previous `}`, which would drag the
-   *  comment above it in and make every anchored match fail. */
-  const block = (needle: string) => {
-    const at = css.indexOf(needle);
-    expect(at, `no rule setting ${needle}`).toBeGreaterThan(-1);
-    return css.slice(css.lastIndexOf(":where(", at), css.indexOf("}", at) + 1);
-  };
-  const darkRule = block("--focus-ring: var(--color-background)");
-  const lightRule = block("--focus-ring: var(--color-primary)");
+  /** Each `--focus-ring` rule's selector and the theme colour it sets the ring
+   *  to. Only a rule written on `> *` counts: a ground that coloured its own
+   *  ring would give a garnet button on the off-white page an off-white one. */
+  const ringRules = (() => {
+    const out: { selector: string; ring: string }[] = [];
+    for (const m of css.matchAll(/--focus-ring:\s*var\(--color-([a-z0-9-]+)\)/g)) {
+      const open = css.lastIndexOf("{", m.index);
+      const from = Math.max(css.lastIndexOf("}", open), css.lastIndexOf("*/", open));
+      const selector = css.slice(from, open);
+      if (/>\s*\*\s*$/.test(selector)) out.push({ selector, ring: m[1] });
+    }
+    return out;
+  })();
+  /** Every ground class a `--focus-ring` rule names (`bg-dark`), and the
+   *  theme colour it sets the ring to — read from the selector in front of
+   *  each declaration, so the pairs measured below are the ones the stylesheet
+   *  actually ships. */
+  const rings = new Map(
+    ringRules.flatMap(({ selector, ring }) =>
+      [...selector.matchAll(/\.((?:bg|from)-[a-z0-9]+)/g)].map((g) => [g[1], ring] as const),
+    ),
+  );
+  /** The theme colour a ground class paints: `bg-dark` → `dark`. */
+  const token = (ground: string) => ground.slice(ground.indexOf("-") + 1);
 
   const theme = (() => {
     const body = /@theme\s*\{([\s\S]*?)\n\}/.exec(css)?.[1] ?? "";
@@ -89,30 +84,21 @@ describe("the focus ring follows its ground", () => {
     return (hi + 0.05) / (lo + 0.05);
   };
 
-  it("sets the ring for what sits ON a ground, never for the ground itself", () => {
-    for (const rule of [darkRule, lightRule]) {
-      expect(rule).toMatch(/^:where\([^{]+\)\s*>\s*\*\s*\{/);
+  it("draws every ring at 3:1 or better against the ground that sets it", () => {
+    expect(rings.size, "no ground sets a --focus-ring in app.css").toBeGreaterThan(3);
+    for (const [ground, ring] of rings) {
+      expect(contrast(ring, token(ground)), `${ring} ring on ${ground}`).toBeGreaterThanOrEqual(3);
     }
-    for (const token of DARK) expect(darkRule).toContain(`.bg-${token}`);
-    for (const token of LIGHT) expect(lightRule).toContain(`.bg-${token}`);
-    // The dark bands are gradients with no `bg-*`, and the floating bar has no
-    // ground of its own.
-    expect(darkRule).toContain(".from-primary");
-    expect(darkRule).toContain("[data-floating]");
   });
 
-  it("draws both rings at 3:1 or better against every ground they land on", () => {
-    for (const ground of DARK) {
-      expect(contrast("background", ground), `off-white ring on ${ground}`).toBeGreaterThanOrEqual(
-        3,
-      );
+  // The floating bar has no ground of its own: it borrows the band a route
+  // opens on under it, which is one of the grounds a route may claim.
+  it("draws the floating bar's ring at 3:1 or better on every band it floats over", () => {
+    const ring = ringRules.find((r) => r.selector.includes("[data-floating]"))?.ring;
+    expect(ring, "no --focus-ring rule names [data-floating]").toBeDefined();
+    for (const band of Object.keys(CANVAS_TOP_COLORS)) {
+      expect(contrast(ring!, band), `${ring} ring over ${band}`).toBeGreaterThanOrEqual(3);
     }
-    for (const ground of LIGHT) {
-      expect(contrast("primary", ground), `garnet ring on ${ground}`).toBeGreaterThanOrEqual(3);
-    }
-    // …and the defect this replaced, so the numbers stay on record.
-    expect(contrast("primary", "primary")).toBe(1);
-    expect(contrast("primary", "dark")).toBeLessThan(1.5);
   });
 
   it("classifies every ground class the markup uses", () => {
@@ -124,14 +110,17 @@ describe("the focus ring follows its ground", () => {
             ? [join(dir, e.name)]
             : [],
       );
-    const known = new Set<string>([...DARK, ...LIGHT, ...NOT_A_GROUND]);
+    const known = new Set<string>([
+      ...rings.keys(),
+      ...NOT_A_GROUND.flatMap((t) => [`bg-${t}`, `from-${t}`]),
+    ]);
     const tokens = new Set(Object.keys(theme));
     const found = new Set<string>();
     for (const file of files(resolve(process.cwd(), "src"))) {
       const src = readFileSync(file, "utf-8");
       // Unprefixed only: `hover:bg-primary` is a fill, not a container's ground.
-      for (const m of src.matchAll(/(?<![\w:-])(?:bg|from)-([a-z0-9]+)(?![\w-])/g)) {
-        if (tokens.has(m[1])) found.add(m[1]);
+      for (const m of src.matchAll(/(?<![\w:-])((?:bg|from)-([a-z0-9]+))(?![\w-])/g)) {
+        if (tokens.has(m[2])) found.add(m[1]);
       }
     }
     expect(found.size, "the scan found no ground classes at all").toBeGreaterThan(3);

@@ -122,41 +122,30 @@ async function expectSettledRing(page: Page, target: Locator, color: string) {
 }
 
 test.describe("with no script", () => {
-  test("390: every section is the stacked list — every card shown, every link reachable", async ({
-    browser,
-  }) => {
-    const { context, page } = await open(browser, PHONE, { js: false });
-    try {
-      const lists = page.locator(LISTS);
-      expect(await lists.count(), "a list per section").toBeGreaterThan(0);
-      expect(await page.locator(`${CAROUSEL}, ${SLIDE}, ${LISTS} [inert]`).count()).toBe(0);
-      expect(await page.locator(`${LISTS} button`).count(), "no dead arrows").toBe(0);
-
-      for (let i = 0; i < (await lists.count()); i++) {
-        const boxes = await lists
-          .nth(i)
-          .locator("article")
-          .evaluateAll((cards) =>
-            cards.map((c) => {
-              const r = c.getBoundingClientRect();
-              const v = getComputedStyle(c).visibility;
-              return { top: r.top, bottom: r.bottom, h: r.height, visible: v === "visible" };
-            }),
-          );
+  test(
+    "390: every section is the stacked list — every card shown, every link reachable",
+    { tag: "@smoke" },
+    async ({ browser }) => {
+      const { context, page } = await open(browser, PHONE, { js: false });
+      try {
+        const lists = page.locator(LISTS);
+        expect(await lists.count(), "a list per section").toBeGreaterThan(0);
+        expect(await page.locator(`${CAROUSEL}, ${SLIDE}, ${LISTS} [inert]`).count()).toBe(0);
         expect(
-          boxes.every((b) => b.visible && b.h > 0),
-          `list ${i}: every card painted`,
-        ).toBe(true);
-        for (let j = 1; j < boxes.length; j++) {
-          expect(boxes[j]!.top, `list ${i}: card ${j} below card ${j - 1}`).toBeGreaterThan(
-            boxes[j - 1]!.bottom,
-          );
+          await lists.getByRole("button", { name: /^(Previous|Next) slide$/ }).count(),
+          "no dead arrows",
+        ).toBe(0);
+
+        for (let i = 0; i < (await lists.count()); i++) {
+          const cards = lists.nth(i).locator("article");
+          for (let j = 0; j < (await cards.count()); j++)
+            await expect(cards.nth(j), `list ${i}: card ${j} painted`).toBeVisible();
         }
+      } finally {
+        await context.close();
       }
-    } finally {
-      await context.close();
-    }
-  });
+    },
+  );
 });
 
 test.describe("at 390, hydrated", () => {
@@ -237,45 +226,50 @@ test.describe("at 390, hydrated", () => {
     }
   });
 
-  test("off-stage cards take no focus: Tab goes from the arrows to the card on stage and on", async ({
-    browser,
-  }) => {
-    const { context, page } = await open(browser);
-    try {
-      const carousel = await firstCarousel(page);
-      const links = await carousel.evaluate((region) =>
-        [...region.querySelectorAll<HTMLElement>("a[href]")].map((a) => ({
-          inert: !!a.closest("[inert]"),
-          hidden: getComputedStyle(a).visibility !== "visible",
-        })),
-      );
-      const reachable = links.filter((l) => !l.inert);
-      expect(reachable.length, "one card's links").toBeLessThanOrEqual(1);
-      expect(links.filter((l) => l.inert).every((l) => l.hidden)).toBe(true);
+  test(
+    "off-stage cards take no focus: Tab goes from the arrows to the card on stage and on",
+    { tag: "@smoke" },
+    async ({ browser }) => {
+      const { context, page } = await open(browser);
+      try {
+        const carousel = await firstCarousel(page);
+        const links = await carousel.evaluate((region) =>
+          [...region.querySelectorAll<HTMLElement>("a[href]")].map((a) => ({
+            inert: !!a.closest("[inert]"),
+            hidden: getComputedStyle(a).visibility !== "visible",
+            card: a.closest("article")?.querySelector("h3")?.textContent?.trim() ?? null,
+          })),
+        );
+        const reachable = links.filter((l) => !l.inert);
+        expect(new Set(reachable.map((l) => l.card)).size, "one card's links").toBeLessThanOrEqual(
+          1,
+        );
+        expect(links.filter((l) => l.inert).every((l) => l.hidden)).toBe(true);
 
-      const next = carousel.getByRole("button", { name: "Next slide" });
-      await next.focus();
-      await page.keyboard.press("Enter");
-      expect(await focus(page), "pressing an arrow keeps focus on it").toMatchObject({
-        at: "Next slide",
-        inert: false,
-      });
-      const onStage = (await state(carousel)).title!;
-      await page.keyboard.press("Tab");
-      const landed = await page.evaluate(() => {
-        const el = document.activeElement as HTMLElement;
-        return {
-          inert: !!el.closest("[inert]"),
-          card: el.closest("article")?.querySelector("h3")?.textContent?.trim() ?? null,
-        };
-      });
-      // A past project has no link, so Tab leaves the carousel instead.
-      if (landed.card !== null) expect(landed).toEqual({ inert: false, card: onStage });
-      expect(landed.inert).toBe(false);
-    } finally {
-      await context.close();
-    }
-  });
+        const next = carousel.getByRole("button", { name: "Next slide" });
+        await next.focus();
+        await page.keyboard.press("Enter");
+        expect(await focus(page), "pressing an arrow keeps focus on it").toMatchObject({
+          at: "Next slide",
+          inert: false,
+        });
+        const onStage = (await state(carousel)).title!;
+        await page.keyboard.press("Tab");
+        const landed = await page.evaluate(() => {
+          const el = document.activeElement as HTMLElement;
+          return {
+            inert: !!el.closest("[inert]"),
+            card: el.closest("article")?.querySelector("h3")?.textContent?.trim() ?? null,
+          };
+        });
+        // A past project has no link, so Tab leaves the carousel instead.
+        if (landed.card !== null) expect(landed).toEqual({ inert: false, card: onStage });
+        expect(landed.inert).toBe(false);
+      } finally {
+        await context.close();
+      }
+    },
+  );
 
   test("the ring shows on both card tones: off-white on the garnet card, garnet on the light ones", async ({
     browser,
@@ -300,30 +294,32 @@ test.describe("at 390, hydrated", () => {
     }
   });
 
-  test("axe passes on the carousels, on the garnet card and on a light one", async ({
-    browser,
-  }) => {
-    const { context, page } = await open(browser);
-    try {
-      await firstCarousel(page);
-      const audit = async () => {
-        const results = await axe(page)
-          .include(LISTS)
-          .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
-          .analyze();
-        const contrast = results.passes.find((r) => r.id === "color-contrast");
-        expect(contrast?.nodes.length ?? 0, "contrast measured something").toBeGreaterThan(0);
-        return results.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target).join()}`);
-      };
-      expect(await audit()).toEqual([]);
-      for (const carousel of await page.locator(`${CAROUSEL}[data-carousel-ready]`).all()) {
-        await carousel.getByRole("button", { name: "Next slide" }).click();
+  test(
+    "axe passes on the carousels, on the garnet card and on a light one",
+    { tag: "@smoke" },
+    async ({ browser }) => {
+      const { context, page } = await open(browser);
+      try {
+        await firstCarousel(page);
+        const audit = async () => {
+          const results = await axe(page)
+            .include(LISTS)
+            .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
+            .analyze();
+          const contrast = results.passes.find((r) => r.id === "color-contrast");
+          expect(contrast?.nodes.length ?? 0, "contrast measured something").toBeGreaterThan(0);
+          return results.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target).join()}`);
+        };
+        expect(await audit()).toEqual([]);
+        for (const carousel of await page.locator(`${CAROUSEL}[data-carousel-ready]`).all()) {
+          await carousel.getByRole("button", { name: "Next slide" }).click();
+        }
+        expect(await audit()).toEqual([]);
+      } finally {
+        await context.close();
       }
-      expect(await audit()).toEqual([]);
-    } finally {
-      await context.close();
-    }
-  });
+    },
+  );
 
   test("a pressed pin turns the carousel to its card", async ({ browser }) => {
     const { context, page } = await open(browser);

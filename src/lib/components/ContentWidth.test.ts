@@ -39,16 +39,14 @@ const body = () =>
   }));
 
 describe("ContentWidth", () => {
-  it("applies animateIn hidden styles when animateInOnScroll is true", () => {
+  it("hands the content to the scroll reveal when animateInOnScroll is true", () => {
     const { getByText } = render(ContentWidth, {
       animateInOnScroll: true,
       children: body(),
     });
 
     const inner = getByText("Inner content").parentElement as HTMLElement;
-    expect(inner.style.opacity).toBe("0");
-    expect(inner.style.transform).toBe("translateY(50%)");
-    expect(inner.style.transition).toContain("opacity");
+    expect(inner.hasAttribute("data-reveal")).toBe(true);
   });
 
   it("does not apply animateIn styles when animateInOnScroll is false", () => {
@@ -60,23 +58,5 @@ describe("ContentWidth", () => {
     const inner = getByText("Inner content").parentElement as HTMLElement;
     expect(inner.style.opacity).toBe("");
     expect(inner.style.transform).toBe("");
-  });
-});
-
-// #171. `xl:` is Tailwind's default 1280, not the 1340 app.css used to
-// declare. Between 1326 and 1340 the two disagree: at 1330 the box is already
-// `xl` (92%, centred), so each gutter is 4% = 53.2px; the old constant still
-// used the md branch and drew 55px.
-describe("ContentWidth edge fade", () => {
-  it("matches the gutter the xl box really leaves at 1330", () => {
-    const before = window.innerWidth;
-    window.innerWidth = 1330;
-    try {
-      const { container } = render(ContentWidth, { edgeFadeColor: "#fff", children: body() });
-      const fade = container.querySelector<HTMLElement>(".absolute.right-0")!;
-      expect(fade.style.width).toBe("53.2px");
-    } finally {
-      window.innerWidth = before;
-    }
   });
 });

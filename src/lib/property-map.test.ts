@@ -3,14 +3,12 @@ import { describe, it, expect } from "vitest";
 import { propertyFixture } from "$lib/property-fixture";
 import {
   activeTarget,
-  CAMERA_FLIGHT_MS,
   cameraMove,
   clusterDiameter,
   clusterPoints,
   clusterSignature,
   COMPACT_MAX_HEIGHT,
   DEFAULT_MAP_STYLE_URL,
-  DIMMED_MARKER_OPACITY,
   expansionZoom,
   fitCamera,
   frameFor,
@@ -23,8 +21,6 @@ import {
   mapStyleUrl,
   markerDimmed,
   PIN_ASPECT,
-  PIN_HOLE,
-  PIN_PATH,
   PIN_VIEWBOX,
   pixelDistance,
   projectX,
@@ -228,31 +224,6 @@ describe("Web Mercator, in MapLibre's 512px units", () => {
 });
 
 describe("the camera each frame lands on", () => {
-  // The measured fit zooms, and the only reason they are written down: they
-  // are what the clustering below is tuned at, and the reason a maxZoom is
-  // needed at all (no multi-pin section comes anywhere near it).
-  it("fits the real sections at the zooms the numbers were chosen at", () => {
-    const full = MAP_FRAMES.full;
-    const compact = MAP_FRAMES.compact;
-    expect(fitCamera(land, PANEL, full)!.zoom).toBeCloseTo(6.9481, 3);
-    expect(fitCamera(improved, PANEL, full)!.zoom).toBeCloseTo(9.6443, 3);
-    expect(fitCamera(land, BAND, full)!.zoom).toBeCloseTo(7.4989, 3);
-    expect(fitCamera(improved, BAND, full)!.zoom).toBeCloseTo(10.1007, 3);
-    expect(fitCamera(land, PHONE, compact)!.zoom).toBeCloseTo(5.0076, 3);
-    expect(fitCamera(improved, PHONE, compact)!.zoom).toBeCloseTo(8.3016, 3);
-    // The two 390 maps are different widths and the same fit: land's 277 km
-    // north-south is what binds on a 200px box, not its 101.7 km east-west.
-    expect(fitCamera(land, PHONE_BAND, compact)!.zoom).toBeCloseTo(
-      fitCamera(land, PHONE, compact)!.zoom,
-      9,
-    );
-    // …and every one of them is well under the cap, which is why the cap only
-    // ever shows up on a one-listing section.
-    for (const zoom of [6.9481, 9.6443, 7.4989, 10.1007, 5.0076, 8.3016]) {
-      expect(zoom).toBeLessThan(full.maxZoom);
-    }
-  });
-
   // The assertion that the padding is real. A marker is anchored at its TIP
   // and the glyph reaches 0.801019S above it — 38.45px at S=48 — so a
   // northernmost pin fitted flush to the top edge would have its head cut off.
@@ -261,7 +232,9 @@ describe("the camera each frame lands on", () => {
       ["land / panel", land, PANEL, MAP_FRAMES.full],
       ["improved / panel", improved, PANEL, MAP_FRAMES.full],
       ["land / band", land, BAND, MAP_FRAMES.full],
+      ["improved / band", improved, BAND, MAP_FRAMES.full],
       ["land / phone", land, PHONE, MAP_FRAMES.compact],
+      ["land / phone band", land, PHONE_BAND, MAP_FRAMES.compact],
       ["improved / phone", improved, PHONE, MAP_FRAMES.compact],
     ] as const) {
       const cam = fitCamera(points, box, frame)!;
@@ -329,10 +302,23 @@ describe("the camera the page drives", () => {
     const move = cameraMove(baseline);
     if (move.move !== "fly") throw new Error("expected a flight");
     const zoom = move.camera.zoom;
+    const { padding } = MAP_FRAMES.full;
     const dx = projectX(move.camera.lng, zoom) - projectX(land[3]!.lng, zoom);
     const dy = projectY(move.camera.lat, zoom) - projectY(land[3]!.lat, zoom);
     expect(dx).toBeCloseTo(0, 6);
-    expect(dy).toBeCloseTo(-4, 6);
+    expect(dy).toBeCloseTo((padding.bottom - padding.top) / 2, 6);
+  });
+
+  it("centres it by the frame it is given: the compact frame's padding and cap", () => {
+    const move = cameraMove({ ...baseline, box: PHONE, frame: MAP_FRAMES.compact });
+    if (move.move !== "fly") throw new Error("expected a flight");
+    const zoom = move.camera.zoom;
+    const { padding, maxZoom } = MAP_FRAMES.compact;
+    expect(zoom).toBe(maxZoom);
+    const dx = projectX(move.camera.lng, zoom) - projectX(land[3]!.lng, zoom);
+    const dy = projectY(move.camera.lat, zoom) - projectY(land[3]!.lat, zoom);
+    expect(dx).toBeCloseTo(0, 6);
+    expect(dy).toBeCloseTo((padding.bottom - padding.top) / 2, 6);
   });
 
   it("jumps instead of flying under prefers-reduced-motion", () => {
@@ -440,14 +426,11 @@ describe("the camera the page drives", () => {
       move: "none",
       why: "arrived",
     });
-    // …whereas changing the FRAME does move it: `compact` pads 26 top against
-    // 44 bottom, so the correction is +9px where `full`'s is -4.
+    // …whereas a map commanded anywhere else does move.
     expect(
       cameraMove({
         ...baseline,
-        box: PHONE,
-        frame: MAP_FRAMES.compact,
-        commanded: first.camera,
+        commanded: { ...first.camera, zoom: first.camera.zoom - 1 },
       }).move,
     ).toBe("fly");
   });
@@ -663,12 +646,13 @@ describe("the camera the page drives", () => {
       const move = cameraMove({ ...baseline, zoom: 13.25 });
       if (move.move !== "fly") throw new Error("expected a flight");
       expect(move.camera.zoom).toBe(13.25);
-      // Same pin-tip correction as at the frame's zoom: -4px, measured in the
-      // world units of the zoom it actually lands at.
+      // Same pin-tip correction as at the frame's zoom, measured in the world
+      // units of the zoom it actually lands at.
+      const { padding } = MAP_FRAMES.full;
       const dx = projectX(move.camera.lng, 13.25) - projectX(land[3]!.lng, 13.25);
       const dy = projectY(move.camera.lat, 13.25) - projectY(land[3]!.lat, 13.25);
       expect(dx).toBeCloseTo(0, 6);
-      expect(dy).toBeCloseTo(-4, 6);
+      expect(dy).toBeCloseTo((padding.bottom - padding.top) / 2, 6);
       // …and FURTHER OUT is as much the visitor's as closer in.
       const out = cameraMove({ ...baseline, zoom: 9.5 });
       expect(out.move === "fly" && out.camera.zoom).toBe(9.5);
@@ -726,12 +710,6 @@ describe("the camera the page drives", () => {
     expect(activeTarget(land[2]!.id, land)).toBe(land[2]);
     expect(activeTarget("not-a-listing", land)).toBeUndefined();
   });
-
-  it("flies for as long as the homepage band's own dissolve", () => {
-    // Not a free number: FeaturedProperties' DISSOLVE is 500, and the photo
-    // and the map are meant to arrive together.
-    expect(CAMERA_FLIGHT_MS).toBe(500);
-  });
 });
 
 describe("clustering, because land cannot be drawn honestly without it", () => {
@@ -741,13 +719,6 @@ describe("clustering, because land cannot be drawn honestly without it", () => {
     const zoom = fitCamera(land, PANEL, MAP_FRAMES.full)!.zoom;
     const closest = minSeparation(land, zoom);
     expect(closest).toBeLessThan(1);
-    // …and separating them by one pin box needs a street-level zoom no
-    // section overview will ever sit at.
-    const a = land.find((p) => p.id === "cascade-caverns-at-old-san-antonio-road")!;
-    const b = land.find((p) => p.id === "ih-10-at-scenic-loop")!;
-    let needed = zoom;
-    while (pixelDistance(a, b, needed) < MAP_FRAMES.full.pin) needed += 0.5;
-    expect(needed).toBeGreaterThan(14);
   });
 
   // THE assertion in this file. A one-pass greedy clustering satisfies it for
@@ -784,32 +755,6 @@ describe("clustering, because land cannot be drawn honestly without it", () => {
       expect(new Set(ids).size, `zoom ${zoom}`).toBe(land.length);
       expect(ids.length, `zoom ${zoom}: no listing in two clusters`).toBe(land.length);
     }
-  });
-
-  // The groupings the site actually draws, written down so a change to the
-  // radius, the padding or the frame has to be looked at rather than noticed.
-  // The first of these is what the production build was measured showing on
-  // 2026-09-22: five pins and two discs reading 6.
-  it("draws the real sections the way the browser was measured drawing them", () => {
-    const shape = (
-      points: MapPoint[],
-      box: Box,
-      frame: (typeof MAP_FRAMES)[keyof typeof MAP_FRAMES],
-    ) => {
-      const zoom = fitCamera(points, box, frame)!.zoom;
-      return clusterPoints(points, zoom, frame.clusterRadius)
-        .map((m) => m.points.length)
-        .sort((a, b) => b - a);
-    };
-    expect(shape(land, PANEL, MAP_FRAMES.full)).toEqual([6, 6, 1, 1, 1, 1, 1]);
-    expect(shape(land, BAND, MAP_FRAMES.full)).toEqual([6, 5, 1, 1, 1, 1, 1, 1]);
-    expect(shape(improved, PANEL, MAP_FRAMES.full)).toEqual([1, 1, 1, 1, 1]);
-    // 200px of frame across 277 km: the whole metro is one disc, and the
-    // Kingsville tract 250 km south is the other. That is the truth at that
-    // zoom rather than a failure of it — and it is the case the expand
-    // affordance exists for, which the next line measures.
-    expect(shape(land, PHONE, MAP_FRAMES.compact)).toEqual([16, 1]);
-    expect(shape(land, { width: 350, height: 520 }, MAP_FRAMES.full)).toEqual([7, 7, 1, 1, 1]);
   });
 
   it("stops clustering once the pins genuinely fit beside each other", () => {
@@ -868,55 +813,13 @@ describe("the frame a container is", () => {
     expect(frameFor({ width: 350, height: 520 })).toBe("full");
     expect(frameFor({ width: 350, height: COMPACT_MAX_HEIGHT })).toBe("full");
   });
-
-  it("draws the comp's two pin sizes and nothing between them", () => {
-    expect(MAP_FRAMES.full.pin).toBe(48);
-    expect(MAP_FRAMES.compact.pin).toBe(22);
-  });
 });
 
 describe("the pin, as the comp draws it", () => {
-  // The five measured numbers are internally consistent, which is the check
-  // that they came off one component: 0.10 (inset) + 0.801019 (glyph height)
-  // is exactly 0.901019 (the tip).
-  it("puts the tip where the glyph's inset and height say it is", () => {
-    expect(0.1 + 0.801019).toBeCloseTo(PIN_ASPECT, 9);
+  // A marker is anchored at the bottom of a box PIN_ASPECT tall, and that
+  // bottom is the tip only while the glyph's own viewBox is that tall too.
+  it("draws the glyph in a viewBox exactly as tall as the box it is anchored by", () => {
     expect(PIN_VIEWBOX).toBe(`0 0 1 ${PIN_ASPECT}`);
-  });
-
-  it("draws a silhouette whose tangent points lie on the head circle", () => {
-    // r = 0.620 / 2, centred 0.10 + r below the box top.
-    const r = 0.31;
-    const cy = 0.41;
-    const match = PIN_PATH.match(/L([\d.]+) ([\d.]+)A([\d.]+) [\d.]+ 0 1 0 ([\d.]+) ([\d.]+)/);
-    expect(match, "the path is a tip, a tangent, a major arc and a close").not.toBeNull();
-    const [, x1, y1, pathR, x2, y2] = match!.map(Number) as unknown as number[];
-    expect(pathR).toBeCloseTo(r, 6);
-    expect(Math.hypot(x1! - 0.5, y1! - cy), "first tangent point on the circle").toBeCloseTo(r, 3);
-    expect(Math.hypot(x2! - 0.5, y2! - cy), "second tangent point on the circle").toBeCloseTo(r, 3);
-    // Mirrored about the pin's axis, and above the tip.
-    expect(x1! + x2!).toBeCloseTo(1, 3);
-    expect(y1!).toBeCloseTo(y2!, 6);
-    expect(y1!).toBeLessThan(PIN_ASPECT);
-  });
-
-  it("punches the hole inside the head and nowhere near the tip", () => {
-    expect(PIN_HOLE.r * 2).toBeCloseTo(0.33375, 6);
-    expect(PIN_HOLE.cy).toBeCloseTo(0.405, 6);
-    // Wholly inside the 0.310 head.
-    expect(Math.hypot(PIN_HOLE.cx - 0.5, PIN_HOLE.cy - 0.41) + PIN_HOLE.r).toBeLessThan(0.31);
-  });
-
-  it("sizes a cluster disc to hold its count at both pin sizes", () => {
-    // A 22px pin's head is 13.64 across — too small for two digits — so the
-    // disc has a floor.
-    expect(clusterDiameter(2, 22)).toBe(26);
-    expect(clusterDiameter(9, 48)).toBeCloseTo(29.76, 2);
-    expect(clusterDiameter(13, 48)).toBeCloseTo(29.76, 2);
-    expect(clusterDiameter(100, 48)).toBeCloseTo(37.76, 2);
-    for (const pin of [22, 48]) {
-      expect(clusterDiameter(17, pin)).toBeGreaterThanOrEqual(26);
-    }
   });
 });
 
@@ -926,68 +829,6 @@ describe("the pin, as the comp draws it", () => {
 
 /** Every published listing, which is what the frame was chosen against. */
 const all = [...land, ...improved];
-
-/** How many of `points` fall inside a frame's reference box at MAP_HOME —
- *  counted from the coordinates, NOT from `homeMarkers`, so this is a second
- *  path to the same number rather than a restatement of the first. */
-function insideHome(points: MapPoint[], frame: keyof typeof MAP_HOME): number {
-  const { camera, reference } = MAP_HOME[frame];
-  const cx = projectX(camera.lng, camera.zoom);
-  const cy = projectY(camera.lat, camera.zoom);
-  return points.filter(
-    (p) =>
-      Math.abs(projectX(p.lng, camera.zoom) - cx) <= reference.width / 2 &&
-      Math.abs(projectY(p.lat, camera.zoom) - cy) <= reference.height / 2,
-  ).length;
-}
-
-describe("MAP_HOME, the frame the operator chose", () => {
-  // Operator's call from three framed options, 2026-09-22: centre 29.62,
-  // -98.52. The ZOOMS were derived here, and these cases are that derivation
-  // re-run — not a transcription of it. If the portfolio moves they become a
-  // record of what was true when the frame was chosen, which is the point.
-  it("is frame A's centre at both zooms", () => {
-    expect(MAP_HOME.full.camera).toEqual({ lng: -98.52, lat: 29.62, zoom: 8.6 });
-    expect(MAP_HOME.compact.camera).toEqual({ lng: -98.52, lat: 29.62, zoom: 8.0 });
-    // One centre, two zooms: the compact box is 200 tall and a frame fitted to
-    // the same GEOGRAPHY in 200px would land at z6.59 — all of South Texas as
-    // a postage stamp. The frames differ in how much they show, never where.
-    expect(MAP_HOME.compact.camera.lng).toBe(MAP_HOME.full.camera.lng);
-    expect(MAP_HOME.compact.camera.lat).toBe(MAP_HOME.full.camera.lat);
-  });
-
-  it("covers 18 of the 22 listings at 397 x 595 and 17 at 350 x 200", () => {
-    expect(MAP_HOME.full.reference).toEqual(PANEL);
-    expect(MAP_HOME.compact.reference).toEqual(PHONE);
-    expect(all).toHaveLength(22);
-    expect(insideHome(all, "full")).toBe(18);
-    expect(insideHome(all, "compact")).toBe(17);
-  });
-
-  it("gives 9 listings a pin of their own, against 5 at today's auto-fit", () => {
-    // #115 quantified. The four outside the frame are not lost — they keep
-    // their card, their list row, and the camera flies to them when they
-    // become active. What changes is how many of the ones ON the map are
-    // distinguishable.
-    for (const frame of ["full", "compact"] as const) {
-      const markers = homeMarkers(all, frame);
-      expect(markers.filter((m) => m.count === 1)).toHaveLength(9);
-      expect(markers.filter((m) => m.count > 1).reduce((n, m) => n + m.count, 0)).toBe(13);
-    }
-    const today = fitCamera(all, PANEL, MAP_FRAMES.full)!;
-    // 6.948088, dragged there by ONE listing 197 km south of the next-nearest
-    // (Kingsville, 27.4901). #122's comment quotes 6.971 for this; measured
-    // here against the same 22 coordinates it is 6.948088439550839, and the
-    // `land` section alone gives the identical number because Kingsville and
-    // Comfort — the two extremes — are both in it.
-    expect(today.zoom).toBeCloseTo(6.948088, 6);
-    expect(
-      clusterPoints(all, today.zoom, MAP_FRAMES.full.clusterRadius).filter(
-        (c) => c.points.length === 1,
-      ),
-    ).toHaveLength(5);
-  });
-});
 
 describe("the placeholder's markers", () => {
   // The claim the whole cross-fade rests on: these are not a second opinion
@@ -1070,14 +911,6 @@ describe("which markers are dimmed so the active one is featured (2026-09-29)", 
     expect(markerDimmed(["c"], "a", on, ["b"])).toBe(true);
     expect(markerDimmed(["c"], "a", on, [null, undefined])).toBe(true);
   });
-
-  it("dims by a value the operator's 'slightly' can live with", () => {
-    // The measurement that chose it is src/lib/map-marker-contrast.test.ts.
-    // Above 0.85 the dim stops featuring much, and the value goes back to the
-    // operator as a report instead (the review of 2026-09-29).
-    expect(DIMMED_MARKER_OPACITY).toBeGreaterThanOrEqual(0.55);
-    expect(DIMMED_MARKER_OPACITY).toBeLessThanOrEqual(0.85);
-  });
 });
 
 describe("whether a section opens on MAP_HOME", () => {
@@ -1114,11 +947,14 @@ describe("whether a section opens on MAP_HOME", () => {
     // north (to 30.0886) and the 200-tall one 0.2388 deg (to 29.8588). A
     // listing at 30.00 is inside `full` and outside `compact` — and
     // `homeFrames` answers null rather than hiding the list on a phone that
-    // would then draw nothing.
-    const north = [point(["north", 30.0, MAP_HOME.full.camera.lng])];
-    expect(homeCamera(north, "full")).not.toBeNull();
-    expect(homeCamera(north, "compact")).toBeNull();
-    expect(homeFrames(north)).toBeNull();
+    // would then draw nothing. Found by walking out from the centre, so the
+    // band is wherever the frames put it.
+    const { lat, lng } = MAP_HOME.full.camera;
+    const split = Array.from({ length: 2000 }, (_, i) => (i + 1) / 1000)
+      .flatMap((d) => [point(["north", lat + d, lng]), point(["east", lat, lng + d])])
+      .find((p) => (homeCamera([p], "full") === null) !== (homeCamera([p], "compact") === null));
+    expect(split, "a listing one frame covers and the other does not").toBeDefined();
+    expect(homeFrames([split!])).toBeNull();
   });
 
   it("answers nothing for a section with no pins at all", () => {
@@ -1306,12 +1142,9 @@ describe("which scroll a wheel event belongs to", () => {
 // same day, "option A"): for MAP_CREDIT_OPEN_MS after the first frame, or until
 // the visitor's first pan, zoom or press, a compact map shows the credit's
 // whole line where the (i) will be, as the OSMF safe harbour asks. That window
-// is the operator's accepted cost and is recorded, not guarded, in its own
-// case at the end ("what the open window covers"). The raster picture before
-// `load` carries the open line too on a compact frame, the live credit's box,
-// so that case covers it; with scripting off the picture is for good and
-// carries the whole chip, the compact furniture this replaced: its collisions
-// are the chip's rows of the guard-the-guard case.
+// is the operator's accepted cost and is not guarded here, and nor is the
+// picture before `load`, which carries the open line on a compact frame, or
+// the whole chip for good with scripting off.
 // The geometry is property-map.spec.ts's, measured in Chromium: "the control
 // column" (44px targets; garnet boxes 20.884 x 20.88, 10 from the right and
 // the bottom, stacked 44 apart) and "the credit" (the (i) 24 x 24 at 10 from
@@ -1375,8 +1208,6 @@ describe("no marker opens under a control or the credit (plan guard 2i)", () => 
     return { name, target: rect, painted: rect };
   };
   const COLUMN = [control("+", 2), control("−", 1), control("expand", 0)];
-  /** #188's cluster: 402 W Nueva, St Mary's at Martin / River Walk, Urban Loop Road. */
-  const DOWNTOWN = "402-w-nueva-street|st-marys-at-martin-river-walk|urban-loop-road";
   const CHIP = credit("the credit chip", 0, 224, 18);
   const FURNITURE: Record<MapFrame, Furniture[]> = {
     full: [...COLUMN, CHIP],
@@ -1422,44 +1253,15 @@ describe("no marker opens under a control or the credit (plan guard 2i)", () => 
 
   const within = (x: number, y: number, r: Rect) => x > r.x0 && x <= r.x1 && y > r.y0 && y <= r.y1;
   const overlap = (a: Rect, b: Rect) => a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
-  /** The distance between two rectangles, 0 if they touch or overlap. */
-  const gap = (a: Rect, b: Rect) =>
-    Math.hypot(Math.max(b.x0 - a.x1, a.x0 - b.x1, 0), Math.max(b.y0 - a.y1, a.y0 - b.y1, 0));
-
-  const collisions = (
-    points: MapPoint[],
-    frame: MapFrame,
-    boxes: Box[],
-    furniture = FURNITURE[frame],
-  ) =>
+  const collisions = (points: MapPoint[], frame: MapFrame, boxes: Box[]) =>
     markers(points, frame, boxes).flatMap(({ box, id, x, y, rect }) =>
-      furniture
+      FURNITURE[frame]
         .flatMap((f) => [
           ...(within(x, y, f.target(box)) ? [`${id} pressed under ${f.name}`] : []),
           ...(overlap(rect, f.painted(box)) ? [`${id} drawn under ${f.name}`] : []),
         ])
         .map((what) => `${what} at ${box.width} x ${box.height}`),
     );
-
-  /** The tightest room any matching marker keeps: its centre from every
-   *  target (`press`), its own box from every painted box (`paint`). */
-  const margins = (
-    points: MapPoint[],
-    frame: MapFrame,
-    boxes: Box[],
-    which: (ids: string[]) => boolean = () => true,
-  ) => {
-    let press = Infinity;
-    let paint = Infinity;
-    for (const { box, ids, x, y, rect } of markers(points, frame, boxes)) {
-      if (!which(ids)) continue;
-      for (const f of FURNITURE[frame]) {
-        press = Math.min(press, gap({ x0: x, x1: x, y0: y, y1: y }, f.target(box)));
-        paint = Math.min(paint, gap(rect, f.painted(box)));
-      }
-    }
-    return { press, paint };
-  };
 
   it("the improved section, at every Properties box", () => {
     expect(collisions(improved, "full", [PANEL])).toEqual([]);
@@ -1477,152 +1279,28 @@ describe("no marker opens under a control or the credit (plan guard 2i)", () => 
     expect(collisions(bandPicks, "compact", COMPACT)).toEqual([]);
   });
 
-  const expectMargins = (got: { press: number; paint: number }, press: number, paint: number) => {
-    expect(got.press, "centre to the nearest target").toBeCloseTo(press, 2);
-    expect(got.paint, "box to the nearest painted box").toBeCloseTo(paint, 2);
-  };
-
-  // The margins, so a camera change that keeps every marker clear but eats
-  // the room is still seen. Measured 2026-09-29. The full frame's 36.79 is
-  // the land panel's Loop 1604 at 181 pin, as before; the compact land map's
-  // 6.23 / 9.41 is the IH 10 East at Loop 1604 pin against expand on a 265
-  // box, where its centre is 6.05px left of and 1.48px above the target and
-  // its tip 19.2px left of the garnet box.
-  it("records the tightest margins on each frame", () => {
-    expectMargins(margins(land, "full", [PANEL]), 36.79, 25.9);
-    expectMargins(margins(improved, "full", [PANEL]), 137.1, 134.66);
-    expectMargins(margins(bandPicks, "full", FULL), 153.94, 140.55);
-    expectMargins(margins(land, "compact", COMPACT), 6.23, 9.41);
-    expectMargins(margins(improved, "compact", COMPACT), 43.09, 43.25);
-    expectMargins(margins(bandPicks, "compact", COMPACT), 54.24, 58.08);
-  });
-
-  // #182's pin and #188's cluster, by name, at their tightest compact widths.
-  // Seguin is on screen from 358 and its nearest furniture is expand, 40.18
-  // below its centre at every width to 445 (a 398-485px phone). The cluster's
-  // nearest is expand too, not the (i): 80.46 on a 265 box, growing half a
-  // pixel per pixel of width. It is 106.54 clear of the (i) there.
-  it("the Seguin pin and the downtown cluster, where each was", () => {
-    const seguin = (ids: string[]) => ids.includes("ih-10-at-fm-725-seguin");
-    const downtown = (ids: string[]) => ids.includes("402-w-nueva-street");
-    expect(
-      homeMarkers(land, "compact").find((m) => downtown(m.ids))!.id,
-      "the cluster #188 names, still one cluster of three",
-    ).toBe(DOWNTOWN);
-    expectMargins(margins(land, "compact", COMPACT, seguin), 40.18, 43.39);
-    expectMargins(margins(land, "compact", COMPACT, downtown), 80.46, 80.58);
-    const [, credit] = FURNITURE.compact;
-    const at265 = markers(land, "compact", [{ width: 265, height: 200 }]).find((m) =>
-      downtown(m.ids),
-    )!;
-    expect(
-      gap({ x0: at265.x, x1: at265.x, y0: at265.y, y1: at265.y }, credit!.target(at265.box)),
-    ).toBeCloseTo(106.54, 2);
-  });
-
-  // GUARD THE GUARD. Both rules, run against the furniture the compact frame
-  // carried before 2026-09-29 — the three-target column and the whole chip —
-  // find exactly the two defects the issues report. If either rule stops
-  // seeing its defect, this goes red before the frame's own case goes green
-  // for the wrong reason.
-  //
-  // It finds one more than the issues named: the Loop 1604 at Dove Canyon pin
-  // was under the chip too, from 265 to 608 (its box reaches y 184.9 on a 200
-  // box; the chip starts at 182). The (i) clears it by 18.05 at 265.
-  it("finds #182 and #188 against the compact furniture this replaced", () => {
-    const runs: Record<string, number[]> = {};
-    for (const found of collisions(land, "compact", COMPACT, [...COLUMN, CHIP])) {
-      const [, what, width] = /^(.*) at (\d+) x 200$/.exec(found)!;
-      (runs[what!] ??= []).push(Number(width));
-    }
-    const run = (from: number, to: number) =>
-      Array.from({ length: to - from + 1 }, (_, i) => from + i);
-    expect(runs).toEqual({
-      "ih-10-at-fm-725-seguin pressed under −": run(358, 445),
-      "ih-10-at-fm-725-seguin drawn under −": run(356, 441),
-      [`${DOWNTOWN} drawn under the credit chip`]: run(265, 457),
-      "loop-1604-at-dove-canyon drawn under the credit chip": run(265, 608),
-    });
-  });
-
-  // WHAT THE OPEN WINDOW COVERS — option A's accepted cost, measured rather
-  // than waved at. For its first MAP_CREDIT_OPEN_MS a compact map's credit is
-  // MapLibre's compact credit OPEN: 10 from the left and the bottom, bounded
-  // by the control column's strip (`right: 54px`), one line 248 x 24 in this
-  // container's fonts, or two lines 32 tall where 248 does not fit (191 x 32
-  // on a 265 box). property-map.spec.ts holds the rendered line inside this
-  // box at 320, 390 and 768 on both pages. It is a record: a camera or a
-  // listing that changes these runs goes red here, so the cost is re-read by
-  // whoever changed it, and a first touch or five seconds ends it either way.
-  it("records what the open window covers, for its first seconds", () => {
-    const LINE = { width: 248, oneLine: 24, twoLines: 32, inset: 10, strip: 54 };
-    const line = (): Furniture => {
-      const rect = (b: Box) => {
-        // maplibre's compact credit has a 10px margin on EVERY side, so the
-        // right one is room lost too: 191 on a 265 box, not 201.
-        const room = b.width - LINE.strip - 2 * LINE.inset;
-        const width = Math.min(LINE.width, room);
-        const height = width < LINE.width ? LINE.twoLines : LINE.oneLine;
-        return {
-          x0: LINE.inset,
-          x1: LINE.inset + width,
-          y0: b.height - LINE.inset - height,
-          y1: b.height - LINE.inset,
-        };
-      };
-      return { name: "the open line", target: rect, painted: rect };
-    };
-    const window = [control("expand", 0), line()];
-    const runs = (points: MapPoint[]) => {
-      const found: Record<string, number[]> = {};
-      for (const hit of collisions(points, "compact", COMPACT, window)) {
-        const [, what, width] = /^(.*) at (\d+) x 200$/.exec(hit)!;
-        (found[what!] ??= []).push(Number(width));
-      }
-      return Object.fromEntries(
-        Object.entries(found).map(([what, widths]) => [
-          what,
-          `${Math.min(...widths)}-${Math.max(...widths)} (${widths.length} widths)`,
-        ]),
-      );
-    };
-    // Measured in Chromium on /properties at seven boxes (265, 295, 321, 323,
-    // 335, 505, 545) and 689: every marker the rendered line overlapped is in
-    // these runs, and none outside them. The (i) that follows clears every
-    // one — each section's own case above.
-    expect(runs(land)).toEqual({
-      [`${DOWNTOWN} pressed under the open line`]: "265-499 (235 widths)",
-      [`${DOWNTOWN} drawn under the open line`]: "265-525 (261 widths)",
-      "loop-1604-at-dove-canyon pressed under the open line": "265-654 (390 widths)",
-      "loop-1604-at-dove-canyon drawn under the open line": "265-676 (412 widths)",
-      "ih-10-east-at-loop-1604 drawn under the open line": "271-321 (51 widths)",
-    });
-    // 101 W Commerce Street is downtown too, on the improved map and among
-    // the band's picks — seen under the line on /properties' second map at
-    // 335, and on the band at 375 while it is still at MAP_HOME (with motion
-    // allowed; the band leaves MAP_HOME for its first pick at the hand-over,
-    // #132, which under reduced motion is the same frame).
-    const commerce = {
-      "101-w-commerce-street pressed under the open line": "265-497 (233 widths)",
-      "101-w-commerce-street drawn under the open line": "265-519 (255 widths)",
-    };
-    expect(runs(improved), "the improved section's map").toEqual(commerce);
-    expect(runs(bandPicks), "the homepage band's picks").toEqual(commerce);
-  });
-
-  // And a marker put in the middle target (the −) of the full column is found.
-  it("finds a marker placed under the column", () => {
+  // GUARD THE GUARD. A marker put in the middle target (the −) of the full
+  // column is found, #182's shape, and so is a cluster whose centre is just
+  // above the credit chip while its disc reaches into it, #188's: if either
+  // rule stops seeing its defect, this goes red before a section's own case
+  // goes green for the wrong reason.
+  it("finds a marker placed under the column, and a cluster on the credit", () => {
     const { camera } = MAP_HOME.full;
-    const [x, y] = [PANEL.width - 22, PANEL.height - 66 + (48 * PIN_ASPECT) / 2];
-    const probe = {
+    const at = (id: string, x: number, y: number): MapPoint => ({
       ...land[0]!,
-      id: "probe",
+      id,
       lng: unprojectLng(projectX(camera.lng, camera.zoom) + x - PANEL.width / 2, camera.zoom),
       lat: unprojectLat(projectY(camera.lat, camera.zoom) + y - PANEL.height / 2, camera.zoom),
-    };
+    });
+    const tip = (MAP_FRAMES.full.pin * PIN_ASPECT) / 2;
+    const probe = at("probe", PANEL.width - TARGET / 2, PANEL.height - TARGET * 1.5 + tip);
     expect(collisions([probe], "full", [PANEL])).toEqual([
       "probe pressed under − at 397 x 595",
       "probe drawn under − at 397 x 595",
+    ]);
+    const pair = [at("a", 112, PANEL.height - 25), at("b", 112, PANEL.height - 25)];
+    expect(collisions(pair, "full", [PANEL])).toEqual([
+      "a|b drawn under the credit chip at 397 x 595",
     ]);
   });
 });

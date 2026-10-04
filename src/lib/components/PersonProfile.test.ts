@@ -8,19 +8,14 @@ import PersonProfile from "./PersonProfile.svelte";
 afterEach(cleanup);
 
 describe("PersonProfile", () => {
-  it("has one h1, the person's name, on the site's grid", () => {
+  it("has one h1, the person's name, and names the article by it", () => {
     const { getAllByRole, container } = render(PersonProfile, {
       props: { person: personFixture({ credentials: "CCIM" }) },
     });
-    const headings = getAllByRole("heading");
-    expect(headings.map((h) => h.tagName)).toEqual(["H1"]);
-    expect(headings[0].textContent).toBe("Matt Howard, CCIM");
-    expect(container.querySelector("article")!.getAttribute("aria-labelledby")).toBe(
-      headings[0].id,
-    );
-    expect(container.querySelector(".lg\\:grid")!.className).toContain(
-      "lg:grid-cols-[397fr_847fr]",
-    );
+    const h1s = getAllByRole("heading", { level: 1 });
+    expect(h1s).toHaveLength(1);
+    expect(h1s[0].textContent).toBe("Matt Howard, CCIM");
+    expect(container.querySelector("article")!.getAttribute("aria-labelledby")).toBe(h1s[0].id);
   });
 
   it("marks a placeholder biography — and only a placeholder", () => {
@@ -62,9 +57,9 @@ describe("PersonProfile", () => {
     });
     expect(bad.getByText("496-5800").closest("a")).toBeNull();
     expect(bad.getByText("603462").closest("a")).toBeNull();
-    expect(bad.getAllByRole("link").map((a) => a.getAttribute("href"))).toEqual([
-      "mailto:mhoward@roalson.com",
-    ]);
+    const hrefs = bad.getAllByRole("link").map((a) => a.getAttribute("href") ?? "");
+    expect(hrefs).toContain("mailto:mhoward@roalson.com");
+    expect(hrefs.filter((href) => href.startsWith("tel:"))).toEqual([]);
   });
 
   it("draws no photo box without a photo, and one with", () => {

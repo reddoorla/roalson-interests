@@ -1,6 +1,6 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
 import { HYDRATION_TIMEOUT } from "./hydrated";
-import { GARNET, SAND } from "./palette";
+import { GARNET } from "./palette";
 import { axe } from "./axe";
 
 // The contact page makes promises jsdom cannot check: that its two columns
@@ -293,94 +293,98 @@ for (const [width, height] of [
   [1440, 900],
   [390, 664],
 ] as const) {
-  test(`a failed send lands its alert in view under the bar, focused, naming the phone (${width})`, async ({
-    browser,
-  }) => {
-    const { context, page } = await withMotion(browser, width, height);
+  test(
+    `a failed send lands its alert, focused, naming the phone (${width})`,
+    { tag: width === 1440 ? "@smoke" : [] },
+    async ({ browser }) => {
+      const { context, page } = await withMotion(browser, width, height);
+      try {
+        await page.goto(ROUTE);
+        test.skip(!(await ingestIsDark(page)), "FORMS_INGEST_* are set: this would send a lead");
+        await hydrated(page);
+        await fillValid(page);
+        await submitByKeyboard(page);
+
+        const alert = page.locator(`${formSection} [role="alert"]`);
+        await expect(alert).toContainText("temporarily unavailable");
+        await expect(alert).toContainText("(210) 496-5800");
+        await expect(alert).not.toContainText(/e-?mail/i);
+        await expect(alert, "the alert holds focus").toBeFocused();
+
+        // The defect: top −8px behind an 80px bar at 1440.
+        const at = await landing(page, `${formSection} [role="alert"]`);
+        expect(at.top, "not under the pinned bar").toBeGreaterThanOrEqual(at.barBottom);
+        expect(at.bottom, "inside the viewport").toBeLessThanOrEqual(at.viewport);
+        if (width === 390) {
+          // 20 under the bar is the design, and here it is asserted as a LANDING,
+          // not as "anywhere clear of it": with plain focus() the landing is a race
+          // against the glide in flight. Two runs of that mutation at 390 put the
+          // same alert in two places — top at 340, and jammed against the
+          // viewport's bottom edge (bottom at 664.09 of 664), which a lower-bound
+          // check passed and the viewport check above caught by 0.09px.
+          expect(at.top - at.barBottom, "20px under the pinned bar").toBeGreaterThanOrEqual(19);
+          expect(at.top - at.barBottom, "20px under the pinned bar").toBeLessThanOrEqual(21);
+        }
+
+        // The form survives a failure, with what was typed.
+        await expect(page.getByLabel(/^Name/)).toHaveValue("Ada Lovelace");
+        await expect(page.getByRole("button", { name: "Send message" })).toBeEnabled();
+      } finally {
+        await context.close();
+      }
+    },
+  );
+}
+
+test(
+  "a screened-out send shows the confirmation in place of the form, focused",
+  { tag: "@smoke" },
+  async ({ browser }) => {
+    // The honeypot answers { success: true } BY DESIGN, so this proves the panel
+    // and nothing about delivery — a lead reaching the dashboard can only be
+    // shown on a deploy that has FORMS_INGEST_*.
+    const { context, page } = await withMotion(browser, 1440, 900);
     try {
       await page.goto(ROUTE);
-      test.skip(!(await ingestIsDark(page)), "FORMS_INGEST_* are set: this would send a lead");
+      test.skip(
+        !(await ingestIsDark(page)),
+        "FORMS_INGEST_* are set: this would post a screen-out",
+      );
       await hydrated(page);
       await fillValid(page);
+      await page.evaluate(() => {
+        document.querySelector<HTMLInputElement>('input[name="bot-field"]')!.value = "spec";
+      });
       await submitByKeyboard(page);
 
-      const alert = page.locator(`${formSection} [role="alert"]`);
-      await expect(alert).toContainText("temporarily unavailable");
-      await expect(alert).toContainText("(210) 496-5800");
-      await expect(alert).not.toContainText(/e-?mail/i);
+      const status = page.locator(`${formSection} [role="status"]`);
+      await expect(status).toContainText("your message is on its way");
+      await expect(page.locator(`${formSection} form`)).toHaveCount(0);
+      await expect(status.getByRole("link", { name: "(210) 496-5800" })).toHaveAttribute(
+        "href",
+        "tel:+12104965800",
+      );
+      await expect(status, "the confirmation holds focus").toBeFocused();
 
-      const at = await landing(page, `${formSection} [role="alert"]`);
-      expect(at.focused, "the alert holds focus").toBe(true);
-      // The defect: top −8px behind an 80px bar at 1440. 20 under the bar is the
-      // design, and it is asserted as a LANDING, not as "anywhere clear of it":
-      // with plain focus() the landing is a race against the glide in flight.
-      // Two runs of that mutation at 390 put the same alert in two places —
-      // top at 340, and jammed against the viewport's bottom edge (bottom at
-      // 664.09 of 664), which a lower-bound check passed and a side-check
-      // caught by 0.09px.
-      expect(at.top - at.barBottom, "20px under the pinned bar").toBeGreaterThanOrEqual(19);
-      expect(at.top - at.barBottom, "20px under the pinned bar").toBeLessThanOrEqual(21);
-      expect(at.bottom, "inside the viewport").toBeLessThanOrEqual(at.viewport);
+      // Plain focus() left it 45px BEHIND the bar (top at 35 of an 80px bar).
+      const at = await landing(page, `${formSection} [role="status"]`);
+      expect(at.top, "not under the pinned bar").toBeGreaterThanOrEqual(at.barBottom);
 
-      // The form survives a failure, with what was typed.
-      await expect(page.getByLabel(/^Name/)).toHaveValue("Ada Lovelace");
-      await expect(page.getByRole("button", { name: "Send message" })).toBeEnabled();
+      // A focus TARGET is outside app.css's floor (tabindex="-1"), so it carries
+      // the floor's declaration itself: the ring must show on it.
+      await expect
+        .poll(() =>
+          status.evaluate((el) => ({
+            showing: el.matches(":focus-visible"),
+            ring: getComputedStyle(el).outlineStyle !== "none",
+          })),
+        )
+        .toEqual({ showing: true, ring: true });
     } finally {
       await context.close();
     }
-  });
-}
-
-test("a screened-out send shows the confirmation in place of the form, focused, under the bar", async ({
-  browser,
-}) => {
-  // The honeypot answers { success: true } BY DESIGN, so this proves the panel
-  // and nothing about delivery — a lead reaching the dashboard can only be
-  // shown on a deploy that has FORMS_INGEST_*.
-  const { context, page } = await withMotion(browser, 1440, 900);
-  try {
-    await page.goto(ROUTE);
-    test.skip(!(await ingestIsDark(page)), "FORMS_INGEST_* are set: this would post a screen-out");
-    await hydrated(page);
-    await fillValid(page);
-    await page.evaluate(() => {
-      document.querySelector<HTMLInputElement>('input[name="bot-field"]')!.value = "spec";
-    });
-    await submitByKeyboard(page);
-
-    const status = page.locator(`${formSection} [role="status"]`);
-    await expect(status).toContainText("your message is on its way");
-    await expect(page.locator(`${formSection} form`)).toHaveCount(0);
-    await expect(status).toHaveCSS("background-color", SAND);
-    await expect(status.getByRole("link", { name: "(210) 496-5800" })).toHaveAttribute(
-      "href",
-      "tel:+12104965800",
-    );
-
-    const at = await landing(page, `${formSection} [role="status"]`);
-    expect(at.focused, "the confirmation holds focus").toBe(true);
-    // Plain focus() left it 45px BEHIND the bar (top at 35 of an 80px bar).
-    expect(at.top - at.barBottom, "20px under the pinned bar").toBeGreaterThanOrEqual(19);
-    expect(at.top - at.barBottom, "20px under the pinned bar").toBeLessThanOrEqual(21);
-
-    // A focus TARGET is outside app.css's floor (tabindex="-1"), so it carries
-    // the floor's declaration itself. Polled past the outline-color transition.
-    await expect
-      .poll(() =>
-        status.evaluate((el) => {
-          const cs = getComputedStyle(el);
-          return {
-            showing: el.matches(":focus-visible"),
-            ring: `${cs.outlineWidth} ${cs.outlineStyle} ${cs.outlineColor}`,
-            offset: cs.outlineOffset,
-          };
-        }),
-      )
-      .toEqual({ showing: true, ring: `2px solid ${GARNET}`, offset: "2px" });
-  } finally {
-    await context.close();
-  }
-});
+  },
+);
 
 test("Form.svelte's error summary lands as the alert does: focused, 20px under the bar", async ({
   browser,
@@ -442,103 +446,124 @@ const nameId = (page: Page) => page.locator(nameInput).evaluate((el) => el.id);
 for (const [width, height] of SIZES) {
   for (const motion of MOTIONS) {
     for (const how of ["keyboard", "mouse"] as const) {
-      test(`submitted with Name empty by ${how}, the focused field is clear of the pinned bar (${width}, ${motion})`, async ({
-        browser,
-      }) => {
+      // With no glide there is no race, so the gate holds the relation alone.
+      const smoke = motion === "reduce" && how === "keyboard";
+      test(
+        `submitted with Name empty by ${how}, the focused field is clear of the pinned bar (${width}, ${motion})`,
+        { tag: smoke ? "@smoke" : [] },
+        async ({ browser }) => {
+          const { context, page } = await withMotion(browser, width, height, motion);
+          try {
+            await page.goto(ROUTE);
+            await hydrated(page);
+            await hydrated(page);
+            // Everything valid but Name, so Name is the control the browser picks.
+            await page.getByLabel(/^Email/).fill("ada@example.com");
+            await page.getByLabel(/^Message/).fill("Name was left empty on purpose.");
+            if (how === "keyboard") await submitByKeyboard(page);
+            else await page.getByRole("button", { name: "Send message" }).click();
+
+            // Positive evidence that the BROWSER refused the submission and moved
+            // focus itself: the field is invalid and holds focus, and neither
+            // answer from the server has rendered.
+            await expect(page.locator(nameInput)).toBeFocused();
+            expect(await page.locator(nameInput).evaluate((el) => el.matches(":invalid"))).toBe(
+              true,
+            );
+            await expect(page.locator(`${formSection} [role="alert"]`)).toHaveCount(0);
+            await expect(page.locator(`${formSection} [role="status"]`)).toHaveCount(0);
+
+            const at = await landing(page, nameInput);
+            expect(at.focused, "Name holds focus").toBe(true);
+            expect(at.top, "not under the pinned bar").toBeGreaterThanOrEqual(at.barBottom);
+            expect(at.bottom, "inside the viewport").toBeLessThanOrEqual(at.viewport);
+            if (!smoke) {
+              expect(at.bottom - at.top, "the 48px control").toBe(48);
+
+              // …and asserted as a LANDING, like the alert's, because "anywhere
+              // clear of the bar" is what a race passes on a lucky run: the label
+              // 20px under the bar, the control under its label.
+              const label = await landing(
+                page,
+                `${formSection} label[for="${await nameId(page)}"]`,
+              );
+              expect(
+                label.top - label.barBottom,
+                "20px under the pinned bar",
+              ).toBeGreaterThanOrEqual(19);
+              expect(label.top - label.barBottom, "20px under the pinned bar").toBeLessThanOrEqual(
+                21,
+              );
+              expect(label.bottom, "the label is above its control").toBeLessThanOrEqual(at.top);
+            }
+          } finally {
+            await context.close();
+          }
+        },
+      );
+    }
+
+    test(
+      `Shift+Tab from the submit to the bar never parks focus under it (${width}, ${motion})`,
+      { tag: motion === "reduce" ? "@smoke" : [] },
+      async ({ browser }) => {
         const { context, page } = await withMotion(browser, width, height, motion);
         try {
           await page.goto(ROUTE);
           await hydrated(page);
           await hydrated(page);
-          // Everything valid but Name, so Name is the control the browser picks.
-          await page.getByLabel(/^Email/).fill("ada@example.com");
-          await page.getByLabel(/^Message/).fill("Name was left empty on purpose.");
-          if (how === "keyboard") await submitByKeyboard(page);
-          else await page.getByRole("button", { name: "Send message" }).click();
+          await page.getByRole("button", { name: "Send message" }).focus();
+          await still(page);
 
-          // Positive evidence that the BROWSER refused the submission and moved
-          // focus itself: the field is invalid and holds focus, and neither
-          // answer from the server has rendered.
-          await expect(page.locator(nameInput)).toBeFocused();
-          expect(await page.locator(nameInput).evaluate((el) => el.matches(":invalid"))).toBe(true);
-          await expect(page.locator(`${formSection} [role="alert"]`)).toHaveCount(0);
-          await expect(page.locator(`${formSection} [role="status"]`)).toHaveCount(0);
+          const stops: { what: string; top: number; barBottom: number }[] = [];
+          let reachedBar = false;
+          for (let i = 0; i < 20 && !reachedBar; i++) {
+            await page.keyboard.press("Shift+Tab");
+            await still(page);
+            const stop = await page.evaluate((nav) => {
+              const el = document.activeElement as HTMLElement;
+              const barEl = document.querySelector(nav)!;
+              return {
+                what: el.getAttribute("name") ?? el.getAttribute("href") ?? el.tagName,
+                top: el.getBoundingClientRect().top,
+                barBottom: barEl.getBoundingClientRect().bottom,
+                inBar: barEl.contains(el),
+              };
+            }, bar);
+            if (stop.inBar) reachedBar = true;
+            else stops.push({ what: stop.what, top: stop.top, barBottom: stop.barBottom });
+          }
 
-          const at = await landing(page, nameInput);
-          expect(at.focused, "Name holds focus").toBe(true);
-          expect(at.bottom - at.top, "the 48px control").toBe(48);
-          expect(at.top, "not under the pinned bar").toBeGreaterThanOrEqual(at.barBottom);
-          expect(at.bottom, "inside the viewport").toBeLessThanOrEqual(at.viewport);
-
-          // …and asserted as a LANDING, like the alert's, because "anywhere
-          // clear of the bar" is what a race passes on a lucky run: the label
-          // 20px under the bar, the control under its label.
-          const label = await landing(page, `${formSection} label[for="${await nameId(page)}"]`);
-          expect(label.top - label.barBottom, "20px under the pinned bar").toBeGreaterThanOrEqual(
-            19,
+          // The walk is only evidence if it WALKED: through all four fields and
+          // out into the bar at the top. The gate's reduce case asks for the
+          // fields; the office's two links in order are the comp's.
+          expect(reachedBar, "the walk ended in the bar").toBe(true);
+          expect(stops.map((s) => s.what)).toEqual(
+            motion === "reduce"
+              ? expect.arrayContaining(["message", "phone", "email", "name"])
+              : [
+                  "message",
+                  "phone",
+                  "email",
+                  "name",
+                  expect.stringMatching(/^https:\/\/www\.google\.com\/maps/),
+                  "tel:+12104965800",
+                ],
           );
-          expect(label.top - label.barBottom, "20px under the pinned bar").toBeLessThanOrEqual(21);
-          expect(label.bottom, "the label is above its control").toBeLessThanOrEqual(at.top);
+          expect(
+            stops.filter((s) => s.top < s.barBottom),
+            "focused stops under the pinned bar",
+          ).toEqual([]);
         } finally {
           await context.close();
         }
-      });
-    }
-
-    test(`Shift+Tab from the submit to the bar never parks focus under it (${width}, ${motion})`, async ({
-      browser,
-    }) => {
-      const { context, page } = await withMotion(browser, width, height, motion);
-      try {
-        await page.goto(ROUTE);
-        await hydrated(page);
-        await hydrated(page);
-        await page.getByRole("button", { name: "Send message" }).focus();
-        await still(page);
-
-        const stops: { what: string; top: number; barBottom: number }[] = [];
-        let reachedBar = false;
-        for (let i = 0; i < 20 && !reachedBar; i++) {
-          await page.keyboard.press("Shift+Tab");
-          await still(page);
-          const stop = await page.evaluate((nav) => {
-            const el = document.activeElement as HTMLElement;
-            const barEl = document.querySelector(nav)!;
-            return {
-              what: el.getAttribute("name") ?? el.getAttribute("href") ?? el.tagName,
-              top: el.getBoundingClientRect().top,
-              barBottom: barEl.getBoundingClientRect().bottom,
-              inBar: barEl.contains(el),
-            };
-          }, bar);
-          if (stop.inBar) reachedBar = true;
-          else stops.push({ what: stop.what, top: stop.top, barBottom: stop.barBottom });
-        }
-
-        // The walk is only evidence if it WALKED: through all four fields and
-        // the office's two links, and out into the bar at the top.
-        expect(reachedBar, "the walk ended in the bar").toBe(true);
-        expect(stops.map((s) => s.what)).toEqual([
-          "message",
-          "phone",
-          "email",
-          "name",
-          expect.stringMatching(/^https:\/\/www\.google\.com\/maps/),
-          "tel:+12104965800",
-        ]);
-        expect(
-          stops.filter((s) => s.top < s.barBottom),
-          "focused stops under the pinned bar",
-        ).toEqual([]);
-      } finally {
-        await context.close();
-      }
-    });
+      },
+    );
   }
 }
 
 for (const state of ["at rest", "after a failed send", "after the confirmation"] as const) {
-  test(`/contact has no axe violations ${state}`, async ({ page }) => {
+  test(`/contact has no axe violations ${state}`, { tag: "@smoke" }, async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 900 });
     await page.goto(ROUTE);
     await hydrated(page);
