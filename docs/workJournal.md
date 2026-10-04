@@ -12642,6 +12642,8 @@ The developer's ask, verbatim from the session: tests "have been useful to you i
 | `pnpm verify`          | not run whole                          | 194 s, exit 0                              |
 | unit tests             | 1,744 in 27,712 lines                  | 1,642 in 26,031 lines                      |
 
+On GitHub's runner the whole `ci / ci` job for this branch (install, prettier, eslint, svelte-check, build, the a11y audit, vitest, `@smoke`) took 3 min 33 s, 19:21:12 to 19:24:45 UTC on `c5db79b`.
+
 The one red on `main` was `featured-properties.spec.ts:2869`, #202's rAF count, under the load of this session's own agents: the issue reproducing itself. CI on `main` had drifted from ~11 min (late September) to 15–27 min per PR, retries 2.
 
 **A gate that still catches bugs.** Four real regressions planted in a clean worktree, each reverted after:
