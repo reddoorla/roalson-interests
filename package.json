@@ -12,6 +12,7 @@
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
     "lint": "prettier --check . && eslint .",
     "format": "prettier --write .",
+    "prepare": "simple-git-hooks",
     "test": "pnpm test:unit && pnpm test:smoke",
     "test:unit": "vitest run",
     "test:unit:watch": "vitest",
@@ -50,9 +51,11 @@
     "eslint-plugin-svelte": "^3.18.0",
     "globals": "^17.6.0",
     "jsdom": "^30.0.0",
+    "lint-staged": "^17.6.0",
     "prettier": "^3.8.3",
     "prettier-plugin-svelte": "^4.0.1",
     "sharp": "^0.35.0",
+    "simple-git-hooks": "^2.14.0",
     "slice-machine-ui": "^2.21.3",
     "svelte": "^5.55.10",
     "svelte-check": "^4.4.8",
@@ -77,5 +80,11 @@
     "@zerodevx/svelte-img": "^2.1.2",
     "maplibre-gl": "6.10.0",
     "svelte-gestures": "^5.2.2"
+  },
+  "simple-git-hooks": {
+    "pre-commit": "if [ -x node_modules/.bin/lint-staged ]; then node_modules/.bin/lint-staged; else echo \"pre-commit: node_modules is not installed in this checkout, so prettier did not run\"; fi"
+  },
+  "lint-staged": {
+    "*": "prettier --write --ignore-unknown"
   }
 }
