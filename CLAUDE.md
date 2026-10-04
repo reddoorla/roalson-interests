@@ -20,6 +20,15 @@ Formatting is enforced on `.svelte` files too: the plugin loads from
 script — with no config file, `prettier --check .` silently skips every
 `.svelte` file, and that is exactly the hole the config closes.
 
+`pnpm install` also installs a pre-commit hook (`simple-git-hooks`, via
+`prepare`) that runs `prettier --write` on the staged files through
+`lint-staged`, so formatting is fixed at commit time instead of failing CI's
+first step. It formats only what is staged and leaves unstaged edits alone. A
+checkout with no `node_modules` (a fresh worktree) commits unformatted, with a
+`pre-commit:` line saying so, rather than being blocked. Run `pnpm install`
+there, or `pnpm format` before pushing. A file prettier cannot parse blocks
+the commit; fix the syntax error rather than reaching for `--no-verify`.
+
 ## Tests build; they don't freeze
 
 Tests are how an agent builds against a comp without a human watching: a

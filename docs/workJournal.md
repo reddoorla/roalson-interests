@@ -12702,3 +12702,27 @@ Three fixes in the edits themselves, none of them design. `'… to-dark'{passedC
 The new gate held on its first real customer. `pnpm verify` passed locally (1,653 unit, 60 `@smoke`), and `ci / ci` passed on `409a66c` in 2 min 54 s. The scaffold tier ran against the same edits: 397 of 398 green. The one red was `contact.spec.ts:106`, `masthead height: 480 vs 400`, which is exactly the number the design moved. It now reads 480 rather than being deleted, so the scaffold still measures the masthead the site has.
 
 **Left with the developer, not changed.** With a photo, the band no longer paints the garnet gradient under it. Until the photo decodes, or if it fails, the white h1 sits on the cream page behind the scrim alone. That is a design call, and the unit contrast gate measures the photo case only.
+
+## 2026-10-04 — A pre-commit hook runs prettier on what is staged (`claude/trusting-hawking-aauv3f`)
+
+> Follows 2026-10-04 — Tests build; they don't freeze.
+
+#251 went red on 2026-10-01 in 20 seconds, on `prettier --check`, before a single test ran. Formatting is the one CI failure a machine can fix without judgement. So `pnpm install` now installs a pre-commit hook: `simple-git-hooks`, wired through `prepare`, runs `lint-staged`, which runs `prettier --write --ignore-unknown` on the staged files. Earlier in the day this was refused by the session's permission policy as persistence. It went in once the developer asked for it by name.
+
+Measured on scratch worktrees, each thrown away after:
+
+- **A staged, badly formatted line** went into the commit as `export const uglyThing = { a: 1, b: 2 };`. An unstaged edit to the same file stayed unstaged and unformatted, so lint-staged's stash round-trip leaves a half-staged file alone.
+- **A staged syntax error** fails the hook (`✖ prettier --write`), rc 1, and HEAD does not move.
+- **An install with no `.git`**, as a tarball or a Netlify build might be, logs `No .git root folder found, skipping` and exits 0, with `CI=true` too.
+- **A worktree with no `node_modules`** commits with a `pre-commit:` line saying prettier did not run. It is not blocked.
+
+That last behaviour was a change, not the first draft. The first hook was `pnpm exec lint-staged`. Git hooks live in the shared `.git/hooks`, so they fire in every worktree, and agent sessions make worktrees constantly. Two things went wrong with it:
+
+- In a worktree with a symlinked `node_modules`, pnpm 11's dependency-status check aborted the commit with a stack trace.
+- A worktree with no install at all would have had every commit blocked.
+
+The hook now calls `node_modules/.bin/lint-staged` when it exists and says so when it does not. CI's `prettier --check` is still the gate, and the hook only moves the fix earlier.
+
+`simple-git-hooks` is `false` under `allowBuilds` in `pnpm-workspace.yaml`. Its own postinstall would install hooks from inside `node_modules`, and the root `prepare` already does that job. pnpm 11 refuses an unlisted build (`ERR_PNPM_IGNORED_BUILDS`), so the entry has to exist either way.
+
+Not done: the starter template does not carry this. CLAUDE.md says this file ships with the template, but `package.json` is per-site, so other sites get the paragraph without the hook until the starter adopts it.
