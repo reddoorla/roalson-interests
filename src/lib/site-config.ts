@@ -76,3 +76,5 @@ export function footerNav(siteConfig: SiteConfig = loadSiteConfig()): FooterLink
     ]);
   return flatten(siteConfig.nav.items);
 }
+
+export const ABOUT_ID = "about";

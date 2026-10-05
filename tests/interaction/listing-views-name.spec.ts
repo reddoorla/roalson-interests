@@ -20,7 +20,7 @@ import { hydrated } from "./hydrated";
 const FIXTURE = "/dev/properties";
 const LIVE = "/properties";
 const PREVIEW = process.env.REDDOOR_GATE_SERVER === "preview";
-const LABELS = { land: "land", improved: "improved projects", all: "all" } as const;
+const LABELS = { land: "land", improved: "improved properties", all: "all" } as const;
 type View = keyof typeof LABELS;
 const VIEWS = Object.keys(LABELS) as View[];
 

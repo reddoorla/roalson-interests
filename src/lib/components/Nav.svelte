@@ -196,6 +196,33 @@
   const openMenu = () => (isMenuOpen = true);
   const closeMenu = () => (isMenuOpen = false);
 
+  let landing: string | null = null;
+  const follow = (href: string) => {
+    landing = new URL(href, location.href).hash.slice(1) || null;
+    closeMenu();
+  };
+  const land = (id: string, until = performance.now() + 3000) => {
+    const target = document.getElementById(id);
+    if (target && !isMenuOpen) {
+      if (!target.hasAttribute("tabindex")) target.setAttribute("tabindex", "-1");
+      target.focus({ preventScroll: true });
+      return;
+    }
+    if (performance.now() < until) requestAnimationFrame(() => land(id, until));
+  };
+  const restoreFocus = () => {
+    const id = landing;
+    landing = null;
+    if (!id) return openButtonEl;
+    const target = document.getElementById(id);
+    if (target) {
+      if (!target.hasAttribute("tabindex")) target.setAttribute("tabindex", "-1");
+      return target;
+    }
+    requestAnimationFrame(() => land(id));
+    return null;
+  };
+
   // The page must not slide past behind a full-screen menu — on a phone that
   // reads as the menu having closed. Returned, so every close path releases it.
   $effect(() => {
@@ -403,7 +430,7 @@
               ? 'gap-2'
               : 'mr-3 gap-x-5 gap-y-1'} {floating ? 'text-light' : 'text-primary'}"
           >
-            {#each items.filter((item) => item.href && item.href !== "/") as item, i (i)}
+            {#each items.filter((item) => item.href && item.href !== "/" && !item.href.includes("#")) as item, i (i)}
               <!-- From `sm` the CTA is in the bar and already is this link. -->
               <li class={item.href === cta?.href ? "sm:hidden" : undefined}>
                 {#if onPhoto}
@@ -486,7 +513,7 @@
     id={MENU_ID}
     class="fixed inset-0 z-[60] flex h-dvh flex-col overflow-y-auto bg-gradient-to-b from-primary to-dark pr-[var(--scroll-lock-gutter,0px)] text-light"
     transition:fade={{ duration: 200 }}
-    use:trapFocus={{ onEscape: closeMenu, restoreFocus: () => openButtonEl }}
+    use:trapFocus={{ onEscape: closeMenu, restoreFocus }}
   >
     <div class="{BAR} shrink-0">
       <a href="/" class={WORDMARK} onclick={closeMenu}>
@@ -533,8 +560,8 @@
               <a
                 href={item.href}
                 aria-current={isCurrent(item.href) ? "page" : undefined}
-                class="t-h2 lg:t-h1 inline-block decoration-dust decoration-2 underline-offset-8 hover:underline aria-[current=page]:text-dust"
-                onclick={closeMenu}
+                class="t-h2 lg:t-h1 inline-block uppercase decoration-dust decoration-2 underline-offset-8 hover:underline aria-[current=page]:text-dust"
+                onclick={() => follow(item.href)}
               >
                 {item.label}
               </a>
@@ -550,7 +577,7 @@
                         href={child.href}
                         aria-current={isCurrent(child.href) ? "page" : undefined}
                         class="t-h3 inline-block decoration-dust decoration-2 underline-offset-4 hover:underline aria-[current=page]:text-dust"
-                        onclick={closeMenu}
+                        onclick={() => follow(child.href)}
                       >
                         {child.label}
                       </a>
