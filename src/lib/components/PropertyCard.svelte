@@ -37,7 +37,12 @@
   import { cappedWidths } from "@reddoorla/maintenance/images";
 
   import type { PropertyDocument } from "../../prismicio-types";
-  import BrandButton from "$lib/components/BrandButton.svelte";
+  import ArrowRight from "$lib/components/ArrowRight.svelte";
+  import {
+    BRAND_BUTTON_TONES,
+    brandButtonBase,
+    brandButtonPadding,
+  } from "$lib/components/BrandButton.svelte";
   import { linkResolver } from "$lib/prismicio";
   import { isPastProject, propertyHighlights, statusLabel } from "$lib/property";
 
@@ -87,6 +92,12 @@
   const highlights = $derived(propertyHighlights(property));
   const hasPhoto = $derived(isFilled.image(data.feature_image));
   const href = $derived(asLink(property, { linkResolver }));
+  const linked = $derived(!past && !!href);
+  const CARD_FILL = {
+    garnet: "group-hover/card:bg-primary group-hover/card:text-light",
+    cream: "group-hover/card:bg-background group-hover/card:text-primary",
+  } as const;
+  const learnMoreTone = $derived(featured ? "cream" : "garnet");
 
   // The carousel's placements: rows 1 and 4 of its [photo][bar][arrows][text]
   // below `md`; from `md` the photo spans column 1 and the text is row 3 of
@@ -109,7 +120,7 @@
   );
 </script>
 
-<article class="{frame} {tone.card} {passedClasses}">
+<article class="{frame} {tone.card} {linked ? 'group/card relative' : ''} {passedClasses}">
   {#if hasPhoto || inCarousel}
     <div class="{photoBox} {tone.photo}">
       {#if hasPhoto}
@@ -144,7 +155,19 @@
       {#if !past && data.size_label}
         <p class="t-h4">{data.size_label}</p>
       {/if}
-      <h3 class="t-h3">{data.title}</h3>
+      <h3 class="t-h3">
+        {#if linked}
+          <a
+            {href}
+            draggable="false"
+            data-card-link
+            class="in-[[inert]]:invisible after:absolute after:inset-0 after:content-[''] focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:-outline-offset-4 focus-visible:after:outline-[var(--focus-ring)]"
+            >{data.title}</a
+          >
+        {:else}
+          {data.title}
+        {/if}
+      </h3>
     </div>
 
     {#if highlights.length}
@@ -155,10 +178,16 @@
       </ul>
     {/if}
 
-    {#if !past && href}
-      <BrandButton {href} arrow tone={featured ? "cream" : "garnet"} class="self-start">
-        Learn more <span class="sr-only">about {data.title}</span>
-      </BrandButton>
+    {#if linked}
+      <span
+        aria-hidden="true"
+        data-card-cta
+        class="{brandButtonBase} {BRAND_BUTTON_TONES[learnMoreTone]} {CARD_FILL[
+          learnMoreTone
+        ]} {brandButtonPadding(true)} self-start"
+      >
+        Learn more <ArrowRight />
+      </span>
     {/if}
   </div>
 </article>

@@ -19,7 +19,6 @@
   import type { PropertyDocument } from "../../prismicio-types";
   import ArrowRight from "$lib/components/ArrowRight.svelte";
   import BrandButton from "$lib/components/BrandButton.svelte";
-  import { saveOnClick } from "$lib/download";
   import {
     isPastProject,
     mapsUrl,
@@ -110,15 +109,9 @@
       {#if pkg || map}
         <div class="flex flex-wrap items-center gap-2.5">
           {#if pkg}
-            <BrandButton
-              href={pkg.url}
-              download={pkg.filename}
-              downloadGlyph
-              class="aria-busy:cursor-wait aria-busy:opacity-60"
-              onclick={saveOnClick(pkg.filename)}
-            >
+            <BrandButton href={pkg.url} arrow target="_blank" rel="noopener noreferrer">
               Property package
-              <span class="sr-only">(PDF{pkg.size ? `, ${pkg.size}` : ""})</span>
+              <span class="sr-only">(PDF, opens in a new tab)</span>
             </BrandButton>
           {/if}
           {#if map}
@@ -128,11 +121,6 @@
             </BrandButton>
           {/if}
         </div>
-        {#if pkg}
-          <p class="t-body-2 text-secondary" aria-hidden="true">
-            PDF{pkg.size ? ` · ${pkg.size}` : ""}
-          </p>
-        {/if}
       {/if}
     </div>
   </div>
