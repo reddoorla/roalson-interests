@@ -20,12 +20,11 @@ test(
     await hydrated(page);
     const link = page.getByRole("link", { name: /Property package/ });
     await link.evaluate((a, href) => a.setAttribute("href", href), CDN);
-    const [popup] = await Promise.all([
+    await Promise.all([
       page.waitForEvent("popup"),
       context.waitForEvent("request", (r) => r.url() === CDN),
       link.click(),
     ]);
-    expect(popup).not.toBe(page);
     await expect(page).toHaveURL(new RegExp(`${PROPERTY}$`));
   },
 );

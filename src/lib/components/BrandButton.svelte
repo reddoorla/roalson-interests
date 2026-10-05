@@ -95,16 +95,12 @@
   import type { Snippet } from "svelte";
   import type { HTMLAnchorAttributes } from "svelte/elements";
   import ArrowRight from "$lib/components/ArrowRight.svelte";
-  import DownloadGlyph from "$lib/components/DownloadGlyph.svelte";
 
   interface Props extends Omit<HTMLAnchorAttributes, "class" | "children"> {
     href: string;
     /** The comp's trailing arrow; the button's right padding drops 15 → 10px
      *  with it, as in the LEARN MORE instances. */
     arrow?: boolean;
-    /** The download mark in the arrow's place, with the arrow's padding: for
-     *  a link that saves a file. */
-    downloadGlyph?: boolean;
     /** See BRAND_BUTTON_TONES in the module script. */
     tone?: keyof typeof BRAND_BUTTON_TONES;
     class?: string;
@@ -114,7 +110,6 @@
   let {
     href,
     arrow = false,
-    downloadGlyph = false,
     tone = "garnet",
     class: passedClasses = "",
     children,
@@ -125,10 +120,8 @@
 <a
   {href}
   {...rest}
-  class="{brandButtonBase} {BRAND_BUTTON_TONES[tone]} {brandButtonPadding(
-    arrow || downloadGlyph,
-  )} {passedClasses}"
+  class="{brandButtonBase} {BRAND_BUTTON_TONES[tone]} {brandButtonPadding(arrow)} {passedClasses}"
 >
   {@render children()}
-  {#if downloadGlyph}<DownloadGlyph />{:else if arrow}<ArrowRight />{/if}
+  {#if arrow}<ArrowRight />{/if}
 </a>
