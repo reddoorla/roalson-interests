@@ -579,7 +579,7 @@ interface PropertyDocumentData {
    * Property package (PDF) field in *Property*
    *
    * - **Field Type**: Link to Media
-   * - **Placeholder**: Upload the package PDF — it downloads from the property page
+   * - **Placeholder**: Upload the package PDF — it opens in the browser from the property page
    * - **API ID Path**: property.package_pdf
    * - **Tab**: Main
    * - **Documentation**: https://prismic.io/docs/fields/link-to-media
