@@ -178,12 +178,8 @@ describe("propertyTracts", () => {
 });
 
 describe("propertyPackage", () => {
-  it("reports the PDF's size in decimal MB", () => {
-    expect(propertyPackage(propertyFixture())).toEqual({
-      url: "/fixture-package.pdf",
-      size: "6.2 MB",
-      filename: "25331 IH 10 West package.pdf",
-    });
+  it("is the PDF's URL", () => {
+    expect(propertyPackage(propertyFixture())).toEqual({ url: "/fixture-package.pdf" });
   });
 
   it("is null when no PDF is attached", () => {
