@@ -12726,3 +12726,33 @@ The hook now calls `node_modules/.bin/lint-staged` when it exists and says so wh
 `simple-git-hooks` is `false` under `allowBuilds` in `pnpm-workspace.yaml`. Its own postinstall would install hooks from inside `node_modules`, and the root `prepare` already does that job. pnpm 11 refuses an unlisted build (`ERR_PNPM_IGNORED_BUILDS`), so the entry has to exist either way.
 
 Not done: the starter template does not carry this. CLAUDE.md says this file ships with the template, but `package.json` is per-site, so other sites get the paragraph without the hook until the starter adopts it.
+
+## 2026-10-05 — Erik's final round: labels, menu, inline package, whole-card links, pins and aerials (#263, #264, #265; Prismic release `asP91BIAAH8K23X-`)
+
+Erik's 19:11Z list, worked from a reddoor-maintenance worker brief. The full account is in that repo's journal for the same date. This entry keeps what someone working in this repo next needs.
+
+**Code.**
+
+- **#263** renames Improved Projects to Improved Properties. The `#improved` fragment is kept, so shared links still work.
+- **#263** also makes the menu read HOME, PROPERTIES, ABOUT US, CONTACT US. ABOUT US is `/#about`, which is `ABOUT_ID` on the Partners band. The site has no About page, and the operator confirmed the reading.
+  - The capitals come from CSS, because `properties-label.test.ts` holds the data label at "Properties".
+  - The no-script bar drops fragment links, so it keeps two chips. The footer list carries About Us.
+  - Choosing a fragment link from the menu now hands focus to its target (`Nav.svelte` `restoreFocus` / `land`). Before, focus went back to the menu button. Round 1 of review found that, and round 2 found it still touched the button for one frame.
+- **#264** turns the package link into a plain new-tab link. Prismic's CDN already serves the PDFs `inline`, so `$lib/download` and the download glyph are gone, and so is the size line. This reverses #245 at the client's request.
+- **#265** makes each card one link. The title's `::after` covers the card, and LEARN MORE is an `aria-hidden` picture of it.
+
+**What #265 cost, and why.** A stretched link sits under every pointer-down on the card, so it changed two things nobody asked about:
+
+- **The carousel swipe.** A mouse drag on a link starts a native link drag, and a finished swipe can end in a click that opens the listing. The fix needs both `draggable="false"` and `carousel.svelte.ts`'s click guard for 500 ms after a swipe. The spec goes red if either is removed. The guard also covers FeaturedProperties, which spreads the same `carousel.swipe`.
+- **Visibility under reduced motion.** `app.css`'s reduced-motion rule gives every element a 0.01 ms `transition: all`, and `all` includes `visibility`. So right after hydration, a new element inside an off-stage slide could stay `visible` for 20–45 ms. The off-stage @smoke caught it 3 times in 20 on the branch and never on main. `in-[[inert]]:invisible` on the link fixes it.
+  - Read this before putting a new element in a card. Anything that must be hidden inside an inert slide should hide itself rather than rely on inheriting `invisible`.
+  - It never shows without reduced motion, so a single run looks like a flake.
+
+**Content (staged, not published; Operator decision 81).**
+
+- 8 map pins moved onto their parcels, checked against each listing's own outlined aerial. The table is in #264.
+- 14 feature images were re-cropped in Prismic so the whole outline survives every frame they are drawn in. Measured, those frames run from 0.81 (the 834 carousel, where the photo spans the slide) to 1.71 (the homepage band).
+- Dove Canyon and 5930 Bandera can't fit and need wider sources (decision 82).
+- The new listing `hwy-46-at-spencer-ranch-blvd` waits on two files being linked.
+
+**Not done:** the map rework (bigger map, the map filters the list) waits on Nicole's design (decision 83). Erik's 10-02 hover-to-select had already shipped as #253.
