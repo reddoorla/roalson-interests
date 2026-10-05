@@ -187,7 +187,7 @@ const surfaces = (sec: Locator, id: string) =>
   sec.locator(`[data-centre-id="${id}"] article`).evaluate((article) => {
     const css = (el: Element | null) =>
       el ? { bg: getComputedStyle(el).backgroundColor, fg: getComputedStyle(el).color } : null;
-    const button = article.querySelector("a");
+    const button = article.querySelector("[data-card-cta]");
     return {
       card: css(article),
       photo: css(article.querySelector(":scope > div:has(> img)")),
@@ -237,7 +237,7 @@ const fadesAsHighlightMoves = (page: Page, sectionId: string, to: string) =>
         const name = (el: Element, article: Element) =>
           el === article
             ? "card"
-            : el.matches("a")
+            : el.matches("[data-card-cta]")
               ? "button"
               : el.closest('[aria-label="Listing status"]')
                 ? "badge"
