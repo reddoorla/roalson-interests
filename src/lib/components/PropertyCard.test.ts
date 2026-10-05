@@ -12,10 +12,25 @@ describe("PropertyCard", () => {
     expect(getByRole("heading", { level: 3 }).textContent).toBe("25331 IH 10 West");
   });
 
-  it("links LEARN MORE to the listing's page and says which listing, since the label repeats down the column", () => {
-    const { getByRole } = render(PropertyCard, { props: { property: propertyFixture() } });
-    const link = getByRole("link", { name: "Learn more about 25331 IH 10 West" });
+  it("is one link to the listing's page, named by the listing", () => {
+    const { container, getByRole } = render(PropertyCard, {
+      props: { property: propertyFixture() },
+    });
+    const link = getByRole("link", { name: "25331 IH 10 West" });
     expect(link.getAttribute("href")).toBe("/properties/25331-ih-10-west");
+    expect(container.querySelectorAll("a")).toHaveLength(1);
+    expect(link.querySelector("a")).toBeNull();
+    expect(link.closest("article")?.querySelectorAll("a, button, [tabindex]")).toHaveLength(1);
+  });
+
+  it("keeps LEARN MORE as a picture of the link, not a second stop", () => {
+    const { queryByRole, container } = render(PropertyCard, {
+      props: { property: propertyFixture() },
+    });
+    expect(queryByRole("link", { name: /learn more/i })).toBeNull();
+    const cta = container.querySelector("[data-card-cta]")!;
+    expect(cta.textContent).toMatch(/learn more/i);
+    expect(cta.getAttribute("aria-hidden")).toBe("true");
   });
 
   it("renders a sold listing unlinked — its card does not lead to its page, as the comp draws it", () => {

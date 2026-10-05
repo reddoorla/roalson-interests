@@ -461,16 +461,25 @@ export function createCarousel(options: CarouselOptions) {
     else next();
   }
 
+  let swipedAt = -Infinity;
   const onSwipe = (event: SwipeCustomEvent) => {
+    swipedAt = performance.now();
     if (event.detail.direction === "left") next();
     if (event.detail.direction === "right") prev();
   };
   // Slider's thresholds; pan-y keeps the page scrolling under a finger.
-  const swipeAttributes = useSwipe(onSwipe, () => ({
-    timeframe: 300,
-    minSwipeDistance: 60,
-    touchAction: "pan-y",
-  }));
+  const swipeAttributes = {
+    ...useSwipe(onSwipe, () => ({
+      timeframe: 300,
+      minSwipeDistance: 60,
+      touchAction: "pan-y",
+    })),
+    onclickcapture: (event: MouseEvent) => {
+      if (performance.now() - swipedAt > 500) return;
+      event.preventDefault();
+      event.stopPropagation();
+    },
+  };
 
   /** What the pause button was showing when the pointer went DOWN on it. A
    *  mouse press focuses the button before it clicks it; that focus is "focus
@@ -627,7 +636,7 @@ export function createCarousel(options: CarouselOptions) {
       return enabled && count > 0 ? `Slide ${index + 1} of ${count}` : "";
     },
     /** The element the slides sit in: swipe left / right. */
-    get swipe(): ReturnType<typeof useSwipe> | Record<string, never> {
+    get swipe(): typeof swipeAttributes | Record<string, never> {
       return enabled ? swipeAttributes : EMPTY;
     },
     /** Render iff `eligible`, FIRST in the carousel's tab order (APG). */

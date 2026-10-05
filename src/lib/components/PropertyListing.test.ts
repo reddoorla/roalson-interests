@@ -445,7 +445,7 @@ describe("PropertyListing", () => {
       await tick();
       const [land] = getAllByRole("region");
       const linkIn = (id: string) =>
-        land!.querySelector<HTMLElement>(`[${CENTRE_ID}="${id}"] a[href="/properties/${id}"]`)!;
+        land!.querySelector<HTMLElement>(`[${CENTRE_ID}="${id}"] [data-card-cta]`)!;
 
       const [first, third] = [groups[0]!.properties[0]!.id, groups[0]!.properties[2]!.id];
       const [featured, flat] = [linkIn(first).className, linkIn(third).className];
