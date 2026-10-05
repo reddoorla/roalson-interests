@@ -518,10 +518,10 @@ describe("when the engine is asked for", () => {
   // the Properties page would be two identically named landmarks.
   it("renames the canvas after the section it is showing", async () => {
     stubIntersecting();
-    render(PropertyMap, { props: { points, label: "Improved Projects" } });
+    render(PropertyMap, { props: { points, label: "Improved Properties" } });
     await vi.waitFor(() => expect(engine.created).toHaveLength(1));
     expect(engine.created[0]!.canvas.getAttribute("aria-label")).toBe(
-      "Improved Projects listings, interactive map",
+      "Improved Properties listings, interactive map",
     );
   });
 

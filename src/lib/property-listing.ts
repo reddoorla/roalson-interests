@@ -3,7 +3,7 @@ import { isArchived, isListed, isPastProject, PROPERTY_CATEGORIES } from "$lib/p
 
 /**
  * The Properties page's active sections, in the order the comp draws them at
- * every width (Land, then Improved Projects; Past Projects follows). The comp's layer
+ * every width (Land, then Improved Properties; Past Projects follows). The comp's layer
  * names are swapped — the frame called `Improved` carries the "Land" divider —
  * so the ORDER here is read from the divider text, not the layers, and it is
  * the only signal in the file: the content outline lists Improved first, and
@@ -21,7 +21,7 @@ export const LISTING_SECTIONS = [
     label: "Land",
     categories: ["Land — SA Metro & Surrounding", "Land — Out of San Antonio"],
   },
-  { id: "improved", label: "Improved Projects", categories: ["Improved"] },
+  { id: "improved", label: "Improved Properties", categories: ["Improved"] },
 ] as const satisfies readonly {
   id: string;
   label: string;
@@ -43,7 +43,7 @@ export interface ListingSection {
  *  `:target` app.css filters by, so the page filters with no script. */
 export const LISTING_VIEWS = [
   { id: "land", label: "Land" },
-  { id: "improved", label: "Improved Projects" },
+  { id: "improved", label: "Improved Properties" },
   { id: "all", label: "All" },
 ] as const;
 

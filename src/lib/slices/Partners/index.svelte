@@ -52,6 +52,7 @@
   import { cmsHref } from "$lib/cms-href";
   import { partnerCards } from "$lib/partners";
   import { linkResolver } from "$lib/prismicio";
+  import { ABOUT_ID } from "$lib/site-config";
   import { imgix, srcset } from "$lib/utils/image";
 
   let { slice }: { slice: Content.PartnersSlice } = $props();
@@ -108,6 +109,7 @@
      unpublished" and "no card because the API sent it bare" look the same on
      the page. -->
 <section
+  id={ABOUT_ID}
   data-slice-type={slice.slice_type}
   data-slice-variation={slice.variation}
   data-partners-linked={roster.linked}

@@ -25,9 +25,9 @@ describe("LISTING_SECTIONS", () => {
 });
 
 describe("groupListings", () => {
-  it("draws Land, then Improved Projects, then Past Projects — the comp's order at every width", () => {
+  it("draws Land, then Improved Properties, then Past Projects — the comp's order at every width", () => {
     const sections = groupListings(propertyListingFixture());
-    expect(sections.map((s) => s.label)).toEqual(["Land", "Improved Projects", "Past Projects"]);
+    expect(sections.map((s) => s.label)).toEqual(["Land", "Improved Properties", "Past Projects"]);
     expect(sections.map((s) => s.past)).toEqual([false, false, true]);
   });
 
@@ -101,10 +101,10 @@ describe("groupListings", () => {
 });
 
 describe("the view tabs", () => {
-  it("offers Land, Improved Projects, All — in that order", () => {
+  it("offers Land, Improved Properties, All — in that order", () => {
     const views = listingViews(groupListings(propertyListingFixture()));
     expect(views.map((v) => v.id)).toEqual(["land", "improved", "all"]);
-    expect(views.map((v) => v.label)).toEqual(["Land", "Improved Projects", "All"]);
+    expect(views.map((v) => v.label)).toEqual(["Land", "Improved Properties", "All"]);
   });
 
   it("offers none with fewer than two active sections — Past Projects is not a view", () => {
