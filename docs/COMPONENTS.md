@@ -100,7 +100,7 @@ source. It is the fastest way to recognise what a thing does.
 | [`property.ts`](../src/lib/property.ts) | `PROPERTY_CATEGORIES`, `PROPERTY_STATUSES`, `LISTING_STATES`, `isArchived`, `isPastProject`, `isListed`, `statusLabel`, `propertyHighlights`, `propertyFacts`, `propertyTracts`, `propertyPackage`, `mapsUrl` | 21 |  |
 | [`seo.ts`](../src/lib/seo.ts) | `SITE_NAME`, `SITE_LOCALE`, `DEFAULT_DESCRIPTION`, `DEFAULT_OG_IMAGE`, `DEFAULT_OG_IMAGE_ALT`, `OG_IMAGE_WIDTH`, `OG_IMAGE_HEIGHT`, `NOINDEX_PREFIXES`, `isNoindexPath`, `isNoindexPage`, `NOINDEX_ENFORCED`, `composeTitle`, `jsonLdScript`, `canonicalUrl`, `resolveOgImage`, `organizationJsonLd` | 26 | Site-wide SEO configuration + helpers. PER-SITE: `/new-site` sets SITE_NAME, SITE_LOCALE and DEFAULT_OG_IMAGE (and sites with a social presence fill in organizationJsonLd in the layout) |
 | [`reply-copy.ts`](../src/lib/server/reply-copy.ts) | `replyCopyFor` | — |  |
-| [`site-config.ts`](../src/lib/site-config.ts) | `loadSiteConfig`, `FOOTER_NAV_ID`, `footerNav` | 11 | Site chrome (navigation + footer) from a checked-in JSON file. A site fills it in, or swaps this module for a Prismic `settings`-document loader behind the same exports |
+| [`site-config.ts`](../src/lib/site-config.ts) | `loadSiteConfig`, `FOOTER_NAV_ID`, `footerNav`, `ABOUT_ID` | 13 | Site chrome (navigation + footer) from a checked-in JSON file. A site fills it in, or swaps this module for a Prismic `settings`-document loader behind the same exports |
 | [`viewport.svelte.ts`](../src/lib/stores/viewport.svelte.ts) | `viewport` | — |  |
 | [`transitions.ts`](../src/lib/transitions.ts) | `prefersReducedMotion`, `reducedMotion`, `fade`, `fly`, `slide` | 17 |  |
 | [`turnstile.ts`](../src/lib/turnstile.ts) | `loadTurnstile` | — | Cloudflare Turnstile explicit-render helper |
@@ -115,4 +115,4 @@ source. It is the fastest way to recognise what a thing does.
 | [`vimeo.ts`](../src/lib/utils/vimeo.ts) | `checkVimeoVideo`, `parseVimeoId` | 11 | True when the Vimeo video exists and is embeddable (oEmbed responds 200) |
 | [`vimeoBackground.svelte.ts`](../src/lib/utils/vimeoBackground.svelte.ts) | `VIMEO_PLAYER_ORIGIN`, `backgroundEmbedSrc`, `VimeoBackground` | 5 | The gate, the heartbeat and the pause flag behind every chrome-less Vimeo background embed in this repo — lifted OUT of VimeoBanner.svelte so the homepage hero could have all three without taking VimeoBanner's markup with them |
 
-97 modules, 976 tests behind them.
+97 modules, 978 tests behind them.

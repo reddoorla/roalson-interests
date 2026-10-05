@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { resolve } from "node:path";
 
-import { loadSiteConfig, footerNav, type SiteConfig } from "./site-config";
+import { ABOUT_ID, loadSiteConfig, footerNav, type SiteConfig } from "./site-config";
 
 describe("loadSiteConfig", () => {
   it("returns a well-formed config from the checked-in file", () => {
@@ -18,6 +18,22 @@ describe("loadSiteConfig", () => {
   it("does not carry a second copy of the office's address or phone", () => {
     const footer = loadSiteConfig().footer as Record<string, unknown>;
     expect(JSON.stringify(footer)).not.toMatch(/Rogers Ranch|496-58/);
+  });
+});
+
+describe("the checked-in menu", () => {
+  it("reads Home, Properties, About Us, Contact Us — in that order", () => {
+    expect(loadSiteConfig().nav.items.map((item) => item.label)).toEqual([
+      "Home",
+      "Properties",
+      "About Us",
+      "Contact Us",
+    ]);
+  });
+
+  it("sends About Us to the homepage's legacy band, not to a page that does not exist", () => {
+    const about = loadSiteConfig().nav.items.find((item) => item.label === "About Us");
+    expect(about?.href).toBe(`/#${ABOUT_ID}`);
   });
 });
 

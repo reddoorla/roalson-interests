@@ -533,7 +533,7 @@
               <a
                 href={item.href}
                 aria-current={isCurrent(item.href) ? "page" : undefined}
-                class="t-h2 lg:t-h1 inline-block decoration-dust decoration-2 underline-offset-8 hover:underline aria-[current=page]:text-dust"
+                class="t-h2 lg:t-h1 inline-block uppercase decoration-dust decoration-2 underline-offset-8 hover:underline aria-[current=page]:text-dust"
                 onclick={closeMenu}
               >
                 {item.label}

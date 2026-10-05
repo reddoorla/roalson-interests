@@ -9,6 +9,7 @@ import {
   partnersFixtureState,
 } from "$lib/home-fixture";
 import { components } from "$lib/slices";
+import { loadSiteConfig } from "$lib/site-config";
 import Partners from "./index.svelte";
 
 afterEach(cleanup);
@@ -395,5 +396,14 @@ describe("the /dev/home partner states", () => {
       // Not a Prismic URL, so no srcset is invented for it.
       expect(img.hasAttribute("srcset")).toBe(false);
     }
+  });
+});
+
+describe("Partners slice — the menu's ABOUT US lands here", () => {
+  it("carries the id the menu's About Us link names", () => {
+    const about = loadSiteConfig().nav.items.find((item) => item.label === "About Us");
+    const fragment = new URL(about!.href, "https://example.test").hash.slice(1);
+    const { container } = render(Partners, { props: { slice: partnersFixture() } });
+    expect(section(container).id).toBe(fragment);
   });
 });

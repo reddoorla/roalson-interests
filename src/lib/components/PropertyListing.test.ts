@@ -52,7 +52,7 @@ describe("PropertyListing", () => {
       "listing-past",
     ]);
     const h2s = getAllByRole("heading", { level: 2 });
-    expect(h2s.map((h) => h.textContent)).toEqual(["Land", "Improved Projects", "Past Projects"]);
+    expect(h2s.map((h) => h.textContent)).toEqual(["Land", "Improved Properties", "Past Projects"]);
     h2s.forEach((h, i) => expect(h.id).toBe(regions[i].getAttribute("aria-labelledby")));
   });
 
@@ -527,7 +527,7 @@ describe("PropertyListing below lg: each section a carousel (#14)", () => {
     const all = carousels(container);
     expect(all.map((c) => c.getAttribute("aria-label"))).toEqual([
       "Land listings",
-      "Improved Projects listings",
+      "Improved Properties listings",
       "Past Projects listings",
     ]);
     all.forEach((carousel, i) => {
@@ -668,7 +668,7 @@ describe("PropertyListing view tabs", () => {
       .filter((a) => a.getAttribute("aria-current") === "true")
       .map((a) => a.dataset.viewTab);
 
-  it("links Land, Improved Projects and All to their fragments, in that order, in a named group", () => {
+  it("links Land, Improved Properties and All to their fragments, in that order, in a named group", () => {
     const { container, getByRole } = render(PropertyListing, { props: { sections: sections() } });
     expect(getByRole("group", { name: "Show listings" })).not.toBeNull();
     expect(tabs(container).map((a) => a.getAttribute("href"))).toEqual([
@@ -678,7 +678,7 @@ describe("PropertyListing view tabs", () => {
     ]);
     expect(tabs(container).map((a) => a.textContent?.trim())).toEqual([
       "Land",
-      "Improved Projects",
+      "Improved Properties",
       "All",
     ]);
   });
