@@ -65,17 +65,19 @@ describe("PropertyDetail", () => {
     expect(getByRole("link", { name: /View on Google Maps/ })).toBeTruthy();
   });
 
-  it("gives the package link its file type and size in its accessible name", () => {
+  it("opens the package in the browser, in a new tab, and says so", () => {
     const { getByRole } = render(PropertyDetail, { props: { property: propertyFixture() } });
     const link = getByRole("link", { name: /Property package/ });
     expect(link.getAttribute("href")).toBe("/fixture-package.pdf");
-    expect(link.textContent).toContain("(PDF, 6.2 MB)");
+    expect(link.hasAttribute("download")).toBe(false);
+    expect(link.getAttribute("target")).toBe("_blank");
+    expect(link.getAttribute("rel")).toContain("noopener");
+    expect(link.textContent).toContain("(PDF, opens in a new tab)");
   });
 
-  it("saves the package under its own name", () => {
-    const { getByRole } = render(PropertyDetail, { props: { property: propertyFixture() } });
-    const link = getByRole("link", { name: /Property package/ });
-    expect(link.getAttribute("download")).toBe("25331 IH 10 West package.pdf");
+  it("prints no file size anywhere on the page", () => {
+    const { container } = render(PropertyDetail, { props: { property: propertyFixture() } });
+    expect(container.textContent).not.toMatch(/\d(\.\d)?\s*MB\b/);
   });
 
   it("opens the map in a new tab and says so", () => {

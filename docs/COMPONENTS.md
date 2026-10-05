@@ -69,7 +69,6 @@ source. It is the fastest way to recognise what a thing does.
 | [`TransitionOverlay.svelte`](../src/lib/components/TransitionOverlay.svelte) | `visibleDuration`, `fadeInDuration`, `fadeOutDuration`, `so` | 9 | ms the cover holds once the incoming route has arrived |
 | [`TurnstileWidget.svelte`](../src/lib/components/TurnstileWidget.svelte) | — | 6 |  |
 | [`VimeoBanner.svelte`](../src/lib/components/VimeoBanner.svelte) | `vimeoId`, `poster`, `alt`, `label` | 9 | Full-bleed background-video banner. A static poster sits underneath; the muted/looping Vimeo iframe is layered on top and only revealed while playback is actually progressing |
-| [`download.ts`](../src/lib/download.ts) | `saveOnClick` | 4 | A link that SAVES its file instead of opening it (MarkUp, 2026-10-01: "should the property package button be an arrow or a download button? … for most people will it download?"; operator: download) |
 | [`featured-properties.ts`](../src/lib/featured-properties.ts) | `FEATURED_MAX`, `featuredListings` | 10 | Which of the editor's picks the homepage's featured band can actually show |
 | [`fetch-links.ts`](../src/lib/fetch-links.ts) | `fetchLinksOf`, `PAGE_FETCH_LINKS` | 2 | The page query's `fetchLinks`, read off this repo's slice models (#179) |
 | [`home-fixture.ts`](../src/lib/home-fixture.ts) | `HOME_POSTER_FIXTURE`, `HOME_VIMEO_FIXTURE`, `homeHeroFixture`, `HOME_PHOTO_FIXTURE`, `photoBandFixture`, `PARTNER_PHOTO_FIXTURE`, `partnerFixture`, `partnersFixture`, `partnersFixtureState`, `featuredPickFixture`, `featuredPropertiesFixture`, `featuredLaunchFixture`, `stageFeatured`, `homeFixture` | 1 | The homepage as fixture data — what /dev/home renders through the real layout, and what /dev/a11y-fixtures and the unit tests build on. `/` answers 404 until the Prismic repo is wired and a `home` document exists, so this is where the homepage is reviewed until then |
@@ -115,4 +114,4 @@ source. It is the fastest way to recognise what a thing does.
 | [`vimeo.ts`](../src/lib/utils/vimeo.ts) | `checkVimeoVideo`, `parseVimeoId` | 11 | True when the Vimeo video exists and is embeddable (oEmbed responds 200) |
 | [`vimeoBackground.svelte.ts`](../src/lib/utils/vimeoBackground.svelte.ts) | `VIMEO_PLAYER_ORIGIN`, `backgroundEmbedSrc`, `VimeoBackground` | 5 | The gate, the heartbeat and the pause flag behind every chrome-less Vimeo background embed in this repo — lifted OUT of VimeoBanner.svelte so the homepage hero could have all three without taking VimeoBanner's markup with them |
 
-97 modules, 976 tests behind them.
+96 modules, 972 tests behind them.

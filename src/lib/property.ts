@@ -141,28 +141,12 @@ export function propertyTracts(property: PropertyDocument): PropertyTract[] {
 
 export interface PropertyPackage {
   url: string;
-  /** e.g. "14.4 MB" — shown beside the link because these PDFs run to 14 MB
-   *  and a visitor on a phone deserves to know before tapping. */
-  size: string | null;
-  /** The name the file is saved under: the upload's own name as Prismic
-   *  keeps it (all 22 live packages carry one), never the CDN path's `<id>_`
-   *  prefix. */
-  filename: string;
 }
 
-const megabytes = new Intl.NumberFormat("en-US", { maximumFractionDigits: 1 });
-
-/** The package PDF, if one is attached. Sizes are decimal MB (10⁶ bytes), the
- *  unit macOS, iOS and Windows' download UI all show. */
 export function propertyPackage(property: PropertyDocument): PropertyPackage | null {
   const pdf = property.data.package_pdf;
   if (!isFilled.linkToMedia(pdf)) return null;
-  const bytes = Number(pdf.size);
-  return {
-    url: pdf.url,
-    size: bytes > 0 ? `${megabytes.format(Math.max(bytes / 1e6, 0.1))} MB` : null,
-    filename: pdf.name || "property-package.pdf",
-  };
+  return { url: pdf.url };
 }
 
 /** A plain Google Maps link to the pin — no API key, no script, no CSP host.
