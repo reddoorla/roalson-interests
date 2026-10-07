@@ -91,7 +91,7 @@ describe("centreWatch", () => {
     stubMatchMedia(true);
     stubObserver();
     const ul = list(["a", "b", "c"]);
-    centreWatch(ul, { minWidth: 1024, onactive: () => {} });
+    centreWatch(ul, { minWidth: "64rem", onactive: () => {} });
     expect(made).toHaveLength(1);
     expect(made[0]!.options?.rootMargin).toBe(CENTRE_BAND);
     expect(made[0]!.options?.rootMargin).toBe("-50% 0px -50% 0px");
@@ -103,7 +103,7 @@ describe("centreWatch", () => {
     stubObserver();
     const ul = list(["a", "b"]);
     const seen: string[] = [];
-    centreWatch(ul, { minWidth: 1024, onactive: (id) => seen.push(id) });
+    centreWatch(ul, { minWidth: "64rem", onactive: (id) => seen.push(id) });
     made[0]!.callback([entry(ul.children[1]!, true, 10)], null as never);
     expect(seen).toEqual(["b"]);
   });
@@ -124,7 +124,7 @@ describe("centreWatch", () => {
     stubObserver();
     const ul = list(["a", "b", "c"]);
     const seen: string[] = [];
-    centreWatch(ul, { minWidth: 1024, onactive: (id) => seen.push(id) });
+    centreWatch(ul, { minWidth: "64rem", onactive: (id) => seen.push(id) });
     // Oldest first: "the first intersecting entry" would answer `a`.
     made[0]!.callback(
       [
@@ -153,7 +153,7 @@ describe("centreWatch", () => {
     stubObserver();
     const ul = list(["a", "b"]);
     const seen: string[] = [];
-    centreWatch(ul, { minWidth: 1024, onactive: (id) => seen.push(id) });
+    centreWatch(ul, { minWidth: "64rem", onactive: (id) => seen.push(id) });
     made[0]!.callback(
       [entry(ul.children[0]!, false, 10), entry(ul.children[1]!, false, 11)],
       null as never,
@@ -167,14 +167,14 @@ describe("centreWatch", () => {
   it("constructs no observer at all below its breakpoint", () => {
     stubMatchMedia(false);
     stubObserver();
-    centreWatch(list(["a", "b"]), { minWidth: 1024, onactive: () => {} });
+    centreWatch(list(["a", "b"]), { minWidth: "64rem", onactive: () => {} });
     expect(made).toHaveLength(0);
   });
 
   it("starts and stops as the viewport crosses the breakpoint", () => {
     const media = stubMatchMedia(false);
     stubObserver();
-    const watch = centreWatch(list(["a", "b"]), { minWidth: 1024, onactive: () => {} });
+    const watch = centreWatch(list(["a", "b"]), { minWidth: "64rem", onactive: () => {} });
     expect(made).toHaveLength(0);
     media.resizeTo(true);
     expect(made).toHaveLength(1);
@@ -188,14 +188,14 @@ describe("centreWatch", () => {
   it("is off for a section with no map to drive", () => {
     stubMatchMedia(true);
     stubObserver();
-    centreWatch(list(["a"]), { minWidth: 1024, enabled: false, onactive: () => {} });
+    centreWatch(list(["a"]), { minWidth: "64rem", enabled: false, onactive: () => {} });
     expect(made).toHaveLength(0);
   });
 
   it("lets go of its observer and its listener when it is destroyed", () => {
     const media = stubMatchMedia(true);
     stubObserver();
-    const watch = centreWatch(list(["a", "b"]), { minWidth: 1024, onactive: () => {} });
+    const watch = centreWatch(list(["a", "b"]), { minWidth: "64rem", onactive: () => {} });
     expect(made[0]!.disconnected).toBe(false);
     watch.destroy();
     expect(made[0]!.disconnected).toBe(true);
@@ -207,7 +207,7 @@ describe("centreWatch", () => {
   it("does nothing where matchMedia is not answering", () => {
     vi.stubGlobal("matchMedia", undefined);
     stubObserver();
-    centreWatch(list(["a"]), { minWidth: 1024, onactive: () => {} });
+    centreWatch(list(["a"]), { minWidth: "64rem", onactive: () => {} });
     expect(made).toHaveLength(0);
   });
 });

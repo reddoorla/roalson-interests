@@ -12956,3 +12956,11 @@ The minors, all fixed:
 - **Three test fixes.** A `@smoke` count of three tabs on the live page is now a check that Land is there. The axe loop covers List. The no-JS `#list` case is deleted: it passed on `main`, because with no script `#list` draws as All does, which the component header now says.
 
 Left as is: a shared `/properties#list` link renders the panel layout on the server and switches to the list on mount, so the page visibly changes once it hydrates.
+
+Review round 2 confirmed the round-1 fixes and found no blocker or major. It found three minors, all fixed:
+
+- **A pin press on a phone under List marked nothing.** Phones had always had a carousel here, so this state is new: the card scrolled into view but stayed sand, and the map showed no active pin. Below `lg` the press now writes the listing itself, since no centre rule runs there to race it, and scrolls `nearest` so the 200px map stays in sight. A 390px case presses a pin and expects its card garnet and its pin active, and goes red without the write.
+- **A fragment for a view the page does not offer used to switch the page to it.** `/properties#list` on a page with no List tab still drew the 397 map, with no tab selected. Such a fragment is now All. A unit case covers it and goes red without the check.
+- **The two restored actions measured `lg` in px** (`min-width: 1024px`), while the stylesheet and `narrow` use `64rem`. At a 20px default font the centre rule could run over the phone layout. Both actions now take the same `64rem`.
+
+What round 2 called nits stays as is. The restored fade and the `scroll-mb` margin come back without 799cf1b's long comments (the operator's preference is code without new comments), and nothing tests the fade, since `active-card-highlight.spec.ts` is not restored.

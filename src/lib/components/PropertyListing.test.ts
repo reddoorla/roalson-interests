@@ -724,6 +724,15 @@ describe("PropertyListing view tabs", () => {
     }
   });
 
+  it("reads a fragment naming a view the page does not offer as All", async () => {
+    const improved = sections().find((s) => s.id === "improved")!;
+    const one = [{ ...improved, properties: improved.properties.slice(0, 1) }];
+    location.hash = "#list";
+    const { container } = render(PropertyListing, { props: { sections: one } });
+    await tick();
+    expect(container.querySelector<HTMLElement>("[data-listing]")!.dataset.view).toBe("all");
+  });
+
   it("turns the carousels back on when List is left", async () => {
     location.hash = "#list";
     render(PropertyListing, { props: { sections: sections() } });

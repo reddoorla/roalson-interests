@@ -9,7 +9,7 @@ export const FINE_HOVER = "(hover: hover) and (pointer: fine)";
 
 export interface HoverActivateOptions {
   onactive: (id: string) => void;
-  minWidth: number;
+  minWidth: string;
   enabled?: boolean;
   dwellMs?: number;
 }
@@ -23,7 +23,7 @@ export function hoverActivate(node: HTMLElement, options: HoverActivateOptions) 
 
   const query =
     typeof window !== "undefined" && typeof window.matchMedia === "function"
-      ? window.matchMedia(`${FINE_HOVER} and (min-width: ${options.minWidth}px)`)
+      ? window.matchMedia(`${FINE_HOVER} and (min-width: ${options.minWidth})`)
       : null;
 
   const live = () => current.enabled !== false && query?.matches === true;

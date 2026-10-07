@@ -56,15 +56,15 @@ describe("hoverActivate", () => {
 
   it("asks for a fine hovering pointer at the given width", () => {
     stubMatchMedia(true);
-    hoverActivate(list(["a"]), { minWidth: 1024, onactive: () => {} });
-    expect(queries).toContain(`${FINE_HOVER} and (min-width: 1024px)`);
+    hoverActivate(list(["a"]), { minWidth: "64rem", onactive: () => {} });
+    expect(queries).toContain(`${FINE_HOVER} and (min-width: 64rem)`);
   });
 
   it("reports the card under a resting mouse after the dwell, and not before", () => {
     stubMatchMedia(true);
     const ul = list(["a", "b"]);
     const onactive = vi.fn();
-    hoverActivate(ul, { minWidth: 1024, onactive });
+    hoverActivate(ul, { minWidth: "64rem", onactive });
     move(card(ul, "b"), 10, 10);
     vi.advanceTimersByTime(HOVER_DWELL_MS - 1);
     expect(onactive).not.toHaveBeenCalled();
@@ -76,7 +76,7 @@ describe("hoverActivate", () => {
     stubMatchMedia(true);
     const ul = list(["a", "b", "c"]);
     const onactive = vi.fn();
-    hoverActivate(ul, { minWidth: 1024, onactive });
+    hoverActivate(ul, { minWidth: "64rem", onactive });
     move(card(ul, "a"), 10, 10);
     vi.advanceTimersByTime(HOVER_DWELL_MS / 2);
     move(card(ul, "b"), 10, 20);
@@ -90,7 +90,7 @@ describe("hoverActivate", () => {
     stubMatchMedia(true);
     const ul = list(["a"]);
     const onactive = vi.fn();
-    hoverActivate(ul, { minWidth: 1024, onactive });
+    hoverActivate(ul, { minWidth: "64rem", onactive });
     move(card(ul, "a"), 10, 10);
     vi.advanceTimersByTime(HOVER_DWELL_MS - 50);
     move(card(ul, "a"), 12, 11);
@@ -102,7 +102,7 @@ describe("hoverActivate", () => {
     stubMatchMedia(true);
     const ul = list(["a", "b"]);
     const onactive = vi.fn();
-    hoverActivate(ul, { minWidth: 1024, onactive });
+    hoverActivate(ul, { minWidth: "64rem", onactive });
     move(card(ul, "a"), 10, 10);
     window.dispatchEvent(new Event("scroll"));
     move(card(ul, "b"), 10, 10);
@@ -114,7 +114,7 @@ describe("hoverActivate", () => {
     stubMatchMedia(true);
     const ul = list(["a"]);
     const onactive = vi.fn();
-    hoverActivate(ul, { minWidth: 1024, onactive });
+    hoverActivate(ul, { minWidth: "64rem", onactive });
     move(card(ul, "a"), 10, 10);
     ul.dispatchEvent(new MouseEvent("pointerleave"));
     vi.advanceTimersByTime(HOVER_DWELL_MS);
@@ -125,7 +125,7 @@ describe("hoverActivate", () => {
     stubMatchMedia(true);
     const ul = list(["a"]);
     const onactive = vi.fn();
-    hoverActivate(ul, { minWidth: 1024, onactive });
+    hoverActivate(ul, { minWidth: "64rem", onactive });
     move(card(ul, "a"), 10, 10, "touch");
     move(card(ul, "a"), 20, 20, "pen");
     vi.advanceTimersByTime(HOVER_DWELL_MS);
@@ -136,7 +136,7 @@ describe("hoverActivate", () => {
     stubMatchMedia(false);
     const ul = list(["a"]);
     const onactive = vi.fn();
-    hoverActivate(ul, { minWidth: 1024, onactive });
+    hoverActivate(ul, { minWidth: "64rem", onactive });
     move(card(ul, "a"), 10, 10);
     vi.advanceTimersByTime(HOVER_DWELL_MS);
     expect(onactive).not.toHaveBeenCalled();
@@ -146,9 +146,9 @@ describe("hoverActivate", () => {
     stubMatchMedia(true);
     const ul = list(["a"]);
     const onactive = vi.fn();
-    const action = hoverActivate(ul, { minWidth: 1024, onactive });
+    const action = hoverActivate(ul, { minWidth: "64rem", onactive });
     move(card(ul, "a"), 10, 10);
-    action.update({ minWidth: 1024, onactive, enabled: false });
+    action.update({ minWidth: "64rem", onactive, enabled: false });
     vi.advanceTimersByTime(HOVER_DWELL_MS);
     move(card(ul, "a"), 20, 20);
     vi.advanceTimersByTime(HOVER_DWELL_MS);
@@ -159,7 +159,7 @@ describe("hoverActivate", () => {
     stubMatchMedia(true);
     const ul = list(["a"]);
     const onactive = vi.fn();
-    hoverActivate(ul, { minWidth: 1024, onactive }).destroy();
+    hoverActivate(ul, { minWidth: "64rem", onactive }).destroy();
     move(card(ul, "a"), 10, 10);
     vi.advanceTimersByTime(HOVER_DWELL_MS);
     expect(onactive).not.toHaveBeenCalled();

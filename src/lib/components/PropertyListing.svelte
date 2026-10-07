@@ -39,15 +39,16 @@
   // had since #14, laid out as one column: photo, bar, arrows, text.
   //
   // THE MAP HOLDS STILL. Erik's list (2026-10-05): "the map constantly moving
-  // in and out is a bit wonky". `follow` is false, outside the List view,
-  // and keeps the camera on its opening frame. The listing on stage is the active pin (grown, the rest
+  // in and out is a bit wonky". Outside the List view `follow` is false and
+  // the camera keeps its opening frame. The listing on stage is the active pin (grown, the rest
   // dimmed), a pin press turns the carousel to its card, and only the
   // visitor's own zoom or pan moves the camera.
   //
   // THE LIST VIEW (operator, 2026-10-07) is the layout before #270: a 397
   // map beside every card stacked, the card on the centre line (centreWatch)
   // or under a resting mouse (hoverActivate) garnet, and the camera following
-  // it. Once hydrated only: with no script `#list` draws as All does.
+  // it. Once hydrated only: with no script `#list` draws as All does. A
+  // fragment naming a view the page does not offer is All.
   //
   // WITH NO SCRIPT, and for a section of one listing, the list is stacked
   // beside a sticky map. The sticky offsets below serve that state, and the
@@ -85,7 +86,7 @@
   const PANEL_GRID =
     "lg:grid-cols-[925fr_515fr] lg:[--map-height:min(57.43vw,827px,calc(100svh-var(--sticky-top)-20px))]";
   const LIST_GRID = "lg:grid-cols-[397fr_847fr] lg:gap-9 lg:[--map-height:595px]";
-  const LG = 1024;
+  const LG = "64rem";
 
   /** Where Past Projects is a carousel: the exact complement of Tailwind's
    *  `lg`, `(width >= 64rem)`, so script and the stylesheet agree on which
@@ -213,14 +214,16 @@
   const views = $derived(listingViews(sections));
   /** The view, once hydrated; undefined on the server, where `:target` rules. */
   let current = $state<ListingView | undefined>();
+  const offered = (view: ListingView | null): ListingView | null =>
+    view === null || views.some((v) => v.id === view) ? view : "all";
   const listMode = $derived(current === "list");
   onMount(() => {
-    current = viewFromHash(location.hash) ?? "all";
+    current = offered(viewFromHash(location.hash)) ?? "all";
     hydrated = true;
   });
   /** A fragment that names no view leaves the view alone. */
   function onhashchange() {
-    current = viewFromHash(location.hash) ?? current;
+    current = offered(viewFromHash(location.hash)) ?? current;
   }
 
   /** The scrollport's declared usable top, read rather than typed — app.css
@@ -288,7 +291,8 @@
       list.scrollIntoView?.({ block: "nearest" });
       return false;
     }
-    card.scrollIntoView?.({ block: listMode ? "center" : "nearest" });
+    if (listMode && narrow) activeIds[sections[sectionIndex]!.id] = id;
+    card.scrollIntoView?.({ block: listMode && !narrow ? "center" : "nearest" });
     return listMode && !narrow;
   }
 </script>

@@ -160,3 +160,39 @@ test("turning a tablet below lg drops the listing the centre line chose", async 
   await page.setViewportSize({ width: 820, height: 1180 });
   await expect.poll(() => garnetCard(section)).toBe(first);
 });
+
+test("on a phone a pin press marks its listing and its pin", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`${ROUTE}#list`);
+  await hydrated(page);
+  const section = activeSections(page).first();
+  const first = await section.locator("[data-centre-id]").first().getAttribute("data-centre-id");
+  await scrollMapToBoot(section.locator("[data-property-map]"));
+  await expect(section.locator("[data-map-pin]").first()).toBeAttached({
+    timeout: HYDRATION_TIMEOUT,
+  });
+  const pressable = () =>
+    section.evaluate((el, skip) => {
+      const map = el.querySelector("[data-property-map]")!.getBoundingClientRect();
+      for (const pin of el.querySelectorAll<HTMLElement>("[data-map-pin]")) {
+        if (pin.dataset.mapPin === skip) continue;
+        const r = pin.querySelector("svg")!.getBoundingClientRect();
+        const x = r.left + r.width / 2;
+        const y = r.top + r.height / 2;
+        if (x < map.left || x > map.right || y < map.top || y > map.bottom) continue;
+        if (pin.contains(document.elementFromPoint(x, y))) return pin.dataset.mapPin!;
+      }
+      return null;
+    }, first);
+  const zoomIn = section.getByRole("button", { name: /^Zoom in/ });
+  let id = await pressable();
+  for (let press = 0; press < 6 && !id; press++) {
+    await zoomIn.click();
+    await page.waitForTimeout(600);
+    id = await pressable();
+  }
+  expect(id, "a pin other than the first listing's is pressable").toBeTruthy();
+  await section.locator(`[data-map-pin="${id}"]`).click();
+  await expect.poll(() => garnetCard(section)).toBe(id);
+  await expect(section.locator(`[data-map-pin="${id}"]`)).toHaveAttribute("data-map-active", "");
+});

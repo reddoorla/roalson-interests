@@ -73,7 +73,7 @@ export interface CentreWatchOptions {
    *  called with null — see "nothing on the line means hold". */
   onactive: (id: string) => void;
   /** Viewport width, in px, at or above which this runs at all. */
-  minWidth: number;
+  minWidth: string;
   /** False tears it down: a section with no map has nothing to drive. */
   enabled?: boolean;
 }
@@ -106,7 +106,7 @@ export function centreWatch(node: HTMLElement, options: CentreWatchOptions) {
     // list. (vitest-setup.ts's default answers `matches: false`, so a unit
     // test that wants this running says so.)
     if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
-    if (!window.matchMedia(`(min-width: ${current.minWidth}px)`).matches) return;
+    if (!window.matchMedia(`(min-width: ${current.minWidth})`).matches) return;
     if (typeof IntersectionObserver === "undefined") return;
     observer = new IntersectionObserver(report, { rootMargin: CENTRE_BAND, threshold: 0 });
     for (const child of node.querySelectorAll<HTMLElement>(`[${CENTRE_ID}]`))
@@ -117,7 +117,7 @@ export function centreWatch(node: HTMLElement, options: CentreWatchOptions) {
   // width it was created with. `minWidth` is a layout constant, not state.
   const query =
     typeof window !== "undefined" && typeof window.matchMedia === "function"
-      ? window.matchMedia(`(min-width: ${options.minWidth}px)`)
+      ? window.matchMedia(`(min-width: ${options.minWidth})`)
       : null;
   const onQueryChange = () => start();
   query?.addEventListener("change", onQueryChange);
