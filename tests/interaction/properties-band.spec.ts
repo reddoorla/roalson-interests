@@ -32,6 +32,12 @@ test.describe("motion allowed, where the band pins", () => {
       const before = await measure(page);
       expect(before.band, "the band is drawn").not.toBeNull();
       expect(before.band!.height).toBeCloseTo(Math.max(240, height / 2), 0);
+      await expect
+        .poll(
+          () => page.evaluate(() => getComputedStyle(document.querySelector("footer")!).marginTop),
+          { message: "control: with a band the footer is laid back over its spacer" },
+        )
+        .not.toBe("0px");
       await toEnd(page);
       await expect
         .poll(async () => {
@@ -41,17 +47,17 @@ test.describe("motion allowed, where the band pins", () => {
         .toBe(true);
     });
   }
-});
 
-test("with no band photo the page ends on the listing and the footer is not pulled up", async ({
-  page,
-}) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto(`${ROUTE}?noband`);
-  await hydrated(page);
-  const at = await measure(page);
-  expect(at.band).toBeNull();
-  expect(
-    await page.evaluate(() => getComputedStyle(document.querySelector("footer")!).marginTop),
-  ).toBe("0px");
+  test("with no band photo the page ends on the listing and the footer is not pulled up", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(`${ROUTE}?noband`);
+    await hydrated(page);
+    const at = await measure(page);
+    expect(at.band).toBeNull();
+    expect(
+      await page.evaluate(() => getComputedStyle(document.querySelector("footer")!).marginTop),
+    ).toBe("0px");
+  });
 });

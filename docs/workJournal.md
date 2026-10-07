@@ -12872,3 +12872,10 @@ Erik, 10-06 22:05Z: "Could we create an image footer just like the homepage, rig
 A fixed 400px height turns the height cases red, and removing the spacer turns the pin cases red. Loader unit tests cover both fields, an empty band, and a missing document.
 
 **After merge:** CI pushes the model, then `page_media.properties_band` is set to the uploaded asset and published in its own release. The pending release `asP91BIAAH8K23X-` (Operator decisions 81) is not touched.
+
+Review round 1 on #273 found no blocker or major. It found two minors, both fixed:
+
+- **A half-vacuous test.** The `?noband` case ran under the shared config's `reducedMotion: "reduce"`, where app.css applies none of the pin rules, so "the footer is not pulled up" could not fail. It now runs with motion allowed. The band case gained the control that the footer's margin is not zero, and a `?noband` that still draws the band turns the no-band case red.
+- **Notes deleted, not moved.** The slice's notes on `--band-h` being read twice and on the lazy photo now sit at the top of `PinnedPhotoBand.svelte`.
+
+`class` is now kept out of the component's props type, because the component would silently drop it.

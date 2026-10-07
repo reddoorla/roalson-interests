@@ -23,7 +23,7 @@
   //
   // THE PIN is CSS, and it is in src/app.css (`[data-pinned-band]`), not in
   // this file's classes — read the comment there before changing either half.
-  // This component's share of it is two ELEMENTS:
+  // PinnedPhotoBand draws its two ELEMENTS:
   //
   //   <section data-pinned-band>      the band
   //   <div class="pinned-band-spacer"> exactly one footer-height of room
