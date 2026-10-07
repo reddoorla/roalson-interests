@@ -64,6 +64,8 @@
 import { untrack } from "svelte";
 import { createAttachmentKey } from "svelte/attachments";
 import { useSwipe, type SwipeCustomEvent } from "svelte-gestures";
+
+export const DRAG_SLOP_PX = 10;
 import type { HTMLAttributes, HTMLButtonAttributes } from "svelte/elements";
 import { reducedMotion } from "$lib/transitions";
 
@@ -462,6 +464,7 @@ export function createCarousel(options: CarouselOptions) {
   }
 
   let swipedAt = -Infinity;
+  let pressedAt: { x: number; y: number } | null = null;
   const onSwipe = (event: SwipeCustomEvent) => {
     swipedAt = performance.now();
     if (event.detail.direction === "left") next();
@@ -474,8 +477,17 @@ export function createCarousel(options: CarouselOptions) {
       minSwipeDistance: 60,
       touchAction: "pan-y",
     })),
+    onpointerdowncapture: (event: PointerEvent) => {
+      pressedAt = { x: event.clientX, y: event.clientY };
+    },
     onclickcapture: (event: MouseEvent) => {
-      if (performance.now() - swipedAt > 500) return;
+      const from = pressedAt;
+      pressedAt = null;
+      const dragged =
+        event.detail > 0 &&
+        from !== null &&
+        Math.hypot(event.clientX - from.x, event.clientY - from.y) > DRAG_SLOP_PX;
+      if (!dragged && performance.now() - swipedAt > 500) return;
       event.preventDefault();
       event.stopPropagation();
     },

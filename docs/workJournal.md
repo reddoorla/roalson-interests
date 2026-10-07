@@ -12850,3 +12850,15 @@ Review round 1 on #272 found no blocker. Its "major" was the overlap above, alre
 
 - keeping a non-seed member (the first test only ever kept a seed, so removing the absorb guard left it green);
 - the arrows' tone under `#improved`.
+
+## 2026-10-07 — A drag across a carousel card never opens it, and the rest of #269 (`claude/swipe-test-window`)
+
+#269 listed three non-gate reds that also fail on an untouched `main`. Each one was traced to a cause.
+
+**The two `featured-band-live` cases** ("a clock turn dissolves a FULL bar", 4 frames sampled where the case needs 2 in the handover; and "a photo brought back … drifts again from 1.00") fail in the cloud container and pass on GitHub's runner. The 10-06 nightly ran on the same commit as the local baseline (`799cf1b`): 308 passed, 1 skipped, none flaky. Its job is `112389666780`. They sample animation frames, and this container renders WebGL in software under four workers, which starves the page of frames while the band's map flies. That is the environment, not the band. Nothing was changed for them.
+
+**The swipe flake was a product edge as well.** `svelte-gestures` counts a swipe only if the pointer is released within `timeframe` (300 ms) of the press. A slower mouse drag across a card is therefore no swipe at all. Its release is an ordinary click on the stretched card link from #265, and it opened the listing. That is exactly what the test caught 1 run in 10 on `main`, when its four-step drag ran slow.
+
+The carousel's click guard used to swallow clicks only for 500 ms after a recognised swipe. It now also swallows a pointer click (`detail > 0`) whose pointer moved more than `DRAG_SLOP_PX` (10) between press and release, however long that took. A keyboard click is never touched. The unit case covers a 200px drag, a still press, and a keyboard click, and goes red with the drag check removed. The test's drag also takes two mouse steps instead of four, so its swipe lands inside the window.
+
+On the branch it passed 59 of 60 runs alone. The one failure was not captured. With the guard, a slow drag can no longer open a listing, so the only remaining failure mode is the swipe not being recognised at all.
