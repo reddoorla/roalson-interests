@@ -447,8 +447,10 @@ test.describe("the focus net (#34), in a real browser", () => {
       const next = list.getByRole("button", { name: "Next slide" });
       await next.click();
       await next.click();
+      await expect.poll(async () => (await state(list)).label).toMatch(/^3 of /);
       const link = list.locator("li:not([aria-hidden]) a[href]").first();
       await link.focus();
+      await expect(link).toBeFocused();
       const name = await link.evaluate(
         (a) => a.closest("article")!.querySelector("h3")!.textContent,
       );

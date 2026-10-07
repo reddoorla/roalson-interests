@@ -12807,6 +12807,16 @@ The other fixes from that round:
 
 Back to slide 1 after leaving a listing is #271.
 
+**Review round 2 found no blocker or major.** Its minors are fixed:
+
+- `focus-ring.spec.ts`'s card case now reads the ring from `::after` (it had been red on `main` since #265, the first item of #269) and walks the carousel instead of the centre line.
+- A one-listing section's active pin has a unit test, red with the line removed.
+- The last stale comments are corrected.
+
+One flaky test was the test's own: `listing-carousel`'s "narrowed below lg" case clicked Next twice and focused at once. 2 runs in 3 caught slide 2 before slide 3 took the stage, and the focus net then correctly moved focus to the region. A probe outside the test kept focus 4 times in 4. The case now waits for "3 of N" before focusing, and passed 5 of 5.
+
+Round 2 also raised a product question, left open: under its own view (`#improved`), Improved Properties no longer has a garnet card, because only Land's first card is garnet now.
+
 **What a held map costs, measured on the deploy preview.** At MAP_HOME, six Land tracts near Boerne draw as one cluster. Turning the panel between two of them changes nothing on the map: the cluster stays the featured marker, and the rest dim only to 0.81. That is the price of not moving the camera. It is the operator's call whether it needs a fix.
 
 **Not done here.** Erik's 10-06 22:05Z ask, a Bill Miller HQ photo band above the footer on the Properties page only (Nicole drew it in "Properties 1" at 50% of the window's height), is a separate task.

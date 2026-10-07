@@ -808,7 +808,7 @@ describe("the active listing's pin (P2/P4)", () => {
   // applies no transform, so what is decided here is the MARKUP: every pin at
   // one size, and the scale each one is told to be drawn at. What the page
   // PAINTS — 1.5x, grown about the tip, eased — is read off real boxes in
-  // active-card-highlight.spec.ts and map-featured-pin.spec.ts.
+  // map-featured-pin.spec.ts.
   const drawnAt = (el: Element | null) => {
     const svg = el!.querySelector("svg")!;
     return [Number(svg.getAttribute("width")), Number(svg.getAttribute("height"))];

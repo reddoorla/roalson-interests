@@ -45,8 +45,8 @@
   // visitor's own zoom or pan moves the camera.
   //
   // WITH NO SCRIPT, and for a section of one listing, the list is stacked
-  // beside a sticky map, which is the only time the sticky offsets below
-  // matter.
+  // beside a sticky map. The sticky offsets below serve that state, and the
+  // panel's scroll margin under a pinned divider.
   import { onMount } from "svelte";
 
   import { brandButtonBase, brandButtonPadding } from "$lib/components/BrandButton.svelte";

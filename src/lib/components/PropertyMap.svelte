@@ -1538,8 +1538,7 @@
       // NOT also set `active` from here: the one rule that decides which
       // listing is active is the caller's, and a press that wrote it directly
       // would be a second mechanism racing the first. So this only reports the
-      // press; on /properties the caller scrolls that card to the centre and
-      // the centre rule does the rest.
+      // press; on /properties the caller turns its panel to that listing.
       //
       // What it MAY do is send the camera ahead of the scroll, when the caller
       // answers that the press travels to `active` — see `heading`.
@@ -2429,10 +2428,9 @@
      A marker under the pointer or with keyboard focus goes back to 1: a
      control that looks disabled while it is being pointed at is lying, and
      `opacity` would dim the focus ring drawn on the element with it.
-     The change animates on the SAME clock as the garnet card it follows —
-     Tailwind's default duration and easing (`transition-opacity` on a
-     cluster, the pin rules below on a pin), exactly what app.css's
-     `transition-colors` on the card uses (150ms) — and not at all under
+     The change animates on Tailwind's default duration and easing
+     (`transition-opacity` on a cluster, the pin rules below on a pin, 150ms)
+     — and not at all under
      reduced motion (`motion-reduce:transition-none`, as on the canvas host,
      and the pin rules' own media block). The expanded overlay is this same
      box, so it needs nothing of its own. */

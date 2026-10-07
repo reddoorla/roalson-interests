@@ -537,8 +537,7 @@ main > section.hero-band:first-child {
   @apply h-10 bg-none;
 }
 /* …its cards take Land's sand, the token its ground now does not use
-   (PropertyCard's rule: a card is always a panel on its ground). The garnet
-   card keeps its own. The photo box is the cream tone's one `bg-light` child,
+   (PropertyCard's rule: a card is always a panel on its ground). The photo box is the cream tone's one `bg-light` child,
    selected by that and not by an <img>: in a carousel it is drawn with no
    photo too. */
 [data-listing]:is([data-view="improved"], :not([data-view]):has(#improved:target))

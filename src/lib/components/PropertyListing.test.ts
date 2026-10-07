@@ -312,6 +312,21 @@ describe("PropertyListing", () => {
     expect(past!.querySelectorAll(`[${CENTRE_ID}]`)).toHaveLength(0);
   });
 
+  it("marks the pin of a section's only listing active once hydrated", async () => {
+    const one = sections()
+      .filter((s) => !s.past)
+      .map((s) => ({ ...s, properties: s.properties.slice(0, 1) }));
+    render(PropertyListing, { props: { sections: one } });
+    await tick();
+    const [land] = listingSections();
+    const id = one[0]!.properties[0]!.id;
+    expect(
+      land!.querySelector(`[data-map-home-pin="${id}"]`),
+      "premise: its pin is drawn",
+    ).not.toBeNull();
+    expect(land!.querySelector(`[data-map-home-pin="${id}"][data-map-active]`)).not.toBeNull();
+  });
+
   it("says so, rather than rendering nothing, when there are no listings", () => {
     const { getByText, queryAllByRole } = render(PropertyListing, { props: { sections: [] } });
     expect(getByText(/No properties are listed/)).not.toBeNull();
@@ -324,7 +339,7 @@ describe("PropertyListing below lg: each section a carousel (#14)", () => {
 
   /** A window below `lg`, and the switch to rotate it past the breakpoint. The
    *  component asks for `(width < 64rem)` by name; anything else is false —
-   *  notably `prefers-reduced-motion` and centreWatch's `min-width`. */
+   *  notably `prefers-reduced-motion`. */
   function phone() {
     const QUERY = "(width < 64rem)";
     let below = true;
