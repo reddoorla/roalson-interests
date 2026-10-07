@@ -118,6 +118,43 @@
     carousels = { ...carousels, [id]: carousel };
   };
 
+  const RESTORE_WINDOW_MS = 1000;
+  let pending: Record<string, string> = {};
+  let pendingUntil = 0;
+
+  function applyPending() {
+    if (performance.now() > pendingUntil) pending = {};
+    for (const [sectionId, listingId] of Object.entries(pending)) {
+      const carousel = carousels[sectionId];
+      if (!carousel?.enabled) continue;
+      const section = sections.find((s) => s.id === sectionId);
+      const index = section?.properties.findIndex((p) => p.id === listingId) ?? -1;
+      if (index >= 0) carousel.goTo(index);
+      delete pending[sectionId];
+    }
+  }
+
+  export function capture(): Record<string, string> {
+    return Object.fromEntries(
+      sections.flatMap((section) => {
+        const carousel = carousels[section.id];
+        const listing = carousel?.enabled ? section.properties[carousel.index] : undefined;
+        return listing ? [[section.id, listing.id]] : [];
+      }),
+    );
+  }
+
+  export function restore(saved: Record<string, string>) {
+    pending = { ...saved };
+    pendingUntil = performance.now() + RESTORE_WINDOW_MS;
+    applyPending();
+  }
+
+  $effect(() => {
+    for (const carousel of Object.values(carousels)) void carousel.enabled;
+    applyPending();
+  });
+
   let hydrated = $state(false);
 
   const activeFor = (section: ListingSection): string | null => {

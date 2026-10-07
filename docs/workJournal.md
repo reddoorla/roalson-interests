@@ -12851,6 +12851,51 @@ Review round 1 on #272 found no blocker. Its "major" was the overlap above, alre
 - keeping a non-seed member (the first test only ever kept a seed, so removing the absorb guard left it green);
 - the arrows' tone under `#improved`.
 
+## 2026-10-07 — A photo band above the footer on Properties, Bill Miller's headquarters (`claude/properties-photo-band`)
+
+Erik, 10-06 22:05Z: "Could we create an image footer just like the homepage, right above the footer, and use this image here only on the properties page". The image is Bill Miller Bar-B-Q's new headquarters and commissary, a big client's campus. Nicole drew it in "Properties 1" (`7165:737`, 1440×600 at 1440) and set the rule: "50% screenheight so it always fits with the footer".
+
+**The same band as the homepage, not a copy of it.** The homepage band's markup (the `data-pinned-band` section and its spacer sibling, which app.css pins under a footer that slides up over it) moved out of the PhotoBand slice into `PinnedPhotoBand.svelte`. The slice and /properties both use it, so the pin's two-element contract lives in one place. The slice's own seven tests pass unchanged.
+
+**Where the photo lives.** It is a second Image field, `properties_band`, on the `page_media` singleton beside `properties_masthead`, for the same reason the masthead is there: /properties is a filesystem route with no `page` document behind it. `loadPropertiesMedia` reads both fields in one `getSingle`. An empty field draws no band at all, unlike the masthead's gradient fallback, because Erik asked for this photo, not for a band.
+
+**Height and crop.** `--band-h: max(240px, 50svh)`, so the band is 450 at 1440×900 and 422 on a 390×844 phone. The source is 5135×2885 (1.78:1). A half-window band at 1440×900 is 3.2:1, and no crop holds both the building tops and the sign. `object-position: 50% 70%` keeps the whole sign and the pond and trims the roofline. Nicole's 600-tall mock shows more roof, because her band is taller than half a 900 window.
+
+**The upload went wrong once.** Prismic's `upload_asset` fetched Erik's Dropbox `dl=1` link and stored it as `kind: document`. Dropbox serves that link as `application/json`, and the `raw=1` form serves it as `application/binary`. `dl.dropboxusercontent.com` serves the same file as `image/jpeg`, and the second upload is the image (`HERaGn6Q1LM0MDE7`). The first asset (`5B7ksUrfZQr1ToST`) is still in the media library, and no tool here can delete it.
+
+**Tests.** `properties-band.spec.ts` checks, with motion allowed at 1440×900 and 390×844:
+
+- the band is half the window tall (or 240);
+- at the page's end it pins at the top with the footer over it;
+- with `?noband` there is no band and no footer margin.
+
+A fixed 400px height turns the height cases red, and removing the spacer turns the pin cases red. Loader unit tests cover both fields, an empty band, and a missing document.
+
+**After merge:** CI pushes the model, then `page_media.properties_band` is set to the uploaded asset and published in its own release. The pending release `asP91BIAAH8K23X-` (Operator decisions 81) is not touched.
+
+Review round 1 on #273 found no blocker or major. It found two minors, both fixed:
+
+- **A half-vacuous test.** The `?noband` case ran under the shared config's `reducedMotion: "reduce"`, where app.css applies none of the pin rules, so "the footer is not pulled up" could not fail. It now runs with motion allowed. The band case gained the control that the footer's margin is not zero, and a `?noband` that still draws the band turns the no-band case red.
+- **Notes deleted, not moved.** The slice's notes on `--band-h` being read twice and on the lazy photo now sit at the top of `PinnedPhotoBand.svelte`.
+
+`class` is now kept out of the component's props type, because the component would silently drop it.
+
+## 2026-10-07 — Back returns each Properties panel to the listing it was on (#271, `claude/properties-panel-restore`)
+
+Since #270 every section from `lg` is a one-listing carousel. Leaving for a listing and pressing Back remounted the page with every panel on slide 1. SvelteKit's page `snapshot` is the mechanism built for this: it is captured when the page is left and handed back when its history entry returns, including after a reload, because snapshots are kept in session storage.
+
+`PropertyListing` exports `capture()` (each enabled carousel's index, by section id) and `restore(saved)`. Both `/properties` and the `/dev/properties` fixture wire them into `snapshot`. A carousel's `goTo` does nothing until it is enabled, and it is enabled only after hydration. So `restore` keeps what it was handed and applies each index once its carousel is enabled, from an effect that reads every carousel's `enabled`. Restoring before the panels exist is harmless.
+
+Tests: a unit case captures slide 3, unmounts, mounts fresh and restores. `properties-panel-restore.spec.ts`, at 1440 and 390, turns Land to slide 3, follows a real `/contact` link, presses Back, and expects slide 3. With `restore` emptied, both browser cases go red, and with `goTo` removed from it, the unit case goes red.
+
+Traced, not built and not measured: on a full reload SvelteKit restores the scroll position before hydration, against the taller stacked no-JS list, and the page then collapses to the carousels. Where the visitor lands on a reload depends on the browser's scroll anchoring. Back within the site is the case #271 named, and it is the one tested.
+
+Review round 1 on #274 found no blocker or major. It found three minors, all fixed.
+
+- **The deferred path was untested.** Every test called `restore` after the panels were already enabled, so deleting the effect that lands a deferred restore left both suites green. Past Projects is a genuinely late carousel: it only becomes one below `lg`. A unit case restores it on a wide window, narrows the window, and expects the saved slide. It goes red with the effect removed.
+- **A restore that could not land could fire much later.** For example, Past Projects saved in portrait, Back in landscape, rotated back minutes after. A restore now lapses after one second: `RESTORE_WINDOW_MS`, red without the expiry.
+- **Saved by position.** Snapshots outlive a reload in session storage, so a listing added or reordered in Prismic between leaving and returning would land on the wrong card. `capture` now saves the listing's id and `restore` finds it again; a case reverses the list in between.
+
 ## 2026-10-07 — A drag across a carousel card never opens it, and the rest of #269 (`claude/swipe-test-window`)
 
 #269 listed three non-gate reds that also fail on an untouched `main`. Each one was traced to a cause.
