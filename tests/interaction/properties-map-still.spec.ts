@@ -88,6 +88,12 @@ test("pressing a pin turns the panel to that listing without moving the camera",
   await settle(page);
   expect(await onStage(section)).toBe(id);
   await expect(section.locator(`[data-map-pin="${id}"]`)).toHaveAttribute("data-map-active", "");
+  const others = section.locator(
+    "[data-map-pin]:not([data-map-active]), [data-map-cluster]:not([data-map-active])",
+  );
+  expect(await others.count()).toBeGreaterThan(0);
+  for (const other of await others.all())
+    await expect(other).toHaveAttribute("data-map-dimmed", "");
   expect(await camera(section)).toBe(before);
 });
 
