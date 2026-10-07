@@ -42,37 +42,16 @@
   // `overflow-clip`, not `overflow-hidden`: the band clips its own photo
   // either way, but `clip` does not make it a scroll container.
   import { isFilled, type Content } from "@prismicio/client";
-  import HeroBackgroundImage from "$lib/components/HeroBackgroundImage.svelte";
+  import PinnedPhotoBand from "$lib/components/PinnedPhotoBand.svelte";
 
   let { slice }: { slice: Content.PhotoBandSlice } = $props();
 
   const image = $derived(isFilled.image(slice.primary.image) ? slice.primary.image : undefined);
 </script>
 
-<!-- `--band-h` is read twice: by `h-(--band-h)` here, and by the pin's `top` in
-     app.css, which seats a band TALLER than the viewport on the viewport's
-     bottom edge instead of its top. -->
-<section
+<PinnedPhotoBand
+  {image}
   data-slice-type={slice.slice_type}
   data-slice-variation={slice.variation}
-  data-pinned-band
-  class="h-(--band-h) overflow-clip bg-gradient-to-b from-primary to-dark [--band-h:240px]
-    lg:[--band-h:800px]"
->
-  {#if image}
-    <!-- Below the fold on the homepage, where it is the last slice (nothing
-         stops an editor placing it first, where lazy would cost the LCP):
-         `preload={false}` makes it
-         `loading="lazy"` at `fetchpriority="auto"`, so it never competes with
-         the hero's poster for the LCP. The alt is the image's own, from the
-         media library; empty is decorative, which a band with nothing else in
-         it usually is. In flow rather than `absolute`, so the band needs no
-         `position` of its own for the pin to override. -->
-    <HeroBackgroundImage
-      {image}
-      preload={false}
-      class="block h-full w-full object-cover object-bottom"
-    />
-  {/if}
-</section>
-<div aria-hidden="true" class="pinned-band-spacer"></div>
+  height="[--band-h:240px] lg:[--band-h:800px]"
+/>

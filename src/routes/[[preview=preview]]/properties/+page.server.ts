@@ -1,4 +1,4 @@
-import { loadPropertiesMasthead } from "$lib/page-media-load";
+import { loadPropertiesMedia } from "$lib/page-media-load";
 import { createClient, isPlaceholderRepo } from "$lib/prismicio";
 import { emptyListing, loadPropertyListing } from "$lib/property-listing-load";
 
@@ -20,7 +20,9 @@ export async function load({ fetch, cookies }) {
   // every one of which PageMasthead draws as the brand gradient. It is NOT a
   // `page` document with uid `properties`: see $lib/page-media-load for the
   // prerender collision that would be.
-  const masthead = client ? await loadPropertiesMasthead(client) : null;
+  const { masthead, band } = client
+    ? await loadPropertiesMedia(client)
+    : { masthead: null, band: null };
 
   // No `navOver`, and so no `canvasTop`: the page opens on PageMasthead but the
   // bar does NOT float over it. It is the solid bar from the top — off-white
@@ -31,7 +33,7 @@ export async function load({ fetch, cookies }) {
   // together". The cloud was `.masthead-shade`, which existed only to keep a
   // floating bar's sand controls legible over the photo. With nothing above the
   // document but the page ground, #91 (garnet above a darkened photo) is moot.
-  return { ...listing, masthead };
+  return { ...listing, masthead, band };
 }
 
 export function entries() {

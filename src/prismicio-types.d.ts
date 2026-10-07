@@ -245,6 +245,17 @@ interface PageMediaDocumentData {
    * - **Documentation**: https://prismic.io/docs/fields/image
    */
   properties_masthead: prismic.ImageField<never>;
+
+  /**
+   * Properties photo band (above the footer) field in *Page media*
+   *
+   * - **Field Type**: Image
+   * - **Placeholder**: *None*
+   * - **API ID Path**: page_media.properties_band
+   * - **Tab**: Main
+   * - **Documentation**: https://prismic.io/docs/fields/image
+   */
+  properties_band: prismic.ImageField<never>;
 }
 
 /**
