@@ -12860,3 +12860,9 @@ Since #270 every section from `lg` is a one-listing carousel. Leaving for a list
 Tests: a unit case captures slide 3, unmounts, mounts fresh and restores. `properties-panel-restore.spec.ts`, at 1440 and 390, turns Land to slide 3, follows a real `/contact` link, presses Back, and expects slide 3. With `restore` emptied, both browser cases go red, and with `goTo` removed from it, the unit case goes red.
 
 Traced, not built and not measured: on a full reload SvelteKit restores the scroll position before hydration, against the taller stacked no-JS list, and the page then collapses to the carousels. Where the visitor lands on a reload depends on the browser's scroll anchoring. Back within the site is the case #271 named, and it is the one tested.
+
+Review round 1 on #274 found no blocker or major. It found three minors, all fixed.
+
+- **The deferred path was untested.** Every test called `restore` after the panels were already enabled, so deleting the effect that lands a deferred restore left both suites green. Past Projects is a genuinely late carousel: it only becomes one below `lg`. A unit case restores it on a wide window, narrows the window, and expects the saved slide. It goes red with the effect removed.
+- **A restore that could not land could fire much later.** For example, Past Projects saved in portrait, Back in landscape, rotated back minutes after. A restore now lapses after one second: `RESTORE_WINDOW_MS`, red without the expiry.
+- **Saved by position.** Snapshots outlive a reload in session storage, so a listing added or reordered in Prismic between leaving and returning would land on the wrong card. `capture` now saves the listing's id and `restore` finds it again; a case reverses the list in between.

@@ -8,7 +8,7 @@
 
   let listing: ReturnType<typeof PropertyListing> | undefined = $state();
 
-  export const snapshot: Snapshot<Record<string, number>> = {
+  export const snapshot: Snapshot<Record<string, string>> = {
     capture: () => listing?.capture() ?? {},
     restore: (saved) => listing?.restore(saved),
   };

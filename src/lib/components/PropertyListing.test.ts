@@ -513,6 +513,41 @@ describe("PropertyListing below lg: each section a carousel (#14)", () => {
     expect(carousels(container)).toHaveLength(3);
   });
 
+  it("lands a restore for a panel that only becomes a carousel later, within the window", async () => {
+    const media = phone();
+    await media.set(false);
+    const groups = sections();
+    const view = render(PropertyListing, { props: { sections: groups } });
+    await tick();
+    const pastId = groups[2]!.properties[1]!.id;
+    view.component.restore({ past: pastId });
+    await media.set(true);
+    const past = carousels(view.container)[2]!;
+    const second = past
+      .querySelectorAll('[aria-roledescription="slide"]')[1]!
+      .querySelector("h3")!
+      .textContent!.trim();
+    expect(onStage(past)).toBe(second);
+  });
+
+  it("drops a restore that could not land within a second", async () => {
+    const media = phone();
+    await media.set(false);
+    const groups = sections();
+    const view = render(PropertyListing, { props: { sections: groups } });
+    await tick();
+    const clock = vi.spyOn(performance, "now");
+    clock.mockReturnValue(0);
+    view.component.restore({ past: groups[2]!.properties[1]!.id });
+    clock.mockReturnValue(1500);
+    await media.set(true);
+    clock.mockRestore();
+    const past = carousels(view.container)[2]!;
+    expect(past.querySelector('[aria-roledescription="slide"]:not([aria-hidden])')).toBe(
+      past.querySelectorAll('[aria-roledescription="slide"]')[0],
+    );
+  });
+
   it("is never a carousel for one listing", async () => {
     phone();
     const one = sections().map((s) => ({ ...s, properties: s.properties.slice(0, 1) }));
@@ -538,7 +573,7 @@ describe("PropertyListing snapshot", () => {
     within(land!).getByRole("button", { name: "Next slide" }).click();
     await tick();
     const saved = first.component.capture();
-    expect(saved.land).toBe(2);
+    expect(saved.land).toBe(groups[0]!.properties[2]!.id);
     first.unmount();
 
     const second = render(PropertyListing, { props: { sections: groups } });
@@ -546,6 +581,19 @@ describe("PropertyListing snapshot", () => {
     second.component.restore(saved);
     await tick();
     expect(onStage(listingSections()[0]!)).toBe(groups[0]!.properties[2]!.id);
+  });
+
+  it("finds the listing it saved even when the list has changed under it", async () => {
+    const groups = sections();
+    const saved = { land: groups[0]!.properties[1]!.id };
+    const reordered = groups.map((g, i) =>
+      i === 0 ? { ...g, properties: [...g.properties].reverse() } : g,
+    );
+    const view = render(PropertyListing, { props: { sections: reordered } });
+    await tick();
+    view.component.restore(saved);
+    await tick();
+    expect(onStage(listingSections()[0]!)).toBe(saved.land);
   });
 });
 
