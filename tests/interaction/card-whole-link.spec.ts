@@ -80,7 +80,7 @@ test.describe("at 390, in the carousel", () => {
     const y = box.y + box.height * 0.75;
     await page.mouse.move(box.x + box.width - 20, y);
     await page.mouse.down();
-    await page.mouse.move(box.x + 20, y, { steps: 4 });
+    await page.mouse.move(box.x + 20, y, { steps: 2 });
     await page.mouse.up();
     await page.waitForTimeout(600);
     await expect(page).toHaveURL(new RegExp(`${LISTING}$`));

@@ -12895,3 +12895,30 @@ Review round 1 on #274 found no blocker or major. It found three minors, all fix
 - **The deferred path was untested.** Every test called `restore` after the panels were already enabled, so deleting the effect that lands a deferred restore left both suites green. Past Projects is a genuinely late carousel: it only becomes one below `lg`. A unit case restores it on a wide window, narrows the window, and expects the saved slide. It goes red with the effect removed.
 - **A restore that could not land could fire much later.** For example, Past Projects saved in portrait, Back in landscape, rotated back minutes after. A restore now lapses after one second: `RESTORE_WINDOW_MS`, red without the expiry.
 - **Saved by position.** Snapshots outlive a reload in session storage, so a listing added or reordered in Prismic between leaving and returning would land on the wrong card. `capture` now saves the listing's id and `restore` finds it again; a case reverses the list in between.
+
+## 2026-10-07 — A drag across a carousel card never opens it, and the rest of #269 (`claude/swipe-test-window`)
+
+#269 listed three non-gate reds that also fail on an untouched `main`. Each one was traced to a cause.
+
+**The two `featured-band-live` cases** ("a clock turn dissolves a FULL bar", 4 frames sampled where the case needs 2 in the handover; and "a photo brought back … drifts again from 1.00") fail in the cloud container and pass on GitHub's runner. The 10-06 nightly ran on the same commit as the local baseline (`799cf1b`): 308 passed, 1 skipped, none flaky. Its job is `112389666780`. They sample animation frames, and this container renders WebGL in software under four workers, which starves the page of frames while the band's map flies. That is the environment, not the band. Nothing was changed for them.
+
+**The swipe flake was a product edge as well.** `svelte-gestures` counts a swipe only if the pointer is released within `timeframe` (300 ms) of the press. A slower mouse drag across a card is therefore no swipe at all. Its release is an ordinary click on the stretched card link from #265, and it opened the listing. That is exactly what the test caught 1 run in 10 on `main`, when its four-step drag ran slow.
+
+The carousel's click guard used to swallow clicks only for 500 ms after a recognised swipe. It now also swallows a pointer click (`detail > 0`) whose pointer moved more than `DRAG_SLOP_PX` (10) between press and release, however long that took. A keyboard click is never touched. The unit case covers a 200px drag, a still press, and a keyboard click, and goes red with the drag check removed. The test's drag also takes two mouse steps instead of four, so its swipe lands inside the window.
+
+On the branch it passed 59 of 60 runs alone. The one failure was not captured. With the guard, a slow drag can no longer open a listing, so the only remaining failure mode is the swipe not being recognised at all.
+
+Review round 1 on #275 found no blocker or major. Its two minors are fixed:
+
+- **Controls inside the swiped area.** The arrows and Pause sit inside the swiped element. On a touchscreen that tolerates about 15px before cancelling a tap, a tap that moved more than 10px would have been dropped. The drag guard now applies only to clicks on links.
+- **A stale press point.** A touch swipe usually fires no click, so its press point could linger and be measured against a later click. It is now cleared when a swipe registers and on `pointercancel`.
+
+The unit case adds an arrow tapped with movement, a click with no recorded press, and a cancelled press. Removing the link scope or the cancel clearing turns it red.
+
+**After #273 landed: the photo, corrected on the live page.** Published, the band showed the sign and the pond and none of the campus. The source is 1.78:1, and a half-window band at 1440×900 is 3.2:1, so no crop of it holds both. Erik's `_EXPAND` version, in the same Dropbox folder (`…_LG EXPAND.jpg`, 6981×3537, 1.97:1, with sky and sides added), puts the buildings, the pond and the sign in one middle strip.
+
+Rendered at 1440×900, the existing `object-position: 50% 70%` frames all three, as do 50% and 60%, so no code changed. It went up as Prismic asset `LuXr4Tvh-u3ipR6B`, replaced `page_media.properties_band` in its own release, and was published at the operator's go-ahead. The live page served it by 15:14Z.
+
+The first screenshot after publishing showed the garnet fallback. The image itself was fine (200, 305 KB at w=1920): the first request for a 21 MB source is slow while imgix resizes it, and the lazy `<img>` had not loaded. The screenshot now waits for the image to finish loading.
+
+The two unused assets from the day stay in the media library: `5B7ksUrfZQr1ToST`, which Dropbox's `dl=1` link turned into a `document`, and `HERaGn6Q1LM0MDE7`, the 1.78:1 original.

@@ -1,7 +1,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render } from "@testing-library/svelte";
 import { flushSync, tick } from "svelte";
-import { createCarousel, type Carousel, type CarouselOptions } from "./carousel.svelte";
+import {
+  createCarousel,
+  DRAG_SLOP_PX,
+  type Carousel,
+  type CarouselOptions,
+} from "./carousel.svelte";
 import CarouselFixture from "../routes/dev/a11y-fixtures/CarouselFixture.svelte";
 
 // TWO LAYERS, ON PURPOSE.
@@ -1275,6 +1280,37 @@ describe("createCarousel, headless", () => {
     expect(carousel.index).toBe(0);
     onswipe({ detail: { direction: "top" } });
     expect(carousel.index).toBe(0);
+  });
+
+  it("swallows a pointer click that ended a drag, however slow, and lets a still click and a key through", () => {
+    const carousel = mount({ count: 3 });
+    const bag = carousel.swipe as unknown as Record<string, (e: unknown) => void>;
+    const link = document.createElement("a");
+    const button = document.createElement("button");
+    const click = (detail: number, x: number, target: Element = link) => {
+      const event = {
+        detail,
+        clientX: x,
+        clientY: 100,
+        target,
+        preventDefault: vi.fn(),
+        stopPropagation: vi.fn(),
+      };
+      bag.onclickcapture(event);
+      return event.preventDefault.mock.calls.length > 0;
+    };
+    bag.onpointerdowncapture({ clientX: 300, clientY: 100 });
+    expect(click(1, 100), "a drag of 200px").toBe(true);
+    bag.onpointerdowncapture({ clientX: 300, clientY: 100 });
+    expect(click(1, 300 - DRAG_SLOP_PX), "a press that stayed put").toBe(false);
+    bag.onpointerdowncapture({ clientX: 300, clientY: 100 });
+    expect(click(0, 0), "a keyboard click, whatever the last press").toBe(false);
+    bag.onpointerdowncapture({ clientX: 300, clientY: 100 });
+    expect(click(1, 100, button), "an arrow or Pause, even with a moving tap").toBe(false);
+    expect(click(1, 100), "a click with no press recorded").toBe(false);
+    bag.onpointerdowncapture({ clientX: 300, clientY: 100 });
+    bag.onpointercancelcapture({});
+    expect(click(1, 100), "a press the browser cancelled").toBe(false);
   });
 
   it("listens to nothing when it cannot autoplay", () => {
