@@ -54,15 +54,6 @@ test.describe("the List tab", { tag: "@smoke" }, () => {
     await hydrated(page);
     for (const section of await activeSections(page).all()) await everyCardShown(section);
   });
-
-  test("with no script a shared #list link shows every active section", async ({ browser }) => {
-    const context = await browser.newContext({ javaScriptEnabled: false, viewport: WIDE });
-    const page = await context.newPage();
-    await page.goto(`${ROUTE}#list`);
-    for (const section of await activeSections(page).all()) await expect(section).toBeVisible();
-    expect(await activeSections(page).count()).toBeGreaterThan(0);
-    await context.close();
-  });
 });
 
 const garnetCard = (section: Locator) =>
@@ -109,6 +100,28 @@ test("from lg the card on the middle of the window is garnet and its pin is acti
   await expect(section.locator(`[data-map-pin="${id}"]`)).toHaveAttribute("data-map-active", "");
 });
 
+test("from lg the camera follows the card on the middle of the window", async ({ page }) => {
+  const section = await listLand(page);
+  const last = section.locator("[data-centre-id]").last();
+  const id = await last.getAttribute("data-centre-id");
+  const offCentre = () =>
+    section.evaluate((el, pinId) => {
+      const map = el.querySelector("[data-property-map]")!.getBoundingClientRect();
+      const pin = el.querySelector(`[data-map-pin="${pinId}"] svg`)?.getBoundingClientRect();
+      if (!pin) return Infinity;
+      const dx = (pin.left + pin.width / 2 - (map.left + map.width / 2)) / map.width;
+      const dy = (pin.top + pin.height / 2 - (map.top + map.height / 2)) / map.height;
+      return Math.hypot(dx, dy);
+    }, id);
+  await page.waitForTimeout(800);
+  expect(
+    await offCentre(),
+    "premise: the listing starts away from the map's middle",
+  ).toBeGreaterThan(0.25);
+  await last.evaluate((li) => li.scrollIntoView({ block: "center", behavior: "instant" }));
+  await expect.poll(offCentre, { timeout: 10_000 }).toBeLessThan(0.1);
+});
+
 test("from lg a pin press brings its card to the middle of the window", async ({ page }) => {
   const section = await listLand(page);
   const pressable = () =>
@@ -134,4 +147,16 @@ test("from lg a pin press brings its card to the middle of the window", async ({
   await section.locator(`[data-map-pin="${id}"]`).click();
   await expect.poll(() => centreCard(section)).toBe(id);
   await expect.poll(() => garnetCard(section)).toBe(id);
+});
+
+test("turning a tablet below lg drops the listing the centre line chose", async ({ page }) => {
+  const section = await listLand(page);
+  const cards = section.locator("[data-centre-id]");
+  const first = await cards.first().getAttribute("data-centre-id");
+  const last = cards.last();
+  const id = await last.getAttribute("data-centre-id");
+  await last.evaluate((li) => li.scrollIntoView({ block: "center", behavior: "instant" }));
+  await expect.poll(() => garnetCard(section)).toBe(id);
+  await page.setViewportSize({ width: 820, height: 1180 });
+  await expect.poll(() => garnetCard(section)).toBe(first);
 });

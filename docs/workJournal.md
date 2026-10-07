@@ -12945,3 +12945,14 @@ Mutations, each run against the new tests and each red:
 | no `(selected)` name for `#list` with no script | `listing-views-name` `#list` case      |
 | List offered for a section of one               | 3 unit cases                           |
 | the garnet card stays on the first listing      | the centre-line spec                   |
+
+Review round 1 found no blocker and one major: nothing proved the camera follows under List. The centre-line test read the pin's `data-map-active`, which PropertyMap sets whatever `follow` says, so `follow={false}` left every test green. A nightly case now measures the last Land listing's pin against the map's middle. It starts more than 0.25 of the map away and must come within 0.1 once its card is on the centre line. `follow={false}` turns it red.
+
+The minors, all fixed:
+
+- **A phone press flew the camera out and back.** Below `lg` there is no centre rule, so a press that answered true held the camera on a listing that never became active, then released it home. `revealCard` now answers true only from `lg`. No test covers it: the camera ends where it started either way, and only the flight in between differs.
+- **The rotation reset was missing.** 799cf1b cleared the centre rule's choice on the way below `lg` (the iPad 1180 → 820 fix), and the first restore left that line out. It is back, with a case that turns the window to 820 × 1180 and expects the first card garnet again. Without the line, it goes red.
+- **The garnet fade was missing.** #270 had removed the `transition-colors` rule on `[data-centre-id]` cards, and it is restored from 799cf1b.
+- **Three test fixes.** A `@smoke` count of three tabs on the live page is now a check that Land is there. The axe loop covers List. The no-JS `#list` case is deleted: it passed on `main`, because with no script `#list` draws as All does, which the component header now says.
+
+Left as is: a shared `/properties#list` link renders the panel layout on the server and switches to the list on mount, so the page visibly changes once it hydrates.

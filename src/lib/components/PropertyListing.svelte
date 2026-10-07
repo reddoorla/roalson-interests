@@ -44,6 +44,11 @@
   // dimmed), a pin press turns the carousel to its card, and only the
   // visitor's own zoom or pan moves the camera.
   //
+  // THE LIST VIEW (operator, 2026-10-07) is the layout before #270: a 397
+  // map beside every card stacked, the card on the centre line (centreWatch)
+  // or under a resting mouse (hoverActivate) garnet, and the camera following
+  // it. Once hydrated only: with no script `#list` draws as All does.
+  //
   // WITH NO SCRIPT, and for a section of one listing, the list is stacked
   // beside a sticky map. The sticky offsets below serve that state, and the
   // panel's scroll margin under a pinned divider.
@@ -111,6 +116,7 @@
     const query = window.matchMedia(BELOW_LG);
     const sync = () => {
       narrow = query.matches;
+      if (narrow) activeIds = {};
     };
     sync();
     query.addEventListener("change", sync);
@@ -283,7 +289,7 @@
       return false;
     }
     card.scrollIntoView?.({ block: listMode ? "center" : "nearest" });
-    return listMode;
+    return listMode && !narrow;
   }
 </script>
 

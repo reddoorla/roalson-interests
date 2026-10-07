@@ -476,6 +476,12 @@ main > section.hero-band:first-child {
   }
 }
 
+[data-centre-id] > article,
+[data-centre-id] > article > div:has(> img),
+[data-centre-id] [aria-label="Listing status"] > li {
+  @apply transition-colors;
+}
+
 /* The Properties view tabs (PropertyListing.svelte). Each rule has two forms:
    `data-view` once the component has hydrated, and `:target` before that or
    with no script at all. A view hides the OTHER active sections; Past Projects

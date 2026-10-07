@@ -182,7 +182,7 @@
      *
      * So the caller says. `"visitor"` is the default because on the Properties
      * page it is simply true — `active` there is the listing the visitor
-     * turned the panel to. The
+     * turned the panel to, or under List the card they scrolled to. The
      * homepage band passes `"auto"` for the turns its clock made and
      * `"visitor"` for the turns an arrow, a key or a swipe made.
      */
@@ -642,8 +642,8 @@
    *  - or PRESS_HOLD_MAX_MS passes, for an engine with no `scrollend`.
    *
    * Only where the caller says the press travels to `active` (`onselect`
-   * answers true). Below `lg` a press turns a carousel and no centre rule runs,
-   * so a hold there would fly to the listing and then back to MAP_HOME.
+   * answers true). Below `lg` no centre rule runs, so a hold there would fly
+   * to the listing and then back to MAP_HOME.
    *
    * PER MAP, its own listeners and its own timer — #126's finding kept: the
    * press suspension it removed was keyed per section over timers shared by

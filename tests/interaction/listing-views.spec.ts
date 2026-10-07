@@ -34,9 +34,9 @@ async function noScript(browser: Browser) {
   return { context, page: await context.newPage() };
 }
 
-async function expectView(page: Page, view: "land" | "improved" | "all") {
+async function expectView(page: Page, view: "land" | "improved" | "all" | "list") {
   for (const id of ["land", "improved"]) {
-    const shown = view === "all" || view === id;
+    const shown = view === "all" || view === "list" || view === id;
     await (shown
       ? expect(sectionOf(page, id), `${id} under ${view}`).toBeVisible()
       : expect(sectionOf(page, id), `${id} under ${view}`).toBeHidden());
@@ -48,7 +48,7 @@ async function expectView(page: Page, view: "land" | "improved" | "all") {
   // Hydrated, aria-current says which tab is selected; with no script the
   // tab's name does, and listing-views-name.spec.ts reads that.
   if ((await page.locator("html[data-hydrated]").count()) === 0) return;
-  for (const id of ["land", "improved", "all"]) {
+  for (const id of ["land", "improved", "all", "list"]) {
     const message = `tab ${id} selected under ${view}`;
     await (id === view
       ? expect(tabOf(page, id), message).toHaveAttribute("aria-current", "true")
@@ -151,7 +151,7 @@ test.describe("hydrated", () => {
   test("axe passes on every view", { tag: "@smoke" }, async ({ page }) => {
     await page.goto(FIXTURE);
     await hydrated(page);
-    for (const view of ["land", "improved", "all"] as const) {
+    for (const view of ["land", "improved", "all", "list"] as const) {
       await tabOf(page, view).click();
       await expectView(page, view);
       const result = await axe(page)
@@ -173,7 +173,7 @@ test.describe("live", { tag: "@smoke" }, () => {
     const { context, page } = await noScript(browser);
     const res = await page.goto(`${LIVE}#land`);
     expect(res?.status()).toBe(200);
-    await expect(page.locator("[data-view-tab]")).toHaveCount(3);
+    await expect(tabOf(page, "land")).toBeVisible();
     await expectView(page, "land");
     expect(await page.evaluate(() => scrollY)).toBe(0);
     await context.close();
