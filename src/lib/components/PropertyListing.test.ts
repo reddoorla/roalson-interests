@@ -608,19 +608,17 @@ describe("PropertyListing view tabs", () => {
       .filter((a) => a.getAttribute("aria-current") === "true")
       .map((a) => a.dataset.viewTab);
 
-  it("links Land, Improved Properties, All and List to their fragments, in that order, in a named group", () => {
+  it("links Land, Improved Properties and List to their fragments, in that order, in a named group", () => {
     const { container, getByRole } = render(PropertyListing, { props: { sections: sections() } });
     expect(getByRole("group", { name: "Show listings" })).not.toBeNull();
     expect(tabs(container).map((a) => a.getAttribute("href"))).toEqual([
       "#land",
       "#improved",
-      "#all",
       "#list",
     ]);
     expect(tabs(container).map((a) => a.textContent?.trim())).toEqual([
       "Land",
       "Improved Properties",
-      "All",
       "List",
     ]);
   });
@@ -636,7 +634,7 @@ describe("PropertyListing view tabs", () => {
   it("puts the fragment targets, hidden, between the tab row and the first section", () => {
     const { container } = render(PropertyListing, { props: { sections: sections() } });
     const targets = [...container.querySelectorAll<HTMLElement>("[data-view-target]")];
-    expect(targets.map((t) => t.id)).toEqual(["land", "improved", "all", "list"]);
+    expect(targets.map((t) => t.id)).toEqual(["land", "improved", "list"]);
     expect(targets.every((t) => t.hidden)).toBe(true);
     const group = container.querySelector('[role="group"]')!;
     const firstSection = container.querySelector("section")!;
@@ -648,11 +646,11 @@ describe("PropertyListing view tabs", () => {
     }
   });
 
-  it("starts on All, follows the fragment, and ignores a fragment that names no view", async () => {
+  it("starts on All with no tab selected, follows the fragment, and ignores a fragment that names no view", async () => {
     const { container } = render(PropertyListing, { props: { sections: sections() } });
     const root = container.querySelector<HTMLElement>("[data-listing]")!;
     await tick();
-    expect(currentTab(container)).toEqual(["all"]);
+    expect(currentTab(container)).toEqual([]);
     expect(root.dataset.view).toBe("all");
 
     location.hash = "#improved";
@@ -685,10 +683,10 @@ describe("PropertyListing view tabs", () => {
     expect(featuredIds(improved!), "under All only Land leads").toEqual([]);
   });
 
-  it("draws only All and List with one active section", () => {
+  it("draws no tab row with one active section", () => {
     const improvedOnly = sections().filter((s) => s.id !== "land");
-    const { container } = render(PropertyListing, { props: { sections: improvedOnly } });
-    expect(tabs(container).map((a) => a.dataset.viewTab)).toEqual(["all", "list"]);
+    const { queryByRole } = render(PropertyListing, { props: { sections: improvedOnly } });
+    expect(queryByRole("group", { name: "Show listings" })).toBeNull();
   });
 
   it("draws no tab row with one active section of one listing", () => {

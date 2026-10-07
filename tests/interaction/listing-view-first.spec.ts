@@ -49,7 +49,6 @@ test("hydrated: Improved Projects on its own is dressed as Land is on its own", 
   await page.goto(FIXTURE);
   await hydrated(page);
 
-  await page.locator('[data-view-tab="all"]').click();
   const underAll = await dress(page, "improved");
   expect(underAll.position, "premise: under All it pins").toBe("sticky");
   expect(underAll.strip, "premise: under All its strip is 100").toBe(100);

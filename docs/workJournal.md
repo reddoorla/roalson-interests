@@ -12964,3 +12964,9 @@ Review round 2 confirmed the round-1 fixes and found no blocker or major. It fou
 - **The two restored actions measured `lg` in px** (`min-width: 1024px`), while the stylesheet and `narrow` use `64rem`. At a 20px default font the centre rule could run over the phone layout. Both actions now take the same `64rem`.
 
 What round 2 called nits stays as is. The restored fade and the `scroll-mb` margin come back without 799cf1b's long comments (the operator's preference is code without new comments), and nothing tests the fade, since `active-card-highlight.spec.ts` is not restored.
+
+## 2026-10-07 — The All tab is gone (`claude/properties-no-all-tab`)
+
+The operator, after List shipped (#276): "remove the all tab". List already shows every listing, so the tabs are now Land, Improved Properties and List. All survives as the view with no fragment: `/properties` opens on both sections in the Option 1 panel with no tab selected, and a visitor returns to it with Back. A page with only one active section draws no tabs at all. The rule #276 added (All and List for one section) only existed so that List was never a dead end. `#all` still resolves to All for a link that already carries it, but no tab points there now.
+
+The all-tab selected and "(selected)" rules are deleted from app.css. Four specs that pressed All to get back now use Back, which is the visitor's own way back. Adding All back to `listingViews` turns 5 unit cases red.

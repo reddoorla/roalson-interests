@@ -394,7 +394,7 @@ test.describe("beside the view tabs (#180)", () => {
       await improved.getByRole("button", { name: "Next slide" }).click();
       expect((await state(improved)).label).toMatch(/^2 of /);
 
-      await page.locator('[data-view-tab="all"]').click();
+      await page.goBack();
       await expect(land).toBeVisible();
       expect((await state(land)).label, "Land is where it was left").toBe(landSlide);
     } finally {

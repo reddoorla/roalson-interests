@@ -33,7 +33,7 @@ test.describe("the List tab", { tag: "@smoke" }, () => {
     for (const section of await activeSections(page).all()) await everyCardShown(section);
   });
 
-  test("a press on List from All turns the panel into the list, and All turns it back", async ({
+  test("a press on List turns the panel into the list, and Back turns it back", async ({
     page,
   }) => {
     await page.setViewportSize(WIDE);
@@ -44,7 +44,7 @@ test.describe("the List tab", { tag: "@smoke" }, () => {
     await page.locator('[data-view-tab="list"]').click();
     await expect(page).toHaveURL(/#list$/);
     await everyCardShown(land);
-    await page.locator('[data-view-tab="all"]').click();
+    await page.goBack();
     await expect(land.getByRole("button", { name: "Next slide" })).toBeVisible();
   });
 

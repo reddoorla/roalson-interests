@@ -48,7 +48,7 @@ async function expectView(page: Page, view: "land" | "improved" | "all" | "list"
   // Hydrated, aria-current says which tab is selected; with no script the
   // tab's name does, and listing-views-name.spec.ts reads that.
   if ((await page.locator("html[data-hydrated]").count()) === 0) return;
-  for (const id of ["land", "improved", "all", "list"]) {
+  for (const id of ["land", "improved", "list"]) {
     const message = `tab ${id} selected under ${view}`;
     await (id === view
       ? expect(tabOf(page, id), message).toHaveAttribute("aria-current", "true")
@@ -108,7 +108,7 @@ test.describe("hydrated", () => {
     await expectView(page, "improved");
     await expect(tabOf(page, "improved")).toHaveAttribute("aria-current", "true");
     await expect(sectionOf(page, "land"), "hidden, not removed").toHaveCSS("display", "none");
-    await tabOf(page, "all").click();
+    await page.goBack();
     await expectView(page, "all");
     await expect(landMap, "the same map element, not a new one").toHaveAttribute(
       "data-mount-probe",
@@ -151,7 +151,7 @@ test.describe("hydrated", () => {
   test("axe passes on every view", { tag: "@smoke" }, async ({ page }) => {
     await page.goto(FIXTURE);
     await hydrated(page);
-    for (const view of ["land", "improved", "all", "list"] as const) {
+    for (const view of ["land", "improved", "list"] as const) {
       await tabOf(page, view).click();
       await expectView(page, view);
       const result = await axe(page)
