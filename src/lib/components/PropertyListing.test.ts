@@ -608,18 +608,20 @@ describe("PropertyListing view tabs", () => {
       .filter((a) => a.getAttribute("aria-current") === "true")
       .map((a) => a.dataset.viewTab);
 
-  it("links Land, Improved Properties and All to their fragments, in that order, in a named group", () => {
+  it("links Land, Improved Properties, All and List to their fragments, in that order, in a named group", () => {
     const { container, getByRole } = render(PropertyListing, { props: { sections: sections() } });
     expect(getByRole("group", { name: "Show listings" })).not.toBeNull();
     expect(tabs(container).map((a) => a.getAttribute("href"))).toEqual([
       "#land",
       "#improved",
       "#all",
+      "#list",
     ]);
     expect(tabs(container).map((a) => a.textContent?.trim())).toEqual([
       "Land",
       "Improved Properties",
       "All",
+      "List",
     ]);
   });
 
@@ -634,7 +636,7 @@ describe("PropertyListing view tabs", () => {
   it("puts the fragment targets, hidden, between the tab row and the first section", () => {
     const { container } = render(PropertyListing, { props: { sections: sections() } });
     const targets = [...container.querySelectorAll<HTMLElement>("[data-view-target]")];
-    expect(targets.map((t) => t.id)).toEqual(["land", "improved", "all"]);
+    expect(targets.map((t) => t.id)).toEqual(["land", "improved", "all", "list"]);
     expect(targets.every((t) => t.hidden)).toBe(true);
     const group = container.querySelector('[role="group"]')!;
     const firstSection = container.querySelector("section")!;
@@ -683,12 +685,54 @@ describe("PropertyListing view tabs", () => {
     expect(featuredIds(improved!), "under All only Land leads").toEqual([]);
   });
 
-  it("draws no tab row with only one active section", () => {
+  it("draws only All and List with one active section", () => {
     const improvedOnly = sections().filter((s) => s.id !== "land");
-    const { container, queryByRole } = render(PropertyListing, {
-      props: { sections: improvedOnly },
-    });
+    const { container } = render(PropertyListing, { props: { sections: improvedOnly } });
+    expect(tabs(container).map((a) => a.dataset.viewTab)).toEqual(["all", "list"]);
+  });
+
+  it("draws no tab row with one active section of one listing", () => {
+    const improved = sections().find((s) => s.id === "improved")!;
+    const one = [{ ...improved, properties: improved.properties.slice(0, 1) }];
+    const { container, queryByRole } = render(PropertyListing, { props: { sections: one } });
     expect(queryByRole("group", { name: "Show listings" })).toBeNull();
     expect(container.querySelectorAll("[data-view-target]")).toHaveLength(0);
+  });
+
+  it("under List shows every listing of every active section as a list, not a carousel", async () => {
+    const groups = sections();
+    location.hash = "#list";
+    const { container } = render(PropertyListing, { props: { sections: groups } });
+    await tick();
+    expect(currentTab(container)).toEqual(["list"]);
+    const [land, improved] = listingSections();
+    for (const [region, group] of [
+      [land!, groups[0]!],
+      [improved!, groups[1]!],
+    ] as const) {
+      expect(within(region).queryByRole("button", { name: "Next slide" })).toBeNull();
+      const items = [...region.querySelectorAll<HTMLElement>(`[${CENTRE_ID}]`)];
+      expect(items.map((li) => li.getAttribute(CENTRE_ID))).toEqual(
+        group.properties.map((p) => p.id),
+      );
+      for (const li of items) {
+        expect(li.tagName).toBe("LI");
+        expect(li.parentElement!.getAttribute("role")).toBeNull();
+        expect(li.hasAttribute("inert") || li.hidden || li.hasAttribute("aria-hidden")).toBe(false);
+      }
+      expect(featuredIds(region)).toEqual([group.properties[0]!.id]);
+    }
+  });
+
+  it("turns the carousels back on when List is left", async () => {
+    location.hash = "#list";
+    render(PropertyListing, { props: { sections: sections() } });
+    await tick();
+    const [land] = listingSections();
+    expect(within(land!).queryByRole("button", { name: "Next slide" })).toBeNull();
+    location.hash = "#all";
+    window.dispatchEvent(new HashChangeEvent("hashchange"));
+    await tick();
+    expect(within(land!).getByRole("button", { name: "Next slide" })).not.toBeNull();
   });
 });

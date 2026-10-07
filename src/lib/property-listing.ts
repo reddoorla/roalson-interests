@@ -45,17 +45,24 @@ export const LISTING_VIEWS = [
   { id: "land", label: "Land" },
   { id: "improved", label: "Improved Properties" },
   { id: "all", label: "All" },
+  { id: "list", label: "List" },
 ] as const;
 
 export type ListingView = (typeof LISTING_VIEWS)[number]["id"];
 
-/** The tabs worth drawing: none unless two active sections are on the page
- *  (a tab that filters nothing out is noise), otherwise the present ones and
- *  All, in LISTING_VIEWS order. */
+/** The tabs worth drawing, in LISTING_VIEWS order: a section tab only when
+ *  two active sections are on the page (a tab that filters nothing out is
+ *  noise), List only when an active section has more than one listing, and
+ *  All with either. */
 export function listingViews(sections: readonly ListingSection[]) {
-  const active = new Set(sections.filter((s) => !s.past).map((s) => s.id));
-  if (active.size < 2) return [];
-  return LISTING_VIEWS.filter((v) => v.id === "all" || active.has(v.id));
+  const active = sections.filter((s) => !s.past);
+  const ids = new Set(active.map((s) => s.id));
+  const filters = ids.size >= 2;
+  const list = active.some((s) => s.properties.length > 1);
+  if (!filters && !list) return [];
+  return LISTING_VIEWS.filter(
+    (v) => v.id === "all" || (v.id === "list" ? list : filters && ids.has(v.id)),
+  );
 }
 
 /** The view a fragment names: "" is All, a view id is itself, and any other

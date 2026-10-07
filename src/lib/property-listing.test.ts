@@ -101,24 +101,40 @@ describe("groupListings", () => {
 });
 
 describe("the view tabs", () => {
-  it("offers Land, Improved Properties, All — in that order", () => {
+  it("offers Land, Improved Properties, All, List — in that order", () => {
     const views = listingViews(groupListings(propertyListingFixture()));
-    expect(views.map((v) => v.id)).toEqual(["land", "improved", "all"]);
-    expect(views.map((v) => v.label)).toEqual(["Land", "Improved Properties", "All"]);
+    expect(views.map((v) => v.id)).toEqual(["land", "improved", "all", "list"]);
+    expect(views.map((v) => v.label)).toEqual(["Land", "Improved Properties", "All", "List"]);
   });
 
-  it("offers none with fewer than two active sections — Past Projects is not a view", () => {
+  it("offers All and List, and no section tab, with one active section — Past Projects is not a view", () => {
     const improvedAndPast = propertyListingFixture().filter(
       (p) => p.data.category === "Improved" && !isArchived(p),
     );
-    expect(groupListings(improvedAndPast).map((s) => s.id)).toEqual(["improved", "past"]);
-    expect(listingViews(groupListings(improvedAndPast))).toEqual([]);
+    const sections = groupListings(improvedAndPast);
+    expect(sections.map((s) => s.id)).toEqual(["improved", "past"]);
+    expect(sections[0]!.properties.length).toBeGreaterThan(1);
+    expect(listingViews(sections).map((v) => v.id)).toEqual(["all", "list"]);
+  });
+
+  it("offers none when the one active section has one listing", () => {
+    const sections = groupListings(propertyListingFixture()).filter((s) => s.id === "improved");
+    const one = [{ ...sections[0]!, properties: sections[0]!.properties.slice(0, 1) }];
+    expect(listingViews(one)).toEqual([]);
+  });
+
+  it("offers the section tabs and All, but no List, when every active section has one listing", () => {
+    const sections = groupListings(propertyListingFixture())
+      .filter((s) => !s.past)
+      .map((s) => ({ ...s, properties: s.properties.slice(0, 1) }));
+    expect(listingViews(sections).map((v) => v.id)).toEqual(["land", "improved", "all"]);
   });
 
   it("reads the view from a fragment, and keeps the current one for any other fragment", () => {
     expect(viewFromHash("#land")).toBe("land");
     expect(viewFromHash("#improved")).toBe("improved");
     expect(viewFromHash("#all")).toBe("all");
+    expect(viewFromHash("#list")).toBe("list");
     expect(viewFromHash("")).toBe("all");
     expect(viewFromHash("#main-content")).toBeNull();
     expect(viewFromHash("#listing-land")).toBeNull();
@@ -131,7 +147,7 @@ describe("the view tabs", () => {
     for (const { id } of LISTING_VIEWS) {
       const selected = `[data-view-tab="${id}"]`;
       expect(css, `selected: ${id}`).toContain(selected);
-      if (id === "all") continue;
+      if (id === "all" || id === "list") continue;
       expect(css, `hydrated hide: ${id}`).toContain(
         `[data-view="${id}"], :not([data-view]):has(#${id}:target)) section[data-view-section]:not([data-view-section="${id}"])`,
       );

@@ -202,7 +202,8 @@
      *
      *  ANSWER `true` when the press is now travelling to `active` and the
      *  camera should go straight to that listing (see `heading`). Anything
-     *  else and the camera waits for `active`. No caller answers true today. */
+     *  else and the camera waits for `active`. Only the Properties List view
+     *  answers true. */
     onselect?: (id: string) => boolean | void;
     /**
      * WHETHER A VISITOR MAY DRIVE THIS MAP AT ALL. True — the default, and
@@ -613,9 +614,9 @@
   /**
    * THE LISTING A PIN PRESS IS TAKING THE PAGE TO, while the page gets there,
    * or null (MarkUp, 2026-10-01: "when I click on a point on the map, it
-   * bounces around before returning to the same point"). Dormant since the
-   * Properties page's centre rule went (#270): no caller's `onselect` answers
-   * true, so nothing starts one.
+   * bounces around before returning to the same point"). Since #270 only the
+   * Properties page's List view starts one: its `onselect` is the only one
+   * that answers true.
    *
    * A press on /properties smooth-scrolls its card to the centre line, and the
    * centre rule reports every card that scroll crosses. The camera took the

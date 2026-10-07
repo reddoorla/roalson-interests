@@ -495,11 +495,15 @@ main > section.hero-band:first-child {
 [data-view-tab] {
   @apply border-transparent text-secondary hover:border-primary hover:text-primary;
 }
-[data-listing]:is([data-view="all"], :not([data-view]):not(:has(#land:target, #improved:target)))
+[data-listing]:is(
+    [data-view="all"],
+    :not([data-view]):not(:has(#land:target, #improved:target, #list:target))
+  )
   [data-view-tab="all"],
 [data-listing]:is([data-view="land"], :not([data-view]):has(#land:target)) [data-view-tab="land"],
 [data-listing]:is([data-view="improved"], :not([data-view]):has(#improved:target))
-  [data-view-tab="improved"] {
+  [data-view-tab="improved"],
+[data-listing]:is([data-view="list"], :not([data-view]):has(#list:target)) [data-view-tab="list"] {
   @apply border-primary bg-primary text-light;
 }
 
@@ -508,10 +512,11 @@ main > section.hero-band:first-child {
    an attribute. Generated text is in the accessible name, so until `data-view`
    exists the selected tab's name ends "(selected)", visually hidden; the
    hydrated form drops it, so aria-current is never announced twice. */
-[data-listing]:not([data-view]):not(:has(#land:target, #improved:target))
+[data-listing]:not([data-view]):not(:has(#land:target, #improved:target, #list:target))
   [data-view-tab="all"]::after,
 [data-listing]:not([data-view]):has(#land:target) [data-view-tab="land"]::after,
-[data-listing]:not([data-view]):has(#improved:target) [data-view-tab="improved"]::after {
+[data-listing]:not([data-view]):has(#improved:target) [data-view-tab="improved"]::after,
+[data-listing]:not([data-view]):has(#list:target) [data-view-tab="list"]::after {
   content: " (selected)";
   @apply sr-only normal-case;
 }
