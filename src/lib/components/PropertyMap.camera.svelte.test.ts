@@ -296,6 +296,7 @@ async function booted(
     activeBy?: "visitor" | "auto";
     onengage?: () => void;
     onselect?: (id: string) => boolean | void;
+    follow?: boolean;
   } = {},
 ) {
   stubObservers();
@@ -307,6 +308,7 @@ async function booted(
     activeBy?: "visitor" | "auto";
     onengage?: () => void;
     onselect?: (id: string) => boolean | void;
+    follow?: boolean;
   } = $state({
     points,
     label: "Land",
@@ -343,7 +345,9 @@ async function booted(
     .querySelector("[data-map-canvas]")!
     .dispatchEvent(Object.assign(new Event("transitionend"), { propertyName: "opacity" }));
   flushSync();
-  expect(flights(record), "the hand-over from the picture is itself a flight").toHaveLength(1);
+  expect(flights(record), "the hand-over from the picture is itself a flight").toHaveLength(
+    more.follow === false ? 0 : 1,
+  );
   // …and it is a flight like any other, so it holds the next one for its own
   // duration. Landing it here is what lets a case below say "one flight" and
   // mean the one it asked for.
@@ -562,6 +566,43 @@ describe("what the hold does NOT hold", () => {
     expect(record.removed).toBe(true);
     elapse(CAMERA_FLIGHT_MS * 3);
     expect(flights(record), "nothing was issued after the map was removed").toHaveLength(1);
+  });
+});
+
+describe("follow={false}: the active listing never moves the camera", () => {
+  it("issues no command when the active listing changes, and the default map does", async () => {
+    const held = await booted("a", { follow: false });
+    for (const id of ["b", "c", "d"]) {
+      held.props.active = id;
+      flushSync();
+      elapse(CAMERA_FLIGHT_MS + 1);
+    }
+    expect(held.record.commands, "a held map is never moved by the page").toHaveLength(0);
+    held.view.unmount();
+    engine.created.length = 0;
+    vi.useRealTimers();
+
+    const following = await booted("a");
+    for (const id of ["b", "c"]) {
+      following.props.active = id;
+      flushSync();
+      elapse(CAMERA_FLIGHT_MS + 1);
+    }
+    expect(flights(following.record), "control: the default map follows").toHaveLength(2);
+  });
+
+  it("keeps a visitor's zoom when the listing changes after it", async () => {
+    const { props, record } = await booted("a", { follow: false });
+    record.canvasContainer.dispatchEvent(new WheelEvent("wheel", { cancelable: true }));
+    record.zoomNow = 13.25;
+    record.handlers.zoomend?.();
+    flushSync();
+    for (const id of ["b", "c"]) {
+      props.active = id;
+      flushSync();
+      elapse(CAMERA_FLIGHT_MS + 1);
+    }
+    expect(record.commands, "the visitor's view outlives the panel turning").toHaveLength(0);
   });
 });
 

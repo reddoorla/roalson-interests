@@ -5,7 +5,6 @@ import { mount, tick, unmount } from "svelte";
 import { ARROW_TONES } from "./CarouselArrows.svelte";
 import PropertyCard from "./PropertyCard.svelte";
 import PropertyListing from "./PropertyListing.svelte";
-import { CENTRE_BAND, CENTRE_ID } from "$lib/actions/centreWatch";
 import { propertyFixture, propertyListingFixture } from "$lib/property-fixture";
 import { groupListings } from "$lib/property-listing";
 import { sectionPoints } from "$lib/property-map";
@@ -18,6 +17,12 @@ afterEach(cleanup);
 vi.setConfig({ testTimeout: 20_000 });
 
 const sections = () => groupListings(propertyListingFixture());
+
+const CENTRE_ID = "data-centre-id";
+
+const listingSections = () => [
+  ...document.querySelectorAll<HTMLElement>("section[aria-labelledby^='listing-']"),
+];
 
 /** What only a featured card carries, read off PropertyCard itself rather than
  *  typed: the highlight is whatever the card draws it as, in whatever colour. */
@@ -45,7 +50,7 @@ const featuredIds = (region: HTMLElement) =>
 describe("PropertyListing", () => {
   it("renders one labelled region per section, headed by an h2 the region is named after", () => {
     const { getAllByRole } = render(PropertyListing, { props: { sections: sections() } });
-    const regions = getAllByRole("region");
+    const regions = listingSections();
     expect(regions.map((r) => r.getAttribute("aria-labelledby"))).toEqual([
       "listing-land",
       "listing-improved",
@@ -56,23 +61,21 @@ describe("PropertyListing", () => {
     h2s.forEach((h, i) => expect(h.id).toBe(regions[i].getAttribute("aria-labelledby")));
   });
 
-  it("features only the first card of each active section, and none in Past Projects", () => {
+  it("features only Land's first card once hydrated, and none in Past Projects", () => {
     const groups = sections();
-    const { getAllByRole } = render(PropertyListing, { props: { sections: groups } });
-    const [land, improved, past] = getAllByRole("region");
+    render(PropertyListing, { props: { sections: groups } });
+    const [land, improved, past] = listingSections();
     expect(featuredIds(land!)).toEqual([groups[0]!.properties[0]!.id]);
-    expect(featuredIds(improved!)).toEqual([groups[1]!.properties[0]!.id]);
+    expect(featuredIds(improved!)).toEqual([]);
     expect([...past!.querySelectorAll("article")].some(isFeatured)).toBe(false);
   });
 
   it("links every active listing and none of the past ones", () => {
     const groups = sections();
-    const { getAllByRole } = render(PropertyListing, { props: { sections: groups } });
-    const [land, improved, past] = getAllByRole("region");
+    render(PropertyListing, { props: { sections: groups } });
+    const [land, improved, past] = listingSections();
     const hrefs = (el: HTMLElement) =>
-      within(el)
-        .queryAllByRole("link")
-        .map((a) => a.getAttribute("href"));
+      [...el.querySelectorAll("a[href]")].map((a) => a.getAttribute("href"));
     for (const [section, group] of [
       [land!, groups[0]!],
       [improved!, groups[1]!],
@@ -97,8 +100,8 @@ describe("PropertyListing", () => {
   });
 
   it("puts a map in every active section, one link per pin, and none in Past Projects (#13)", () => {
-    const { getAllByRole } = render(PropertyListing, { props: { sections: sections() } });
-    const [land, improved, past] = getAllByRole("region");
+    render(PropertyListing, { props: { sections: sections() } });
+    const [land, improved, past] = listingSections();
     for (const [name, section, pins] of [
       ["land", land!, 4],
       ["improved", improved!, 2],
@@ -112,16 +115,14 @@ describe("PropertyListing", () => {
     expect(past!.querySelector("[data-property-map]"), "Past Projects gets no map").toBeNull();
   });
 
-  // ── the map pins, and its camera follows the cards ────────────────────────
-
   // THE PRE-MEASUREMENT VALUE IS A CSS EXPRESSION, NOT A NUMBER, and which
   // expression depends on whether that section's divider pins. jsdom has no
   // ResizeObserver and no layout, so this is exactly what a server render and
   // a no-JS browser get — the state that used to ship a flat `100px` and put
   // a pinned section's map 45.41px behind its own opaque divider.
   it("serves a sticky offset that is already correct with no script at all", () => {
-    const { getAllByRole } = render(PropertyListing, { props: { sections: sections() } });
-    const [land, improved] = getAllByRole("region");
+    render(PropertyListing, { props: { sections: sections() } });
+    const [land, improved] = listingSections();
     const gridOf = (section: HTMLElement) =>
       section.querySelector<HTMLElement>("[data-property-map]")!.parentElement!;
 
@@ -196,12 +197,12 @@ describe("PropertyListing", () => {
     });
 
     try {
-      const { getAllByRole } = render(PropertyListing, { props: { sections: sections() } });
+      render(PropertyListing, { props: { sections: sections() } });
       await tick();
       for (const cb of observers) cb([], null as never);
       await tick();
 
-      const [land, improved] = getAllByRole("region");
+      const [land, improved] = listingSections();
       const gridOf = (section: HTMLElement) =>
         section.querySelector<HTMLElement>("[data-property-map]")!.parentElement!;
 
@@ -260,12 +261,12 @@ describe("PropertyListing", () => {
     });
 
     try {
-      const { getAllByRole } = render(PropertyListing, { props: { sections: sections() } });
+      render(PropertyListing, { props: { sections: sections() } });
       await tick();
       for (const cb of observers) cb([], null as never);
       await tick();
 
-      const [, improved] = getAllByRole("region");
+      const [, improved] = listingSections();
       const gridOf = (section: HTMLElement) =>
         section.querySelector<HTMLElement>("[data-property-map]")!.parentElement!;
 
@@ -283,10 +284,10 @@ describe("PropertyListing", () => {
     }
   });
 
-  it("marks every card with the id the centre rule reports", () => {
+  it("keys every card by its listing id, as the pins are", () => {
     const groups = sections();
-    const { getAllByRole } = render(PropertyListing, { props: { sections: groups } });
-    const [land, improved, past] = getAllByRole("region");
+    render(PropertyListing, { props: { sections: groups } });
+    const [land, improved, past] = listingSections();
     for (const [name, section, group] of [
       ["land", land!, groups[0]!],
       ["improved", improved!, groups[1]!],
@@ -311,156 +312,19 @@ describe("PropertyListing", () => {
     expect(past!.querySelectorAll(`[${CENTRE_ID}]`)).toHaveLength(0);
   });
 
-  // ── the garnet card travels with the centre rule ──────────────────────
-
-  /**
-   * The centre rule, driven by hand. jsdom has no layout, so what these cases
-   * assert is the DECISION this component makes when the rule speaks — whether
-   * the browser speaks about the card a reader is actually looking at is a
-   * geometry question, measured against an independent box test in
-   * tests/interaction/active-card-highlight.spec.ts.
-   *
-   * THE `rootMargin` FILTER IS LOAD-BEARING, not tidiness. PropertyMap builds
-   * an IntersectionObserver of its own to boot MapLibre lazily, so "the
-   * observer" is not "the only observer" — an unfiltered `made[0]` picks up
-   * whichever component mounted first.
-   */
-  function centreRule() {
-    interface Watcher {
-      cb: IntersectionObserverCallback;
-      margin?: string;
-      seen: Element[];
-    }
-    const made: Watcher[] = [];
-    vi.stubGlobal("matchMedia", (media: string) => ({
-      // True for the action's own `(min-width: 1024px)` and false for
-      // everything else — notably `prefers-reduced-motion`, which other
-      // modules read at import time.
-      matches: media.includes("min-width"),
-      media,
-      onchange: null,
-      addEventListener: () => {},
-      removeEventListener: () => {},
-      addListener: () => {},
-      removeListener: () => {},
-      dispatchEvent: () => false,
-    }));
-    vi.stubGlobal(
-      "IntersectionObserver",
-      class {
-        rec: Watcher;
-        constructor(cb: IntersectionObserverCallback, options?: IntersectionObserverInit) {
-          this.rec = { cb, margin: options?.rootMargin, seen: [] };
-          made.push(this.rec);
-        }
-        observe(el: Element) {
-          this.rec.seen.push(el);
-        }
-        unobserve() {}
-        disconnect() {}
-        takeRecords() {
-          return [];
-        }
-      },
-    );
-    return {
-      /** Report `id` as the card on the line, through the observer that is
-       *  really watching that card — which is also the assertion that the
-       *  component asked for one. */
-      async report(id: string) {
-        const target = document.querySelector(`[${CENTRE_ID}="${id}"]`);
-        expect(target, `${id} is a watched card`).not.toBeNull();
-        const watcher = made.find((o) => o.margin === CENTRE_BAND && o.seen.includes(target!));
-        expect(watcher, `a centre observer is watching ${id}`).toBeDefined();
-        watcher!.cb(
-          [{ target: target!, isIntersecting: true, time: 1 } as IntersectionObserverEntry],
-          null as never,
-        );
-        await tick();
-      },
-    };
-  }
-
-  it("moves the garnet card to the listing the centre rule reports, and only that one", async () => {
-    const rule = centreRule();
-    try {
-      const groups = sections();
-      const { getAllByRole } = render(PropertyListing, { props: { sections: groups } });
-      await tick();
-      const [land] = getAllByRole("region");
-
-      // Before anything is on the line this is the comp's state, which is also
-      // the server's and the phone's.
-      expect(featuredIds(land!), "card 0 until the rule speaks").toEqual([
-        groups[0]!.properties[0]!.id,
-      ]);
-
-      const third = groups[0]!.properties[2]!.id;
-      await rule.report(third);
-      expect(featuredIds(land!), "exactly one, and it is the reported listing").toEqual([third]);
-
-      // …and it can come back. A highlight that only ever moved forward would
-      // pass a test that walked one way.
-      const second = groups[0]!.properties[1]!.id;
-      await rule.report(second);
-      expect(featuredIds(land!)).toEqual([second]);
-    } finally {
-      vi.unstubAllGlobals();
-    }
-  });
-
-  it("keeps each section's highlight to itself — `activeIds` is keyed per section", async () => {
-    const rule = centreRule();
-    try {
-      const groups = sections();
-      const { getAllByRole } = render(PropertyListing, { props: { sections: groups } });
-      await tick();
-      const [land, improved, past] = getAllByRole("region");
-
-      await rule.report(groups[0]!.properties[3]!.id);
-      // The improved section was not asked about and did not move: a single
-      // shared "active" would have dragged its highlight along, or dropped it.
-      expect(featuredIds(improved!)).toEqual([groups[1]!.properties[0]!.id]);
-
-      await rule.report(groups[1]!.properties[1]!.id);
-      expect(featuredIds(improved!)).toEqual([groups[1]!.properties[1]!.id]);
-      expect(featuredIds(land!), "land keeps its own answer").toEqual([
-        groups[0]!.properties[3]!.id,
-      ]);
-
-      // Past Projects has no map, so `centreWatch` is disabled there and nothing is
-      // featured at all — before or after any of this.
-      expect(past!.querySelectorAll(`[${CENTRE_ID}]`)).toHaveLength(0);
-      expect([...past!.querySelectorAll("article")].some(isFeatured)).toBe(false);
-    } finally {
-      vi.unstubAllGlobals();
-    }
-  });
-
-  it("re-tones the whole card and not just its ground — the button's tone follows", async () => {
-    const rule = centreRule();
-    try {
-      const groups = sections();
-      const { getAllByRole } = render(PropertyListing, { props: { sections: groups } });
-      await tick();
-      const [land] = getAllByRole("region");
-      const linkIn = (id: string) =>
-        land!.querySelector<HTMLElement>(`[${CENTRE_ID}="${id}"] [data-card-cta]`)!;
-
-      const [first, third] = [groups[0]!.properties[0]!.id, groups[0]!.properties[2]!.id];
-      const [featured, flat] = [linkIn(first).className, linkIn(third).className];
-      expect(featured, "premise: the featured card's button is not the flat one's").not.toBe(flat);
-
-      await rule.report(third);
-      // The `tone` prop is not a colour — it is the one part of the card that
-      // could silently stay behind while the ground moved.
-      expect(linkIn(third).className, "the new card's button took the featured tone").toBe(
-        featured,
-      );
-      expect(linkIn(first).className, "the old one went back").toBe(flat);
-    } finally {
-      vi.unstubAllGlobals();
-    }
+  it("marks the pin of a section's only listing active once hydrated", async () => {
+    const one = sections()
+      .filter((s) => !s.past)
+      .map((s) => ({ ...s, properties: s.properties.slice(0, 1) }));
+    render(PropertyListing, { props: { sections: one } });
+    await tick();
+    const [land] = listingSections();
+    const id = one[0]!.properties[0]!.id;
+    expect(
+      land!.querySelector(`[data-map-home-pin="${id}"]`),
+      "premise: its pin is drawn",
+    ).not.toBeNull();
+    expect(land!.querySelector(`[data-map-home-pin="${id}"][data-map-active]`)).not.toBeNull();
   });
 
   it("says so, rather than rendering nothing, when there are no listings", () => {
@@ -475,7 +339,7 @@ describe("PropertyListing below lg: each section a carousel (#14)", () => {
 
   /** A window below `lg`, and the switch to rotate it past the breakpoint. The
    *  component asks for `(width < 64rem)` by name; anything else is false —
-   *  notably `prefers-reduced-motion` and centreWatch's `min-width`. */
+   *  notably `prefers-reduced-motion`. */
   function phone() {
     const QUERY = "(width < 64rem)";
     let below = true;
@@ -625,7 +489,7 @@ describe("PropertyListing below lg: each section a carousel (#14)", () => {
     }
   });
 
-  it("is the stacked list again from lg, and a carousel again below it", async () => {
+  it("keeps the active sections carousels from lg, beside their maps, and lays Past Projects out as a grid", async () => {
     const media = phone();
     const { container } = render(PropertyListing, { props: { sections: sections() } });
     await tick();
@@ -634,8 +498,11 @@ describe("PropertyListing below lg: each section a carousel (#14)", () => {
     await media.set(false);
     const lists = [...container.querySelectorAll<HTMLElement>("[data-listing-carousel]")];
     expect(lists).toHaveLength(3);
-    expect(carousels(container)).toHaveLength(0);
-    for (const list of lists) {
+    expect(carousels(container).map((c) => c.getAttribute("aria-label"))).toEqual([
+      "Land listings",
+      "Improved Properties listings",
+    ]);
+    for (const list of lists.slice(2)) {
       expect(
         list.querySelector("[inert], [aria-roledescription], ul[role], .invisible"),
       ).toBeNull();
@@ -684,8 +551,8 @@ describe("PropertyListing view tabs", () => {
   });
 
   it("keeps every section in the DOM, each active one marked with its view", () => {
-    const { getAllByRole } = render(PropertyListing, { props: { sections: sections() } });
-    const regions = getAllByRole("region");
+    render(PropertyListing, { props: { sections: sections() } });
+    const regions = listingSections();
     expect(regions.map((r) => r.dataset.viewSection ?? null)).toEqual(["land", "improved", null]);
     expect(regions[2].hasAttribute("data-past")).toBe(true);
   });

@@ -4,16 +4,16 @@
   // `createCarousel` instance, the element that is its region, and its live
   // region. The LIST is the caller's — PropertyListing renders the <ul>, the
   // cards and the controls through `children`, because the same <ul> is the
-  // stacked list with no script and from `lg` up, where the map's centre rule
-  // watches it, and it must not be a different element in the two states.
+  // stacked list with no script, and it must not be a different element in
+  // the two states.
   //
   // A component rather than a call in PropertyListing's script because
   // `createCarousel` registers effects and needs an owner per section, and
   // the sections are a list: one instance per `{#each}` item lives and dies
   // with that item.
   //
-  // Switched off (`enabled` false: no script, before hydration, `lg` and up,
-  // or a single listing) this is a plain <div> around the list — the
+  // Switched off (`enabled` false: no script, before hydration, Past Projects
+  // from `lg`, or a single listing) this is a plain <div> around the list — the
   // primitive's bags come back empty — and the live region is an empty,
   // silent <p>.
   import { untrack, type Snippet } from "svelte";
@@ -25,8 +25,8 @@
     count: number;
     /** The region's accessible name. */
     label: string;
-    /** The caller's switch: true below `lg` once hydrated. One listing is
-     *  never a carousel, whatever this says. */
+    /** The caller's switch: true once hydrated (below `lg` only, for Past
+     *  Projects). One listing is never a carousel, whatever this says. */
     enabled: boolean;
     /** Handed the instance once, so the caller can drive it (a pin press). */
     onready?: (carousel: Carousel) => void;

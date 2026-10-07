@@ -155,7 +155,8 @@
     tone?: keyof typeof MAP_TONES;
     /** THE CAMERA THIS COMPONENT DOES NOT OWN. The id of the `points` entry
      *  the PAGE says is active, or null for "fit them all" — which is what an
-     *  undriven map has always done. The rules are all in `cameraMove`; this
+     *  undriven map has always done. With `follow` false it marks the active
+     *  marker and nothing else: the camera reads null. The rules are all in `cameraMove`; this
      *  file only reports `ready` and `userMoved` into them. It is also what
      *  ENDS a gesture's suspension of the camera — see `drivenAt` below.
      *
@@ -180,8 +181,8 @@
      * has issued 2 `flyTo` back to z12.
      *
      * So the caller says. `"visitor"` is the default because on the Properties
-     * page it is simply true — `active` there is the card the visitor scrolled
-     * to the middle of their own screen, and a scroll is a visitor. The
+     * page it is simply true — `active` there is the listing the visitor
+     * turned the panel to. The
      * homepage band passes `"auto"` for the turns its clock made and
      * `"visitor"` for the turns an arrow, a key or a swipe made.
      */
@@ -195,15 +196,13 @@
      *  in the column the pin sits beside — so a sheet is a second, smaller
      *  copy of it drawn over the map, and worse, a second place a listing can
      *  be "open". There the pin's job is to point AT the card, so the caller
-     *  passes `onselect` and scrolls it into view; the centre rule then makes
-     *  it active. On the homepage band there is no card beside the map at
-     *  all, so the sheet is the only detail there is and it stays.
+     *  passes `onselect` and turns its panel to it. On the homepage band there
+     *  is no card beside the map at all, so the sheet is the only detail there
+     *  is and it stays.
      *
-     *  ANSWER `true` when the press is now travelling to `active` — the card
-     *  is on its way to the centre line — and the camera goes straight to
-     *  that listing instead of through every card the scroll crosses (see
-     *  `heading`). Anything else and the camera waits for `active`, as it
-     *  always did. */
+     *  ANSWER `true` when the press is now travelling to `active` and the
+     *  camera should go straight to that listing (see `heading`). Anything
+     *  else and the camera waits for `active`. No caller answers true today. */
     onselect?: (id: string) => boolean | void;
     /**
      * WHETHER A VISITOR MAY DRIVE THIS MAP AT ALL. True — the default, and
@@ -234,6 +233,7 @@
      * — see `applyInteractive`.
      */
     interactive?: boolean;
+    follow?: boolean;
     /** Called when one of the map's own controls (+, −, expand) is pressed
      *  while `interactive` is false: the caller unlocks the map and the
      *  control then acts. Absent, + and − do nothing on a locked map. The
@@ -251,11 +251,14 @@
     activeBy = "visitor",
     onselect,
     interactive = true,
+    follow = true,
     onengage,
     class: passedClasses = "",
   }: Props = $props();
 
   type MapInstance = InstanceType<MapEngine["Map"]>;
+
+  const cameraActive = $derived(follow ? active : null);
 
   /** Every maplibre handler that moves the camera. The ones a map actually
    *  HAS are read off the instance at boot (`navigation`), not listed here —
@@ -546,7 +549,7 @@
    * released.
    */
   $effect(() => {
-    const a = active;
+    const a = cameraActive;
     const by = activeBy;
     untrack(() => {
       if (by !== "visitor") return;
@@ -609,7 +612,9 @@
   /**
    * THE LISTING A PIN PRESS IS TAKING THE PAGE TO, while the page gets there,
    * or null (MarkUp, 2026-10-01: "when I click on a point on the map, it
-   * bounces around before returning to the same point").
+   * bounces around before returning to the same point"). Dormant since the
+   * Properties page's centre rule went (#270): no caller's `onselect` answers
+   * true, so nothing starts one.
    *
    * A press on /properties smooth-scrolls its card to the centre line, and the
    * centre rule reports every card that scroll crosses. The camera took the
@@ -990,7 +995,7 @@
   function camera(): { start: Camera | null; listing: boolean } {
     const opening = home?.[frameFor(box)];
     if (opening) return { start: opening, listing: false };
-    const target = activeTarget(active, points) ?? null;
+    const target = activeTarget(cameraActive, points) ?? null;
     return {
       start: fitCamera(target ? [target] : points, box, {
         padding: frame.padding,
@@ -1227,7 +1232,7 @@
     // the tagged `movestart`, the wheel through the listener below.
     instance.on("movestart", (e: { originalEvent?: unknown }) => {
       if (!e.originalEvent) return;
-      drivenAt = active;
+      drivenAt = cameraActive;
       settle();
     });
     // The untagged half, AND IT IS LOAD-BEARING NOW. It was written when the
@@ -1253,7 +1258,7 @@
       "wheel",
       () => {
         if (!instance.scrollZoom.isEnabled()) return;
-        drivenAt = active;
+        drivenAt = cameraActive;
         settle();
       },
       { passive: true },
@@ -1533,8 +1538,7 @@
       // NOT also set `active` from here: the one rule that decides which
       // listing is active is the caller's, and a press that wrote it directly
       // would be a second mechanism racing the first. So this only reports the
-      // press; on /properties the caller scrolls that card to the centre and
-      // the centre rule does the rest.
+      // press; on /properties the caller turns its panel to that listing.
       //
       // What it MAY do is send the camera ahead of the scroll, when the caller
       // answers that the press travels to `active` — see `heading`.
@@ -1634,7 +1638,7 @@
       if (!onengage) return;
       onengage();
     }
-    drivenAt = active;
+    drivenAt = cameraActive;
     const base = flying && commanded ? commanded : null;
     if (base) endFlight();
     shortfall = 0;
@@ -1716,7 +1720,7 @@
     const size = box;
     const state = {
       // A travelling press's listing, where there is one — see `heading`.
-      active: heading ?? active,
+      active: heading ?? cameraActive,
       points,
       box: size,
       frame,
@@ -2424,10 +2428,9 @@
      A marker under the pointer or with keyboard focus goes back to 1: a
      control that looks disabled while it is being pointed at is lying, and
      `opacity` would dim the focus ring drawn on the element with it.
-     The change animates on the SAME clock as the garnet card it follows —
-     Tailwind's default duration and easing (`transition-opacity` on a
-     cluster, the pin rules below on a pin), exactly what app.css's
-     `transition-colors` on the card uses (150ms) — and not at all under
+     The change animates on Tailwind's default duration and easing
+     (`transition-opacity` on a cluster, the pin rules below on a pin, 150ms)
+     — and not at all under
      reduced motion (`motion-reduce:transition-none`, as on the canvas host,
      and the pin rules' own media block). The expanded overlay is this same
      box, so it needs nothing of its own. */

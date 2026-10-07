@@ -21,7 +21,7 @@ async function expectCardRing(card: Locator, ground: string, color: string) {
       () =>
         card.getByRole("link").evaluate((el) => {
           (el as HTMLElement).focus({ preventScroll: true });
-          const cs = getComputedStyle(el);
+          const cs = getComputedStyle(el, "::after");
           return {
             ground: getComputedStyle(el.closest("article")!).backgroundColor,
             showing: el.matches(":focus-visible"),
@@ -73,21 +73,12 @@ test("the ring is off-white on dark grounds and garnet on light ones", async ({ 
   await expect(page.locator(bar)).toHaveCSS("background-color", OFF_WHITE);
   await expectRing(page, page.getByLabel("Open menu"), GARNET);
 
-  // The garnet card: its LEARN MORE sits on bg-primary…
-  const cards = page.locator("main article");
-  await expectCardRing(cards.nth(0), GARNET, OFF_WHITE);
-  // …and the sand card beside it, inside the same section, gets garnet back.
-  await expectCardRing(cards.nth(1), SAND, GARNET);
-
-  // AND THE GROUND CAN CHANGE UNDER A RING THAT IS SHOWING. With card 1's link
-  // still focused, put card 1 on the centre line: it takes the garnet tone,
-  // and a ring left garnet on it would be 1:1.
-  await page.evaluate(() =>
-    document
-      .querySelectorAll("main article")[1]!
-      .scrollIntoView({ block: "center", behavior: "instant" }),
-  );
-  await expectCardRing(cards.nth(1), GARNET, OFF_WHITE);
+  const panel = page.locator('[aria-roledescription="carousel"][data-carousel-ready]').first();
+  await expect(panel).toBeAttached({ timeout: HYDRATION_TIMEOUT });
+  const onStage = panel.locator('[aria-roledescription="slide"]:not([aria-hidden]) article');
+  await expectCardRing(onStage, GARNET, OFF_WHITE);
+  await panel.getByRole("button", { name: "Next slide" }).press("Enter");
+  await expectCardRing(onStage, SAND, GARNET);
 });
 
 test("the ring is off-white inside the menu, which is a gradient with no bg-* at all", async ({

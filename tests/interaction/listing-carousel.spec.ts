@@ -443,8 +443,14 @@ test.describe("the focus net (#34), in a real browser", () => {
     const { context, page } = await open(browser, WIDE);
     try {
       const list = page.locator(LISTS).first();
-      const link = list.locator("li a[href]").nth(2);
+      await expect(list).toHaveAttribute("aria-roledescription", "carousel");
+      const next = list.getByRole("button", { name: "Next slide" });
+      await next.click();
+      await next.click();
+      await expect.poll(async () => (await state(list)).label).toMatch(/^3 of /);
+      const link = list.locator("li:not([aria-hidden]) a[href]").first();
       await link.focus();
+      await expect(link).toBeFocused();
       const name = await link.evaluate(
         (a) => a.closest("article")!.querySelector("h3")!.textContent,
       );
@@ -461,16 +467,18 @@ test.describe("the focus net (#34), in a real browser", () => {
     }
   });
 
-  test("widened past lg with focus on an arrow, focus goes to the region as the arrows go", async ({
+  test("widened past lg with focus on an arrow, the carousel and the focus both stay", async ({
     browser,
   }) => {
     const { context, page } = await open(browser);
     try {
       const carousel = await firstCarousel(page);
+      const before = await page.locator(CAROUSEL).count();
       await carousel.getByRole("button", { name: "Next slide" }).focus();
       await page.setViewportSize(WIDE);
-      await expect(page.locator(CAROUSEL)).toHaveCount(0);
-      expect(await focus(page)).toEqual({ at: "REGION", inert: false, connected: true });
+      await expect(page.locator(CAROUSEL)).toHaveCount(before - 1);
+      await expect(carousel).toHaveAttribute("aria-roledescription", "carousel");
+      expect(await focus(page)).toEqual({ at: "Next slide", inert: false, connected: true });
     } finally {
       await context.close();
     }
@@ -478,17 +486,20 @@ test.describe("the focus net (#34), in a real browser", () => {
 });
 
 test.describe("what does not change", () => {
-  test("from lg: no carousel, nothing inert, every card shown in its column", async ({
+  test("from lg: Past Projects is a grid, nothing in it inert, every card shown", async ({
     browser,
   }) => {
     const { context, page } = await open(browser, WIDE);
     try {
-      // Positive evidence script ran and chose: the view tabs hydrate too.
       await expect(page.locator("[data-listing][data-view]")).toBeAttached();
-      expect(await page.locator(`${CAROUSEL}, ${SLIDE}, ${LISTS} [inert]`).count()).toBe(0);
-      expect(await page.locator(`${LISTS} button, ${LISTS} .invisible`).count()).toBe(0);
+      const past = `section[data-past] ${LISTS}`;
+      await expect(page.locator(past)).toHaveCount(1);
+      expect(
+        await page.locator(`${past}${CAROUSEL}, ${past} ${SLIDE}, ${past} [inert]`).count(),
+      ).toBe(0);
+      expect(await page.locator(`${past} button, ${past} .invisible`).count()).toBe(0);
       const cards = await page
-        .locator(`${LISTS} article`)
+        .locator(`${past} article`)
         .evaluateAll((all) => all.map((a) => a.getBoundingClientRect().height > 0));
       expect(cards.length).toBeGreaterThan(0);
       expect(cards.every(Boolean)).toBe(true);
