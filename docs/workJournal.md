@@ -12922,3 +12922,45 @@ Rendered at 1440×900, the existing `object-position: 50% 70%` frames all three,
 The first screenshot after publishing showed the garnet fallback. The image itself was fine (200, 305 KB at w=1920): the first request for a 21 MB source is slow while imgix resizes it, and the lazy `<img>` had not loaded. The screenshot now waits for the image to finish loading.
 
 The two unused assets from the day stay in the media library: `5B7ksUrfZQr1ToST`, which Dropbox's `dl=1` link turned into a `document`, and `HERaGn6Q1LM0MDE7`, the 1.78:1 original.
+
+## 2026-10-07 — A List tab on Properties brings back the full list beside a following map (`claude/properties-list-tab`)
+
+The operator, after Option 1 went live: "add a tab to properties called List that brings back the old behavior so they have a full list". Option 1 (#270) shows one listing at a time in a 515 panel beside a 925 map, and a client who wants to read every listing has to page through the arrows. List is a fourth tab after Land, Improved Properties and All. It shows every active section, as All does, laid out as the page was before #270: a 397 × 595 sticky map beside the 847 column of stacked `row` cards, with no carousel. Below `lg` it is the stacked list with the 200px map above it, the layout a no-JS visitor already got. It is a fragment, `#list`, like the other tabs, so a shared link opens on it, and Back works.
+
+**What came back, and from where.** `centreWatch` and `hoverActivate`, with their unit tests, are restored verbatim from `799cf1b`, the last commit before #270 deleted them. Under List the card crossing the middle of the window is the active listing: it turns garnet, and a mouse resting on a card for 200 ms does the same. Leaving List turns the carousels back on.
+
+**The map follows under List, and that is a call against Erik's 10-05 note.** The first build kept `follow={false}` everywhere, because Erik had called the moving map "a bit wonky". Measured on `/dev/properties#list` at 1440×900, the 397-wide map's fixed opening frame put two of the four Land pins outside the map, at x = 75 and x = 494 against a map spanning 80–472. On a map that never moves, those listings could not be found or pressed. Option 1's 925 map holds the same frame and shows them all. So under List the camera follows the card on the centre line, as it did before #270, and a pin press scrolls its card to the middle (`revealCard` answers true again, which wakes PropertyMap's dormant `heading`). The other three views keep the still map. If Erik objects, the alternative is a still map under List with its own fitted frame for the narrow box.
+
+**Not brought back.** Since #272 the listing on stage keeps its own pin and is never merged into a cluster. That applies only where `follow` is false, so under List the active listing can sit inside a cluster, exactly as it did before #270. Changing it would also change the homepage band's map.
+
+**The tab rule changed shape.** Tabs used to appear only with two active sections. List now also appears whenever an active section has more than one listing, and All comes with it so there is always a way back. A page with one active section therefore draws All and List, not nothing.
+
+Mutations, each run against the new tests and each red:
+
+| Mutation                                        | Red                                    |
+| ----------------------------------------------- | -------------------------------------- |
+| carousel stays on under List                    | 2 unit cases, 3 `@smoke` browser cases |
+| centre rule never enabled                       | the centre-line spec                   |
+| a pin press scrolls `nearest`, not `center`     | the pin-press spec                     |
+| no `(selected)` name for `#list` with no script | `listing-views-name` `#list` case      |
+| List offered for a section of one               | 3 unit cases                           |
+| the garnet card stays on the first listing      | the centre-line spec                   |
+
+Review round 1 found no blocker and one major: nothing proved the camera follows under List. The centre-line test read the pin's `data-map-active`, which PropertyMap sets whatever `follow` says, so `follow={false}` left every test green. A nightly case now measures the last Land listing's pin against the map's middle. It starts more than 0.25 of the map away and must come within 0.1 once its card is on the centre line. `follow={false}` turns it red.
+
+The minors, all fixed:
+
+- **A phone press flew the camera out and back.** Below `lg` there is no centre rule, so a press that answered true held the camera on a listing that never became active, then released it home. `revealCard` now answers true only from `lg`. No test covers it: the camera ends where it started either way, and only the flight in between differs.
+- **The rotation reset was missing.** 799cf1b cleared the centre rule's choice on the way below `lg` (the iPad 1180 → 820 fix), and the first restore left that line out. It is back, with a case that turns the window to 820 × 1180 and expects the first card garnet again. Without the line, it goes red.
+- **The garnet fade was missing.** #270 had removed the `transition-colors` rule on `[data-centre-id]` cards, and it is restored from 799cf1b.
+- **Three test fixes.** A `@smoke` count of three tabs on the live page is now a check that Land is there. The axe loop covers List. The no-JS `#list` case is deleted: it passed on `main`, because with no script `#list` draws as All does, which the component header now says.
+
+Left as is: a shared `/properties#list` link renders the panel layout on the server and switches to the list on mount, so the page visibly changes once it hydrates.
+
+Review round 2 confirmed the round-1 fixes and found no blocker or major. It found three minors, all fixed:
+
+- **A pin press on a phone under List marked nothing.** Phones had always had a carousel here, so this state is new: the card scrolled into view but stayed sand, and the map showed no active pin. Below `lg` the press now writes the listing itself, since no centre rule runs there to race it, and scrolls `nearest` so the 200px map stays in sight. A 390px case presses a pin and expects its card garnet and its pin active, and goes red without the write.
+- **A fragment for a view the page does not offer used to switch the page to it.** `/properties#list` on a page with no List tab still drew the 397 map, with no tab selected. Such a fragment is now All. A unit case covers it and goes red without the check.
+- **The two restored actions measured `lg` in px** (`min-width: 1024px`), while the stylesheet and `narrow` use `64rem`. At a 20px default font the centre rule could run over the phone layout. Both actions now take the same `64rem`.
+
+What round 2 called nits stays as is. The restored fade and the `scroll-mb` margin come back without 799cf1b's long comments (the operator's preference is code without new comments), and nothing tests the fade, since `active-card-highlight.spec.ts` is not restored.

@@ -13,7 +13,7 @@
   // with that item.
   //
   // Switched off (`enabled` false: no script, before hydration, Past Projects
-  // from `lg`, or a single listing) this is a plain <div> around the list — the
+  // from `lg`, the List view, or a single listing) this is a plain <div> around the list — the
   // primitive's bags come back empty — and the live region is an empty,
   // silent <p>.
   import { untrack, type Snippet } from "svelte";
@@ -26,7 +26,8 @@
     /** The region's accessible name. */
     label: string;
     /** The caller's switch: true once hydrated (below `lg` only, for Past
-     *  Projects). One listing is never a carousel, whatever this says. */
+     *  Projects; never under List). One listing is never a carousel, whatever
+     *  this says. */
     enabled: boolean;
     /** Handed the instance once, so the caller can drive it (a pin press). */
     onready?: (carousel: Carousel) => void;

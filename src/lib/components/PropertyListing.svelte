@@ -39,16 +39,24 @@
   // had since #14, laid out as one column: photo, bar, arrows, text.
   //
   // THE MAP HOLDS STILL. Erik's list (2026-10-05): "the map constantly moving
-  // in and out is a bit wonky". `follow={false}` keeps the camera on its
-  // opening frame. The listing on stage is the active pin (grown, the rest
+  // in and out is a bit wonky". Outside the List view `follow` is false and
+  // the camera keeps its opening frame. The listing on stage is the active pin (grown, the rest
   // dimmed), a pin press turns the carousel to its card, and only the
   // visitor's own zoom or pan moves the camera.
+  //
+  // THE LIST VIEW (operator, 2026-10-07) is the layout before #270: a 397
+  // map beside every card stacked, the card on the centre line (centreWatch)
+  // or under a resting mouse (hoverActivate) garnet, and the camera following
+  // it. Once hydrated only: with no script `#list` draws as All does. A
+  // fragment naming a view the page does not offer is All.
   //
   // WITH NO SCRIPT, and for a section of one listing, the list is stacked
   // beside a sticky map. The sticky offsets below serve that state, and the
   // panel's scroll margin under a pinned divider.
   import { onMount } from "svelte";
 
+  import { centreWatch } from "$lib/actions/centreWatch";
+  import { hoverActivate } from "$lib/actions/hoverActivate";
   import { brandButtonBase, brandButtonPadding } from "$lib/components/BrandButton.svelte";
   import CarouselArrows from "$lib/components/CarouselArrows.svelte";
   import CarouselProgress from "$lib/components/CarouselProgress.svelte";
@@ -75,6 +83,10 @@
   // the 390 frame being read).
   const GUTTERS = "mx-auto max-w-[1440px] px-5 sm:px-8 xl:px-20";
   const MAP_SECTION = "mx-auto max-w-[1440px] px-5 sm:px-8 lg:px-0";
+  const PANEL_GRID =
+    "lg:grid-cols-[925fr_515fr] lg:[--map-height:min(57.43vw,827px,calc(100svh-var(--sticky-top)-20px))]";
+  const LIST_GRID = "lg:grid-cols-[397fr_847fr] lg:gap-9 lg:[--map-height:595px]";
+  const LG = "64rem";
 
   /** Where Past Projects is a carousel: the exact complement of Tailwind's
    *  `lg`, `(width >= 64rem)`, so script and the stylesheet agree on which
@@ -105,6 +117,7 @@
     const query = window.matchMedia(BELOW_LG);
     const sync = () => {
       narrow = query.matches;
+      if (narrow) activeIds = {};
     };
     sync();
     query.addEventListener("change", sync);
@@ -156,8 +169,10 @@
   });
 
   let hydrated = $state(false);
+  let activeIds = $state<Record<string, string>>({});
 
   const activeFor = (section: ListingSection): string | null => {
+    if (listMode) return activeIds[section.id] ?? null;
     const carousel = carousels[section.id];
     if (carousel?.enabled) return section.properties[carousel.index]?.id ?? null;
     return hydrated && section.properties.length === 1 ? section.properties[0]!.id : null;
@@ -199,13 +214,16 @@
   const views = $derived(listingViews(sections));
   /** The view, once hydrated; undefined on the server, where `:target` rules. */
   let current = $state<ListingView | undefined>();
+  const offered = (view: ListingView | null): ListingView | null =>
+    view === null || views.some((v) => v.id === view) ? view : "all";
+  const listMode = $derived(current === "list");
   onMount(() => {
-    current = viewFromHash(location.hash) ?? "all";
+    current = offered(viewFromHash(location.hash)) ?? "all";
     hydrated = true;
   });
   /** A fragment that names no view leaves the view alone. */
   function onhashchange() {
-    current = viewFromHash(location.hash) ?? current;
+    current = offered(viewFromHash(location.hash)) ?? current;
   }
 
   /** The scrollport's declared usable top, read rather than typed — app.css
@@ -258,22 +276,24 @@
     return () => ro.disconnect();
   });
 
-  function revealCard(sectionIndex: number, id: string) {
+  function revealCard(sectionIndex: number, id: string): boolean {
     const list = listEls[sectionIndex];
-    if (!list) return;
+    if (!list) return false;
     const cards = [...list.children].filter(
       (child): child is HTMLElement =>
         child instanceof HTMLElement && child.dataset.centreId !== undefined,
     );
     const card = cards.find((child) => child.dataset.centreId === id);
-    if (!card) return;
+    if (!card) return false;
     const carousel = carousels[sections[sectionIndex]?.id ?? ""];
     if (carousel?.enabled) {
       carousel.goTo(cards.indexOf(card));
       list.scrollIntoView?.({ block: "nearest" });
-      return;
+      return false;
     }
-    card.scrollIntoView?.({ block: "nearest" });
+    if (listMode && narrow) activeIds[sections[sectionIndex]!.id] = id;
+    card.scrollIntoView?.({ block: listMode && !narrow ? "center" : "nearest" });
+    return listMode && !narrow;
   }
 </script>
 
@@ -390,10 +410,8 @@
           style="--sticky-top: {stickyTops[i] !== undefined
             ? `${stickyTops[i]}px`
             : unmeasuredTop(i)}"
-          class="{MAP_SECTION} {points.length > 0 ? 'pt-5' : 'pt-10'} lg:grid
-            lg:grid-cols-[925fr_515fr] lg:pt-10 lg:[--map-height:min(57.43vw,827px,calc(100svh-var(--sticky-top)-20px))] {last
-            ? 'pb-[100px]'
-            : ''}"
+          class="{listMode ? GUTTERS : MAP_SECTION} {points.length > 0 ? 'pt-5' : 'pt-10'} lg:grid
+            {listMode ? LIST_GRID : PANEL_GRID} lg:pt-10 {last ? 'pb-[100px]' : ''}"
         >
           {#if points.length > 0}
             <!-- NO z-index here, and that is a correction rather than an
@@ -412,7 +430,7 @@
               {points}
               label={section.label}
               active={activeFor(section)}
-              follow={false}
+              follow={listMode}
               onselect={(id) => revealCard(i, id)}
               class="mb-5 h-50 lg:col-start-1 lg:row-start-1 lg:mb-0 lg:sticky
                 lg:h-(--map-height)
@@ -423,15 +441,29 @@
             onready={(carousel) => keepCarousel(section.id, carousel)}
             count={section.properties.length}
             label="{section.label} listings"
-            enabled={hydrated}
+            enabled={hydrated && !listMode}
             class="lg:col-start-2"
           >
             {#snippet children(carousel)}
               {@const on = carousel.enabled}
               {@const lead = i === 0 || current === section.id}
-              {@const garnetId = lead ? section.properties[0]?.id : undefined}
+              {@const garnetId = listMode
+                ? (activeIds[section.id] ?? section.properties[0]?.id)
+                : lead
+                  ? section.properties[0]?.id
+                  : undefined}
               <ul
                 bind:this={listEls[i]}
+                use:centreWatch={{
+                  minWidth: LG,
+                  enabled: listMode && points.length > 0,
+                  onactive: (id) => (activeIds[section.id] = id),
+                }}
+                use:hoverActivate={{
+                  minWidth: LG,
+                  enabled: listMode && points.length > 0 && !on,
+                  onactive: (id) => (activeIds[section.id] = id),
+                }}
                 role={on ? "none" : undefined}
                 {...carousel.swipe}
                 class="lg:scroll-mt-[calc(var(--sticky-top)-var(--usable-top))] {on
@@ -443,14 +475,14 @@
                   <li
                     data-centre-id={property.id}
                     {...carousel.slide(j)}
-                    class="lg:scroll-mt-[calc(var(--sticky-top)-var(--usable-top))] {on
-                      ? slideClass(carousel, j)
-                      : ''}"
+                    class="lg:scroll-mt-[calc(var(--sticky-top)-var(--usable-top))] {listMode
+                      ? 'lg:scroll-mb-[var(--sticky-top)]'
+                      : ''} {on ? slideClass(carousel, j) : ''}"
                   >
                     <PropertyCard
                       {property}
                       variant={property.id === garnetId ? "featured" : i === 0 ? "sand" : "cream"}
-                      layout="panel"
+                      layout={listMode ? "row" : "panel"}
                       inCarousel={on}
                     />
                   </li>

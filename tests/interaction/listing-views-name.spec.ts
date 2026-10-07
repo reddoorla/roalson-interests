@@ -20,7 +20,12 @@ import { hydrated } from "./hydrated";
 const FIXTURE = "/dev/properties";
 const LIVE = "/properties";
 const PREVIEW = process.env.REDDOOR_GATE_SERVER === "preview";
-const LABELS = { land: "land", improved: "improved properties", all: "all" } as const;
+const LABELS = {
+  land: "land",
+  improved: "improved properties",
+  all: "all",
+  list: "list",
+} as const;
 type View = keyof typeof LABELS;
 const VIEWS = Object.keys(LABELS) as View[];
 
@@ -69,6 +74,7 @@ test.describe("with no script", { tag: "@smoke" }, () => {
     ["", "all"],
     ["#land", "land"],
     ["#improved", "improved"],
+    ["#list", "list"],
   ] as const) {
     test(`${hash || "no fragment"}: only the ${view} tab's name says it is selected`, async ({
       browser,
