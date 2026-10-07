@@ -12914,3 +12914,11 @@ Review round 1 on #275 found no blocker or major. Its two minors are fixed:
 - **A stale press point.** A touch swipe usually fires no click, so its press point could linger and be measured against a later click. It is now cleared when a swipe registers and on `pointercancel`.
 
 The unit case adds an arrow tapped with movement, a click with no recorded press, and a cancelled press. Removing the link scope or the cancel clearing turns it red.
+
+**After #273 landed: the photo, corrected on the live page.** Published, the band showed the sign and the pond and none of the campus. The source is 1.78:1, and a half-window band at 1440×900 is 3.2:1, so no crop of it holds both. Erik's `_EXPAND` version, in the same Dropbox folder (`…_LG EXPAND.jpg`, 6981×3537, 1.97:1, with sky and sides added), puts the buildings, the pond and the sign in one middle strip.
+
+Rendered at 1440×900, the existing `object-position: 50% 70%` frames all three, as do 50% and 60%, so no code changed. It went up as Prismic asset `LuXr4Tvh-u3ipR6B`, replaced `page_media.properties_band` in its own release, and was published at the operator's go-ahead. The live page served it by 15:14Z.
+
+The first screenshot after publishing showed the garnet fallback. The image itself was fine (200, 305 KB at w=1920): the first request for a 21 MB source is slow while imgix resizes it, and the lazy `<img>` had not loaded. The screenshot now waits for the image to finish loading.
+
+The two unused assets from the day stay in the media library: `5B7ksUrfZQr1ToST`, which Dropbox's `dl=1` link turned into a `document`, and `HERaGn6Q1LM0MDE7`, the 1.78:1 original.
