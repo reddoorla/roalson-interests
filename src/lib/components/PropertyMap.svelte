@@ -259,6 +259,7 @@
   type MapInstance = InstanceType<MapEngine["Map"]>;
 
   const cameraActive = $derived(follow ? active : null);
+  const kept = $derived(follow ? null : active);
 
   /** Every maplibre handler that moves the camera. The ones a map actually
    *  HAS are read off the instance at boot (`navigation`), not listed here —
@@ -951,11 +952,11 @@
           key,
           spec: MAP_HOME[key],
           pin: MAP_FRAMES[key].pin,
-          markers: homeMarkers(points, key),
+          markers: homeMarkers(points, key, kept),
         })),
   );
   const clusters = $derived(
-    ready ? clusterPoints(points, zoom, frame.clusterRadius) : ([] as MapCluster[]),
+    ready ? clusterPoints(points, zoom, frame.clusterRadius, kept) : ([] as MapCluster[]),
   );
 
   /**

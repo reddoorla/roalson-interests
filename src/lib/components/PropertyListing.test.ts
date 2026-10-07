@@ -593,6 +593,21 @@ describe("PropertyListing view tabs", () => {
     expect(root.dataset.view).toBe("improved");
   });
 
+  it("makes the shown section's first card garnet under its own view, as Land's is", async () => {
+    const groups = sections();
+    location.hash = "#improved";
+    render(PropertyListing, { props: { sections: groups } });
+    await tick();
+    const [land, improved] = listingSections();
+    expect(featuredIds(improved!)).toEqual([groups[1]!.properties[0]!.id]);
+    expect(featuredIds(land!)).toEqual([groups[0]!.properties[0]!.id]);
+
+    location.hash = "#all";
+    window.dispatchEvent(new HashChangeEvent("hashchange"));
+    await tick();
+    expect(featuredIds(improved!), "under All only Land leads").toEqual([]);
+  });
+
   it("draws no tab row with only one active section", () => {
     const improvedOnly = sections().filter((s) => s.id !== "land");
     const { container, queryByRole } = render(PropertyListing, {

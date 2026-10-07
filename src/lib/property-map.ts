@@ -404,12 +404,16 @@ export interface HomeMarker {
  * the grouping the server draws is the grouping MapLibre will draw on its
  * first frame and there is nothing to re-flow.
  */
-export function homeMarkers(points: readonly MapPoint[], frame: MapFrame): HomeMarker[] {
+export function homeMarkers(
+  points: readonly MapPoint[],
+  frame: MapFrame,
+  keep: string | null = null,
+): HomeMarker[] {
   const { camera } = MAP_HOME[frame];
   const { clusterRadius } = MAP_FRAMES[frame];
   const cx = projectX(camera.lng, camera.zoom);
   const cy = projectY(camera.lat, camera.zoom);
-  return clusterPoints(points, camera.zoom, clusterRadius).map((cluster) => ({
+  return clusterPoints(points, camera.zoom, clusterRadius, keep).map((cluster) => ({
     id: cluster.id,
     ids: cluster.points.map((p) => p.id),
     count: cluster.points.length,
@@ -1067,13 +1071,15 @@ export function clusterPoints(
   points: readonly MapPoint[],
   zoom: number,
   radius: number,
+  keep: string | null = null,
 ): MapCluster[] {
-  type Group = { x: number; y: number; points: MapPoint[] };
+  type Group = { x: number; y: number; points: MapPoint[]; kept: boolean };
 
   let groups: Group[] = points.map((p) => ({
     x: projectX(p.lng, zoom),
     y: projectY(p.lat, zoom),
     points: [p],
+    kept: p.id === keep,
   }));
 
   // Each pass either merges (strictly fewer groups) or is the fixpoint, so
@@ -1086,9 +1092,10 @@ export function clusterPoints(
       taken[i] = true;
       const seed = groups[i]!;
       const members = [seed];
-      for (let j = i + 1; j < groups.length; j += 1) {
+      for (let j = i + 1; j < groups.length && !seed.kept; j += 1) {
         if (taken[j]) continue;
         const other = groups[j]!;
+        if (other.kept) continue;
         if (Math.hypot(other.x - seed.x, other.y - seed.y) >= radius) continue;
         taken[j] = true;
         members.push(other);
@@ -1098,7 +1105,7 @@ export function clusterPoints(
       const all = members.flatMap((m) => m.points);
       const sumX = members.reduce((n, m) => n + m.x * m.points.length, 0);
       const sumY = members.reduce((n, m) => n + m.y * m.points.length, 0);
-      next.push({ x: sumX / all.length, y: sumY / all.length, points: all });
+      next.push({ x: sumX / all.length, y: sumY / all.length, points: all, kept: seed.kept });
     }
     const settled = next.length === groups.length;
     groups = next;

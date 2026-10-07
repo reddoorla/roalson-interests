@@ -29,6 +29,24 @@ const camera = (section: Locator) =>
       .join("|"),
   );
 
+const pinsOf = (snapshot: string) =>
+  new Map(
+    snapshot
+      .split("|")
+      .filter((m) => !m.startsWith("cluster"))
+      .map((m) => m.split("@") as [string, string]),
+  );
+
+const sameCamera = (a: string, b: string) => {
+  const before = pinsOf(a);
+  const after = pinsOf(b);
+  const shared = [...before.keys()].filter((id) => after.has(id));
+  expect(shared.length, "pins drawn in both, so the comparison measures something").toBeGreaterThan(
+    0,
+  );
+  return shared.every((id) => before.get(id) === after.get(id));
+};
+
 const onStage = (section: Locator) =>
   section.evaluate(
     (el) =>
@@ -65,18 +83,38 @@ test("an arrow changes the listing and the active pin, and the camera does not m
   await settle(page);
   const second = await onStage(section);
   expect(second).not.toBe(first);
-  expect(await camera(section)).toBe(before);
+  expect(sameCamera(before, await camera(section))).toBe(true);
 
-  const undimmed = section.locator(
-    "[data-map-pin]:not([data-map-dimmed]), [data-map-cluster]:not([data-map-dimmed])",
+  await expect(section.locator(`[data-map-pin="${second}"]`)).toHaveAttribute(
+    "data-map-active",
+    "",
   );
-  await expect(undimmed, "exactly one marker stands for the listing on stage").toHaveCount(1);
-  const own = section.locator(`[data-map-pin="${second}"]`);
-  if ((await own.count()) > 0) await expect(own).toHaveAttribute("data-map-active", "");
 
   await section.getByRole("button", { name: /^Zoom in/ }).click();
   await settle(page);
-  expect(await camera(section), "control: a visitor's zoom does move the pins").not.toBe(before);
+  expect(
+    sameCamera(before, await camera(section)),
+    "control: a visitor's zoom does move the pins",
+  ).toBe(false);
+});
+
+test("every listing on stage has a pin of its own, never hidden in a cluster", async ({ page }) => {
+  const section = await landSection(page);
+  await settle(page);
+  const pins = (await camera(section)).split("|").map((m) => m.split("@")[0]);
+  const count = await section.locator('[aria-roledescription="slide"]').count();
+  expect(count).toBeGreaterThan(1);
+  const next = section.getByRole("button", { name: "Next slide" });
+  for (let turn = 0; turn < count; turn++) {
+    const id = await onStage(section);
+    await expect(
+      section.locator(`[data-map-pin="${id}"]`),
+      `${id} has its own pin`,
+    ).toHaveAttribute("data-map-active", "");
+    await next.click();
+    await settle(page);
+  }
+  expect(pins.length, "premise: the map drew markers").toBeGreaterThan(1);
 });
 
 test("pressing a pin turns the panel to that listing without moving the camera", async ({
@@ -85,10 +123,19 @@ test("pressing a pin turns the panel to that listing without moving the camera",
   const section = await landSection(page);
   await settle(page);
   const before = await camera(section);
-  const pin = section.locator("[data-map-pin]:not([data-map-active])").first();
-  const id = await pin.getAttribute("data-map-pin");
-  expect(id).toBeTruthy();
-  await pin.click({ force: true });
+  const id = await section.evaluate((el) => {
+    const map = el.querySelector("[data-property-map]")!.getBoundingClientRect();
+    for (const pin of el.querySelectorAll<HTMLElement>("[data-map-pin]:not([data-map-active])")) {
+      const r = pin.querySelector("svg")!.getBoundingClientRect();
+      const x = r.left + r.width / 2;
+      const y = r.top + r.height / 2;
+      if (x < map.left || x > map.right || y < map.top || y > map.bottom) continue;
+      if (pin.contains(document.elementFromPoint(x, y))) return pin.dataset.mapPin!;
+    }
+    return null;
+  });
+  expect(id, "a pin whose own centre is pressable").toBeTruthy();
+  await section.locator(`[data-map-pin="${id}"]`).click();
   await settle(page);
   expect(await onStage(section)).toBe(id);
   await expect(section.locator(`[data-map-pin="${id}"]`)).toHaveAttribute("data-map-active", "");
@@ -98,7 +145,7 @@ test("pressing a pin turns the panel to that listing without moving the camera",
   expect(await others.count()).toBeGreaterThan(0);
   for (const other of await others.all())
     await expect(other).toHaveAttribute("data-map-dimmed", "");
-  expect(await camera(section)).toBe(before);
+  expect(sameCamera(before, await camera(section))).toBe(true);
 });
 
 test("the wheel over the map zooms the map and leaves the page where it was", async ({ page }) => {
@@ -122,7 +169,7 @@ test("the wheel over the map zooms the map and leaves the page where it was", as
   await page.mouse.wheel(0, -300);
   await settle(page);
   expect(await page.evaluate(() => window.scrollY)).toBe(y0);
-  expect(await camera(section)).not.toBe(before);
+  expect(sameCamera(before, await camera(section))).toBe(false);
 });
 
 test("on a short laptop window the panel grows to fit its text instead of spilling past the section", async ({
