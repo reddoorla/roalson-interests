@@ -16,6 +16,17 @@
           },
           "thumbnails": []
         }
+      },
+      "properties_band": {
+        "type": "Image",
+        "config": {
+          "label": "Properties photo band (above the footer)",
+          "constraint": {
+            "width": 2560,
+            "height": null
+          },
+          "thumbnails": []
+        }
       }
     }
   }

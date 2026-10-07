@@ -7,6 +7,7 @@
   // 768px column that never reaches the two-column layout.
   //
   //   ?empty     the no-listings state
+  //   ?noband    no photo band above the footer, as with an empty field
   //   ?nophoto   the masthead with no `page_media` photo — the brand gradient,
   //              which is what /properties draws until an editor fills the
   //              field (#15). The default carries the photo, because that is
@@ -19,6 +20,7 @@
   // was sized for rather than a forgiving one.
   import { page } from "$app/state";
   import PageMasthead from "$lib/components/PageMasthead.svelte";
+  import PinnedPhotoBand from "$lib/components/PinnedPhotoBand.svelte";
   import PropertyListing from "$lib/components/PropertyListing.svelte";
   import {
     PROPERTIES_MASTHEAD_FIXTURE,
@@ -27,6 +29,8 @@
   } from "$lib/property-fixture";
   import { groupListings } from "$lib/property-listing";
   import { LISTING_TITLE } from "$lib/property-listing-load";
+  import { HOME_PHOTO_FIXTURE } from "$lib/home-fixture";
+  import { PROPERTIES_BAND_CROP, PROPERTIES_BAND_HEIGHT } from "$lib/properties-band";
 
   const sections = $derived(
     page.url.searchParams.has("empty")
@@ -40,3 +44,10 @@
 
 <PageMasthead title={LISTING_TITLE} image={masthead} />
 <PropertyListing {sections} />
+{#if !page.url.searchParams.has("noband")}
+  <PinnedPhotoBand
+    image={HOME_PHOTO_FIXTURE}
+    height={PROPERTIES_BAND_HEIGHT}
+    crop={PROPERTIES_BAND_CROP}
+  />
+{/if}
