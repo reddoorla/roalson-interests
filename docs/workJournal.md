@@ -12794,4 +12794,19 @@ Mutations, each restored after:
 | carousel back to `enabled={narrow}`   | 2 unit                   |
 | `--map-height` without the window cap | 1 (no-JS credit at 1440) |
 
+**Review round 1 found one major, and it was real.** The panel had a fixed height: `lg:h-(--map-height)` with the photo row at `minmax(0,1fr)`. On a short window the map's window cap squeezed the photo to nothing, and then the text ran past the section, under the next pinned divider. A 1366×625 case now asserts that no slide's text runs past its panel and that the photo keeps at least 190px. It goes red with the old classes, and passes with `lg:min-h-(--map-height)` and a `minmax(12rem,1fr)` photo row.
+
+The other fixes from that round:
+
+- A one-listing section marks its pin active.
+- Only Land's first card is garnet, before and after hydration. Before, Improved's first card faded from garnet on every desktop load, through app.css's `[data-centre-id]` fade, which is deleted with the highlight it served.
+- The panel photo's `sizes` reads 515px and 36vw from `lg`.
+- The list carries the pinned divider's scroll margin, so a pin press doesn't land it under the divider.
+- The arrow case asserts exactly one undimmed marker, a pin or a cluster, in place of an `if` that skipped itself whenever the listing was clustered.
+- `PropertyMap.camera.svelte.test.ts` now covers `follow={false}` in the gate. The camera holds through panel turns, before and after a wheel zoom, and a default map flying is the control. Both cases go red with `cameraActive` reverted to `active`.
+
+Back to slide 1 after leaving a listing is #271.
+
+**What a held map costs, measured on the deploy preview.** At MAP_HOME, six Land tracts near Boerne draw as one cluster. Turning the panel between two of them changes nothing on the map: the cluster stays the featured marker, and the rest dim only to 0.81. That is the price of not moving the camera. It is the operator's call whether it needs a fix.
+
 **Not done here.** Erik's 10-06 22:05Z ask, a Bill Miller HQ photo band above the footer on the Properties page only (Nicole drew it in "Properties 1" at 50% of the window's height), is a separate task.

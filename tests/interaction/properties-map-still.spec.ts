@@ -67,8 +67,12 @@ test("an arrow changes the listing and the active pin, and the camera does not m
   expect(second).not.toBe(first);
   expect(await camera(section)).toBe(before);
 
-  const single = section.locator(`[data-map-pin="${second}"]`);
-  if ((await single.count()) > 0) await expect(single).toHaveAttribute("data-map-active", "");
+  const undimmed = section.locator(
+    "[data-map-pin]:not([data-map-dimmed]), [data-map-cluster]:not([data-map-dimmed])",
+  );
+  await expect(undimmed, "exactly one marker stands for the listing on stage").toHaveCount(1);
+  const own = section.locator(`[data-map-pin="${second}"]`);
+  if ((await own.count()) > 0) await expect(own).toHaveAttribute("data-map-active", "");
 
   await section.getByRole("button", { name: /^Zoom in/ }).click();
   await settle(page);
@@ -119,4 +123,32 @@ test("the wheel over the map zooms the map and leaves the page where it was", as
   await settle(page);
   expect(await page.evaluate(() => window.scrollY)).toBe(y0);
   expect(await camera(section)).not.toBe(before);
+});
+
+test("on a short laptop window the panel grows to fit its text instead of spilling past the section", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1366, height: 625 });
+  await page.goto(ROUTE);
+  await hydrated(page);
+  const panels = page.locator('[aria-roledescription="carousel"][data-carousel-ready]');
+  await expect(panels.first()).toBeAttached({ timeout: HYDRATION_TIMEOUT });
+  const fits = await panels.evaluateAll((all) =>
+    all.map((region) => {
+      const list = region.querySelector("ul")!.getBoundingClientRect();
+      const slides = [...region.querySelectorAll<HTMLElement>('[aria-roledescription="slide"]')];
+      const deepest = Math.max(
+        ...slides.flatMap((s) =>
+          [...s.querySelectorAll("article > *")].map((c) => c.getBoundingClientRect().bottom),
+        ),
+      );
+      const photo = slides[0]!.querySelector("article > div")!.getBoundingClientRect().height;
+      return { overflow: deepest - list.bottom, photo };
+    }),
+  );
+  expect(fits.length).toBeGreaterThan(0);
+  for (const f of fits) {
+    expect(f.overflow, "no slide's text runs past its panel").toBeLessThanOrEqual(1);
+    expect(f.photo, "the photo keeps a real height").toBeGreaterThanOrEqual(190);
+  }
 });

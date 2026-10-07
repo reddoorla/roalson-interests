@@ -1,8 +1,7 @@
 <script lang="ts">
-  // The comp's `property` card, three tones. On the Properties page ONE
-  // listing of each active section is the garnet card (6904:2068: off-white
-  // text and an off-white-outlined LEARN MORE) — the comp draws the first, and
-  // PropertyListing moves it to the card on the centre line. Every other card takes
+  // The comp's `property` card, three tones. On the Properties page the first
+  // section's first listing is the garnet card (6904:2068: off-white text and
+  // an off-white-outlined LEARN MORE). Every other card takes
   // whichever light token its section's ground does NOT use, so it always
   // reads as a panel: sand (6913:1982, `#e8e1d1`) on the first section's
   // off-white ground, off-white (6913:2062, `#f2efe9`) on the sand ground the
@@ -11,22 +10,15 @@
   // button — a past project keeps its page but its card is unlinked (Stage B
   // call 5), and shows only photo, address and bullets (client, 2026-09-25).
   //
-  // The tones are colour only, and the fade between them is NOT in this file:
-  // app.css gives a watched card's ground, photo box and status badges
-  // `transition-colors` by selector, so the server's markup did not change
-  // when the highlight started moving. Those selectors read this markup's
-  // structure — tests/interaction/active-card-highlight.spec.ts goes red if
-  // it moves out from under them.
-  //
   // Anatomy, shared with PropertyDetail: photo box 423.5 × 267.5 beside (or
   // above) a panel padded 20 / 20 / 40; size line over title with the card's
   // 15px gap; 20px between blocks. Every block renders only when its field is
   // filled — and no photo is the common case (three real photos for 22
   // listings), so a photo-less row card gives the panel the full width.
   //
-  // AS A CAROUSEL SLIDE (`inCarousel`, #14 below `lg`) the card is laid out by
+  // AS A CAROUSEL SLIDE (`inCarousel`, #14) the card is laid out by
   // its carousel, not by itself: the article is a SUBGRID of the carousel's
-  // grid, the photo takes the first row (the left column from `md`) and the
+  // grid, the photo takes the first row (the left column from `md` to `lg`) and the
   // panel the last, and the rows between belong to the carousel's bar and
   // arrows, which are its siblings in the DOM and not its children — a
   // control inside a slide goes inert with it (#34). The photo box is drawn
@@ -52,12 +44,12 @@
      *  one is the caller's call); "sand" and "cream" are the flat card on the
      *  off-white and the sand ground respectively. */
     variant?: "featured" | "sand" | "cream";
-    /** "row": photo beside the panel from md up, as in the listing column.
-     *  "column": photo above, as in the Past Projects grid. Below md every card is a
-     *  column; the 390 comp stacks them. */
+    /** "row": photo beside the panel from md up. "column": photo above, as
+     *  in the Past Projects grid. "panel": a row from md and a column again
+     *  from lg, beside the map. Below md every card is a column. */
     layout?: "row" | "column" | "panel";
     /** One slide of PropertyListing's carousel: see the header. `layout` is
-     *  the carousel's then — a column below `md`, a row from it. */
+     *  the carousel's then — a column below `md`, a row to `lg`, a column from it. */
     inCarousel?: boolean;
     class?: string;
   }
@@ -128,7 +120,9 @@
           field={data.feature_image}
           fallbackAlt=""
           widths={cappedWidths(data.feature_image)}
-          sizes="(min-width: 1024px) 30vw, (min-width: 768px) 50vw, 100vw"
+          sizes={layout === "panel"
+            ? "(min-width: 1440px) 515px, (min-width: 1024px) 36vw, (min-width: 768px) 50vw, 100vw"
+            : "(min-width: 1024px) 30vw, (min-width: 768px) 50vw, 100vw"}
           class={inCarousel ? "absolute inset-0 size-full object-cover" : "size-full object-cover"}
         />
       {/if}

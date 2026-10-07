@@ -642,9 +642,8 @@ export interface CameraState {
    *
    * IT IS HERE BECAUSE OF A DEFECT THIS FIELD'S ABSENCE CAUSED, found by
    * tests/interaction/map-home.spec.ts on a production build and not by
-   * anything in jsdom. With `active` null — which is every Properties-page map
-   * below `lg`, where `centreWatch` is gated `minWidth: 1024` and never runs —
-   * this function answered `fitCamera(points)`, so a map CONSTRUCTED at
+   * anything in jsdom. With `active` null — which was every Properties-page
+   * map below `lg` then, and is every map with `follow` off now — this function answered `fitCamera(points)`, so a map CONSTRUCTED at
    * MAP_HOME was told to jump to the auto-fit on the very first frame after
    * `load`. Measured on /properties at 390 x 844: the committed picture drew
    * 8 own pins and clusters of 6 and 3, and the live map one frame later drew

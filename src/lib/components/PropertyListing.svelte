@@ -34,7 +34,7 @@
   //
   // THE MAP AND ITS PANEL (Option 1, Nicole's "Full Screen Map" frame
   // 7153:969, chosen 2026-10-06). From `lg` an active section is the map,
-  // 925 of 1440 and full bleed from the left edge, beside a 515 panel that
+  // 925 of the 1440 column from its left edge, beside a 515 panel that
   // shows one listing at a time. The panel is the same carousel phones have
   // had since #14, laid out as one column: photo, bar, arrows, text.
   //
@@ -76,17 +76,19 @@
   const GUTTERS = "mx-auto max-w-[1440px] px-5 sm:px-8 xl:px-20";
   const MAP_SECTION = "mx-auto max-w-[1440px] px-5 sm:px-8 lg:px-0";
 
-  /** Where the sections are carousels: the exact complement of Tailwind's
+  /** Where Past Projects is a carousel: the exact complement of Tailwind's
    *  `lg`, `(width >= 64rem)`, so script and the stylesheet agree on which
    *  layout is on screen at every width and font-size setting. Written as a
    *  range, not `max-width`, so that nothing between 1023 and 1024 is both. */
   const BELOW_LG = "(width < 64rem)";
 
-  /** The listing grid a carousel lays its list out on — see the header. Row 4
-   *  (row 3 from `md`) takes what is left, so every slide is as tall as the
-   *  tallest and the arrows never move between cards. */
+  /** The listing grid a carousel lays its list out on: [photo][bar][arrows]
+   *  [text] below `md`, the photo beside the other three from `md`, and one
+   *  column again from `lg`, where the photo takes what the map's height
+   *  leaves and never less than 12rem. Every slide is as tall as the tallest,
+   *  so the arrows never move between cards. */
   const CAROUSEL_LIST =
-    "grid grid-cols-1 grid-rows-[auto_auto_auto_1fr] md:grid-cols-2 md:grid-rows-[auto_auto_1fr] lg:h-(--map-height) lg:grid-cols-1 lg:grid-rows-[minmax(0,1fr)_auto_auto_auto]";
+    "grid grid-cols-1 grid-rows-[auto_auto_auto_1fr] md:grid-cols-2 md:grid-rows-[auto_auto_1fr] lg:min-h-(--map-height) lg:grid-cols-1 lg:grid-rows-[minmax(12rem,1fr)_auto_auto_auto]";
 
   /** Slide `j` of a carousel on that grid. `invisible`, with no transition:
    *  the comp swaps variants outright, and a card that is not on stage must
@@ -120,7 +122,8 @@
 
   const activeFor = (section: ListingSection): string | null => {
     const carousel = carousels[section.id];
-    return carousel?.enabled ? (section.properties[carousel.index]?.id ?? null) : null;
+    if (carousel?.enabled) return section.properties[carousel.index]?.id ?? null;
+    return hydrated && section.properties.length === 1 ? section.properties[0]!.id : null;
   };
 
   /**
@@ -239,8 +242,8 @@
 
 <svelte:window {onhashchange} />
 
-<!-- A carousel's bar and arrows (#14): rows 2 and 3 of CAROUSEL_LIST, and the
-     top of column 2 from `md`. They are the grid's OWN items, never inside a
+<!-- A carousel's bar and arrows (#14): rows 2 and 3 of CAROUSEL_LIST, the
+     top of column 2 from `md`, and rows 2 and 3 of the one column from `lg`. They are the grid's OWN items, never inside a
      slide, and `z-[2]` so they paint over the card they sit in. `role="none"`
      like the <ul> they are in, which stops being a list in carousel mode.
      Their tone is the card on stage's: cream on garnet, garnet on the light
@@ -388,12 +391,14 @@
           >
             {#snippet children(carousel)}
               {@const on = carousel.enabled}
-              {@const garnetId = !on || i === 0 ? section.properties[0]?.id : undefined}
+              {@const garnetId = i === 0 ? section.properties[0]?.id : undefined}
               <ul
                 bind:this={listEls[i]}
                 role={on ? "none" : undefined}
                 {...carousel.swipe}
-                class={on ? CAROUSEL_LIST : "flex flex-col gap-5"}
+                class="lg:scroll-mt-[calc(var(--sticky-top)-var(--usable-top))] {on
+                  ? CAROUSEL_LIST
+                  : 'flex flex-col gap-5'}"
               >
                 {#if on}{@render controls(carousel, i === 0 && carousel.index === 0)}{/if}
                 {#each section.properties as property, j (property.id)}

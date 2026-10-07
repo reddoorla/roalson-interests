@@ -155,7 +155,8 @@
     tone?: keyof typeof MAP_TONES;
     /** THE CAMERA THIS COMPONENT DOES NOT OWN. The id of the `points` entry
      *  the PAGE says is active, or null for "fit them all" — which is what an
-     *  undriven map has always done. The rules are all in `cameraMove`; this
+     *  undriven map has always done. With `follow` false it marks the active
+     *  marker and nothing else: the camera reads null. The rules are all in `cameraMove`; this
      *  file only reports `ready` and `userMoved` into them. It is also what
      *  ENDS a gesture's suspension of the camera — see `drivenAt` below.
      *
@@ -180,8 +181,8 @@
      * has issued 2 `flyTo` back to z12.
      *
      * So the caller says. `"visitor"` is the default because on the Properties
-     * page it is simply true — `active` there is the card the visitor scrolled
-     * to the middle of their own screen, and a scroll is a visitor. The
+     * page it is simply true — `active` there is the listing the visitor
+     * turned the panel to. The
      * homepage band passes `"auto"` for the turns its clock made and
      * `"visitor"` for the turns an arrow, a key or a swipe made.
      */
@@ -195,15 +196,13 @@
      *  in the column the pin sits beside — so a sheet is a second, smaller
      *  copy of it drawn over the map, and worse, a second place a listing can
      *  be "open". There the pin's job is to point AT the card, so the caller
-     *  passes `onselect` and scrolls it into view; the centre rule then makes
-     *  it active. On the homepage band there is no card beside the map at
-     *  all, so the sheet is the only detail there is and it stays.
+     *  passes `onselect` and turns its panel to it. On the homepage band there
+     *  is no card beside the map at all, so the sheet is the only detail there
+     *  is and it stays.
      *
-     *  ANSWER `true` when the press is now travelling to `active` — the card
-     *  is on its way to the centre line — and the camera goes straight to
-     *  that listing instead of through every card the scroll crosses (see
-     *  `heading`). Anything else and the camera waits for `active`, as it
-     *  always did. */
+     *  ANSWER `true` when the press is now travelling to `active` and the
+     *  camera should go straight to that listing (see `heading`). Anything
+     *  else and the camera waits for `active`. No caller answers true today. */
     onselect?: (id: string) => boolean | void;
     /**
      * WHETHER A VISITOR MAY DRIVE THIS MAP AT ALL. True — the default, and
@@ -613,7 +612,9 @@
   /**
    * THE LISTING A PIN PRESS IS TAKING THE PAGE TO, while the page gets there,
    * or null (MarkUp, 2026-10-01: "when I click on a point on the map, it
-   * bounces around before returning to the same point").
+   * bounces around before returning to the same point"). Dormant since the
+   * Properties page's centre rule went (#270): no caller's `onselect` answers
+   * true, so nothing starts one.
    *
    * A press on /properties smooth-scrolls its card to the centre line, and the
    * centre rule reports every card that scroll crosses. The camera took the
