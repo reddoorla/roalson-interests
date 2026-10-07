@@ -601,6 +601,8 @@ describe("PropertyListing view tabs", () => {
     const [land, improved] = listingSections();
     expect(featuredIds(improved!)).toEqual([groups[1]!.properties[0]!.id]);
     expect(featuredIds(land!)).toEqual([groups[0]!.properties[0]!.id]);
+    const next = within(improved!).getByRole("button", { name: "Next slide" });
+    expect(next.className, "the arrows take the garnet card's cream").toContain(ARROW_TONES.cream);
 
     location.hash = "#all";
     window.dispatchEvent(new HashChangeEvent("hashchange"));

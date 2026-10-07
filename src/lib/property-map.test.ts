@@ -781,6 +781,21 @@ describe("clustering, because land cannot be drawn honestly without it", () => {
     ).toEqual(plain.map((m) => m.id));
   });
 
+  it("keeps a listing that is not its cluster's seed out of it too", () => {
+    const zoom = MAP_HOME.full.camera.zoom;
+    const radius = MAP_FRAMES.full.clusterRadius;
+    const clustered = clusterPoints(land, zoom, radius).find((m) => m.points.length > 1)!;
+    for (const member of clustered.points.slice(1)) {
+      const own = clusterPoints(land, zoom, radius, member.id).filter((m) =>
+        m.points.some((p) => p.id === member.id),
+      );
+      expect(
+        own.map((m) => m.points.length),
+        `${member.id} stands alone`,
+      ).toEqual([1]);
+    }
+  });
+
   it("stops clustering once the pins genuinely fit beside each other", () => {
     const markers = clusterPoints(land, 16, MAP_FRAMES.full.clusterRadius);
     expect(markers.length).toBe(land.length);

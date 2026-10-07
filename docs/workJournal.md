@@ -12839,3 +12839,14 @@ On the real portfolio the Boerne marker now reads as the active tract's grown pi
 The pin-press spec also had to stop fingerprinting the camera by cluster membership. Pulling a pin out of a cluster re-keys the cluster with no camera move at all. The comparison now reads the single pins drawn in both snapshots, and a zoom-in is still the control that proves it can see a move.
 
 **Improved under its own view.** #270 made only Land's first card garnet, so `#improved`, which app.css dresses as Land, had no garnet card. Now whichever section leads the view leads in tone too: Land's first card always, and Improved's first card when its own tab is chosen. app.css's dressing already skips `.bg-primary`, so nothing there changed. A unit test turns the view to `#improved` and back to `#all`, and goes red with the rule removed. With no script, `#improved` still has no garnet card: the server can't know the fragment, and `:target` can't change a component's variant.
+
+Review round 1 on #272 found no blocker. Its "major" was the overlap above, already seen and accepted.
+
+- The reviewer measured it on the 17 land listings at MAP_HOME: for the 9 that cluster at rest, the kept pin's tip lands 0.9–7.4px from the disc it left.
+- So the top half of that disc presses the pin, not the cluster.
+- A pin that leaves or re-joins a cluster is a new keyed element, so it appears at its size without the grow, shrink or fade.
+
+`clusterPoints`' "every pair is at least `radius` apart" now says the kept listing is the exception. Two tests were missing, and each was shown to go red under its mutation:
+
+- keeping a non-seed member (the first test only ever kept a seed, so removing the absorb guard left it green);
+- the arrows' tone under `#improved`.

@@ -402,7 +402,8 @@ export interface HomeMarker {
  * The markers a frame's placeholder draws, from the SAME `clusterPoints` the
  * live map runs — at MAP_HOME's zoom and the frame's own cluster radius, so
  * the grouping the server draws is the grouping MapLibre will draw on its
- * first frame and there is nothing to re-flow.
+ * first frame and there is nothing to re-flow. (A `keep` set once the page
+ * hydrates can re-group the picture, as it does the live map.)
  */
 export function homeMarkers(
   points: readonly MapPoint[],
@@ -1066,6 +1067,8 @@ export interface MapCluster {
  * one changes nothing, and a pass that changes nothing is exactly the
  * statement that every pair of markers is now at least `radius` apart: every
  * surviving group was a seed in it, and a seed compares against all the rest.
+ * Except the `keep` listing, which compares against nothing: it is drawn where
+ * it stands, usually on top of the cluster it would have joined.
  */
 export function clusterPoints(
   points: readonly MapPoint[],
