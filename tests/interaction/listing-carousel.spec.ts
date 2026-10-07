@@ -349,7 +349,8 @@ test.describe("at 390, hydrated", () => {
           if (el.dataset.mapPin === onStage) continue;
           const r = el.getBoundingClientRect();
           const [x, y] = [r.left + r.width / 2, r.top + r.height / 2];
-          if (x > m.left + 4 && x < m.right - 4 && y > m.top + 4 && y < m.bottom - 4) {
+          const inside = x > m.left + 4 && x < m.right - 4 && y > m.top + 4 && y < m.bottom - 4;
+          if (inside && el.contains(document.elementFromPoint(x, y))) {
             return { id: el.dataset.mapPin!, x, y };
           }
         }
