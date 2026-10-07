@@ -48,15 +48,27 @@ export type PageMediaClient = {
  * repository name as "no masthead yet" and quietly ship the gradient on every
  * page of a site whose CMS is not connected at all.
  */
-export async function loadPropertiesMasthead(client: PageMediaClient): Promise<ImageField | null> {
+export interface PropertiesMedia {
+  masthead: ImageField | null;
+  band: ImageField | null;
+}
+
+export async function loadPropertiesMedia(client: PageMediaClient): Promise<PropertiesMedia> {
   let media: PageMediaDocument;
   try {
     media = await client.getSingle("page_media");
   } catch (error) {
     if (error instanceof RepositoryNotFoundError) throw error;
-    if (error instanceof NotFoundError) return null;
+    if (error instanceof NotFoundError) return { masthead: null, band: null };
     throw error;
   }
-  const image = media.data.properties_masthead;
-  return isFilled.image(image) ? image : null;
+  const filled = (image: ImageField | undefined) => (image && isFilled.image(image) ? image : null);
+  return {
+    masthead: filled(media.data.properties_masthead),
+    band: filled(media.data.properties_band),
+  };
+}
+
+export async function loadPropertiesMasthead(client: PageMediaClient): Promise<ImageField | null> {
+  return (await loadPropertiesMedia(client)).masthead;
 }

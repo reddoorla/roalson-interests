@@ -12851,6 +12851,35 @@ Review round 1 on #272 found no blocker. Its "major" was the overlap above, alre
 - keeping a non-seed member (the first test only ever kept a seed, so removing the absorb guard left it green);
 - the arrows' tone under `#improved`.
 
+## 2026-10-07 — A photo band above the footer on Properties, Bill Miller's headquarters (`claude/properties-photo-band`)
+
+Erik, 10-06 22:05Z: "Could we create an image footer just like the homepage, right above the footer, and use this image here only on the properties page". The image is Bill Miller Bar-B-Q's new headquarters and commissary, a big client's campus. Nicole drew it in "Properties 1" (`7165:737`, 1440×600 at 1440) and set the rule: "50% screenheight so it always fits with the footer".
+
+**The same band as the homepage, not a copy of it.** The homepage band's markup (the `data-pinned-band` section and its spacer sibling, which app.css pins under a footer that slides up over it) moved out of the PhotoBand slice into `PinnedPhotoBand.svelte`. The slice and /properties both use it, so the pin's two-element contract lives in one place. The slice's own seven tests pass unchanged.
+
+**Where the photo lives.** It is a second Image field, `properties_band`, on the `page_media` singleton beside `properties_masthead`, for the same reason the masthead is there: /properties is a filesystem route with no `page` document behind it. `loadPropertiesMedia` reads both fields in one `getSingle`. An empty field draws no band at all, unlike the masthead's gradient fallback, because Erik asked for this photo, not for a band.
+
+**Height and crop.** `--band-h: max(240px, 50svh)`, so the band is 450 at 1440×900 and 422 on a 390×844 phone. The source is 5135×2885 (1.78:1). A half-window band at 1440×900 is 3.2:1, and no crop holds both the building tops and the sign. `object-position: 50% 70%` keeps the whole sign and the pond and trims the roofline. Nicole's 600-tall mock shows more roof, because her band is taller than half a 900 window.
+
+**The upload went wrong once.** Prismic's `upload_asset` fetched Erik's Dropbox `dl=1` link and stored it as `kind: document`. Dropbox serves that link as `application/json`, and the `raw=1` form serves it as `application/binary`. `dl.dropboxusercontent.com` serves the same file as `image/jpeg`, and the second upload is the image (`HERaGn6Q1LM0MDE7`). The first asset (`5B7ksUrfZQr1ToST`) is still in the media library, and no tool here can delete it.
+
+**Tests.** `properties-band.spec.ts` checks, with motion allowed at 1440×900 and 390×844:
+
+- the band is half the window tall (or 240);
+- at the page's end it pins at the top with the footer over it;
+- with `?noband` there is no band and no footer margin.
+
+A fixed 400px height turns the height cases red, and removing the spacer turns the pin cases red. Loader unit tests cover both fields, an empty band, and a missing document.
+
+**After merge:** CI pushes the model, then `page_media.properties_band` is set to the uploaded asset and published in its own release. The pending release `asP91BIAAH8K23X-` (Operator decisions 81) is not touched.
+
+Review round 1 on #273 found no blocker or major. It found two minors, both fixed:
+
+- **A half-vacuous test.** The `?noband` case ran under the shared config's `reducedMotion: "reduce"`, where app.css applies none of the pin rules, so "the footer is not pulled up" could not fail. It now runs with motion allowed. The band case gained the control that the footer's margin is not zero, and a `?noband` that still draws the band turns the no-band case red.
+- **Notes deleted, not moved.** The slice's notes on `--band-h` being read twice and on the lazy photo now sit at the top of `PinnedPhotoBand.svelte`.
+
+`class` is now kept out of the component's props type, because the component would silently drop it.
+
 ## 2026-10-07 — Back returns each Properties panel to the listing it was on (#271, `claude/properties-panel-restore`)
 
 Since #270 every section from `lg` is a one-listing carousel. Leaving for a listing and pressing Back remounted the page with every panel on slide 1. SvelteKit's page `snapshot` is the mechanism built for this: it is captured when the page is left and handed back when its history entry returns, including after a reload, because snapshots are kept in session storage.
