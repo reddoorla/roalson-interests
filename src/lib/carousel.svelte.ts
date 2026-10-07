@@ -467,6 +467,7 @@ export function createCarousel(options: CarouselOptions) {
   let pressedAt: { x: number; y: number } | null = null;
   const onSwipe = (event: SwipeCustomEvent) => {
     swipedAt = performance.now();
+    pressedAt = null;
     if (event.detail.direction === "left") next();
     if (event.detail.direction === "right") prev();
   };
@@ -480,11 +481,16 @@ export function createCarousel(options: CarouselOptions) {
     onpointerdowncapture: (event: PointerEvent) => {
       pressedAt = { x: event.clientX, y: event.clientY };
     },
+    onpointercancelcapture: () => {
+      pressedAt = null;
+    },
     onclickcapture: (event: MouseEvent) => {
       const from = pressedAt;
       pressedAt = null;
+      const onLink = event.target instanceof Element && event.target.closest("a") !== null;
       const dragged =
         event.detail > 0 &&
+        onLink &&
         from !== null &&
         Math.hypot(event.clientX - from.x, event.clientY - from.y) > DRAG_SLOP_PX;
       if (!dragged && performance.now() - swipedAt > 500) return;

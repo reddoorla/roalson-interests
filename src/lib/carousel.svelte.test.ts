@@ -1285,11 +1285,14 @@ describe("createCarousel, headless", () => {
   it("swallows a pointer click that ended a drag, however slow, and lets a still click and a key through", () => {
     const carousel = mount({ count: 3 });
     const bag = carousel.swipe as unknown as Record<string, (e: unknown) => void>;
-    const click = (detail: number, x: number) => {
+    const link = document.createElement("a");
+    const button = document.createElement("button");
+    const click = (detail: number, x: number, target: Element = link) => {
       const event = {
         detail,
         clientX: x,
         clientY: 100,
+        target,
         preventDefault: vi.fn(),
         stopPropagation: vi.fn(),
       };
@@ -1302,6 +1305,12 @@ describe("createCarousel, headless", () => {
     expect(click(1, 300 - DRAG_SLOP_PX), "a press that stayed put").toBe(false);
     bag.onpointerdowncapture({ clientX: 300, clientY: 100 });
     expect(click(0, 0), "a keyboard click, whatever the last press").toBe(false);
+    bag.onpointerdowncapture({ clientX: 300, clientY: 100 });
+    expect(click(1, 100, button), "an arrow or Pause, even with a moving tap").toBe(false);
+    expect(click(1, 100), "a click with no press recorded").toBe(false);
+    bag.onpointerdowncapture({ clientX: 300, clientY: 100 });
+    bag.onpointercancelcapture({});
+    expect(click(1, 100), "a press the browser cancelled").toBe(false);
   });
 
   it("listens to nothing when it cannot autoplay", () => {
