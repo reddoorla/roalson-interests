@@ -18,6 +18,7 @@
   // deliberately near-white one, so the scrim is reviewed against the ground it
   // was sized for rather than a forgiving one.
   import { page } from "$app/state";
+  import type { Snapshot } from "./$types";
   import PageMasthead from "$lib/components/PageMasthead.svelte";
   import PropertyListing from "$lib/components/PropertyListing.svelte";
   import {
@@ -36,7 +37,14 @@
   const masthead = $derived(
     page.url.searchParams.has("nophoto") ? null : PROPERTIES_MASTHEAD_FIXTURE,
   );
+
+  let listing: ReturnType<typeof PropertyListing> | undefined = $state();
+
+  export const snapshot: Snapshot<Record<string, number>> = {
+    capture: () => listing?.capture() ?? {},
+    restore: (saved) => listing?.restore(saved),
+  };
 </script>
 
 <PageMasthead title={LISTING_TITLE} image={masthead} />
-<PropertyListing {sections} />
+<PropertyListing bind:this={listing} {sections} />

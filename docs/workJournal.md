@@ -12850,3 +12850,13 @@ Review round 1 on #272 found no blocker. Its "major" was the overlap above, alre
 
 - keeping a non-seed member (the first test only ever kept a seed, so removing the absorb guard left it green);
 - the arrows' tone under `#improved`.
+
+## 2026-10-07 — Back returns each Properties panel to the listing it was on (#271, `claude/properties-panel-restore`)
+
+Since #270 every section from `lg` is a one-listing carousel. Leaving for a listing and pressing Back remounted the page with every panel on slide 1. SvelteKit's page `snapshot` is the mechanism built for this: it is captured when the page is left and handed back when its history entry returns, including after a reload, because snapshots are kept in session storage.
+
+`PropertyListing` exports `capture()` (each enabled carousel's index, by section id) and `restore(saved)`. Both `/properties` and the `/dev/properties` fixture wire them into `snapshot`. A carousel's `goTo` does nothing until it is enabled, and it is enabled only after hydration. So `restore` keeps what it was handed and applies each index once its carousel is enabled, from an effect that reads every carousel's `enabled`. Restoring before the panels exist is harmless.
+
+Tests: a unit case captures slide 3, unmounts, mounts fresh and restores. `properties-panel-restore.spec.ts`, at 1440 and 390, turns Land to slide 3, follows a real `/contact` link, presses Back, and expects slide 3. With `restore` emptied, both browser cases go red, and with `goTo` removed from it, the unit case goes red.
+
+Traced, not built and not measured: on a full reload SvelteKit restores the scroll position before hydration, against the taller stacked no-JS list, and the page then collapses to the carousels. Where the visitor lands on a reload depends on the browser's scroll anchoring. Back within the site is the case #271 named, and it is the one tested.

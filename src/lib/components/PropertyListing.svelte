@@ -118,6 +118,35 @@
     carousels = { ...carousels, [id]: carousel };
   };
 
+  let pending: Record<string, number> = {};
+
+  function applyPending() {
+    for (const [id, index] of Object.entries(pending)) {
+      const carousel = carousels[id];
+      if (!carousel?.enabled) continue;
+      carousel.goTo(index);
+      delete pending[id];
+    }
+  }
+
+  export function capture(): Record<string, number> {
+    return Object.fromEntries(
+      Object.entries(carousels)
+        .filter(([, carousel]) => carousel.enabled)
+        .map(([id, carousel]) => [id, carousel.index]),
+    );
+  }
+
+  export function restore(saved: Record<string, number>) {
+    pending = { ...saved };
+    applyPending();
+  }
+
+  $effect(() => {
+    for (const carousel of Object.values(carousels)) void carousel.enabled;
+    applyPending();
+  });
+
   let hydrated = $state(false);
 
   const activeFor = (section: ListingSection): string | null => {

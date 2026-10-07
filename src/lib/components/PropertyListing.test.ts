@@ -524,6 +524,31 @@ describe("PropertyListing below lg: each section a carousel (#14)", () => {
   });
 });
 
+describe("PropertyListing snapshot", () => {
+  const onStage = (section: HTMLElement) =>
+    section.querySelector<HTMLElement>('[aria-roledescription="slide"]:not([aria-hidden])')!.dataset
+      .centreId;
+
+  it("captures each panel's listing and restores it into a fresh page", async () => {
+    const groups = sections();
+    const first = render(PropertyListing, { props: { sections: groups } });
+    await tick();
+    const [land] = listingSections();
+    within(land!).getByRole("button", { name: "Next slide" }).click();
+    within(land!).getByRole("button", { name: "Next slide" }).click();
+    await tick();
+    const saved = first.component.capture();
+    expect(saved.land).toBe(2);
+    first.unmount();
+
+    const second = render(PropertyListing, { props: { sections: groups } });
+    await tick();
+    second.component.restore(saved);
+    await tick();
+    expect(onStage(listingSections()[0]!)).toBe(groups[0]!.properties[2]!.id);
+  });
+});
+
 describe("PropertyListing view tabs", () => {
   afterEach(() => history.replaceState(null, "", location.pathname));
 
