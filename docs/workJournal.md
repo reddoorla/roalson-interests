@@ -12756,3 +12756,42 @@ Erik's 19:11Z list, worked from a reddoor-maintenance worker brief. The full acc
 - The new listing `hwy-46-at-spencer-ranch-blvd` waits on two files being linked.
 
 **Not done:** the map rework (bigger map, the map filters the list) waits on Nicole's design (decision 83). Erik's 10-02 hover-to-select had already shipped as #253.
+
+## 2026-10-07 — Properties map Option 1: a 925 map beside a one-listing panel, and the map holds still (`claude/properties-map-option-1`)
+
+Erik's 10-05 list asked for a bigger map, a smaller list, and "the map dictates the listings that show next to it", because "the map constantly moving in and out is a bit wonky to us". Nicole drew two options in the "Full Screen Map" frame (`7153:969`) on 10-05 at 22:08Z, and Erik answered "Option 1!" in #roalson-interests on 10-06 at 22:03Z. The operator confirmed the reading the same evening. It was Nicole's own: "basically the mobile version but the picture is taller".
+
+**What Option 1 is, measured off the frame.** At 1440 the map is 925 wide by 827 tall, full bleed from the left edge. A 515 panel sits beside it, holding a 538 photo over the same bar, arrows and text the 390 carousel already draws. The panel shows one listing at a time. The frame's eyebrow, "FEATURED PROPERTIES", was dropped: it is the homepage band's label, and each section already has its own divider label (Land, Improved Properties). Only the 1440 frame exists, so the 925 : 515 split is kept at every width from `lg`.
+
+**Most of it already existed.** #14 made each section a carousel below `lg`, and #13 made a pin press turn the carousel to its card. So the change turns the carousel on at every width once hydrated (`enabled={hydrated}` where it was `narrow`). The panel is the same subgrid laid out as one column from `lg` (`lg:grid-rows-[minmax(0,1fr)_auto_auto_auto]`), so the photo takes whatever height the tallest text leaves. Past Projects is untouched: still a grid from `lg` and a carousel below it.
+
+**The map holds still.** `PropertyMap` gained `follow` (default `true`, which the homepage band keeps). With `follow={false}`, `active` still decides which pin is drawn active (1.5x, the others at `--map-dim`). It no longer moves the camera. The camera stays on MAP_HOME until the visitor zooms or pans. The gesture-suspension bookkeeping (`drivenAt`) reads the camera's listing, which is always null here, so a page turn can no longer "release" a visitor's zoom and fly back. Measured with a probe on the fixture at 1440×1000, comparing every pin's transform:
+
+- An arrow press changed the listing (fm-1560-galm → potranco-road) and left the transforms byte-identical.
+- A press on hwy-90-castroville's pin turned the panel to it and marked its pin active, with the transforms identical again.
+- A + press changed them. That is the control: the comparison can see a camera move.
+
+The first version of that probe matched no pins at all, so it reported "identical" over three empty strings. It was rewritten before its answer was used.
+
+**Removed with the stacked desktop list:** the centre-line rule (`centreWatch`, #112) and hover-to-select (`hoverActivate`, Erik's 10-02 ask, #253). Every section with more than one listing is now a carousel, so neither could run, and both modules had no other importer. The garnet card follows #14's rule at every width: the first section's first card only.
+
+**A defect the change made, caught by an old test.** With scripting off, the map is still `lg:sticky` beside the stacked list. At 827 tall and pinned 100px down, a 1440×844 window put its bottom edge, and the OpenStreetMap credit, off screen. `property-map.spec.ts`'s no-JS credit case found it (`elementFromPoint` returned null). `--map-height` is now `min(57.43vw, 827px, 100svh − --sticky-top − 20px)`. The cost: at 1440×900 the map is 780 tall, not the comp's 827, and the comp's 827 returns on windows 947 or taller.
+
+**Tests.** Unit: 1,689 pass. 14 failed after the change, and all of them were the stacked list's premise. jsdom now renders carousels, which add `region` roles, so section queries read `section[aria-labelledby^='listing-']`. The three centre-rule cases were deleted. Browser (scaffold and nightly tiers, none in `@smoke`): 69 failed on the first full run. The same 14 specs on an untouched `main` failed 4, and those are filed as #269 with a swipe flake (1 in 10 on `main`). Of the rest:
+
+- `active-card-highlight`, `hover-activate` and `property-map-centred` were deleted whole.
+- The `/properties` camera-follows-cards cases in `property-map-camera(-prod)`, `-press-direct`, `-scroll-zoom`, `map-home` and `map-featured-pin` were cut. The homepage band's cases stay.
+- `listing-carousel`'s three lg cases and `property-map`'s 595 geometry case were rewritten for the panel.
+
+The new `properties-map-still.spec.ts` (nightly) covers the panel beside the map, an arrow and a pin press with the camera held, the markers dimmed beside the active one, and the wheel over the map zooming it without scrolling the page.
+
+Mutations, each restored after:
+
+| Mutation                              | Red                      |
+| ------------------------------------- | ------------------------ |
+| `follow={true}`                       | 2 (arrow, pin press)     |
+| `active={null}`                       | 1 (pin press)            |
+| carousel back to `enabled={narrow}`   | 2 unit                   |
+| `--map-height` without the window cap | 1 (no-JS credit at 1440) |
+
+**Not done here.** Erik's 10-06 22:05Z ask, a Bill Miller HQ photo band above the footer on the Properties page only (Nicole drew it in "Properties 1" at 50% of the window's height), is a separate task.
