@@ -23,7 +23,6 @@ const PREVIEW = process.env.REDDOOR_GATE_SERVER === "preview";
 const LABELS = {
   land: "land",
   improved: "improved properties",
-  all: "all",
   list: "list",
 } as const;
 type View = keyof typeof LABELS;
@@ -70,8 +69,13 @@ async function noScript(browser: Browser, url: string) {
 test.describe("with no script", { tag: "@smoke" }, () => {
   test.skip(PREVIEW, "/dev/* 404s on a production build (#120)");
 
+  test("no fragment: no tab's name says it is selected", async ({ browser }) => {
+    const { context, page } = await noScript(browser, FIXTURE);
+    expect(await tabNames(page)).toEqual(LABELS);
+    await context.close();
+  });
+
   for (const [hash, view] of [
-    ["", "all"],
     ["#land", "land"],
     ["#improved", "improved"],
     ["#list", "list"],

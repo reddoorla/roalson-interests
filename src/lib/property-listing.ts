@@ -50,19 +50,17 @@ export const LISTING_VIEWS = [
 
 export type ListingView = (typeof LISTING_VIEWS)[number]["id"];
 
-/** The tabs worth drawing, in LISTING_VIEWS order: a section tab only when
- *  two active sections are on the page (a tab that filters nothing out is
- *  noise), List only when an active section has more than one listing, and
- *  All with either. */
+/** The tabs worth drawing, in LISTING_VIEWS order: none unless two active
+ *  sections are on the page (a tab that filters nothing out is noise), then
+ *  the present sections, and List when one of them has more than one
+ *  listing. All is the view with no fragment and has no tab (operator,
+ *  2026-10-07: "remove the all tab"). */
 export function listingViews(sections: readonly ListingSection[]) {
   const active = sections.filter((s) => !s.past);
   const ids = new Set(active.map((s) => s.id));
-  const filters = ids.size >= 2;
+  if (ids.size < 2) return [];
   const list = active.some((s) => s.properties.length > 1);
-  if (!filters && !list) return [];
-  return LISTING_VIEWS.filter(
-    (v) => v.id === "all" || (v.id === "list" ? list : filters && ids.has(v.id)),
-  );
+  return LISTING_VIEWS.filter((v) => (v.id === "list" ? list : ids.has(v.id)));
 }
 
 /** The view a fragment names: "" is All, a view id is itself, and any other
