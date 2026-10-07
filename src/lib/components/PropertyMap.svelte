@@ -234,6 +234,7 @@
      * — see `applyInteractive`.
      */
     interactive?: boolean;
+    follow?: boolean;
     /** Called when one of the map's own controls (+, −, expand) is pressed
      *  while `interactive` is false: the caller unlocks the map and the
      *  control then acts. Absent, + and − do nothing on a locked map. The
@@ -251,11 +252,14 @@
     activeBy = "visitor",
     onselect,
     interactive = true,
+    follow = true,
     onengage,
     class: passedClasses = "",
   }: Props = $props();
 
   type MapInstance = InstanceType<MapEngine["Map"]>;
+
+  const cameraActive = $derived(follow ? active : null);
 
   /** Every maplibre handler that moves the camera. The ones a map actually
    *  HAS are read off the instance at boot (`navigation`), not listed here —
@@ -546,7 +550,7 @@
    * released.
    */
   $effect(() => {
-    const a = active;
+    const a = cameraActive;
     const by = activeBy;
     untrack(() => {
       if (by !== "visitor") return;
@@ -990,7 +994,7 @@
   function camera(): { start: Camera | null; listing: boolean } {
     const opening = home?.[frameFor(box)];
     if (opening) return { start: opening, listing: false };
-    const target = activeTarget(active, points) ?? null;
+    const target = activeTarget(cameraActive, points) ?? null;
     return {
       start: fitCamera(target ? [target] : points, box, {
         padding: frame.padding,
@@ -1227,7 +1231,7 @@
     // the tagged `movestart`, the wheel through the listener below.
     instance.on("movestart", (e: { originalEvent?: unknown }) => {
       if (!e.originalEvent) return;
-      drivenAt = active;
+      drivenAt = cameraActive;
       settle();
     });
     // The untagged half, AND IT IS LOAD-BEARING NOW. It was written when the
@@ -1253,7 +1257,7 @@
       "wheel",
       () => {
         if (!instance.scrollZoom.isEnabled()) return;
-        drivenAt = active;
+        drivenAt = cameraActive;
         settle();
       },
       { passive: true },
@@ -1634,7 +1638,7 @@
       if (!onengage) return;
       onengage();
     }
-    drivenAt = active;
+    drivenAt = cameraActive;
     const base = flying && commanded ? commanded : null;
     if (base) endFlight();
     shortfall = 0;
@@ -1716,7 +1720,7 @@
     const size = box;
     const state = {
       // A travelling press's listing, where there is one — see `heading`.
-      active: heading ?? active,
+      active: heading ?? cameraActive,
       points,
       box: size,
       frame,

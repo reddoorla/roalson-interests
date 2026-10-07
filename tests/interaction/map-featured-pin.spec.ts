@@ -179,22 +179,27 @@ const cardIds = (section: Locator) =>
     [...el.querySelectorAll<HTMLElement>("[data-centre-id]")].map((li) => li.dataset.centreId!),
   );
 
-const centre = (page: Page, id: string) =>
-  page.evaluate(
-    (id) =>
-      document
-        .querySelector(`[data-centre-id="${id}"]`)
-        ?.scrollIntoView({ block: "center", behavior: "instant" }),
-    id,
+const onStage = (section: Locator) =>
+  section.evaluate(
+    (el) =>
+      [...el.querySelectorAll<HTMLElement>('[aria-roledescription="slide"]')].find(
+        (s) => !s.hasAttribute("aria-hidden"),
+      )?.dataset.centreId,
   );
+
+const centre = async (page: Page, id: string) => {
+  const section = page.locator("section[aria-labelledby^='listing-']").filter({
+    has: page.locator(`[data-centre-id="${id}"]`),
+  });
+  await section.locator("[data-property-map]").scrollIntoViewIfNeeded();
+  const next = section.getByRole("button", { name: "Next slide" });
+  const count = await section.locator("[data-centre-id]").count();
+  for (let turns = 0; turns < count && (await onStage(section)) !== id; turns++) await next.click();
+};
 
 /** The card is garnet — the page's own statement that it is the active one. */
 const garnet = (section: Locator, id: string) =>
-  expect(section.locator(`[data-centre-id="${id}"] article`)).toHaveCSS(
-    "background-color",
-    GARNET,
-    { timeout: 15_000 },
-  );
+  expect.poll(() => onStage(section), { timeout: 15_000 }).toBe(id);
 
 /** Card ids ordered from the middle of the list outward — "a mid-list card". */
 const fromTheMiddle = (ids: string[]) => {

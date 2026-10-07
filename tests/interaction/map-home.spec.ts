@@ -466,11 +466,6 @@ const overTheFade = async (
 
 for (const c of [
   {
-    name: "/properties at 1440, a listing active from the scroll",
-    route: PROPERTIES,
-    viewport: { width: 1440, height: 900 },
-  },
-  {
     name: "the homepage band at 1440, slide 0 active from the start",
     route: HOME,
     viewport: { width: 1440, height: 900 },

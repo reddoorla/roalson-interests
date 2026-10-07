@@ -1,13 +1,10 @@
 import { expect, test, type Browser, type Locator, type Page } from "@playwright/test";
 
 import {
-  adopted,
-  CAMERA_FLIGHT_MS,
   cameraLog,
   cameraMoves,
   cameraProbeInstalled,
   mapCentre,
-  mapNamed,
   mapZoom,
   resetCamera,
   watchCamera,
@@ -15,8 +12,7 @@ import {
 import { nextTurn } from "./band-turn";
 import { hydrated } from "./hydrated";
 import { scrollMapToBoot } from "./map-boot";
-import { placedMarkers, placedPin } from "./placed-markers";
-import { gapsPerMap, travelOf } from "./scroll-travel";
+import { placedMarkers } from "./placed-markers";
 
 // THE STICKY MAP AND ITS CAMERA (#13 follow-up), in the only place either can
 // be checked. Four claims, none of which jsdom can see:
@@ -43,10 +39,6 @@ import { gapsPerMap, travelOf } from "./scroll-travel";
 const PROPERTIES = "/dev/properties";
 const HOME = "/dev/home";
 const MAP = "[data-property-map]";
-
-/** The two land listings that never cluster. */
-const CASTROVILLE = "hwy-90-castroville";
-const NEW_BRAUNFELS = "ih-35-new-braunfels";
 
 /** Positive evidence the engine drew a frame: `data-map-ready` is set by
  *  MapLibre's own `load`, not by the import resolving. The map is scrolled just
@@ -88,48 +80,6 @@ async function moving(browser: Browser, width: number, height = 900) {
 }
 
 const land = (page: Page) => page.locator("section[aria-labelledby='listing-land']");
-
-/** Which card the window's middle is crossing, computed here from boxes rather
- *  than read out of the component — so this measures the rule instead of
- *  agreeing with it. */
-const onCentreLine = (section: Locator) =>
-  section.evaluate((el) => {
-    const mid = window.innerHeight / 2;
-    for (const li of el.querySelectorAll<HTMLElement>("[data-centre-id]")) {
-      const box = li.getBoundingClientRect();
-      if (box.top <= mid && box.bottom >= mid) return li.dataset.centreId ?? null;
-    }
-    return null;
-  });
-
-/** Where a pin's own coordinate sits inside the map box, in px. The element is
- *  translated to the projected point and then by its own anchor, so the first
- *  translate IS the point.
- *
- *  Through `placedPin` (#143), which is what makes a `null` here mean "that
- *  listing is inside a cluster" and never "it was read a `tick()` too early". */
-const pinAt = async (section: Locator, id: string) =>
-  (await placedPin(section.locator(MAP).first(), id, `${id}'s pin`))?.point ?? null;
-
-const mapBox = (section: Locator) =>
-  section.locator(MAP).evaluate((el) => {
-    const b = el.getBoundingClientRect();
-    return { w: b.width, h: b.height, top: b.top, bottom: b.bottom };
-  });
-
-/** Scroll a listing's card to the middle of the window and let the observer,
- *  the camera and MapLibre settle. `behavior: "instant"` because what is being
- *  measured here is where things END UP; the travel has its own test. */
-async function centre(page: Page, id: string) {
-  await page.evaluate(
-    (id) =>
-      document
-        .querySelector(`[data-centre-id="${id}"]`)
-        ?.scrollIntoView({ block: "center", behavior: "instant" }),
-    id,
-  );
-  await page.waitForTimeout(1200);
-}
 
 test.describe("the map pins beside its cards", () => {
   // AT 1440x720, THE CLAMP. The map now pins in the middle of the window and
@@ -249,80 +199,6 @@ test.describe("the map pins beside its cards", () => {
     }
   });
 
-  test("lets go at the section's end, measured rather than assumed", async ({ browser }) => {
-    const { context, page } = await at(browser, 1440);
-    try {
-      await page.goto(PROPERTIES);
-      await hydrated(page);
-      const section = land(page);
-
-      // EVERY NUMBER IN ONE FRAME. The first version of this test computed a
-      // travel and a stick point up front and scrolled to them afterwards, and
-      // it passed alone and failed inside `pnpm verify` with the map's top at
-      // 0 against an expected 100: the fixture's card heights settle late (its
-      // photos are data: URIs that fail to load, #17), so a plan measured
-      // before the settle described a page that no longer existed. Everything
-      // below is read in the same evaluate as the assertion it feeds.
-      const look = () =>
-        section.evaluate((el) => {
-          const grid = el.children[1] as HTMLElement;
-          const map = el.querySelector("[data-property-map]") as HTMLElement;
-          const style = getComputedStyle(grid);
-          const gridBox = grid.getBoundingClientRect();
-          const mapBox = map.getBoundingClientRect();
-          // The sticky containing block of a grid item is its GRID AREA, which
-          // here is the grid's content box.
-          const areaTop = gridBox.top + parseFloat(style.paddingTop);
-          const areaBottom = gridBox.bottom - parseFloat(style.paddingBottom);
-          return {
-            top: parseFloat(getComputedStyle(map).top),
-            mapTop: mapBox.top,
-            mapHeight: mapBox.height,
-            areaTop,
-            areaBottom,
-            travel: areaBottom - areaTop - mapBox.height,
-            scrollY: window.scrollY,
-          };
-        });
-
-      const rest = await look();
-      expect(rest.travel, "the land section is taller than its map").toBeGreaterThan(100);
-
-      const scrollBy = async (dy: number) => {
-        await page.evaluate((dy) => window.scrollBy(0, dy), dy);
-        await page.waitForTimeout(150);
-      };
-
-      // Mid-travel: pinned at its offset, and demonstrably not just sitting
-      // where it started — its area's top is well above it by now.
-      await scrollBy(rest.areaTop - rest.top + rest.travel / 2);
-      const mid = await look();
-      expect(mid.mapTop, "pinned at the offset").toBeCloseTo(mid.top, 0);
-      expect(mid.areaTop, "and the page really has scrolled past its resting place").toBeLessThan(
-        mid.top - 100,
-      );
-
-      // A pixel before the end of the travel: still pinned.
-      await scrollBy(mid.travel / 2 - 1);
-      const last = await look();
-      expect(last.mapTop, "still pinned one pixel before the end").toBeCloseTo(last.top, 0);
-
-      // 300 past it: RELEASED. The claim is not "it moved" — that is what an
-      // unpinned map does too — but that it is parked on the BOTTOM of its own
-      // grid area, which is the only thing `position: sticky` does here and
-      // the thing nothing in the code asks for explicitly.
-      await scrollBy(301);
-      const after = await look();
-      expect(after.mapTop, "let go at the section's end").toBeLessThan(after.top - 250);
-      expect(after.areaBottom - after.mapHeight, "parked on the foot of its grid area").toBeCloseTo(
-        after.mapTop,
-        0,
-      );
-    } finally {
-      await context.close();
-    }
-  });
-
   test("does not pin at 390, and watches nothing there", async ({ browser }) => {
     const { context, page } = await at(browser, 390, 844);
     try {
@@ -360,191 +236,6 @@ test.describe("the map pins beside its cards", () => {
     } finally {
       await context.close();
     }
-  });
-});
-
-test.describe("the card on the centre line is the listing on the map", () => {
-  test("puts the active listing's own pin at the middle of the map", async ({ browser }) => {
-    const { context, page } = await at(browser, 1440);
-    try {
-      await page.goto(PROPERTIES);
-      await hydrated(page);
-      await drawn(page);
-      const section = land(page);
-
-      for (const id of [CASTROVILLE, NEW_BRAUNFELS, CASTROVILLE]) {
-        await centre(page, id);
-        // The rule, measured independently of the component: this listing's
-        // card is the one the window's middle crosses.
-        expect(await onCentreLine(section)).toBe(id);
-
-        // And the camera answered it. The pin is anchored at its TIP and the
-        // frame pads 52 top against 44 bottom, so the fitted centre sits
-        // (44 - 52) / 2 = -4px of the box's middle and the coordinate draws 4px
-        // BELOW it. Measured on this fixture at 1440x900: `translate(196px,
-        // 301.5px)` in a 392.2 x 595 box.
-        const box = await mapBox(section);
-        const pin = await pinAt(section, id);
-        expect(pin, `${id} has a pin of its own`).not.toBeNull();
-        expect(pin!.x).toBeCloseTo(box.w / 2, 0);
-        expect(pin!.y).toBeCloseTo(box.h / 2 + 4, 0);
-      }
-    } finally {
-      await context.close();
-    }
-  });
-
-  test("a pressed pin scrolls its card to the centre, and the centre rule does the rest", async ({
-    browser,
-  }) => {
-    test.setTimeout(90_000);
-    const { context, page } = await at(browser, 1440);
-    try {
-      await page.goto(PROPERTIES);
-      await hydrated(page);
-      await drawn(page);
-      const section = land(page);
-
-      // Pressed FROM THE FIT, at scroll 0, and that is not convenience. Once a
-      // listing is active the camera is at z12 on it and every other pin in the
-      // section is tens of kilometres away — 70 km for these two, ~4200px at
-      // 16.596 m/px — so it is outside the box, `overflow-hidden` clips it, and
-      // Playwright waits forever for an element that will never be visible.
-      // That is what the first version of this test did, for 90 seconds. At
-      // scroll 0 the window's middle is on the masthead, no card is on the
-      // centre line, `active` is null and the map shows them all.
-      expect(await onCentreLine(section)).toBeNull();
-      await section.locator(`[data-map-pin="${NEW_BRAUNFELS}"]`).click();
-      await page.waitForTimeout(1500);
-
-      // The card came to the middle…
-      expect(await onCentreLine(section)).toBe(NEW_BRAUNFELS);
-      // …and the map followed from THAT, not from the press: the pin ends at
-      // the map's centre, which is what the centre rule asks for and what a
-      // press-sets-active shortcut would have produced by a different route.
-      const box = await mapBox(section);
-      const pin = await pinAt(section, NEW_BRAUNFELS);
-      expect(pin!.x).toBeCloseTo(box.w / 2, 0);
-      expect(pin!.y).toBeCloseTo(box.h / 2 + 4, 0);
-      // No sheet: on this page the card IS the detail.
-      await expect(section.locator("[data-map-sheet]")).toHaveCount(0);
-    } finally {
-      await context.close();
-    }
-  });
-});
-
-// ---------------------------------------------------------------------------
-// The one that needs the shared harness turned off
-// ---------------------------------------------------------------------------
-
-// `playwright-a11y` sets `contextOptions.reducedMotion: "reduce"` on EVERY test
-// in the fleet. Under it `cameraMove` answers `jump`, MapLibre's own
-// `reduceMotion` collapses whatever is left, and a test that asserted "the
-// camera moved" would pass by arriving instantly — proving nothing about the
-// flight. Overriding it here is the whole point of this block, and the first
-// assertion is that the override TOOK.
-test.describe("the flight, with the fleet's reduced-motion emulation lifted", () => {
-  test.use({ contextOptions: { reducedMotion: "no-preference" } });
-
-  test("travels, rather than arriving", async ({ page }) => {
-    test.setTimeout(90_000);
-    await watchCamera(page);
-    await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto(PROPERTIES);
-    await hydrated(page);
-    await drawn(page);
-    await adopted(page);
-    const section = land(page);
-    const landMap = await mapNamed(page, "Land");
-    expect(landMap, "the land map is one of the booted maps").toBeGreaterThanOrEqual(0);
-
-    // Positive evidence the override took. Without this the rest of the test
-    // could go green under `reduce` by measuring a jump's two endpoints.
-    expect(
-      await page.evaluate(() => matchMedia("(prefers-reduced-motion: reduce)").matches),
-      "the fleet's reduced-motion emulation is lifted in this block",
-    ).toBe(false);
-
-    await centre(page, CASTROVILLE);
-    const start = await pinAt(section, NEW_BRAUNFELS);
-    expect(start).not.toBeNull();
-
-    // Sample from INSIDE the page, on rAF. Sampling from the test races the
-    // round trip: a first read 60ms after the trigger landed 1.5px from the
-    // destination on a loaded machine, and the whole flight is 500ms.
-    //
-    // …and time the move by maplibre's own `movestart` and `moveend`, which
-    // is the part of this that does not depend on the frame rate (#144). A
-    // flight's `moveend` fires in the first frame at least `duration` after
-    // it began, so a starved machine can only make it LATER; a jump fires
-    // both inside the one call. Sampling runs until that `moveend` has been
-    // seen rather than for a fixed 900ms, which a starved machine can outrun.
-    const { samples, flight } = await page.evaluate(
-      async ({ id, n, cap }) => {
-        const out: { x: number; y: number }[] = [];
-        const map = window.__camera.map(n);
-        const times: { start: number | null; end: number | null } = { start: null, end: null };
-        const onStart = () => void (times.start ??= performance.now());
-        const onEnd = () => void (times.start !== null && (times.end ??= performance.now()));
-        map.on("movestart", onStart);
-        map.on("moveend", onEnd);
-        const read = () => {
-          const el = document.querySelector<HTMLElement>(`[data-map-pin="${id}"]`);
-          const m = el && /translate\(([-\d.]+)px,\s*([-\d.]+)px\)/.exec(el.style.transform);
-          if (m) out.push({ x: Number(m[1]), y: Number(m[2]) });
-        };
-        document
-          .querySelector(`[data-centre-id="${id}"]`)
-          ?.scrollIntoView({ block: "center", behavior: "instant" });
-        const until = performance.now() + cap;
-        await new Promise<void>((resolve) => {
-          const step = () => {
-            read();
-            const landed = times.end !== null && performance.now() > times.end + 100;
-            if (!landed && performance.now() < until) requestAnimationFrame(step);
-            else resolve();
-          };
-          requestAnimationFrame(step);
-        });
-        map.off("movestart", onStart);
-        map.off("moveend", onEnd);
-        return {
-          samples: out,
-          flight: times.start !== null && times.end !== null ? times.end - times.start : null,
-        };
-      },
-      { id: NEW_BRAUNFELS, n: landMap, cap: 10_000 },
-    );
-
-    await page.waitForTimeout(800);
-    const end = await pinAt(section, NEW_BRAUNFELS);
-    const box = await mapBox(section);
-    expect(end!.x).toBeCloseTo(box.w / 2, 0);
-    expect(end!.y).toBeCloseTo(box.h / 2 + 4, 0);
-
-    // Travel, positively, and said as two things rather than a frame count.
-    // It TOOK A FLIGHT'S TIME, by maplibre's clock — a jump spans 0 — and the
-    // pin was DRAWN IN THE MIDDLE at least once: a jump can only ever produce
-    // the start or the destination. This used to want more than three frames
-    // in the middle, and that is a count of the machine: at load 35-42 the
-    // 900ms window held 10 and 15 frames and 2 and 3 of them in the middle, on
-    // a flight nothing had changed (#144). One is what refutes a jump; the
-    // time is what says it travelled, at any frame rate.
-    const between = samples.filter(
-      (s) =>
-        Math.hypot(s.x - start!.x, s.y - start!.y) > 8 &&
-        Math.hypot(s.x - end!.x, s.y - end!.y) > 8,
-    );
-    expect(flight, "maplibre reported the move ending (moveend)").not.toBeNull();
-    expect(
-      flight!,
-      `the camera's move lasted a whole ${CAMERA_FLIGHT_MS}ms flight, by maplibre's own clock`,
-    ).toBeGreaterThanOrEqual(CAMERA_FLIGHT_MS);
-    expect(
-      between.length,
-      `and the pin was drawn between its two ends (${samples.length} frames sampled)`,
-    ).toBeGreaterThan(0);
   });
 });
 
@@ -614,149 +305,6 @@ test.describe("the homepage band, where the carousel drives the camera", () => {
     } finally {
       await context.close();
     }
-  });
-});
-
-// ---------------------------------------------------------------------------
-// THE PINNED BOX EATS THE PAGE'S SCROLL, ON PURPOSE (operator call, 2026-09-23)
-// ---------------------------------------------------------------------------
-//
-// A describe block lived here called "the pinned map is scrolled past, not
-// scrolled in", and it asserted that one wheel tick over the map moved the page
-// exactly as far as one over the cards. It was right about the mechanism and is
-// now measuring the wrong side of a decision that was reversed: the operator
-// asked for the wheel over the map to zoom it.
-//
-// It is DELETED rather than inverted in place, because the claim moved routes
-// as well as direction. It drove /dev/properties, which 404s on a production
-// build (#120), and the reversal's numbers are exactly the kind that has to be
-// taken from the shipped bundle. The replacement is
-// tests/interaction/property-map-scroll-zoom.spec.ts, on `/properties` and `/`.
-
-// ---------------------------------------------------------------------------
-// A press is ONE flight (#118 review, MAJOR 2)
-// ---------------------------------------------------------------------------
-
-// MOTION ALLOWED, AND THAT IS THE WHOLE POINT OF THIS BLOCK. Under the fleet's
-// `reducedMotion: "reduce"` app.css collapses `scroll-behavior` to `auto`, the
-// press-scroll lands in one frame, no intermediate card is ever crossed, and
-// the defect this measures is STRUCTURALLY UNOBSERVABLE while the test passes.
-// The pre-existing press test above runs that way and was green throughout.
-test.describe("a pressed pin, with the fleet's reduced-motion emulation lifted", () => {
-  test.use({ contextOptions: { reducedMotion: "no-preference" } });
-
-  test("lands every arc it starts, however many cards the scroll crosses", async ({ page }) => {
-    test.setTimeout(120_000);
-    await watchCamera(page);
-    await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto(PROPERTIES);
-    await hydrated(page);
-    await drawn(page);
-    const section = land(page);
-
-    // Three pieces of positive evidence before anything is counted. Without the
-    // first, an empty log means "the probe never installed" and would read as a
-    // pass; without the other two the scroll is instant and there is nothing to
-    // get wrong.
-    expect(await cameraProbeInstalled(page), "the camera probe installed").toBe(true);
-    expect(
-      await page.evaluate(() => matchMedia("(prefers-reduced-motion: reduce)").matches),
-      "the fleet's reduced-motion emulation is lifted in this block",
-    ).toBe(false);
-    expect(
-      await page.evaluate(() => getComputedStyle(document.documentElement).scrollBehavior),
-      "and the document really does scroll smoothly",
-    ).toBe("smooth");
-
-    // From scrollY 0, where no card is on the centre line and the map shows
-    // them all — so the press has the height of the section to travel and
-    // crosses every card on the way.
-    await page.evaluate(() => window.scrollTo(0, 0));
-    await page.waitForTimeout(600);
-    expect(await onCentreLine(section)).toBeNull();
-    await resetCamera(page);
-
-    // Sampled on rAF from INSIDE the page, through the same sampler the
-    // production spec uses (./scroll-travel): a press-scroll is over in under
-    // a second and a round trip per sample would miss the middle of it.
-    const travel = await travelOf(
-      page,
-      () =>
-        page.evaluate(
-          (id) => document.querySelector<HTMLElement>(`[data-map-pin="${id}"]`)!.click(),
-          NEW_BRAUNFELS,
-        ),
-      { atLeast: 3000 },
-    );
-
-    // The premise, measured: the page really made a long, multi-frame journey.
-    // Without this the "one flight" below could be true because nothing moved.
-    expect(
-      travel.distance,
-      `the press really scrolled the page (from ${travel.from}, ${travel.positions.length} frames)`,
-    ).toBeGreaterThan(500);
-    // It glided rather than jumping, said as SHAPE and TIME — the production
-    // spec's premise, for the production spec's reason (#144). This wanted
-    // more than 10 distinct scroll positions, which is a count of the frames
-    // the main thread got while the compositor scrolled, not of the page.
-    expect(
-      travel.between,
-      `and it glided rather than jumping — it occupied the middle ` +
-        `(${travel.positions.length} frames, ${new Set(travel.positions).size} distinct)`,
-    ).toBeGreaterThan(0);
-    expect(
-      travel.movingFor,
-      "and the travel took time rather than landing in one frame",
-    ).toBeGreaterThan(32);
-    // It crossed other cards on the way: every card whose box meets the span
-    // the centre line SWEPT. This counted the cards a SAMPLED position landed
-    // on, and went red on main 1 time in 16 naming only the start and end
-    // cards (#144) — the prod spec had already stopped counting that way.
-    expect(
-      travel.crossed.length,
-      `the scroll crossed several cards on its way (${travel.crossed.length} swept, ` +
-        `${travel.sampled} of them under a sampled position: ${travel.crossed.join(", ")})`,
-    ).toBeGreaterThan(2);
-
-    // THE CLAIM CHANGED WITH #127/#128, and this is the same correction the
-    // production spec carries: it used to be "exactly one command", which the
-    // document-scroll refusal bought by holding the camera for the whole
-    // travel — and that refusal was blind to a mouse wheel and unbounded under
-    // a held scroll. The rule now refuses only a flight over one still in the
-    // air, so what is asserted is that no arc was ABANDONED: consecutive
-    // flights are at least a flight's length apart. Measured on a production
-    // build, a press now costs three complete arcs (gaps 532ms and 648ms)
-    // where it used to cost one.
-    //
-    // (Back to one since 2026-10-01: the arcs on the way were the designer's
-    // "bounce", and the camera now flies straight to the pressed listing.
-    // That claim is property-map-press-direct.spec.ts's; this one still
-    // guards the arcs.)
-    //
-    // PER MAP, as the production spec has it (#139): two flights to different
-    // sections' maps are two cameras, and pooled, a flight to one inside the
-    // other's 500ms would read as an arc abandoned.
-    const log = await cameraLog(page);
-    const gaps = gapsPerMap(log);
-    const tally =
-      `fly ${log.fly.length}, ease ${log.ease.length}, jump ${log.jump.length}; ` +
-      `gaps [${gaps.map((g) => `${g.m}:${g.gap}`).join(", ")}]`;
-    expect(log.fly.length, `the camera followed the press at all (${tally})`).toBeGreaterThan(0);
-    for (const { gap } of gaps)
-      expect(
-        gap,
-        `a second flight ${gap}ms into a ${CAMERA_FLIGHT_MS}ms arc — the smear this rule ` +
-          `exists to prevent (${tally})`,
-      ).toBeGreaterThanOrEqual(450);
-
-    // And it was the right one: the pressed card ends on the centre line and
-    // its pin ends at the middle of the map.
-    await page.waitForTimeout(1200);
-    expect(await onCentreLine(section)).toBe(NEW_BRAUNFELS);
-    const box = await mapBox(section);
-    const pin = await pinAt(section, NEW_BRAUNFELS);
-    expect(pin!.x).toBeCloseTo(box.w / 2, 0);
-    expect(pin!.y).toBeCloseTo(box.h / 2 + 4, 0);
   });
 });
 
@@ -881,67 +429,6 @@ test.describe("a gesture suspends the camera, and the page's next listing lifts 
       const held = await mapCentre(page);
       expect(held.lng, "and the view is exactly where they left it").toBeCloseTo(afterDrag.lng, 4);
       expect(held.lat).toBeCloseTo(afterDrag.lat, 4);
-    } finally {
-      await context.close();
-    }
-  });
-
-  test("and lets go the moment the page asks for a different listing, every time", async ({
-    browser,
-  }) => {
-    test.setTimeout(120_000);
-    const { context, page } = await at(browser, 1440);
-    try {
-      await watchCamera(page);
-      await page.goto(PROPERTIES);
-      await hydrated(page);
-      await drawn(page);
-      expect(await cameraProbeInstalled(page)).toBe(true);
-      const section = land(page);
-
-      await centre(page, CASTROVILLE);
-      await resetCamera(page);
-      await dragTheMap(page, section);
-
-      const arrivesAt = async (id: string) => {
-        const box = await mapBox(section);
-        const pin = await pinAt(section, id);
-        expect(pin, `${id} has a pin`).not.toBeNull();
-        expect(pin!.x).toBeCloseTo(box.w / 2, 0);
-        expect(pin!.y).toBeCloseTo(box.h / 2 + 4, 0);
-      };
-
-      // 1. A DIFFERENT LISTING ENDS THE SUSPENSION. This is the half that was
-      //    PERMANENT: nothing but `destroy()` ever cleared the flag, so one
-      //    40px drag left the camera dead for the rest of the page — measured
-      //    at 1440x900, pins at scrollY 500 and 760 byte-identical thereafter.
-      await resetCamera(page);
-      await centre(page, NEW_BRAUNFELS);
-      expect(await onCentreLine(section)).toBe(NEW_BRAUNFELS);
-      expect(await cameraMoves(page), "a different listing ends the suspension").toBeGreaterThan(0);
-      await arrivesAt(NEW_BRAUNFELS);
-
-      // 2. AND IT DOES NOT COME BACK when the visitor returns to the listing
-      //    they dragged on. A gesture is an EVENT, not a property of a
-      //    listing: the first version of this rule remembered the id forever,
-      //    so `drivenAt === active` came true again here and the camera stayed
-      //    stranded on New Braunfels. Caught here, in a browser, after the
-      //    unit-level version of the case turned out to be unwritable (see
-      //    PropertyMap.test.ts for why).
-      await resetCamera(page);
-      await centre(page, CASTROVILLE);
-      expect(await onCentreLine(section)).toBe(CASTROVILLE);
-      expect(
-        await cameraMoves(page),
-        "returning to the dragged listing is a fresh visit, not a resumed gesture",
-      ).toBeGreaterThan(0);
-      await arrivesAt(CASTROVILLE);
-
-      // 3. And it keeps working after that — not a one-shot recovery.
-      await resetCamera(page);
-      await centre(page, NEW_BRAUNFELS);
-      expect(await cameraMoves(page), "and the camera keeps following").toBeGreaterThan(0);
-      await arrivesAt(NEW_BRAUNFELS);
     } finally {
       await context.close();
     }

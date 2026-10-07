@@ -55,7 +55,7 @@
     /** "row": photo beside the panel from md up, as in the listing column.
      *  "column": photo above, as in the Past Projects grid. Below md every card is a
      *  column; the 390 comp stacks them. */
-    layout?: "row" | "column";
+    layout?: "row" | "column" | "panel";
     /** One slide of PropertyListing's carousel: see the header. `layout` is
      *  the carousel's then — a column below `md`, a row from it. */
     inCarousel?: boolean;
@@ -106,16 +106,16 @@
   const frame = $derived(
     inCarousel
       ? "col-span-full row-span-full grid grid-cols-subgrid grid-rows-subgrid"
-      : `flex flex-col ${layout === "row" ? "md:flex-row" : ""}`,
+      : `flex flex-col ${layout === "column" ? "" : "md:flex-row"} ${layout === "panel" ? "lg:flex-col" : ""}`,
   );
   const photoBox = $derived(
     inCarousel
-      ? "relative row-start-1 aspect-[423.5/267.5] overflow-hidden md:col-start-1 md:row-span-full md:aspect-auto"
-      : `aspect-[423.5/267.5] shrink-0 overflow-hidden ${layout === "row" ? "md:w-1/2" : ""}`,
+      ? "relative row-start-1 aspect-[423.5/267.5] overflow-hidden md:col-start-1 md:row-span-full md:aspect-auto lg:row-span-1 lg:row-start-1"
+      : `aspect-[423.5/267.5] shrink-0 overflow-hidden ${layout === "column" ? "" : "md:w-1/2"} ${layout === "panel" ? "lg:w-auto" : ""}`,
   );
   const panel = $derived(
     `flex min-w-0 flex-1 flex-col gap-5 px-5 pt-5 pb-10${
-      inCarousel ? " row-start-4 md:col-start-2 md:row-start-3" : ""
+      inCarousel ? " row-start-4 md:col-start-2 md:row-start-3 lg:col-start-1 lg:row-start-4" : ""
     }`,
   );
 </script>
