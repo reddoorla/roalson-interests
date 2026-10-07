@@ -2232,6 +2232,12 @@ test.describe("the engine, and what it costs", () => {
       const clusters = page.locator(`${MAP} [data-map-cluster]`).first();
       // Non-vacuity: a section that never clusters would make the split
       // assertion below meaningless. Land clusters at the panel's fit zoom.
+      const land = page.locator("section[aria-labelledby^='listing-']").first();
+      const turns = await land.locator('[aria-roledescription="slide"]').count();
+      for (let t = 0; t < turns && (await clusters.count()) === 0; t++) {
+        await land.getByRole("button", { name: "Next slide" }).click();
+        await page.waitForTimeout(300);
+      }
       await expect(clusters, "the land section clusters at rest").toBeVisible();
       const before = await markers().count();
       const grouped = Number(await clusters.getAttribute("data-map-cluster"));

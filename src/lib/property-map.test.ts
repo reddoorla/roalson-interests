@@ -757,6 +757,45 @@ describe("clustering, because land cannot be drawn honestly without it", () => {
     }
   });
 
+  it("keeps the listing it is told to keep out of every cluster, and clusters the rest as before", () => {
+    const zoom = MAP_HOME.full.camera.zoom;
+    const radius = MAP_FRAMES.full.clusterRadius;
+    const plain = clusterPoints(land, zoom, radius);
+    const clustered = plain.find((m) => m.points.length > 1);
+    expect(clustered, "premise: a listing is inside a cluster at MAP_HOME").toBeDefined();
+    const keep = clustered!.points[0]!.id;
+
+    const markers = clusterPoints(land, zoom, radius, keep);
+    const own = markers.filter((m) => m.points.some((p) => p.id === keep));
+    expect(own, "one marker holds it").toHaveLength(1);
+    expect(
+      own[0]!.points.map((p) => p.id),
+      "and holds only it",
+    ).toEqual([keep]);
+    const ids = markers.flatMap((m) => m.points.map((p) => p.id));
+    expect(ids.length, "no listing in two markers").toBe(land.length);
+    expect(new Set(ids).size).toBe(land.length);
+    expect(
+      clusterPoints(land, zoom, radius, null).map((m) => m.id),
+      "keep null is the old grouping",
+    ).toEqual(plain.map((m) => m.id));
+  });
+
+  it("keeps a listing that is not its cluster's seed out of it too", () => {
+    const zoom = MAP_HOME.full.camera.zoom;
+    const radius = MAP_FRAMES.full.clusterRadius;
+    const clustered = clusterPoints(land, zoom, radius).find((m) => m.points.length > 1)!;
+    for (const member of clustered.points.slice(1)) {
+      const own = clusterPoints(land, zoom, radius, member.id).filter((m) =>
+        m.points.some((p) => p.id === member.id),
+      );
+      expect(
+        own.map((m) => m.points.length),
+        `${member.id} stands alone`,
+      ).toEqual([1]);
+    }
+  });
+
   it("stops clustering once the pins genuinely fit beside each other", () => {
     const markers = clusterPoints(land, 16, MAP_FRAMES.full.clusterRadius);
     expect(markers.length).toBe(land.length);

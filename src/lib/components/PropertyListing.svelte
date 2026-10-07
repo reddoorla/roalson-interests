@@ -391,7 +391,8 @@
           >
             {#snippet children(carousel)}
               {@const on = carousel.enabled}
-              {@const garnetId = i === 0 ? section.properties[0]?.id : undefined}
+              {@const lead = i === 0 || current === section.id}
+              {@const garnetId = lead ? section.properties[0]?.id : undefined}
               <ul
                 bind:this={listEls[i]}
                 role={on ? "none" : undefined}
@@ -400,7 +401,7 @@
                   ? CAROUSEL_LIST
                   : 'flex flex-col gap-5'}"
               >
-                {#if on}{@render controls(carousel, i === 0 && carousel.index === 0)}{/if}
+                {#if on}{@render controls(carousel, lead && carousel.index === 0)}{/if}
                 {#each section.properties as property, j (property.id)}
                   <li
                     data-centre-id={property.id}
