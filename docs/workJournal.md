@@ -12907,3 +12907,10 @@ Review round 1 on #274 found no blocker or major. It found three minors, all fix
 The carousel's click guard used to swallow clicks only for 500 ms after a recognised swipe. It now also swallows a pointer click (`detail > 0`) whose pointer moved more than `DRAG_SLOP_PX` (10) between press and release, however long that took. A keyboard click is never touched. The unit case covers a 200px drag, a still press, and a keyboard click, and goes red with the drag check removed. The test's drag also takes two mouse steps instead of four, so its swipe lands inside the window.
 
 On the branch it passed 59 of 60 runs alone. The one failure was not captured. With the guard, a slow drag can no longer open a listing, so the only remaining failure mode is the swipe not being recognised at all.
+
+Review round 1 on #275 found no blocker or major. Its two minors are fixed:
+
+- **Controls inside the swiped area.** The arrows and Pause sit inside the swiped element. On a touchscreen that tolerates about 15px before cancelling a tap, a tap that moved more than 10px would have been dropped. The drag guard now applies only to clicks on links.
+- **A stale press point.** A touch swipe usually fires no click, so its press point could linger and be measured against a later click. It is now cleared when a swipe registers and on `pointercancel`.
+
+The unit case adds an arrow tapped with movement, a click with no recorded press, and a cancelled press. Removing the link scope or the cancel clearing turns it red.
