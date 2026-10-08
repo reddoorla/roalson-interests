@@ -178,7 +178,8 @@ def build(uid, plan):
     # exhibits
     def mapimg(name):
         return img_uri(os.path.join(maps, name), max_px=2400, quality=87)
-    boundary_note = ('Boundary shown is approximate, drawn from county appraisal district parcel data (Texas StratMap, ' + TODAY + '); refer to the survey for exact lines.') if geo['geom'] else 'Site location shown by pin; refer to the survey and exhibits for tract boundaries.'
+    accessed = geo.get('accessed', TODAY)
+    boundary_note = geo.get('boundary_note') or ('Boundary shown is approximate, drawn from county appraisal district parcel data (Texas StratMap, ' + TODAY + '); refer to the survey for exact lines.') if geo['geom'] else 'Site location shown by pin; refer to the survey and exhibits for tract boundaries.'
     pages.append(exhibit_page(W, 'Exhibit', 'Location Map', f'<div class="frame"><img src="{mapimg("location.jpg")}" alt="Location map"></div>', cap='Map data © OpenMapTiles © OpenStreetMap contributors.'))
     pages.append(exhibit_page(W, 'Exhibit', 'Area Map', f'<div class="frame"><img src="{mapimg("area.jpg")}" alt="Area map"></div>', cap='Map data © OpenMapTiles © OpenStreetMap contributors. ' + boundary_note))
     pages.append(exhibit_page(W, 'Exhibit', 'Aerial Map', f'<div class="frame"><img src="{mapimg("aerial.jpg")}" alt="Aerial map"></div>', cap='Imagery: USGS The National Map, NAIP / high-resolution orthoimagery (public domain). Labels © OpenStreetMap contributors. ' + boundary_note))
@@ -190,7 +191,7 @@ def build(uid, plan):
         pages.append(exhibit_page(W, 'Exhibit', 'Traffic Counts', f'<div class="frame"><img src="{mapimg("traffic.jpg")}" alt="Traffic count map"></div><div class="facts">{facts}</div>',
                                   cap=f'Annual average daily traffic (AADT), {yr} counts published by the Texas Department of Transportation (TxDOT), for count stations near the site; two-way totals. The specification pages quote the counts in the original package. Map data © OpenMapTiles © OpenStreetMap contributors.'))
     pages.append(exhibit_page(W, 'Exhibit', 'FEMA Flood Zones', f'<div class="frame"><img src="{mapimg("flood.jpg")}" alt="FEMA flood zone map"></div>',
-                              cap=f'<b>{esc(flood["verdict"])}</b> Source: FEMA National Flood Hazard Layer, accessed {TODAY}. Imagery: USGS; labels © OpenStreetMap contributors. Panel {esc(", ".join(x for x in (meta.get("dfirm") or []) if x) or "n/a")}. For general reference only — verify with a current FEMA FIRMette, survey or elevation certificate.'))
+                              cap=f'<b>{esc(flood["verdict"])}</b> Source: FEMA National Flood Hazard Layer, accessed {accessed}. Imagery: USGS; labels © OpenStreetMap contributors. Panel {esc(", ".join(x for x in (meta.get("dfirm") or []) if x) or "n/a")}. For general reference only — verify with a current FEMA FIRMette, survey or elevation certificate.'))
 
     for ex in plan.get('carry', []):
         uri = img_uri(ex['img'], max_px=3000, quality=90)

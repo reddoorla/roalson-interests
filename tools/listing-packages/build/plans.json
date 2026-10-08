@@ -457,5 +457,17 @@
    "photos/urban-loop-road-p3-1.png",
    "photos/urban-loop-road-p3-2.png"
   ]
+ },
+ "hwy-46-at-spencer-ranch-blvd": {
+  "carry": [
+   {
+    "page": 4,
+    "title": "Survey",
+    "kind": "survey",
+    "cap": "",
+    "img": "exhibits/hwy-46-at-spencer-ranch-blvd-p4.png"
+   }
+  ],
+  "photos": []
  }
 }

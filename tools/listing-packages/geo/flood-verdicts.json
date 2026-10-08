@@ -102,5 +102,11 @@
  "ih-10-at-highway-87-comfort": {
   "hits": {},
   "verdict": "NFHL mapping shows no special flood hazard area on the property (Zone X, minimal flood hazard)."
+ },
+ "hwy-46-at-spencer-ranch-blvd": {
+  "hits": {
+   "a100": 0.041544165134012864
+  },
+  "verdict": "NFHL mapping shows the property about 4% within the 1% annual chance (100-year) flood hazard area."
  }
 }
