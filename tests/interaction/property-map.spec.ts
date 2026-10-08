@@ -457,28 +457,34 @@ test.describe("with scripting off the picture carries the whole credit", () => {
 });
 
 test.describe("where the comp draws it", () => {
-  test("1440: the map takes 925 of 1440 from the left edge, the panel the rest, at one height", async ({
-    browser,
-  }) => {
-    const { context, page } = await at(browser, 1440);
-    try {
-      await page.goto(PROPERTIES);
-      await hydrated(page);
-      await expect(page.locator('[aria-roledescription="carousel"]').first()).toBeAttached();
-      const map = await rect(page, MAP);
-      const panel = await rect(page, "[data-listing-carousel]");
-      expect(map.left, "full bleed from the left edge").toBeCloseTo(0, 0);
-      expect(panel.left - map.right, "the panel abuts the map").toBeCloseTo(0, 0);
-      expect(map.w / (map.w + panel.w), "the comp's 925 : 515").toBeCloseTo(925 / 1440, 2);
-      expect(map.h, "never taller than the comp's 827").toBeLessThanOrEqual(827);
-      expect(panel.h, "the panel is the map's height").toBeCloseTo(map.h, 0);
-      expect(await page.locator(`${MAP} [data-map-expand]`).count(), "expand at 1440").toBe(
-        await page.locator(MAP).count(),
-      );
-    } finally {
-      await context.close();
-    }
-  });
+  for (const width of [1024, 1280, 1440, 1920]) {
+    test(`${width}: the map and panel sit on the site grid, 925 : 515, at one height`, async ({
+      browser,
+    }) => {
+      const { context, page } = await at(browser, width);
+      try {
+        await page.goto(PROPERTIES);
+        await hydrated(page);
+        await expect(page.locator('[aria-roledescription="carousel"]').first()).toBeAttached();
+        const map = await rect(page, MAP);
+        const panel = await rect(page, "[data-listing-carousel]");
+        const grid = await rect(page, "section .border-t-2");
+        const footer = await rect(page, "footer .max-w-\\[1440px\\] > *");
+        expect(map.left, "the map starts on the grid's left edge").toBeCloseTo(grid.left, 0);
+        expect(panel.right, "the panel ends on the grid's right edge").toBeCloseTo(grid.right, 0);
+        expect(map.left, "the same left edge as the footer").toBeCloseTo(footer.left, 0);
+        expect(panel.left - map.right, "the panel abuts the map").toBeCloseTo(0, 0);
+        expect(map.w / (map.w + panel.w), "the comp's 925 : 515").toBeCloseTo(925 / 1440, 2);
+        expect(map.h, "never taller than the comp's 827").toBeLessThanOrEqual(827);
+        expect(panel.h, "the panel is the map's height").toBeCloseTo(map.h, 0);
+        expect(await page.locator(`${MAP} [data-map-expand]`).count(), "expand on the map").toBe(
+          await page.locator(MAP).count(),
+        );
+      } finally {
+        await context.close();
+      }
+    });
+  }
 
   test("390: 200 tall on the page gutter, 20 under the divider and 20 over the card", async ({
     browser,

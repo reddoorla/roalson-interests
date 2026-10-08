@@ -121,7 +121,7 @@
           fallbackAlt=""
           widths={cappedWidths(data.feature_image)}
           sizes={layout === "panel"
-            ? "(min-width: 1440px) 515px, (min-width: 1024px) 36vw, (min-width: 768px) 50vw, 100vw"
+            ? "(min-width: 1440px) 458px, (min-width: 1280px) calc((100vw - 160px) * 0.358), (min-width: 1024px) calc((100vw - 64px) * 0.358), (min-width: 768px) 50vw, 100vw"
             : "(min-width: 1024px) 30vw, (min-width: 768px) 50vw, 100vw"}
           class={inCarousel ? "absolute inset-0 size-full object-cover" : "size-full object-cover"}
         />
