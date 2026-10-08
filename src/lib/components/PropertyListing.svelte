@@ -34,10 +34,12 @@
   //
   // THE MAP AND ITS PANEL (Option 1, Nicole's "Full Screen Map" frame
   // 7153:969, chosen 2026-10-06). From `lg` an active section is the map
-  // beside a panel that shows one listing at a time, 925 : 515 as drawn. The
-  // frame drew the map full bleed; Erik (2026-10-08) put the pair on the
-  // site's grid, so both sit inside the same gutters as the nav and footer. The panel is the same carousel phones have
-  // had since #14, laid out as one column: photo, bar, arrows, text.
+  // beside a panel that shows one listing at a time, split 925 : 515 as a
+  // ratio. The frame drew the map full bleed; Erik (2026-10-08) put the pair
+  // on the site's grid, inside the same gutters as the nav and footer, so at
+  // 1440 they measure about 813 and 452. The panel is the same carousel
+  // phones have had since #14, laid out as one column: photo, bar, arrows,
+  // text.
   //
   // THE MAP HOLDS STILL. Erik's list (2026-10-05): "the map constantly moving
   // in and out is a bit wonky". Outside the List view `follow` is false and
