@@ -33,9 +33,10 @@
   //   every later card reading as a panel on sand.
   //
   // THE MAP AND ITS PANEL (Option 1, Nicole's "Full Screen Map" frame
-  // 7153:969, chosen 2026-10-06). From `lg` an active section is the map,
-  // 925 of the 1440 column from its left edge, beside a 515 panel that
-  // shows one listing at a time. The panel is the same carousel phones have
+  // 7153:969, chosen 2026-10-06). From `lg` an active section is the map
+  // beside a panel that shows one listing at a time, 925 : 515 as drawn. The
+  // frame drew the map full bleed; Erik (2026-10-08) put the pair on the
+  // site's grid, so both sit inside the same gutters as the nav and footer. The panel is the same carousel phones have
   // had since #14, laid out as one column: photo, bar, arrows, text.
   //
   // THE MAP HOLDS STILL. Erik's list (2026-10-05): "the map constantly moving
@@ -82,7 +83,6 @@
   // The comp's gutters: 20 at 390, 80 at 1440 (PropertyDetail's 16 predates
   // the 390 frame being read).
   const GUTTERS = "mx-auto max-w-[1440px] px-5 sm:px-8 xl:px-20";
-  const MAP_SECTION = "mx-auto max-w-[1440px] px-5 sm:px-8 lg:px-0";
   const PANEL_GRID =
     "lg:grid-cols-[925fr_515fr] lg:[--map-height:min(57.43vw,827px,calc(100svh-var(--sticky-top)-20px))]";
   const LIST_GRID = "lg:grid-cols-[397fr_847fr] lg:gap-9 lg:[--map-height:595px]";
@@ -410,7 +410,7 @@
           style="--sticky-top: {stickyTops[i] !== undefined
             ? `${stickyTops[i]}px`
             : unmeasuredTop(i)}"
-          class="{listMode ? GUTTERS : MAP_SECTION} {points.length > 0 ? 'pt-5' : 'pt-10'} lg:grid
+          class="{GUTTERS} {points.length > 0 ? 'pt-5' : 'pt-10'} lg:grid
             {listMode ? LIST_GRID : PANEL_GRID} lg:pt-10 {last ? 'pb-[100px]' : ''}"
         >
           {#if points.length > 0}
