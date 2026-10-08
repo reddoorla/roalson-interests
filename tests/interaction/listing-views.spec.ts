@@ -179,3 +179,33 @@ test.describe("live", { tag: "@smoke" }, () => {
     await context.close();
   });
 });
+
+test.describe("the space above the footer band", () => {
+  test.use({ viewport: WIDE });
+
+  const gapBelowListing = (page: Page) =>
+    page.evaluate(() => {
+      const listing = document.querySelector("[data-listing]")!;
+      const shown = [...listing.querySelectorAll(":scope > section")].filter(
+        (s) => getComputedStyle(s).display !== "none",
+      );
+      const content = [...shown.at(-1)!.querySelectorAll("article, [data-property-map]")]
+        .map((e) => e.getBoundingClientRect())
+        .filter((r) => r.height > 0);
+      const next = listing.nextElementSibling!.getBoundingClientRect();
+      return next.top - Math.max(...content.map((r) => r.bottom));
+    });
+
+  test("every view leaves the same space under its last listing", async ({ page }) => {
+    const gaps: Record<string, number> = {};
+    for (const view of ["land", "improved", "list"]) {
+      await page.goto(`${LIVE}#${view}`);
+      await hydrated(page);
+      await expect(page.locator(`[data-listing][data-view="${view}"]`)).toBeAttached();
+      gaps[view] = await gapBelowListing(page);
+    }
+    expect(gaps.improved, "improved leaves space").toBeGreaterThan(0);
+    expect(gaps.land, "land leaves what improved does").toBeCloseTo(gaps.improved!, 0);
+    expect(gaps.list, "list leaves what improved does").toBeCloseTo(gaps.improved!, 0);
+  });
+});

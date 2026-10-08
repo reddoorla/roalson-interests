@@ -563,6 +563,15 @@ main > section.hero-band:first-child {
   --listing-pinned-top: var(--usable-top);
 }
 
+/* Land on its own, with no Past Projects after it, is the page's last
+   section, so it takes the 100px the last section carries under every other
+   view (PropertyListing gives it only to the last in the DOM, Improved). */
+[data-listing]:is([data-view="land"], :not([data-view]):has(#land:target))
+  section[data-view-section="land"]:not(:has(~ section[data-past]))
+  > :last-child {
+  @apply pb-[100px];
+}
+
 /* Land or Improved, then Past Projects: warm the seam the second section's
    strip covers under All. */
 [data-listing]:is(
