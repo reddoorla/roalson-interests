@@ -377,15 +377,10 @@ test.describe("motion on the shipped bundle", () => {
       // and its reveal over, so the bar measured is a bar a reader sees.
       await page.locator(BAND).scrollIntoViewIfNeeded();
       await expect(page.locator(CARD)).toHaveCSS("opacity", "1", { timeout: 10_000 });
-      // …and the MAP BOOTED before anything is timed (#117): the scroll opens
-      // its lazy gate, and a MapLibre parse and a WebGL context inside the
-      // sampled window starve it of frames (measured: 2 frames in 400ms).
-      await expect(page.locator(`${BAND} [data-property-map]`)).toHaveAttribute(
-        "data-map-ready",
-        "",
-        { timeout: 40_000 },
-      );
-      await expect(page.locator(`${BAND} [data-map-home-box]`)).toHaveCount(0, { timeout: 10_000 });
+      // (This case used to wait here for the band's MAP to boot as well (#117):
+      // the scroll opened its lazy gate, and a MapLibre parse and a WebGL
+      // context inside the sampled window starved it of frames, measured at 2
+      // frames in 400ms. The band has had no map since 2026-10-09.)
       const track = (await page.locator(`${CARD} [data-carousel-progress]`).boundingBox())!.width;
 
       // One frame's reading of the fill: its PAINTED width (#102: an opacity
@@ -431,11 +426,12 @@ test.describe("motion on the shipped bundle", () => {
           { card: CARD, press },
         );
 
-      // FRAMES ARE FEW HERE, AND THE ASSERTIONS ARE SHAPED FOR IT. With the
-      // map booted each turn is also a 500ms camera flight, and on headless
-      // software GL that starves the page: measured 2 to 4 frames inside the
-      // first 400ms of a handover at load 9-10. So nothing below counts
-      // frames beyond a floor. What it requires is what a snap cannot give:
+      // FRAMES ARE FEW HERE, AND THE ASSERTIONS ARE SHAPED FOR IT. While the
+      // band had a map, each turn was also a 500ms camera flight, and on
+      // headless software GL that starved the page: measured 2 to 4 frames
+      // inside the first 400ms of a handover at load 9-10. The map is gone and
+      // the shape stays, since a loaded runner starves frames too: nothing
+      // below counts frames beyond a floor. What it requires is what a snap cannot give:
       // a frame PART-WAY through the fade, painting the width being faded.
       const partWay = (frames: { opacity: number }[]) =>
         frames.filter((f) => f.opacity > 0.05 && f.opacity < 0.95);
@@ -797,11 +793,9 @@ test.describe("motion on the shipped bundle", () => {
         const presses = wraps ? Array<string>(count - 1).fill("Next slide") : ["Previous slide"];
         await page.mouse.move(2, 2);
         await page.locator(BAND).scrollIntoViewIfNeeded();
-        await expect(page.locator(`${BAND} [data-property-map]`)).toHaveAttribute(
-          "data-map-ready",
-          "",
-          { timeout: 40_000 },
-        );
+        // On screen and its reveal over. (It waited for the band's map to boot
+        // here until the map went, 2026-10-09.)
+        await expect(page.locator(CARD)).toHaveCSS("opacity", "1", { timeout: 10_000 });
         // IN THE PAGE, every frame: the next clock turn, 2s, the presses
         // (400ms apart, so the ones between leave while they still show),
         // then the photo brought back across its whole drift.

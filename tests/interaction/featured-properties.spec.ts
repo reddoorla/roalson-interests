@@ -9,7 +9,6 @@ import {
 } from "./featured-dwell";
 import { measuresGutter, viewportFor } from "./gutter";
 import { HYDRATION_TIMEOUT } from "./hydrated";
-import { DARK, SAND } from "./palette";
 import { axe } from "./axe";
 
 // The homepage's featured band (src/lib/slices/FeaturedProperties) is the
@@ -27,6 +26,12 @@ import { axe } from "./axe";
 //     (operator call, 2026-09-23);
 //  3. turning a slide never drops keyboard focus on <body> (#34);
 //  4. ONE listing is a card and NONE is no band at all.
+//
+// SINCE 2026-10-09 THE BAND HAS NO MAP (Erik: "lose map entirely"), and its
+// heading is no longer the card's eyebrow: it is an H2 in its own element
+// (`[data-featured-heading]`) in the column the map left, and the chrome holds
+// only the controls. The cases that measured the map or the eyebrow in the
+// chrome went or were rewritten with it.
 //
 // House rules, paid for in nav.spec.ts and footer.spec.ts: no x derived from
 // the window (the page lays out a scrollbar gutter narrower than its viewport:
@@ -53,7 +58,8 @@ const DISSOLVE = FEATURED_DISSOLVE;
  *  patient the wait is, and being patient costs a green run nothing. Raised
  *  from `DWELL + 2000` when the homepage band gained its map (#13, #103): a
  *  426 KB MapLibre boot lands inside the first dwell on a cold dev server and
- *  pushed one turn past 6s, which read as "the carousel never turned". */
+ *  pushed one turn past 6s, which read as "the carousel never turned". The map
+ *  went on 2026-10-09; the ceiling stays, for the reason above. */
 const TURN_CEILING = DWELL + DISSOLVE + 6000;
 /** The off-diagonal under which Firefox's WebRender takes a transform for a
  *  plain scale — `NEARLY_ZERO` in `ScaleOffset::from_transform`
@@ -65,10 +71,6 @@ const NEARLY_ZERO = 1 / 4096;
  *  Chromium's six serialized digits cost (~1e-7), well under what a tilt
  *  interpolated to or from 0 is off by a second into a dwell (~0.0025). */
 const ANGLE_SLACK = 5e-6;
-/** Half the leading the ramp trims off `t-h4` (25.2 line, 9 cap box). The comp
- *  measures from the CAP box, CSS from the line box. */
-const H4_TRIM = 8.1;
-
 /** Every width in this file is the layout width the comp is drawn at, and
  *  `viewportFor` (./gutter.ts) turns it into the viewport that produces it.
  *  Asked for 1440 directly under a classic 15px scrollbar, the card measures
@@ -112,22 +114,17 @@ const holdClock = async (page: Page) => {
 
 const status = (page: Page) => page.locator(`${CARD} [aria-live]`);
 
-/** THE MAP BOOTS BEFORE THE CLOCK IS TIMED (#117). The band's map sits below
- *  the fold and boots once half of it is on screen, and the first press on
- *  the card scrolls it there — Playwright scrolls before it clicks — so a
- *  426 KB parse and a WebGL context start with that press. Measured at 4x CPU
- *  throttle, the engine's first request goes out 8-37ms AFTER the pointerdown:
- *  not ahead of the press, as #117 first read it, but inside whatever the case
- *  times next. Scroll to it, and wait for the canvas to be up and the picture
- *  under it gone (the axe case below has the long form), before timing
- *  anything. */
-async function mapBooted(page: Page) {
+/** THE BAND IS ON SCREEN, AND ITS REVEAL OVER, BEFORE THE CLOCK IS TIMED.
+ *  The first press on the card scrolls it into view — Playwright scrolls
+ *  before it clicks — and that scroll starts whatever the band does on
+ *  arrival inside whatever the case times next. Until 2026-10-09 that was the
+ *  band's map booting (#117: a 426 KB parse and a WebGL context, whose first
+ *  request went out 8-37ms AFTER the pointerdown at 4x CPU throttle), and this
+ *  helper waited for it. The map is gone; the scroll still starts the card's
+ *  reveal, so that is what is waited out now. */
+async function bandInView(page: Page) {
   await page.locator(BAND).scrollIntoViewIfNeeded();
-  await expect(
-    page.locator(`${BAND} [data-property-map]`),
-    "the band's map never finished booting",
-  ).toHaveAttribute("data-map-ready", "", { timeout: 40_000 });
-  await expect(page.locator(`${BAND} [data-map-home-box]`)).toHaveCount(0, { timeout: 10_000 });
+  await revealed(page.locator(CARD));
 }
 
 /** Presses Pause EARLY in a dwell: after a clock turn, once the handover is
@@ -249,21 +246,6 @@ type AxeRule = {
   nodes: { html: string; target: unknown[]; any?: { data?: unknown }[] }[];
 };
 
-/** How many of the elements matching `selector` axe PASSED for `rule` — read
- *  off each node's own target, because axe abbreviates a long `html`
- *  mid-attribute (`data-map-home-cluste...="2"`), so a substring can miss. */
-const passedOn = (page: Page, results: { passes: AxeRule[] }, rule: string, selector: string) =>
-  page.evaluate(
-    ({ targets, selector }) =>
-      targets.filter((t) => document.querySelector(t)?.matches(selector)).length,
-    {
-      targets: (results.passes.find((r) => r.id === rule)?.nodes ?? []).map((n) =>
-        String(n.target[0]),
-      ),
-      selector,
-    },
-  );
-
 /** Which slides are on stage, by title — read off `inert`, the thing that
  *  actually takes a slide out of the tab order. */
 const onStage = (page: Page) =>
@@ -320,7 +302,9 @@ const stampTurns = (page: Page) =>
   }, CARD);
 
 /** Every box relative to the CARD's own top-left — the comp's card-relative
- *  table (home-featured-properties §3) — never to the window. */
+ *  table (home-featured-properties §3) — never to the window. The band's
+ *  heading is outside the card since 2026-10-09, and is read in the same frame
+ *  of reference, so where it sits is said relative to the card too. */
 const geometry = (page: Page) =>
   page.evaluate(
     ({ CARD, BAND }) => {
@@ -341,30 +325,18 @@ const geometry = (page: Page) =>
       const active = [...card.querySelectorAll("[data-featured-slide]")].find(
         (s) => !s.hasAttribute("inert"),
       )!;
-      const slot = document.querySelector(`${BAND} [data-map-slot]`)!;
       return {
         card: { width: C.width, height: C.height },
         photo: rel(active.querySelector("img")!.parentElement)!,
         bar: rel(card.querySelector("[data-carousel-progress]")),
-        eyebrow: rel(card.querySelector("h2"))!,
+        heading: rel(document.querySelector(`${BAND} [data-featured-heading] h2`))!,
+        /** Any h2 still inside the card: the eyebrow's old place. */
+        headingsInCard: card.querySelectorAll("h2").length,
         controls: rel(card.querySelector("[data-featured-controls]")),
         text: rel(active.querySelector("h3")!.parentElement!.parentElement)!,
         sizeLine: rel(active.querySelector("p.t-h4"))!,
         button: rel(active.querySelector("a"))!,
         portfolio: rel(card.querySelector("[data-featured-portfolio]")),
-        slot: {
-          display: getComputedStyle(slot).display,
-          right: slot.getBoundingClientRect().right - C.left,
-          width: slot.getBoundingClientRect().width,
-          background: getComputedStyle(slot).backgroundColor,
-        },
-        // The child of the slot, which is the element that actually paints the
-        // column before the tiles arrive. Reading only the slot's background
-        // is what let a sand rectangle ship over the band's #3d0707.
-        map: {
-          background: getComputedStyle(slot.firstElementChild!).backgroundColor,
-          width: slot.firstElementChild!.getBoundingClientRect().width,
-        },
         // Positive means content wider than the box, which is the defect.
         // It reads minus the gutter even when nothing overflows: `clientWidth`
         // reports the viewport while the page lays out inside the gutter.
@@ -401,12 +373,11 @@ test.describe("where the comp draws it", () => {
       expect(g.card.width - g.bar!.right).toBeCloseTo(20, 0);
       expect(g.bar!.height).toBeCloseTo(2, 1);
 
-      // The eyebrow and the listing's size line share a cap line (comp y=584):
-      // the chrome is BESIDE the text, not under it.
-      expect(g.eyebrow.top).toBeCloseTo(g.sizeLine.top, 0);
-      expect(g.eyebrow.top + H4_TRIM - g.bar!.bottom).toBeCloseTo(20, 0);
-      expect(g.eyebrow.left).toBeCloseTo(20, 0);
-      expect(g.eyebrow.right).toBeLessThan(g.text.left);
+      // The eyebrow that shared the size line's cap line here (comp y=584) left
+      // the chrome on 2026-10-09: the band's heading is outside the card now,
+      // in the column the map left, and the chrome is the controls alone.
+      expect(g.headingsInCard, "no heading left in the card's chrome").toBe(0);
+      expect(g.heading.right, "the heading is beside the card, not in it").toBeLessThan(0);
 
       // arrows: pinned 43 above the card's foot, in the left column, 40 tall
       expect(g.card.height - g.controls!.bottom).toBeCloseTo(43, 0);
@@ -450,23 +421,14 @@ test.describe("where the comp draws it", () => {
           { message: `card vs the footer headline's left edge at ${width}` },
         )
         .toBeLessThanOrEqual(1);
-      // …and the map's column is the rest of the band, flush against the card.
+      // …and the heading is in the column the map left (2026-10-09): the
+      // site's left column, the footer headline's gap to the right of it, then
+      // the card. It used to be the map's column, flush against the card.
       const g = await geometry(page);
-      expect(g.slot.display, `${width}`).toBe("block");
-      expect(g.slot.right, `${width}`).toBeCloseTo(0, 0);
-      expect(g.slot.width, `${width}`).toBeGreaterThan(300);
+      expect(g.heading.right, `${width}: the column gap to the card`).toBeCloseTo(-36, 0);
+      expect(g.heading.top, `${width}: beside the card, not above it`).toBeGreaterThanOrEqual(0);
+      expect(g.heading.bottom, `${width}: beside the card`).toBeLessThan(g.card.height);
       expect(g.overflowX, `${width}`).toBeLessThanOrEqual(0);
-
-      // THE GROUND, READ OFF THE ELEMENT THAT ACTUALLY PAINTS. The slot is
-      // transparent and always was — and that is not the claim worth making,
-      // because the slot is transparent whatever its child does. The first
-      // version of this asserted only the slot and passed while PropertyMap's
-      // own root filled the whole column with hard-coded SAND over the band's
-      // #3d0707. Until the tiles arrive the map IS its ground plus a list of
-      // links, so the ground is the child's, and it is the child that is read.
-      expect(g.slot.background, `${width}: the slot itself`).toBe("rgba(0, 0, 0, 0)");
-      expect(g.map.background, `${width}: what the visitor sees before tiles`).toBe(DARK);
-      expect(g.map.background, `${width}: sand over the dark band`).not.toBe(SAND);
     }
   });
 
@@ -516,7 +478,7 @@ test.describe("where the comp draws it", () => {
     }
   });
 
-  test("390: map, photo, bar, eyebrow, controls, text", async ({ browser }) => {
+  test("390: heading, then the card — photo, bar, controls, text", async ({ browser }) => {
     const { context, page } = await moving(browser, viewportFor(390, 844));
     try {
       await page.goto(HOME);
@@ -525,25 +487,19 @@ test.describe("where the comp draws it", () => {
       await holdClock(page);
       const g = await geometry(page);
 
-      // WAS `toBe("none")`, with the title "and no map box". The comp does
-      // draw one at 390 — 390 x 200, full bleed, the first thing in the band —
-      // and #13 built it; the old assertion was a reading of the comp that
-      // re-reading it overturned. Everything the map does with that box is
-      // measured in tests/interaction/property-map.spec.ts; what belongs here
-      // is only that it is drawn and that it did not move the card's anatomy,
-      // which is what every line below this one is about.
-      expect(g.slot.display).toBe("block");
+      // Below lg the band is one column: the heading (2026-10-09, where a
+      // 390 x 200 map was the first thing in the band until then), then the
+      // card. The heading is on the band's own ground, ABOVE the card.
+      expect(g.heading.bottom, "the heading is above the card").toBeLessThan(0);
+      expect(g.headingsInCard, "and not in it").toBe(0);
       expect(g.photo.width / g.photo.height).toBeCloseTo(390 / 227.8, 2);
       expect(g.bar!.top - g.photo.bottom).toBeCloseTo(20, 0);
-      // comp: 10 between the bar and the chrome row at 390 (20 at 1440); the
-      // eyebrow's CAP top starts it.
-      expect(g.eyebrow.top + H4_TRIM - g.bar!.bottom).toBeCloseTo(10, 0);
-      // Pause, the arrows and SEE ALL (2026-10-01) are 238, wider than a
-      // phone's column can share with "PROPERTIES": the eyebrow takes one line
-      // and the controls the row under it, on the panel's 20.
-      expect(g.eyebrow.height - 2 * H4_TRIM, "one line").toBeLessThan(15);
-      expect(g.controls!.top).toBeGreaterThanOrEqual(g.eyebrow.bottom - H4_TRIM);
-      expect(g.controls!.left).toBeCloseTo(20, 0);
+      // comp: 10 between the bar and the chrome row at 390 (20 at 1440). The
+      // row starts with the controls now, not with the eyebrow's cap top.
+      expect(g.controls!.top - g.bar!.bottom).toBeCloseTo(10, 0);
+      // The chrome holds only the controls, justified to the END of the row
+      // (2026-10-09); they sat on the left under the eyebrow until then.
+      expect(g.card.width - g.controls!.right, "on the panel's 20, at the end").toBeCloseTo(20, 0);
       // three 40px circles, SEE ALL, and 10 between each
       expect(g.controls!.width).toBeCloseTo(150 + g.portfolio!.width, 0);
       // text 20 under the row
@@ -554,12 +510,14 @@ test.describe("where the comp draws it", () => {
     }
   });
 
-  test("at 360 and 320 the controls take their own row under the eyebrow; nothing collides", async ({
+  test("at 360 and 320 the controls and the heading fit their column; nothing collides", async ({
     browser,
   }) => {
-    // With SEE ALL the controls are 238 (2026-10-01): on every phone the
-    // eyebrow takes one line and the controls the row under it, rather than
-    // running "PROPERTIES" under the arrows.
+    // With SEE ALL the controls are 238 (2026-10-01). On every phone the
+    // eyebrow used to take one line and the controls the row under it; since
+    // 2026-10-09 the heading is above the card, the controls have the row to
+    // themselves, and what is left to hold is that neither runs out of its
+    // column.
     for (const width of [360, 320]) {
       const { context, page } = await moving(browser, viewportFor(width, 780));
       try {
@@ -568,21 +526,20 @@ test.describe("where the comp draws it", () => {
         await page.locator(BAND).scrollIntoViewIfNeeded();
         await holdClock(page);
         const g = await geometry(page);
-        const inked = await page.locator(`${CARD} h2`).evaluate((h) => {
+        // The heading's INK, line by line: a word too long for the column
+        // overflows its box without widening it.
+        const inked = await page.locator(`${BAND} [data-featured-heading] h2`).evaluate((h) => {
           const r = document.createRange();
           r.selectNodeContents(h);
-          const C = h.closest("[data-featured-card]")!.getBoundingClientRect();
+          const C = document.querySelector("[data-featured-card]")!.getBoundingClientRect();
           return Math.max(...[...r.getClientRects()].map((l) => l.right)) - C.left;
         });
         expect(g.controls!.width, `${width}`).toBeCloseTo(150 + g.portfolio!.width, 0);
-        expect(g.controls!.top, `${width}: under the eyebrow`).toBeGreaterThanOrEqual(
-          g.eyebrow.bottom - H4_TRIM,
-        );
-        expect(g.controls!.left, `${width}`).toBeCloseTo(20, 0);
+        expect(g.controls!.left, `${width}: inside the column`).toBeGreaterThanOrEqual(20);
         expect(g.controls!.right, `${width}: inside the column`).toBeLessThanOrEqual(
           g.card.width - 20,
         );
-        expect(inked, `${width}: the eyebrow inside the column`).toBeLessThanOrEqual(
+        expect(inked, `${width}: the heading inside the column`).toBeLessThanOrEqual(
           g.card.width - 20,
         );
         expect(g.text.top - g.controls!.bottom, `${width}`).toBeCloseTo(20, 0);
@@ -722,7 +679,7 @@ test.describe("rotation", () => {
 
   test("Pause holds the slide AND the bar; Play starts them again", async ({ browser }) => {
     // 60s: the wait below is the rest of a dwell pressed EARLY in it, ~8s,
-    // after a map boot and a turn (#117). It was late in the dwell, to keep
+    // after the scroll to the band and a turn (#117). It was late in the dwell, to keep
     // that wait short, and that is what left the press no room.
     test.setTimeout(60_000);
     const { context, page } = await moving(browser);
@@ -730,7 +687,7 @@ test.describe("rotation", () => {
       await page.goto(HOME);
       await adopted(page);
       await pointerAway(page);
-      await mapBooted(page);
+      await bandInView(page);
       await pauseEarlyInADwell(page);
 
       // WHAT IS HELD is read off the page once the press has landed, never
@@ -969,11 +926,11 @@ test.describe("rotation", () => {
     // The a11y gate runs under reduced motion, where there is no Pause — so the
     // rotating state is audited here or nowhere.
     //
-    // 60s, NOT THE DEFAULT 30. This case now waits for the band's map to finish
-    // booting (see below), which is a 426 KB engine parse, a WebGL context, a
-    // style fetch and a first tile. Measured on this machine at load average
-    // 6.05: 7.0s for the whole case warm. The headroom is for a cold CI runner;
-    // the wait itself is on positive evidence, so it is never a fixed sleep.
+    // Until 2026-10-09 this audit also waited for the band's map to boot and
+    // hand over, and asserted axe had measured its OpenStreetMap credit (an
+    // opaque chip, 9.38:1). The map is gone, and with it that half: the credit
+    // is measured on /properties (property-map.spec.ts), and the 60s it took is
+    // kept as headroom for a cold runner.
     test.setTimeout(60_000);
     const { context, page } = await moving(browser);
     try {
@@ -994,124 +951,18 @@ test.describe("rotation", () => {
       await page.getByRole("button", { name: "Pause slides" }).click();
       await expect(page.getByRole("button", { name: "Play slides" })).toBeVisible();
 
-      // THE MAP IS IN THIS RUN, AND THE EXCLUSION THAT USED TO TAKE IT OUT WAS
-      // BOTH WRONGLY EXPLAINED AND HARMFUL. It read: "a cluster marker draws
-      // its count in sand on garnet ON TOP OF A CANVAS, and axe cannot see
-      // through a canvas". The homepage band has three slides and
-      // `clusterPoints` never groups three pins that far apart — measured on
-      // /dev/home: clusters 0, pins 3 — so the stated cause cannot occur on
-      // the page the exclusion was written for. What axe actually could not
-      // measure was the ATTRIBUTION: `.maplibregl-ctrl-attrib-inner` and its
-      // three links, "Element's background color could not be determined
-      // because element contains an image node", because the chip was
-      // translucent over the canvas. (Recorded here as "88% sand", which was
-      // wrong in a way nobody could see from this file: the chip was never
-      // sand at ANY alpha. Our rule had lost a specificity tie to maplibre's
-      // own, so the measured value was its `rgba(255, 255, 255, 0.5)`. See
-      // PropertyMap.svelte, and the note on the credit assertion below.)
-      //
-      // Excluding the map's whole subtree therefore silenced axe over the
-      // OpenStreetMap credit — which this component argues is a LICENCE
-      // CONDITION and not a style choice, so it is the last thing that should
-      // go unmeasured. Nothing is excluded here.
-      //
-      // AND THE AUDIT WAITS FOR THE MAP, which is the whole of this case's
-      // 2026-09-22 correction. What stood here asserted that MapLibre "never
-      // boots" on this band because the map slot's top is y=1007 against a 900
-      // viewport (921 since the revised hero, 2026-09-28) — true at REST, and
-      // false three lines after the scroll this very test performs. Measured
-      // at 1455x900 right after `scrollIntoViewIfNeeded()`: scrollY 922, slot
-      // top 85, slot height 831, 815px of it on screen — and, re-measured on
-      // 2026-09-28 with the revised hero, scrollY 834, slot top 87, slot height
-      // 826.4, 813px on screen. PropertyMap's lazy gate wants half of
-      // `min(826.4, 900)` = 413.2px. It opens every time. Whether MapLibre then
-      // finished before `analyze()` ran was a RACE, and the audit asserted on
-      // the losing side of it: the listing links go `sr-only` at
-      // `data-map-ready`, and axe does not measure contrast on visually hidden
-      // text. CI called it flaky at e59970f — it passed on retry — which is
-      // what a race looks like from outside.
-      //
-      // So the state is made determinate the way this repo makes every other
-      // one determinate: wait for the positive artefact. `data-map-ready` is
-      // set by MapLibre's own `load`, so past this line there is a canvas, an
-      // attribution control and cluster markers, on every run.
-      //
-      // THE COST, SAID OUT LOUD: this audits the BOOTED state, so the band's
-      // pre-boot state — what every visitor sees for as long as 426 KB takes,
-      // and for good without WebGL — is not audited here. It never was
-      // deterministically; the old line reached it by winning a race. It has
-      // its own cases now, just below (#125), and since #122 it is the picture
-      // of MAP_HOME rather than the link list. The CLOCK cases in this block
-      // boot the map before they time anything (#117).
-      await expect(
-        page.locator("[data-property-map]").first(),
-        "the band's map never finished booting, so this audit has no map in it",
-      ).toHaveAttribute("data-map-ready", "", { timeout: 40_000 });
-      // …AND FOR THE HAND-OVER (#122). `data-map-ready` is MapLibre's `load`,
-      // which is where the canvas STARTS coming up over the fixed-frame
-      // picture — MAP_HOME_FADE_MS of `transition-opacity` on the canvas host,
-      // with the picture opaque beneath it. Auditing inside that window put
-      // the whole canvas subtree under an ancestor at partial opacity, and axe
-      // answers `color-contrast` with an incomplete rather than a ratio for
-      // everything in it: this case found ZERO openstreetmap.org nodes among
-      // the passes, on a chip whose measured colour is fine. The picture being
-      // GONE is the positive evidence that the canvas is fully opaque, so it
-      // is what the audit waits for rather than a sleep.
-      await expect(
-        page.locator("[data-map-home-box]"),
-        "the picture never handed over, so the canvas is still mid-fade",
-      ).toHaveCount(0, { timeout: 10_000 });
-
       const results = await axe(page).include(BAND).analyze();
       expect(results.violations.map((v) => `${v.id}: ${v.nodes.length}`)).toEqual([]);
       // Positive evidence that axe looked at the controls at all.
       expect(results.passes.map((p) => p.id)).toContain("button-name");
-
-      // …and that it measured the MAP'S OWN TEXT, which is what the exclusion
-      // was really hiding — and it is now the ATTRIBUTION, by name, which is a
-      // STRONGER claim than the one this line used to make and not a weaker
-      // one. The old assertion read the server-rendered listing links, which
-      // exist only in the seconds before the engine lands; the credit line is
-      // what a reader actually has in front of them, it is the licence
-      // condition, and it is the exact text the old blanket exclusion hid.
-      //
-      // WAITING FOR THE MAP IS WHAT FOUND THE DEFECT UNDER IT. With the boot
-      // allowed to finish, axe answered `color-contrast` with THREE
-      // `imgNode` incompletes — `.maplibregl-ctrl-attrib-inner` and both
-      // licence links, "background color could not be determined because
-      // element contains an image node" — i.e. precisely the symptom
-      // PropertyMap's <style> claims to have cured by painting the chip
-      // opaque. It had not: `[data-property-map] .maplibregl-ctrl-attrib` is
-      // specificity (0,2,0) and ties maplibre's own
-      // `.maplibregl-ctrl.maplibregl-ctrl-attrib`, which is injected later and
-      // won. Measured `rgba(255, 255, 255, 0.5)` on /dev/home and
-      // /dev/properties alike. Fixed in PropertyMap.svelte by naming
-      // `.maplibregl-ctrl` too, (0,3,0); the chip now computes
-      // `rgb(232, 225, 209)` and axe reads the OpenStreetMap credit at
-      // **8.86:1**, against the 8.87 that component predicted. (That was the
-      // sand of the time; since 2026-09-28 the chip is `rgb(234, 231, 228)`
-      // and the pair is 9.38:1 by app.css's table.)
-      const contrast = results.passes.find((p) => p.id === "color-contrast");
-      const credit = contrast?.nodes.filter((n) => n.html.includes("openstreetmap.org")) ?? [];
-      expect(
-        credit.length,
-        "axe measured the map's OpenStreetMap credit, rather than skipping the map",
-      ).toBeGreaterThan(0);
-      // The ratio itself, not merely that a ratio exists: an opaque chip is the
-      // only thing that gives this number, and a regression to a translucent
-      // one takes it back to `incomplete` rather than to a lower figure.
-      expect(
-        (credit[0]?.any?.[0]?.data as { contrastRatio?: number } | undefined)?.contrastRatio,
-        "the credit's measured ratio",
-      ).toBeGreaterThan(4.5);
 
       // AND THAT IT COULD MEASURE THE CARD'S TEXT. A violation count of zero
       // is not a contrast result: axe answers `color-contrast` with
       // "incomplete — bgOverlap" for anything it thinks something else is
       // painted over, and an off-stage slide left at opacity 0 covers the whole
       // card. Measured on this band before the fix: 1 node passed and 6 were
-      // incomplete at 1440 (the h2, the size line, the h3, both bullets and
-      // LEARN MORE). Incomplete is not a pass — so the assertion is that
+      // incomplete at 1440 (the h2 — the eyebrow, in the card then — the size
+      // line, the h3, both bullets and LEARN MORE). Incomplete is not a pass — so the assertion is that
       // nothing in the band is incomplete FOR CONTRAST, and that the ratios
       // axe did compute cover the card's own words.
       const incomplete = results.incomplete.find((r) => r.id === "color-contrast");
@@ -1133,73 +984,16 @@ test.describe("rotation", () => {
     }
   });
 
-  test("before the engine: the band's map is its picture, and axe passes it — refused, not late", async ({
-    browser,
-  }) => {
-    // THE PRE-BOOT STATE, AUDITED ON PURPOSE (#125). The case above waits the
-    // boot OUT; this one takes it away, so there is no race in either
-    // direction: the engine's module is refused at the network, the lazy gate
-    // still opens on the scroll, and the import that follows fails. Since #122
-    // what a visitor has in that state is the committed picture of MAP_HOME
-    // with the listings' pins over it, and the list under it `sr-only` — not
-    // the visible list this issue was first written about (that state is the
-    // next case's).
-    test.setTimeout(60_000);
-    const { context, page } = await moving(browser);
-    try {
-      await page.route(/map-engine|maplibre/, (route) => route.abort());
-      const refused = page.waitForEvent("requestfailed", (r) => /map-engine/.test(r.url()));
-      await page.goto(HOME);
-      await adopted(page);
-      await settledForAudit(page, page.locator(CARD));
-      // Positive evidence the boot was ATTEMPTED and refused, rather than the
-      // gate simply never having opened.
-      await refused;
-      await page.getByRole("button", { name: "Pause slides" }).click();
-      await expect(page.getByRole("button", { name: "Play slides" })).toBeVisible();
-
-      const map = page.locator(`${BAND} [data-property-map]`);
-      await expect(map).not.toHaveAttribute("data-map-ready", "");
-      await expect(map.locator("[data-map-home-box]"), "the picture is drawn").toBeVisible();
-      const pins = map.locator('[data-map-home-frame="full"] [data-map-home-pin]');
-      expect(await pins.count(), "with the listings' pins on it").toBeGreaterThan(0);
-      for (const link of await map.locator("[data-map-link]").all())
-        await expect(link).toHaveClass(/\bsr-only\b/);
-
-      const results = await axe(page).include(BAND).analyze();
-      expect(results.violations.map((v) => `${v.id}: ${v.nodes.length}`)).toEqual([]);
-      const { measured, unmeasured } = contrastOf(results);
-      expect(
-        unmeasured.map((n) => n.html.slice(0, 60)),
-        "axe could not measure these",
-      ).toEqual([]);
-      expect(measured.length, "every text node in the card").toBeGreaterThanOrEqual(6);
-      // WHAT AXE LOOKED AT IN THE MAP, by name. The picture's text is the
-      // list, which is `sr-only`, so there is no contrast in it to measure;
-      // what can go wrong is the pins — links a pointer can press, hidden from
-      // the accessibility tree — and the list's names. The picture is hidden
-      // as ONE subtree, so axe reports its root and checks every pin in it.
-      expect(
-        await passedOn(page, results, "aria-hidden-focus", "[data-map-home-box]"),
-        "the hidden picture, pins and all, was checked for a tab stop",
-      ).toBe(1);
-      expect(
-        await passedOn(page, results, "link-name", "[data-map-link]"),
-        "every listing link was checked for a name",
-      ).toBe(await map.locator("[data-map-link]").count());
-    } finally {
-      await context.close();
-    }
-  });
-
   test("…and where no listing is inside the opening frame, the LIST is the map — axe measures it on both grounds", async ({
     page,
   }) => {
     // The other pre-boot state (#125): `homeFrames` is null, so no picture is
     // drawn and the links are what a sighted visitor reads — on the band's
-    // #3d0707 as on a section's sand. /dev/home cannot reach it (every
-    // featured listing is inside MAP_HOME), so /dev/a11y-fixtures draws one
-    // box per ground with `engine="off"`: nothing to race at all.
+    // #3d0707 as on a section's sand. /dev/home could not reach it (every
+    // featured listing was inside MAP_HOME), so /dev/a11y-fixtures draws one
+    // box per ground with `engine="off"`: nothing to race at all. (The band
+    // itself has drawn no map since 2026-10-09; the component's garnet ground
+    // is still the fixture's.)
     await page.goto("/dev/a11y-fixtures");
     for (const tone of ["garnet", "cream"]) {
       const selector = `[data-property-map]:has([aria-label="Beyond the opening frame, ${tone} listings"])`;
@@ -1899,7 +1693,8 @@ test.describe("motion", () => {
     //
     // BOTH DIRECTIONS, because they are not the same window. Next from slide 1
     // puts the incoming slide LATER in the DOM, so it paints over the leaving
-    // one and axe measured 7 of 7. Previous puts it EARLIER, so the leaving
+    // one and axe measured 7 of 7 (the eyebrow was the card's seventh then).
+    // Previous puts it EARLIER, so the leaving
     // slide — words at opacity 0, still `visible` — painted over the words on
     // stage, and axe measured 2 and answered `bgOverlap` for the size line,
     // the title, both bullets and LEARN MORE. The clock meets the same order
@@ -1933,9 +1728,10 @@ test.describe("motion", () => {
           unmeasured.map((n) => n.html.slice(0, 60)),
           `${when}: axe could not measure these`,
         ).toEqual([]);
-        // The seven: the eyebrow, the size line, the title, two bullets,
-        // LEARN MORE and the portfolio button.
-        expect(measured.length, `${when}: text nodes measured with a ratio`).toBe(7);
+        // The six: the size line, the title, two bullets, LEARN MORE and the
+        // portfolio button. (Seven until 2026-10-09, with the eyebrow: the
+        // band's heading is outside the card now, and this audit is the card.)
+        expect(measured.length, `${when}: text nodes measured with a ratio`).toBe(6);
         expect(
           measured.some((n) => n.html.includes(title)),
           `${when}: the slide on stage's own title was among them`,
@@ -2383,7 +2179,7 @@ test.describe("motion", () => {
       await page.goto(HOME);
       await adopted(page);
       await pointerAway(page);
-      await mapBooted(page);
+      await bandInView(page);
 
       const { frames, origin, timing, turnTls } = await recordTwoTurns(page, DISSOLVE + 300);
       expect(origin, "the incoming photo's transition started").not.toBeNull();
@@ -2607,7 +2403,7 @@ test.describe("motion", () => {
       await page.goto(HOME);
       await adopted(page);
       await pointerAway(page);
-      await mapBooted(page);
+      await bandInView(page);
       await pauseEarlyInADwell(page);
 
       const frozenScale = (await photoScale(page))!;
@@ -2695,7 +2491,7 @@ test.describe("motion", () => {
       await page.goto(HOME);
       await adopted(page);
       await pointerAway(page);
-      await mapBooted(page);
+      await bandInView(page);
       await page.getByRole("button", { name: "Next slide" }).click();
       await pointerAway(page);
       await expect(page.getByRole("button", { name: "Play slides" })).toBeVisible();
@@ -3317,7 +3113,7 @@ test.describe("the portfolio button", () => {
         await expect(all).toHaveCSS("border-radius", "0px");
         expect(a!.y, `${at}: on the arrows' line`).toBeCloseTo(n!.y, 0);
         expect(a!.x - (n!.x + n!.width), `${at}: 10 after Next`).toBeCloseTo(10, 0);
-        // In the CARD, which is the card's column — never the map's.
+        // In the CARD, which is the card's column — never the heading's.
         expect(a!.x, at).toBeGreaterThan(c!.x);
         expect(a!.x + a!.width, at).toBeLessThan(c!.x + c!.width);
         const g = await geometry(page);
@@ -3345,7 +3141,7 @@ test.describe("the portfolio button", () => {
       const [c, p] = await Promise.all([card.boundingBox(), all.boundingBox()]);
       expect(c!.width, "the wrapper squeezes the card").toBeLessThan(640);
       const text = await card.evaluate((el) =>
-        [...el.querySelectorAll<HTMLElement>("h2, h3, p, li, a")]
+        [...el.querySelectorAll<HTMLElement>("h3, p, li, a")]
           .filter((n) => !n.hasAttribute("data-featured-portfolio") && n.textContent?.trim())
           .map((n) => {
             const b = n.getBoundingClientRect();
@@ -3375,15 +3171,19 @@ test.describe("the portfolio button", () => {
         unmeasured.map((n) => n.html.slice(0, 60)),
         "axe could not measure these",
       ).toEqual([]);
-      expect(measured.length + unmeasured.length, "nine and this one, on a squeezed card too").toBe(
-        10,
-      );
+      // Eight and this one: the size line, the title, five bullets, LEARN MORE
+      // and SEE ALL. It was "nine and this one" with the eyebrow in the card,
+      // until 2026-10-09.
+      expect(
+        measured.length + unmeasured.length,
+        "eight and this one, on a squeezed card too",
+      ).toBe(9);
     } finally {
       await context.close();
     }
   });
 
-  test("1440, one listing: axe measures the card's nine nodes AND this button — none incomplete", async ({
+  test("1440, one listing: axe measures the band's nine nodes AND this button — none incomplete", async ({
     browser,
   }) => {
     // THE GATE THE REMOVAL SET. As a `lg:absolute lg:inset-0` overlay this
@@ -3391,9 +3191,10 @@ test.describe("the portfolio button", () => {
     // with `bgOverlap` for the card's words: 1 node measured and 9 INCOMPLETE
     // at 1440 on the one-listing state; 9 and 0 with the button gone. An
     // incomplete is not a pass, so what is required here is that the same nine
-    // are still measured — the eyebrow, the size line, the title, five bullets
-    // and LEARN MORE — and that this button is a TENTH measurement rather than
-    // a reason nine become unmeasurable.
+    // are still measured — the band's heading (the card's eyebrow until
+    // 2026-10-09; now in its own column, on the band's ground), the size line,
+    // the title, five bullets and LEARN MORE — and that this button is a TENTH
+    // measurement rather than a reason nine become unmeasurable.
     const { context, page } = await moving(browser, viewportFor(1440));
     try {
       await page.goto(`${HOME}?featured=one`);
@@ -3405,17 +3206,10 @@ test.describe("the portfolio button", () => {
       // below are unchanged — 10 measured, 0 incomplete — which is the
       // evidence that the wait costs this case nothing.
       await settledForAudit(page, page.locator(CARD));
-      // The map's subtree is EXCLUDED rather than the audit narrowed to the
-      // card: the band's ground is part of what this measures, and the map
-      // (#13) brings text nodes of its own — the section's listings, as links.
-      // Counting them here would turn "nine and this one" into a number that
-      // moves whenever an editor adds a listing. The map's own contrast is
-      // covered on /dev/a11y-fixtures, where it is mounted with `engine="off"`
-      // so the gate never waits on a tile host.
-      const results = await axe(page)
-        .include(BAND)
-        .exclude(`${BAND} [data-property-map]`)
-        .analyze();
+      // The BAND, not the card: the heading is the band's, on its ground. (The
+      // band's map was excluded here, for the listing links it brought, until
+      // it went on 2026-10-09.)
+      const results = await axe(page).include(BAND).analyze();
       expect(results.violations.map((v) => `${v.id}: ${v.nodes.length}`)).toEqual([]);
 
       const incomplete = results.incomplete.find((r) => r.id === "color-contrast");
@@ -3429,7 +3223,7 @@ test.describe("the portfolio button", () => {
       const html = measured!.nodes.map((n) => n.html);
       expect(
         html.filter((h) => h.startsWith("<h2")),
-        "the eyebrow",
+        "the band's heading",
       ).toHaveLength(1);
       expect(
         html.filter((h) => h.startsWith("<h3")),
@@ -3489,7 +3283,7 @@ test.describe("the other states", () => {
         await expect(band).toHaveAttribute("data-featured-picked", "3");
         await expect(band).toHaveAttribute("data-featured-shown", "1");
         await expect(band.locator('[role="region"]')).toHaveCount(0);
-        // The carousel's own controls (#221): the band's map keeps its expand.
+        // The carousel's own controls (#221).
         await expect(
           band.getByRole("button", {
             name: /^(Previous slide|Next slide|Pause slides|Play slides)$/,
@@ -3501,9 +3295,9 @@ test.describe("the other states", () => {
         await expect(
           band.getByRole("link", { name: /Learn more about 25331 IH 10 West/ }),
         ).toBeVisible();
-        // The SLIDE's five bullets. The band also holds the map's list of
-        // Google Maps links (#13), which is <li>s too — an unqualified count
-        // reads six and stops being about the panel this test is measuring.
+        // The SLIDE's five bullets, scoped to the slide: the band held the
+        // map's list of Google Maps links (#13), <li>s too, until 2026-10-09,
+        // and a band-wide count would be about whatever else it holds next.
         expect(await band.locator("[data-featured-slide] li").count()).toBeGreaterThanOrEqual(5);
       } finally {
         await context.close();
@@ -3621,14 +3415,14 @@ test.describe("the other states", () => {
         "no tab stop inside the quiet controls",
       ).toBe(false);
 
-      // The eyebrow's width IS the webfont's: measured before `document.fonts`
-      // settles it reads 182 against Atkinson's 176.56, which is a font race,
-      // not a layout shift.
+      // The heading's width IS the webfont's (the eyebrow's, as it was: 182
+      // before `document.fonts` settled against Atkinson's 176.56), which is a
+      // font race, not a layout shift.
       await page.evaluate(() => document.fonts.ready);
       const quietBoxes = await geometry(page);
 
       // …and the SAME page with script gives the same boxes: reserving the
-      // space is the whole reason the controls ship at all. (The eyebrow/photo
+      // space is the whole reason the controls ship at all. (The heading/photo
       // are read from the card, never the window — house rule.)
       const { context, page: live } = await moving(browser);
       try {
@@ -3640,7 +3434,7 @@ test.describe("the other states", () => {
         ]);
         await live.evaluate(() => document.fonts.ready);
         const liveBoxes = await geometry(live);
-        for (const key of ["card", "photo", "bar", "eyebrow", "controls", "text"] as const) {
+        for (const key of ["card", "photo", "bar", "heading", "controls", "text"] as const) {
           const [before, after] = [quietBoxes[key]!, liveBoxes[key]!] as Record<string, number>[];
           for (const edge of Object.keys(before)) {
             expect(

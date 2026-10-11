@@ -963,9 +963,8 @@ describe("the zoom that is carried is one the visitor chose, on a listing", () =
 // The band passes `interactive={carousel.paused || !carousel.eligible}`; these
 // cases hold what PropertyMap does with it, on one live map whose prop the test
 // flips — `rerender` would re-boot the map and every "after" would be about a
-// new one. What the band's own rule is, and what it does to a real maplibre map
-// in a real browser, are FeaturedProperties.test.ts's and
-// tests/interaction/property-map-band-lock.spec.ts's.
+// new one. The homepage band no longer draws a map (2026-10-11), so nothing on
+// the site locks one today; `interactive` stays a prop of the component.
 describe("a map the page can lock (the homepage band's Pause and Play)", () => {
   /** The navigation handlers that are on, by name. */
   const on = (record: { nav: Record<string, { enabled: boolean }> }) =>

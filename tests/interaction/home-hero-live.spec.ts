@@ -233,7 +233,7 @@ async function glyphOnGround(page: Page, control: Locator, hide: string) {
 }
 
 /** The focus ring as drawn: the pixels that change when the control takes
- *  keyboard focus, and how far each moved (indicatorOf, property-map.spec.ts). */
+ *  keyboard focus, and how far each moved. */
 async function ringOf(page: Page, control: Locator) {
   const clip = await control.evaluate((el) => {
     const r = el.getBoundingClientRect();
