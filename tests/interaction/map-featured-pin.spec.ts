@@ -189,9 +189,10 @@ const onStage = (section: Locator) =>
   );
 
 const centre = async (page: Page, id: string) => {
-  const section = page.locator("section[aria-labelledby^='listing-']").filter({
-    has: page.locator(`[data-centre-id="${id}"]`),
-  });
+  const section = page
+    .locator("section[aria-labelledby^='listing-']")
+    .filter({ visible: true })
+    .filter({ has: page.locator(`[data-centre-id="${id}"]`) });
   await section.locator("[data-property-map]").scrollIntoViewIfNeeded();
   const next = section.getByRole("button", { name: "Next slide" });
   const count = await section.locator("[data-centre-id]").count();
@@ -273,7 +274,7 @@ test.describe("on the homepage band at 1440, the slide on stage is featured", ()
               resolve(
                 [...new Set(records.map((r) => r.target as Element))]
                   .filter((t) => t.matches(selector))
-                  .flatMap((t) => t.getAnimations())
+                  .flatMap((t) => t.getAnimations({ subtree: true }))
                   .filter((a) => "transitionProperty" in a)
                   .map((a) => ({
                     property: (a as Animation & { transitionProperty: string }).transitionProperty,
@@ -290,12 +291,9 @@ test.describe("on the homepage band at 1440, the slide on stage is featured", ()
         MARKERS,
       );
       await nextTurn(band);
-      const started = await fades;
-      expect(
-        started.filter((f) => f.property === "opacity").length,
-        "a fade started",
-      ).toBeGreaterThan(0);
-      for (const f of started.filter((f) => f.property === "opacity")) expect(f.ms).toBe(150);
+      const started = (await fades).filter((f) => /^(fill-)?opacity$/.test(f.property));
+      expect(started.length, "a fade started").toBeGreaterThan(0);
+      for (const f of started) expect(f.ms).toBe(150);
 
       await expect.poll(read, { timeout: 5_000 }).toMatchObject({ activeAt: [1], wrong: 0 });
       const after = await read();
@@ -517,7 +515,7 @@ test.describe("through the cross-fade, the picture's pins stay under the live ma
         await held;
         await route.continue();
       });
-      await page.goto(PROPERTIES);
+      await page.goto(`${PROPERTIES}#land`);
       await hydrated(page);
       const section = land(page);
       const map = section.locator(MAP);

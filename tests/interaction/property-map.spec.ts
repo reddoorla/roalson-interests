@@ -480,7 +480,7 @@ test.describe("where the comp draws it", () => {
         expect(map.h, "never taller than the comp's 827").toBeLessThanOrEqual(827);
         expect(panel.h, "the panel is the map's height").toBeCloseTo(map.h, 0);
         expect(await page.locator(`${MAP} [data-map-expand]`).count(), "expand on the map").toBe(
-          await page.locator(MAP).count(),
+          await page.locator(MAP).filter({ visible: true }).count(),
         );
       } finally {
         await context.close();
@@ -1558,7 +1558,13 @@ test.describe("the credit", () => {
   for (const { route, where, width, height, nth } of [
     { route: LIVE_HOME, where: "the homepage band", width: 1440, height: 900, nth: 0 },
     { route: LIVE_HOME, where: "the homepage band", width: 390, height: 640, nth: 0 },
-    { route: LIVE_PROPERTIES, where: "Properties' second map", width: 390, height: 844, nth: 1 },
+    {
+      route: `${LIVE_PROPERTIES}#list`,
+      where: "Properties' second map",
+      width: 390,
+      height: 844,
+      nth: 1,
+    },
   ])
     for (const motion of ["no-preference", "reduce"] as const)
       test(`${where} at ${width}, motion ${motion}: a keyboard on the picture's credit is on the live credit's same link after the hand-over`, async ({
@@ -1576,7 +1582,7 @@ test.describe("the credit", () => {
             await page.evaluate(() => matchMedia("(prefers-reduced-motion: reduce)").matches),
             "premise: the motion setting",
           ).toBe(motion === "reduce");
-          const map = page.locator(MAP).nth(nth);
+          const map = page.locator(MAP).filter({ visible: true }).nth(nth);
           await map.locator("[data-map-link]").last().focus();
           const [link, name, tabs] =
             motion === "reduce"
@@ -1590,7 +1596,7 @@ test.describe("the credit", () => {
           ).toBe(true);
           expect(await map.getAttribute("data-map-ready"), "premise: not drawn yet").toBeNull();
 
-          await drawn(page, nth);
+          await expect(map).toHaveAttribute("data-map-ready", "", { timeout: 25_000 });
           await expect(picture, "the picture's credit went with the picture").toHaveCount(0);
           const live = map.locator(".maplibregl-ctrl-attrib");
           expect(
@@ -2067,29 +2073,27 @@ test.describe("the engine, and what it costs", () => {
     ] as const) {
       const { context, page } = await at(browser, width, width === 1440 ? 900 : 844);
       try {
-        await page.goto(PROPERTIES);
+        await page.goto(`${PROPERTIES}#land`);
         await hydrated(page);
-        await page.locator(MAP).first().scrollIntoViewIfNeeded();
-        await drawn(page);
+        const map = page.locator(`section[aria-labelledby='listing-land'] ${MAP}`);
+        await map.scrollIntoViewIfNeeded();
+        await expect(map).toHaveAttribute("data-map-ready", "", { timeout: 25_000 });
 
-        const markers = await page
-          .locator(MAP)
-          .first()
-          .evaluate((box) => {
-            const pins = [...box.querySelectorAll("[data-map-pin]")].map((el) => {
-              const r = el.getBoundingClientRect();
-              const path = el.querySelector("path")!;
-              return { w: r.width, h: r.height, fill: getComputedStyle(path).fill };
-            });
-            const clusters = [...box.querySelectorAll("[data-map-cluster]")].map((el) =>
-              Number(el.getAttribute("data-map-cluster")),
-            );
-            return {
-              pins,
-              clusters,
-              hidden: box.querySelector("[data-map-pin]")?.getAttribute("aria-hidden"),
-            };
+        const markers = await map.evaluate((box) => {
+          const pins = [...box.querySelectorAll("[data-map-pin]")].map((el) => {
+            const r = el.getBoundingClientRect();
+            const path = el.querySelector("path")!;
+            return { w: r.width, h: r.height, fill: getComputedStyle(path).fill };
           });
+          const clusters = [...box.querySelectorAll("[data-map-cluster]")].map((el) =>
+            Number(el.getAttribute("data-map-cluster")),
+          );
+          return {
+            pins,
+            clusters,
+            hidden: box.querySelector("[data-map-pin]")?.getAttribute("aria-hidden"),
+          };
+        });
 
         // The fixture's land section is four listings, two of them 0.589 km
         // apart — so there is always something to measure and always at least
