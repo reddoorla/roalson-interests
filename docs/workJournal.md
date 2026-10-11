@@ -12970,3 +12970,33 @@ What round 2 called nits stays as is. The restored fade and the `scroll-mb` marg
 The operator, after List shipped (#276): "remove the all tab". List already shows every listing, so the tabs are now Land, Improved Properties and List. All survives as the view with no fragment: `/properties` opens on both sections in the Option 1 panel with no tab selected, and a visitor returns to it with Back. A page with only one active section draws no tabs at all. The rule #276 added (All and List for one section) only existed so that List was never a dead end. `#all` still resolves to All for a link that already carries it, but no tab points there now.
 
 The all-tab selected and "(selected)" rules are deleted from app.css. Four specs that pressed All to get back now use Back, which is the visitor's own way back. Adding All back to `listingViews` turns 5 unit cases red.
+
+## 2026-10-11 — Erik's pre-launch notes: Home, Properties and the listing page (#280; #281, #282 and this PR)
+
+Erik's "final website notes before launch" (Discord, 10-09 21:46Z) came in four groups. Each shipped as its own PR, and the copy changes went into one Prismic release ("Erik's pre-launch notes (2026-10-09)") for the operator to publish.
+
+**Listing page (#281).**
+
+- "View on Google Maps" is now "Aerial Map". It opens Google's documented map URL on satellite imagery, centred on the pin. That form draws no marker, and `mapsUrl` keeps the pinned search link for the map's own links.
+- The Details section is gone. Its facts follow the highlights as "Label: value" bullets, and each tract follows as "Tract N: acres, status".
+- The extra bullets made the panel taller than the photo, leaving up to 155px of page ground under it at 1024. Stretching the photo with `lg:self-stretch` alone made it take its _width_ from the stretched height: 679 wide in a 473 column at 1024 in Chromium, with 245px of it under the panel. `justify-self: normal` acts as `start` for a box with an aspect ratio, and Firefox does not show the bug. `lg:justify-self-stretch` holds it to the column. That was review round 2, and it landed on the operator's word.
+
+**Properties (#282).**
+
+- All is back, and it is not the All that #277 removed on 10-07. That one was Land stacked over Improved, the very view Erik asked to eliminate. This one is a single map holding every active listing beside one panel. It is the first tab, and it is selected on landing.
+- Land and Improved show only under their own tabs. List is unchanged.
+- Sections are dressed by their place among the sections shown together (`stackIndex`), no longer by their DOM index.
+- **Pins.** The selected pin is 1.8×: Erik's "120% of the current size" applied to the 1.5× it already was. The other reading, 1.2× of the base pin, would have made the selected pin smaller, against "the differentiation is not enough". It carries the favicon's Ri monogram in its head.
+- The other pins are 0.9×, with their fill at 0.5 and a solid garnet outline. A whole pin at 0.5 falls under WCAG 1.4.11's 3:1 against the map; 0.81 was the measured floor. The outline keeps 3:1, and `map-pin-outline.spec.ts` measures it painted. Clusters keep 0.81, because their count is text.
+
+**Home (this PR).**
+
+- The band's map is gone. Nicole's "we are losing the map now?" was a lament, not an objection (the operator, 2026-10-11).
+- "Featured Properties" left the card's chrome, where it was a `t-h4` eyebrow, for the column the map left, set in `t-h2`. Option B, a full-width card with a `t-h3` eyebrow, is screenshotted in the PR.
+- A bio's Go Back goes to `/#about`.
+- About 60 nightly and scaffold cases tested the band's map: `property-map-band-lock.spec.ts` whole, and the homepage rows of six other specs. They are deleted, and every `/properties` case stays.
+- The two `featured-band-live` motion cases that the 10-07 entry blamed on software WebGL now pass. Without a map to boot, the band gets its frames.
+
+**Past Projects: no code.** The control Erik asked for, "like a checkbox", already exists: "Show on the site as" → "Past project", built from his 09-25 note, and a Sold status does the same. The three-column grid is the comp's Sold frame. Nothing shows because no listing is marked. The operator kept the dropdown, and the reply to Erik says where it is.
+
+Not here: the listing-PDF notes Erik sends on Monday 10-12.

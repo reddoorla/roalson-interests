@@ -46,7 +46,7 @@ describe("Partners slice — the band", () => {
 
   it("sets the eyebrow as a <p> — no heading comes before the headline", () => {
     const { getByText, getAllByRole } = render(Partners, { props: { slice: partnersFixture() } });
-    expect(getByText("Our legacy").tagName).toBe("P");
+    expect(getByText("About Us").tagName).toBe("P");
     // The cards come first in the DOM, so a partner's name must not be a
     // heading: an h3 ahead of this band's h2 belongs, in the outline, to the
     // PREVIOUS band's h2. This is the only guard. axe's heading-order was tried
@@ -128,7 +128,7 @@ describe("Partners slice — the band", () => {
 describe("Partners slice — a card is its Person (#179)", () => {
   it("lists the partners under the eyebrow's name: the Person's name and role, in the editor's order", () => {
     const { getByRole } = render(Partners, { props: { slice: partnersFixture() } });
-    const list = getByRole("list", { name: "Our legacy" });
+    const list = getByRole("list", { name: "About Us" });
     const items = within(list).getAllByRole("listitem");
     expect(items).toHaveLength(2);
     expect(draws(items[0], "Matt Howard")).toBe(true);

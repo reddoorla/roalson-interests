@@ -81,7 +81,8 @@ export function homeHeroFixture(primary: Partial<HomeHeroPrimary> = {}): Content
           spans: [],
         },
       ],
-      subheading: "A placeholder for a sentence to come.",
+      subheading:
+        "Straight answers, honest advice, and a team that represents your interests, not ours. Done right for over 40 years.",
       buttons: [
         { label: "Properties", link: { link_type: "Web", url: "/properties" } },
         { label: "Contact us", link: { link_type: "Web", url: "https:///contact" } },
@@ -219,7 +220,7 @@ export function partnersFixture(primary: Partial<PartnersPrimary> = {}): Content
     variation: "default",
     version: "initial",
     primary: {
-      eyebrow: "Our legacy",
+      eyebrow: "About Us",
       heading: [
         {
           type: "heading2",

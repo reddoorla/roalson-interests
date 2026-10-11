@@ -1,7 +1,4 @@
-import { readFileSync } from "node:fs";
-
-import { expect, test, type Browser, type Locator, type Page, type Route } from "@playwright/test";
-import sharp from "sharp";
+import { expect, test, type Browser, type Page, type Route } from "@playwright/test";
 
 import { cameraAtRest, cameraProbeInstalled, watchCamera } from "./camera-probe";
 import { hydrated } from "./hydrated";
@@ -14,8 +11,8 @@ import { GARNET, SAND } from "./palette";
 //
 //  1. THE GEOMETRY. The comp's 397 x 595 panel top-aligned with the first card
 //     on a 36.0 gap; 350 x 200 twenty below the divider and twenty above the
-//     first card at 390; 512 x 827 and 390 x 200 full-bleed on the homepage
-//     band, the phone one FIRST in the band and flush on the card.
+//     first card at 390. (The homepage band drew a map too, until 2026-10-09:
+//     Erik, "lose map entirely". Its cases went with it.)
 //  2. THE PIN. S = 48 on every 1440 map, S = 22 on every 390 map, and the
 //     comp's aspect either way (an element 0.901019 S tall, because the
 //     viewBox stops at the tip).
@@ -23,7 +20,9 @@ import { GARNET, SAND } from "./palette";
 //     20.884 x 20.880 exactly 10.0 from the map's right and bottom edges,
 //     inside a 44 x 44 target (WCAG 2.5.8).
 //  4. THE LAZINESS. 426 KB of engine must not be in the first-paint path.
-//     Measured as resource timings, before and after the box comes on screen.
+//     Measured as resource timings, before and after the box comes on screen —
+//     on the homepage band, the one map that started below the fold, so that
+//     case went with the band's map on 2026-10-09 and nothing measures this now.
 //  5. THE ATTRIBUTION. OpenStreetMap data is ODbL; the comp has none anywhere
 //     and this deliberately departs from it. The evidence is the string on the
 //     page, never "no error appeared".
@@ -44,21 +43,17 @@ const HOME = "/dev/home";
 /** The live routes, for the cases that must also hold on a production build:
  *  a production build 404s every /dev/* route (#120). The control column, the
  *  credit and the licence line are measured here, since nothing about them
- *  depends on the fixture's listings — both pages open their first map on a
- *  section with pins (Land; the band's three picks).
+ *  depends on the fixture's listings — the page opens its first map on a
+ *  section with pins (Land).
  *
  *  On a production build the /dev cases need the build that serves the
  *  fixtures (VITE_REDDOOR_GATE_FIXTURES=1, #219 — the a11y gate's own flag;
- *  the preview server's build inherits it). Then every case runs but one:
- *  "is not in the first-paint path" reads the engine's chunk by NAME, which
- *  only the dev server gives it (see that case).
+ *  the preview server's build inherits it).
  *
  *    pnpm exec playwright test tests/interaction/property-map.spec.ts
  *    VITE_REDDOOR_GATE_FIXTURES=1 REDDOOR_GATE_SERVER=preview \
- *      pnpm exec playwright test tests/interaction/property-map.spec.ts \
- *      --grep-invert "first-paint path" */
+ *      pnpm exec playwright test tests/interaction/property-map.spec.ts */
 const LIVE_PROPERTIES = "/properties";
-const LIVE_HOME = "/";
 
 const MAP = "[data-property-map]";
 /** The credit's OpenStreetMap link — the licence line itself. */
@@ -152,28 +147,6 @@ const pinSize = (page: Page, nth = 0) =>
     .first()
     .getAttribute("width");
 
-/** Every link and button in the first map's pin sheet, and how many of 12
- *  points along its midline hit something else — the whole width, because
- *  the collapsed (i) covered the START of "View listing", and a hit test at
- *  the centre walks past that. */
-const sheetCovered = (page: Page) =>
-  page
-    .locator(MAP)
-    .first()
-    .evaluate((map) =>
-      [...map.querySelectorAll("[data-map-sheet] a, [data-map-sheet] button")].map((el) => {
-        const r = el.getBoundingClientRect();
-        let covered = 0;
-        for (let i = 0; i < 12; i++) {
-          const x = r.left + (r.width * (i + 0.5)) / 12;
-          const found = document.elementFromPoint(x, r.top + r.height / 2);
-          if (!found || !(found === el || el.contains(found))) covered += 1;
-        }
-        const name = (el.getAttribute("aria-label") ?? el.textContent ?? "").trim().slice(0, 14);
-        return `${name}: ${covered} of 12 covered`;
-      }),
-    );
-
 /** What has focus, for a failure message: BODY, or the element. */
 const focused = (page: Page) =>
   page.evaluate(() => {
@@ -183,131 +156,10 @@ const focused = (page: Page) =>
     return `${a.tagName} ${what}`;
   });
 
-/** What Chrome's accessibility tree says of the focused element. An
- *  `aria-hidden` pin holding focus is `button` with the name "". */
-async function focusedAx(page: Page) {
-  const cdp = await page.context().newCDPSession(page);
-  try {
-    const held = await cdp.send("Runtime.evaluate", { expression: "document.activeElement" });
-    const { nodes } = await cdp.send("Accessibility.getPartialAXTree", {
-      objectId: held.result.objectId,
-      fetchRelatives: false,
-    });
-    const node = nodes[0]!;
-    return { role: node.role?.value, name: node.name?.value ?? "", ignored: node.ignored };
-  } finally {
-    await cdp.detach();
-  }
-}
-
-const luminance = ([r, g, b]: number[]) => {
-  const f = (c: number) => {
-    const s = c / 255;
-    return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
-  };
-  return 0.2126 * f(r!) + 0.7152 * f(g!) + 0.0722 * f(b!);
-};
-
-/** Two animation frames: the state just set has been drawn. */
-const frames = (page: Page) =>
-  page.evaluate(
-    () => new Promise<void>((r) => requestAnimationFrame(() => requestAnimationFrame(() => r()))),
-  );
-
-/** A FOCUS INDICATOR, IN PIXELS: the box round `target` keyboard-focused and
- *  blurred, and every pixel that changed held against the one it covered.
- *  `:focus-visible` alone stayed true with the pin's ring deleted, and with it
- *  drawn off-white over the tiles (0 of 80 changed pixels at 3:1). A pin's
- *  own drawing is left out, since its dim lifts on focus: what is left is the
- *  ring. Shot again after focusing back; a map that changed in between (a
- *  tile landing) is shot again rather than read as a ring. So is a reading
- *  where nothing changed at all: once in a 124-case run the canvas's three
- *  shots came back identical though it passed every run alone, and a ring
- *  that is really missing reads the same five times. */
-async function indicatorOf(page: Page, target: Locator) {
-  let last: { seen: boolean; numbers: string; on: Buffer; off: Buffer; at: unknown } | null = null;
-  for (let attempt = 0; attempt < 5; attempt++) {
-    const at = await target.evaluate((el: HTMLElement) => {
-      el.focus({ preventScroll: true });
-      const box = el.closest("[data-property-map]")!.getBoundingClientRect();
-      const r = el.getBoundingClientRect();
-      const pad = 8;
-      const x = Math.max(Math.floor(r.left - pad), Math.ceil(box.left), 0);
-      const y = Math.max(Math.floor(r.top - pad), Math.ceil(box.top), 0);
-      const right = Math.min(Math.ceil(r.right + pad), Math.floor(box.right), innerWidth);
-      const bottom = Math.min(Math.ceil(r.bottom + pad), Math.floor(box.bottom), innerHeight);
-      const s = el.matches("[data-map-pin], [data-map-home-pin]")
-        ? el.querySelector("svg")!.getBoundingClientRect()
-        : null;
-      return {
-        showing: el.matches(":focus-visible"),
-        clip: { x, y, width: right - x, height: bottom - y },
-        drawing: s && {
-          l: s.left - x - 1,
-          t: s.top - y - 1,
-          r: s.right - x + 1,
-          b: s.bottom - y + 1,
-        },
-      };
-    });
-    expect(at.showing, "premise: a keyboard's focus").toBe(true);
-    await frames(page);
-    const on = await page.screenshot({ clip: at.clip, scale: "css" });
-    await target.evaluate((el: HTMLElement) => el.blur());
-    await frames(page);
-    const off = await page.screenshot({ clip: at.clip, scale: "css" });
-    await target.evaluate((el: HTMLElement) => el.focus({ preventScroll: true }));
-    await frames(page);
-    const again = await page.screenshot({ clip: at.clip, scale: "css" });
-    if (!on.equals(again)) {
-      await page.waitForTimeout(300);
-      continue;
-    }
-    const [a, b] = await Promise.all(
-      [on, off].map((png) => sharp(png).removeAlpha().raw().toBuffer({ resolveWithObject: true })),
-    );
-    const { width } = a.info;
-    const ratios: number[] = [];
-    for (let i = 0, k = 0; i < a.data.length; i += 3, k++) {
-      const p = [a.data[i]!, a.data[i + 1]!, a.data[i + 2]!];
-      const q = [b.data[i]!, b.data[i + 1]!, b.data[i + 2]!];
-      if (Math.abs(p[0]! - q[0]!) + Math.abs(p[1]! - q[1]!) + Math.abs(p[2]! - q[2]!) <= 6)
-        continue;
-      const [px, py] = [k % width, Math.floor(k / width)];
-      const d = at.drawing;
-      if (d && px >= d.l && px <= d.r && py >= d.t && py <= d.b) continue;
-      const [hi, lo] = [luminance(p), luminance(q)].sort((m, n) => n - m);
-      ratios.push((hi! + 0.05) / (lo! + 0.05));
-    }
-    ratios.sort((m, n) => m - n);
-    const atThree = ratios.filter((c) => c >= 3).length;
-    const median = ratios.length ? Math.round(ratios[ratios.length >> 1]! * 100) / 100 : 0;
-    last = {
-      /** At least 40 pixels at 3:1, and most of what changed. */
-      seen: atThree >= 40 && median >= 3,
-      numbers: `${atThree} of ${ratios.length} changed pixels at 3:1, median ${median}`,
-      on,
-      off,
-      at,
-    };
-    if (ratios.length > 0) break;
-    await page.waitForTimeout(300);
-  }
-  if (!last) throw new Error("the map never held still round the target in five attempts");
-  if (!last.seen) {
-    const name = `unseen-${Date.now()}`;
-    await test.info().attach(`${name}-focused.png`, { body: last.on, contentType: "image/png" });
-    await test.info().attach(`${name}-blurred.png`, { body: last.off, contentType: "image/png" });
-    await test.info().attach(`${name}.json`, {
-      body: JSON.stringify(last.at),
-      contentType: "application/json",
-    });
-  }
-  return { seen: last.seen, numbers: last.numbers };
-}
-
 test.describe("the no-JS state is the content, not a blank box", { tag: "@smoke" }, () => {
-  test("the server ships one Google Maps link per listing, on both pages", async ({ page }) => {
+  test("the server ships one Google Maps link per listing, and the homepage ships none", async ({
+    page,
+  }) => {
     // Asserted on the SSR bytes: the whole claim is that this is in the
     // response, not added by the client.
     //
@@ -325,8 +177,11 @@ test.describe("the no-JS state is the content, not a blank box", { tag: "@smoke"
     expect(links.length, `${PROPERTIES} server-renders a link per pin`).toBe(12);
     expect(listing).toContain("https://www.google.com/maps/search/?api=1&amp;query=");
 
-    const home = await (await page.request.get(HOME)).text();
-    expect((home.match(/data-map-link=""/g) ?? []).length).toBe(3);
+    const homeResponse = await page.request.get(HOME);
+    expect(homeResponse.ok(), `${HOME} answers`).toBe(true);
+    const home = await homeResponse.text();
+    expect(home, "premise: the band rendered with listings").toMatch(/data-featured-shown="[1-9]/);
+    expect((home.match(/data-map-link=""/g) ?? []).length, "the homepage band has no map").toBe(0);
   });
 
   test("the Past Projects section gets no map, as the comp says of Sold", async ({ page }) => {
@@ -406,7 +261,6 @@ test.describe("with scripting off the picture carries the whole credit", () => {
   for (const [route, where, width] of [
     [LIVE_PROPERTIES, "Properties", 390],
     [LIVE_PROPERTIES, "Properties", 1440],
-    [LIVE_HOME, "the homepage band", 390],
   ] as const)
     test(`${where} at ${width}: the whole credit line on the picture, nothing to press`, async ({
       browser,
@@ -522,50 +376,6 @@ test.describe("where the comp draws it", () => {
       ).toBeLessThanOrEqual(0);
     } finally {
       await context.close();
-    }
-  });
-
-  test("the homepage band: full bleed at both widths, and FIRST on the phone", async ({
-    browser,
-  }) => {
-    for (const [width, height] of [
-      [1440, 900],
-      [390, 844],
-    ] as const) {
-      const { context, page } = await at(browser, width, height);
-      try {
-        await page.goto(HOME);
-        await hydrated(page);
-        const slot = await rect(page, "[data-map-slot]");
-        const card = await rect(page, "[data-featured-card]");
-        const band = await rect(page, ".featured-band");
-        expect(slot.left, `${width}: flush to the left edge`).toBeCloseTo(0, 0);
-        expect(slot.top - band.top, `${width}: at the top of the band`).toBeCloseTo(0, 0);
-        if (width >= 1024) {
-          expect(slot.h, "1440: the band's whole height").toBeCloseTo(band.h, 0);
-          expect(card.left - slot.right, "1440: no gap to the card").toBeCloseTo(0, 0);
-        } else {
-          expect(slot.h, "390: the comp's 200").toBe(200);
-          // The map is LAST in the DOM and first on the phone — `order`, so a
-          // screen reader still meets the card's content first.
-          expect(card.top - slot.bottom, "390: flush on top of the card").toBeCloseTo(0, 0);
-          const domOrder = await page.evaluate(() => {
-            const band = document.querySelector(".featured-band")!;
-            return [...band.children].map((c) =>
-              c.hasAttribute("data-map-slot") ? "map" : "card",
-            );
-          });
-          expect(domOrder, "the card is first in the DOM").toEqual(["card", "map"]);
-        }
-        expect(
-          await page.evaluate(
-            () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
-          ),
-          `${width}: no horizontal overflow`,
-        ).toBeLessThanOrEqual(0);
-      } finally {
-        await context.close();
-      }
     }
   });
 });
@@ -695,13 +505,10 @@ test.describe("the expand affordance", () => {
 // M1 + P3, and option two (operator call 2026-09-29, "happy not to have the
 // zoom buttons on mobile since we've thumbs"): + above − above expand on a
 // FULL frame, expand alone on a COMPACT one, bottom-right either way. The
-// frame is the map's own height (`frameFor`), so at 390 both the Properties
-// map and the band's are compact (200 tall) and at 1440 both are full.
+// frame is the map's own height (`frameFor`), so at 390 the Properties map
+// is compact (200 tall) and at 1440 it is full.
 test.describe("the control column", () => {
-  for (const [route, where] of [
-    [LIVE_PROPERTIES, "Properties"],
-    [LIVE_HOME, "the homepage band"],
-  ] as const)
+  for (const [route, where] of [[LIVE_PROPERTIES, "Properties"]] as const)
     for (const { viewport, column } of [
       { viewport: { width: 390, height: 844 }, column: ["expand"] },
       { viewport: { width: 1440, height: 900 }, column: ["zoom-in", "zoom-out", "expand"] },
@@ -760,10 +567,7 @@ test.describe("the control column", () => {
   // WCAG 2.5.1: a pinch is two pointers and a double-tap only zooms IN, so
   // the one-pointer way out of a zoom on a phone is expand, then −. The
   // expanded overlay has all three at any window height (`fullControls`).
-  for (const [route, where] of [
-    [LIVE_PROPERTIES, "Properties"],
-    [LIVE_HOME, "the homepage band"],
-  ] as const)
+  for (const [route, where] of [[LIVE_PROPERTIES, "Properties"]] as const)
     test(`${where} at 390, expanded: + and − come back and − zooms out; collapsed, they go`, async ({
       browser,
     }) => {
@@ -800,8 +604,8 @@ test.describe("the control column", () => {
           .poll(column, { message: "expanded: the whole column" })
           .toEqual(["zoom-in", "zoom-out", "expand"]);
         // At rest first: expanding changes the frame, and the camera re-homes
-        // to the full frame's MAP_HOME (or flies to the band's slide) — a
-        // read inside that move is not the zoom − steps from.
+        // to the full frame's MAP_HOME — a read inside that move is not the
+        // zoom − steps from.
         await cameraAtRest(page);
         const z0 = await zoom();
         await map.locator('[data-map-control="zoom-out"]').click();
@@ -818,10 +622,7 @@ test.describe("the control column", () => {
   // A LANDSCAPE PHONE. The overlay is the window, and a window under 300 tall
   // is a COMPACT frame (the 22px pin) — which drew expand alone and the
   // compact credit, leaving no single-pointer zoom-out anywhere.
-  for (const [route, where] of [
-    [LIVE_PROPERTIES, "Properties"],
-    [LIVE_HOME, "the homepage band"],
-  ] as const)
+  for (const [route, where] of [[LIVE_PROPERTIES, "Properties"]] as const)
     test(`${where} expanded in an 800 x 280 window: + and − and expand, − zooms out, and the whole chip`, async ({
       browser,
     }) => {
@@ -883,10 +684,7 @@ test.describe("the control column", () => {
   // …and a resize across 300 while it is open takes nothing away: a focused −
   // or a focused licence link is still focused, not dropped to <body> inside
   // the dialog.
-  for (const [route, where] of [
-    [LIVE_PROPERTIES, "Properties"],
-    [LIVE_HOME, "the homepage band"],
-  ] as const)
+  for (const [route, where] of [[LIVE_PROPERTIES, "Properties"]] as const)
     test(`${where} expanded at 390: a resize under 300 tall and back keeps focus on − and on the chip's link`, async ({
       browser,
     }) => {
@@ -932,10 +730,7 @@ test.describe("the control column", () => {
   // band's root a 0.01ms height transition from `lg:h-full` to `h-50`, a
   // frame 0 tall below lg, and the column went with it (with motion allowed
   // there is no transition and no such frame).
-  for (const [route, where] of [
-    [LIVE_PROPERTIES, "Properties"],
-    [LIVE_HOME, "the homepage band"],
-  ] as const)
+  for (const [route, where] of [[LIVE_PROPERTIES, "Properties"]] as const)
     for (const [control, name] of [
       ["zoom-out", "−"],
       ["expand", "expand"],
@@ -1047,42 +842,6 @@ test.describe("the control column", () => {
     }
   });
 
-  // The band's `cream` ground made the floor ring off-white on the off-white
-  // map, and the root's overflow clipped it. The ring is on the painted box now.
-  test("the band's focused expand shows a garnet ring, at least 3:1 on the map ground", async ({
-    browser,
-  }) => {
-    const { context, page } = await at(browser, 390, 844);
-    try {
-      await page.goto(HOME);
-      await hydrated(page);
-      await page.locator(MAP).first().scrollIntoViewIfNeeded();
-      const expand = page.locator(`${MAP} [data-map-expand]`).first();
-      await expect(expand).toBeVisible();
-      await page.keyboard.press("Tab");
-      await expect
-        .poll(() =>
-          expand.evaluate((el) => {
-            (el as HTMLElement).focus();
-            const cs = getComputedStyle(el.querySelector("span")!);
-            return {
-              showing: el.matches(":focus-visible"),
-              color: cs.outlineColor,
-              style: cs.outlineStyle,
-              width: cs.outlineWidth,
-            };
-          }),
-        )
-        .toEqual({ showing: true, color: GARNET, style: "solid", width: "2px" });
-      const ground = /MAP_HOME_GROUND = "(#[0-9a-f]{6})"/i.exec(
-        readFileSync("src/lib/map-home.ts", "utf-8"),
-      )![1]!;
-      expect(contrast(GARNET, ground), `garnet on ${ground}`).toBeGreaterThanOrEqual(3);
-    } finally {
-      await context.close();
-    }
-  });
-
   // D4: a pin pressed in the expanded /properties map closes it onto the card.
   test("a pin pressed in the expanded Properties map closes it and leaves the page on the card", async ({
     browser,
@@ -1120,23 +879,6 @@ test.describe("the control column", () => {
   });
 });
 
-/** WCAG contrast of two colours, `rgb(r, g, b)` or `#rrggbb`. */
-function contrast(a: string, b: string) {
-  const rgb = (c: string) =>
-    c.startsWith("#")
-      ? [1, 3, 5].map((i) => parseInt(c.slice(i, i + 2), 16))
-      : c.match(/\d+/g)!.slice(0, 3).map(Number);
-  const lum = (c: string) => {
-    const [r, g, b2] = rgb(c).map((v) => {
-      const s = v / 255;
-      return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
-    });
-    return 0.2126 * r! + 0.7152 * g! + 0.0722 * b2!;
-  };
-  const [hi, lo] = [lum(a), lum(b)].sort((x, y) => y - x);
-  return (hi! + 0.05) / (lo! + 0.05);
-}
-
 // THE CREDIT, BY FRAME (operator call 2026-09-29, option two: "plus the (i)
 // credit"). A full frame keeps the whole chip; a compact one gets MapLibre's
 // own compact credit, which opens onto the same line. Both boxes are the no-pin
@@ -1157,10 +899,7 @@ function contrast(a: string, b: string) {
 // `resize` and shows the whole chip on a 200px map. So the frame decides the
 // option at construction, and this width is what can tell.
 test.describe("the credit", () => {
-  for (const [route, where] of [
-    [LIVE_PROPERTIES, "Properties"],
-    [LIVE_HOME, "the homepage band"],
-  ] as const) {
+  for (const [route, where] of [[LIVE_PROPERTIES, "Properties"]] as const) {
     test(`${where} at 1440: the whole chip, OpenStreetMap on it with no press, inside guard 2i's box`, async ({
       browser,
     }) => {
@@ -1495,55 +1234,6 @@ test.describe("the credit", () => {
     }
   });
 
-  // THE CLOCK STARTS WHEN THE MAP IS SHOWN, NOT WHEN THE PAGE LOADS. The band
-  // is below the fold at 390 x 640 (its top at 921, measured) and a map boots
-  // only once half of it is on screen (#103), so a visitor who reads the hero
-  // for longer than the window still gets the whole line when they reach the
-  // map. Until then the band is its picture, and the picture carries the line
-  // itself (`MAP_HOME_CREDIT`).
-  test("the homepage band at 390: a map scrolled to after the window still opens on the whole line", async ({
-    browser,
-  }) => {
-    const { context, page } = await at(browser, 390, 640);
-    try {
-      await watchCredit(page);
-      await page.goto(LIVE_HOME);
-      await hydrated(page);
-      const map = page.locator(MAP).first();
-      const notBooted = async () => {
-        expect(await map.getAttribute("data-map-ready"), "premise: not drawn yet").toBeNull();
-        expect(
-          await map.locator(".maplibregl-ctrl-attrib").count(),
-          "premise: no live credit yet",
-        ).toBe(0);
-      };
-      await notBooted();
-      // Until it boots, the picture's own credit: the whole line, on it.
-      const picture = map.locator("[data-map-home-credit]");
-      await expect(picture.locator(OSM), "the picture carries the whole line").toBeVisible();
-      await page.waitForTimeout(CREDIT_OPEN_MS + 1_000);
-      await notBooted();
-
-      await map.scrollIntoViewIfNeeded();
-      await drawn(page);
-      await expect(
-        map.locator(".maplibregl-ctrl-attrib").locator(OSM),
-        "the whole line at the first frame, however long the page was open",
-      ).toBeVisible({ timeout: 1 });
-      await expect(picture, "and the picture's credit went with the picture").toHaveCount(0);
-      await expect(map.locator(OSM), "then the (i)").toBeHidden({
-        timeout: CREDIT_OPEN_MS + 10_000,
-      });
-      const { ready, collapsed } = await creditTimes(page);
-      expect(
-        collapsed! - ready!,
-        "CREDIT_OPEN_MS after the first frame, not after page load",
-      ).toBeGreaterThan(CREDIT_OPEN_MS - 500);
-    } finally {
-      await context.close();
-    }
-  });
-
   // A KEYBOARD ON THE PICTURE'S CREDIT WHEN THE PICTURE GOES. Its two links are
   // real and in the tab order — until `load` it is the whole attribution — and
   // the hand-over removes them. So focus is moved to the live credit's same
@@ -1556,8 +1246,6 @@ test.describe("the credit", () => {
   // second (OpenStreetMap), so a hand-over to the first link, or to the last,
   // whatever was held goes red.
   for (const { route, where, width, height, nth } of [
-    { route: LIVE_HOME, where: "the homepage band", width: 1440, height: 900, nth: 0 },
-    { route: LIVE_HOME, where: "the homepage band", width: 390, height: 640, nth: 0 },
     {
       route: `${LIVE_PROPERTIES}#list`,
       where: "Properties' second map",
@@ -1631,10 +1319,7 @@ test.describe("the credit", () => {
         line: d.classList.contains("maplibregl-compact-show"),
         open: (d as HTMLDetailsElement).open,
       }));
-  for (const [route, where] of [
-    [LIVE_PROPERTIES, "Properties"],
-    [LIVE_HOME, "the homepage band"],
-  ] as const)
+  for (const [route, where] of [[LIVE_PROPERTIES, "Properties"]] as const)
     test(`${where} at 390: after the window, expanded and Escape, the credit is the (i) again`, async ({
       browser,
     }) => {
@@ -1852,10 +1537,8 @@ test.describe("the credit", () => {
   // 16 up and 10 right. Read in the page's own frames, from before the first
   // frame to after the picture is gone, in both motion settings.
   for (const { route, where, width, height } of [
-    { route: LIVE_HOME, where: "the homepage band", width: 390, height: 844 },
     { route: LIVE_PROPERTIES, where: "Properties", width: 390, height: 844 },
     { route: LIVE_PROPERTIES, where: "Properties", width: 320, height: 640 },
-    { route: LIVE_HOME, where: "the homepage band", width: 1440, height: 900 },
   ])
     for (const motion of ["no-preference", "reduce"] as const)
       test(`${where} at ${width}, motion ${motion}: the picture's credit and the live one are the same box across the hand-over`, async ({
@@ -1939,11 +1622,7 @@ test.describe("the credit", () => {
   // its credit in it — three or four stops a keyboard landed on and could not
   // see. The tiles are held here, so `load` cannot come while the keys go:
   // the credit's text is in (the TileJSON is not held), the frame is not.
-  for (const [route, where, width, height] of [
-    [LIVE_HOME, "the homepage band", 390, 844],
-    [LIVE_PROPERTIES, "Properties", 390, 844],
-    [LIVE_HOME, "the homepage band", 1440, 900],
-  ] as const)
+  for (const [route, where, width, height] of [[LIVE_PROPERTIES, "Properties", 390, 844]] as const)
     test(`${where} at ${width}: before the first frame, Tab goes from the picture's credit to expand`, async ({
       browser,
     }) => {
@@ -1987,83 +1666,6 @@ test.describe("the credit", () => {
 });
 
 test.describe("the engine, and what it costs", () => {
-  test("is not in the first-paint path, and arrives when the box is", async ({ browser }) => {
-    // A short window so the homepage band is clear of the fold — the
-    // non-vacuity guard below is the point: if the map were on screen,
-    // "not loaded yet" would be meaningless. Measured at 390 x 640 on
-    // /dev/home: the map slot's top is y=921 with the revised one-column hero
-    // (2026-09-28; the band is 393 tall under the 528px photo), 281px below
-    // the fold. It was 1149 under the old two-column band.
-    const { context, page } = await at(browser, 390, 640);
-    try {
-      await page.goto(HOME);
-      await hydrated(page);
-
-      // TWO CHANNELS, BECAUSE ONE OF THEM ONLY WORKS HERE. The name test is
-      // the readable one and it is DEV-ONLY: this suite runs against
-      // `vite dev` (package.json sets no `reddoor.gateServer`), where the
-      // engine is served as /node_modules/.vite/deps/maplibre-gl.js. On a
-      // production build the chunk is content-hashed — measured,
-      // `_app/immutable/chunks/DxiPY6e9.js` — and NOTHING a visitor fetches is
-      // named maplibre except the worker, which is requested when a Map is
-      // constructed rather than when the module is imported. So on a built
-      // site the name test would report "not loaded" even if the engine were
-      // statically imported into the route entry: a guard that cannot fail.
-      //
-      // The WEIGHT test is the one that transfers. It counts bytes actually
-      // fetched, which is the property being claimed, and it would fail the
-      // same way in either environment.
-      const weigh = () =>
-        page.evaluate(() => {
-          const js = performance
-            .getEntriesByType("resource")
-            .filter((r) => (r as PerformanceResourceTiming).initiatorType === "script");
-          return {
-            bytes: js.reduce((n, r) => n + ((r as PerformanceResourceTiming).transferSize || 0), 0),
-            named: js.some((r) => /maplibre/.test(r.name)),
-          };
-        });
-
-      const before = {
-        ...(await weigh()),
-        ...(await page.evaluate(() => ({
-          top: document.querySelector("[data-map-slot]")!.getBoundingClientRect().top,
-          fold: window.innerHeight,
-        }))),
-      };
-      // Non-vacuity: if the map were on screen, "not loaded yet" would be
-      // meaningless. NOT ONE PIXEL of the slot may be on screen at rest, which
-      // is stricter than what the lazy gate needs to stay shut (half of the
-      // box, or of the window if that is smaller — PropertyMap.svelte), and
-      // does not depend on that fraction.
-      //
-      // This read `640 + 300` until 2026-09-28. The 300 was the observer's
-      // first `rootMargin: "300px 0px"` LEAD, which the half-visible gate
-      // replaced inside the same PR that wrote this test (#107; the conflict
-      // it caused is issue #103), so the margin guarded a mechanism that never
-      // shipped — and when the revised hero put the slot at 921, it failed a
-      // correct page by 19px.
-      expect(before.top, `the band is below the fold (${before.fold})`).toBeGreaterThan(
-        before.fold,
-      );
-      expect(before.named, "no maplibre chunk before it is needed (dev-only read)").toBe(false);
-
-      await page.locator("[data-map-slot]").scrollIntoViewIfNeeded();
-      await drawn(page);
-      const after = await weigh();
-      expect(after.named, "…and it is there once the box is (dev-only read)").toBe(true);
-      // The engine is 426 KB gzipped across two chunks. 200 KB is a floor no
-      // amount of ordinary page script reaches, and one an engine that failed
-      // to arrive could not clear.
-      expect(
-        after.bytes - before.bytes,
-        `scrolling the box in pulled ${after.bytes - before.bytes} bytes of script`,
-      ).toBeGreaterThan(200_000);
-    } finally {
-      await context.close();
-    }
-  });
-
   test("draws the comp's pin at S=48 and S=22, and clusters what would collide", async ({
     browser,
   }) => {
@@ -2141,85 +1743,6 @@ test.describe("the engine, and what it costs", () => {
       });
       expect(tone.color, "toned to the brand's garnet").toBe(GARNET);
       expect(tone.clipped, "not half off the frame").toBe(false);
-
-      // AND IT SURVIVES A PIN SHEET OPENING OVER IT. The sheet is
-      // `inset-x-0 bottom-0`; at 390 on a 200px map it covers the bottom
-      // third, and it used to sit ABOVE both the credit and the expand
-      // control — measured, sheet 471..536 against attribution 522..536, with
-      // `elementFromPoint` at the credit's centre returning the sheet. A
-      // licence condition that a UI state can hide is not being met, so the
-      // hit test is the assertion, not the presence of the element.
-      //
-      // ON THE HOMEPAGE BAND, not on Properties, and that moved with #112.
-      // Properties now passes `onselect` to PropertyMap: there the CARD is the
-      // detail, so a pin press scrolls its card to the centre instead of
-      // opening a second copy of it over the map. The band has no card beside
-      // the map, so the sheet is still the only detail there is — and its 390
-      // map is the same 200px full-bleed box this case was written against
-      // (measured 375 x 200, three single pins, no clusters, expand drawn).
-      // Since 2026-09-29 that box is a COMPACT frame, so its credit is the
-      // collapsed (i) and its column is expand alone — and the licence line
-      // is asserted after the (i) is pressed, over the open sheet. And the
-      // case reads the LIVE routes since then, so it also runs on a production
-      // build; the pin it presses is whichever the live band draws first.
-      // Under option A the band's line is open at the first frame, and it is
-      // the PIN PRESS that collapses it (`press` settles the window) — read in
-      // the page's clock, so the five-second clock cannot pass for it.
-      await watchCredit(page);
-      await page.setViewportSize({ width: 390, height: 844 });
-      await page.goto(LIVE_HOME);
-      await hydrated(page);
-      await page.locator(MAP).first().scrollIntoViewIfNeeded();
-      await drawn(page);
-      await page.locator(`${MAP} [data-map-pin]`).first().click();
-      await expect(page.locator(`${MAP} [data-map-sheet]`)).toBeVisible();
-
-      const onTop = await page.evaluate(() => {
-        const hit = (el: Element) => {
-          const r = el.getBoundingClientRect();
-          const found = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
-          return !!found && (found === el || el.contains(found) || found.contains(el));
-        };
-        const attrib = document.querySelector(".maplibregl-ctrl-attrib");
-        const close = document.querySelector("[data-map-sheet] button");
-        return {
-          attrib: attrib ? hit(attrib) : null,
-          close: close ? hit(close) : null,
-          controls: [
-            ...document
-              .querySelector("[data-property-map]")!
-              .querySelectorAll("[data-map-control]"),
-          ].map(hit),
-        };
-      });
-      expect(onTop.attrib, "the OpenStreetMap credit is still hit-testable").toBe(true);
-      expect(onTop.close, "and so is the sheet's ×, clear of the control column").toBe(true);
-      expect(onTop.controls, "and so is every control").toEqual([true]);
-      // …and the sheet's own links and ×, along their whole width: on a
-      // compact frame the collapsed (i) is 24 × 24 at 10 in, and it sat over
-      // the start of "View listing" until the sheet made room for it.
-      const items = await sheetCovered(page);
-      expect(items.length, "premise: the sheet's links and ×").toBeGreaterThanOrEqual(2);
-      for (const item of items) expect(item, "clear of the (i)").toMatch(/: 0 of 12/);
-
-      const band = page.locator(MAP).first();
-      await expect(band.locator(OSM), "premise: collapsed, the line is not shown").toBeHidden({
-        timeout: 1,
-      });
-      const { ready, collapsed } = await creditTimes(page);
-      expect(collapsed! - ready!, "collapsed by the pin press, inside the window").toBeLessThan(
-        CREDIT_OPEN_MS - 500,
-      );
-      await band.locator(".maplibregl-ctrl-attrib summary").click();
-      await expect(band.locator(OSM), "the (i) opens onto the licence line").toBeVisible();
-      expect(
-        await band.locator(OSM).evaluate((a) => {
-          const r = a.getBoundingClientRect();
-          const found = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
-          return !!found && (found === a || a.contains(found));
-        }),
-        "and the OpenStreetMap link is what a press on it hits, sheet open",
-      ).toBe(true);
     } finally {
       await context.close();
     }
@@ -2274,37 +1797,6 @@ test.describe("the engine, and what it costs", () => {
       // measured in tests/interaction/property-map-camera.spec.ts.
       await page.locator(`${MAP} [data-map-pin]`).first().click();
       await expect(page.locator(`${MAP} [data-map-sheet]`)).toHaveCount(0);
-    } finally {
-      await context.close();
-    }
-  });
-
-  // THE SHEET, where it still is the behaviour: the homepage band, which draws
-  // no card beside its map. Same two claims this used to make on Properties —
-  // a pin press opens a sheet that names its listing, and the window's Escape
-  // handler closes it. That handler is on the window because the box is a
-  // <div> with no role, so a key handler on IT is the non-interactive-element
-  // interaction the compiler refuses; it is exactly the kind of thing that
-  // stops working unnoticed.
-  test("on the homepage band a pin press opens its sheet, and Escape closes it", async ({
-    browser,
-  }) => {
-    const { context, page } = await at(browser, 1440);
-    try {
-      await page.goto(HOME);
-      await hydrated(page);
-      await page.locator(MAP).first().scrollIntoViewIfNeeded();
-      await drawn(page);
-      // Non-vacuity: the band's three slides stand alone at its fit zoom, so
-      // there is a single pin to press. (Measured at 1440x900: 3 pins, 0
-      // clusters, in a 508.2 x 820.5 box.)
-      await expect(page.locator(`${MAP} [data-map-pin]`)).toHaveCount(3);
-      await page.locator(`${MAP} [data-map-pin]`).first().click();
-      const sheet = page.locator(`${MAP} [data-map-sheet]`);
-      await expect(sheet).toBeVisible();
-      await expect(sheet, "the sheet names its listing").not.toBeEmpty();
-      await page.keyboard.press("Escape");
-      await expect(sheet, "Escape closes it").toHaveCount(0);
     } finally {
       await context.close();
     }
@@ -2368,30 +1860,12 @@ test.describe("the engine, and what it costs", () => {
   });
 });
 
-// THE BAND'S PIN SHEET, on a compact frame and when it closes. The homepage
-// band is the one map with a sheet: /properties passes `onselect`, so a pin
-// press there scrolls to its card and opens nothing (the first case says so
-// at 390, so the (i) has no sheet to sit on there).
-test.describe("the band's pin sheet", () => {
-  /** Presses the first pin whose centre is what a press there hits. */
-  async function openSheet(page: Page) {
-    const map = page.locator(MAP).first();
-    const pin = await map.evaluate((el) => {
-      for (const p of el.querySelectorAll("[data-map-pin]")) {
-        const r = p.getBoundingClientRect();
-        const [x, y] = [r.left + r.width / 2, r.top + r.height / 2];
-        const hit = document.elementFromPoint(x, y);
-        if (hit && (hit === p || p.contains(hit)))
-          return { x, y, id: p.getAttribute("data-map-pin")! };
-      }
-      return null;
-    });
-    expect(pin, "premise: a pin to press").not.toBeNull();
-    await page.mouse.click(pin!.x, pin!.y);
-    await expect(map.locator("[data-map-sheet]")).toBeVisible();
-    return pin!.id;
-  }
-
+// A PIN PRESS ON PROPERTIES OPENS NO SHEET. /properties passes `onselect`, so
+// a pin press there scrolls to its card and opens nothing. The homepage band
+// was the one map with a sheet, and its cases (the sheet clear of the credit,
+// focus handed on when it closes, every focus on the map at 3:1, the lock
+// moving focus) went with that map on 2026-10-09.
+test.describe("the pin sheet", () => {
   test("Properties at 390: a pin press opens no sheet", async ({ browser }) => {
     const { context, page } = await at(browser, 390, 844);
     try {
@@ -2408,368 +1882,4 @@ test.describe("the band's pin sheet", () => {
       await context.close();
     }
   });
-
-  // THE (i) HAS ITS OWN STRIP. The press that opens a sheet collapses the
-  // credit to the (i), 24 × 24 at 10 from the left and the bottom, and it sat
-  // over the first ~18px of "View listing": the label read "(i) w listing",
-  // and a tap there opened the licence line instead of the listing. A compact
-  // sheet now starts its content 44 in. The line the visitor opens from the
-  // (i) may lie over the links (a second press shuts it); it leaves the ×
-  // alone. The overlay has the whole chip, flush, at any height.
-  for (const { width, height, expand } of [
-    { width: 390, height: 844, expand: false },
-    { width: 320, height: 640, expand: false },
-    { width: 800, height: 280, expand: false },
-    { width: 390, height: 844, expand: true },
-  ])
-    test(`the homepage band at ${width} x ${height}${expand ? ", expanded" : ""}: the sheet's links and × are clear of the credit`, async ({
-      browser,
-    }) => {
-      const { context, page } = await at(browser, width, height);
-      try {
-        await page.goto(LIVE_HOME);
-        await hydrated(page);
-        const map = page.locator(MAP).first();
-        await map.scrollIntoViewIfNeeded();
-        await drawn(page);
-        if (expand) {
-          await map.locator("[data-map-expand]").click();
-          await expect(map).toHaveAttribute("data-expanded", "true");
-        }
-        await openSheet(page);
-        const compact = await map
-          .locator(".maplibregl-ctrl-attrib")
-          .evaluate((c) => [c.classList.contains("maplibregl-compact"), c.checkVisibility()]);
-        expect(compact, "premise: the credit is drawn, and which kind").toEqual([!expand, true]);
-        const items = await sheetCovered(page);
-        expect(items.length, "premise: the sheet's links and ×").toBeGreaterThanOrEqual(2);
-        for (const item of items) expect(item, "clear of the credit").toMatch(/: 0 of 12/);
-        if (expand) return;
-
-        await map.locator(".maplibregl-ctrl-attrib summary").click();
-        await expect(map.locator(OSM), "premise: the line, opened").toBeVisible();
-        const x = (await sheetCovered(page)).at(-1)!;
-        expect(x, "the × is clear of the opened line").toMatch(/^Close .*: 0 of 12/);
-      } finally {
-        await context.close();
-      }
-    });
-
-  // CLOSING IT HANDS FOCUS ON. The sheet is removed with whatever in it had
-  // focus, which dropped a keyboard to <body> — inside the overlay's dialog
-  // too. A keyboard goes to the listing's own link in the list: it has a name,
-  // and its chip is the ring. It went to the pin that opened the sheet, which
-  // is `aria-hidden` (a button with no name) and whose ring was off-white over
-  // the tiles, and a `:focus-visible` read passed both. A pointer's close goes
-  // to the pin, with no ring (a focus on the list link would draw its chip).
-  for (const { width, height, expand } of [
-    { width: 390, height: 844, expand: false },
-    { width: 390, height: 844, expand: true },
-    { width: 1440, height: 900, expand: false },
-  ])
-    test(`the homepage band at ${width}${expand ? ", expanded" : ""}: × and Escape hand a keyboard to the listing's named link, drawn at 3:1; a pointer's × leaves it on the pin`, async ({
-      browser,
-    }) => {
-      const { context, page } = await at(browser, width, height);
-      try {
-        await page.goto(LIVE_HOME);
-        await hydrated(page);
-        const map = page.locator(MAP).first();
-        await map.scrollIntoViewIfNeeded();
-        await drawn(page);
-        if (expand) {
-          await map.locator("[data-map-expand]").click();
-          await expect(map).toHaveAttribute("data-expanded", "true");
-        }
-        const holder = () =>
-          map.evaluate((el) => {
-            const a = document.activeElement;
-            return {
-              pin: a?.getAttribute("data-map-pin") ?? null,
-              ring: !!a?.matches(":focus-visible"),
-              listLink: a?.matches("[data-map-link]") ? a.textContent!.trim() : null,
-              inside: !!a && el.contains(a),
-              dialog: el.getAttribute("role"),
-            };
-          });
-        const dialog = expand ? "dialog" : null;
-        const sheet = map.locator("[data-map-sheet]");
-        const close = sheet.locator("button");
-
-        for (const how of ["× and Enter", "Escape"] as const) {
-          await openSheet(page);
-          const title = (await sheet.locator("p").first().textContent())!.trim();
-          const named = new RegExp(`^${title.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`);
-          // A keyboard in the sheet: Tab from its first link, so the focus is
-          // the keyboard's (a ring), not the pointer's that opened it.
-          await sheet.locator("a").first().focus();
-          await page.keyboard.press("Tab");
-          if (how === "Escape") await page.keyboard.press("Escape");
-          else {
-            await close.focus();
-            await page.keyboard.press("Enter");
-          }
-          await expect(sheet, `${how} closes it`).toHaveCount(0);
-          expect(await holder(), `${how}: the listing's link (${await focused(page)})`).toEqual({
-            pin: null,
-            ring: true,
-            listLink: expect.stringMatching(named),
-            inside: true,
-            dialog,
-          });
-          expect(await focusedAx(page), `${how}: what a screen reader hears`).toEqual({
-            role: "link",
-            name: expect.stringMatching(named),
-            ignored: false,
-          });
-          const n = await map.evaluate((el) =>
-            [...el.querySelectorAll("[data-map-link]")].indexOf(document.activeElement!),
-          );
-          const shown = await indicatorOf(page, map.locator("[data-map-link]").nth(n));
-          console.log(`${width}${expand ? " expanded" : ""}, ${how}: its chip, ${shown.numbers}`);
-          expect(shown.seen, `${how}: its chip, ${shown.numbers}`).toBe(true);
-        }
-
-        const id = await openSheet(page);
-        await close.click();
-        await expect(sheet).toHaveCount(0);
-        expect(await holder(), `a pointer's ×: the pin, no ring (${await focused(page)})`).toEqual({
-          pin: id,
-          ring: false,
-          listLink: null,
-          inside: true,
-          dialog,
-        });
-      } finally {
-        await context.close();
-      }
-    });
-
-  // EVERY FOCUS ON THE BAND'S MAP CAN BE SEEN. The root's `bg-dark` handed an
-  // off-white ring to all that is drawn on the tiles or on sand (the pins, the
-  // picture's pins, the sheet, both credits), and the root's `overflow-hidden`
-  // clipped the canvas's whole ring. Each target is measured in pixels, and
-  // each state names the kinds it must reach, so a selector that stops
-  // matching goes red instead of measuring fewer.
-  for (const { width, height, expand, picture, kinds } of [
-    {
-      width: 390,
-      height: 844,
-      expand: false,
-      picture: false,
-      kinds: ["canvas", "control", "credit (i)", "list link", "pin", "sheet link", "sheet ×"],
-    },
-    {
-      width: 390,
-      height: 844,
-      expand: true,
-      picture: false,
-      kinds: ["canvas", "control", "credit link", "list link", "pin", "sheet link", "sheet ×"],
-    },
-    {
-      width: 1440,
-      height: 900,
-      expand: false,
-      picture: false,
-      kinds: ["canvas", "control", "credit link", "list link", "pin", "sheet link", "sheet ×"],
-    },
-    {
-      width: 390,
-      height: 844,
-      expand: false,
-      picture: true,
-      kinds: ["control", "credit link", "list link", "picture pin"],
-    },
-  ])
-    test(`the homepage band at ${width}${expand ? ", expanded" : ""}${picture ? ", its picture" : ", a sheet open"}: every focus on the map is drawn at 3:1 against what it covers`, async ({
-      browser,
-    }) => {
-      const { context, page } = await at(browser, width, height);
-      try {
-        // No style, no `load`: the picture stays up.
-        if (picture) await page.route(/\/map-style\.json/, (route) => route.abort());
-        await page.goto(LIVE_HOME);
-        await hydrated(page);
-        const map = page.locator(MAP).first();
-        await map.scrollIntoViewIfNeeded();
-        if (picture) await expect(map.locator("[data-map-home-pin]:visible").first()).toBeVisible();
-        else {
-          await drawn(page);
-          if (expand) {
-            await map.locator("[data-map-expand]").click();
-            await expect(map).toHaveAttribute("data-expanded", "true");
-          }
-          await openSheet(page);
-        }
-        await page.keyboard.press("Shift");
-        const targets = await map.evaluate((root) => {
-          const box = root.getBoundingClientRect();
-          const DRAWN_OVER =
-            "[data-map-sheet], [data-map-controls], .maplibregl-ctrl, [data-map-home-credit]";
-          const MARKER = "[data-map-pin], [data-map-cluster], [data-map-home-pin]";
-          // A marker whose ring's box is in the map and under nothing else.
-          const clear = (el: Element) => {
-            const r = (el.querySelector("svg") ?? el).getBoundingClientRect();
-            return [
-              [r.left - 5, r.top - 5],
-              [r.right + 5, r.top - 5],
-              [r.left - 5, r.bottom + 5],
-              [r.right + 5, r.bottom + 5],
-            ].every(([x, y]) => {
-              if (x! < box.left || x! > box.right || y! < box.top || y! > box.bottom) return false;
-              const hit = document.elementFromPoint(x!, y!);
-              return (
-                !!hit &&
-                root.contains(hit) &&
-                !hit.closest(DRAWN_OVER) &&
-                (!hit.closest(MARKER) || hit.closest(MARKER) === el)
-              );
-            });
-          };
-          const out: { kind: string; label: string; n: number }[] = [];
-          const one = new Set(["list link", "pin", "cluster", "picture pin"]);
-          root
-            .querySelectorAll<HTMLElement>("a[href], button, summary, [tabindex]")
-            .forEach((el, n) => {
-              if ((el as HTMLButtonElement).disabled || el.closest("[inert]")) return;
-              const kind = el.matches("[data-map-link]")
-                ? "list link"
-                : el.tagName === "CANVAS"
-                  ? "canvas"
-                  : el.matches("[data-map-pin]")
-                    ? "pin"
-                    : el.matches("[data-map-cluster]")
-                      ? "cluster"
-                      : el.matches("[data-map-home-pin]")
-                        ? "picture pin"
-                        : el.closest("[data-map-sheet]")
-                          ? el.tagName === "BUTTON"
-                            ? "sheet ×"
-                            : "sheet link"
-                          : el.tagName === "SUMMARY"
-                            ? "credit (i)"
-                            : el.closest(".maplibregl-ctrl-attrib, [data-map-home-credit]")
-                              ? "credit link"
-                              : el.matches("[data-map-control]")
-                                ? "control"
-                                : "other";
-              if (kind !== "list link") {
-                if (!el.checkVisibility({ visibilityProperty: true })) return;
-                const r = el.getBoundingClientRect();
-                if (r.right <= box.left || r.left >= box.right) return;
-                if (r.bottom <= box.top || r.top >= box.bottom) return;
-              }
-              if (
-                one.has(kind) &&
-                (out.some((t) => t.kind === kind) || (kind !== "list link" && !clear(el)))
-              )
-                return;
-              el.setAttribute("data-focus-target", String(n));
-              const name =
-                el.getAttribute("aria-label") ??
-                el.getAttribute("data-map-pin") ??
-                el.getAttribute("data-map-home-pin") ??
-                el.textContent;
-              out.push({ kind, label: `${kind} ${(name ?? "").trim().slice(0, 24)}`, n });
-            });
-          return out;
-        });
-        expect(
-          kinds.filter((k) => !targets.some((t) => t.kind === k)),
-          `premise: every kind reached (${targets.map((t) => t.label).join(", ")})`,
-        ).toEqual([]);
-        const unseen: string[] = [];
-        for (const t of targets) {
-          const shown = await indicatorOf(page, map.locator(`[data-focus-target="${t.n}"]`));
-          console.log(`${t.label}: ${shown.numbers}`);
-          if (!shown.seen) unseen.push(`${t.label}: ${shown.numbers}`);
-        }
-        expect(unseen).toEqual([]);
-        if (picture)
-          expect(await map.getAttribute("data-map-ready"), "premise: never drawn").toBeNull();
-      } finally {
-        await context.close();
-      }
-    });
-
-  // …AND SO DOES THE LOCK. Under reduced motion nothing runs, so the band is
-  // interactive; the preference turning off makes the slideshow eligible, and
-  // an unpaused one locks the map: pins disabled, canvas out of the tab order,
-  // the sheet closed. Chrome blurs a focused element the moment it is
-  // disabled or loses its tabindex, so each is handed on first: from the
-  // sheet or a pin to the listing's own link in the list (its chip), from the
-  // canvas to expand — and a pointer's focus (the pin a press focused) to
-  // expand too, since a focus on the list link would draw its chip.
-  for (const from of ["the sheet", "a pin", "a pin, by pointer", "the canvas"] as const)
-    for (const expand of [false, true])
-      test(`the homepage band at 390${expand ? ", expanded" : ""}: the lock moves focus off ${from}, and not to <body>`, async ({
-        browser,
-      }) => {
-        const context = await browser.newContext({
-          viewport: { width: 390, height: 844 },
-          reducedMotion: "reduce",
-        });
-        const page = await context.newPage();
-        try {
-          await page.goto(LIVE_HOME);
-          await hydrated(page);
-          const map = page.locator(MAP).first();
-          await map.scrollIntoViewIfNeeded();
-          await drawn(page);
-          if (expand) {
-            await map.locator("[data-map-expand]").click();
-            await expect(map).toHaveAttribute("data-expanded", "true");
-          }
-          let title: string | null = null;
-          if (from === "the canvas") {
-            await map.locator("canvas").focus();
-          } else if (from === "a pin, by pointer") {
-            const id = await openSheet(page);
-            expect(await focused(page), "premise: the press focused its pin").toMatch(/^BUTTON/);
-            expect(
-              await page.evaluate(() => document.activeElement?.getAttribute("data-map-pin")),
-            ).toBe(id);
-          } else {
-            await openSheet(page);
-            title = await map.locator("[data-map-sheet] p").first().textContent();
-            if (from === "a pin") {
-              // The press focused the pin; a key makes that focus a keyboard's.
-              await page.keyboard.press("Shift");
-              expect(
-                await page.evaluate(() =>
-                  document.activeElement?.matches("[data-map-pin]:focus-visible"),
-                ),
-                "premise: a keyboard's focus on the pin",
-              ).toBe(true);
-            } else {
-              await map.locator("[data-map-sheet] a").first().focus();
-              await page.keyboard.press("Tab");
-            }
-          }
-          const before = await focused(page);
-          expect(await map.getAttribute("data-map-locked"), "premise: unlocked").toBeNull();
-          await page.emulateMedia({ reducedMotion: "no-preference" });
-          await expect(map, "premise: the lock").toHaveAttribute("data-map-locked", "");
-          const after = await map.evaluate((el) => {
-            const a = document.activeElement;
-            return {
-              inside: !!a && el.contains(a),
-              expand: !!a?.matches("[data-map-expand]"),
-              listLink: a?.matches("[data-map-link]") ? a.textContent!.trim() : null,
-              dialog: el.getAttribute("role"),
-            };
-          });
-          expect(after.inside, `from ${before}, still in the map (${await focused(page)})`).toBe(
-            true,
-          );
-          expect(after.dialog).toBe(expand ? "dialog" : null);
-          if (title === null) expect(after.expand, `${from}: on expand`).toBe(true);
-          else
-            expect(after.listLink, "on the listing's own link in the list").toMatch(
-              new RegExp(`^${title.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "i"),
-            );
-        } finally {
-          await context.close();
-        }
-      });
 });

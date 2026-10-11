@@ -2,10 +2,8 @@ import { readFileSync } from "node:fs";
 
 // THE HOMEPAGE BAND'S CLOCK, FOR EVERY SPEC THAT WAITS ON IT. It lives here,
 // beside hydrated.ts, because Playwright will not let one spec import another,
-// and three specs time something against this band's turns: its own
-// (featured-properties.spec.ts) and the map's two (property-map-camera and
-// property-map-camera-prod, whose "a paused carousel is a still map" and "the
-// band really did turn on its own" both need a wait longer than one lap).
+// and two specs time something against this band's turns:
+// featured-properties.spec.ts and featured-band-live.spec.ts.
 //
 // READ OUT OF THE SLICE, NOT COPIED FROM IT. Every one of those specs said
 // 4000 until the operator doubled the time on each listing (2026-09-23), and
@@ -58,11 +56,17 @@ export const FEATURED_TILT_DEG = (() => {
   return Number(declared[1]);
 })();
 
-/** The slice's DISSOLVE, which is CAMERA_FLIGHT_MS — pinned at 500 by
- *  property-map.test.ts (property-map-camera-prod.spec.ts repeats it the same
- *  way). The dwell doubling did not touch it: the hand-over is how long a turn
- *  takes to look finished, and the operator asked for longer on each listing. */
-export const FEATURED_DISSOLVE = 500;
+/** The slice's DISSOLVE. The dwell doubling did not touch it: the hand-over is
+ *  how long a turn takes to look finished, and the operator asked for longer
+ *  on each listing. */
+export const FEATURED_DISSOLVE = (() => {
+  const declared = /^\s*export const DISSOLVE = (\d+);$/m.exec(readFileSync(SLICE, "utf8"));
+  if (!declared)
+    throw new Error(
+      "src/lib/slices/FeaturedProperties/index.svelte no longer declares `export const DISSOLVE = <ms>;`",
+    );
+  return Number(declared[1]);
+})();
 
 /** One whole turn of the band's clock: the dwell, then the settle the next
  *  dwell waits out. 8500 since 2026-09-23; 4500 before. */

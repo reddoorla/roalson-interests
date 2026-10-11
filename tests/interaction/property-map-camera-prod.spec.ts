@@ -2,17 +2,13 @@ import { expect, test, type Page } from "@playwright/test";
 
 import {
   adopted,
-  CAMERA_FLIGHT_MS,
-  cameraAtRest,
   cameraLog,
   cameraMovesFor,
   cameraProbeInstalled,
-  mapCentre,
   mapZoom,
   resetCamera,
   watchCamera,
 } from "./camera-probe";
-import { measureDwell, nextTurn, slideOnStage } from "./band-turn";
 import { hydrated } from "./hydrated";
 import { scrollMapToBoot } from "./map-boot";
 
@@ -36,6 +32,9 @@ import { scrollMapToBoot } from "./map-boot";
 // PR that added this file; the numbers in the comments below are the
 // production-build ones.
 //
+// Its homepage block (MAJOR 2: the band's clock is not a visitor) went with
+// the band's map on 2026-10-09 (Erik: "lose map entirely").
+//
 // NOTHING HERE HARD-CODES A LISTING. The ids on these routes are Prismic
 // document ids from the live repository, so every case discovers the cards and
 // pins it drives from the DOM. What it may assume is the SHAPE the page
@@ -50,7 +49,6 @@ import { scrollMapToBoot } from "./map-boot";
 // exactly how it shipped.
 
 const PROPERTIES = "/properties";
-const HOME = "/";
 const MAP = "[data-property-map]";
 
 /** MapLibre's own `load` has fired for the nth map on the page — scrolled just
@@ -61,29 +59,6 @@ async function drawn(page: Page, nth = 0) {
     timeout: 45_000,
   });
 }
-
-/** A point in the middle of the map's box AND inside the window — the two are
- *  not the same thing once the box is 520px tall on an 844px phone, and a
- *  `mouse.move` to a y below the viewport is clamped somewhere else entirely.
- *  A first version of the band cases wheeled at such a point and measured a map
- *  that never saw a wheel: zoom 12 before and 12 after, reported as a fix. */
-const wheelSpot = (page: Page) =>
-  page
-    .locator(MAP)
-    .first()
-    .evaluate((el) => {
-      const b = el.getBoundingClientRect();
-      const top = Math.max(b.top, 0);
-      const bottom = Math.min(b.bottom, window.innerHeight);
-      return { x: b.left + b.width / 2, y: (top + bottom) / 2, height: bottom - top };
-    });
-
-// (`aFreshDwell` lived here: wait for the band's clock to turn, so the band
-// cases could wheel at the top of a 4000ms dwell instead of racing a turn's
-// flight. Since the homepage lock (operator call, 2026-09-23) those cases pause
-// the band before they wheel — a paused band has no clock to race — and a
-// dwell-sized wait is exactly what the doubled 8000ms dwell would have turned
-// into a pass that tested nothing. See ./band-turn.)
 
 /** A point inside the first map's box that is NOT a marker or a control.
  *  Markers are <button>s and swallow the pointerdown, which is how a first
@@ -215,199 +190,5 @@ test.describe("a drag holds the view against a box change the real portfolio can
     expect(after.lng, "and the view is exactly where they left it").toBeCloseTo(held.lng, 4);
     expect(after.lat).toBeCloseTo(held.lat, 4);
     expect(after.zoom).toBeCloseTo(held.zoom, 4);
-  });
-});
-
-// ---------------------------------------------------------------------------
-// THE HOMEPAGE BAND'S CLOCK IS NOT A VISITOR (MAJOR 2)
-// ---------------------------------------------------------------------------
-
-test.describe("the band's auto-advance keeps its hands off the visitor's view", () => {
-  test.use({
-    contextOptions: { reducedMotion: "no-preference", hasTouch: true },
-  });
-
-  // WHAT THIS BLOCK HOLDS NOW, and why it changed shape twice in one day.
-  //
-  // Measured on a production build of `/` at 390x844 before #126: four
-  // wheel-up ticks on the expanded band map took it from z12 to z12.5387, and
-  // ~9s later — with no further input — the camera had flown back to z12
-  // twice. The clock's turns were read as the visitor asking for somewhere
-  // else. `activeBy` fixed it, and these cases wheeled the RUNNING band and
-  // waited out a dwell to prove it.
-  //
-  // THE HOMEPAGE LOCK (operator call, 2026-09-23) moved the ground under them:
-  // the band's map is uninteractable while the slideshow runs, so a visitor
-  // can only have a view of their own while it is PAUSED — and a paused band
-  // has no clock. The class these cases exist for (a clock turn taking a
-  // visitor's view away) is now closed twice over: the lock keeps the visitor
-  // off a running map, and `activeBy` still holds a suspension through any
-  // turn that did happen. What they measure now is the new boundary: paused,
-  // the view is the visitor's for longer than the clock's own dwell; Play
-  // hands the map back to the clock on purpose.
-  //
-  // EVENT-DRIVEN, BOTH WAYS. "Longer than a dwell" is measured off two of the
-  // band's own turns rather than assumed (8000ms since #151; it was 4000ms),
-  // and every wait for a turn fails if none comes.
-  test("paused, the visitor's view outlasts the dwell; Play hands the map back to the clock", async ({
-    page,
-  }) => {
-    test.setTimeout(240_000);
-    await watchCamera(page);
-    await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto(HOME);
-    await hydrated(page);
-
-    const band = page.locator("section:has([data-map-slot])").first();
-    await page.locator(MAP).first().scrollIntoViewIfNeeded();
-    await drawn(page, 0);
-    expect(await cameraProbeInstalled(page), "the camera probe installed").toBe(true);
-    const dwell = await measureDwell(page, band);
-
-    await page.getByRole("button", { name: "Pause slides" }).click();
-    await expect(page.getByRole("button", { name: "Play slides" })).toBeVisible();
-    const expand = page.locator("[data-map-expand]").first();
-    await expand.click();
-    await expect(expand).toHaveAttribute("data-map-expand", "collapse");
-    // The expand costs two flights (see `cameraAtRest`, #148), so the zoom
-    // the wheel is measured against is read once they have landed.
-    await cameraAtRest(page);
-    expect(
-      await page.evaluate(() => window.__camera.map(0).scrollZoom.isEnabled()),
-      "paused, the map has the wheel",
-    ).toBe(true);
-
-    const before = await mapZoom(page);
-    const spot = await wheelSpot(page);
-    expect(spot.height, "the expanded map really is on screen to wheel over").toBeGreaterThan(100);
-    // Four ticks over the middle of the expanded map — the gesture maplibre
-    // leaves untagged, which is why the component listens for the wheel
-    // itself. The 700ms rest first makes them a new scroll (`wheelRun`).
-    await page.mouse.move(spot.x, spot.y);
-    await page.waitForTimeout(700);
-    for (let i = 0; i < 4; i++) {
-      await page.mouse.wheel(0, -120);
-      await page.waitForTimeout(150);
-    }
-    await cameraAtRest(page);
-    const zoomed = await mapZoom(page);
-    expect(zoomed, `the wheel really zoomed the map (${before} -> ${zoomed})`).toBeGreaterThan(
-      before + 0.1,
-    );
-
-    // Hands off the map and the band for TWICE the dwell the clock was
-    // measured running at.
-    await page.mouse.move(2, 2);
-    const slide = await slideOnStage(band);
-    await resetCamera(page);
-    await page.waitForTimeout(2 * dwell);
-    expect(await slideOnStage(band), "paused: the band did not turn").toBe(slide);
-    const held = await cameraLog(page);
-    expect(
-      held.fly.length + held.ease.length + held.jump.length,
-      `the camera was commanded with nobody touching anything, over ${2 * dwell}ms`,
-    ).toBe(0);
-    expect(await mapZoom(page), "and the visitor's zoom is exactly where they left it").toBeCloseTo(
-      zoomed,
-      3,
-    );
-
-    // PLAY: the map is the slideshow's picture again, framed its way, and the
-    // clock's next turn is followed. Collapsed first: since M1 the expanded map
-    // is a full-window overlay, and Play is under it.
-    await expand.click();
-    await expect(expand).toHaveAttribute("data-map-expand", "expand");
-    await page.getByRole("button", { name: "Play slides" }).click();
-    await page.mouse.move(2, 2);
-    await expect
-      .poll(async () => (await cameraLog(page)).fly.length, {
-        message: "Play flew the camera back to the slide on screen",
-      })
-      .toBeGreaterThan(0);
-    expect((await cameraLog(page)).fly[0]!.zoom, "at the frame's own zoom").toBe(12);
-    await page.waitForTimeout(CAMERA_FLIGHT_MS + 200);
-    await resetCamera(page);
-    await nextTurn(band, 3 * dwell);
-    await expect
-      .poll(async () => (await cameraLog(page)).fly.length, {
-        message: "the clock's next turn was followed",
-      })
-      .toBeGreaterThan(0);
-  });
-
-  // THE OVER-CORRECTION GUARD, KEPT. A rule that told an auto-advance apart
-  // from a visitor and then never lifted for either would be the older defect
-  // (one gesture killing the camera for the life of the page) in new clothes.
-  // Paused, so there is no clock to race — the arrow press is the only thing
-  // that can move the camera here.
-  test("and an arrow press — a visitor asking for somewhere else — gives it back", async ({
-    page,
-  }) => {
-    test.setTimeout(180_000);
-    await watchCamera(page);
-    await page.setViewportSize({ width: 390, height: 844 });
-    await page.goto(HOME);
-    await hydrated(page);
-
-    await page.locator(MAP).first().scrollIntoViewIfNeeded();
-    await drawn(page, 0);
-    expect(await cameraProbeInstalled(page)).toBe(true);
-
-    await page.getByRole("button", { name: "Pause slides" }).click();
-    await expect(page.getByRole("button", { name: "Play slides" })).toBeVisible();
-    const expand = page.locator("[data-map-expand]").first();
-    await expand.click();
-    await expect(expand).toHaveAttribute("data-map-expand", "collapse");
-    // AT REST, NOT AFTER 1200ms (#148). The expand is two flights — the frame
-    // change, then the re-ask when the first lands — 1100ms of motion
-    // unloaded, so the fixed wait this replaced had 100ms of margin, and a Van
-    // Wijk arc read mid-flight is a zoom BELOW where it lands. (#148's "the
-    // zoom went DOWN" was on 6cfeba8, where this case did not pause the band
-    // and waited 600ms, so a clock turn's arc and the expand's own were both
-    // candidates. It pauses first now — Play is asserted above — so only the
-    // expand's is left, and this is the wait for it.)
-    await cameraAtRest(page);
-    const before = await mapZoom(page);
-    const spot = await wheelSpot(page);
-    await page.mouse.move(spot.x, spot.y);
-    await page.waitForTimeout(700);
-    for (let i = 0; i < 4; i++) {
-      await page.mouse.wheel(0, -120);
-      await page.waitForTimeout(150);
-    }
-    await cameraAtRest(page);
-    const zoomed = await mapZoom(page);
-    expect(zoomed, `the wheel really zoomed the map (${before} -> ${zoomed})`).toBeGreaterThan(
-      before + 0.1,
-    );
-
-    // Collapsed first: the arrow is under the full-window overlay (M1).
-    await expand.click();
-    await expect(expand).toHaveAttribute("data-map-expand", "expand");
-    await page.mouse.move(2, 2);
-    await cameraAtRest(page);
-    const held = await mapCentre(page);
-    await resetCamera(page);
-    await page.getByRole("button", { name: "Next slide" }).click();
-
-    await expect
-      .poll(async () => (await cameraMovesFor(page, 0)) > 0, {
-        message: "the visitor asked for a different listing, so the camera follows again",
-      })
-      .toBe(true);
-    await cameraAtRest(page);
-    // WHAT PROVES IT FOLLOWED, since 2026-09-23: the camera arrives somewhere
-    // ELSE at the SAME zoom — the visitor's zoom is carried to the next
-    // listing (`chosenZoom`, PropertyMap.svelte), so a zoom that differed from
-    // theirs is no longer the evidence.
-    const moved = await mapCentre(page);
-    expect(
-      Math.hypot(moved.lng - held.lng, moved.lat - held.lat),
-      `and it went somewhere else (${JSON.stringify(held)} -> ${JSON.stringify(moved)})`,
-    ).toBeGreaterThan(0.01);
-    expect(await mapZoom(page), "at the zoom the visitor chose, not the frame's").toBeCloseTo(
-      zoomed,
-      3,
-    );
   });
 });

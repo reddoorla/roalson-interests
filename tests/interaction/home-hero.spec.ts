@@ -275,7 +275,9 @@ test("at 1440 the band is ONE column on the gutter: headline, sentence, buttons,
   await adopted(page);
   await fontsArrived(page);
   await expect(page.locator(`${band} a`)).toHaveText(["Properties", "Contact us"]);
-  await expect(page.locator(`${band} h1 + p`)).toHaveText("A placeholder for a sentence to come.");
+  await expect(page.locator(`${band} h1 + p`)).toHaveText(
+    "Straight answers, honest advice, and a team that represents your interests, not ours. Done right for over 40 years.",
+  );
   // The old band's left-hand column held an h2 and a list. Both are gone.
   await expect(page.locator(`${band} ul`)).toHaveCount(0);
   await expect(page.locator(`${band} h2`)).toHaveCount(0);

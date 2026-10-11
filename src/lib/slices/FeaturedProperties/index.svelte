@@ -10,7 +10,7 @@
    *  keep in step: the bar fills over it (`progress` is elapsed / dwell), and
    *  the Ken Burns drift's transition crosses KEN_BURNS over it, on a clock
    *  turn and a visitor's turn alike (`zoom`, below). What does NOT follow it
-   *  is the hand-over — DISSOLVE, the text cascade, the camera's flight —
+   *  is the hand-over — DISSOLVE and the text cascade —
    *  which is how long a turn takes to look finished, and the operator asked
    *  for longer on each listing, not for slower turns.
    *
@@ -53,13 +53,22 @@
    *  to it. So the tilt must never be interpolated up from 0 either — see
    *  `primed`, below. */
   export const TILT_DEG = 0.02;
+
+  /** The comp's 0.5s DISSOLVE to the next variant (6843:993 → 6843:995 →
+   *  6843:1089 …), after the bar has filled over DWELL (declared above, in the
+   *  module script — the operator's 8000, not the comp's 4000).
+   *
+   *  It was the map's CAMERA_FLIGHT_MS, imported, while the band had a map
+   *  flying beside the photo (until 2026-10-11). With the map gone it is the
+   *  band's own number again, the 500 the fade classes below are written in. */
+  export const DISSOLVE = 500;
 </script>
 
 <script lang="ts">
   // The homepage's "Properties" band (6802:1460 at 1440, 6994:820 at 390): on
-  // the #3d0707 ground, a reserved map column beside a sand card that turns
-  // through the editor's featured listings — photo, a 2px timer, the eyebrow
-  // and arrows, then the listing's size line, title, bullets and LEARN MORE.
+  // the #3d0707 ground, the band's heading beside a sand card that turns
+  // through the editor's featured listings — photo, a 2px timer, the arrows,
+  // then the listing's size line, title, bullets and LEARN MORE.
   //
   // THE CAROUSEL IS $lib/carousel.svelte.ts — this file owns markup and layout
   // only: no clock, no index, no ARIA of its own. Slider.svelte was read and
@@ -72,8 +81,8 @@
   // BrandButton with the `sr-only` "about {title}" suffix.
   //
   // ONE GRID, SO THE CHROME CAN SIT BETWEEN A SLIDE'S PHOTO AND ITS TEXT. The
-  // comp interleaves them — photo, bar, [eyebrow | arrows], text at 390; the
-  // eyebrow-over-arrows column BESIDE the text at 1440 — and the carousel's
+  // comp interleaves them — photo, bar, arrows, text at 390; the arrows'
+  // column BESIDE the text at 1440 — and the carousel's
   // contract is that controls stay OUTSIDE the slide elements in the DOM: a
   // slide that turns away goes `inert`, and an arrow inside it would turn its
   // own slide from under the keyboard focus it holds (#34). So the card is one
@@ -81,19 +90,12 @@
   // its direct children, and every slide spans all four rows as a SUBGRID,
   // filling rows 1 and 4 and leaving 2 and 3 to the chrome. Each slide is still
   // one element — one APG group, one `inert` — and nothing is positioned over
-  // anything: the chrome's real size makes the rows, so an eyebrow that wraps
-  // (it does below 377px, where Pause makes the controls 140 wide) moves the
-  // text down instead of printing over it. From `lg` the same four rows hold
+  // anything: the chrome's real size makes the rows, so controls that wrap
+  // move the text down instead of printing over it. From `lg` the same four rows hold
   // two columns, 414fr | 514fr = the comp's 20 + 394 | 20 + 474 + 20.
   //
-  // THE MAP IS IN (#13), and the paragraph this replaces was wrong twice. It
-  // said the column was reserved "from `lg`" and that below `lg` the comp's
-  // 390 × 200 box "would be 200px of blank scroll" — the comp draws that box,
-  // full bleed, as the first thing in the band, and it has never been blank.
-  // It also said pins were out because "those are Google's imagery"; the pins
-  // are the comp's own `np_pin-map` component and the tiles are OpenStreetMap's.
-  // The slot itself still has no fill, which is true of the comp's frame too.
-  // See $lib/components/PropertyMap.svelte and the 2026-09-22 journal entry.
+  // THE MAP IS OUT (Erik, 2026-10-09: "lose map entirely"). Its column holds
+  // the band's heading.
   //
   // THE CARD'S LEFT EDGE IS THE SITE'S COLUMN LINE, not the comp's 512. The
   // two-column bands put their right column at x=513 (1440) through the gutters
@@ -122,32 +124,16 @@
   import BrandButton from "$lib/components/BrandButton.svelte";
   import CarouselArrows from "$lib/components/CarouselArrows.svelte";
   import CarouselProgress from "$lib/components/CarouselProgress.svelte";
-  import PropertyMap from "$lib/components/PropertyMap.svelte";
   import { createCarousel } from "$lib/carousel.svelte";
   import { cmsHref } from "$lib/cms-href";
   import { featuredListings } from "$lib/featured-properties";
   import { linkResolver } from "$lib/prismicio";
-  import { CAMERA_FLIGHT_MS, slidePoints } from "$lib/property-map";
   import { DEFAULT_IMAGE_WIDTHS, imgix, srcset } from "$lib/utils/image";
   import ArrowRight from "$components/ArrowRight.svelte";
 
   let { slice }: { slice: Content.FeaturedPropertiesSlice } = $props();
 
   const uid = $props.id();
-
-  /** The comp's 0.5s DISSOLVE to the next variant (6843:993 → 6843:995 →
-   *  6843:1089 …), after the bar has filled over DWELL (declared above, in the
-   *  module script — the operator's 8000, not the comp's 4000).
-   *
-   *  IT IS THE CAMERA'S FLIGHT, IMPORTED, not a second 500 that happens to
-   *  match. The band cross-fades the photo while the map flies to the same
-   *  listing, and the pair only reads as ONE change if the two last the same
-   *  time — which `property-map.ts` says in prose where `CAMERA_FLIGHT_MS` is
-   *  declared, and said only in prose until now: both modules typed their own
-   *  `500` and neither imported the other, so the coupling the comments on
-   *  both sides claimed was real did not exist and tuning either one would
-   *  have silently broken it. */
-  const DISSOLVE = CAMERA_FLIGHT_MS;
 
   /** The srcset's widths: the defaults and 2048 (see `photoSizes`). */
   const PHOTO_WIDTHS = [...DEFAULT_IMAGE_WIDTHS, 2048].sort((a, b) => a - b);
@@ -186,11 +172,10 @@
    *  stopped — so the settle itself is not something a manual cascade can be
    *  timed to. But the number was never really the settle's: it is DISSOLVE,
    *  how long the hand-over takes to LOOK finished, and everything else a
-   *  manual turn does is on it. The photo cross-fades for DISSOLVE; the map's
-   *  camera flies for CAMERA_FLIGHT_MS, which is the same constant; and the
+   *  manual turn does is on it. The photo cross-fades for DISSOLVE, and the
    *  photo's drift is delayed by exactly that long (`zoom`, below) and starts
    *  moving on it. So the last word lands on the frame
-   *  the photo is fully shown, the camera has landed and the drift begins —
+   *  the photo is fully shown and the drift begins —
    *  the same frame the clock's cascade lands on, where the bar starts to
    *  fill. Anything shorter would finish the words over a photo still fading
    *  in; anything longer would still be arriving after everything else had
@@ -206,15 +191,11 @@
   const switchedOn = $derived(primary.show_featured !== false);
   const listings = $derived(featuredListings(primary.properties));
   const slides = $derived(switchedOn ? listings.slides : []);
-  /** Derived once rather than inline in the template: it is read twice (the
-   *  map's pins and the active id's membership) and it drops slides with no
-   *  GeoPoint, so recomputing it per read is a filter that could disagree with
-   *  itself. */
-  const mapPoints = $derived(slidePoints(slides));
 
-  // The visible heading is the comp's H4 eyebrow, at h2 LEVEL: the hero owns
-  // the h1 and the slide titles are h3s. It also names the carousel, so an
-  // empty field falls back to the comp's words rather than to no name.
+  // The visible heading is an H2 in the column the map left (Erik, 2026-10-09:
+  // "make FEATURED PROPERTIES more prominent, within existing site type
+  // styles"). It also names the carousel, so an empty field falls back to the
+  // comp's words rather than to no name.
   const heading = $derived(primary.heading?.trim() || "Featured Properties");
 
   // A label AND somewhere to go, as the hero's buttons — and through cmsHref,
@@ -288,16 +269,8 @@
   // Reduced motion is still a plain swap: `eligible` is false there, every
   // string below drops to its bare form, and app.css zeroes what is left.
   //
-  // A MANUAL TURN COSTS THE SAME 500 AS A CLOCK TURN, and not a second number.
-  // DISSOLVE is CAMERA_FLIGHT_MS, and the map ALREADY flew for 500ms on this
-  // path: `cameraMove` answers `fly` for a new active listing whoever turned
-  // to it — `activeBy` ("visitor" for an arrow, a key or a swipe) only decides
-  // whether the turn lifts a suspension the visitor's own map gesture set.
-  // MEASURED at 1440, map booted: on an arrow press the camera's movestart came
-  // 5.2ms before the first frame of the turn and its moveend 501.7ms after it,
-  // and on a clock turn 0 and 500.8. So before this change the card snapped
-  // while the camera took half a second over the same listing; now the photo
-  // is opaque at ~515ms and the two land together again.
+  // A MANUAL TURN COSTS THE SAME 500 AS A CLOCK TURN, and not a second number:
+  // DISSOLVE, on both paths.
   //
   // The photo CROSS-fades: the incoming one fades in over the outgoing one,
   // which holds at 1 and drops out when the fade is done — two photos fading
@@ -580,8 +553,14 @@
     aria-labelledby={carousel.enabled ? undefined : `${uid}-heading`}
     class="featured-band relative bg-dark lg:grid"
   >
+    <div
+      data-featured-heading
+      class="px-5 py-10 lg:col-start-2 lg:row-start-1 lg:px-0 lg:pt-20 lg:pb-0"
+    >
+      <h2 id="{uid}-heading" class="t-h2 text-light">{heading}</h2>
+    </div>
     <!-- The card. With more than one listing it is the carousel's region, named
-         by the eyebrow; with one, `region` is empty and the <section> takes the
+         by the heading; with one, `region` is empty and the <section> takes the
          name instead (never both — two landmarks, one name).
          `data-carousel-ready` is `hydrated` made visible: what a browser test
          waits on before it presses anything.
@@ -621,7 +600,7 @@
       use:animateIn={REVEAL}
       data-featured-card
       data-carousel-ready={carousel.hydrated ? "" : undefined}
-      class="@container relative isolate bg-light text-primary lg:col-start-2 lg:row-start-1"
+      class="@container relative isolate bg-light text-primary lg:col-start-4 lg:row-start-1"
     >
       <div
         {...carousel.swipe}
@@ -629,12 +608,10 @@
       >
         <!-- The chrome comes FIRST in the DOM so Pause is the first stop inside
              the carousel (APG), and sits in row 3 by placement. From `lg` it is
-             the comp's 200px column: eyebrow pinned to the top, arrows to the
-             bottom, 43 above the card's foot (40 of padding and 3 of the comp's
+             the comp's 200px column, arrows at the bottom, 43 above the card's
+             foot (40 of padding and 3 of the comp's
              own slack — 203 against 200). That column, not the text, is what
              holds the panel at the comp's 285 when a listing has two bullets.
-             `items-start`: at 390 the eyebrow's cap top is flush with the
-             arrows' top edge, not centred on them.
 
              THE 200 IS A FLOOR (`lg:min-h`), NOT A HEIGHT. As `lg:h-[200px]`
              it was a fixed box top-aligned in its own grid area, so the moment
@@ -653,26 +630,16 @@
              `grid-row-start: 3`, resetting the start to `auto`: the chrome was
              auto-placed into implicit rows 5–6 UNDER the slides (they fill
              rows 1–4 of both columns), and the card measured 1086 tall for the
-             comp's 827 with the eyebrow at y=843. Restating the start inside
+             comp's 827. Restating the start inside
              `lg` puts it after the shorthand. The text block below needs the
              same pair for the same reason. -->
         <div
           data-featured-chrome
           class="relative z-[2] col-start-1 row-start-3 mx-5 mt-[10px] flex flex-wrap items-start
-            justify-between gap-5 lg:flex-nowrap lg:row-span-2 lg:row-start-3 lg:mt-5 lg:mr-0 lg:mb-[43px]
+            justify-end gap-5 lg:flex-nowrap lg:row-span-2 lg:row-start-3 lg:mt-5 lg:mr-0 lg:mb-[43px]
             lg:h-auto lg:min-h-[200px] lg:flex-col"
         >
-          <h2 id="{uid}-heading" class="t-h4 min-w-min grow basis-0 lg:grow-0 lg:basis-auto">
-            {heading}
-          </h2>
-          <!-- The row WRAPS where the eyebrow's longest word cannot sit beside the
-               controls (238px with SEE ALL): on every phone, where the eyebrow
-               takes one line and the controls the row under it, since
-               "PROPERTIES" (94) + 20 + 238 is wider than a 390 column's 310.
-               `min-w-min` is what lets it wrap instead of shrinking the heading
-               past its own word. From `lg` the chrome is a column.
-
-               THE BAND'S OWN LINK TO THE REST OF THE PORTFOLIO, as the last of
+          <!-- THE BAND'S OWN LINK TO THE REST OF THE PORTFOLIO, as the last of
                the controls (operator, 2026-10-01, answering Nicole's MarkUp
                pin: "eliminate the properties button, and add an 'all' button
                next to the slideshow controls"). It was a PROPERTIES button on
@@ -816,83 +783,6 @@
         <p class="sr-only" {...carousel.status}>{carousel.statusText}</p>
       {/if}
     </div>
-
-    <!-- THE MAP (#13). The comp draws it 512 x 827 at (0, 0) at 1440 — full
-         bleed to the left viewport edge, the band's whole height, no gap to
-         the card — and 390 x 200 full bleed at (0, 0) at 390, where it is the
-         FIRST thing in the band and sits flush on top of the card. The build
-         used to render nothing below `lg`; that was a reading of the comp, and
-         the comp was re-read.
-         It is LAST in the DOM and first on the phone. That is deliberate and
-         it is `order`, not a move: the card is the band's content and the map
-         is a picture of three of its listings, so the card stays first for a
-         screen reader and for anything that ignores CSS, while the `max-lg`
-         grid in this file's <style> puts the map above it visually where the
-         comp draws it there. Above `lg` grid PLACEMENT decides, so the DOM
-         order is not consulted at all.
-         `tone="cream"`, AND THE SLOT'S OWN TRANSPARENCY IS NOT ENOUGH. This
-         comment used to say the slot has no background so the band's #3d0707
-         shows through while the tiles arrive. The slot is indeed transparent —
-         and it was never the element that paints. `PropertyMap`'s own root
-         filled it, hard-coded `bg-light`, so what actually showed was a
-         full-bleed SAND rectangle over the dark band: measured 513 × 826.4 at
-         1455 × 900 and 375 × 200 at 390 × 844. The guard "measuring" it read
-         the slot, which is transparent whatever the child does, so it passed
-         throughout. The ground is the child's to draw, so the child is told
-         which one: off-white on #3d0707, 15.13:1. -->
-    <div data-map-slot class="max-lg:order-first lg:col-start-1 lg:row-start-1">
-      <!-- THE CAMERA FOLLOWS THE ACTIVE SLIDE, AND THAT IS THE WHOLE GATE.
-           WCAG 2.2.2 is live on this band: it autoplays, so a camera that
-           moved on its own every eight seconds (`DWELL`) would be auto-moving
-           content in parallel with other content. It cannot. `active` is read
-           off `carousel.index`, and the clock only advances it while the
-           carousel is `rotating` — which is already `hydrated && eligible &&
-           !userPaused && !pageHidden && !atEnd` here (hover is not a pause on
-           this band, `pauseOnHover: false`), i.e. every pause, a hidden tab and
-           `prefers-reduced-motion` all stop it. Pressing the band's Pause
-           control stops the index, so it stops the map; under reduced motion
-           the index never moves at all, so the map never does.
-           That is ONE mechanism. A second gate here — a `paused` prop the map
-           also consulted — could only ever disagree with this one, and the
-           first thing it would disagree about is a MANUAL turn: pressing an
-           arrow focuses a control, which stops the clock, and a camera gated
-           on `rotating` would then refuse to follow the slide the visitor just
-           asked for.
-           The map is also CONSTRUCTED on the active point rather than easing
-           to it (see PropertyMap's `camera()`), so nothing moves at load
-           either.
-           `mapPoints` is indexed by the SLIDE's index, never by its own: a
-           slide whose `location` is empty is not in `slidePoints` at all, so
-           the two lists are different lengths and `mapPoints[index]` would
-           point at the wrong listing. Matching by id is the only safe read,
-           and an id this map has no pin for is a request the map holds on
-           rather than serves (`cameraMove`'s `unknown-active`). -->
-      <!-- `activeBy` IS WHAT KEEPS A VISITOR'S OWN ZOOM. The map suspends its
-           camera when the visitor drives it and lifts that suspension when the
-           visitor asks for a different listing — and on this band the index
-           moves on an 8000ms clock with nobody touching anything, which the map
-           cannot tell from an arrow press by watching `active` alone. It read
-           every auto-advance as the visitor asking, so a pinch or a wheel-zoom
-           on the expanded map was thrown away one dwell later: measured on a
-           production build of `/` at 390x844, four wheel-up ticks took it to
-           z12.5387 and ~9s later the camera had flown back to z12 twice with
-           no further input. `carousel.turnedBy` is the only thing that knows,
-           because the carousel is what turned it. -->
-      <!-- `onengage` ANSWERS #150's OPEN QUESTION the client's way (M1,
-           operator call 2026-09-28): pressing +, − or expand on a running
-           slideshow pauses it, and the unlocked map then acts. Collapsing does
-           not resume it; only Play does. `interactive` stays the one switch. -->
-      <PropertyMap
-        points={mapPoints}
-        active={slides[carousel.index]?.id ?? null}
-        activeBy={carousel.turnedBy}
-        interactive={carousel.paused || !carousel.eligible}
-        onengage={carousel.pause}
-        label={heading}
-        tone="cream"
-        class="h-50 w-full lg:h-full"
-      />
-    </div>
   </section>
 {/if}
 
@@ -907,13 +797,6 @@
     }
   }
 
-  /* Below `lg` the band is a one-column grid rather than block flow, for one
-     reason: so the map slot — last in the DOM, because the card is the band's
-     content — can take `order: -1` and sit where the 390 comp draws it, on
-     top of the card. A single-column grid is layout-neutral against the block
-     flow it replaces here (the section has exactly two children, neither of
-     which carries a vertical margin to collapse), and it stops at `lg`, where
-     the explicit `col-start` / `row-start` placements below take over. */
   @media (width < 64rem) {
     .featured-band {
       display: grid;
@@ -930,10 +813,9 @@
     .featured-band {
       --gutter: 2rem;
       grid-template-columns:
-        calc(
-          max(0px, (100% - 1440px) / 2) + var(--gutter) +
-            (min(100%, 1440px) - 2 * var(--gutter) - 36px) * 397 / 1244 + 36px
-        )
+        calc(max(0px, (100% - 1440px) / 2) + var(--gutter))
+        calc((min(100%, 1440px) - 2 * var(--gutter) - 36px) * 397 / 1244)
+        36px
         minmax(0, 1fr);
     }
   }

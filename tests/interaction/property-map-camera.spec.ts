@@ -9,7 +9,6 @@ import {
   resetCamera,
   watchCamera,
 } from "./camera-probe";
-import { nextTurn } from "./band-turn";
 import { hydrated } from "./hydrated";
 import { scrollMapToBoot } from "./map-boot";
 import { placedMarkers } from "./placed-markers";
@@ -37,7 +36,6 @@ import { placedMarkers } from "./placed-markers";
 // pin box, and 0.60 km is 36px at 16.596 m/px), so the two this file drives
 // with are the other two, which stand alone at every zoom the page reaches.
 const PROPERTIES = "/dev/properties";
-const HOME = "/dev/home";
 const MAP = "[data-property-map]";
 
 /** Positive evidence the engine drew a frame: `data-map-ready` is set by
@@ -58,24 +56,10 @@ async function drawn(page: Page, nth = 0) {
  * measured, because it was assumed not to and that assumption decided how this
  * whole file was written. A throwaway spec printed `reduce = true` for both the
  * default `page` fixture and a context opened by hand. So everything below runs
- * the way CI runs it, and the two blocks that need real motion say so out loud
- * (`moving`, and the `test.use` on the flight block).
+ * the way CI runs it.
  */
 async function at(browser: Browser, width: number, height = 900) {
   const context = await browser.newContext({ viewport: { width, height } });
-  const page = await context.newPage();
-  return { context, page };
-}
-
-/** A context where motion is allowed. The homepage band draws NO pause control
- *  under `reduce` — `eligible` is `enabled && dwell > 0 && last > 0 && !reduced`
- *  — so a test about pausing it has to lift the emulation or it is looking for
- *  a button that was never rendered. (It spent 120s doing exactly that.) */
-async function moving(browser: Browser, width: number, height = 900) {
-  const context = await browser.newContext({
-    viewport: { width, height },
-    reducedMotion: "no-preference",
-  });
   const page = await context.newPage();
   return { context, page };
 }
@@ -239,75 +223,6 @@ test.describe("the map pins beside its cards", () => {
       await page.evaluate(() => window.scrollBy(0, 700));
       await page.waitForTimeout(1000);
       expect(await pinsAt()).toEqual(first);
-    } finally {
-      await context.close();
-    }
-  });
-});
-
-test.describe("the homepage band, where the carousel drives the camera", () => {
-  test("moves with the slides, and only while the carousel is turning", async ({ browser }) => {
-    test.setTimeout(180_000);
-    const { context, page } = await moving(browser, 1440);
-    try {
-      await page.goto(HOME);
-      await hydrated(page);
-      // Script has adopted the carousel — nothing may be pressed before that.
-      await expect(page.locator("[data-featured-card]")).toHaveAttribute(
-        "data-carousel-ready",
-        "",
-        { timeout: 20_000 },
-      );
-      // Hovering the band is itself a pause, so the pointer is parked first.
-      await page.mouse.move(2, 2);
-      // The band is below the fold and the engine waits for half its box.
-      await page.locator("[data-map-slot]").scrollIntoViewIfNeeded();
-      await drawn(page);
-      const map = page.locator(MAP).first();
-
-      // Through `placedMarkers` (#143): "a paused carousel is a still map" is
-      // an equality between two reads, and two reads that both caught the
-      // markers unplaced are equal for a reason that has nothing to do with the
-      // carousel. `parked.length > 0` would not catch it either — a list of
-      // empty strings joins to a non-empty string of separators.
-      const where = async () =>
-        (await placedMarkers(map, "the band's markers")).markers.map((m) => m.transform).join("|");
-
-      // THE DWELL, MEASURED OFF THE BAND ITSELF — two of its own turns — and
-      // the map seen moving with the second. This used to wait a fixed "two
-      // and a bit full dwells (4000ms each)", i.e. 9500ms, which at the
-      // doubled 8000ms dwell is ONE dwell and a bit: a still map across it
-      // would have proved only that the clock had not got round to turning.
-      const band = page.locator("section:has([data-map-slot])").first();
-      await page.mouse.move(2, 2);
-      await nextTurn(band);
-      await page.waitForTimeout(1200);
-      const before = await where();
-      const from = Date.now();
-      await nextTurn(band);
-      const dwell = Date.now() - from;
-      await page.waitForTimeout(1200);
-      expect(await where(), "running: the map moved with the turn").not.toBe(before);
-
-      // PAUSED. WCAG 2.2.2's mechanism for this band is the carousel's own
-      // pause control, and the claim measured here is that it stops the MAP
-      // too — which it can only do because the active listing is read off
-      // `carousel.index` and nothing else writes it. There is no second gate to
-      // disagree with, and this is the evidence there does not need to be one.
-      await page.getByRole("button", { name: "Pause slides" }).click();
-      await expect(page.getByRole("button", { name: "Play slides" })).toBeVisible();
-      await page.mouse.move(2, 2);
-      await page.waitForTimeout(1200);
-      const parked = await where();
-      expect(parked.length).toBeGreaterThan(0);
-      // Twice the dwell the clock was just measured turning at.
-      await page.waitForTimeout(2 * dwell);
-      expect(await where(), `a paused carousel is a still map (over ${2 * dwell}ms)`).toBe(parked);
-
-      // Now let it turn again, and the camera goes with it.
-      await page.getByRole("button", { name: "Play slides" }).click();
-      await page.mouse.move(2, 2);
-      await expect.poll(async () => (await where()) !== parked, { timeout: 3 * dwell }).toBe(true);
     } finally {
       await context.close();
     }
