@@ -172,3 +172,13 @@ export function mapsUrl(property: PropertyDocument): string | null {
   if (!isFilled.geoPoint(loc)) return null;
   return `https://www.google.com/maps/search/?api=1&query=${loc.latitude},${loc.longitude}`;
 }
+
+/** The listing page's Aerial Map (Erik, 2026-10-09): Google Maps' documented
+ *  map URL, on satellite imagery, centred on the pin. That form draws no
+ *  marker; `mapsUrl` keeps the pinned search link the property map's own
+ *  links use. */
+export function aerialMapUrl(property: PropertyDocument): string | null {
+  const loc = property.data.location;
+  if (!isFilled.geoPoint(loc)) return null;
+  return `https://www.google.com/maps/@?api=1&map_action=map&center=${loc.latitude},${loc.longitude}&zoom=17&basemap=satellite`;
+}

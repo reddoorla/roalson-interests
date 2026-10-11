@@ -21,9 +21,9 @@
   import ArrowRight from "$lib/components/ArrowRight.svelte";
   import BrandButton from "$lib/components/BrandButton.svelte";
   import {
+    aerialMapUrl,
     detailBullets,
     isPastProject,
-    mapsUrl,
     propertyPackage,
     statusLabel,
   } from "$lib/property";
@@ -41,7 +41,7 @@
   const isNew = $derived(!past && data.is_new);
   const bullets = $derived(detailBullets(property));
   const pkg = $derived(past ? null : propertyPackage(property));
-  const map = $derived(mapsUrl(property));
+  const map = $derived(aerialMapUrl(property));
   const hasPhoto = $derived(isFilled.image(data.feature_image));
 </script>
 
@@ -60,7 +60,7 @@
   <div class="mt-10 grid {hasPhoto ? 'lg:grid-cols-2' : ''}">
     {#if hasPhoto}
       <!-- The card's photo box, 423.5 × 267.5 in the comp. -->
-      <div class="aspect-[423.5/267.5] overflow-hidden bg-light">
+      <div class="aspect-[423.5/267.5] overflow-hidden bg-light lg:self-stretch">
         <PrismicImage
           field={data.feature_image}
           fallbackAlt=""
@@ -114,7 +114,7 @@
           {#if map}
             <BrandButton href={map} arrow target="_blank" rel="noopener noreferrer">
               Aerial Map
-              <span class="sr-only">(opens in a new tab)</span>
+              <span class="sr-only">(Google Maps, opens in a new tab)</span>
             </BrandButton>
           {/if}
         </div>

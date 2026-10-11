@@ -7,7 +7,7 @@ import { propertyFixture } from "$lib/property-fixture";
 afterEach(cleanup);
 
 const bulletsOf = (container: HTMLElement) =>
-  [...container.querySelectorAll("ul:not([aria-label]) > li")].map(
+  [...container.querySelectorAll("ul:not([aria-label='Listing status']) > li")].map(
     (li) => li.textContent?.trim() ?? "",
   );
 
@@ -85,16 +85,17 @@ describe("PropertyDetail", () => {
     expect(container.textContent).not.toMatch(/\d(\.\d)?\s*MB\b/);
   });
 
-  it("calls the map button Aerial Map, never Google Maps, and opens it in a new tab", () => {
-    const { getByRole, queryByText } = render(PropertyDetail, {
-      props: { property: propertyFixture() },
-    });
-    const link = getByRole("link", { name: /Aerial Map/ });
-    expect(queryByText(/Google Maps/)).toBeNull();
-    expect(link.getAttribute("href")).toMatch(/^https:\/\/www\.google\.com\/maps\//);
+  it("labels the map button Aerial Map, opens satellite imagery on the pin, and says where it goes", () => {
+    const { getByRole } = render(PropertyDetail, { props: { property: propertyFixture() } });
+    const link = getByRole("link", { name: /^Aerial Map/ });
+    expect(link.firstChild?.textContent?.trim()).toBe("Aerial Map");
+    const url = new URL(link.getAttribute("href")!);
+    expect(url.origin + url.pathname).toBe("https://www.google.com/maps/@");
+    expect(url.searchParams.get("basemap")).toBe("satellite");
+    expect(url.searchParams.get("center")).toBe("29.6572,-98.6297");
     expect(link.getAttribute("target")).toBe("_blank");
     expect(link.getAttribute("rel")).toContain("noopener");
-    expect(link.textContent).toContain("opens in a new tab");
+    expect(link.textContent).toContain("Google Maps, opens in a new tab");
   });
 
   it("renders no action row, no details and no dangling labels for a bare listing", () => {
@@ -121,6 +122,27 @@ describe("PropertyDetail", () => {
     ]);
   });
 
+  it("drops the price bullets and the tracts for a sold listing, as for a marked one", () => {
+    const { container } = render(PropertyDetail, {
+      props: { property: propertyFixture({ status: "Sold" }) },
+    });
+    const items = bulletsOf(container);
+    expect(items).toContain("Zoning: C-3, City of Boerne");
+    expect(items.join(" ")).not.toMatch(/price|offered for/i);
+    expect(items.some((b) => b.startsWith("Tract"))).toBe(false);
+  });
+
+  it("writes a tract with no acres as its name and status", () => {
+    const { container } = render(PropertyDetail, {
+      props: {
+        property: propertyFixture({
+          tracts: [{ tract_name: "Tract 2", tract_acres: null, tract_status: "Available" }],
+        }),
+      },
+    });
+    expect(bulletsOf(container).at(-1)).toBe("Tract 2: Available");
+  });
+
   it("prices the listing under Price and never says Total", () => {
     const { container } = render(PropertyDetail, { props: { property: propertyFixture() } });
     expect(bulletsOf(container)).toContain("Price: Contact Broker");
@@ -129,15 +151,12 @@ describe("PropertyDetail", () => {
   });
 
   it("has no Details section: the facts and tracts follow the highlights in the one list", () => {
-    const { container, queryByRole, getAllByRole } = render(PropertyDetail, {
+    const { container, queryByRole } = render(PropertyDetail, {
       props: { property: propertyFixture() },
     });
     expect(queryByRole("heading", { name: "Details" })).toBeNull();
     expect(queryByRole("table")).toBeNull();
     expect(container.querySelector("dl")).toBeNull();
-    expect(getAllByRole("list").filter((l) => l.getAttribute("aria-label") === null)).toHaveLength(
-      1,
-    );
     expect(bulletsOf(container)).toEqual([
       "New ownership and property management!",
       "Great visibility and excellent location in the far NW submarket",
