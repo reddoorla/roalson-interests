@@ -491,13 +491,17 @@
        the comp's phone map, 595 its 1440 panel. Both draw the expand button
        (M1). -->
   <PropertyMap
-    points={sectionPoints(groupListings(propertyListingFixture())[0].properties)}
+    points={sectionPoints(
+      groupListings(propertyListingFixture()).find((s) => s.id === "land")!.properties,
+    )}
     label="Land"
     engine="off"
     class="h-50"
   />
   <PropertyMap
-    points={sectionPoints(groupListings(propertyListingFixture())[0].properties)}
+    points={sectionPoints(
+      groupListings(propertyListingFixture()).find((s) => s.id === "land")!.properties,
+    )}
     label="Land, at the 1440 panel's height"
     engine="off"
     class="h-[595px]"

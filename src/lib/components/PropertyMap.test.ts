@@ -5,9 +5,11 @@ import { flushSync, tick } from "svelte";
 import PropertyMap from "./PropertyMap.svelte";
 import {
   ACTIVE_PIN_SCALE,
+  RESTING_PIN_SCALE,
   CAMERA_FLIGHT_MS,
   DEFAULT_MAP_STYLE_URL,
   DIMMED_MARKER_OPACITY,
+  DIMMED_PIN_FILL,
   frameFor,
   homeMarkers,
   MAP_CREDIT_OPEN_MS,
@@ -823,7 +825,7 @@ describe("the active listing's pin (P2/P4)", () => {
     expect(a!.hasAttribute("data-map-active")).toBe(true);
     expect(b!.hasAttribute("data-map-active")).toBe(false);
     expect(scaleOf(a)).toBe(ACTIVE_PIN_SCALE);
-    expect(scaleOf(b)).toBe(1);
+    expect(scaleOf(b)).toBe(RESTING_PIN_SCALE);
     // Both at the frame's own size: the difference is the scale, never the box.
     expect(drawnAt(a)).toEqual(drawnAt(b));
     expect(drawnAt(a)[0]).toBeGreaterThan(0);
@@ -846,14 +848,39 @@ describe("the active listing's pin (P2/P4)", () => {
     // end state and there would be nothing to transition.
     expect(at("a")).toBe(a);
     expect(at("b")).toBe(b);
-    expect([scaleOf(a), scaleOf(b)]).toEqual([1, ACTIVE_PIN_SCALE]);
+    expect([scaleOf(a), scaleOf(b)]).toEqual([RESTING_PIN_SCALE, ACTIVE_PIN_SCALE]);
     expect([drawnAt(a), drawnAt(b)], "the attribute size never changes").toEqual(before);
   });
 
   it("marks nothing when nothing is active — the control", async () => {
     const { view } = await booted({ active: null });
-    expect(view.container.querySelectorAll("[data-map-pin]").length).toBeGreaterThan(0);
+    const pins = [...view.container.querySelectorAll("[data-map-pin]")];
+    expect(pins.length).toBeGreaterThan(0);
     expect(view.container.querySelector("[data-map-active]")).toBeNull();
+    for (const pin of pins) expect(scaleOf(pin)).toBe(1);
+    expect(view.container.querySelector("[data-map-pin-mark]")).toBeNull();
+  });
+
+  it("carries the Ri mark in its head, where every other pin keeps its hole", async () => {
+    const { view } = await booted({ active: "a" });
+    const a = view.container.querySelector("[data-map-pin='a']")!;
+    const b = view.container.querySelector("[data-map-pin='b']")!;
+    expect(a.querySelector("[data-map-pin-mark] path")).not.toBeNull();
+    expect(a.querySelector("circle")).toBeNull();
+    expect(b.querySelector("[data-map-pin-mark]")).toBeNull();
+    expect(b.querySelector("circle")).not.toBeNull();
+    expect(view.container.querySelectorAll("[data-map-pin-mark]")).toHaveLength(1);
+  });
+
+  it("carries it on the server's picture too, on the active pin only", async () => {
+    const { container } = render(PropertyMap, {
+      props: { points, label: "Land", engine: "off", active: "a" },
+    });
+    await tick();
+    const marks = [...container.querySelectorAll("[data-map-pin-mark]")];
+    expect(marks.length, "premise: the picture draws `a`").toBeGreaterThan(0);
+    for (const mark of marks)
+      expect(mark.closest("[data-map-home-pin]")!.getAttribute("data-map-home-pin")).toBe("a");
   });
 
   it("is marked the same way on the server's picture", async () => {
@@ -870,7 +897,7 @@ describe("the active listing's pin (P2/P4)", () => {
     ];
     expect(others.length, "premise: other pins in the picture").toBeGreaterThan(0);
     for (const pin of others) expect(pin.hasAttribute("data-map-active")).toBe(false);
-    for (const pin of others) expect(scaleOf(pin)).toBe(1);
+    for (const pin of others) expect(scaleOf(pin)).toBe(RESTING_PIN_SCALE);
     // One size per layer, the active pin's included.
     for (const layer of container.querySelectorAll("[data-map-home-frame]")) {
       const sizes = new Set(
@@ -920,12 +947,10 @@ describe("every other marker, while one is active", () => {
       dimmed: el.hasAttribute("data-map-dimmed"),
     }));
 
-  it("draws the active pin at 1 and every other at DIMMED_MARKER_OPACITY, live", async () => {
+  it("draws the active pin at 1 and every other pin's fill at DIMMED_PIN_FILL, live", async () => {
     const { view } = await booted({ active: "a" });
     expect(opacityOf(view.container.querySelector("[data-map-pin='a']"))).toBe(1);
-    expect(opacityOf(view.container.querySelector("[data-map-pin='b']"))).toBe(
-      DIMMED_MARKER_OPACITY,
-    );
+    expect(opacityOf(view.container.querySelector("[data-map-pin='b']"))).toBe(DIMMED_PIN_FILL);
     // The attribute the stylesheet keys on agrees with the value, both ways.
     expect(
       view.container.querySelector("[data-map-pin='a']")!.hasAttribute("data-map-dimmed"),
@@ -961,11 +986,11 @@ describe("every other marker, while one is active", () => {
     await tick();
     const at = (id: string) => view.container.querySelector(`[data-map-home-pin='${id}']`);
     expect(opacityOf(at("a"))).toBe(1);
-    expect(opacityOf(at("b"))).toBe(DIMMED_MARKER_OPACITY);
+    expect(opacityOf(at("b"))).toBe(DIMMED_PIN_FILL);
     await view.rerender({ ...props, active: "b" });
     await tick();
     expect(opacityOf(at("b"))).toBe(1);
-    expect(opacityOf(at("a"))).toBe(DIMMED_MARKER_OPACITY);
+    expect(opacityOf(at("a"))).toBe(DIMMED_PIN_FILL);
     await view.rerender({ ...props, active: null });
     await tick();
     expect(readAll(view.container).filter((m) => m.opacity !== 1)).toEqual([]);
@@ -991,9 +1016,7 @@ describe("every other marker, while one is active", () => {
       expect(cluster, "premise: `a` and `c` are one disc").not.toBeNull();
       expect(view.container.querySelector("[data-map-pin='a']"), "and `a` has no pin").toBeNull();
       expect(opacityOf(cluster)).toBe(1);
-      expect(opacityOf(view.container.querySelector("[data-map-pin='b']"))).toBe(
-        DIMMED_MARKER_OPACITY,
-      );
+      expect(opacityOf(view.container.querySelector("[data-map-pin='b']"))).toBe(DIMMED_PIN_FILL);
     });
 
     it("that does not hold it is dimmed, to the value that keeps its count legible", async () => {
@@ -1013,7 +1036,7 @@ describe("every other marker, while one is active", () => {
       expect(discs.length, "premise: the picture groups `a` and `c`").toBeGreaterThan(0);
       for (const disc of discs) expect(opacityOf(disc)).toBe(1);
       for (const pin of container.querySelectorAll("[data-map-home-pin='b']"))
-        expect(opacityOf(pin)).toBe(DIMMED_MARKER_OPACITY);
+        expect(opacityOf(pin)).toBe(DIMMED_PIN_FILL);
     });
   });
 
@@ -1028,7 +1051,10 @@ describe("every other marker, while one is active", () => {
       "premise: `a` is in the picture",
     ).toBeGreaterThan(0);
     expect(all.filter((m) => m.id !== "a").length, "premise: others are too").toBeGreaterThan(0);
-    for (const m of all) expect(m.opacity, m.id).toBe(m.id === "a" ? 1 : DIMMED_MARKER_OPACITY);
+    for (const m of all)
+      expect(m.opacity, m.id).toBe(
+        m.id === "a" ? 1 : m.id.startsWith("cluster(") ? DIMMED_MARKER_OPACITY : DIMMED_PIN_FILL,
+      );
   });
 
   it("…and with nothing active the picture dims nothing — /properties' no-JS state", async () => {
@@ -1044,7 +1070,7 @@ describe("every other marker, while one is active", () => {
   it("brings a listing's marker to 1 while its link has keyboard focus, and back after", async () => {
     const { view } = await booted({ active: "a" });
     const b = () => view.container.querySelector("[data-map-pin='b']");
-    expect(opacityOf(b()), "premise: dimmed before").toBe(DIMMED_MARKER_OPACITY);
+    expect(opacityOf(b()), "premise: dimmed before").toBe(DIMMED_PIN_FILL);
     const link = view.container.querySelectorAll<HTMLElement>("[data-map-link]")[1]!;
     expect(link.textContent, "premise: that is `b`'s link").toContain(points[1]!.title);
     link.focus();
@@ -1052,7 +1078,7 @@ describe("every other marker, while one is active", () => {
     expect(opacityOf(b()), "the chip names it, so it is not drawn disabled").toBe(1);
     link.blur();
     await tick();
-    expect(opacityOf(b())).toBe(DIMMED_MARKER_OPACITY);
+    expect(opacityOf(b())).toBe(DIMMED_PIN_FILL);
   });
 
   it("draws the pin a visitor pressed at 1 while the sheet names it, and dims it after", async () => {
@@ -1060,7 +1086,7 @@ describe("every other marker, while one is active", () => {
     // leaves `active` where the slide on stage put it.
     const { view } = await booted({ active: "a" });
     const b = () => view.container.querySelector<HTMLButtonElement>("[data-map-pin='b']");
-    expect(opacityOf(b()), "premise: dimmed before").toBe(DIMMED_MARKER_OPACITY);
+    expect(opacityOf(b()), "premise: dimmed before").toBe(DIMMED_PIN_FILL);
     b()!.click();
     await tick();
     const sheet = view.container.querySelector("[data-map-sheet]");
@@ -1073,7 +1099,7 @@ describe("every other marker, while one is active", () => {
       .click();
     await tick();
     expect(view.container.querySelector("[data-map-sheet]"), "premise: closed").toBeNull();
-    expect(opacityOf(b())).toBe(DIMMED_MARKER_OPACITY);
+    expect(opacityOf(b())).toBe(DIMMED_PIN_FILL);
   });
 });
 

@@ -5,7 +5,7 @@ import { hydrated } from "./hydrated";
 // changes and the title moves down. Can we match it to Land?" Under its own
 // view Improved Projects is the page's first section, so it must be dressed
 // exactly as Land is under Land's: same ground, same heading offset under the
-// tab row, and a divider that does not pin. Under All it keeps its sand,
+// tab row, and a divider that does not pin. Under List it keeps its sand,
 // its 100px strip and its pin.
 const FIXTURE = "/dev/properties";
 const WIDE = { width: 1440, height: 900 };
@@ -49,9 +49,11 @@ test("hydrated: Improved Projects on its own is dressed as Land is on its own", 
   await page.goto(FIXTURE);
   await hydrated(page);
 
-  const underAll = await dress(page, "improved");
-  expect(underAll.position, "premise: under All it pins").toBe("sticky");
-  expect(underAll.strip, "premise: under All its strip is 100").toBe(100);
+  await page.locator('[data-view-tab="list"]').click();
+  await expect(page.locator('section[aria-labelledby="listing-improved"]')).toBeVisible();
+  const underList = await dress(page, "improved");
+  expect(underList.position, "premise: under List it pins").toBe("sticky");
+  expect(underList.strip, "premise: under List its strip is 100").toBe(100);
 
   await page.locator('[data-view-tab="land"]').click();
   await expect(page.locator('section[aria-labelledby="listing-improved"]')).toBeHidden();

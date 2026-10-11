@@ -6,6 +6,12 @@
   // is a 3×2 grid of unlinked off-white cards across the full width
   // (6991:1145).
   //
+  // ALL (Erik, 2026-10-09) is the first section and the view the page lands
+  // on: every active listing on one map, selected with no fragment. Land and
+  // Improved show only under their own tabs; List shows the two of them as
+  // lists, as before. A section is dressed by its place among the sections
+  // shown together (`stackIndex`), so All and Land each dress as the first.
+  //
   // THE VIEW TABS (P5, 2026-09-25: "land / improved projects / all") are links
   // to a fragment, and app.css filters by `:target` — so they work with no
   // script, on first paint of a shared `/properties#land`, and with Back. The
@@ -50,7 +56,8 @@
   // THE LIST VIEW (operator, 2026-10-07) is the layout before #270: a 397
   // map beside every card stacked, the card on the centre line (centreWatch)
   // or under a resting mouse (hoverActivate) garnet, and the camera following
-  // it. Once hydrated only: with no script `#list` draws as All does. A
+  // it. Once hydrated only: with no script `#list` draws Land and Improved
+  // as their own stacked sections. A
   // fragment naming a view the page does not offer is All.
   //
   // WITH NO SCRIPT, and for a section of one listing, the list is stacked
@@ -68,6 +75,7 @@
   import PropertyMap from "$lib/components/PropertyMap.svelte";
   import type { Carousel } from "$lib/carousel.svelte";
   import {
+    ALL_SECTION,
     listingViews,
     viewFromHash,
     type ListingSection,
@@ -207,6 +215,9 @@
   const UNMEASURED_PINNED_TOP = "var(--listing-pinned-top, var(--listing-divider-top))";
   const unmeasuredTop = (i: number) => (i > 0 ? UNMEASURED_PINNED_TOP : UNMEASURED_TOP);
 
+  const hasAll = $derived(sections[0]?.id === ALL_SECTION.id);
+  const stackIndex = (i: number) => (hasAll && i > 0 ? i - 1 : i);
+
   let dividerEls = $state<(HTMLElement | undefined)[]>([]);
   let listEls = $state<(HTMLElement | undefined)[]>([]);
   /** Per section: the MEASURED offset in px, or undefined where nothing has
@@ -236,10 +247,11 @@
   }
 
   function measure() {
-    stickyTops = sections.map((_, i) => {
+    stickyTops = sections.map((_, at) => {
+      const i = stackIndex(at);
       // Section 0's divider is deliberately NOT sticky (see the comp note
       // above), so its height says nothing about what is pinned over its map.
-      const el = i > 0 ? dividerEls[i] : undefined;
+      const el = i > 0 ? dividerEls[at] : undefined;
       // A ZERO HEIGHT IS NOT A MEASUREMENT. Under jsdom every box is 0, and in
       // a browser this can be asked before first layout; either way `top: 0`
       // would pin the map against the very top of the window, under the bar.
@@ -357,15 +369,18 @@
     {/each}
   {/if}
 
-  {#each sections as section, i (section.id)}
-    {@const last = i === sections.length - 1}
+  {#each sections as section, at (section.id)}
+    {@const i = stackIndex(at)}
+    {@const last =
+      at === sections.length - 1 ||
+      (section.id === ALL_SECTION.id && !sections.some((s) => s.past))}
     <section
       aria-labelledby="listing-{section.id}"
-      data-view-section={section.past ? undefined : section.id}
+      data-view-section={section.past || views.length === 0 ? undefined : section.id}
       data-past={section.past || undefined}
       class={i > 0 ? "bg-light" : ""}
     >
-      <div bind:this={dividerEls[i]} class={i > 0 ? "bg-light lg:sticky lg:top-0 lg:z-10" : ""}>
+      <div bind:this={dividerEls[at]} class={i > 0 ? "bg-light lg:sticky lg:top-0 lg:z-10" : ""}>
         <div
           class="h-10 {i > 0 ? 'lg:h-[100px]' : ''} {i === 1
             ? 'bg-gradient-to-b from-background to-light'
@@ -409,8 +424,8 @@
       {:else}
         {@const points = sectionPoints(section.properties)}
         <div
-          style="--sticky-top: {stickyTops[i] !== undefined
-            ? `${stickyTops[i]}px`
+          style="--sticky-top: {stickyTops[at] !== undefined
+            ? `${stickyTops[at]}px`
             : unmeasuredTop(i)}"
           class="{GUTTERS} {points.length > 0 ? 'pt-5' : 'pt-10'} lg:grid
             {listMode ? LIST_GRID : PANEL_GRID} lg:pt-10 {last ? 'pb-[100px]' : ''}"
@@ -433,7 +448,7 @@
               label={section.label}
               active={activeFor(section)}
               follow={listMode}
-              onselect={(id) => revealCard(i, id)}
+              onselect={(id) => revealCard(at, id)}
               class="mb-5 h-50 lg:col-start-1 lg:row-start-1 lg:mb-0 lg:sticky
                 lg:h-(--map-height)
                 lg:top-[max(var(--sticky-top),calc(50vh-var(--map-height)/2))]"
@@ -455,7 +470,7 @@
                   ? section.properties[0]?.id
                   : undefined}
               <ul
-                bind:this={listEls[i]}
+                bind:this={listEls[at]}
                 use:centreWatch={{
                   minWidth: LG,
                   enabled: listMode && points.length > 0,

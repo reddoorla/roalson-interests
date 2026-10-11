@@ -66,9 +66,11 @@ const declared = (name: string) => {
   if (!m) throw new Error(`src/lib/property-map.ts no longer declares \`${name} = <number>;\``);
   return Number(m[1]);
 };
-/** Pins and clusters alike: src/lib/map-marker-contrast.test.ts derives one
- *  floor for both. */
+/** A cluster dims whole; a pin dims its fill and keeps a solid outline
+ *  (src/lib/map-marker-contrast.test.ts measures both). */
 const DIM = declared("DIMMED_MARKER_OPACITY");
+const PIN_DIM = declared("DIMMED_PIN_FILL");
+const dimOf = (m: { id: string | null }) => (m.id === null ? DIM : PIN_DIM);
 
 /** The fleet's own emulation, `reducedMotion: "reduce"` (inherited). */
 async function at(browser: Browser, width: number, height = 900) {
@@ -187,9 +189,10 @@ const onStage = (section: Locator) =>
   );
 
 const centre = async (page: Page, id: string) => {
-  const section = page.locator("section[aria-labelledby^='listing-']").filter({
-    has: page.locator(`[data-centre-id="${id}"]`),
-  });
+  const section = page
+    .locator("section[aria-labelledby^='listing-']")
+    .filter({ visible: true })
+    .filter({ has: page.locator(`[data-centre-id="${id}"]`) });
   await section.locator("[data-property-map]").scrollIntoViewIfNeeded();
   const next = section.getByRole("button", { name: "Next slide" });
   const count = await section.locator("[data-centre-id]").count();
@@ -252,7 +255,7 @@ test.describe("on the homepage band at 1440, the slide on stage is featured", ()
         return {
           active: active.map((m) => m.id),
           activeAt: active.map((m) => m.opacity),
-          wrong: all.filter((m) => !m.active && m.opacity !== DIM).length,
+          wrong: all.filter((m) => !m.active && m.opacity !== dimOf(m)).length,
           others: all.filter((m) => !m.active).length,
         };
       };
@@ -271,7 +274,7 @@ test.describe("on the homepage band at 1440, the slide on stage is featured", ()
               resolve(
                 [...new Set(records.map((r) => r.target as Element))]
                   .filter((t) => t.matches(selector))
-                  .flatMap((t) => t.getAnimations())
+                  .flatMap((t) => t.getAnimations({ subtree: true }))
                   .filter((a) => "transitionProperty" in a)
                   .map((a) => ({
                     property: (a as Animation & { transitionProperty: string }).transitionProperty,
@@ -288,12 +291,9 @@ test.describe("on the homepage band at 1440, the slide on stage is featured", ()
         MARKERS,
       );
       await nextTurn(band);
-      const started = await fades;
-      expect(
-        started.filter((f) => f.property === "opacity").length,
-        "a fade started",
-      ).toBeGreaterThan(0);
-      for (const f of started.filter((f) => f.property === "opacity")) expect(f.ms).toBe(150);
+      const started = (await fades).filter((f) => /^(fill-)?opacity$/.test(f.property));
+      expect(started.length, "a fade started").toBeGreaterThan(0);
+      for (const f of started) expect(f.ms).toBe(150);
 
       await expect.poll(read, { timeout: 5_000 }).toMatchObject({ activeAt: [1], wrong: 0 });
       const after = await read();
@@ -324,7 +324,7 @@ test.describe("on the homepage band at 1440, the slide on stage is featured", ()
       for (const m of active) expect(m.opacity).toBe(1);
       const rest = all.filter((m) => !m.active);
       expect(rest.length).toBeGreaterThan(0);
-      expect(rest.filter((m) => m.opacity !== DIM)).toEqual([]);
+      expect(rest.filter((m) => m.opacity !== dimOf(m))).toEqual([]);
     } finally {
       await context.close();
     }
@@ -383,7 +383,7 @@ test.describe("on the homepage band at 1440, the slide on stage is featured", ()
       await map.locator("[data-map-sheet] button[aria-label^='Close']").click();
       await page.mouse.move(2, 2);
       await expect(map.locator("[data-map-sheet]")).toHaveCount(0);
-      await expect.poll(opacity, { message: "dimmed again once the sheet closed" }).toBe(DIM);
+      await expect.poll(opacity, { message: "dimmed again once the sheet closed" }).toBe(PIN_DIM);
     } finally {
       await context.close();
     }
@@ -515,7 +515,7 @@ test.describe("through the cross-fade, the picture's pins stay under the live ma
         await held;
         await route.continue();
       });
-      await page.goto(PROPERTIES);
+      await page.goto(`${PROPERTIES}#land`);
       await hydrated(page);
       const section = land(page);
       const map = section.locator(MAP);

@@ -178,7 +178,9 @@ test("on a short laptop window the panel grows to fit its text instead of spilli
   await page.setViewportSize({ width: 1366, height: 625 });
   await page.goto(ROUTE);
   await hydrated(page);
-  const panels = page.locator('[aria-roledescription="carousel"][data-carousel-ready]');
+  const panels = page
+    .locator('[aria-roledescription="carousel"][data-carousel-ready]')
+    .filter({ visible: true });
   await expect(panels.first()).toBeAttached({ timeout: HYDRATION_TIMEOUT });
   const fits = await panels.evaluateAll((all) =>
     all.map((region) => {

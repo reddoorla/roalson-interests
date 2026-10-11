@@ -109,6 +109,7 @@
     clusterDiameter,
     clusterPoints,
     DIMMED_MARKER_OPACITY,
+    DIMMED_PIN_FILL,
     expansionZoom,
     fitCamera,
     frameFor,
@@ -127,9 +128,13 @@
     markerDimmed,
     PIN_ASPECT,
     PIN_HOLE,
+    PIN_MARK,
     PIN_PATH,
     PIN_VIEWBOX,
     PRESS_HOLD_MAX_MS,
+    RESTING_PIN_SCALE,
+    RI_MARK_PATH,
+    RI_MARK_VIEWBOX,
     wheelRun,
     type Camera,
     type MapCluster,
@@ -329,8 +334,10 @@
    *  `onselect` (the homepage band) opens a sheet naming it and leaves
    *  `active` alone, and the listing the visitor chose must not look disabled
    *  beside one they did not. */
-  const dimFor = (ids: readonly string[]) =>
-    markerDimmed(ids, active, points, [heldLink, selected?.id]) ? DIMMED_MARKER_OPACITY : undefined;
+  const dimFor = (ids: readonly string[], dimmed: number = DIMMED_MARKER_OPACITY) =>
+    markerDimmed(ids, active, points, [heldLink, selected?.id]) ? dimmed : undefined;
+  const pinScale = (isActive: boolean, dim: number | undefined) =>
+    isActive ? ACTIVE_PIN_SCALE : dim === undefined ? 1 : RESTING_PIN_SCALE;
   /**
    * THE LISTING THAT WAS ACTIVE WHEN THE VISITOR LAST DROVE THE MAP, or
    * `undefined` if they never have. `null` is a real value here — it is what
@@ -1921,6 +1928,31 @@
   }}
 />
 
+{#snippet pinHead(isActive: boolean)}
+  <path
+    d={PIN_PATH}
+    fill="var(--color-primary)"
+    stroke="var(--color-primary)"
+    stroke-width="1.5"
+    stroke-linejoin="round"
+    vector-effect="non-scaling-stroke"
+  />
+  {#if isActive}
+    <svg
+      data-map-pin-mark
+      x={PIN_MARK.x}
+      y={PIN_MARK.y}
+      width={PIN_MARK.size}
+      height={PIN_MARK.size}
+      viewBox={RI_MARK_VIEWBOX}
+    >
+      <path d={RI_MARK_PATH} fill="var(--color-light)" />
+    </svg>
+  {:else}
+    <circle cx={PIN_HOLE.cx} cy={PIN_HOLE.cy} r={PIN_HOLE.r} fill="var(--color-light)" />
+  {/if}
+{/snippet}
+
 {#if points.length > 0}
   {#if expanded}
     <div aria-hidden="true" data-map-spacer class={passedClasses}></div>
@@ -2030,7 +2062,10 @@
           >
             {#each layer.markers as marker (marker.id)}
               {@const at = `left:50%;top:50%;transform:translate(${marker.dx}px,${marker.dy}px)`}
-              {@const dim = dimFor(marker.ids)}
+              {@const dim = dimFor(
+                marker.ids,
+                marker.point ? DIMMED_PIN_FILL : DIMMED_MARKER_OPACITY,
+              )}
               {#if marker.point}
                 {@const isActive = active !== null && marker.point.id === active}
                 <!-- A LINK, where the live marker is a button, and that is the
@@ -2052,7 +2087,7 @@
                   data-map-dimmed={dim === undefined ? undefined : ""}
                   style="{at} translate(-50%,-100%)"
                   style:--map-dim={dim}
-                  style:--pin-scale={isActive ? ACTIVE_PIN_SCALE : 1}
+                  style:--pin-scale={pinScale(isActive, dim)}
                   class="pointer-events-auto absolute"
                 >
                   <!-- Drawn at the frame's size, always; the active listing's
@@ -2065,13 +2100,7 @@
                     focusable="false"
                     class="block"
                   >
-                    <path d={PIN_PATH} fill="var(--color-primary)" />
-                    <circle
-                      cx={PIN_HOLE.cx}
-                      cy={PIN_HOLE.cy}
-                      r={PIN_HOLE.r}
-                      fill="var(--color-light)"
-                    />
+                    {@render pinHead(isActive)}
                   </svg>
                 </a>
               {:else}
@@ -2157,7 +2186,10 @@
         {#each clusters as cluster (cluster.id)}
           {@const count = cluster.points.length}
           {@const isActive = count === 1 && active !== null && cluster.points[0]!.id === active}
-          {@const dim = dimFor(cluster.points.map((p) => p.id))}
+          {@const dim = dimFor(
+            cluster.points.map((p) => p.id),
+            count === 1 ? DIMMED_PIN_FILL : DIMMED_MARKER_OPACITY,
+          )}
           <!-- `data-map-pin` carries the LISTING'S OWN ID, not an empty marker.
                A pin is a drawing of one list item, and saying which one costs
                nothing, keeps `[data-map-pin]` matching as a presence selector
@@ -2180,7 +2212,7 @@
             data-map-active={isActive ? "" : undefined}
             data-map-dimmed={dim === undefined ? undefined : ""}
             style:--map-dim={dim}
-            style:--pin-scale={count === 1 ? (isActive ? ACTIVE_PIN_SCALE : 1) : undefined}
+            style:--pin-scale={count === 1 ? pinScale(isActive, dim) : undefined}
             onclick={() => press(cluster)}
             class="absolute top-0 left-0 border-0 bg-transparent p-0
               {count === 1 ? '' : 'transition-opacity motion-reduce:transition-none'}
@@ -2202,13 +2234,7 @@
                 focusable="false"
                 class="block"
               >
-                <path d={PIN_PATH} fill="var(--color-primary)" />
-                <circle
-                  cx={PIN_HOLE.cx}
-                  cy={PIN_HOLE.cy}
-                  r={PIN_HOLE.r}
-                  fill="var(--color-light)"
-                />
+                {@render pinHead(isActive)}
               </svg>
             {:else}
               {@const d = clusterDiameter(count, frame.pin)}
@@ -2420,10 +2446,11 @@
     }
   }
 
-  /* THE ACTIVE LISTING, FEATURED (operator, 2026-09-29). Every marker that is
-     not the active listing's — live or in the picture, pin or cluster — is
-     drawn at `--map-dim`, which the markup writes from DIMMED_MARKER_OPACITY
-     only while this map HAS an active listing (`markerDimmed`); with none, no
+  /* THE ACTIVE LISTING, FEATURED (operator, 2026-09-29; Erik, 2026-10-09).
+     Every marker that is not the active listing's — live or in the picture —
+     is drawn at `--map-dim`: a cluster as a whole, from DIMMED_MARKER_OPACITY,
+     and a pin's fill only, from DIMMED_PIN_FILL, its outline staying solid.
+     The markup writes it only while this map HAS an active listing (`markerDimmed`); with none, no
      marker carries the attribute and all of them stay at 1. The measurement
      behind the number is on the constant. A marker whose list link has focus,
      or that the details sheet names, is not dimmed at all (`dimFor`).
@@ -2436,11 +2463,17 @@
      reduced motion (`motion-reduce:transition-none`, as on the canvas host,
      and the pin rules' own media block). The expanded overlay is this same
      box, so it needs nothing of its own. */
-  [data-map-dimmed] {
+  [data-map-dimmed]:not([data-map-pin], [data-map-home-pin]) {
     opacity: var(--map-dim);
+  }
+  [data-map-dimmed]:is([data-map-pin], [data-map-home-pin]) > svg > path {
+    fill-opacity: var(--map-dim);
   }
   [data-map-dimmed]:is(:hover, :focus-visible) {
     opacity: 1;
+  }
+  [data-map-dimmed]:is(:hover, :focus-visible) > svg > path {
+    fill-opacity: 1;
   }
 
   /* THE ACTIVE PIN GROWS, AND THE ONE IT REPLACES SHRINKS, on the same clock
@@ -2498,6 +2531,11 @@
     z-index: 2;
     transition-timing-function: var(--default-transition-timing-function), step-start;
   }
+  [data-map-pin] > svg > path,
+  [data-map-home-pin] > svg > path {
+    transition: fill-opacity var(--default-transition-duration)
+      var(--default-transition-timing-function);
+  }
   [data-map-pin] > svg,
   [data-map-home-pin] > svg {
     transform: scale(var(--pin-scale));
@@ -2530,6 +2568,8 @@
     [data-map-home-pin],
     [data-map-pin] > svg,
     [data-map-home-pin] > svg,
+    [data-map-pin] > svg > path,
+    [data-map-home-pin] > svg > path,
     [data-map-pin]:focus-visible::after,
     [data-map-home-pin]:focus-visible::after {
       transition: none;
