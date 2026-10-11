@@ -60,7 +60,9 @@
   <div class="mt-10 grid {hasPhoto ? 'lg:grid-cols-2' : ''}">
     {#if hasPhoto}
       <!-- The card's photo box, 423.5 × 267.5 in the comp. -->
-      <div class="aspect-[423.5/267.5] overflow-hidden bg-light lg:self-stretch">
+      <div
+        class="aspect-[423.5/267.5] overflow-hidden bg-light lg:self-stretch lg:justify-self-stretch"
+      >
         <PrismicImage
           field={data.feature_image}
           fallbackAlt=""

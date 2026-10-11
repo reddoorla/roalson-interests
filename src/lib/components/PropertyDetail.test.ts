@@ -91,6 +91,8 @@ describe("PropertyDetail", () => {
     expect(link.firstChild?.textContent?.trim()).toBe("Aerial Map");
     const url = new URL(link.getAttribute("href")!);
     expect(url.origin + url.pathname).toBe("https://www.google.com/maps/@");
+    expect(url.searchParams.get("api")).toBe("1");
+    expect(url.searchParams.get("map_action")).toBe("map");
     expect(url.searchParams.get("basemap")).toBe("satellite");
     expect(url.searchParams.get("center")).toBe("29.6572,-98.6297");
     expect(link.getAttribute("target")).toBe("_blank");
