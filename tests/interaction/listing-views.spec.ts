@@ -9,8 +9,9 @@ import { axe } from "./axe";
 // `:target` until the component hydrates, then by `data-view`. jsdom has no
 // cascade, so everything that is a claim about CSS is here:
 //
-//  1. With no script a shared `#improved` link is filtered on first paint and
-//     does not scroll; a tab press filters and Back restores.
+//  1. With no script the landing view, `#all`, `#list` and a shared `#improved`
+//     link are filtered on first paint, and `#improved` does not scroll; a tab
+//     press filters and Back restores.
 //  2. Hydrated, a hidden section stays mounted: its map is still booted and
 //     full-width when the view comes back.
 //  3. The skip link's fragment does not reset the view (the `data-view` form).
@@ -68,6 +69,19 @@ test.describe("with no script", { tag: "@smoke" }, () => {
     expect(await page.evaluate(() => scrollY)).toBe(0);
     await context.close();
   });
+
+  for (const [hash, view] of [
+    ["", "all"],
+    ["#all", "all"],
+    ["#list", "list"],
+  ] as const) {
+    test(`${hash || "no fragment"} shows the ${view} view on first paint`, async ({ browser }) => {
+      const { context, page } = await noScript(browser);
+      await page.goto(`${FIXTURE}${hash}`);
+      await expectView(page, view);
+      await context.close();
+    });
+  }
 
   test("a tab press filters without scrolling, and Back restores the view", async ({ browser }) => {
     const { context, page } = await noScript(browser);

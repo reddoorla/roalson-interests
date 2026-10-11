@@ -487,8 +487,8 @@ main > section.hero-band:first-child {
    with no script at all. A view hides the OTHER active sections; Past Projects
    has no `data-view-section` and always shows. All is the view with no
    fragment, and List shows Land and Improved. `display: none`, not `{#if}`,
-   so a hidden section's map keeps its state. property-listing.test.ts reads
-   one hide and one selected rule per view off this block. */
+   so a hidden section's map keeps its state. listing-views.spec.ts holds
+   each view, with and without script. */
 [data-listing]:is(
     [data-view="all"],
     :not([data-view]):not(:has(#land:target, #improved:target, #list:target))

@@ -1,6 +1,4 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 
 import { isArchived, isListed, PROPERTY_CATEGORIES } from "./property";
 import { propertyFixture, propertyListingFixture } from "./property-fixture";
@@ -8,7 +6,6 @@ import {
   ALL_SECTION,
   groupListings,
   LISTING_SECTIONS,
-  LISTING_VIEWS,
   listingOrder,
   listingViews,
   viewFromHash,
@@ -158,32 +155,5 @@ describe("the view tabs", () => {
     expect(viewFromHash("")).toBe("all");
     expect(viewFromHash("#main-content")).toBeNull();
     expect(viewFromHash("#listing-land")).toBeNull();
-  });
-
-  // The filter is CSS, keyed by view id in both forms (hydrated and :target).
-  // Renaming a view here, or dropping a rule there, is caught at this line.
-  it("has a hide rule and a selected rule in app.css for every view", () => {
-    const css = readFileSync(join(import.meta.dirname, "../app.css"), "utf8")
-      .replace(/\s+/g, " ")
-      .replace(/\( /g, "(")
-      .replace(/ \)/g, ")");
-    const landing = `:not([data-view]):not(:has(#land:target, #improved:target, #list:target))`;
-    for (const { id } of LISTING_VIEWS) {
-      const selected = `[data-view-tab="${id}"]`;
-      expect(css, `selected: ${id}`).toContain(selected);
-      if (id === "list") {
-        expect(css, "List hides All").toContain(
-          `[data-view="list"], :not([data-view]):has(#list:target)) section[data-view-section="all"]`,
-        );
-        continue;
-      }
-      const form = id === "all" ? landing : `:not([data-view]):has(#${id}:target)`;
-      expect(css, `hide: ${id}`).toContain(
-        `[data-view="${id}"], ${form}) section[data-view-section]:not([data-view-section="${id}"])`,
-      );
-    }
-    expect(css, "the landing view selects the All tab").toContain(
-      `[data-view="all"], ${landing}) [data-view-tab="all"]`,
-    );
   });
 });
