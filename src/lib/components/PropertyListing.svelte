@@ -56,7 +56,8 @@
   // THE LIST VIEW (operator, 2026-10-07) is the layout before #270: a 397
   // map beside every card stacked, the card on the centre line (centreWatch)
   // or under a resting mouse (hoverActivate) garnet, and the camera following
-  // it. Once hydrated only: with no script `#list` draws as All does. A
+  // it. Once hydrated only: with no script `#list` draws Land and Improved
+  // as their own stacked sections. A
   // fragment naming a view the page does not offer is All.
   //
   // WITH NO SCRIPT, and for a section of one listing, the list is stacked

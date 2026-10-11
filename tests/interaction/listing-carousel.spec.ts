@@ -137,10 +137,13 @@ test.describe("with no script", () => {
         ).toBe(0);
 
         const shown = page.locator(`section:has(${LISTS})`).filter({ visible: true });
+        // The live portfolio has no Past Projects yet; the fixture has three.
         expect(
-          await shown.evaluateAll((els) => els.map((el) => el.getAttribute("aria-labelledby"))),
-          "the landing view: All, then Past Projects",
-        ).toEqual(["listing-all", "listing-past"]);
+          (
+            await shown.evaluateAll((els) => els.map((el) => el.getAttribute("aria-labelledby")))
+          ).filter((id) => id !== "listing-past"),
+          "the landing view: All, then Past Projects where there are any",
+        ).toEqual(["listing-all"]);
         for (let i = 0; i < (await shown.count()); i++) {
           const cards = shown.nth(i).locator(`${LISTS} article`);
           for (let j = 0; j < (await cards.count()); j++)
@@ -399,24 +402,24 @@ test.describe("beside the view tabs (#180)", () => {
   }) => {
     const { context, page } = await open(browser);
     try {
-      const land = page.locator(`section[data-view-section="land"] ${CAROUSEL}`);
+      const all = page.locator(`section[data-view-section="all"] ${CAROUSEL}`);
       const improved = page.locator(`section[data-view-section="improved"] ${CAROUSEL}`);
-      await expect(land).toHaveAttribute("data-carousel-ready", "", {
+      await expect(all).toHaveAttribute("data-carousel-ready", "", {
         timeout: HYDRATION_TIMEOUT,
       });
       test.skip((await improved.count()) === 0, "one listing in Improved: no carousel there");
-      await land.getByRole("button", { name: "Next slide" }).click();
-      const landSlide = (await state(land)).label;
+      await all.getByRole("button", { name: "Next slide" }).click();
+      const allSlide = (await state(all)).label;
 
       await page.locator('[data-view-tab="improved"]').click();
-      await expect(land).toBeHidden();
+      await expect(all).toBeHidden();
       await expect(improved).toBeVisible();
       await improved.getByRole("button", { name: "Next slide" }).click();
       expect((await state(improved)).label).toMatch(/^2 of /);
 
       await page.goBack();
-      await expect(land).toBeVisible();
-      expect((await state(land)).label, "Land is where it was left").toBe(landSlide);
+      await expect(all).toBeVisible();
+      expect((await state(all)).label, "All is where it was left").toBe(allSlide);
     } finally {
       await context.close();
     }

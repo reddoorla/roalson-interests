@@ -299,7 +299,8 @@ export const ACTIVE_PIN_SCALE = 1.8;
 
 /** Every OTHER pin while the map has an active listing (Erik, 2026-10-09:
  *  "make the other pins 90% of current size"). With no active listing every
- *  pin is drawn at 1. A pin held by hover, focus or the sheet is drawn at 1. */
+ *  pin is drawn at 1, and so is a pin its focused link or the sheet holds.
+ *  Under the pointer a pin's fill comes back; its size does not. */
 export const RESTING_PIN_SCALE = 0.9;
 
 /** The fill opacity of every other PIN while the map has an active listing

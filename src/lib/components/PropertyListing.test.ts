@@ -729,6 +729,18 @@ describe("PropertyListing view tabs", () => {
     expect(queryByRole("group", { name: "Show listings" })).toBeNull();
   });
 
+  it("keys no section to a view on a page with one category, so the landing view hides nothing", async () => {
+    const onlyLand = groupListings(
+      propertyListingFixture().filter((p) => p.data.category !== "Improved"),
+    );
+    expect(onlyLand.map((s) => s.id)).toEqual(["land", "past"]);
+    const { container } = render(PropertyListing, { props: { sections: onlyLand } });
+    await tick();
+    expect(container.querySelector<HTMLElement>("[data-listing]")!.dataset.view).toBe("all");
+    expect(container.querySelectorAll("section[aria-labelledby]")).toHaveLength(2);
+    expect(container.querySelectorAll("[data-view-section]")).toHaveLength(0);
+  });
+
   it("draws no tab row with one active section of one listing", () => {
     const improved = sections().find((s) => s.id === "improved")!;
     const one = [{ ...improved, properties: improved.properties.slice(0, 1) }];

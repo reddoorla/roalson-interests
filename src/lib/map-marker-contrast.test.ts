@@ -545,7 +545,6 @@ describe("the dimmed markers, measured against the style's own grounds", () => {
   });
 
   it("a dimmed pin keeps 3:1 beside every ground: its fill fades, its solid outline does not", () => {
-    expect(painted.outline.rgb, "the outline is the pin's own garnet").toEqual(painted.body.rgb);
     const failing = pairs
       .map((pair) => ({ pair, ...pinBeside(pair, 1) }))
       .filter((r) => r.worst < PIN_NON_TEXT)

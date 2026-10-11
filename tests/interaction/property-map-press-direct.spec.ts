@@ -21,7 +21,7 @@ import { scrollMapToBoot } from "./map-boot";
 const PROPERTIES = "/dev/properties";
 const MAP = "[data-property-map]";
 
-const land = (page: Page) => page.locator("section[aria-labelledby='listing-land']");
+const all = (page: Page) => page.locator("section[aria-labelledby='listing-all']");
 
 // BELOW `lg` a press turns the section's carousel and no centre rule runs, so
 // nothing will ever come round to agree with a hold: one taken there would fly
@@ -41,7 +41,7 @@ test.describe("a pressed pin below `lg`, with motion allowed", () => {
       timeout: 25_000,
     });
     expect(await cameraProbeInstalled(page), "the camera probe installed").toBe(true);
-    const section = land(page);
+    const section = all(page);
     await page.waitForTimeout(900);
     await resetCamera(page);
 
