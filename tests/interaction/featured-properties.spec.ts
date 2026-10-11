@@ -3335,7 +3335,16 @@ test.describe("the other states", () => {
         await page.goto(HOME, { waitUntil: "domcontentloaded" });
         const card = page.locator(CARD);
         await expect(card, "only script sets this").not.toHaveAttribute("data-carousel-ready", "");
-        await expect(page.locator(`${BAND} h2`)).toBeVisible();
+        const heading = page.locator(`${BAND} h2`);
+        await expect(heading).toBeVisible();
+        await heading.scrollIntoViewIfNeeded();
+        expect(
+          await heading.evaluate((el) => {
+            const r = el.getBoundingClientRect();
+            return el.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2));
+          }),
+          "the heading is drawn on the band, not only named in the accessibility tree",
+        ).toBe(true);
         await expect(
           card.getByRole("link", { name: /Learn more about 25331 IH 10 West/ }),
         ).toBeVisible();

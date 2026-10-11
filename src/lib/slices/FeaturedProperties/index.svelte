@@ -555,7 +555,7 @@
   >
     <div
       data-featured-heading
-      class="px-5 py-10 sm:px-8 lg:col-start-2 lg:row-start-1 lg:px-0 lg:pt-20 lg:pb-0"
+      class="px-5 py-10 lg:col-start-2 lg:row-start-1 lg:px-0 lg:pt-20 lg:pb-0"
     >
       <h2 id="{uid}-heading" class="t-h2 text-light">{heading}</h2>
     </div>
