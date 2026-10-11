@@ -176,8 +176,11 @@ test.describe("the no-JS state is the content, not a blank box", { tag: "@smoke"
     expect(links.length, `${PROPERTIES} server-renders a link per pin`).toBe(6);
     expect(listing).toContain("https://www.google.com/maps/search/?api=1&amp;query=");
 
-    const home = await (await page.request.get(HOME)).text();
-    expect((home.match(/data-map-link=""/g) ?? []).length).toBe(0);
+    const homeResponse = await page.request.get(HOME);
+    expect(homeResponse.ok(), `${HOME} answers`).toBe(true);
+    const home = await homeResponse.text();
+    expect(home, "premise: the band rendered").toContain("data-featured-card");
+    expect((home.match(/data-map-link=""/g) ?? []).length, "the homepage band has no map").toBe(0);
   });
 
   test("the Past Projects section gets no map, as the comp says of Sold", async ({ page }) => {

@@ -55,11 +55,9 @@ const DISSOLVE = FEATURED_DISSOLVE;
 /** How long to WAIT for a turn before calling it a failure — a ceiling, never
  *  a measurement. What a lap actually took is stamped in the page by
  *  `stampTurns` and asserted from those numbers, so this only decides how
- *  patient the wait is, and being patient costs a green run nothing. Raised
- *  from `DWELL + 2000` when the homepage band gained its map (#13, #103): a
- *  426 KB MapLibre boot lands inside the first dwell on a cold dev server and
- *  pushed one turn past 6s, which read as "the carousel never turned". The map
- *  went on 2026-10-09; the ceiling stays, for the reason above. */
+ *  patient the wait is, and being patient costs a green run nothing. It was
+ *  raised from `DWELL + 2000` for the band's map's boot (#13, #103); the map
+ *  went on 2026-10-11 and the ceiling stays, since a wait costs nothing. */
 const TURN_CEILING = DWELL + DISSOLVE + 6000;
 /** The off-diagonal under which Firefox's WebRender takes a transform for a
  *  plain scale — `NEARLY_ZERO` in `ScaleOffset::from_transform`
@@ -330,6 +328,13 @@ const geometry = (page: Page) =>
         photo: rel(active.querySelector("img")!.parentElement)!,
         bar: rel(card.querySelector("[data-carousel-progress]")),
         heading: rel(document.querySelector(`${BAND} [data-featured-heading] h2`))!,
+        /** The heading against the BAND, which the card's reveal does not move. */
+        headingInBand: (() => {
+          const B = document.querySelector(BAND)!.getBoundingClientRect();
+          const h = document.querySelector(`${BAND} [data-featured-heading] h2`)!;
+          const r = h.getBoundingClientRect();
+          return { left: r.left - B.left, top: r.top - B.top, width: r.width, height: r.height };
+        })(),
         /** Any h2 still inside the card: the eyebrow's old place. */
         headingsInCard: card.querySelectorAll("h2").length,
         controls: rel(card.querySelector("[data-featured-controls]")),
@@ -3434,7 +3439,7 @@ test.describe("the other states", () => {
         ]);
         await live.evaluate(() => document.fonts.ready);
         const liveBoxes = await geometry(live);
-        for (const key of ["card", "photo", "bar", "heading", "controls", "text"] as const) {
+        for (const key of ["card", "photo", "bar", "headingInBand", "controls", "text"] as const) {
           const [before, after] = [quietBoxes[key]!, liveBoxes[key]!] as Record<string, number>[];
           for (const edge of Object.keys(before)) {
             expect(

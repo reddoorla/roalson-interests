@@ -10,7 +10,7 @@
    *  keep in step: the bar fills over it (`progress` is elapsed / dwell), and
    *  the Ken Burns drift's transition crosses KEN_BURNS over it, on a clock
    *  turn and a visitor's turn alike (`zoom`, below). What does NOT follow it
-   *  is the hand-over — DISSOLVE, the text cascade, the camera's flight —
+   *  is the hand-over — DISSOLVE and the text cascade —
    *  which is how long a turn takes to look finished, and the operator asked
    *  for longer on each listing, not for slower turns.
    *
@@ -53,6 +53,15 @@
    *  to it. So the tilt must never be interpolated up from 0 either — see
    *  `primed`, below. */
   export const TILT_DEG = 0.02;
+
+  /** The comp's 0.5s DISSOLVE to the next variant (6843:993 → 6843:995 →
+   *  6843:1089 …), after the bar has filled over DWELL (declared above, in the
+   *  module script — the operator's 8000, not the comp's 4000).
+   *
+   *  It was the map's CAMERA_FLIGHT_MS, imported, while the band had a map
+   *  flying beside the photo (until 2026-10-11). With the map gone it is the
+   *  band's own number again, the 500 the fade classes below are written in. */
+  export const DISSOLVE = 500;
 </script>
 
 <script lang="ts">
@@ -72,8 +81,8 @@
   // BrandButton with the `sr-only` "about {title}" suffix.
   //
   // ONE GRID, SO THE CHROME CAN SIT BETWEEN A SLIDE'S PHOTO AND ITS TEXT. The
-  // comp interleaves them — photo, bar, [eyebrow | arrows], text at 390; the
-  // eyebrow-over-arrows column BESIDE the text at 1440 — and the carousel's
+  // comp interleaves them — photo, bar, arrows, text at 390; the arrows'
+  // column BESIDE the text at 1440 — and the carousel's
   // contract is that controls stay OUTSIDE the slide elements in the DOM: a
   // slide that turns away goes `inert`, and an arrow inside it would turn its
   // own slide from under the keyboard focus it holds (#34). So the card is one
@@ -81,9 +90,8 @@
   // its direct children, and every slide spans all four rows as a SUBGRID,
   // filling rows 1 and 4 and leaving 2 and 3 to the chrome. Each slide is still
   // one element — one APG group, one `inert` — and nothing is positioned over
-  // anything: the chrome's real size makes the rows, so an eyebrow that wraps
-  // (it does below 377px, where Pause makes the controls 140 wide) moves the
-  // text down instead of printing over it. From `lg` the same four rows hold
+  // anything: the chrome's real size makes the rows, so controls that wrap
+  // move the text down instead of printing over it. From `lg` the same four rows hold
   // two columns, 414fr | 514fr = the comp's 20 + 394 | 20 + 474 + 20.
   //
   // THE MAP IS OUT (Erik, 2026-10-09: "lose map entirely"). Its column holds
@@ -120,27 +128,12 @@
   import { cmsHref } from "$lib/cms-href";
   import { featuredListings } from "$lib/featured-properties";
   import { linkResolver } from "$lib/prismicio";
-  import { CAMERA_FLIGHT_MS } from "$lib/property-map";
   import { DEFAULT_IMAGE_WIDTHS, imgix, srcset } from "$lib/utils/image";
   import ArrowRight from "$components/ArrowRight.svelte";
 
   let { slice }: { slice: Content.FeaturedPropertiesSlice } = $props();
 
   const uid = $props.id();
-
-  /** The comp's 0.5s DISSOLVE to the next variant (6843:993 → 6843:995 →
-   *  6843:1089 …), after the bar has filled over DWELL (declared above, in the
-   *  module script — the operator's 8000, not the comp's 4000).
-   *
-   *  IT IS THE CAMERA'S FLIGHT, IMPORTED, not a second 500 that happens to
-   *  match. The band cross-fades the photo while the map flies to the same
-   *  listing, and the pair only reads as ONE change if the two last the same
-   *  time — which `property-map.ts` says in prose where `CAMERA_FLIGHT_MS` is
-   *  declared, and said only in prose until now: both modules typed their own
-   *  `500` and neither imported the other, so the coupling the comments on
-   *  both sides claimed was real did not exist and tuning either one would
-   *  have silently broken it. */
-  const DISSOLVE = CAMERA_FLIGHT_MS;
 
   /** The srcset's widths: the defaults and 2048 (see `photoSizes`). */
   const PHOTO_WIDTHS = [...DEFAULT_IMAGE_WIDTHS, 2048].sort((a, b) => a - b);
@@ -179,11 +172,10 @@
    *  stopped — so the settle itself is not something a manual cascade can be
    *  timed to. But the number was never really the settle's: it is DISSOLVE,
    *  how long the hand-over takes to LOOK finished, and everything else a
-   *  manual turn does is on it. The photo cross-fades for DISSOLVE; the map's
-   *  camera flies for CAMERA_FLIGHT_MS, which is the same constant; and the
+   *  manual turn does is on it. The photo cross-fades for DISSOLVE, and the
    *  photo's drift is delayed by exactly that long (`zoom`, below) and starts
    *  moving on it. So the last word lands on the frame
-   *  the photo is fully shown, the camera has landed and the drift begins —
+   *  the photo is fully shown and the drift begins —
    *  the same frame the clock's cascade lands on, where the bar starts to
    *  fill. Anything shorter would finish the words over a photo still fading
    *  in; anything longer would still be arriving after everything else had
@@ -277,16 +269,8 @@
   // Reduced motion is still a plain swap: `eligible` is false there, every
   // string below drops to its bare form, and app.css zeroes what is left.
   //
-  // A MANUAL TURN COSTS THE SAME 500 AS A CLOCK TURN, and not a second number.
-  // DISSOLVE is CAMERA_FLIGHT_MS, and the map ALREADY flew for 500ms on this
-  // path: `cameraMove` answers `fly` for a new active listing whoever turned
-  // to it — `activeBy` ("visitor" for an arrow, a key or a swipe) only decides
-  // whether the turn lifts a suspension the visitor's own map gesture set.
-  // MEASURED at 1440, map booted: on an arrow press the camera's movestart came
-  // 5.2ms before the first frame of the turn and its moveend 501.7ms after it,
-  // and on a clock turn 0 and 500.8. So before this change the card snapped
-  // while the camera took half a second over the same listing; now the photo
-  // is opaque at ~515ms and the two land together again.
+  // A MANUAL TURN COSTS THE SAME 500 AS A CLOCK TURN, and not a second number:
+  // DISSOLVE, on both paths.
   //
   // The photo CROSS-fades: the incoming one fades in over the outgoing one,
   // which holds at 1 and drops out when the fade is done — two photos fading

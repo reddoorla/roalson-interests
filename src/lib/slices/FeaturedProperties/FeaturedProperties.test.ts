@@ -8,9 +8,8 @@ import {
   featuredPropertiesFixture,
   stageFeatured,
 } from "$lib/home-fixture";
-import { CAMERA_FLIGHT_MS } from "$lib/property-map";
 import { components } from "$lib/slices";
-import FeaturedProperties, { DWELL, TILT_DEG } from "./index.svelte";
+import FeaturedProperties, { DISSOLVE, DWELL, TILT_DEG } from "./index.svelte";
 
 vi.mock("$env/dynamic/public", () => ({ env: {} }));
 
@@ -204,8 +203,6 @@ describe("FeaturedProperties slice", () => {
       await vi.advanceTimersByTimeAsync(ms);
       await tick();
     };
-    /** The hand-over, which the dwell doubling did NOT change. */
-    const DISSOLVE = CAMERA_FLIGHT_MS;
 
     it("reduced motion turned on mid-visit drops every photo's drift, and turned off brings it back", async () => {
       // A stand-in media query that can be flipped mid-test: the preference

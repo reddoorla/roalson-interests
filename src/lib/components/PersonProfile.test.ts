@@ -66,7 +66,6 @@ describe("PersonProfile", () => {
   it("goes back to the homepage's About Us band, not the top of the homepage", () => {
     const { getByRole } = render(PersonProfile, { props: { person: personFixture() } });
     expect(getByRole("link", { name: "Go Back" }).getAttribute("href")).toBe(`/#${ABOUT_ID}`);
-    expect(ABOUT_ID).toBe("about");
   });
 
   it("draws no photo box without a photo, and one with", () => {
