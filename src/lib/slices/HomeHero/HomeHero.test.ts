@@ -142,7 +142,12 @@ describe("HomeHero slice", () => {
     const pairs: [string, string | undefined, Element, number][] = [];
     for (const [what, el] of [
       ["headline", getByRole("heading", { level: 1 })],
-      ["subheading", getByText("A placeholder for a sentence to come.")],
+      [
+        "subheading",
+        getByText(
+          "Straight answers, honest advice, and a team that represents your interests, not ours. Done right for over 40 years.",
+        ),
+      ],
     ] as const)
       pairs.push([what, painted(el, ["text"])[0], el, 4.5]);
     for (const name of ["Properties", "Contact us"]) {
@@ -206,7 +211,9 @@ describe("HomeHero slice", () => {
   it("renders the subheading between the headline and the buttons", () => {
     const { getByRole, getByText } = render(HomeHero, { props: { slice: homeHeroFixture() } });
     const h1 = getByRole("heading", { level: 1 });
-    const sub = getByText("A placeholder for a sentence to come.");
+    const sub = getByText(
+      "Straight answers, honest advice, and a team that represents your interests, not ours. Done right for over 40 years.",
+    );
     expect(sub.tagName).toBe("P");
     const first = getByRole("link", { name: "Properties" });
     expect(h1.compareDocumentPosition(sub) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();

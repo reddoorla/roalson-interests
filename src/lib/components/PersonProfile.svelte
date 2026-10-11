@@ -3,7 +3,7 @@
   // exists for it: it is the partner CARD's anatomy at page scale, laid out
   // after the wireframe profile 6745:50216 — headshot left, then role over
   // name over bio on the site's one grid, text at x=513 — the way
-  // PropertyDetail scaled up the property card. No back link (decision D7).
+  // PropertyDetail scaled up the property card.
   //
   // Every block renders only when its field is filled. A contact value that is
   // set but unusable prints as text, never as a link that goes nowhere.
@@ -14,6 +14,7 @@
   import type { PersonDocument } from "../../prismicio-types";
   import RichTextBody from "$lib/components/RichTextBody.svelte";
   import { emailHref, isPlaceholderBio, personDisplayName, phoneHref } from "$lib/person";
+  import { ABOUT_ID } from "$lib/site-config";
   import BrandButton from "./BrandButton.svelte";
 
   let { person }: { person: PersonDocument } = $props();
@@ -38,7 +39,7 @@
   aria-labelledby="person-name"
   class="mx-auto max-w-[1440px] px-5 pt-10 pb-20 text-primary sm:px-8 xl:px-20"
 >
-  <BrandButton class="mb-6" href="/">Go Back</BrandButton>
+  <BrandButton class="mb-6" href="/#{ABOUT_ID}">Go Back</BrandButton>
   <div class="flex flex-col gap-[60px] lg:grid lg:grid-cols-[397fr_847fr] lg:gap-9">
     {#if hasPhoto}
       <!-- The wireframe's headshot column, capped at the partner band's 371.

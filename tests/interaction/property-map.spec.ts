@@ -307,7 +307,9 @@ async function indicatorOf(page: Page, target: Locator) {
 }
 
 test.describe("the no-JS state is the content, not a blank box", { tag: "@smoke" }, () => {
-  test("the server ships one Google Maps link per listing, on both pages", async ({ page }) => {
+  test("the server ships one Google Maps link per listing, and the homepage ships none", async ({
+    page,
+  }) => {
     // Asserted on the SSR bytes: the whole claim is that this is in the
     // response, not added by the client.
     //
@@ -325,7 +327,7 @@ test.describe("the no-JS state is the content, not a blank box", { tag: "@smoke"
     expect(listing).toContain("https://www.google.com/maps/search/?api=1&amp;query=");
 
     const home = await (await page.request.get(HOME)).text();
-    expect((home.match(/data-map-link=""/g) ?? []).length).toBe(3);
+    expect((home.match(/data-map-link=""/g) ?? []).length).toBe(0);
   });
 
   test("the Past Projects section gets no map, as the comp says of Sold", async ({ page }) => {

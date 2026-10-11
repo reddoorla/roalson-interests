@@ -12,89 +12,6 @@ import { CAMERA_FLIGHT_MS } from "$lib/property-map";
 import { components } from "$lib/slices";
 import FeaturedProperties, { DWELL, TILT_DEG } from "./index.svelte";
 
-// THE ENGINE, for the one block below that boots the band's map: a fake that
-// keeps maplibre's navigation handlers as real on/off state, so the band's
-// rule can be read off what a map would actually let a visitor do. Every other
-// case in this file never boots it — the setup's IntersectionObserver never
-// fires — and is untouched by the mock.
-const engine = vi.hoisted(() => {
-  const handler = (enabled: boolean) => ({
-    enabled,
-    enable() {
-      this.enabled = true;
-    },
-    disable() {
-      this.enabled = false;
-    },
-    isEnabled() {
-      return this.enabled;
-    },
-    isActive: () => false,
-    disableRotation() {},
-  });
-  const maps: FakeMap[] = [];
-  class FakeMap {
-    canvas = document.createElement("canvas");
-    canvasContainer = document.createElement("div");
-    scrollZoom = handler(true);
-    boxZoom = handler(true);
-    dragRotate = handler(false);
-    dragPan = handler(true);
-    keyboard = handler(true);
-    doubleClickZoom = handler(true);
-    touchZoomRotate = handler(true);
-    touchPitch = handler(false);
-    constructor(options: { container?: HTMLElement }) {
-      options.container?.appendChild(this.canvasContainer);
-      this.canvasContainer.appendChild(this.canvas);
-      this.canvas.setAttribute("tabindex", "0");
-      maps.push(this);
-    }
-    /** The navigation handlers that are on, by name. */
-    tools() {
-      const names = [
-        "scrollZoom",
-        "boxZoom",
-        "dragRotate",
-        "dragPan",
-        "keyboard",
-        "doubleClickZoom",
-        "touchZoomRotate",
-        "touchPitch",
-      ] as const;
-      return names.filter((n) => this[n].enabled).sort();
-    }
-    on() {}
-    addControl() {}
-    removeControl() {}
-    getCanvas() {
-      return this.canvas;
-    }
-    getCanvasContainer() {
-      return this.canvasContainer;
-    }
-    getZoom() {
-      return 12;
-    }
-    getCenter() {
-      return { lng: 0, lat: 0 };
-    }
-    getMaxZoom() {
-      return 16;
-    }
-    project() {
-      return { x: 0, y: 0 };
-    }
-    jumpTo() {}
-    flyTo() {}
-    easeTo() {}
-    resize() {}
-    remove() {}
-    stop() {}
-  }
-  return { maps, module: { default: { Map: FakeMap, AttributionControl: class {} } } };
-});
-vi.mock("$lib/map-engine", () => engine.module);
 vi.mock("$env/dynamic/public", () => ({ env: {} }));
 
 // jsdom resolves no stylesheet and has no `inert`, no layout and no animation
@@ -677,12 +594,12 @@ describe("FeaturedProperties slice", () => {
   // The client's on/off for the section (Figma 1908699525; Nicole: "whole
   // section will go away if toggled off").
   describe("the Show featured properties switch", () => {
-    it("turned off, renders no section, heading, card or map", () => {
+    it("turned off, renders no section, heading or card", () => {
       const { container, queryByRole } = render(FeaturedProperties, {
         props: { slice: featuredPropertiesFixture({ show_featured: false }) },
       });
       expect(band(container)).toBeNull();
-      expect(container.querySelector("section, [data-map-slot], [data-featured-card]")).toBeNull();
+      expect(container.querySelector("section, [data-featured-card]")).toBeNull();
       expect(queryByRole("heading")).toBeNull();
       expect(container.textContent?.trim()).toBe("");
     });
@@ -730,53 +647,19 @@ describe("FeaturedProperties slice", () => {
     }
   });
 
-  it("fills the map's column with a map, as content rather than decoration", () => {
-    const { container } = render(FeaturedProperties, {
-      props: { slice: featuredPropertiesFixture() },
-    });
-    const slot = container.querySelector<HTMLElement>("[data-map-slot]")!;
-    expect(slot.getAttribute("aria-hidden"), "the map is content, not decoration").toBeNull();
-    expect(slot.querySelector("[data-property-map]"), "a map is mounted in it").not.toBeNull();
-  });
-
-  it("gives the map a pin for every slide whose listing has one", () => {
-    const { container } = render(FeaturedProperties, {
-      props: { slice: featuredPropertiesFixture() },
-    });
-    const slot = container.querySelector<HTMLElement>("[data-map-slot]")!;
-    const slides = container.querySelectorAll("[data-featured-slide]").length;
-    const links = slot.querySelectorAll("[data-map-link]");
-    // The three fixture picks all carry a GeoPoint, so this is 3 = 3 — and the
-    // point of writing it as a comparison is that `FeaturedSlide.location` is
-    // new (it was requested by the model's graphQuery and dropped on the floor
-    // in $lib/featured-properties until #13). A slide arriving without it
-    // would silently cost a pin.
-    expect(links).toHaveLength(slides);
-    for (const link of links) {
-      expect(link.getAttribute("href")).toMatch(
-        /^https:\/\/www\.google\.com\/maps\/search\/\?api=1&query=-?\d+(\.\d+)?,-?\d+(\.\d+)?$/,
-      );
+  it("draws no map: the heading stands alone in the column beside the card", () => {
+    for (const slice of [featuredPropertiesFixture(), featuredLaunchFixture()]) {
+      const { container, getByRole, unmount } = render(FeaturedProperties, { props: { slice } });
+      expect(
+        container.querySelector("[data-property-map], [data-map-slot], [data-map-link]"),
+      ).toBeNull();
+      const heading = getByRole("heading", { level: 2 });
+      expect(card(container).contains(heading)).toBe(false);
+      expect(
+        heading.compareDocumentPosition(card(container)) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+      unmount();
     }
-  });
-
-  // #122. The band is the map whose boot cost the most visible wait, so it is
-  // the one worth asserting the placeholder really reaches — the component's
-  // own tests cover the picture's shape, and this covers that the BAND gets
-  // one, over the band's own ground, with this band's listings on it.
-  it("opens the band's map on the fixed frame, with the slides' own pins on it", () => {
-    const { container } = render(FeaturedProperties, {
-      props: { slice: featuredPropertiesFixture() },
-    });
-    const slot = container.querySelector<HTMLElement>("[data-map-slot]")!;
-    const picture = slot.querySelector<HTMLElement>("[data-map-home-box]");
-    expect(picture, "the band's map opens on a picture, not a list of links").not.toBeNull();
-    // The pins are THESE listings, linking where their list rows link.
-    const rows = [...slot.querySelectorAll("[data-map-link]")].map((a) => a.getAttribute("href"));
-    const pins = [...picture!.querySelectorAll<HTMLAnchorElement>("[data-map-home-pin]")].map((a) =>
-      a.getAttribute("href"),
-    );
-    expect(pins.length).toBeGreaterThan(0);
-    for (const pin of pins) expect(rows).toContain(pin);
   });
 
   describe("the portfolio link", () => {
@@ -843,22 +726,9 @@ describe("FeaturedProperties slice", () => {
       expect(none.queryByRole("link", { name: "See all properties" })).toBeNull();
     });
 
-    it("points each slide's LEARN MORE at its own listing, and credits the map's data", () => {
+    it("points each slide's LEARN MORE at its own listing", () => {
       for (const slice of [featuredPropertiesFixture(), featuredLaunchFixture()]) {
         const { container, unmount } = render(FeaturedProperties, { props: { slice } });
-        // The picture's credit (`MAP_HOME_CREDIT`): the OpenMapTiles and
-        // OpenStreetMap licence links.
-        expect(
-          [...band(container).querySelectorAll("[data-map-home-credit] a")].map((l) =>
-            l.getAttribute("href"),
-          ),
-          "the picture's credit",
-        ).toEqual(
-          expect.arrayContaining([
-            "https://www.openmaptiles.org/",
-            "https://www.openstreetmap.org/copyright",
-          ]),
-        );
         for (const slide of slidesOf(container)) {
           const title = slide.querySelector("h3")!.textContent!.trim();
           const link = within(slide).getByRole("link", {
@@ -869,194 +739,6 @@ describe("FeaturedProperties slice", () => {
         }
         unmount();
       }
-    });
-  });
-
-  // THE BAND'S MAP IS A PICTURE WHILE THE SLIDESHOW RUNS, AND A MAP WHILE IT IS
-  // STOPPED (operator call, 2026-09-23): "map should get all navigation tools
-  // when the slideshow is paused, and be uninteractable when the slideshow is
-  // running". The rule at the call site is `carousel.paused ||
-  // !carousel.eligible`. Each case below is one state of the carousel, and
-  // each asserts its PREMISE first — that the carousel really is in the state
-  // the case names — from something the carousel renders, not from the rule.
-  describe("the map's lock follows the slideshow", () => {
-    /** The live region is `aria-live="off"` exactly while the clock is
-     *  running (`rotating`) — the one thing the band draws off that value. */
-    const running = (container: HTMLElement) =>
-      card(container).querySelector("[aria-live]")!.getAttribute("aria-live") === "off";
-    const PROPERTIES_SET = [
-      "boxZoom",
-      "doubleClickZoom",
-      "dragPan",
-      "keyboard",
-      "scrollZoom",
-      "touchZoomRotate",
-    ];
-
-    /** Render the band with its map booted on the fake engine. */
-    async function withMap(slice = featuredPropertiesFixture()) {
-      engine.maps.length = 0;
-      vi.stubGlobal(
-        "IntersectionObserver",
-        class {
-          constructor(public cb: IntersectionObserverCallback) {}
-          observe(el: Element) {
-            this.cb(
-              [
-                {
-                  isIntersecting: true,
-                  target: el,
-                  boundingClientRect: { height: 200 } as DOMRectReadOnly,
-                  intersectionRect: { height: 200 } as DOMRectReadOnly,
-                  rootBounds: { height: 844 } as DOMRectReadOnly,
-                  intersectionRatio: 1,
-                  time: 0,
-                } as IntersectionObserverEntry,
-              ],
-              this as never,
-            );
-          }
-          unobserve() {}
-          disconnect() {}
-          takeRecords() {
-            return [];
-          }
-        },
-      );
-      const view = render(FeaturedProperties, { props: { slice } });
-      await vi.waitFor(() => expect(engine.maps).toHaveLength(1));
-      await tick();
-      const map = engine.maps[0]!;
-      return { ...view, map, canvas: map.canvas };
-    }
-
-    afterEach(() => {
-      vi.unstubAllGlobals();
-      Object.defineProperty(document, "visibilityState", {
-        configurable: true,
-        get: () => "visible",
-      });
-    });
-
-    it("running: the map offers no tool and takes no focus", async () => {
-      const { container, map, canvas } = await withMap();
-      expect(running(container), "premise: the slideshow is running").toBe(true);
-      expect(map.tools()).toEqual([]);
-      expect(canvas.hasAttribute("tabindex")).toBe(false);
-    });
-
-    it("Pause: every tool /properties has, and focus; Play takes them all back", async () => {
-      const { container, getByRole, map, canvas } = await withMap();
-      getByRole("button", { name: "Pause slides" }).click();
-      await tick();
-      expect(running(container), "premise: stopped by the visitor").toBe(false);
-      expect(map.tools()).toEqual(PROPERTIES_SET);
-      expect(canvas.getAttribute("tabindex")).toBe("0");
-
-      getByRole("button", { name: "Play slides" }).click();
-      await tick();
-      expect(running(container), "premise: running again").toBe(true);
-      expect(map.tools()).toEqual([]);
-      expect(canvas.hasAttribute("tabindex")).toBe(false);
-    });
-
-    // M1 (operator call 2026-09-28): the map's own controls engage it. The
-    // expand press on a running slideshow is a pause; collapsing is not a Play.
-    it("pressing the map's expand on a running slideshow pauses it and unlocks the map", async () => {
-      vi.stubGlobal(
-        "ResizeObserver",
-        class {
-          constructor(public cb: ResizeObserverCallback) {}
-          observe() {
-            this.cb(
-              [{ contentRect: { width: 390, height: 200 } } as ResizeObserverEntry],
-              this as never,
-            );
-          }
-          unobserve() {}
-          disconnect() {}
-        },
-      );
-      const { container, getByRole, map } = await withMap();
-      expect(running(container), "premise: the slideshow is running").toBe(true);
-      const expand = container.querySelector<HTMLButtonElement>("[data-map-expand]")!;
-      expand.click();
-      await tick();
-      expect(getByRole("button", { name: "Play slides" }), "the press paused it").toBeTruthy();
-      expect(map.tools()).toEqual(PROPERTIES_SET);
-
-      container.querySelector<HTMLButtonElement>("[data-map-expand]")!.click();
-      await tick();
-      expect(
-        getByRole("button", { name: "Play slides" }),
-        "collapsing does not resume it; only Play does",
-      ).toBeTruthy();
-    });
-
-    it("focus entering the carousel is a pause, and unlocks it the same way", async () => {
-      const { container, map } = await withMap();
-      const arrow = card(container).querySelector<HTMLButtonElement>(
-        'button[aria-label="Next slide"]',
-      )!;
-      arrow.dispatchEvent(new FocusEvent("focusin", { bubbles: true, relatedTarget: null }));
-      await tick();
-      expect(running(container), "premise: focus stopped the clock").toBe(false);
-      expect(map.tools()).toEqual(PROPERTIES_SET);
-    });
-
-    // THE STATES IN WHICH NOBODY HAS STOPPED THE SLIDESHOW. A hidden tab
-    // stops the clock and is not a pause, which is the case `!carousel.rotating`
-    // gets wrong, and it is the case below this one that holds that.
-    //
-    // HOVER IS NOT A PAUSE, WHETHER OR NOT IT STOPS THE CLOCK — and that
-    // "whether or not" is a correction. This case was written requiring the
-    // hover to stop the clock ("premise: the hover stopped the clock"), which
-    // it did when it was written. feat/manual-turns-animate then made hover no
-    // pause at all (operator call: `pauseOnHover: false` on this band), and on
-    // the tree with both branches the premise failed before the map was ever
-    // looked at: 1 failed, deterministic, and on its own enough to keep `pnpm
-    // verify` from reaching Playwright. The browser twin
-    // (property-map-band-lock.spec.ts) had been written to pass either way
-    // from the start; this one had not.
-    //
-    // So the premise is the one both trees share and the claim is about:
-    // nobody paused the slideshow — the button still offers "Pause slides",
-    // the name read off the same `paused` the lock is. What the hover did to
-    // the clock is not asserted. Where it stops the clock this is a second
-    // guard against `!rotating`; where it does not, the hidden tab is the only
-    // one, and it is enough.
-    it("a pointer resting on the card leaves the map locked, whether or not it stops the clock", async () => {
-      const { container, getByRole, map } = await withMap();
-      card(container).dispatchEvent(new Event("pointerenter"));
-      await tick();
-      expect(
-        getByRole("button", { name: "Pause slides" }),
-        "premise: nobody paused the slideshow",
-      ).toBeTruthy();
-      expect(map.tools(), "a hover is not a pause").toEqual([]);
-      expect(map.canvas.hasAttribute("tabindex"), "and takes no focus").toBe(false);
-    });
-
-    it("a hidden tab stops the clock and is still no pause: the map stays locked", async () => {
-      const { container, map } = await withMap();
-      Object.defineProperty(document, "visibilityState", {
-        configurable: true,
-        get: () => "hidden",
-      });
-      document.dispatchEvent(new Event("visibilitychange"));
-      await tick();
-      expect(running(container), "premise: the hidden tab stopped the clock").toBe(false);
-      expect(map.tools()).toEqual([]);
-    });
-
-    it("under reduced motion nothing can run, so the map is interactive from the start", async () => {
-      motion(true);
-      const { container, map } = await withMap();
-      expect(
-        card(container).querySelector('button[aria-label="Pause slides"]'),
-        "premise: no Pause, because no slideshow",
-      ).toBeNull();
-      expect(map.tools()).toEqual(PROPERTIES_SET);
     });
   });
 });

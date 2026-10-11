@@ -3536,7 +3536,7 @@ test.describe("the other states", () => {
         await page.goto(HOME, { waitUntil: "domcontentloaded" });
         const card = page.locator(CARD);
         await expect(card, "only script sets this").not.toHaveAttribute("data-carousel-ready", "");
-        await expect(card.locator("h2")).toBeVisible();
+        await expect(page.locator(`${BAND} h2`)).toBeVisible();
         await expect(
           card.getByRole("link", { name: /Learn more about 25331 IH 10 West/ }),
         ).toBeVisible();
@@ -3569,42 +3569,7 @@ test.describe("the other states", () => {
         const portfolio = card.getByRole("link", { name: "See all properties", exact: true });
         await expect(portfolio).toBeVisible();
         await expect(portfolio).toHaveAttribute("href", "/properties");
-        // The map's own links go to Google Maps by design (#13), and they are
-        // the OTHER thing a visitor without the bundle still gets here. Since
-        // #122 there are TWO sets of them and they are the same three places:
-        // the LIST — the map's accessible equivalent, `sr-only` now that the box
-        // draws the committed picture of MAP_HOME — and the PINS the picture
-        // draws over that raster, which is what a pointer actually has. Both are
-        // asserted as their own claim.
-        const rows = page.locator(`${BAND} [data-map-link]`);
-        await expect(rows).toHaveCount(3);
-        for (const row of await rows.all())
-          await expect(row).toHaveAttribute(
-            "href",
-            /^https:\/\/www\.google\.com\/maps\/search\/\?api=1&query=/,
-          );
-        const pins = page.locator(`${BAND} [data-map-home-frame="full"] [data-map-home-pin]`);
-        expect(await pins.count(), "the picture drew pins with no script at all").toBeGreaterThan(
-          0,
-        );
-        const rowHrefs = await rows.evaluateAll((els) => els.map((e) => e.getAttribute("href")));
-        for (const pin of await pins.all())
-          expect(rowHrefs).toContain(await pin.getAttribute("href"));
-        // And since 2026-09-29 a THIRD set, also the map's: the picture's own
-        // credit (`MAP_HOME_CREDIT`). The raster is a picture of OpenStreetMap
-        // data, and with no script it is the only map this visitor gets, so it
-        // carries the licence line whole — these two links, on screen.
-        const credit = page.locator(`${BAND} [data-map-home-credit] a`);
-        expect(
-          await credit.evaluateAll((els) => els.map((e) => e.getAttribute("href"))),
-          "the picture's credit",
-        ).toEqual(
-          expect.arrayContaining([
-            "https://www.openmaptiles.org/",
-            "https://www.openstreetmap.org/copyright",
-          ]),
-        );
-        for (const link of await credit.all()) await expect(link).toBeVisible();
+        await expect(page.locator(`${BAND} [data-property-map]`)).toHaveCount(0);
       } finally {
         await context.close();
       }

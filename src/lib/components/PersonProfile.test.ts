@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { PARTNER_PHOTO_FIXTURE } from "$lib/home-fixture";
 import { personFixture } from "$lib/person-fixture";
+import { ABOUT_ID } from "$lib/site-config";
 import PersonProfile from "./PersonProfile.svelte";
 
 afterEach(cleanup);
@@ -60,6 +61,12 @@ describe("PersonProfile", () => {
     const hrefs = bad.getAllByRole("link").map((a) => a.getAttribute("href") ?? "");
     expect(hrefs).toContain("mailto:mhoward@roalson.com");
     expect(hrefs.filter((href) => href.startsWith("tel:"))).toEqual([]);
+  });
+
+  it("goes back to the homepage's About Us band, not the top of the homepage", () => {
+    const { getByRole } = render(PersonProfile, { props: { person: personFixture() } });
+    expect(getByRole("link", { name: "Go Back" }).getAttribute("href")).toBe(`/#${ABOUT_ID}`);
+    expect(ABOUT_ID).toBe("about");
   });
 
   it("draws no photo box without a photo, and one with", () => {
