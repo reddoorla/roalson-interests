@@ -3427,8 +3427,8 @@ test.describe("the other states", () => {
       const quietBoxes = await geometry(page);
 
       // …and the SAME page with script gives the same boxes: reserving the
-      // space is the whole reason the controls ship at all. (The heading/photo
-      // are read from the card, never the window — house rule.)
+      // space is the whole reason the controls ship at all. (The photo is read
+      // from the card and the heading from the band, never the window.)
       const { context, page: live } = await moving(browser);
       try {
         await live.goto(HOME);

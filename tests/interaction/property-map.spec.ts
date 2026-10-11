@@ -179,7 +179,7 @@ test.describe("the no-JS state is the content, not a blank box", { tag: "@smoke"
     const homeResponse = await page.request.get(HOME);
     expect(homeResponse.ok(), `${HOME} answers`).toBe(true);
     const home = await homeResponse.text();
-    expect(home, "premise: the band rendered").toContain("data-featured-card");
+    expect(home, "premise: the band rendered with listings").toMatch(/data-featured-shown="[1-9]/);
     expect((home.match(/data-map-link=""/g) ?? []).length, "the homepage band has no map").toBe(0);
   });
 

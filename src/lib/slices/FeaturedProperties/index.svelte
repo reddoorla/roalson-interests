@@ -553,6 +553,12 @@
     aria-labelledby={carousel.enabled ? undefined : `${uid}-heading`}
     class="featured-band relative bg-dark lg:grid"
   >
+    <div
+      data-featured-heading
+      class="px-5 py-10 sm:px-8 lg:col-start-2 lg:row-start-1 lg:px-0 lg:pt-20 lg:pb-0"
+    >
+      <h2 id="{uid}-heading" class="t-h2 text-light">{heading}</h2>
+    </div>
     <!-- The card. With more than one listing it is the carousel's region, named
          by the heading; with one, `region` is empty and the <section> takes the
          name instead (never both — two landmarks, one name).
@@ -588,12 +594,6 @@
          hides nothing — it drops the server's marker and tears itself down,
          and app.css never hid the card there — which is this animation's
          reduced-motion answer. -->
-    <div
-      data-featured-heading
-      class="px-5 py-10 sm:px-8 lg:col-start-2 lg:row-start-1 lg:px-0 lg:pt-20 lg:pb-0"
-    >
-      <h2 id="{uid}-heading" class="t-h2 text-light">{heading}</h2>
-    </div>
     <div
       {...carousel.region}
       data-reveal

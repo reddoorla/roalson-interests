@@ -535,21 +535,11 @@ export function fitCamera(
 /**
  * How long a flight to the active listing lasts, in ms.
  *
- * It is the homepage band's own `DISSOLVE` (FeaturedProperties/index.svelte),
- * and that is the reason for the number rather than a coincidence: on that
- * band the photo cross-fades over 500ms while the map travels to the same
- * listing, so the picture and the place arrive together and the pair reads as
- * ONE change. 500 is also small beside the band's 8500ms lap (its 8000ms
- * `DWELL` plus this hand-over), so the map is stationary for 94% of it.
+ * It was chosen to match the homepage band's photo cross-fade while that band
+ * had a map flying beside it, and the band imported it; the band's map went
+ * on 2026-10-11 and the band keeps its own 500 now.
  *
- * THE BAND IMPORTS THIS CONSTANT, which it did not always do — the two modules
- * each typed a `500` and this paragraph asserted a coupling that nothing in
- * the code held, so tuning either number would have broken the pairing
- * silently and neither file would have looked wrong. The dependency runs that
- * way round (slice → lib, never lib → slice) because the flight is a property
- * of the camera and the band is one of its callers.
- *
- * The Properties page inherits it for a different reason — nothing there is
+ * The Properties page keeps it for a different reason — nothing there is
  * timing out — and this paragraph used to end "a scroll that crosses three
  * cards must not leave three flights queued behind it, and a new `flyTo`
  * replaces the one in flight", offered as reassurance. It was the DEFECT,
