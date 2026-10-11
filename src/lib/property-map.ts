@@ -295,16 +295,29 @@ export const MAP_CREDIT_OPEN_MS = 5000;
  *  under reduced motion; the fill stays garnet (>= 3:1 on the map ground).
  *  It is a transform about the pin's tip that eases on the dim's clock, and
  *  in one frame under reduced motion (PropertyMap's "THE ACTIVE PIN GROWS"). */
-export const ACTIVE_PIN_SCALE = 1.5;
+export const ACTIVE_PIN_SCALE = 1.8;
+
+/** Every OTHER pin while the map has an active listing (Erik, 2026-10-09:
+ *  "make the other pins 90% of current size"). With no active listing every
+ *  pin is drawn at 1. A pin held by hover, focus or the sheet is drawn at 1. */
+export const RESTING_PIN_SCALE = 0.9;
+
+/** The fill opacity of every other PIN while the map has an active listing
+ *  (Erik, 2026-10-09: "make the opacity 50% or less"). Only the fill: the
+ *  pin's outline stays solid garnet, and that outline is the edge WCAG
+ *  1.4.11's 3:1 is measured on (src/lib/map-marker-contrast.test.ts). A
+ *  cluster still dims as a whole, at DIMMED_MARKER_OPACITY, because its
+ *  count is text. */
+export const DIMMED_PIN_FILL = 0.5;
 
 /**
- * EVERY OTHER MARKER, WHILE A MAP HAS AN ACTIVE LISTING, is drawn at reduced
+ * EVERY OTHER CLUSTER, WHILE A MAP HAS AN ACTIVE LISTING, is drawn at reduced
  * opacity so the active one is featured (operator, 2026-09-29: "whatever the
  * active pin is should stay full opacity and the rest should be slightly
  * reduced opacity so it's featured"). A map with NO active listing dims
  * nothing — dimming everything would feature nothing. See `markerDimmed`.
- * One value for pins and clusters alike, because the measurement below gives
- * both the same floor.
+ * Pins dimmed this way until 2026-10-11; they now keep a solid outline and
+ * dim their fill to DIMMED_PIN_FILL instead.
  *
  * MEASURED, NOT PICKED, and measured against the ground BESIDE a marker as
  * well as the one under it. A see-through marker takes its colour from what it
@@ -1184,6 +1197,13 @@ export function clusterSignature(clusters: readonly MapCluster[]): string {
 export const PIN_VIEWBOX = "0 0 1 0.901019";
 export const PIN_PATH = "M0.5000 0.901019L0.7404 0.6057A0.310 0.310 0 1 0 0.2596 0.6057Z";
 export const PIN_HOLE = { cx: 0.5, cy: 0.405, r: 0.166875 } as const;
+/** The "Ri" monogram (static/favicon.svg) the ACTIVE pin carries in its head
+ *  in place of the hole (Erik, 2026-10-09), drawn in PIN_VIEWBOX units inside
+ *  the head's circle (centre 0.5, 0.41; radius 0.31). */
+export const PIN_MARK = { x: 0.33, y: 0.24, size: 0.34 } as const;
+export const RI_MARK_VIEWBOX = "3.77 3.82 216 216.33";
+export const RI_MARK_PATH =
+  "M46.3,64.19H3.77v55.88h43.37c20.85,0,32.8-11.12,32.8-27.52v-.56c0-18.35-12.79-27.8-33.64-27.8ZM3.77,3.82v21.73h46.15c24.74,0,43.92,6.95,56.71,19.74,10.84,10.84,16.68,26.13,16.68,44.48v.56c0,31.41-16.96,51.15-41.7,60.32l47.54,69.5h22.04v-87.07h38.8v87.07h29.78V3.82H3.77ZM189.98,109.91h-38.8v-38.8h38.8v38.8ZM3.77,157.88v62.27h75.34l-41.7-62.27H3.77Z";
 /** Element height as a multiple of S, i.e. the tip's y. */
 export const PIN_ASPECT = 0.901019;
 

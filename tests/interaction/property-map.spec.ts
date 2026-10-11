@@ -318,10 +318,11 @@ test.describe("the no-JS state is the content, not a blank box", { tag: "@smoke"
     // been quietly "right" the day someone deleted a link.
     const listing = await (await page.request.get(PROPERTIES)).text();
     const links = listing.match(/data-map-link=""/g) ?? [];
-    // The fixture portfolio: 4 land + 2 improved active listings with pins.
+    // The fixture portfolio: 4 land + 2 improved active listings with pins,
+    // each on its own section's map and all six again on All's (6 + 4 + 2).
     // Past Projects gets no map at all, which is the next assertion, and the
-    // archived land listing gets no pin (a leak reads 7).
-    expect(links.length, `${PROPERTIES} server-renders a link per pin`).toBe(6);
+    // archived land listing gets no pin (a leak reads 14).
+    expect(links.length, `${PROPERTIES} server-renders a link per pin`).toBe(12);
     expect(listing).toContain("https://www.google.com/maps/search/?api=1&amp;query=");
 
     const home = await (await page.request.get(HOME)).text();
@@ -363,13 +364,14 @@ test.describe("the no-JS state is the content, not a blank box", { tag: "@smoke"
       const page = await context.newPage();
       await page.goto(PROPERTIES, { waitUntil: "domcontentloaded" });
 
-      // The picture.
-      const picture = page.locator(`${MAP} [data-map-home-box]`).first();
+      // The picture, on All's map: the section the page lands on.
+      const all = page.locator('section[data-view-section="all"]');
+      const picture = all.locator(`${MAP} [data-map-home-box]`).first();
       await expect(picture).toHaveCount(1);
 
       // The list is still complete and still named — visually hidden, not
-      // removed. Six listings in this section, as before.
-      const links = page.locator(`${MAP} [data-map-link]`);
+      // removed. Every active listing, six, on All's map.
+      const links = all.locator(`${MAP} [data-map-link]`);
       await expect(links).toHaveCount(6);
       const rows = await links.evaluateAll((els) => els.map((e) => e.getAttribute("href")));
 

@@ -136,11 +136,29 @@ test.describe("with no script", () => {
           "no dead arrows",
         ).toBe(0);
 
-        for (let i = 0; i < (await lists.count()); i++) {
-          const cards = lists.nth(i).locator("article");
+        const shown = page.locator(`section:has(${LISTS})`).filter({ visible: true });
+        expect(
+          await shown.evaluateAll((els) => els.map((el) => el.getAttribute("aria-labelledby"))),
+          "the landing view: All, then Past Projects",
+        ).toEqual(["listing-all", "listing-past"]);
+        for (let i = 0; i < (await shown.count()); i++) {
+          const cards = shown.nth(i).locator(`${LISTS} article`);
           for (let j = 0; j < (await cards.count()); j++)
-            await expect(cards.nth(j), `list ${i}: card ${j} painted`).toBeVisible();
+            await expect(cards.nth(j), `section ${i}: card ${j} painted`).toBeVisible();
         }
+        const hrefs = async (where: string) =>
+          new Set(
+            await page
+              .locator(`${where} ${LISTS} a[href^="/properties/"]`)
+              .evaluateAll((els) => els.map((el) => el.getAttribute("href"))),
+          );
+        const everyListing = await hrefs("section[data-view-section]");
+        const onAll = await hrefs('section[data-view-section="all"]');
+        expect(onAll.size).toBeGreaterThan(0);
+        expect(
+          [...everyListing].filter((h) => !onAll.has(h)),
+          "every listing is on All",
+        ).toEqual([]);
       } finally {
         await context.close();
       }
@@ -311,7 +329,9 @@ test.describe("at 390, hydrated", () => {
           return results.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target).join()}`);
         };
         expect(await audit()).toEqual([]);
-        for (const carousel of await page.locator(`${CAROUSEL}[data-carousel-ready]`).all()) {
+        const shown = page.locator(`${CAROUSEL}[data-carousel-ready]`).filter({ visible: true });
+        expect(await shown.count(), "premise: a carousel on screen").toBeGreaterThan(0);
+        for (const carousel of await shown.all()) {
           await carousel.getByRole("button", { name: "Next slide" }).click();
         }
         expect(await audit()).toEqual([]);

@@ -83,9 +83,11 @@ vi.mock("$lib/map-engine", () => engine.module);
  * it's featured").
  *
  * "Slightly" is bounded here, not by taste. A pin is an interactive graphic,
- * so once it is composited at DIMMED_MARKER_OPACITY its garnet must keep 3:1
- * (WCAG 1.4.11) against the colours ADJACENT to it. A cluster's disc is the
- * same garnet and the same rule; its count is TEXT, sand on that disc, so the
+ * so its edge must keep 3:1 (WCAG 1.4.11) against the colours ADJACENT to it.
+ * Since 2026-10-11 a dimmed pin fades only its fill (DIMMED_PIN_FILL, Erik's
+ * "50% or less") and keeps a solid garnet outline, so the outline is what is
+ * measured. A cluster's disc is the same garnet, composited at
+ * DIMMED_MARKER_OPACITY; its count is TEXT, sand on that disc, so the
  * two must keep 4.5:1 (WCAG 1.4.3). A palette change that takes any of that
  * under its ratio at DIMMED_MARKER_OPACITY is a red test here, naming the
  * grounds.
@@ -292,6 +294,7 @@ const painted = await (async () => {
   };
   const $$ = (selector: string) => [...view.container.querySelectorAll(selector)];
   const fill = (els: Element[]) => els.map((p) => p.getAttribute("fill") ?? "");
+  const stroke = (els: Element[]) => els.map((p) => p.getAttribute("stroke") ?? "");
   const discs = {
     live: $$("[data-map-cluster] > span"),
     picture: $$("[data-map-home-cluster]"),
@@ -299,10 +302,17 @@ const painted = await (async () => {
   const out = {
     body: one(
       {
-        live: fill($$("[data-map-pin] svg path")),
-        picture: fill($$("[data-map-home-pin] svg path")),
+        live: fill($$("[data-map-pin] > svg > path")),
+        picture: fill($$("[data-map-home-pin] > svg > path")),
       },
       "pin body",
+    ),
+    outline: one(
+      {
+        live: stroke($$("[data-map-pin] > svg > path")),
+        picture: stroke($$("[data-map-home-pin] > svg > path")),
+      },
+      "pin outline",
     ),
     disc: one(
       {
@@ -462,7 +472,7 @@ const garnetBeside =
       worst: contrastAtWorst(mark, pair.beside.rgb),
     };
   };
-const pinBeside = garnetBeside(painted.body);
+const pinBeside = garnetBeside(painted.outline);
 const discBeside = garnetBeside(painted.disc);
 /** A dimmed cluster's count against its own disc. The glyph and the disc
  *  pixel next to it can sit either side of a boundary too, so the count is
@@ -534,9 +544,10 @@ describe("the dimmed markers, measured against the style's own grounds", () => {
       ).toBe(true);
   });
 
-  it(`at DIMMED_MARKER_OPACITY (${DIMMED_MARKER_OPACITY}) a pin keeps 3:1 beside every ground`, () => {
+  it("a dimmed pin keeps 3:1 beside every ground: its fill fades, its solid outline does not", () => {
+    expect(painted.outline.rgb, "the outline is the pin's own garnet").toEqual(painted.body.rgb);
     const failing = pairs
-      .map((pair) => ({ pair, ...pinBeside(pair, DIMMED_MARKER_OPACITY) }))
+      .map((pair) => ({ pair, ...pinBeside(pair, 1) }))
       .filter((r) => r.worst < PIN_NON_TEXT)
       .map(label);
     expect(failing, "pairs a dimmed pin falls under 3:1 on").toEqual([]);

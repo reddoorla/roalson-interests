@@ -485,9 +485,17 @@ main > section.hero-band:first-child {
 /* The Properties view tabs (PropertyListing.svelte). Each rule has two forms:
    `data-view` once the component has hydrated, and `:target` before that or
    with no script at all. A view hides the OTHER active sections; Past Projects
-   has no `data-view-section` and always shows. `display: none`, not `{#if}`,
+   has no `data-view-section` and always shows. All is the view with no
+   fragment, and List shows Land and Improved. `display: none`, not `{#if}`,
    so a hidden section's map keeps its state. property-listing.test.ts reads
    one hide and one selected rule per view off this block. */
+[data-listing]:is(
+    [data-view="all"],
+    :not([data-view]):not(:has(#land:target, #improved:target, #list:target))
+  )
+  section[data-view-section]:not([data-view-section="all"]),
+[data-listing]:is([data-view="list"], :not([data-view]):has(#list:target))
+  section[data-view-section="all"],
 [data-listing]:is([data-view="land"], :not([data-view]):has(#land:target))
   section[data-view-section]:not([data-view-section="land"]),
 [data-listing]:is([data-view="improved"], :not([data-view]):has(#improved:target))
@@ -501,6 +509,11 @@ main > section.hero-band:first-child {
 [data-view-tab] {
   @apply border-transparent text-secondary hover:border-primary hover:text-primary;
 }
+[data-listing]:is(
+    [data-view="all"],
+    :not([data-view]):not(:has(#land:target, #improved:target, #list:target))
+  )
+  [data-view-tab="all"],
 [data-listing]:is([data-view="land"], :not([data-view]):has(#land:target)) [data-view-tab="land"],
 [data-listing]:is([data-view="improved"], :not([data-view]):has(#improved:target))
   [data-view-tab="improved"],
@@ -513,6 +526,8 @@ main > section.hero-band:first-child {
    an attribute. Generated text is in the accessible name, so until `data-view`
    exists the selected tab's name ends "(selected)", visually hidden; the
    hydrated form drops it, so aria-current is never announced twice. */
+[data-listing]:not([data-view]):not(:has(#land:target, #improved:target, #list:target))
+  [data-view-tab="all"]::after,
 [data-listing]:not([data-view]):has(#land:target) [data-view-tab="land"]::after,
 [data-listing]:not([data-view]):has(#improved:target) [data-view-tab="improved"]::after,
 [data-listing]:not([data-view]):has(#list:target) [data-view-tab="list"]::after {
@@ -572,12 +587,14 @@ main > section.hero-band:first-child {
   @apply pb-[100px];
 }
 
-/* Land or Improved, then Past Projects: warm the seam the second section's
-   strip covers under All. */
+/* All, Land or Improved, then Past Projects: Past Projects' strip carries
+   the off-white to sand fade that Improved's carries under List. */
 [data-listing]:is(
+    [data-view="all"],
     [data-view="land"],
     [data-view="improved"],
-    :not([data-view]):has(#land:target, #improved:target)
+    :not([data-view]):has(#land:target, #improved:target),
+    :not([data-view]):not(:has(#land:target, #improved:target, #list:target))
   )
   section[data-past]
   > div:first-child

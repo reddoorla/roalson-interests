@@ -52,20 +52,27 @@ describe("PropertyListing", () => {
     const { getAllByRole } = render(PropertyListing, { props: { sections: sections() } });
     const regions = listingSections();
     expect(regions.map((r) => r.getAttribute("aria-labelledby"))).toEqual([
+      "listing-all",
       "listing-land",
       "listing-improved",
       "listing-past",
     ]);
     const h2s = getAllByRole("heading", { level: 2 });
-    expect(h2s.map((h) => h.textContent)).toEqual(["Land", "Improved Properties", "Past Projects"]);
+    expect(h2s.map((h) => h.textContent)).toEqual([
+      "All Properties",
+      "Land",
+      "Improved Properties",
+      "Past Projects",
+    ]);
     h2s.forEach((h, i) => expect(h.id).toBe(regions[i].getAttribute("aria-labelledby")));
   });
 
-  it("features only Land's first card once hydrated, and none in Past Projects", () => {
+  it("features the first card of All and of Land once hydrated, and none in Past Projects", () => {
     const groups = sections();
     render(PropertyListing, { props: { sections: groups } });
-    const [land, improved, past] = listingSections();
-    expect(featuredIds(land!)).toEqual([groups[0]!.properties[0]!.id]);
+    const [all, land, improved, past] = listingSections();
+    expect(featuredIds(all!)).toEqual([groups[0]!.properties[0]!.id]);
+    expect(featuredIds(land!)).toEqual([groups[1]!.properties[0]!.id]);
     expect(featuredIds(improved!)).toEqual([]);
     expect([...past!.querySelectorAll("article")].some(isFeatured)).toBe(false);
   });
@@ -73,20 +80,21 @@ describe("PropertyListing", () => {
   it("links every active listing and none of the past ones", () => {
     const groups = sections();
     render(PropertyListing, { props: { sections: groups } });
-    const [land, improved, past] = listingSections();
+    const [all, land, improved, past] = listingSections();
     const hrefs = (el: HTMLElement) =>
       [...el.querySelectorAll("a[href]")].map((a) => a.getAttribute("href"));
     for (const [section, group] of [
-      [land!, groups[0]!],
-      [improved!, groups[1]!],
+      [all!, groups[0]!],
+      [land!, groups[1]!],
+      [improved!, groups[2]!],
     ] as const)
       for (const { uid } of group.properties)
         expect(hrefs(section)).toContain(`/properties/${uid}`);
-    for (const { uid } of groups[2]!.properties)
+    for (const { uid } of groups[3]!.properties)
       expect(hrefs(past!)).not.toContain(`/properties/${uid}`);
     // The map's picture carries the OpenMapTiles and OpenStreetMap licence
     // links its data requires (`MAP_HOME_CREDIT`, since 2026-09-29).
-    for (const section of [land!, improved!])
+    for (const section of [all!, land!, improved!])
       expect(
         [...section.querySelectorAll("[data-map-home-credit] a")].map((a) =>
           a.getAttribute("href"),
@@ -101,8 +109,9 @@ describe("PropertyListing", () => {
 
   it("puts a map in every active section, one link per pin, and none in Past Projects (#13)", () => {
     render(PropertyListing, { props: { sections: sections() } });
-    const [land, improved, past] = listingSections();
+    const [all, land, improved, past] = listingSections();
     for (const [name, section, pins] of [
+      ["all", all!, 6],
       ["land", land!, 4],
       ["improved", improved!, 2],
     ] as const) {
@@ -122,12 +131,13 @@ describe("PropertyListing", () => {
   // a pinned section's map 45.41px behind its own opaque divider.
   it("serves a sticky offset that is already correct with no script at all", () => {
     render(PropertyListing, { props: { sections: sections() } });
-    const [land, improved] = listingSections();
+    const [all, land, improved] = listingSections();
     const gridOf = (section: HTMLElement) =>
       section.querySelector<HTMLElement>("[data-property-map]")!.parentElement!;
 
     // Section 0 pins no divider: its map lands on the scrollport's own
-    // declared usable top.
+    // declared usable top. All and Land are each the first section shown.
+    expect(gridOf(all!).style.getPropertyValue("--sticky-top")).toBe("var(--usable-top)");
     expect(gridOf(land!).style.getPropertyValue("--sticky-top")).toBe("var(--usable-top)");
     // Every later section does: its map lands on the DIVIDER, whose height
     // app.css derives from the divider's own declared parts.
@@ -138,7 +148,7 @@ describe("PropertyListing", () => {
     );
     // Never missing, whichever it is — a missing variable makes `top` resolve
     // to `auto` and the map never pins at all.
-    for (const section of [land!, improved!])
+    for (const section of [all!, land!, improved!])
       expect(gridOf(section).style.getPropertyValue("--sticky-top")).not.toBe("");
   });
 
@@ -202,7 +212,7 @@ describe("PropertyListing", () => {
       for (const cb of observers) cb([], null as never);
       await tick();
 
-      const [land, improved] = listingSections();
+      const [all, land, improved] = listingSections();
       const gridOf = (section: HTMLElement) =>
         section.querySelector<HTMLElement>("[data-property-map]")!.parentElement!;
 
@@ -211,6 +221,7 @@ describe("PropertyListing", () => {
       // And section 0's is not, because its divider deliberately does not pin —
       // so this also proves `measure()` read the divider and not just any box.
       expect(gridOf(land!).style.getPropertyValue("--sticky-top")).not.toBe(`${DIVIDER_HEIGHT}px`);
+      expect(gridOf(all!).style.getPropertyValue("--sticky-top")).not.toBe(`${DIVIDER_HEIGHT}px`);
     } finally {
       vi.restoreAllMocks();
       vi.unstubAllGlobals();
@@ -266,7 +277,7 @@ describe("PropertyListing", () => {
       for (const cb of observers) cb([], null as never);
       await tick();
 
-      const [, improved] = listingSections();
+      const [, , improved] = listingSections();
       const gridOf = (section: HTMLElement) =>
         section.querySelector<HTMLElement>("[data-property-map]")!.parentElement!;
 
@@ -287,10 +298,11 @@ describe("PropertyListing", () => {
   it("keys every card by its listing id, as the pins are", () => {
     const groups = sections();
     render(PropertyListing, { props: { sections: groups } });
-    const [land, improved, past] = listingSections();
+    const [all, land, improved, past] = listingSections();
     for (const [name, section, group] of [
-      ["land", land!, groups[0]!],
-      ["improved", improved!, groups[1]!],
+      ["all", all!, groups[0]!],
+      ["land", land!, groups[1]!],
+      ["improved", improved!, groups[2]!],
     ] as const) {
       // Read through the ACTION's own constant, so the attribute the markup
       // writes and the attribute the observer looks for cannot drift apart.
@@ -390,6 +402,7 @@ describe("PropertyListing below lg: each section a carousel (#14)", () => {
 
     const all = carousels(container);
     expect(all.map((c) => c.getAttribute("aria-label"))).toEqual([
+      "All Properties listings",
       "Land listings",
       "Improved Properties listings",
       "Past Projects listings",
@@ -436,8 +449,8 @@ describe("PropertyListing below lg: each section a carousel (#14)", () => {
     const groups = sections();
     const { container } = render(PropertyListing, { props: { sections: groups } });
     await tick();
-    const [land] = carousels(container);
-    const ids = groups[0]!.properties.map((p) => p.id);
+    const [, land] = carousels(container);
+    const ids = groups[1]!.properties.map((p) => p.id);
     const next = within(land!).getByRole("button", { name: "Next slide" });
     const bar = () =>
       land!.querySelector<HTMLElement>("[data-carousel-fill]")!.getAttribute("style");
@@ -493,16 +506,17 @@ describe("PropertyListing below lg: each section a carousel (#14)", () => {
     const media = phone();
     const { container } = render(PropertyListing, { props: { sections: sections() } });
     await tick();
-    expect(carousels(container)).toHaveLength(3);
+    expect(carousels(container)).toHaveLength(4);
 
     await media.set(false);
     const lists = [...container.querySelectorAll<HTMLElement>("[data-listing-carousel]")];
-    expect(lists).toHaveLength(3);
+    expect(lists).toHaveLength(4);
     expect(carousels(container).map((c) => c.getAttribute("aria-label"))).toEqual([
+      "All Properties listings",
       "Land listings",
       "Improved Properties listings",
     ]);
-    for (const list of lists.slice(2)) {
+    for (const list of lists.slice(3)) {
       expect(
         list.querySelector("[inert], [aria-roledescription], ul[role], .invisible"),
       ).toBeNull();
@@ -510,7 +524,7 @@ describe("PropertyListing below lg: each section a carousel (#14)", () => {
     }
 
     await media.set(true);
-    expect(carousels(container)).toHaveLength(3);
+    expect(carousels(container)).toHaveLength(4);
   });
 
   it("lands a restore for a panel that only becomes a carousel later, within the window", async () => {
@@ -519,10 +533,10 @@ describe("PropertyListing below lg: each section a carousel (#14)", () => {
     const groups = sections();
     const view = render(PropertyListing, { props: { sections: groups } });
     await tick();
-    const pastId = groups[2]!.properties[1]!.id;
+    const pastId = groups[3]!.properties[1]!.id;
     view.component.restore({ past: pastId });
     await media.set(true);
-    const past = carousels(view.container)[2]!;
+    const past = carousels(view.container)[3]!;
     const second = past
       .querySelectorAll('[aria-roledescription="slide"]')[1]!
       .querySelector("h3")!
@@ -538,11 +552,11 @@ describe("PropertyListing below lg: each section a carousel (#14)", () => {
     await tick();
     const clock = vi.spyOn(performance, "now");
     clock.mockReturnValue(0);
-    view.component.restore({ past: groups[2]!.properties[1]!.id });
+    view.component.restore({ past: groups[3]!.properties[1]!.id });
     clock.mockReturnValue(1500);
     await media.set(true);
     clock.mockRestore();
-    const past = carousels(view.container)[2]!;
+    const past = carousels(view.container)[3]!;
     expect(past.querySelector('[aria-roledescription="slide"]:not([aria-hidden])')).toBe(
       past.querySelectorAll('[aria-roledescription="slide"]')[0],
     );
@@ -568,32 +582,32 @@ describe("PropertyListing snapshot", () => {
     const groups = sections();
     const first = render(PropertyListing, { props: { sections: groups } });
     await tick();
-    const [land] = listingSections();
+    const [, land] = listingSections();
     within(land!).getByRole("button", { name: "Next slide" }).click();
     within(land!).getByRole("button", { name: "Next slide" }).click();
     await tick();
     const saved = first.component.capture();
-    expect(saved.land).toBe(groups[0]!.properties[2]!.id);
+    expect(saved.land).toBe(groups[1]!.properties[2]!.id);
     first.unmount();
 
     const second = render(PropertyListing, { props: { sections: groups } });
     await tick();
     second.component.restore(saved);
     await tick();
-    expect(onStage(listingSections()[0]!)).toBe(groups[0]!.properties[2]!.id);
+    expect(onStage(listingSections()[1]!)).toBe(groups[1]!.properties[2]!.id);
   });
 
   it("finds the listing it saved even when the list has changed under it", async () => {
     const groups = sections();
-    const saved = { land: groups[0]!.properties[1]!.id };
-    const reordered = groups.map((g, i) =>
-      i === 0 ? { ...g, properties: [...g.properties].reverse() } : g,
+    const saved = { land: groups[1]!.properties[1]!.id };
+    const reordered = groups.map((g) =>
+      g.id === "land" ? { ...g, properties: [...g.properties].reverse() } : g,
     );
     const view = render(PropertyListing, { props: { sections: reordered } });
     await tick();
     view.component.restore(saved);
     await tick();
-    expect(onStage(listingSections()[0]!)).toBe(saved.land);
+    expect(onStage(listingSections()[1]!)).toBe(saved.land);
   });
 });
 
@@ -608,15 +622,17 @@ describe("PropertyListing view tabs", () => {
       .filter((a) => a.getAttribute("aria-current") === "true")
       .map((a) => a.dataset.viewTab);
 
-  it("links Land, Improved Properties and List to their fragments, in that order, in a named group", () => {
+  it("links All, Land, Improved Properties and List to their fragments, in that order, in a named group", () => {
     const { container, getByRole } = render(PropertyListing, { props: { sections: sections() } });
     expect(getByRole("group", { name: "Show listings" })).not.toBeNull();
     expect(tabs(container).map((a) => a.getAttribute("href"))).toEqual([
+      "#all",
       "#land",
       "#improved",
       "#list",
     ]);
     expect(tabs(container).map((a) => a.textContent?.trim())).toEqual([
+      "All",
       "Land",
       "Improved Properties",
       "List",
@@ -626,15 +642,20 @@ describe("PropertyListing view tabs", () => {
   it("keeps every section in the DOM, each active one marked with its view", () => {
     render(PropertyListing, { props: { sections: sections() } });
     const regions = listingSections();
-    expect(regions.map((r) => r.dataset.viewSection ?? null)).toEqual(["land", "improved", null]);
-    expect(regions[2].hasAttribute("data-past")).toBe(true);
+    expect(regions.map((r) => r.dataset.viewSection ?? null)).toEqual([
+      "all",
+      "land",
+      "improved",
+      null,
+    ]);
+    expect(regions[3].hasAttribute("data-past")).toBe(true);
   });
 
   // A visible target would be scrolled to by every tab press.
   it("puts the fragment targets, hidden, between the tab row and the first section", () => {
     const { container } = render(PropertyListing, { props: { sections: sections() } });
     const targets = [...container.querySelectorAll<HTMLElement>("[data-view-target]")];
-    expect(targets.map((t) => t.id)).toEqual(["land", "improved", "list"]);
+    expect(targets.map((t) => t.id)).toEqual(["all", "land", "improved", "list"]);
     expect(targets.every((t) => t.hidden)).toBe(true);
     const group = container.querySelector('[role="group"]')!;
     const firstSection = container.querySelector("section")!;
@@ -646,11 +667,11 @@ describe("PropertyListing view tabs", () => {
     }
   });
 
-  it("starts on All with no tab selected, follows the fragment, and ignores a fragment that names no view", async () => {
+  it("lands on All with its tab selected, follows the fragment, and ignores a fragment that names no view", async () => {
     const { container } = render(PropertyListing, { props: { sections: sections() } });
     const root = container.querySelector<HTMLElement>("[data-listing]")!;
     await tick();
-    expect(currentTab(container)).toEqual([]);
+    expect(currentTab(container)).toEqual(["all"]);
     expect(root.dataset.view).toBe("all");
 
     location.hash = "#improved";
@@ -671,20 +692,39 @@ describe("PropertyListing view tabs", () => {
     location.hash = "#improved";
     render(PropertyListing, { props: { sections: groups } });
     await tick();
-    const [land, improved] = listingSections();
-    expect(featuredIds(improved!)).toEqual([groups[1]!.properties[0]!.id]);
-    expect(featuredIds(land!)).toEqual([groups[0]!.properties[0]!.id]);
+    const [, land, improved] = listingSections();
+    expect(featuredIds(improved!)).toEqual([groups[2]!.properties[0]!.id]);
+    expect(featuredIds(land!)).toEqual([groups[1]!.properties[0]!.id]);
     const next = within(improved!).getByRole("button", { name: "Next slide" });
     expect(next.className, "the arrows take the garnet card's cream").toContain(ARROW_TONES.cream);
 
     location.hash = "#all";
     window.dispatchEvent(new HashChangeEvent("hashchange"));
     await tick();
-    expect(featuredIds(improved!), "under All only Land leads").toEqual([]);
+    expect(featuredIds(improved!), "under All, Improved does not lead").toEqual([]);
+  });
+
+  it("puts every active listing on All's one map, Land's and Improved's alike", async () => {
+    const groups = sections();
+    render(PropertyListing, { props: { sections: groups } });
+    await tick();
+    const [all, land, improved] = listingSections();
+    const pins = (region: HTMLElement) =>
+      [...region.querySelectorAll<HTMLElement>("[data-property-map] [data-map-link]")].map((a) =>
+        a.getAttribute("href"),
+      );
+    expect(pins(all!).length).toBeGreaterThan(pins(land!).length);
+    expect(pins(all!).sort()).toEqual([...pins(land!), ...pins(improved!)].sort());
+    const cards = [...all!.querySelectorAll<HTMLElement>(`[${CENTRE_ID}]`)].map(
+      (li) => li.dataset.centreId,
+    );
+    expect(cards).toEqual([...groups[1]!.properties, ...groups[2]!.properties].map((p) => p.id));
   });
 
   it("draws no tab row with one active section", () => {
-    const improvedOnly = sections().filter((s) => s.id !== "land");
+    const improvedOnly = groupListings(
+      propertyListingFixture().filter((p) => p.data.category === "Improved"),
+    );
     const { queryByRole } = render(PropertyListing, { props: { sections: improvedOnly } });
     expect(queryByRole("group", { name: "Show listings" })).toBeNull();
   });
@@ -703,10 +743,10 @@ describe("PropertyListing view tabs", () => {
     const { container } = render(PropertyListing, { props: { sections: groups } });
     await tick();
     expect(currentTab(container)).toEqual(["list"]);
-    const [land, improved] = listingSections();
+    const [, land, improved] = listingSections();
     for (const [region, group] of [
-      [land!, groups[0]!],
-      [improved!, groups[1]!],
+      [land!, groups[1]!],
+      [improved!, groups[2]!],
     ] as const) {
       expect(within(region).queryByRole("button", { name: "Next slide" })).toBeNull();
       const items = [...region.querySelectorAll<HTMLElement>(`[${CENTRE_ID}]`)];
