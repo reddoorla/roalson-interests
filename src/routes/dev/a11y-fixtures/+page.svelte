@@ -437,8 +437,8 @@
 
   <!-- The property page's body. It renders its own <h1> (it is the page on
        /properties/<uid>), so this page carries two; axe has no rule against
-       that, and the gate is here for the component's contrast, names and
-       table semantics. Under Contract + the fixture's NEW flag render both
+       that, and the gate is here for the component's contrast and names.
+       Under Contract + the fixture's NEW flag render both
        garnet badges; the Past project tag uses the same markup. -->
   <PropertyDetail
     property={withFixturePhoto(propertyFixture({ status: "Under Contract" }), page.url.origin)}
