@@ -88,7 +88,7 @@ test("404 page renders the custom error component", { tag: "@smoke" }, async ({ 
 // The client struck "Total" from the listing price (Figma 1838699126). Every
 // listing page /properties links, as the build served it.
 test(
-  "no listing page says Total price, and the price row is there",
+  "no listing page says Total price, and the price bullet is there",
   { tag: "@smoke" },
   async ({ request }) => {
     test.skip(isPlaceholderRepo, "no listings before Prismic is wired");
@@ -101,8 +101,8 @@ test(
       expect(response.status(), path).toBe(200);
       const html = await response.text();
       expect(/.{0,40}total price.{0,40}/i.exec(html)?.[0] ?? null, path).toBeNull();
-      if (/<dt[^>]*>Price<\/dt>/.test(html)) priced++;
+      if (/<li[^>]*>Price: [^<]+<\/li>/.test(html)) priced++;
     }
-    expect(priced, "listing pages with a Price row").toBeGreaterThan(0);
+    expect(priced, "listing pages with a Price bullet").toBeGreaterThan(0);
   },
 );
