@@ -139,6 +139,21 @@ export function propertyTracts(property: PropertyDocument): PropertyTract[] {
     }));
 }
 
+/** The listing page's one bulleted list (Erik, 2026-10-09: the Details
+ *  section "added up into the bulleted list"): the highlights, then each fact
+ *  as "Label: value", then each tract. A past project keeps its record rule:
+ *  no price rows and no tracts. */
+export function detailBullets(property: PropertyDocument): string[] {
+  const past = isPastProject(property);
+  const facts = propertyFacts(property, { pricing: !past }).map((f) => `${f.label}: ${f.value}`);
+  const tracts = past
+    ? []
+    : propertyTracts(property).map(
+        (t) => `${t.name}: ${t.acres ? `${t.acres}, ${t.status}` : t.status}`,
+      );
+  return [...propertyHighlights(property), ...facts, ...tracts];
+}
+
 export interface PropertyPackage {
   url: string;
 }

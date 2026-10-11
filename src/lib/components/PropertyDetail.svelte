@@ -3,15 +3,16 @@
   // is composed from the comp's own system (operator call, 2026-09-18): the
   // property CARD's anatomy scaled to a page — photo beside a sand panel,
   // eyebrow over title with the card's 15px gap, 20px between blocks, the
-  // card's bullets and its `button dark` — then the Properties page's section
-  // divider (a garnet rule over an H3 label) heading the facts.
+  // card's bullets and its `button dark`. The Details tab's facts and tracts
+  // are bullets in the same list (Erik, 2026-10-09), so there is no Details
+  // section.
   //
   // Every block renders only when its fields are filled: most listings fill
   // fewer than half of the Details tab, and an empty label is noise.
   //
   // A past project keeps its page (unlinked, noindex) but it is a record, not
   // an offer: a "Past project" tag in place of the status, and no package,
-  // price rows or tract table (its tracts carry sale status).
+  // price bullets or tracts (its tracts carry sale status).
   import { isFilled } from "@prismicio/client";
   import { PrismicImage } from "@prismicio/svelte";
   import { cappedWidths } from "@reddoorla/maintenance/images";
@@ -20,12 +21,10 @@
   import ArrowRight from "$lib/components/ArrowRight.svelte";
   import BrandButton from "$lib/components/BrandButton.svelte";
   import {
+    detailBullets,
     isPastProject,
     mapsUrl,
-    propertyFacts,
-    propertyHighlights,
     propertyPackage,
-    propertyTracts,
     statusLabel,
   } from "$lib/property";
 
@@ -40,9 +39,7 @@
   const past = $derived(isPastProject(property));
   const status = $derived(past ? "Past project" : statusLabel(property));
   const isNew = $derived(!past && data.is_new);
-  const highlights = $derived(propertyHighlights(property));
-  const facts = $derived(propertyFacts(property, { pricing: !past }));
-  const tracts = $derived(past ? [] : propertyTracts(property));
+  const bullets = $derived(detailBullets(property));
   const pkg = $derived(past ? null : propertyPackage(property));
   const map = $derived(mapsUrl(property));
   const hasPhoto = $derived(isFilled.image(data.feature_image));
@@ -98,10 +95,10 @@
         <h1 id="property-title" class="t-h2">{data.title}</h1>
       </div>
 
-      {#if highlights.length}
+      {#if bullets.length}
         <ul class="t-body-1 list-disc ps-[21px]">
-          {#each highlights as highlight, i (i)}
-            <li>{highlight}</li>
+          {#each bullets as bullet, i (i)}
+            <li>{bullet}</li>
           {/each}
         </ul>
       {/if}
@@ -116,7 +113,7 @@
           {/if}
           {#if map}
             <BrandButton href={map} arrow target="_blank" rel="noopener noreferrer">
-              View on Google Maps
+              Aerial Map
               <span class="sr-only">(opens in a new tab)</span>
             </BrandButton>
           {/if}
@@ -124,43 +121,4 @@
       {/if}
     </div>
   </div>
-
-  {#if facts.length || tracts.length}
-    <section class="mt-20 border-t border-primary pt-5" aria-labelledby="property-details">
-      <h2 id="property-details" class="t-h3 mt-5">Details</h2>
-
-      {#if facts.length}
-        <dl class="mt-10 grid gap-x-10 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
-          {#each facts as fact (fact.label)}
-            <div class="flex flex-col gap-[15px]">
-              <dt class="t-h5 text-secondary">{fact.label}</dt>
-              <dd class="t-body-1">{fact.value}</dd>
-            </div>
-          {/each}
-        </dl>
-      {/if}
-
-      {#if tracts.length}
-        <table class="t-body-1 mt-10 w-full max-w-2xl border-collapse text-left">
-          <caption class="t-h5 pb-5 text-left text-secondary">Tracts</caption>
-          <thead>
-            <tr class="border-b border-primary">
-              <th scope="col" class="t-h6 py-2.5 font-semibold">Tract</th>
-              <th scope="col" class="t-h6 py-2.5 font-semibold">Acres</th>
-              <th scope="col" class="t-h6 py-2.5 font-semibold">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {#each tracts as tract, i (i)}
-              <tr class="border-b border-light">
-                <th scope="row" class="py-2.5 font-normal">{tract.name}</th>
-                <td class="py-2.5">{tract.acres ?? "—"}</td>
-                <td class="py-2.5">{tract.status}</td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
-      {/if}
-    </section>
-  {/if}
 </article>
