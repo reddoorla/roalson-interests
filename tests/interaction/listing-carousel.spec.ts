@@ -136,11 +136,32 @@ test.describe("with no script", () => {
           "no dead arrows",
         ).toBe(0);
 
-        for (let i = 0; i < (await lists.count()); i++) {
-          const cards = lists.nth(i).locator("article");
+        const shown = page.locator(`section:has(${LISTS})`).filter({ visible: true });
+        // The live portfolio has no Past Projects yet; the fixture has three.
+        expect(
+          (
+            await shown.evaluateAll((els) => els.map((el) => el.getAttribute("aria-labelledby")))
+          ).filter((id) => id !== "listing-past"),
+          "the landing view: All, then Past Projects where there are any",
+        ).toEqual(["listing-all"]);
+        for (let i = 0; i < (await shown.count()); i++) {
+          const cards = shown.nth(i).locator(`${LISTS} article`);
           for (let j = 0; j < (await cards.count()); j++)
-            await expect(cards.nth(j), `list ${i}: card ${j} painted`).toBeVisible();
+            await expect(cards.nth(j), `section ${i}: card ${j} painted`).toBeVisible();
         }
+        const hrefs = async (where: string) =>
+          new Set(
+            await page
+              .locator(`${where} ${LISTS} a[href^="/properties/"]`)
+              .evaluateAll((els) => els.map((el) => el.getAttribute("href"))),
+          );
+        const everyListing = await hrefs("section[data-view-section]");
+        const onAll = await hrefs('section[data-view-section="all"]');
+        expect(onAll.size).toBeGreaterThan(0);
+        expect(
+          [...everyListing].filter((h) => !onAll.has(h)),
+          "every listing is on All",
+        ).toEqual([]);
       } finally {
         await context.close();
       }
@@ -311,7 +332,9 @@ test.describe("at 390, hydrated", () => {
           return results.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target).join()}`);
         };
         expect(await audit()).toEqual([]);
-        for (const carousel of await page.locator(`${CAROUSEL}[data-carousel-ready]`).all()) {
+        const shown = page.locator(`${CAROUSEL}[data-carousel-ready]`).filter({ visible: true });
+        expect(await shown.count(), "premise: a carousel on screen").toBeGreaterThan(0);
+        for (const carousel of await shown.all()) {
           await carousel.getByRole("button", { name: "Next slide" }).click();
         }
         expect(await audit()).toEqual([]);
@@ -379,24 +402,24 @@ test.describe("beside the view tabs (#180)", () => {
   }) => {
     const { context, page } = await open(browser);
     try {
-      const land = page.locator(`section[data-view-section="land"] ${CAROUSEL}`);
+      const all = page.locator(`section[data-view-section="all"] ${CAROUSEL}`);
       const improved = page.locator(`section[data-view-section="improved"] ${CAROUSEL}`);
-      await expect(land).toHaveAttribute("data-carousel-ready", "", {
+      await expect(all).toHaveAttribute("data-carousel-ready", "", {
         timeout: HYDRATION_TIMEOUT,
       });
       test.skip((await improved.count()) === 0, "one listing in Improved: no carousel there");
-      await land.getByRole("button", { name: "Next slide" }).click();
-      const landSlide = (await state(land)).label;
+      await all.getByRole("button", { name: "Next slide" }).click();
+      const allSlide = (await state(all)).label;
 
       await page.locator('[data-view-tab="improved"]').click();
-      await expect(land).toBeHidden();
+      await expect(all).toBeHidden();
       await expect(improved).toBeVisible();
       await improved.getByRole("button", { name: "Next slide" }).click();
       expect((await state(improved)).label).toMatch(/^2 of /);
 
       await page.goBack();
-      await expect(land).toBeVisible();
-      expect((await state(land)).label, "Land is where it was left").toBe(landSlide);
+      await expect(all).toBeVisible();
+      expect((await state(all)).label, "All is where it was left").toBe(allSlide);
     } finally {
       await context.close();
     }

@@ -17,7 +17,7 @@ describe("loadPropertyListing", () => {
     expect(asked).toEqual(["property"]);
     expect(data.title).toBe("Our Properties");
     expect(data.meta_description).toMatch(/San Antonio/);
-    expect(data.sections.map((s) => s.id)).toEqual(["land", "improved", "past"]);
+    expect(data.sections.map((s) => s.id)).toEqual(["all", "land", "improved", "past"]);
   });
 
   it("rethrows a Prismic failure instead of serving an empty listing", async () => {

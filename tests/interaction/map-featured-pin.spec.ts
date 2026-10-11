@@ -61,9 +61,10 @@ const onStage = (section: Locator) =>
   );
 
 const centre = async (page: Page, id: string) => {
-  const section = page.locator("section[aria-labelledby^='listing-']").filter({
-    has: page.locator(`[data-centre-id="${id}"]`),
-  });
+  const section = page
+    .locator("section[aria-labelledby^='listing-']")
+    .filter({ visible: true })
+    .filter({ has: page.locator(`[data-centre-id="${id}"]`) });
   await section.locator("[data-property-map]").scrollIntoViewIfNeeded();
   const next = section.getByRole("button", { name: "Next slide" });
   const count = await section.locator("[data-centre-id]").count();
@@ -145,7 +146,7 @@ test.describe("through the cross-fade, the picture's pins stay under the live ma
         await held;
         await route.continue();
       });
-      await page.goto(PROPERTIES);
+      await page.goto(`${PROPERTIES}#land`);
       await hydrated(page);
       const section = land(page);
       const map = section.locator(MAP);

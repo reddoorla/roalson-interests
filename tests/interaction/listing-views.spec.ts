@@ -9,8 +9,9 @@ import { axe } from "./axe";
 // `:target` until the component hydrates, then by `data-view`. jsdom has no
 // cascade, so everything that is a claim about CSS is here:
 //
-//  1. With no script a shared `#improved` link is filtered on first paint and
-//     does not scroll; a tab press filters and Back restores.
+//  1. With no script the landing view, `#all`, `#list` and a shared `#improved`
+//     link are filtered on first paint, and `#improved` does not scroll; a tab
+//     press filters and Back restores.
 //  2. Hydrated, a hidden section stays mounted: its map is still booted and
 //     full-width when the view comes back.
 //  3. The skip link's fragment does not reset the view (the `data-view` form).
@@ -35,8 +36,8 @@ async function noScript(browser: Browser) {
 }
 
 async function expectView(page: Page, view: "land" | "improved" | "all" | "list") {
-  for (const id of ["land", "improved"]) {
-    const shown = view === "all" || view === "list" || view === id;
+  for (const id of ["all", "land", "improved"]) {
+    const shown = view === id || (view === "list" && id !== "all");
     await (shown
       ? expect(sectionOf(page, id), `${id} under ${view}`).toBeVisible()
       : expect(sectionOf(page, id), `${id} under ${view}`).toBeHidden());
@@ -48,7 +49,7 @@ async function expectView(page: Page, view: "land" | "improved" | "all" | "list"
   // Hydrated, aria-current says which tab is selected; with no script the
   // tab's name does, and listing-views-name.spec.ts reads that.
   if ((await page.locator("html[data-hydrated]").count()) === 0) return;
-  for (const id of ["land", "improved", "list"]) {
+  for (const id of ["all", "land", "improved", "list"]) {
     const message = `tab ${id} selected under ${view}`;
     await (id === view
       ? expect(tabOf(page, id), message).toHaveAttribute("aria-current", "true")
@@ -68,6 +69,19 @@ test.describe("with no script", { tag: "@smoke" }, () => {
     expect(await page.evaluate(() => scrollY)).toBe(0);
     await context.close();
   });
+
+  for (const [hash, view] of [
+    ["", "all"],
+    ["#all", "all"],
+    ["#list", "list"],
+  ] as const) {
+    test(`${hash || "no fragment"} shows the ${view} view on first paint`, async ({ browser }) => {
+      const { context, page } = await noScript(browser);
+      await page.goto(`${FIXTURE}${hash}`);
+      await expectView(page, view);
+      await context.close();
+    });
+  }
 
   test("a tab press filters without scrolling, and Back restores the view", async ({ browser }) => {
     const { context, page } = await noScript(browser);
@@ -94,29 +108,29 @@ test.describe("hydrated", () => {
   }) => {
     await page.goto(FIXTURE);
     await hydrated(page);
-    const landMap = sectionOf(page, "land").locator("[data-property-map]");
+    const allMap = sectionOf(page, "all").locator("[data-property-map]");
     // It cannot boot at the top since 2026-09-29 (./map-boot).
-    await scrollMapToBoot(landMap);
-    await expect(landMap).toHaveAttribute("data-map-ready", "", { timeout: 25_000 });
+    await scrollMapToBoot(allMap);
+    await expect(allMap).toHaveAttribute("data-map-ready", "", { timeout: 25_000 });
     // A mark on the element itself. `{#if}` would pass everything else here:
     // the section leaves the DOM (so `toBeHidden` holds) and a NEW map boots
     // and reports ready at the same width (#174, measured). Only the same node
     // coming back carries this.
-    await landMap.evaluate((el) => el.setAttribute("data-mount-probe", ""));
-    const before = (await landMap.locator("canvas").first().boundingBox())!.width;
+    await allMap.evaluate((el) => el.setAttribute("data-mount-probe", ""));
+    const before = (await allMap.locator("canvas").first().boundingBox())!.width;
     await tabOf(page, "improved").click();
     await expectView(page, "improved");
     await expect(tabOf(page, "improved")).toHaveAttribute("aria-current", "true");
-    await expect(sectionOf(page, "land"), "hidden, not removed").toHaveCSS("display", "none");
+    await expect(sectionOf(page, "all"), "hidden, not removed").toHaveCSS("display", "none");
     await page.goBack();
     await expectView(page, "all");
-    await expect(landMap, "the same map element, not a new one").toHaveAttribute(
+    await expect(allMap, "the same map element, not a new one").toHaveAttribute(
       "data-mount-probe",
       "",
     );
-    await expect(landMap).toHaveAttribute("data-map-ready", "", { timeout: 25_000 });
-    await expect(landMap.locator("canvas").first()).toBeVisible();
-    const after = (await landMap.locator("canvas").first().boundingBox())!.width;
+    await expect(allMap).toHaveAttribute("data-map-ready", "", { timeout: 25_000 });
+    await expect(allMap.locator("canvas").first()).toBeVisible();
+    const after = (await allMap.locator("canvas").first().boundingBox())!.width;
     expect(before, "the map drew at its column's width").toBeGreaterThan(300);
     expect(Math.abs(after - before), "and draws there again").toBeLessThan(1);
   });

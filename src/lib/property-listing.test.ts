@@ -1,13 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
 
 import { isArchived, isListed, PROPERTY_CATEGORIES } from "./property";
 import { propertyFixture, propertyListingFixture } from "./property-fixture";
 import {
+  ALL_SECTION,
   groupListings,
   LISTING_SECTIONS,
-  LISTING_VIEWS,
   listingOrder,
   listingViews,
   viewFromHash,
@@ -25,14 +23,33 @@ describe("LISTING_SECTIONS", () => {
 });
 
 describe("groupListings", () => {
-  it("draws Land, then Improved Properties, then Past Projects — the comp's order at every width", () => {
+  it("draws All, then Land, then Improved Properties, then Past Projects", () => {
     const sections = groupListings(propertyListingFixture());
-    expect(sections.map((s) => s.label)).toEqual(["Land", "Improved Properties", "Past Projects"]);
-    expect(sections.map((s) => s.past)).toEqual([false, false, true]);
+    expect(sections.map((s) => s.label)).toEqual([
+      "All Properties",
+      "Land",
+      "Improved Properties",
+      "Past Projects",
+    ]);
+    expect(sections.map((s) => s.past)).toEqual([false, false, false, true]);
+  });
+
+  it("puts every active listing in All, Land's then Improved's, and no past or archived one", () => {
+    const [all, land, improved, past] = groupListings(propertyListingFixture());
+    expect(all!.id).toBe(ALL_SECTION.id);
+    expect(all!.properties).toEqual([...land!.properties, ...improved!.properties]);
+    expect(all!.properties.every(isListed)).toBe(true);
+    expect(all!.properties.some((p) => past!.properties.includes(p))).toBe(false);
+    expect(sectionPoints(all!.properties)).toHaveLength(6);
+  });
+
+  it("draws no All section when only one category has listings", () => {
+    const onlyLand = propertyListingFixture().filter((p) => p.data.category !== "Improved");
+    expect(groupListings(onlyLand).map((s) => s.id)).toEqual(["land", "past"]);
   });
 
   it("holds both land categories in the one Land section", () => {
-    const [land] = groupListings(propertyListingFixture());
+    const [, land] = groupListings(propertyListingFixture());
     expect(land.properties.map((p) => p.data.category)).toEqual([
       "Land — SA Metro & Surrounding",
       "Land — SA Metro & Surrounding",
@@ -57,12 +74,12 @@ describe("groupListings", () => {
     const sections = groupListings(fixture);
     const shown = sections.flatMap((s) => s.properties);
     expect(shown.some(isArchived)).toBe(false);
-    const [land] = sections;
+    const [, land] = sections;
     expect(sectionPoints(land.properties)).toHaveLength(4);
   });
 
   it("sorts by order, lowest first, with an empty order last, then by title", () => {
-    const [land] = groupListings(propertyListingFixture());
+    const [, land] = groupListings(propertyListingFixture());
     expect(titles(land)).toEqual([
       "FM 1560 & Galm Road",
       "Potranco Road tract",
@@ -86,9 +103,9 @@ describe("groupListings", () => {
     const sections = groupListings([...propertyListingFixture(), stray]);
     const improved = sections.find((s) => s.id === "improved");
     expect(titles(improved).at(-1)).toBe("Uncategorised");
-    expect(sections.flatMap((s) => s.properties)).toHaveLength(
-      propertyListingFixture().filter((p) => !isArchived(p)).length + 1,
-    );
+    expect(
+      sections.filter((s) => s.id !== ALL_SECTION.id).flatMap((s) => s.properties),
+    ).toHaveLength(propertyListingFixture().filter((p) => !isArchived(p)).length + 1);
   });
 
   it("leaves out a section with nothing in it", () => {
@@ -101,10 +118,10 @@ describe("groupListings", () => {
 });
 
 describe("the view tabs", () => {
-  it("offers Land, Improved Properties, List — in that order, and no All", () => {
+  it("offers All, Land, Improved Properties, List — in that order", () => {
     const views = listingViews(groupListings(propertyListingFixture()));
-    expect(views.map((v) => v.id)).toEqual(["land", "improved", "list"]);
-    expect(views.map((v) => v.label)).toEqual(["Land", "Improved Properties", "List"]);
+    expect(views.map((v) => v.id)).toEqual(["all", "land", "improved", "list"]);
+    expect(views.map((v) => v.label)).toEqual(["All", "Land", "Improved Properties", "List"]);
   });
 
   it("offers none with one active section — Past Projects is not a view", () => {
@@ -127,7 +144,7 @@ describe("the view tabs", () => {
     const sections = groupListings(propertyListingFixture())
       .filter((s) => !s.past)
       .map((s) => ({ ...s, properties: s.properties.slice(0, 1) }));
-    expect(listingViews(sections).map((v) => v.id)).toEqual(["land", "improved"]);
+    expect(listingViews(sections).map((v) => v.id)).toEqual(["all", "land", "improved"]);
   });
 
   it("reads the view from a fragment, and keeps the current one for any other fragment", () => {
@@ -138,20 +155,5 @@ describe("the view tabs", () => {
     expect(viewFromHash("")).toBe("all");
     expect(viewFromHash("#main-content")).toBeNull();
     expect(viewFromHash("#listing-land")).toBeNull();
-  });
-
-  // The filter is CSS, keyed by view id in both forms (hydrated and :target).
-  // Renaming a view here, or dropping a rule there, is caught at this line.
-  it("has a hide rule and a selected rule in app.css for every view", () => {
-    const css = readFileSync(join(import.meta.dirname, "../app.css"), "utf8").replace(/\s+/g, " ");
-    for (const { id } of LISTING_VIEWS) {
-      if (id === "all") continue;
-      const selected = `[data-view-tab="${id}"]`;
-      expect(css, `selected: ${id}`).toContain(selected);
-      if (id === "list") continue;
-      expect(css, `hydrated hide: ${id}`).toContain(
-        `[data-view="${id}"], :not([data-view]):has(#${id}:target)) section[data-view-section]:not([data-view-section="${id}"])`,
-      );
-    }
   });
 });

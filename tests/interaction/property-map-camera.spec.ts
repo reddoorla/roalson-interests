@@ -42,8 +42,9 @@ const MAP = "[data-property-map]";
  *  MapLibre's own `load`, not by the import resolving. The map is scrolled just
  *  far enough to boot first, where it cannot at rest (./map-boot). */
 async function drawn(page: Page, nth = 0) {
-  await scrollMapToBoot(page.locator(MAP).nth(nth));
-  await expect(page.locator(MAP).nth(nth)).toHaveAttribute("data-map-ready", "", {
+  const map = page.locator(MAP).filter({ visible: true }).nth(nth);
+  await scrollMapToBoot(map);
+  await expect(map).toHaveAttribute("data-map-ready", "", {
     timeout: 25_000,
   });
 }
@@ -77,9 +78,13 @@ test.describe("the map pins beside its cards", () => {
   }) => {
     const { context, page } = await at(browser, 1440, 720);
     try {
-      await page.goto(PROPERTIES);
+      // Under List, Land then Improved: the one view with a pinned second section.
+      await page.goto(`${PROPERTIES}#list`);
       await hydrated(page);
-      const sections = page.locator("section[aria-labelledby^='listing-']");
+      await expect(page.locator('[data-listing][data-view="list"]')).toBeAttached();
+      const sections = page
+        .locator("section[aria-labelledby^='listing-']")
+        .filter({ visible: true });
 
       // Section 0's divider does NOT pin (the comp's first divider has a 40px
       // pad and scrolls away), so its map lands on app.css's own declared
@@ -136,15 +141,16 @@ test.describe("the map pins beside its cards", () => {
   }) => {
     const { context, page } = await at(browser, 1440);
     try {
-      await page.goto(PROPERTIES);
+      await page.goto(`${PROPERTIES}#list`);
       await hydrated(page);
+      await expect(page.locator('[data-listing][data-view="list"]')).toBeAttached();
       // Park the scroll where section 1's map has gone PAST its stick point and
       // is travelling up behind its own pinned divider. That is the one place
       // on this page where the two really overlap: section 0's map has left the
       // window entirely by the time section 1's divider pins.
       const seam = await page.evaluate(() => {
-        const sections = [...document.querySelectorAll("section[aria-labelledby^='listing-']")];
-        const map = sections[1]!.querySelector("[data-property-map]") as HTMLElement;
+        const section = document.querySelector("section[aria-labelledby='listing-improved']")!;
+        const map = section.querySelector("[data-property-map]") as HTMLElement;
         // 110px into the divider's 145.41px band. NOT 60: the bar is `fixed`,
         // `z-50` and 80 tall at `lg`, so a hit test in the top 80px answers
         // with the NAV and says nothing about either of these two. That is
@@ -156,9 +162,9 @@ test.describe("the map pins beside its cards", () => {
 
       // Hit-testing is the only honest way to ask "which of these is on top".
       const winner = await page.evaluate(() => {
-        const sections = [...document.querySelectorAll("section[aria-labelledby^='listing-']")];
-        const divider = sections[1]!.firstElementChild as HTMLElement;
-        const map = sections[1]!.querySelector("[data-property-map]") as HTMLElement;
+        const section = document.querySelector("section[aria-labelledby='listing-improved']")!;
+        const divider = section.firstElementChild as HTMLElement;
+        const map = section.querySelector("[data-property-map]") as HTMLElement;
         const box = divider.getBoundingClientRect();
         const mapRect = map.getBoundingClientRect();
         const bar = document.querySelector('nav[aria-label="Primary"]')!.getBoundingClientRect();
@@ -186,7 +192,7 @@ test.describe("the map pins beside its cards", () => {
   test("does not pin at 390, and watches nothing there", async ({ browser }) => {
     const { context, page } = await at(browser, 390, 844);
     try {
-      await page.goto(PROPERTIES);
+      await page.goto(`${PROPERTIES}#land`);
       await hydrated(page);
       const section = land(page);
       const map = section.locator(MAP);
@@ -306,7 +312,7 @@ test.describe("a gesture suspends the camera, and the page's next listing lifts 
     const { context, page } = await at(browser, 390, 844);
     try {
       await watchCamera(page);
-      await page.goto(PROPERTIES);
+      await page.goto(`${PROPERTIES}#land`);
       await hydrated(page);
       const section = land(page);
       await section.locator(MAP).first().scrollIntoViewIfNeeded();
@@ -371,7 +377,7 @@ test.describe("with scripting off", () => {
     // 152.5 in both sections and this could not see the server's offset at
     // all — including the `--listing-divider-top` derivation guarded below.
     await page.setViewportSize({ width: 1440, height: 720 });
-    await page.goto(PROPERTIES);
+    await page.goto(`${PROPERTIES}#list`);
 
     // Positive evidence that script really is off, and therefore that what
     // follows is the server's answer and not an effect's. `$$eval` runs through
@@ -405,7 +411,8 @@ test.describe("with scripting off", () => {
             .top,
         };
       };
-      return { first: read(secs[0]!), second: read(secs[1]!) };
+      const shown = secs.filter((sec) => getComputedStyle(sec).display !== "none");
+      return { first: read(shown[0]!), second: read(shown[1]!) };
     });
 
     // Section 0's divider does not pin, so its map lands on the scrollport's
@@ -460,8 +467,9 @@ test.describe("a card scrolled to the top of the scrollport clears the pinned di
     test.setTimeout(90_000);
     const { context, page } = await at(browser, 1440);
     try {
-      await page.goto(PROPERTIES);
+      await page.goto(`${PROPERTIES}#list`);
       await hydrated(page);
+      await expect(page.locator('[data-listing][data-view="list"]')).toBeAttached();
 
       const declared = await page.evaluate(() =>
         parseFloat(getComputedStyle(document.documentElement).scrollPaddingTop),
@@ -471,14 +479,14 @@ test.describe("a card scrolled to the top of the scrollport clears the pinned di
       // Section 0 pins no divider, so its cards need no extra margin at all —
       // `scroll-padding-top` is already the whole answer there.
       const firstMargin = await page.evaluate(() => {
-        const sec = document.querySelectorAll("section[aria-labelledby^='listing-']")[0]!;
+        const sec = document.querySelector("section[aria-labelledby='listing-land']")!;
         return getComputedStyle(sec.querySelector("[data-centre-id]")!).scrollMarginTop;
       });
       expect(parseFloat(firstMargin), "no pinned divider, no extra margin").toBeCloseTo(0, 1);
 
       // Section 1 pins one, and its cards carry exactly the difference.
       const second = await page.evaluate(() => {
-        const sec = document.querySelectorAll("section[aria-labelledby^='listing-']")[1]!;
+        const sec = document.querySelector("section[aria-labelledby='listing-improved']")!;
         const divider = sec.firstElementChild as HTMLElement;
         return {
           dividerHeight: divider.getBoundingClientRect().height,
@@ -499,7 +507,7 @@ test.describe("a card scrolled to the top of the scrollport clears the pinned di
       // Measured before this fix on a production build: card top 99.95 against
       // a divider bottom of 145.41.
       const landing = await page.evaluate(async () => {
-        const sec = document.querySelectorAll("section[aria-labelledby^='listing-']")[1]!;
+        const sec = document.querySelector("section[aria-labelledby='listing-improved']")!;
         const divider = sec.firstElementChild as HTMLElement;
         const cards = [...sec.querySelectorAll<HTMLElement>("[data-centre-id]")];
         const card = cards[cards.length - 1]!;

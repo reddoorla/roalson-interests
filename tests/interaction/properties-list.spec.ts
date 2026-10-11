@@ -7,7 +7,9 @@ const PREVIEW = process.env.REDDOOR_GATE_SERVER === "preview";
 const ROUTE = PREVIEW ? "/properties" : "/dev/properties";
 const WIDE = { width: 1440, height: 900 };
 
-const activeSections = (page: Page) => page.locator("section[data-view-section]");
+const activeSections = (page: Page) =>
+  page.locator('section[data-view-section]:not([data-view-section="all"])');
+const allSection = (page: Page) => page.locator('section[data-view-section="all"]');
 
 async function everyCardShown(section: Locator) {
   await expect(section.getByRole("button", { name: "Next slide" })).toHaveCount(0);
@@ -40,12 +42,15 @@ test.describe("the List tab", { tag: "@smoke" }, () => {
     await page.goto(ROUTE);
     await hydrated(page);
     const land = activeSections(page).first();
-    await expect(land.getByRole("button", { name: "Next slide" })).toBeVisible();
+    await expect(allSection(page).getByRole("button", { name: "Next slide" })).toBeVisible();
+    await expect(land).toBeHidden();
     await page.locator('[data-view-tab="list"]').click();
     await expect(page).toHaveURL(/#list$/);
+    await expect(allSection(page)).toBeHidden();
     await everyCardShown(land);
     await page.goBack();
-    await expect(land.getByRole("button", { name: "Next slide" })).toBeVisible();
+    await expect(allSection(page).getByRole("button", { name: "Next slide" })).toBeVisible();
+    await expect(land).toBeHidden();
   });
 
   test("on a phone the list is stacked too", async ({ page }) => {
