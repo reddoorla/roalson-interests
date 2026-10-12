@@ -22,6 +22,10 @@ import {
   markerDimmed,
   PIN_ASPECT,
   PIN_VIEWBOX,
+  RI_PIN_BODY,
+  RI_PIN_BOX,
+  RI_PIN_HEAD,
+  RI_PIN_VIEWBOX,
   pixelDistance,
   projectX,
   projectY,
@@ -859,6 +863,89 @@ describe("the pin, as the comp draws it", () => {
   // bottom is the tip only while the glyph's own viewBox is that tall too.
   it("draws the glyph in a viewBox exactly as tall as the box it is anchored by", () => {
     expect(PIN_VIEWBOX).toBe(`0 0 1 ${PIN_ASPECT}`);
+  });
+});
+
+/** The lowest point of a path written in M, c, h and Z, as Ri-Pin2's body is.
+ *  A Bézier's lowest point is not always an end point, so each curve is
+ *  sampled. Throws on any other command rather than measure it wrong. */
+function lowestPoint(d: string): { x: number; y: number } {
+  const tokens = d.match(/[A-Za-z]|-?(?:\d+\.?\d*|\.\d+)/g)!;
+  let i = 0;
+  let cmd = "";
+  let x = 0;
+  let y = 0;
+  let low = { x: 0, y: -Infinity };
+  const num = () => Number(tokens[i++]);
+  const see = (px: number, py: number) => {
+    if (py > low.y + 1e-9) low = { x: px, y: py };
+  };
+  while (i < tokens.length) {
+    if (/[A-Za-z]/.test(tokens[i]!)) cmd = tokens[i++]!;
+    if (cmd === "M") {
+      x = num();
+      y = num();
+      see(x, y);
+    } else if (cmd === "c") {
+      const [x1, y1, x2, y2, dx, dy] = [num(), num(), num(), num(), num(), num()];
+      const p = [
+        [x, y],
+        [x + x1, y + y1],
+        [x + x2, y + y2],
+        [x + dx, y + dy],
+      ] as const;
+      for (let k = 0; k <= 200; k++) {
+        const t = k / 200;
+        const u = 1 - t;
+        const at = (n: 0 | 1) =>
+          u * u * u * p[0][n] +
+          3 * u * u * t * p[1][n] +
+          3 * u * t * t * p[2][n] +
+          t * t * t * p[3][n];
+        see(at(0), at(1));
+      }
+      x += dx;
+      y += dy;
+    } else if (cmd === "h") {
+      const nx = x + num();
+      if (Math.abs(y - low.y) < 1e-9) low = { x: (x + nx) / 2, y };
+      x = nx;
+      see(x, y);
+    } else if (cmd === "Z") {
+      if (i < tokens.length && !/[A-Za-z]/.test(tokens[i]!))
+        throw new Error("lowestPoint cannot read numbers after Z");
+    } else throw new Error(`lowestPoint cannot read "${cmd}"`);
+  }
+  return low;
+}
+
+describe("the active pin, Erik's Ri-Pin2", () => {
+  const [vx, vy, vw, vh] = RI_PIN_VIEWBOX.split(" ").map(Number) as [
+    number,
+    number,
+    number,
+    number,
+  ];
+
+  it("reads a path's lowest point: a curve's belly, and a flat foot's middle", () => {
+    expect(lowestPoint("M0,0c0,10,10,10,10,0Z").y).toBeCloseTo(7.5, 2);
+    expect(lowestPoint("M0,0c0,0,0,10,5,10h2c5,0,5-10,5-10Z")).toEqual({ x: 6, y: 10 });
+  });
+
+  it("puts its tip at the bottom centre of its viewBox, which is the anchor", () => {
+    const tip = lowestPoint(RI_PIN_BODY);
+    expect(tip.y, "the tip is the viewBox's bottom edge").toBeCloseTo(vy + vh, 6);
+    expect(tip.x, "and its centre line").toBeCloseTo(vx + vw / 2, 6);
+  });
+
+  it("is centred on the head it hangs from, and the head is inside the viewBox", () => {
+    expect(RI_PIN_HEAD.cx).toBeCloseTo(vx + vw / 2, 6);
+    expect(RI_PIN_HEAD.cx - RI_PIN_HEAD.r).toBeCloseTo(vx, 6);
+    expect(RI_PIN_HEAD.cy - RI_PIN_HEAD.r).toBeCloseTo(vy, 6);
+  });
+
+  it("is drawn in a box whose foot is the frame box's foot, the comp's tip", () => {
+    expect(RI_PIN_BOX.y + RI_PIN_BOX.height).toBeCloseTo(PIN_ASPECT, 9);
   });
 });
 

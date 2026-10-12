@@ -128,13 +128,15 @@
     markerDimmed,
     PIN_ASPECT,
     PIN_HOLE,
-    PIN_MARK,
     PIN_PATH,
     PIN_VIEWBOX,
     PRESS_HOLD_MAX_MS,
     RESTING_PIN_SCALE,
-    RI_MARK_PATH,
-    RI_MARK_VIEWBOX,
+    RI_PIN_BODY,
+    RI_PIN_BOX,
+    RI_PIN_HEAD,
+    RI_PIN_MARK,
+    RI_PIN_VIEWBOX,
     wheelRun,
     type Camera,
     type MapCluster,
@@ -1929,26 +1931,25 @@
 />
 
 {#snippet pinHead(isActive: boolean)}
-  <path
-    d={PIN_PATH}
-    fill="var(--color-primary)"
-    stroke="var(--color-primary)"
-    stroke-width="1.5"
-    stroke-linejoin="round"
-    vector-effect="non-scaling-stroke"
-  />
   {#if isActive}
     <svg
       data-map-pin-mark
-      x={PIN_MARK.x}
-      y={PIN_MARK.y}
-      width={PIN_MARK.size}
-      height={PIN_MARK.size}
-      viewBox={RI_MARK_VIEWBOX}
+      y={RI_PIN_BOX.y}
+      width="1"
+      height={RI_PIN_BOX.height}
+      viewBox={RI_PIN_VIEWBOX}
     >
-      <path d={RI_MARK_PATH} fill="var(--color-light)" />
+      <path d={RI_PIN_BODY} fill="var(--color-primary)" />
+      <circle
+        cx={RI_PIN_HEAD.cx}
+        cy={RI_PIN_HEAD.cy}
+        r={RI_PIN_HEAD.r}
+        fill="var(--color-primary)"
+      />
+      <path d={RI_PIN_MARK} fill="var(--color-light)" />
     </svg>
   {:else}
+    <path d={PIN_PATH} fill="var(--color-primary)" />
     <circle cx={PIN_HOLE.cx} cy={PIN_HOLE.cy} r={PIN_HOLE.r} fill="var(--color-light)" />
   {/if}
 {/snippet}
@@ -2449,7 +2450,7 @@
   /* THE ACTIVE LISTING, FEATURED (operator, 2026-09-29; Erik, 2026-10-09).
      Every marker that is not the active listing's — live or in the picture —
      is drawn at `--map-dim`: a cluster as a whole, from DIMMED_MARKER_OPACITY,
-     and a pin's fill only, from DIMMED_PIN_FILL, its outline staying solid.
+     and a pin's fill only, from DIMMED_PIN_FILL (it has no outline).
      The markup writes it only while this map HAS an active listing (`markerDimmed`); with none, no
      marker carries the attribute and all of them stay at 1. The measurement
      behind the number is on the constant. A marker whose list link has focus,
@@ -2458,8 +2459,9 @@
      control that looks disabled while it is being pointed at is lying, and
      `opacity` would dim the focus ring drawn on the element with it.
      The change animates on Tailwind's default duration and easing
-     (`transition-opacity` on a cluster, the pin rules below on a pin, 150ms)
-     — and not at all under
+     (`transition-opacity` on a cluster, the pin rules below on a pin, 150ms),
+     except on the two pins an active swap redraws (the active pin is another
+     drawing, so their paths are new and start at their dim) — and not at all under
      reduced motion (`motion-reduce:transition-none`, as on the canvas host,
      and the pin rules' own media block). The expanded overlay is this same
      box, so it needs nothing of its own. */

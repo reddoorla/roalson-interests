@@ -303,13 +303,13 @@ export const ACTIVE_PIN_SCALE = 1.8;
  *  Under the pointer a pin's fill comes back; its size does not. */
 export const RESTING_PIN_SCALE = 0.9;
 
-/** The fill opacity of every other PIN while the map has an active listing
- *  (Erik, 2026-10-09: "make the opacity 50% or less"). Only the fill: the
- *  pin's outline stays solid garnet, and that outline is the edge WCAG
- *  1.4.11's 3:1 is measured on (src/lib/map-marker-contrast.test.ts). A
- *  cluster still dims as a whole, at DIMMED_MARKER_OPACITY, because its
- *  count is text. */
-export const DIMMED_PIN_FILL = 0.5;
+/** The fill opacity of every other PIN while the map has an active listing.
+ *  Erik asked for "50% or less" (2026-10-09) and then for no stroke round
+ *  these pins (2026-10-12), so the fill is now the pin's only edge, and WCAG
+ *  1.4.11's 3:1 is measured on it (src/lib/map-marker-contrast.test.ts). At
+ *  0.5 that fails on every ground, 2.76:1 on the plain background; 0.81 is
+ *  the floor DIMMED_MARKER_OPACITY already found, by the same pair. */
+export const DIMMED_PIN_FILL = 0.81;
 
 /**
  * EVERY OTHER CLUSTER, WHILE A MAP HAS AN ACTIVE LISTING, is drawn at reduced
@@ -317,8 +317,9 @@ export const DIMMED_PIN_FILL = 0.5;
  * active pin is should stay full opacity and the rest should be slightly
  * reduced opacity so it's featured"). A map with NO active listing dims
  * nothing — dimming everything would feature nothing. See `markerDimmed`.
- * Pins dimmed this way until 2026-10-11; they now keep a solid outline and
- * dim their fill to DIMMED_PIN_FILL instead.
+ * Pins dimmed this way until 2026-10-11, then kept a solid outline and dimmed
+ * their fill to 0.5; since 2026-10-12 they have no outline and dim their fill
+ * to DIMMED_PIN_FILL.
  *
  * MEASURED, NOT PICKED, and measured against the ground BESIDE a marker as
  * well as the one under it. A see-through marker takes its colour from what it
@@ -1188,13 +1189,26 @@ export function clusterSignature(clusters: readonly MapCluster[]): string {
 export const PIN_VIEWBOX = "0 0 1 0.901019";
 export const PIN_PATH = "M0.5000 0.901019L0.7404 0.6057A0.310 0.310 0 1 0 0.2596 0.6057Z";
 export const PIN_HOLE = { cx: 0.5, cy: 0.405, r: 0.166875 } as const;
-/** The "Ri" monogram (static/favicon.svg) the ACTIVE pin carries in its head
- *  in place of the hole (Erik, 2026-10-09), drawn in PIN_VIEWBOX units inside
- *  the head's circle (centre 0.5, 0.41; radius 0.31). */
-export const PIN_MARK = { x: 0.33, y: 0.24, size: 0.34 } as const;
-export const RI_MARK_VIEWBOX = "3.77 3.82 216 216.33";
-export const RI_MARK_PATH =
-  "M46.3,64.19H3.77v55.88h43.37c20.85,0,32.8-11.12,32.8-27.52v-.56c0-18.35-12.79-27.8-33.64-27.8ZM3.77,3.82v21.73h46.15c24.74,0,43.92,6.95,56.71,19.74,10.84,10.84,16.68,26.13,16.68,44.48v.56c0,31.41-16.96,51.15-41.7,60.32l47.54,69.5h22.04v-87.07h38.8v87.07h29.78V3.82H3.77ZM189.98,109.91h-38.8v-38.8h38.8v38.8ZM3.77,157.88v62.27h75.34l-41.7-62.27H3.77Z";
+/**
+ * THE ACTIVE PIN IS ERIK'S `Ri-Pin2.svg` (Discord, 2026-10-12 15:31Z), which
+ * replaced the comp's teardrop with the favicon's "Ri" in its hole. Its paths
+ * are his, verbatim. The short segments where the body meets the circle look
+ * stray but are not: without them 793 edge pixels change at 5x. The viewBox
+ * is the drawing's own bounding box in place of his 792 x 612 artboard, so
+ * its bottom edge is the tip (395.8, 500.5) and its centre line the tip's x.
+ *
+ * It is drawn inside the frame box at RI_PIN_BOX, which gives it the comp
+ * glyph's height (0.10 to the tip at 0.901019) and centres it on the tip. So
+ * the box, the anchor, the tip and ACTIVE_PIN_SCALE are the old pin's, and
+ * its head is 0.639S across where the comp's was 0.620S.
+ */
+export const RI_PIN_VIEWBOX = "240.3 110.5 311 390";
+export const RI_PIN_BOX = { y: 0.1, height: 0.801019 } as const;
+export const RI_PIN_BODY =
+  "M268.9,355.7c.2.2.3.4.5.7h.3c2.9,4.1,5.9,8,9.2,11.7,16.4,20.5,50.5,63.3,69.8,87.2,25.9,32.2,35,45.2,46.3,45.2h1.6c11.3,0,20.4-13,46.3-45.2,19.3-23.9,53.4-66.7,69.8-87.2,3.3-3.7,6.3-7.6,9.2-11.6h.3c.2-.3.4-.5.5-.8h-253.8Z";
+export const RI_PIN_HEAD = { cx: 395.8, cy: 266, r: 155.5 } as const;
+export const RI_PIN_MARK =
+  "M371.1,238.9v-.4c0-13.4-9.3-20.3-24.5-20.3h-28.2v40.8h28.8c15.2,0,23.9-8.1,23.9-20.1h0ZM391.1,170c-22.3,0-42.8,7.5-59.2,20h17.4c18.1,0,32.1,5.1,41.4,14.4s12.2,19,12.2,32.4v.4h-.2c0,23-12.4,37.4-30.4,44.1l34.7,50.7h-36.5l-30.4-45.4h-21.7v46.3c17.9,19.9,43.8,32.4,72.7,32.4,54,0,97.7-43.7,97.7-97.7s-43.7-97.7-97.7-97.7h0ZM452.7,331.9h-28.3v-63.5h28.3v63.5ZM452.7,251.5h-28.3v-28.3h28.3v28.3Z";
 /** Element height as a multiple of S, i.e. the tip's y. */
 export const PIN_ASPECT = 0.901019;
 
