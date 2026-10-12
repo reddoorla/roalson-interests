@@ -9,6 +9,7 @@
   import Field from "$lib/components/Field.svelte";
   import PageMasthead from "$lib/components/PageMasthead.svelte";
   import TurnstileWidget from "$lib/components/TurnstileWidget.svelte";
+  import PrivacyNotice from "$lib/components/PrivacyNotice.svelte";
   import { OFFICE, officeAddressLines, officeDirectionsUrl } from "$lib/office";
   import { reveal } from "$lib/utils/reveal";
   import type { ActionData, PageData } from "./$types";
@@ -86,7 +87,7 @@
 
   <PageMasthead> must stay the FIRST tag: src/routes/nav-over.test.ts reads the
   first tag after the script and comments to check the route's `navOver: "dark"`
-  claim. A {#snippet} declared above it would become "the first band".
+  claim.
 
   No second <main>: the layout owns main#main-content.
 -->
@@ -282,6 +283,8 @@
               {submitting ? "Sending…" : "Send message"}
               <ArrowRight />
             </button>
+
+            <PrivacyNotice />
           </form>
         {/if}
       </div>

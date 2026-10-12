@@ -3,7 +3,7 @@ import { isArchived, isListed, isPastProject, PROPERTY_CATEGORIES } from "$lib/p
 
 /**
  * The Properties page's active sections, in the order the comp draws them at
- * every width (Land, then Improved Projects; Past Projects follows). The comp's layer
+ * every width (Land, then Improved Properties; Past Projects follows). The comp's layer
  * names are swapped — the frame called `Improved` carries the "Land" divider —
  * so the ORDER here is read from the divider text, not the layers, and it is
  * the only signal in the file: the content outline lists Improved first, and
@@ -21,7 +21,7 @@ export const LISTING_SECTIONS = [
     label: "Land",
     categories: ["Land — SA Metro & Surrounding", "Land — Out of San Antonio"],
   },
-  { id: "improved", label: "Improved Projects", categories: ["Improved"] },
+  { id: "improved", label: "Improved Properties", categories: ["Improved"] },
 ] as const satisfies readonly {
   id: string;
   label: string;
@@ -29,6 +29,12 @@ export const LISTING_SECTIONS = [
 }[];
 
 export const PAST_SECTION = { id: "past", label: "Past Projects" } as const;
+
+/** Every active listing on one map (Erik, 2026-10-09: "When you land on this
+ *  page, you have 'all' selected and highlighted and all listings shown on
+ *  the map. It eliminates the view where there is both a land and a featured
+ *  properties section"). Land's listings, then Improved's. */
+export const ALL_SECTION = { id: "all", label: "All Properties" } as const;
 
 export interface ListingSection {
   id: string;
@@ -39,23 +45,33 @@ export interface ListingSection {
 }
 
 /** The view tabs over the active sections (P5, client meeting 2026-09-25:
- *  "land / improved projects / all"). The id is also the URL fragment and the
- *  `:target` app.css filters by, so the page filters with no script. */
+ *  "land / improved projects / all"; All first and selected on landing since
+ *  2026-10-09). The id is also the URL fragment and the `:target` app.css
+ *  filters by, so the page filters with no script. */
 export const LISTING_VIEWS = [
-  { id: "land", label: "Land" },
-  { id: "improved", label: "Improved Projects" },
   { id: "all", label: "All" },
+  { id: "land", label: "Land" },
+  { id: "improved", label: "Improved Properties" },
+  { id: "list", label: "List" },
 ] as const;
 
 export type ListingView = (typeof LISTING_VIEWS)[number]["id"];
 
-/** The tabs worth drawing: none unless two active sections are on the page
- *  (a tab that filters nothing out is noise), otherwise the present ones and
- *  All, in LISTING_VIEWS order. */
+/** A section one category fills: not All, not Past Projects. */
+export const isCategorySection = (s: ListingSection) => !s.past && s.id !== ALL_SECTION.id;
+
+/** The tabs worth drawing, in LISTING_VIEWS order: none unless two category
+ *  sections are on the page (a tab that filters nothing out is noise), then
+ *  All, the present sections, and List when one of them has more than one
+ *  listing. */
 export function listingViews(sections: readonly ListingSection[]) {
-  const active = new Set(sections.filter((s) => !s.past).map((s) => s.id));
-  if (active.size < 2) return [];
-  return LISTING_VIEWS.filter((v) => v.id === "all" || active.has(v.id));
+  const active = sections.filter(isCategorySection);
+  const ids = new Set(active.map((s) => s.id));
+  if (ids.size < 2) return [];
+  const list = active.some((s) => s.properties.length > 1);
+  return LISTING_VIEWS.filter((v) =>
+    v.id === "list" ? list : v.id === "all" ? true : ids.has(v.id),
+  );
 }
 
 /** The view a fragment names: "" is All, a view id is itself, and any other
@@ -82,7 +98,8 @@ export function listingOrder(a: PropertyDocument, b: PropertyDocument): number {
  * optional in Prismic — is an editorial slip, not a reason to hide it: it lands
  * at the end of the last active section, where it is at least visible and
  * therefore gets fixed. Sections with nothing in them are left out: a heading
- * over an empty list is noise, and Past Projects is empty at launch.
+ * over an empty list is noise, and Past Projects is empty at launch. With two
+ * category sections, All comes first and holds every active listing.
  */
 export function groupListings(properties: PropertyDocument[]): ListingSection[] {
   const sorted = [...properties].sort(listingOrder);
@@ -101,7 +118,12 @@ export function groupListings(properties: PropertyDocument[]): ListingSection[] 
   const stray = active.filter((p) => !placed.has(p));
   sections[sections.length - 1].properties.push(...stray);
 
-  sections.push({ ...PAST_SECTION, past: true, properties: visible.filter(isPastProject) });
+  const filled = sections.filter((s) => s.properties.length > 0);
+  const all: ListingSection[] =
+    filled.length > 1
+      ? [{ ...ALL_SECTION, past: false, properties: filled.flatMap((s) => s.properties) }]
+      : [];
+  const past = { ...PAST_SECTION, past: true, properties: visible.filter(isPastProject) };
 
-  return sections.filter((s) => s.properties.length > 0);
+  return [...all, ...filled, past].filter((s) => s.properties.length > 0);
 }

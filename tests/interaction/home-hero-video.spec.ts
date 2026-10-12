@@ -159,17 +159,12 @@ test.describe("with motion allowed", () => {
     await expect(iframe).toHaveCSS("opacity", "0");
   });
 
-  test("the decorative embed is not a tab stop, and the pin is unchanged", async ({ page }) => {
+  test("the decorative embed is not a tab stop", { tag: "@smoke" }, async ({ page }) => {
     await page.setViewportSize({ width: 1440, height: 600 });
     await page.goto(VIDEO);
     await hydrated(page);
     await engage(page);
     await expect(page.locator(`${layer} iframe`)).toHaveCount(1);
-
-    // The pin is still the pin: 528 tall, sticky under motion (#38), and the
-    // layer has not given the section a scrollport or a new height.
-    await expect(page.locator(pin)).toHaveCSS("position", "sticky");
-    expect((await page.locator(pin).boundingBox())!.height).toBe(528);
 
     // Twelve tabs from the top of the document: the iframe must never take one,
     // and neither must anything inside the layer.

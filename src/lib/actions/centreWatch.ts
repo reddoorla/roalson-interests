@@ -48,6 +48,13 @@
  * press is not a special case of anything, and this file is back to one job:
  * say which card is on the line, whenever the browser can see it.
  *
+ * (The coalescing still sent a press's camera to the FIRST card the scroll
+ * crossed and then back: the designer's "bounces around before returning to
+ * the same point", 2026-10-01. So the camera now flies to a pressed listing at
+ * once and does not consult this rule again until it agrees — PropertyMap's
+ * `heading`. That is a destination for the camera, not an answer here: this
+ * rule, the garnet card and every other scroll are untouched by it.)
+ *
  * DESKTOP ONLY, AND NOT MERELY HIDDEN. The map only pins from `lg` (see
  * PropertyListing.svelte for why a phone does not spend a quarter of its
  * viewport on one), so below that there is nothing for this to drive and it
@@ -66,7 +73,7 @@ export interface CentreWatchOptions {
    *  called with null — see "nothing on the line means hold". */
   onactive: (id: string) => void;
   /** Viewport width, in px, at or above which this runs at all. */
-  minWidth: number;
+  minWidth: string;
   /** False tears it down: a section with no map has nothing to drive. */
   enabled?: boolean;
 }
@@ -99,7 +106,7 @@ export function centreWatch(node: HTMLElement, options: CentreWatchOptions) {
     // list. (vitest-setup.ts's default answers `matches: false`, so a unit
     // test that wants this running says so.)
     if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
-    if (!window.matchMedia(`(min-width: ${current.minWidth}px)`).matches) return;
+    if (!window.matchMedia(`(min-width: ${current.minWidth})`).matches) return;
     if (typeof IntersectionObserver === "undefined") return;
     observer = new IntersectionObserver(report, { rootMargin: CENTRE_BAND, threshold: 0 });
     for (const child of node.querySelectorAll<HTMLElement>(`[${CENTRE_ID}]`))
@@ -110,7 +117,7 @@ export function centreWatch(node: HTMLElement, options: CentreWatchOptions) {
   // width it was created with. `minWidth` is a layout constant, not state.
   const query =
     typeof window !== "undefined" && typeof window.matchMedia === "function"
-      ? window.matchMedia(`(min-width: ${options.minWidth}px)`)
+      ? window.matchMedia(`(min-width: ${options.minWidth})`)
       : null;
   const onQueryChange = () => start();
   query?.addEventListener("change", onQueryChange);

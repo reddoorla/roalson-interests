@@ -3,11 +3,11 @@ import { measuresGutter, viewportFor } from "./gutter";
 
 // #87. /dev/a11y-fixtures drew every band inside one `max-w-3xl` column, so a
 // band measured there was a band at a width the site never draws (the
-// featured card 425.89 at 1440, against 927 on `/`), and two `w-screen`
+// featured card 425.89 at 1440, against 927 on `/` until 2026-10-12), and two `w-screen`
 // primitives, 100vw wide from a column starting at x=336, scrolled the page
 // 368px sideways. The full-bleed bands now sit outside that column. The
 // launch featured band stays narrow ON PURPOSE: featured-properties.spec.ts
-// holds its container query to a card under 640.
+// holds that nothing in a squeezed card paints over a word.
 measuresGutter();
 
 const PAGE = "/dev/a11y-fixtures";
@@ -59,7 +59,6 @@ test("the homepage bands are drawn at the site's width — all but the launch ba
   expect(widths.partners, "partners").toBe(1440);
   expect(widths.photo, "photo band").toBe(1440);
   expect(widths.featured.length).toBe(2);
-  // `/`'s card at 1440 (featured-properties.spec.ts measures the same 927).
-  expect(widths.featured[0], "three-listing card").toBeCloseTo(927, 0);
-  expect(widths.featured[1], "launch card, narrow on purpose").toBeLessThan(640);
+  expect(widths.featured[0], "three-listing card").toBe(1440);
+  expect(widths.featured[1], "launch card, narrow on purpose").toBeCloseTo(704, 0);
 });

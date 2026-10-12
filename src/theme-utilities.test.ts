@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll } from "vitest";
 import { readFileSync, readdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { compile } from "tailwindcss";
+import { animateIn } from "$lib/actions/animateIn";
 
 // A class that names a theme key Tailwind v4 does not have compiles to NOTHING,
 // silently. `ease-fast-slow` shipped that way in both Animation components:
@@ -109,8 +110,12 @@ beforeAll(async () => {
 
 describe("classes the markup spells", () => {
   it("reads markup, and Tailwind answers for it — the instrument is not blind", () => {
-    const spelled = spelledClasses();
-    expect(spelled.get("ease-out")).toBeDefined();
+    const spelled = [...spelledClasses().keys()];
+    const css = tailwind.build(spelled);
+    expect(
+      spelled.filter((cls) => literally(selector(cls)).test(css)).length,
+      "no class the markup spells compiles",
+    ).toBeGreaterThan(0);
     expect(tailwind.build(["ease-out"])).toContain("transition-timing-function: var(--ease-out)");
     // Its answer for a key the theme lacks is nothing, which is the whole test.
     expect(tailwind.build(["ease-not-a-token"])).not.toContain(selector("ease-not-a-token"));
@@ -141,9 +146,12 @@ describe("classes the markup spells", () => {
 
 describe("the easing animateIn writes", () => {
   it("is a token app.css's @theme declares", () => {
-    const action = readFileSync(resolve(ROOT, "src/lib/actions/animateIn.ts"), "utf8");
-    const reads = [...new Set([...action.matchAll(/var\((--[\w-]+)\)/g)].map((m) => m[1]!))];
-    expect(reads).toEqual(["--ease-fast-slow"]);
+    const node = document.createElement("div");
+    const { destroy } = animateIn(node);
+    const transition = node.style.transition;
+    destroy();
+    expect(transition, "animateIn wrote no transition to read").not.toBe("");
+    const reads = [...new Set([...transition.matchAll(/var\((--[\w-]+)\)/g)].map((m) => m[1]!))];
     const theme = CSS.slice(CSS.indexOf("@theme {"), CSS.indexOf("\n}\n", CSS.indexOf("@theme {")));
     for (const name of reads) expect(theme).toMatch(new RegExp(`^\\s*${name}:`, "m"));
   });

@@ -97,7 +97,7 @@
         "config": {
           "label": "Property package (PDF)",
           "select": "media",
-          "placeholder": "Upload the package PDF — it downloads from the property page"
+          "placeholder": "Upload the package PDF — it opens in the browser from the property page"
         }
       },
       "location": {

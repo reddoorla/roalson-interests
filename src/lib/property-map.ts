@@ -211,7 +211,8 @@ export interface Camera {
  * `full` is the 1440 comp's 397 x 595 panel and its 512 x 827 band. They are
  * chosen by the container's MEASURED HEIGHT, not by a viewport media query,
  * because what makes a 22px pin right is a 200px-tall box — and a box the
- * expand affordance grows to the window is a full frame by the same rule.
+ * expand affordance grows to the window is framed by the same rule: full,
+ * unless the window is under COMPACT_MAX_HEIGHT tall.
  *
  * `pin` is the comp's box size S (`np_pin-map_4984332`, drawn at S=48 on every
  * 1440 map and S=22 on every 390 map).
@@ -268,10 +269,110 @@ export const MAP_MIN_ZOOM = 3;
 export const MAP_MAX_ZOOM = 16;
 export const MAP_ZOOM_STEP_MS = 300;
 
+/**
+ * HOW LONG A COMPACT MAP'S CREDIT SHOWS ITS WHOLE LINE before it collapses to
+ * MapLibre's (i) — unless the visitor pans, zooms or presses the map first,
+ * which collapses it at once. Operator's call, 2026-09-29, "option A".
+ *
+ * The number is not a taste. The OSMF attribution guidelines' safe harbour
+ * (https://osmfoundation.org/wiki/Licence/Attribution_Guidelines, read
+ * 2026-09-29) says the attribution "should not require individuals to
+ * interact with the map … to see the attribution", and lets an interactive
+ * map collapse it only "immediately with a dismiss interaction",
+ * "automatically on map interaction such as panning, clicking, or zooming",
+ * or "automatically after five seconds", with an "(i)" left to find it again.
+ * A compact map collapsed from its first frame met none of the three.
+ *
+ * The clock starts at MapLibre's `load` — the first frame, and the moment the
+ * canvas the credit lives on stops being transparent — and not at page load:
+ * a map is not booted until half of it is on screen (#103), so one scrolled
+ * to a minute later still shows its line for these five seconds.
+ */
+export const MAP_CREDIT_OPEN_MS = 5000;
+
 /** The ACTIVE listing's pin — the one whose card is garnet — drawn this many
  *  times the frame's pin, above its neighbours. Size, not motion, so it holds
- *  under reduced motion; the fill stays garnet (>= 3:1 on the map ground). */
-export const ACTIVE_PIN_SCALE = 1.5;
+ *  under reduced motion; the fill stays garnet (>= 3:1 on the map ground).
+ *  It is a transform about the pin's tip that eases on the dim's clock, and
+ *  in one frame under reduced motion (PropertyMap's "THE ACTIVE PIN GROWS"). */
+export const ACTIVE_PIN_SCALE = 1.8;
+
+/** Every OTHER pin while the map has an active listing (Erik, 2026-10-09:
+ *  "make the other pins 90% of current size"). With no active listing every
+ *  pin is drawn at 1, and so is a pin its focused link or the sheet holds.
+ *  Under the pointer a pin's fill comes back; its size does not. */
+export const RESTING_PIN_SCALE = 0.9;
+
+/** The fill opacity of every other PIN while the map has an active listing.
+ *  Erik asked for "50% or less" (2026-10-09) and then for no stroke round
+ *  these pins (2026-10-12), so the fill is now the pin's only edge, and WCAG
+ *  1.4.11's 3:1 is measured on it (src/lib/map-marker-contrast.test.ts). At
+ *  0.5 that fails on every ground, 2.76:1 on the plain background; 0.81 is
+ *  the floor DIMMED_MARKER_OPACITY already found, by the same pair. */
+export const DIMMED_PIN_FILL = 0.81;
+
+/**
+ * EVERY OTHER CLUSTER, WHILE A MAP HAS AN ACTIVE LISTING, is drawn at reduced
+ * opacity so the active one is featured (operator, 2026-09-29: "whatever the
+ * active pin is should stay full opacity and the rest should be slightly
+ * reduced opacity so it's featured"). A map with NO active listing dims
+ * nothing — dimming everything would feature nothing. See `markerDimmed`.
+ * Pins dimmed this way until 2026-10-11, then kept a solid outline and dimmed
+ * their fill to 0.5; since 2026-10-12 they have no outline and dim their fill
+ * to DIMMED_PIN_FILL.
+ *
+ * MEASURED, NOT PICKED, and measured against the ground BESIDE a marker as
+ * well as the one under it. A see-through marker takes its colour from what it
+ * is drawn over, but WCAG 1.4.11 asks for 3:1 against the colours ADJACENT to
+ * it — and where a shoreline, a river or a bridge runs under a pin's outline
+ * the two are different grounds. So every garnet marker (a pin's body, a
+ * cluster's disc) is composited over each area ground X the tinted style
+ * paints and compared with each ground Y, X = Y included, every channel of
+ * both colours one 8-bit step toward the other. The binding pair is a minor
+ * road or path (`#ffffff`) beside water (`#a8b4b8`), which the style draws
+ * together wherever a white bridge deck crosses a river: 0.81 is the lowest
+ * two-decimal opacity that clears 3:1 there (3.1706:1 nominal, 3.0886:1 at
+ * the worst rounding; 0.80 is 3.0773 / 2.9979). A cluster's count is TEXT —
+ * sand on its own disc at 11-12.5px, so 4.5:1 (WCAG 1.4.3) — and holds from
+ * 0.74 over one ground, 0.79 with the count over water and its disc over a
+ * road, so the disc's 3:1 decides the cluster too: 0.81 again.
+ *
+ * This value replaced 0.67 for pins and 0.74 for clusters, the floors for a
+ * marker compared only with the ground it sits on. At 0.67 a pin over the
+ * background beside water is 2.25:1, over a white road 2.10:1.
+ *
+ * The road casings and boundaries are strokes under a pixel a side, not
+ * grounds: measured as crossings, three stay under 3:1 here (the motorway
+ * casing would need 0.93, the link/trunk casing 0.83, a country boundary
+ * 0.98). The reason they do not choose this number is in
+ * src/lib/map-marker-contrast.test.ts, which re-measures it against
+ * static/map-style.json.
+ */
+export const DIMMED_MARKER_OPACITY = 0.81;
+
+/**
+ * Whether a marker standing for the listings `ids` is drawn DIMMED.
+ *
+ * Only when `active` names a listing THIS map draws (`points`): an id the map
+ * has no pin for — a slide with no location, another section's listing — is
+ * no active pin at all, and every marker stays at full opacity. The marker
+ * that HOLDS the active listing is never dimmed, whether it is its own pin or
+ * a cluster it has been grouped into (#115: at a listing's camera the active
+ * one is often inside a cluster, with no pin of its own). Nor is a marker
+ * holding one of the `held` listings: the one whose link in the map's list
+ * has keyboard focus (the keyboard's way to a pin — the pins themselves are
+ * `tabindex="-1"`), and the one the map's details sheet is naming. A marker
+ * that is being named must not look disabled while it is.
+ */
+export function markerDimmed(
+  ids: readonly string[],
+  active: string | null,
+  points: readonly Pick<MapPoint, "id">[],
+  held: readonly (string | null | undefined)[] = [],
+): boolean {
+  if (active === null || !points.some((p) => p.id === active)) return false;
+  return !ids.includes(active) && !held.some((id) => id != null && ids.includes(id));
+}
 
 // ---------------------------------------------------------------------------
 // MAP_HOME — the frame the map OPENS on, and the frame the raster is of (#122)
@@ -283,7 +384,7 @@ export const ACTIVE_PIN_SCALE = 1.5;
  *  `satisfies` rather than an annotation: it keeps the literal types AND
  *  fails the build if a frame key is added to `MAP_FRAMES` without one. */
 export const MAP_HOME = HOME satisfies Record<MapFrame, HomeFrame>;
-export { MAP_HOME_FADE_MS, MAP_HOME_GROUND } from "./map-home";
+export { MAP_HOME_CREDIT, MAP_HOME_FADE_MS, MAP_HOME_GROUND } from "./map-home";
 export type { HomeCamera, HomeFrame } from "./map-home";
 
 /** One marker of the placeholder, positioned as an OFFSET FROM THE BOX'S
@@ -299,6 +400,10 @@ export type { HomeCamera, HomeFrame } from "./map-home";
 export interface HomeMarker {
   /** `MapCluster.id` — the member ids, sorted. */
   id: string;
+  /** The member ids themselves, in `points` order — what `markerDimmed`
+   *  asks, so a placeholder cluster holding the active listing is featured
+   *  exactly as the live one is. */
+  ids: string[];
   /** How many listings this marker stands for. */
   count: number;
   /** The listing, when this marker is one listing's own pin. */
@@ -312,15 +417,21 @@ export interface HomeMarker {
  * The markers a frame's placeholder draws, from the SAME `clusterPoints` the
  * live map runs — at MAP_HOME's zoom and the frame's own cluster radius, so
  * the grouping the server draws is the grouping MapLibre will draw on its
- * first frame and there is nothing to re-flow.
+ * first frame and there is nothing to re-flow. (A `keep` set once the page
+ * hydrates can re-group the picture, as it does the live map.)
  */
-export function homeMarkers(points: readonly MapPoint[], frame: MapFrame): HomeMarker[] {
+export function homeMarkers(
+  points: readonly MapPoint[],
+  frame: MapFrame,
+  keep: string | null = null,
+): HomeMarker[] {
   const { camera } = MAP_HOME[frame];
   const { clusterRadius } = MAP_FRAMES[frame];
   const cx = projectX(camera.lng, camera.zoom);
   const cy = projectY(camera.lat, camera.zoom);
-  return clusterPoints(points, camera.zoom, clusterRadius).map((cluster) => ({
+  return clusterPoints(points, camera.zoom, clusterRadius, keep).map((cluster) => ({
     id: cluster.id,
+    ids: cluster.points.map((p) => p.id),
     count: cluster.points.length,
     point: cluster.points.length === 1 ? cluster.points[0]! : null,
     dx: projectX(cluster.lng, camera.zoom) - cx,
@@ -439,21 +550,11 @@ export function fitCamera(
 /**
  * How long a flight to the active listing lasts, in ms.
  *
- * It is the homepage band's own `DISSOLVE` (FeaturedProperties/index.svelte),
- * and that is the reason for the number rather than a coincidence: on that
- * band the photo cross-fades over 500ms while the map travels to the same
- * listing, so the picture and the place arrive together and the pair reads as
- * ONE change. 500 is also small beside the band's 8500ms lap (its 8000ms
- * `DWELL` plus this hand-over), so the map is stationary for 94% of it.
+ * It was chosen to match the homepage band's photo cross-fade while that band
+ * had a map flying beside it, and the band imported it; the band's map went
+ * on 2026-10-11 and the band keeps its own 500 now.
  *
- * THE BAND IMPORTS THIS CONSTANT, which it did not always do — the two modules
- * each typed a `500` and this paragraph asserted a coupling that nothing in
- * the code held, so tuning either number would have broken the pairing
- * silently and neither file would have looked wrong. The dependency runs that
- * way round (slice → lib, never lib → slice) because the flight is a property
- * of the camera and the band is one of its callers.
- *
- * The Properties page inherits it for a different reason — nothing there is
+ * The Properties page keeps it for a different reason — nothing there is
  * timing out — and this paragraph used to end "a scroll that crosses three
  * cards must not leave three flights queued behind it, and a new `flyTo`
  * replaces the one in flight", offered as reassurance. It was the DEFECT,
@@ -471,6 +572,23 @@ export function fitCamera(
  * `reduceMotion`.
  */
 export const CAMERA_FLIGHT_MS = 500;
+
+/**
+ * THE LONGEST A PIN PRESS MAY HOLD THE CAMERA ON ITS OWN LISTING, in ms, ahead
+ * of the centre rule (PropertyMap.svelte's `heading`). A backstop, not the
+ * clock: the hold ends when the rule reports the pressed listing, or at the
+ * scroll's own `scrollend`, or at a visitor's gesture. This is for an engine
+ * with no `scrollend` and a press whose card never reaches the line.
+ *
+ * Measured on a production build of /properties at 1440x900, motion allowed,
+ * pressing from scrollY 0: the land section's LAST pin (card 16 of 17) glides
+ * 5193px in 1230ms, its middle one (card 10) 3296px in 1011ms. That is the
+ * longest press the page has, so 2000 outlasts it with room for a slow frame.
+ * Past the cap the camera only returns to following the rule: too short costs
+ * the bounce back, too long a camera that lingers on the pressed listing after
+ * a scroll the hold could not see end.
+ */
+export const PRESS_HOLD_MAX_MS = 2000;
 
 /**
  * The point `active` names.
@@ -534,9 +652,8 @@ export interface CameraState {
    *
    * IT IS HERE BECAUSE OF A DEFECT THIS FIELD'S ABSENCE CAUSED, found by
    * tests/interaction/map-home.spec.ts on a production build and not by
-   * anything in jsdom. With `active` null — which is every Properties-page map
-   * below `lg`, where `centreWatch` is gated `minWidth: 1024` and never runs —
-   * this function answered `fitCamera(points)`, so a map CONSTRUCTED at
+   * anything in jsdom. With `active` null — which was every Properties-page
+   * map below `lg` then, and is every map with `follow` off now — this function answered `fitCamera(points)`, so a map CONSTRUCTED at
    * MAP_HOME was told to jump to the auto-fit on the very first frame after
    * `load`. Measured on /properties at 390 x 844: the committed picture drew
    * 8 own pins and clusters of 6 and 3, and the live map one frame later drew
@@ -955,18 +1072,22 @@ export interface MapCluster {
  * one changes nothing, and a pass that changes nothing is exactly the
  * statement that every pair of markers is now at least `radius` apart: every
  * surviving group was a seed in it, and a seed compares against all the rest.
+ * Except the `keep` listing, which compares against nothing: it is drawn where
+ * it stands, usually on top of the cluster it would have joined.
  */
 export function clusterPoints(
   points: readonly MapPoint[],
   zoom: number,
   radius: number,
+  keep: string | null = null,
 ): MapCluster[] {
-  type Group = { x: number; y: number; points: MapPoint[] };
+  type Group = { x: number; y: number; points: MapPoint[]; kept: boolean };
 
   let groups: Group[] = points.map((p) => ({
     x: projectX(p.lng, zoom),
     y: projectY(p.lat, zoom),
     points: [p],
+    kept: p.id === keep,
   }));
 
   // Each pass either merges (strictly fewer groups) or is the fixpoint, so
@@ -979,9 +1100,10 @@ export function clusterPoints(
       taken[i] = true;
       const seed = groups[i]!;
       const members = [seed];
-      for (let j = i + 1; j < groups.length; j += 1) {
+      for (let j = i + 1; j < groups.length && !seed.kept; j += 1) {
         if (taken[j]) continue;
         const other = groups[j]!;
+        if (other.kept) continue;
         if (Math.hypot(other.x - seed.x, other.y - seed.y) >= radius) continue;
         taken[j] = true;
         members.push(other);
@@ -991,7 +1113,7 @@ export function clusterPoints(
       const all = members.flatMap((m) => m.points);
       const sumX = members.reduce((n, m) => n + m.x * m.points.length, 0);
       const sumY = members.reduce((n, m) => n + m.y * m.points.length, 0);
-      next.push({ x: sumX / all.length, y: sumY / all.length, points: all });
+      next.push({ x: sumX / all.length, y: sumY / all.length, points: all, kept: seed.kept });
     }
     const settled = next.length === groups.length;
     groups = next;
@@ -1067,6 +1189,26 @@ export function clusterSignature(clusters: readonly MapCluster[]): string {
 export const PIN_VIEWBOX = "0 0 1 0.901019";
 export const PIN_PATH = "M0.5000 0.901019L0.7404 0.6057A0.310 0.310 0 1 0 0.2596 0.6057Z";
 export const PIN_HOLE = { cx: 0.5, cy: 0.405, r: 0.166875 } as const;
+/**
+ * THE ACTIVE PIN IS ERIK'S `Ri-Pin2.svg` (Discord, 2026-10-12 15:31Z), which
+ * replaced the comp's teardrop with the favicon's "Ri" in its hole. Its paths
+ * are his, verbatim. The short segments where the body meets the circle look
+ * stray but are not: without them 793 edge pixels change at 5x. The viewBox
+ * is the drawing's own bounding box in place of his 792 x 612 artboard, so
+ * its bottom edge is the tip (395.8, 500.5) and its centre line the tip's x.
+ *
+ * It is drawn inside the frame box at RI_PIN_BOX, which gives it the comp
+ * glyph's height (0.10 to the tip at 0.901019) and centres it on the tip. So
+ * the box, the anchor, the tip and ACTIVE_PIN_SCALE are the old pin's, and
+ * its head is 0.639S across where the comp's was 0.620S.
+ */
+export const RI_PIN_VIEWBOX = "240.3 110.5 311 390";
+export const RI_PIN_BOX = { y: 0.1, height: 0.801019 } as const;
+export const RI_PIN_BODY =
+  "M268.9,355.7c.2.2.3.4.5.7h.3c2.9,4.1,5.9,8,9.2,11.7,16.4,20.5,50.5,63.3,69.8,87.2,25.9,32.2,35,45.2,46.3,45.2h1.6c11.3,0,20.4-13,46.3-45.2,19.3-23.9,53.4-66.7,69.8-87.2,3.3-3.7,6.3-7.6,9.2-11.6h.3c.2-.3.4-.5.5-.8h-253.8Z";
+export const RI_PIN_HEAD = { cx: 395.8, cy: 266, r: 155.5 } as const;
+export const RI_PIN_MARK =
+  "M371.1,238.9v-.4c0-13.4-9.3-20.3-24.5-20.3h-28.2v40.8h28.8c15.2,0,23.9-8.1,23.9-20.1h0ZM391.1,170c-22.3,0-42.8,7.5-59.2,20h17.4c18.1,0,32.1,5.1,41.4,14.4s12.2,19,12.2,32.4v.4h-.2c0,23-12.4,37.4-30.4,44.1l34.7,50.7h-36.5l-30.4-45.4h-21.7v46.3c17.9,19.9,43.8,32.4,72.7,32.4,54,0,97.7-43.7,97.7-97.7s-43.7-97.7-97.7-97.7h0ZM452.7,331.9h-28.3v-63.5h28.3v63.5ZM452.7,251.5h-28.3v-28.3h28.3v28.3Z";
 /** Element height as a multiple of S, i.e. the tip's y. */
 export const PIN_ASPECT = 0.901019;
 

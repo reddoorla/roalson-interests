@@ -476,23 +476,6 @@ main > section.hero-band:first-child {
   }
 }
 
-/* The Properties page's garnet card follows the listing on the centre line
-   (PropertyListing.svelte), so two cards change tone mid-scroll, while on
-   screen. This fades them on the same clock BrandButton's `transition-colors`
-   already runs: the card's ground, its photo box and its status badges. The
-   button is not listed because it carries its own. Nothing else in the card has
-   a colour of its own; the text inherits the ground's `color`.
-
-   It is here and not in PropertyCard's class lists because a class there
-   changes the server's markup for a card whose tone the server can never
-   change. With no script `[data-centre-id]` cards never re-tone. Keyed to that
-   attribute, the rule also leaves out the Past Projects grid, whose cards never
-   move.
-   Under `prefers-reduced-motion: reduce` the `@layer base` block below cuts
-   the duration to 0.01ms with `!important`, which beats anything unlayered
-   here.
-   tests/interaction/active-card-highlight.spec.ts measures the fade and its
-   suppression. */
 [data-centre-id] > article,
 [data-centre-id] > article > div:has(> img),
 [data-centre-id] [aria-label="Listing status"] > li {
@@ -502,9 +485,17 @@ main > section.hero-band:first-child {
 /* The Properties view tabs (PropertyListing.svelte). Each rule has two forms:
    `data-view` once the component has hydrated, and `:target` before that or
    with no script at all. A view hides the OTHER active sections; Past Projects
-   has no `data-view-section` and always shows. `display: none`, not `{#if}`,
-   so a hidden section's map keeps its state. property-listing.test.ts reads
-   one hide and one selected rule per view off this block. */
+   has no `data-view-section` and always shows. All is the view with no
+   fragment, and List shows Land and Improved. `display: none`, not `{#if}`,
+   so a hidden section's map keeps its state. listing-views.spec.ts holds
+   each view, with and without script. */
+[data-listing]:is(
+    [data-view="all"],
+    :not([data-view]):not(:has(#land:target, #improved:target, #list:target))
+  )
+  section[data-view-section]:not([data-view-section="all"]),
+[data-listing]:is([data-view="list"], :not([data-view]):has(#list:target))
+  section[data-view-section="all"],
 [data-listing]:is([data-view="land"], :not([data-view]):has(#land:target))
   section[data-view-section]:not([data-view-section="land"]),
 [data-listing]:is([data-view="improved"], :not([data-view]):has(#improved:target))
@@ -518,11 +509,15 @@ main > section.hero-band:first-child {
 [data-view-tab] {
   @apply border-transparent text-secondary hover:border-primary hover:text-primary;
 }
-[data-listing]:is([data-view="all"], :not([data-view]):not(:has(#land:target, #improved:target)))
+[data-listing]:is(
+    [data-view="all"],
+    :not([data-view]):not(:has(#land:target, #improved:target, #list:target))
+  )
   [data-view-tab="all"],
 [data-listing]:is([data-view="land"], :not([data-view]):has(#land:target)) [data-view-tab="land"],
 [data-listing]:is([data-view="improved"], :not([data-view]):has(#improved:target))
-  [data-view-tab="improved"] {
+  [data-view-tab="improved"],
+[data-listing]:is([data-view="list"], :not([data-view]):has(#list:target)) [data-view-tab="list"] {
   @apply border-primary bg-primary text-light;
 }
 
@@ -531,49 +526,109 @@ main > section.hero-band:first-child {
    an attribute. Generated text is in the accessible name, so until `data-view`
    exists the selected tab's name ends "(selected)", visually hidden; the
    hydrated form drops it, so aria-current is never announced twice. */
-[data-listing]:not([data-view]):not(:has(#land:target, #improved:target))
+[data-listing]:not([data-view]):not(:has(#land:target, #improved:target, #list:target))
   [data-view-tab="all"]::after,
 [data-listing]:not([data-view]):has(#land:target) [data-view-tab="land"]::after,
-[data-listing]:not([data-view]):has(#improved:target) [data-view-tab="improved"]::after {
+[data-listing]:not([data-view]):has(#improved:target) [data-view-tab="improved"]::after,
+[data-listing]:not([data-view]):has(#list:target) [data-view-tab="list"]::after {
   content: " (selected)";
   @apply sr-only normal-case;
 }
 
-/* Land then Past Projects: warm the seam the second section's strip covers
-   under All. */
+/* Improved Projects on its own is the page's first section, so it is dressed
+   as Land is (MarkUp, 2026-10-01: "the background changes and the title moves
+   down. Can we match it to Land?"): the off-white ground, a 40px strip with
+   no gradient, and a divider that does not pin. Under List it is the second
+   section and keeps the sand, the 100px strip and the pin. PropertyListing's
+   `measure()` reads the divider's position, so its map's sticky top follows
+   once hydrated. */
+[data-listing]:is([data-view="improved"], :not([data-view]):has(#improved:target))
+  section[data-view-section="improved"],
+[data-listing]:is([data-view="improved"], :not([data-view]):has(#improved:target))
+  section[data-view-section="improved"]
+  > div:first-child {
+  @apply static bg-none bg-transparent;
+}
+[data-listing]:is([data-view="improved"], :not([data-view]):has(#improved:target))
+  section[data-view-section="improved"]
+  > div:first-child
+  > div:first-child {
+  @apply h-10 bg-none;
+}
+/* …its cards take Land's sand, the token its ground now does not use
+   (PropertyCard's rule: a card is always a panel on its ground). The photo box is the cream tone's one `bg-light` child,
+   selected by that and not by an <img>: in a carousel it is drawn with no
+   photo too. */
+[data-listing]:is([data-view="improved"], :not([data-view]):has(#improved:target))
+  section[data-view-section="improved"]
+  [data-centre-id]
+  > article:not(.bg-primary) {
+  @apply bg-light;
+}
+[data-listing]:is([data-view="improved"], :not([data-view]):has(#improved:target))
+  section[data-view-section="improved"]
+  [data-centre-id]
+  > article:not(.bg-primary)
+  > div.bg-light {
+  @apply bg-background;
+}
+/* …and with no script, where `measure()` never runs, the fallback its map and
+   cards are offset by is the usable top, not a pinned divider's height. */
+[data-listing]:not([data-view]):has(#improved:target) section[data-view-section="improved"] {
+  --listing-pinned-top: var(--usable-top);
+}
+
+/* Land on its own, with no Past Projects after it, is the page's last
+   section, so it takes the 100px the last section carries under every other
+   view (PropertyListing gives it only to the last in the DOM, Improved). */
 [data-listing]:is([data-view="land"], :not([data-view]):has(#land:target))
+  section[data-view-section="land"]:not(:has(~ section[data-past]))
+  > :last-child {
+  @apply pb-[100px];
+}
+
+/* All, Land or Improved, then Past Projects: Past Projects' strip carries
+   the off-white to sand fade that Improved's carries under List. */
+[data-listing]:is(
+    [data-view="all"],
+    [data-view="land"],
+    [data-view="improved"],
+    :not([data-view]):has(#land:target, #improved:target),
+    :not([data-view]):not(:has(#land:target, #improved:target, #list:target))
+  )
   section[data-past]
   > div:first-child
   > div:first-child {
   @apply bg-gradient-to-b from-background to-light;
 }
 
-/* The two scrim layers $lib/components/PageMasthead.svelte draws over its
-   photograph — the reason that band stays legible, and therefore measured
-   values, which is why they live here beside the palette rather than in a
-   scoped <style> block. (Svelte's scoping also stamps its hash class onto the
-   band itself, and the band with no photo has to stay byte-identical to what
-   it was before the photo existed. PageMasthead.test.ts pins that.)
+/* The scrim $lib/components/PageMasthead.svelte draws over its photograph —
+   the reason the H1 stays legible, and therefore a measured value, which is
+   why it lives here beside the palette rather than in a scoped <style> block.
+   (Svelte's scoping also stamps its hash class onto the band itself, and the
+   band with no photo has to stay byte-identical to what it was before the
+   photo existed.)
 
    Sized against a PURE WHITE photo pixel, not against the photo we happen to
    have: the picture is content an editor replaces, so the guarantee has to
    hold for whatever they upload next. PageMasthead.test.ts parses these stops
-   and recomputes both ratios, and CAPS them too: a floor alone let this band
-   drift to 0.82 black over the bar, darker than any ink on it needed, and
-   that was the client's "too dark" (2026-09-24).
-   tests/interaction/masthead-scrim.spec.ts samples the painted pixels. The
-   component's header comment carries the reasoning and the numbers measured
-   on the real asset.
+   and recomputes the ratio. tests/interaction/masthead-scrim.spec.ts samples
+   the painted pixels. The component's header comment carries the reasoning
+   and the numbers measured on the real asset.
+
+   It is the band's ONLY layer. `.masthead-shade`, which darkened the top of
+   the band for a bar floating over the photo, was deleted on 2026-09-29 with
+   the floating bar on /properties (the client's "dark cloud").
 
    `rgb(0 0 0 / 0)` rather than `transparent` — the keyword interpolates
    through premultiplied black in some engines and grey in others. */
 
-/* The band. From 66% down — where the h1's line box starts at both
-   breakpoints — it is >= 0.44 black, which puts white at 3.25:1 on a pure-white
-   pixel: WCAG 1.4.3's 3:1 for LARGE text, and the h1 is 66px / 38px. It was
-   held to 4.5:1 (0.60 black here) until 2026-09-28, by choice rather than by
-   WCAG, and that choice is half of what read as "too dark". Nothing above 36%:
-   between the bar and the title the photo shows through. */
+/* From 66% down — where the h1's line box starts at both breakpoints — it is
+   >= 0.44 black, which puts white at 3.25:1 on a pure-white pixel: WCAG
+   1.4.3's 3:1 for LARGE text, and the h1 is 66px / 38px. It was held to 4.5:1
+   (0.60 black here) until 2026-09-28, by choice rather than by WCAG, and that
+   choice is half of what read as "too dark". Nothing above 36%: the top of
+   the band is the photo itself. */
 .masthead-scrim {
   background-image: linear-gradient(
     to bottom,
@@ -581,30 +636,6 @@ main > section.hero-band:first-child {
     rgb(0 0 0 / 0.2) 54%,
     rgb(0 0 0 / 0.44) 66%,
     rgb(0 0 0 / 0.5) 100%
-  );
-}
-
-/* The bar's. Its box is sized so the floating nav's 80px (70 below lg) lands
-   in the top 45.45%, held at >= 0.62 — enough for the bar's INK, which is the
-   BrandButton `light` tone's text token (sand since #96): 4.77:1 on pure white
-   with sand at #e8e1d1, 5.05:1 at #eae7e4. PageMasthead.test.ts reads that ink
-   out of BrandButton.svelte and @theme, so a new sand re-measures itself.
-   It was sized for DUST (0.82 → 0.78) until 2026-09-28; no bar control has
-   been dust since #96, and the extra 0.16 was the heavy band the client saw.
-   Past the bar it falls away by 80%, and the scrim does not start until 36%,
-   so between them the photo itself shows: the combined darkening dips to 0.09
-   at 1440 (y≈176) and 0.29 at 390 (y≈124). That gap is where the client saw a
-   "hazy light band" — near-white SKY, under the old centred crop, between two
-   dark bands. The comp's crop (PageMasthead) puts the sunrise skyline there,
-   and a lighter bar leaves less of a step down to it. */
-.masthead-shade {
-  background-image: linear-gradient(
-    to bottom,
-    rgb(0 0 0 / 0.66) 0%,
-    rgb(0 0 0 / 0.62) 46%,
-    rgb(0 0 0 / 0.36) 62%,
-    rgb(0 0 0 / 0.14) 80%,
-    rgb(0 0 0 / 0) 100%
   );
 }
 

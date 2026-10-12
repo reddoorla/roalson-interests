@@ -153,7 +153,7 @@
     <div data-nav-gate class="relative z-10 bg-gradient-to-b from-primary from-50% to-dark">
       <!-- Frame 194, as exported from 6802:1423 — the path is that export's
            bytes (its instance 6802:1424 exports byte-identically), not a
-           redraw; HomeHero.test.ts pins its hash. `fill-primary` is the band's
+           redraw. `fill-primary` is the band's
            own `from-primary`, so square and band cannot drift apart.
 
            The export clips the path to its 451 box; the path itself overruns it

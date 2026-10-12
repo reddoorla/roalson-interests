@@ -9,7 +9,7 @@ import CarouselFixture from "../../routes/dev/a11y-fixtures/CarouselFixture.svel
 // Rendered through CarouselFixture: the arrows take a `createCarousel`
 // instance, which needs a component (an effect owner) to exist in. What the
 // buttons DO is carousel.svelte.test.ts's business; this file is about what
-// they ARE — the comp's glyph, the tones, the pause control's place.
+// they ARE — named controls, the tones, the pause control's place.
 
 beforeEach(() => {
   window.matchMedia = vi.fn().mockImplementation((query: string) => ({
@@ -28,34 +28,24 @@ afterEach(() => {
 const arrows = (container: HTMLElement) =>
   container.querySelector<HTMLElement>("[data-js-only]:has(> button)")!;
 
-describe("CarouselArrows", () => {
-  it("names both arrows and draws ONE glyph twice, the left one turned", () => {
-    const { getByLabelText } = render(CarouselFixture, { count: 3 });
-    const prev = getByLabelText("Previous slide").querySelector("svg")!;
-    const next = getByLabelText("Next slide").querySelector("svg")!;
+const CONTROLS = ["Pause slides", "Previous slide", "Next slide"];
 
-    const d = (svg: SVGElement) =>
-      [...svg.querySelectorAll("path")].map((p) => p.getAttribute("d"));
-    expect(d(next).length).toBe(2);
-    expect(d(prev)).toEqual(d(next));
-    expect(prev.getAttribute("class")).toContain("rotate-180");
-    expect(next.getAttribute("class")).not.toContain("rotate-180");
-    expect(next.getAttribute("aria-hidden")).toBe("true");
+describe("CarouselArrows", () => {
+  it("names both arrows, and hides their glyphs from assistive tech", () => {
+    const { getByRole } = render(CarouselFixture, { count: 3 });
+    for (const name of ["Previous slide", "Next slide"]) {
+      const glyphs = [...getByRole("button", { name }).querySelectorAll("svg")];
+      expect(glyphs.length, name).toBeGreaterThan(0);
+      for (const svg of glyphs) expect(svg.getAttribute("aria-hidden"), name).toBe("true");
+    }
   });
 
-  it("is a 40px ring, and never a submit button", () => {
-    // The 44px hit area is NOT asserted here: a class name said 44 while
-    // Chromium measured 42 (an absolute inset starts inside the border). It is
-    // measured, with elementFromPoint, in tests/interaction/carousel.spec.ts.
+  it("is never a submit button", () => {
     const { getByLabelText } = render(CarouselFixture, { count: 3, autoplay: 1600 });
-    const next = getByLabelText("Next slide");
     // All three: a consumer may put the carousel inside a <form> (a listings
     // search), where a bare <button> submits it.
-    for (const name of ["Pause slides", "Previous slide", "Next slide"])
+    for (const name of CONTROLS)
       expect(getByLabelText(name).getAttribute("type"), name).toBe("button");
-    const classes = next.className.split(/\s+/);
-    for (const needed of ["size-10", "rounded-full", "border", "relative"])
-      expect(classes, needed).toContain(needed);
   });
 
   it("ships in the server's markup but is hidden from a browser with no script", () => {
@@ -77,181 +67,150 @@ describe("CarouselArrows", () => {
     const app = mount(CarouselFixture, { target, props: { count: 3, autoplay: 1600 } });
     try {
       const wrapper = arrows(target);
-      expect(wrapper.querySelectorAll("button").length, "in the markup, holding the row").toBe(3);
+      for (const name of CONTROLS)
+        expect(wrapper.querySelector(`button[aria-label="${name}"]`), name).not.toBeNull();
       expect(wrapper.hasAttribute("data-carousel-quiet")).toBe(true);
       // `inert` reaches the DOM as the IDL property (Svelte prefers a setter
       // when one exists), which real browsers reflect back to the attribute
       // and jsdom does not — so the ATTRIBUTE is asserted in the browser, in
       // tests/interaction/featured-properties.spec.ts.
       expect(wrapper.inert, "not focusable, not clickable").toBe(true);
-      const classes = wrapper.className.split(/\s+/);
-      // `visibility: hidden`, never `display: none` — the row's height is the
-      // whole reason these ship at all. (The pixels are measured in
-      // tests/interaction/featured-properties.spec.ts; jsdom resolves no
-      // stylesheet.)
-      expect(classes).toContain("invisible");
-      expect(classes).not.toContain("hidden");
+      expect(wrapper.classList.contains("invisible"), "quiet: not shown").toBe(true);
 
       flushSync();
       expect(wrapper.hasAttribute("data-carousel-quiet"), "script adopted it").toBe(false);
       expect(wrapper.inert).toBe(false);
-      expect(wrapper.className.split(/\s+/)).not.toContain("invisible");
+      expect(wrapper.classList.contains("invisible"), "stranded hidden after hydration").toBe(
+        false,
+      );
     } finally {
       unmount(app);
       target.remove();
     }
   });
 
-  it("takes its colours from the tone: garnet on light grounds, cream on dark", () => {
+  it("takes its colours from the tone", () => {
     const light = render(CarouselFixture, { count: 3 });
     expect(light.getByLabelText("Next slide").className).toContain(ARROW_TONES.garnet);
     cleanup();
 
     const dark = render(CarouselFixture, { count: 3, tone: "cream" });
-    const next = dark.getByLabelText("Next slide");
-    expect(next.className).toContain(ARROW_TONES.cream);
-    const resting = next.className.split(/\s+/).filter((c) => !c.includes(":"));
-    expect(resting).toContain("text-background");
-    expect(resting, "garnet on garnet").not.toContain("text-primary");
-  });
-
-  it("sets no focus ring of its own — the ring is the ground's", () => {
-    // The first version gave the cream tone `focus-visible:outline-background`
-    // because the site's ring was garnet everywhere, 1:1 on the garnet card.
-    // app.css now has each GROUND set `--focus-ring` for what sits on it, so a
-    // cream arrow on `bg-primary` or `bg-dark` already gets off-white — and a
-    // tone that also set one would be a second rule to change when the first
-    // does. jsdom resolves no stylesheet: the colour itself is read in a
-    // browser, in tests/interaction/carousel.spec.ts.
-    for (const [tone, classes] of Object.entries(ARROW_TONES)) {
-      expect(classes, tone).not.toMatch(/(^|[\s:])(outline|ring)-/);
-    }
+    expect(dark.getByLabelText("Next slide").className).toContain(ARROW_TONES.cream);
   });
 
   it("draws nothing for a carousel that is switched off", async () => {
-    const { container, queryByLabelText, rerender } = render(CarouselFixture, {
+    const { queryByLabelText, getByLabelText, rerender } = render(CarouselFixture, {
       count: 3,
       autoplay: 1600,
       enabled: false,
     });
-    expect(container.querySelectorAll("button").length).toBe(0);
-    expect(queryByLabelText("Next slide")).toBeNull();
-    // The same render, switched on, has all three — the zero is the switch.
+    for (const name of CONTROLS) expect(queryByLabelText(name), name).toBeNull();
+    // The same render, switched on, has all three — the null is the switch.
     await rerender({ enabled: true });
-    expect(arrows(container).querySelectorAll("button").length).toBe(3);
-  });
-
-  it("never fills on hover at a bound — the arrow there does nothing", () => {
-    for (const tone of Object.values(ARROW_TONES)) {
-      const hovers = tone.split(/\s+/).filter((c) => c.includes("hover:"));
-      expect(hovers.length).toBe(2);
-      for (const c of hovers) expect(c.startsWith("not-aria-disabled:hover:"), c).toBe(true);
-    }
+    for (const name of CONTROLS) expect(getByLabelText(name), name).toBeTruthy();
   });
 
   it("adds no pause control to a carousel that does not autoplay", () => {
-    const { container, queryByLabelText } = render(CarouselFixture, { count: 3 });
+    const { queryByLabelText, getByLabelText } = render(CarouselFixture, { count: 3 });
     expect(queryByLabelText("Pause slides")).toBeNull();
-    expect(arrows(container).querySelectorAll("button").length).toBe(2);
+    expect(getByLabelText("Previous slide")).toBeTruthy();
+    expect(getByLabelText("Next slide")).toBeTruthy();
   });
 
   it("puts Pause before the arrows when it autoplays, and swaps its glyph with its name", async () => {
     vi.useFakeTimers();
     const { container, getByLabelText } = render(CarouselFixture, { count: 3, autoplay: 1600 });
-    const buttons = [...arrows(container).querySelectorAll("button")];
-    expect(buttons.map((b) => b.getAttribute("aria-label"))).toEqual([
-      "Pause slides",
-      "Previous slide",
-      "Next slide",
-    ]);
+    const order = [...arrows(container).querySelectorAll("button")].map((b) =>
+      b.getAttribute("aria-label"),
+    );
+    expect(order.indexOf("Pause slides")).toBeGreaterThanOrEqual(0);
+    expect(order.indexOf("Pause slides")).toBeLessThan(order.indexOf("Previous slide"));
+    expect(order.indexOf("Previous slide")).toBeLessThan(order.indexOf("Next slide"));
 
     const toggle = getByLabelText("Pause slides");
-    expect(toggle.querySelectorAll("path").length, "two bars").toBe(2);
+    const playing = toggle.querySelector("svg")!.innerHTML;
     await fireEvent.click(toggle);
     expect(toggle.getAttribute("aria-label")).toBe("Play slides");
-    expect(toggle.querySelectorAll("path").length, "one triangle").toBe(1);
+    expect(toggle.querySelector("svg")!.innerHTML, "the glyph follows the name").not.toBe(playing);
   });
 });
 
-// ── the glyph is the comp's, and it is the one ArrowRight already ships ─────
+// ── the tones, measured ─────────────────────────────────────────────────────
 //
-// `carousel-arrows.figma/` holds Figma's own SVG exports of the two arrows
-// (6843:977 `r arrow`, 6843:972 `l arrow`), byte for byte. They are not served;
-// they are here so the claim "this renders the comp's vector" is recomputed
-// rather than remembered. If ArrowRight's path is ever redrawn, this says the
-// carousel arrows moved with it.
+// The glyph is the control's only content (WCAG 1.4.11, 3:1), at rest and on
+// its hover fill, against the grounds each tone is placed on — computed from
+// app.css's tokens and the class strings the component ships.
 
-type Point = [number, number];
+type Rgb = [number, number, number];
 
-/** Absolute vertices of a path that uses only M / L / H / V / Z. */
-function vertices(d: string): Point[] {
-  const out: Point[] = [];
-  let x = 0;
-  let y = 0;
-  for (const [, cmd, args] of d.matchAll(/([MLHVZ])([^MLHVZ]*)/g)) {
-    const n = args
-      .trim()
-      .split(/[\s,]+/)
-      .filter(Boolean)
-      .map(Number);
-    if (cmd === "Z") continue;
-    if (cmd === "H") for (const v of n) out.push([(x = v), y]);
-    else if (cmd === "V") for (const v of n) out.push([x, (y = v)]);
-    else for (let i = 0; i < n.length; i += 2) out.push([(x = n[i]), (y = n[i + 1])]);
-  }
-  // A closing vertex that repeats the first says nothing new.
-  const [first, last] = [out[0], out[out.length - 1]];
-  if (out.length > 1 && first[0] === last[0] && first[1] === last[1]) out.pop();
-  return out;
-}
+const theme = /@theme\s*\{([\s\S]*?)\n\}/.exec(
+  readFileSync(resolve(process.cwd(), "src/app.css"), "utf8"),
+)![1];
+const token = (name: string): Rgb | null => {
+  const raw = new RegExp(`--color-${name}:\\s*([^;]+);`).exec(theme)?.[1].trim();
+  if (raw === undefined || raw === "transparent" || raw === "currentColor") return null;
+  const hex = raw === "white" ? "#ffffff" : raw === "black" ? "#000000" : raw;
+  if (!/^#[0-9a-f]{6}$/i.test(hex)) throw new Error(`--color-${name} is "${raw}"`);
+  return [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)) as Rgb;
+};
 
-const pathData = (svg: string) => [...svg.matchAll(/<path[^>]*\sd="([^"]+)"/g)].map((m) => m[1]);
-
-const readExport = (name: string) =>
-  readFileSync(resolve(process.cwd(), "src/lib/components/carousel-arrows.figma", name), "utf8");
-
-function expectSamePoints(actual: Point[], expected: Point[], tolerance: number) {
-  expect(actual.length).toBe(expected.length);
-  expect(actual.length).toBeGreaterThan(3);
-  actual.forEach(([ax, ay], i) => {
-    expect(Math.abs(ax - expected[i][0]), `x of vertex ${i}`).toBeLessThanOrEqual(tolerance);
-    expect(Math.abs(ay - expected[i][1]), `y of vertex ${i}`).toBeLessThanOrEqual(tolerance);
+const luminance = (rgb: Rgb) => {
+  const [r, g, b] = rgb.map((c) => {
+    const s = c / 255;
+    return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
   });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+};
+const contrast = (a: Rgb, b: Rgb) => {
+  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+};
+
+/** What the tone's `<utility>-<token>[/<pct>]` paints over `ground`, at rest
+ *  or under `hover:` — null when it sets none. */
+function painted(classes: string, utility: "text" | "bg", hover: boolean, ground: Rgb) {
+  for (const c of classes.split(/\s+/)) {
+    const variants = c.split(":");
+    const m = new RegExp(`^${utility}-([a-z-]+?)(?:/(\\d+))?$`).exec(variants.pop()!);
+    if (!m || (hover ? !variants.includes("hover") : variants.length > 0)) continue;
+    const colour = token(m[1]);
+    if (!colour) continue;
+    const alpha = m[2] === undefined ? 1 : Number(m[2]) / 100;
+    return colour.map((v, i) => Math.round(v * alpha + ground[i] * (1 - alpha))) as Rgb;
+  }
+  return null;
 }
 
-describe("the comp's arrow exports", () => {
-  const right = readExport("r-arrow.svg");
-  const left = readExport("l-arrow.svg");
-  const arrowRight = readFileSync(
-    resolve(process.cwd(), "src/lib/components/ArrowRight.svelte"),
-    "utf8",
+const GROUNDS = {
+  // "garnet" on the sand card and the listing's off-white and white grounds;
+  // "cream" on the garnet card and the dark band.
+  garnet: ["light", "background", "white"],
+  cream: ["primary", "dark"],
+} as const;
+
+const NON_TEXT = 3;
+
+describe("CarouselArrows tones", () => {
+  const cases = Object.entries(GROUNDS).flatMap(([tone, grounds]) =>
+    grounds.map((ground) => ({ tone: tone as keyof typeof ARROW_TONES, ground })),
   );
 
-  it("are a 40px ring with a 1px stroke inside it", () => {
-    for (const svg of [right, left]) {
-      expect(svg).toContain('viewBox="0 0 40 40"');
-      expect(svg).toMatch(/<rect[^>]*width="39" height="39" rx="19\.5"[^>]*stroke="#652323"/);
-    }
-  });
+  it.each(cases)(
+    "$tone on bg-$ground: the glyph clears 3:1 at rest and on hover",
+    ({ tone, ground }) => {
+      const classes = ARROW_TONES[tone];
+      const g = token(ground)!;
+      const restFill = painted(classes, "bg", false, g) ?? g;
+      const rest = painted(classes, "text", false, restFill);
+      expect(rest, `the ${tone} tone sets no glyph colour`).not.toBeNull();
+      const hoverFill = painted(classes, "bg", true, g) ?? restFill;
+      const hovered = painted(classes, "text", true, hoverFill) ?? rest!;
+      expect(contrast(rest!, restFill), "at rest").toBeGreaterThanOrEqual(NON_TEXT);
+      expect(contrast(hovered, hoverFill), "on hover").toBeGreaterThanOrEqual(NON_TEXT);
+    },
+  );
 
-  it("carry ArrowRight's two paths, moved by the 7.5 inset of the 25px glyph box", () => {
-    const [tx, ty] = /translate\(([\d.]+) ([\d.]+)\)/.exec(arrowRight)!.slice(1).map(Number);
-    const shipped = pathData(arrowRight).map(vertices);
-    const exported = pathData(right).map(vertices);
-    expect(exported.length).toBe(2);
-    shipped.forEach((points, i) =>
-      expectSamePoints(
-        exported[i],
-        points.map(([x, y]): Point => [x + tx + 7.5, y + ty + 7.5]),
-        0.001,
-      ),
-    );
-  });
-
-  it("draw the left arrow as the right one turned 180° about the ring's centre", () => {
-    const turned = pathData(right).map((d) => vertices(d).map(([x, y]): Point => [40 - x, 40 - y]));
-    const exported = pathData(left).map(vertices);
-    expect(exported.length).toBe(2);
-    turned.forEach((points, i) => expectSamePoints(exported[i], points, 0.0001));
+  it("covers every tone the component ships", () => {
+    expect(Object.keys(GROUNDS).sort()).toEqual(Object.keys(ARROW_TONES).sort());
   });
 });

@@ -150,7 +150,7 @@ export const PALETTE = {
   // fills are lighter and the casings darker, which moves two numbers at once —
   // the casing away from the ground it is drawn on, and `highway-name-major`'s
   // label away from the fill it is drawn over (4.4511 -> 4.7025:1, i.e. over
-  // AA). Every figure is in src/lib/theme-contrast.test.ts.
+  // AA).
   motorway: "#eadfbe",
   motorwayCasing: "#a3906a",
   // motorway_link, trunk_primary and link: one tone, three classes. They are

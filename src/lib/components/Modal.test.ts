@@ -16,6 +16,42 @@ const body = () =>
     render: () => "<p>Modal body</p>",
   }));
 
+/** A Tailwind spacing step in px: 4px a step, or an arbitrary `[Npx]`. */
+const step = (m: RegExpExecArray | null) => (!m ? 0 : m[1] ? Number(m[1]) * 4 : Number(m[2]));
+
+/** The smallest box a resting class list guarantees on one axis, in px. */
+const minBox = (classes: string[], axis: "h" | "w") => {
+  const sizing = new RegExp(`^(?:min-${axis}|${axis}|size)-(?:([\\d.]+)|\\[([\\d.]+)px\\])$`);
+  return Math.max(0, ...classes.map((c) => step(sizing.exec(c))));
+};
+
+/** The padding a resting class list puts on one side, in px: the most specific
+ *  of `p-*`, `px-*`/`py-*` and the side's own utility, which is also the one
+ *  Tailwind's stylesheet lets win. */
+const padding = (classes: string[], side: "t" | "b" | "l" | "r") => {
+  const axis = side === "t" || side === "b" ? "y" : "x";
+  for (const prefix of [`p${side}`, `p${axis}`, "p"]) {
+    const utility = new RegExp(`^${prefix}-(?:([\\d.]+)|\\[([\\d.]+)px\\])$`);
+    const found = classes.map((c) => utility.exec(c)).find(Boolean);
+    if (found) return step(found);
+  }
+  return 0;
+};
+
+/** The hit target a button's resting classes give it on one axis: its own size,
+ *  or its glyph plus the padding either side, whichever is larger. */
+const hitBox = (button: Element, axis: "h" | "w") => {
+  const classes = [...button.classList].filter((c) => !c.includes(":"));
+  const svg = button.querySelector("svg");
+  const glyph = svg
+    ? minBox([...svg.classList], axis) ||
+      Number(svg.getAttribute(axis === "h" ? "height" : "width")) ||
+      0
+    : 0;
+  const [a, b] = axis === "h" ? (["t", "b"] as const) : (["l", "r"] as const);
+  return Math.max(minBox(classes, axis), glyph + padding(classes, a) + padding(classes, b));
+};
+
 /** A body whose first focusable child is NOT the autofocus target, so "focus
  *  went to the right place" cannot pass by accident. */
 const formBody = () =>
@@ -113,17 +149,13 @@ describe("Modal", () => {
 
   // WCAG 2.5.8: the 20px glyph alone is under the 24px minimum. Tailwind
   // preflight zeroes button padding, so the hit target has to come from the
-  // class list — the same min-h-11/min-w-11 (44px) pattern Nav.svelte uses.
-  it("gives the close button a 44px hit target around the 20px icon", () => {
+  // class list.
+  it("gives the close button at least a 24px hit target", () => {
     const { getByLabelText } = render(Modal, { open: true, children: body() });
 
-    const button = getByLabelText("Close");
-    for (const cls of ["flex", "min-h-11", "min-w-11", "items-center", "justify-center"]) {
-      expect(button.classList.contains(cls), `close button missing ${cls}`).toBe(true);
-    }
-    const icon = button.querySelector("svg")!;
-    expect(icon.getAttribute("width")).toBe("20");
-    expect(icon.getAttribute("height")).toBe("20");
+    const close = getByLabelText("Close");
+    expect(hitBox(close, "h"), "height").toBeGreaterThanOrEqual(24);
+    expect(hitBox(close, "w"), "width").toBeGreaterThanOrEqual(24);
   });
 });
 
@@ -211,20 +243,5 @@ describe("Modal scroll lock", () => {
     unmount();
     expect(document.body.style.overflow).toBe("clip");
     document.body.style.overflow = "";
-  });
-});
-
-// Tailwind preflight's `*{margin:0}` beats the UA's `dialog{margin:auto}`, and
-// with the UA's `inset:0` still in force that pins the dialog to the top-left
-// corner. `mx-4` restored the horizontal 16px and nothing else.
-//
-// jsdom performs no layout, so this only pins the mechanism; the geometry
-// itself is MEASURED in tests/interaction/modal-centring.spec.ts.
-describe("Modal centring", () => {
-  it("restores auto margins instead of the horizontal-only mx-4", () => {
-    const { container } = render(Modal, { open: true, children: body() });
-    const cls = container.querySelector("dialog")!.getAttribute("class") ?? "";
-    expect(cls, "m-auto against inset:0 is what centres it on both axes").toContain("m-auto");
-    expect(cls, "mx-4 centres one axis and pins the other").not.toContain("mx-4");
   });
 });

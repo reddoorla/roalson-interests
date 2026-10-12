@@ -1,6 +1,7 @@
 import { expect, test, type Browser, type Page } from "@playwright/test";
 
 import { hydrated } from "./hydrated";
+import { scrollMapToBoot } from "./map-boot";
 import { axe } from "./axe";
 
 // THE PROPERTIES VIEW TABS (P5, client meeting 2026-09-25: "land / improved
@@ -8,8 +9,9 @@ import { axe } from "./axe";
 // `:target` until the component hydrates, then by `data-view`. jsdom has no
 // cascade, so everything that is a claim about CSS is here:
 //
-//  1. With no script a shared `#improved` link is filtered on first paint and
-//     does not scroll; a tab press filters and Back restores.
+//  1. With no script the landing view, `#all`, `#list` and a shared `#improved`
+//     link are filtered on first paint, and `#improved` does not scroll; a tab
+//     press filters and Back restores.
 //  2. Hydrated, a hidden section stays mounted: its map is still booted and
 //     full-width when the view comes back.
 //  3. The skip link's fragment does not reset the view (the `data-view` form).
@@ -28,26 +30,14 @@ const sectionOf = (page: Page, id: string) =>
   page.locator(`section[aria-labelledby="listing-${id}"]`);
 const tabOf = (page: Page, id: string) => page.locator(`[data-view-tab="${id}"]`);
 
-/** A token as a COMPUTED colour, never a typed rgb(): the palette is moving. */
-const token = (page: Page, name: string) =>
-  page.evaluate((n) => {
-    const probe = document.createElement("div");
-    probe.style.color = `var(${n})`;
-    document.body.append(probe);
-    const colour = getComputedStyle(probe).color;
-    probe.remove();
-    return colour;
-  }, name);
-
 async function noScript(browser: Browser) {
   const context = await browser.newContext({ javaScriptEnabled: false, viewport: WIDE });
   return { context, page: await context.newPage() };
 }
 
-async function expectView(page: Page, view: "land" | "improved" | "all") {
-  const garnet = await token(page, "--color-primary");
-  for (const id of ["land", "improved"]) {
-    const shown = view === "all" || view === id;
+async function expectView(page: Page, view: "land" | "improved" | "all" | "list") {
+  for (const id of ["all", "land", "improved"]) {
+    const shown = view === id || (view === "list" && id !== "all");
     await (shown
       ? expect(sectionOf(page, id), `${id} under ${view}`).toBeVisible()
       : expect(sectionOf(page, id), `${id} under ${view}`).toBeHidden());
@@ -56,20 +46,18 @@ async function expectView(page: Page, view: "land" | "improved" | "all") {
   if ((await sectionOf(page, "past").count()) > 0) {
     await expect(sectionOf(page, "past"), "Past Projects shows under every view").toBeVisible();
   }
-  // Polled: the tabs' colours transition (0.01ms under the harness's reduce),
-  // so a read in the click's own frame still returns the old ground.
-  for (const id of ["land", "improved", "all"]) {
-    await expect
-      .poll(
-        async () =>
-          (await tabOf(page, id).evaluate((el) => getComputedStyle(el).backgroundColor)) === garnet,
-        { message: `tab ${id} selected under ${view}` },
-      )
-      .toBe(id === view);
+  // Hydrated, aria-current says which tab is selected; with no script the
+  // tab's name does, and listing-views-name.spec.ts reads that.
+  if ((await page.locator("html[data-hydrated]").count()) === 0) return;
+  for (const id of ["all", "land", "improved", "list"]) {
+    const message = `tab ${id} selected under ${view}`;
+    await (id === view
+      ? expect(tabOf(page, id), message).toHaveAttribute("aria-current", "true")
+      : expect(tabOf(page, id), message).not.toHaveAttribute("aria-current"));
   }
 }
 
-test.describe("with no script", () => {
+test.describe("with no script", { tag: "@smoke" }, () => {
   test.skip(PREVIEW, NO_FIXTURE);
 
   test("a shared #improved link is filtered on first paint, and does not scroll", async ({
@@ -81,6 +69,19 @@ test.describe("with no script", () => {
     expect(await page.evaluate(() => scrollY)).toBe(0);
     await context.close();
   });
+
+  for (const [hash, view] of [
+    ["", "all"],
+    ["#all", "all"],
+    ["#list", "list"],
+  ] as const) {
+    test(`${hash || "no fragment"} shows the ${view} view on first paint`, async ({ browser }) => {
+      const { context, page } = await noScript(browser);
+      await page.goto(`${FIXTURE}${hash}`);
+      await expectView(page, view);
+      await context.close();
+    });
+  }
 
   test("a tab press filters without scrolling, and Back restores the view", async ({ browser }) => {
     const { context, page } = await noScript(browser);
@@ -107,32 +108,34 @@ test.describe("hydrated", () => {
   }) => {
     await page.goto(FIXTURE);
     await hydrated(page);
-    const landMap = sectionOf(page, "land").locator("[data-property-map]");
-    await expect(landMap).toHaveAttribute("data-map-ready", "", { timeout: 25_000 });
+    const allMap = sectionOf(page, "all").locator("[data-property-map]");
+    // It cannot boot at the top since 2026-09-29 (./map-boot).
+    await scrollMapToBoot(allMap);
+    await expect(allMap).toHaveAttribute("data-map-ready", "", { timeout: 25_000 });
     // A mark on the element itself. `{#if}` would pass everything else here:
     // the section leaves the DOM (so `toBeHidden` holds) and a NEW map boots
     // and reports ready at the same width (#174, measured). Only the same node
     // coming back carries this.
-    await landMap.evaluate((el) => el.setAttribute("data-mount-probe", ""));
-    const before = (await landMap.locator("canvas").first().boundingBox())!.width;
+    await allMap.evaluate((el) => el.setAttribute("data-mount-probe", ""));
+    const before = (await allMap.locator("canvas").first().boundingBox())!.width;
     await tabOf(page, "improved").click();
     await expectView(page, "improved");
     await expect(tabOf(page, "improved")).toHaveAttribute("aria-current", "true");
-    await expect(sectionOf(page, "land"), "hidden, not removed").toHaveCSS("display", "none");
-    await tabOf(page, "all").click();
+    await expect(sectionOf(page, "all"), "hidden, not removed").toHaveCSS("display", "none");
+    await page.goBack();
     await expectView(page, "all");
-    await expect(landMap, "the same map element, not a new one").toHaveAttribute(
+    await expect(allMap, "the same map element, not a new one").toHaveAttribute(
       "data-mount-probe",
       "",
     );
-    await expect(landMap).toHaveAttribute("data-map-ready", "", { timeout: 25_000 });
-    await expect(landMap.locator("canvas").first()).toBeVisible();
-    const after = (await landMap.locator("canvas").first().boundingBox())!.width;
+    await expect(allMap).toHaveAttribute("data-map-ready", "", { timeout: 25_000 });
+    await expect(allMap.locator("canvas").first()).toBeVisible();
+    const after = (await allMap.locator("canvas").first().boundingBox())!.width;
     expect(before, "the map drew at its column's width").toBeGreaterThan(300);
     expect(Math.abs(after - before), "and draws there again").toBeLessThan(1);
   });
 
-  test("the skip link does not reset the view", async ({ page }) => {
+  test("the skip link does not reset the view", { tag: "@smoke" }, async ({ page }) => {
     await page.goto(FIXTURE);
     await hydrated(page);
     await tabOf(page, "improved").click();
@@ -143,7 +146,7 @@ test.describe("hydrated", () => {
     await expectView(page, "improved");
   });
 
-  test("a client navigation to #land is filtered", async ({ page }) => {
+  test("a client navigation to #land is filtered", { tag: "@smoke" }, async ({ page }) => {
     await page.goto("/dev/a11y-fixtures");
     await hydrated(page);
     await page.evaluate((href) => {
@@ -159,10 +162,10 @@ test.describe("hydrated", () => {
     await expectView(page, "land");
   });
 
-  test("axe passes on every view", async ({ page }) => {
+  test("axe passes on every view", { tag: "@smoke" }, async ({ page }) => {
     await page.goto(FIXTURE);
     await hydrated(page);
-    for (const view of ["land", "improved", "all"] as const) {
+    for (const view of ["land", "improved", "list"] as const) {
       await tabOf(page, view).click();
       await expectView(page, view);
       const result = await axe(page)
@@ -177,16 +180,46 @@ test.describe("hydrated", () => {
   });
 });
 
-test.describe("live", () => {
+test.describe("live", { tag: "@smoke" }, () => {
   test.skip(!PREVIEW, "the real portfolio is read on the production build");
 
   test("/properties#land is filtered with no script", async ({ browser }) => {
     const { context, page } = await noScript(browser);
     const res = await page.goto(`${LIVE}#land`);
     expect(res?.status()).toBe(200);
-    await expect(page.locator("[data-view-tab]")).toHaveCount(3);
+    await expect(tabOf(page, "land")).toBeVisible();
     await expectView(page, "land");
     expect(await page.evaluate(() => scrollY)).toBe(0);
     await context.close();
+  });
+});
+
+test.describe("the space above the footer band", () => {
+  test.use({ viewport: WIDE });
+
+  const gapBelowListing = (page: Page) =>
+    page.evaluate(() => {
+      const listing = document.querySelector("[data-listing]")!;
+      const shown = [...listing.querySelectorAll(":scope > section")].filter(
+        (s) => getComputedStyle(s).display !== "none",
+      );
+      const content = [...shown.at(-1)!.querySelectorAll("article, [data-property-map]")]
+        .map((e) => e.getBoundingClientRect())
+        .filter((r) => r.height > 0);
+      const next = listing.nextElementSibling!.getBoundingClientRect();
+      return next.top - Math.max(...content.map((r) => r.bottom));
+    });
+
+  test("every view leaves the same space under its last listing", async ({ page }) => {
+    const gaps: Record<string, number> = {};
+    for (const view of ["land", "improved", "list"]) {
+      await page.goto(`${LIVE}#${view}`);
+      await hydrated(page);
+      await expect(page.locator(`[data-listing][data-view="${view}"]`)).toBeAttached();
+      gaps[view] = await gapBelowListing(page);
+    }
+    expect(gaps.improved, "improved leaves space").toBeGreaterThan(0);
+    expect(gaps.land, "land leaves what improved does").toBeCloseTo(gaps.improved!, 0);
+    expect(gaps.list, "list leaves what improved does").toBeCloseTo(gaps.improved!, 0);
   });
 });

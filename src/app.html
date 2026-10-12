@@ -89,7 +89,9 @@
          measures that. A browser that will never run the measurement is shown
          the wordmark from the start. The attribute is on the REVERSE lockup
          only, and only while the gate holds, so this cannot light a white
-         wordmark on a page whose bar is solid. -->
+         wordmark on a page whose bar is solid. Held means floating on the hero's
+         photograph, so it is shown on the garnet ground the bar's controls
+         wear there (Nav.svelte, `onPhoto`). -->
     <noscript>
       <style>
         [data-reveal] {
@@ -101,6 +103,10 @@
         }
         [data-nav-wordmark="gated"] {
           opacity: 1 !important;
+        }
+        a:has(> [data-nav-wordmark="gated"]) {
+          background: var(--color-primary);
+          box-shadow: 0 0 0 6px var(--color-primary);
         }
       </style>
     </noscript>

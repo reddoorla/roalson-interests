@@ -245,6 +245,17 @@ interface PageMediaDocumentData {
    * - **Documentation**: https://prismic.io/docs/fields/image
    */
   properties_masthead: prismic.ImageField<never>;
+
+  /**
+   * Properties photo band (above the footer) field in *Page media*
+   *
+   * - **Field Type**: Image
+   * - **Placeholder**: *None*
+   * - **API ID Path**: page_media.properties_band
+   * - **Tab**: Main
+   * - **Documentation**: https://prismic.io/docs/fields/image
+   */
+  properties_band: prismic.ImageField<never>;
 }
 
 /**
@@ -579,7 +590,7 @@ interface PropertyDocumentData {
    * Property package (PDF) field in *Property*
    *
    * - **Field Type**: Link to Media
-   * - **Placeholder**: Upload the package PDF — it downloads from the property page
+   * - **Placeholder**: Upload the package PDF — it opens in the browser from the property page
    * - **API ID Path**: property.package_pdf
    * - **Tab**: Main
    * - **Documentation**: https://prismic.io/docs/fields/link-to-media
@@ -924,11 +935,11 @@ export type CtaBannerSlice = prismic.SharedSlice<
 >;
 
 /**
- * Item in *FeaturedProperties → Default → Primary → Featured listings — shown in this order*
+ * Item in *FeaturedProperties → Default → Primary → Featured listings — up to 10, shown in this order; any after the tenth are not shown*
  */
 export interface FeaturedPropertiesSliceDefaultPrimaryPropertiesItem {
   /**
-   * Listing field in *FeaturedProperties → Default → Primary → Featured listings — shown in this order*
+   * Listing field in *FeaturedProperties → Default → Primary → Featured listings — up to 10, shown in this order; any after the tenth are not shown*
    *
    * - **Field Type**: Content Relationship
    * - **Placeholder**: Pick a listing — only listings with a feature image are shown; past projects and archived listings are skipped
@@ -958,6 +969,17 @@ export interface FeaturedPropertiesSliceDefaultPrimaryPropertiesItem {
  */
 export interface FeaturedPropertiesSliceDefaultPrimary {
   /**
+   * Show featured properties — turned off, this whole section is removed from the page field in *FeaturedProperties → Default → Primary*
+   *
+   * - **Field Type**: Boolean
+   * - **Placeholder**: *None*
+   * - **Default Value**: true
+   * - **API ID Path**: featured_properties.default.primary.show_featured
+   * - **Documentation**: https://prismic.io/docs/fields/boolean
+   */
+  show_featured: prismic.BooleanField;
+
+  /**
    * Heading — left empty it reads “Featured Properties” field in *FeaturedProperties → Default → Primary*
    *
    * - **Field Type**: Text
@@ -968,7 +990,7 @@ export interface FeaturedPropertiesSliceDefaultPrimary {
   heading: prismic.KeyTextField;
 
   /**
-   * Featured listings — shown in this order field in *FeaturedProperties → Default → Primary*
+   * Featured listings — up to 10, shown in this order; any after the tenth are not shown field in *FeaturedProperties → Default → Primary*
    *
    * - **Field Type**: Group
    * - **Placeholder**: *None*

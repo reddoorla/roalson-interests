@@ -437,8 +437,8 @@
 
   <!-- The property page's body. It renders its own <h1> (it is the page on
        /properties/<uid>), so this page carries two; axe has no rule against
-       that, and the gate is here for the component's contrast, names and
-       table semantics. Under Contract + the fixture's NEW flag render both
+       that, and the gate is here for the component's contrast and names.
+       Under Contract + the fixture's NEW flag render both
        garnet badges; the Past project tag uses the same markup. -->
   <PropertyDetail
     property={withFixturePhoto(propertyFixture({ status: "Under Contract" }), page.url.origin)}
@@ -452,7 +452,7 @@
        The photo state first, on a drawn near-white ground (#15). axe cannot
        measure text over an image — it files colour-contrast as `incomplete`,
        "needs review" — so what this gate actually covers here is the alt text,
-       the heading and the aria-hidden scrim layers; the ratio itself is
+       the heading and the aria-hidden scrim layer; the ratio itself is
        computed from the scrim's own stops in PageMasthead.test.ts. Neither
        instance preloads: the hero fixture above already injects the page's one
        fetchpriority=high link, and a second would fight it for bandwidth. -->
@@ -491,13 +491,17 @@
        the comp's phone map, 595 its 1440 panel. Both draw the expand button
        (M1). -->
   <PropertyMap
-    points={sectionPoints(groupListings(propertyListingFixture())[0].properties)}
+    points={sectionPoints(
+      groupListings(propertyListingFixture()).find((s) => s.id === "land")!.properties,
+    )}
     label="Land"
     engine="off"
     class="h-50"
   />
   <PropertyMap
-    points={sectionPoints(groupListings(propertyListingFixture())[0].properties)}
+    points={sectionPoints(
+      groupListings(propertyListingFixture()).find((s) => s.id === "land")!.properties,
+    )}
     label="Land, at the 1440 panel's height"
     engine="off"
     class="h-[595px]"
@@ -617,16 +621,16 @@
        927 the site ever draws, and on LEARN MORE's line the button landed
        across it: 9 measured / 1 incomplete on the launch band, the same
        `bgOverlap` the paragraph above is about. A `lg:` query could not see
-       it — the viewport here says 1440 — so the button's placement is a
-       container query on the CARD, and this page draws its narrow-card
-       layout: its own row under the text.
+       it — the viewport here says 1440. The button has lived in the controls
+       row since 2026-10-01, and this narrow card is kept as the case that
+       holds nothing in a squeezed card paints over a word.
 
        SO THE LAUNCH BAND STAYS NARROW, ON PURPOSE, and it is the only thing
        on this page that is (#87). The three-listing band is drawn at the
-       site's width; the launch band keeps the old 768 column, because the
-       site never draws a card under 640 in the two-column layout and
-       featured-properties.spec.ts's "a card too narrow for both buttons"
-       needs one to hold that container query to. -->
+       site's width; the launch band keeps the old 768 column (its card 704
+       wide since the band went full-width, 2026-10-12), where
+       featured-properties.spec.ts's "a squeezed card" holds that nothing in
+       it paints over a word. -->
 
   <FeaturedProperties slice={featuredPropertiesFixture()} />
   <div class="mx-auto max-w-3xl px-8">

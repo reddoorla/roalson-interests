@@ -6,12 +6,12 @@
   // in the node data, and Figma exports it on an 11 × 8 canvas — SCALED to
   // fill it, not padded: the exported path spans 0–10.9998, 11 / 10.386 =
   // 1.059, so the shipped glyph is 5.9% larger than the comp's and CONTACT sits
-  // 0.75px right of it. Kept: the bytes are the export's and the hash pins them.
+  // 0.75px right of it. Kept: the bytes are the export's.
   //
   // The path below is that export's bytes, not a redraw: node 6822:501
-  // (PROFILE), and 6822:504 (CONTACT) exports byte-identically.
-  // Partners.test.ts pins its hash. The export's only fill is the text's own
-  // `#3D0707`, so it ships with `currentColor` and follows the label.
+  // (PROFILE), and 6822:504 (CONTACT) exports byte-identically. The export's
+  // only fill is the text's own `#3D0707`, so it ships with `currentColor` and
+  // follows the label.
   //
   // Sized in px, not em: the comp draws it at one size, beside H5.
   let { class: passedClasses = "" }: { class?: string } = $props();

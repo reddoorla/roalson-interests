@@ -28,6 +28,7 @@
   //   ?featured=one   the featured band on launch day: three picks, ONE photo,
   //             so one slide — a plain card, no arrows, no bar, no rotation.
   //   ?featured=none  every pick photo-less: the empty state, which is no band.
+  //   ?featured=off   the editor's Show switch off: no section at all.
   import { SliceZone } from "@prismicio/svelte";
   import { page } from "$app/state";
   import {

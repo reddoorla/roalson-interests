@@ -8,8 +8,10 @@ declare global {
       /** What the bar sits on at the top of this route. "dark": the route's
        * first band (a masthead, a hero) runs UNDER the bar, so the bar floats
        * over it in its reverse tone and the layout does not pad <main>. Left
-       * out, the bar is solid and <main> clears it. A route that renders a
-       * dark first band must say so — src/routes/nav-over.test.ts checks. */
+       * out, the bar is solid and <main> clears it. A route that opens on
+       * HomeHero must say so, one that opens on PageMasthead may only if it
+       * gives the band no photo, and no other route may — nav-over.test.ts
+       * checks. */
       navOver?: "dark";
       /** "gated": the bar has no wordmark, and keeps floating, until this
        * route's `[data-nav-gate]` element reaches it — the homepage, whose hero

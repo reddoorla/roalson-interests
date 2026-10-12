@@ -12,10 +12,14 @@
     "check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
     "lint": "prettier --check . && eslint .",
     "format": "prettier --write .",
+    "prepare": "simple-git-hooks",
     "test": "pnpm test:unit && pnpm test:smoke",
     "test:unit": "vitest run",
     "test:unit:watch": "vitest",
-    "test:smoke": "playwright install chromium && playwright test",
+    "test:smoke": "playwright install chromium && playwright test --grep @smoke",
+    "test:nightly": "playwright test tests/interaction/property-map-camera.spec.ts tests/interaction/property-map-camera-prod.spec.ts tests/interaction/property-map-scroll-zoom.spec.ts tests/interaction/property-map-press-direct.spec.ts tests/interaction/map-featured-pin.spec.ts tests/interaction/map-home.spec.ts tests/interaction/featured-band-live.spec.ts tests/interaction/featured-properties.spec.ts tests/interaction/carousel.spec.ts tests/interaction/reveal-no-js.spec.ts tests/interaction/property-map.spec.ts tests/interaction/listing-carousel.spec.ts tests/interaction/photo-band.spec.ts tests/interaction/home-hero.spec.ts tests/interaction/listing-views.spec.ts tests/interaction/listing-view-first.spec.ts tests/interaction/properties-map-still.spec.ts tests/interaction/properties-list.spec.ts",
+    "test:scaffold": "playwright test --grep-invert @smoke",
+    "test:e2e": "playwright test",
     "test:a11y": "reddoor-maint audit --only a11y --fail-on-violations",
     "map:style": "node scripts/map-style.mjs",
     "map:home": "node scripts/map-home.mjs",
@@ -25,7 +29,11 @@
     "a11yRoutes": [
       "/",
       "/properties",
-      "/contact"
+      "/contact",
+      "/privacy",
+      "/team/matt-howard",
+      "/team/bart-wilson",
+      "/properties/101-w-commerce-street"
     ]
   },
   "devDependencies": {
@@ -43,9 +51,11 @@
     "eslint-plugin-svelte": "^3.18.0",
     "globals": "^17.6.0",
     "jsdom": "^30.0.0",
+    "lint-staged": "^17.6.0",
     "prettier": "^3.8.3",
     "prettier-plugin-svelte": "^4.0.1",
     "sharp": "^0.35.0",
+    "simple-git-hooks": "^2.14.0",
     "slice-machine-ui": "^2.21.3",
     "svelte": "^5.55.10",
     "svelte-check": "^4.4.8",
@@ -65,10 +75,16 @@
     "@lucide/svelte": "^1.17.0",
     "@prismicio/client": "^7.21.8",
     "@prismicio/svelte": "^2.2.1",
-    "@reddoorla/maintenance": "^0.101.0",
+    "@reddoorla/maintenance": "^0.102.0",
     "@tailwindcss/vite": "^4.3.0",
     "@zerodevx/svelte-img": "^2.1.2",
     "maplibre-gl": "6.10.0",
     "svelte-gestures": "^5.2.2"
+  },
+  "simple-git-hooks": {
+    "pre-commit": "if [ -x node_modules/.bin/lint-staged ]; then node_modules/.bin/lint-staged; else echo \"pre-commit: node_modules is not installed in this checkout, so prettier did not run\"; fi"
+  },
+  "lint-staged": {
+    "*": "prettier --write --ignore-unknown"
   }
 }

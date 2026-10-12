@@ -1047,6 +1047,8 @@ files.
 
 ## 2026-09-20 — The bar and its menu: a pinned transparent bar the build does not reproduce, a floating state that needs no script to stay legible, and a `<noscript>` that printed itself (`feat/nav-overlay`)
 
+> Superseded in part by 2026-09-29 — /properties takes the solid bar from the top: the dark cloud gone, a map that no longer boots at load, and two helpers that leaned on the floating bar.
+
 Third Stage B batch, after #16 merged under the operator's new standing rule
 (merge on green until the site is live): the bar to the comp, and the open menu
 Stage A call 4 said to design from the system, because the file draws a
@@ -3740,6 +3742,8 @@ cannot be reopened either. Two things follow, and both are cheap:
 
 ## 2026-09-21 — Nine copies of one wait, all of them five seconds (`test/shared-hydration-wait`, #50)
 
+> Superseded in part by 2026-09-29 — /properties takes the solid bar from the top: the dark cloud gone, a map that no longer boots at load, and two helpers that leaned on the floating bar.
+
 Closes #50, and it is the defect this session kept reading as weather.
 
 `pnpm verify` went red locally three times today — `home-hero.spec.ts` once,
@@ -4990,6 +4994,7 @@ release was not published. That is the orchestrator's step after this merges.
 ## 2026-09-21 — The ground past both ends of the page, and a proxy that measured the page at rest (`fix/canvas-ground-past-both-ends`)
 
 > Superseded in part by 2026-09-22 — The ground past the top of the page was never once visible, and the test that "proved" it assumed the thing in question (#86). `.canvas-top` was never revealed by any pull; the top is the canvas now and the foot is the element.
+> Superseded in part by 2026-09-29 — /properties takes the solid bar from the top: the dark cloud gone, a map that no longer boots at load, and two helpers that leaned on the floating bar.
 
 The operator's words were "extend the bg of the top and bottom past the screen
 so trying to scroll past doesn't show white". A rubber-band overscroll on a Mac
@@ -5285,6 +5290,7 @@ routes, 1012 unit tests in 99 files, 133 of 134 Playwright.
 ## 2026-09-21 — The Properties masthead takes a photo, and a scrim sized for the photo we do NOT have yet (#15, `aa6e40b`)
 
 > Superseded in part by 2026-09-28 — Roalson's 2026-09-25 meeting notes, built: one-column hero, less yellow grounds, lighter masthead, map controls, view tabs, Past Projects, partner pages.
+> Superseded in part by 2026-09-29 — /properties takes the solid bar from the top: the dark cloud gone, a map that no longer boots at load, and two helpers that leaned on the floating bar.
 
 The band had been the brand's garnet-to-dark gradient since #11, for two
 reasons that both went away at once: the comp's file was unlicensed Unsplash
@@ -5861,6 +5867,7 @@ are the browser-level proof the swap actually reaches a pixel.
 ## 2026-09-22 — Four animations on the featured band, and two tests that passed a mutation (`feat/carousel-motion`)
 
 > Superseded in part by 2026-09-23 — A visitor's turn animates now: the comp's instant arrows overruled, a drift no clock could draw, and a hand-over that painted the wrong words.
+> Superseded in part by 2026-09-29 — Ken Burns is one CSS transition now: the compositor draws it, a hold that ends with the dissolve, and a Chromium start time the plan assumed wrong.
 
 Four things the operator asked for on the homepage's Properties carousel: the
 slide's text arrives as four staggered lines instead of one block, the photo
@@ -6062,6 +6069,8 @@ of #32; the rest of #32 stays open, and its comment now says which parts this
 batch answered and which it did not.
 
 ## 2026-09-22 — The ground past the top of the page was never once visible, and the test that "proved" it assumed the thing in question (#86)
+
+> Superseded in part by 2026-09-29 — /properties takes the solid bar from the top: the dark cloud gone, a map that no longer boots at load, and two helpers that leaned on the floating bar.
 
 The operator pulled past the top of the page on a real Mac — the confirmation
 #86 was left open for — and saw **sand**. Not the homepage hero's #3d0707, not
@@ -6547,6 +6556,8 @@ The layout gap is the comp's 20. Asserting 20 between the rects would have
 meant deleting the trim.
 
 ## 2026-09-22 — The bar's dissolve shipped, passed four new assertions, and was never once on screen (`fix/carousel-bar-dissolve`)
+
+> Superseded in part by 2026-09-29 — Ken Burns is one CSS transition now: the compositor draws it, a hold that ends with the dissolve, and a Chromium start time the plan assumed wrong.
 
 The adversarial review of #102 came back SHIP_WITH_FIXES with a critical
 finding, and it was right. **Animation C did not exist.**
@@ -9106,6 +9117,7 @@ session; CI is the authority.
 ## 2026-09-23 — A visitor's turn animates now: the comp's instant arrows overruled, a drift no clock could draw, and a hand-over that painted the wrong words (`feat/manual-turns-animate`)
 
 > Superseded in part by 2026-09-28 — Roalson's 2026-09-25 meeting notes, built: one-column hero, less yellow grounds, lighter masthead, map controls, view tabs, Past Projects, partner pages.
+> Superseded in part by 2026-09-29 — Ken Burns is one CSS transition now: the compositor draws it, a hold that ends with the dissolve, and a Chromium start time the plan assumed wrong.
 
 The operator: _"for the home slideshow, animations don't fire if I manually
 page through, they should."_ **This reverses a decision, not a bug.** The comp
@@ -9847,6 +9859,7 @@ corrections they carried are all made in this entry, where they belong:
 ## 2026-09-23 — The wheel over the map zooms it again, on the operator's call: the trap that buys, measured, and a zoom that outlives its card (`feat/map-scroll-zoom`)
 
 > Superseded in part by 2026-09-28 — Roalson's 2026-09-25 meeting notes, built: one-column hero, less yellow grounds, lighter masthead, map controls, view tabs, Past Projects, partner pages.
+> Superseded in part by 2026-09-29 — /properties takes the solid bar from the top: the dark cloud gone, a map that no longer boots at load, and two helpers that leaned on the floating bar.
 
 **This reverses a decision that shipped yesterday**, and says so first. The
 2026-09-22 entry "The pinned map was taking the page's scroll…" turned
@@ -10924,6 +10937,7 @@ depends on where the map pins:
 
 > Superseded in part by 2026-09-28 — After #180: the content published through the connector, a hook build that prerendered the old page, and an issue sweep.
 > Superseded in part by 2026-09-29 — The triage batch: 23 issues closed across six clusters, and the defaults that did not survive measurement.
+> Superseded in part by 2026-09-29 — /properties takes the solid bar from the top: the dark cloud gone, a map that no longer boots at load, and two helpers that leaned on the floating bar.
 
 The client's feedback came in three pieces. Erik relayed the first on Discord on
 2026-09-24: the /properties masthead looked too dark ("aren't multiplying?"), a
@@ -11954,6 +11968,1039 @@ and follows in the next one. This repo's source has no such colour, and its own
 `src/tailwind-sources.test.ts` bans the default-palette utilities that carry
 one.
 
+## 2026-09-29 — The partner bios are the client's words now, and a headshot that carried its own GPS fix (#159, `claude/roalson-comments-review-45cstm`)
+
+> Superseded in part by 2026-09-29 — Both partner headshots are the client's own, and Prismic serves an upload's original bytes, metadata and all.
+
+Erik posted both bios in #roalson-interests on 2026-09-29 (Matt at 15:29 UTC,
+Bart at 16:35) and a Dropbox link to a new headshot of Matt at 16:37. The bios
+went out as one Prismic release through the connector: two Person documents,
+two fields each (`bio`, and `bio_is_placeholder` true → false). `diff_release`
+showed exactly those four deltas before the publish. The text was compared to
+the Discord messages programmatically, paragraph by paragraph: Matt 3 of 3
+identical, Bart 4 of 4 identical after four typographic changes. Two curly
+apostrophes became straight and two en dashes used as parenthetical dashes
+became spaced em dashes, which is how the rest of the site sets them (the seed
+had 0 curly apostrophes and 44 spaced em dashes). Matt's one unspaced
+`project—whether` was spaced to match. No word changed.
+
+A workflow stage was meant to stage this release and did not: its brief
+relayed the operator's Ken Burns message instead of the bios request, and the
+agent correctly refused to write to the CMS on a request that did not ask for
+it. The release was staged by hand from the same prepared payload.
+
+The publish fired three Netlify hook builds (19:13:05, 19:13:38, 19:14:03 UTC).
+The first two went live still rendering the placeholder bios; only the third
+carried the new text. That is the #180 staleness again, and the second time
+it has happened out of three connector publishes, so a publish is not done
+until the served HTML is read. Both /team pages now serve the bios with no
+placeholder chip. The `.netlify.app` host still answers every page with
+`x-robots-tag: noindex, nofollow` and an empty sitemap, which is the pre-launch
+header, not the placeholder flag.
+
+The seed now mirrors the published bios, and both /team pages are in the smoke
+routes and `reddoor.a11yRoutes`, the step #159 held back while the pages were
+placeholders. On a production build the gate reported 0 violations across 5
+package routes (it was 3), and both smoke routes passed.
+
+**Matt's headshot is not uploaded.** The file (2416×2417 PNG, a square studio
+crop on an off-white wall, about 2.2× the size #73 asks for) is usable, but
+its XMP carries `exif:GPSLatitude`/`GPSLongitude` with a 12 m horizontal
+error, the camera model and the capture time. A copy with identical pixels and
+no metadata was made, but the connector's `upload_asset` only fetches a public
+URL and the route to host the clean copy was refused, so it went to the
+operator. Uploading Erik's original would put that location in the asset
+library's origin file. #73 (Bart's 140×177 headshot) is unchanged by any of
+this.
+
+## 2026-09-29 — /properties takes the solid bar from the top: the dark cloud gone, a map that no longer boots at load, and two helpers that leaned on the floating bar (#91, `claude/roalson-comments-review-45cstm`)
+
+The client's call, on Discord at 16:43 UTC: "Can we use the garnet and sand one
+(one that appears on sticky nav) and remove the dark cloud all together?"
+Nicole approved it at 16:47, and the operator picked the existing sticky bar
+over drawing a new one. So /properties no longer claims `navOver: "dark"` or
+`canvasTop`. The server ships the bar pinned and solid from the first paint:
+off-white ground, garnet wordmark, garnet CONTACT US. The layout pads `<main>`,
+so the masthead starts below the bar at 80px (1440) and 70px (390).
+`.masthead-shade`, the "dark cloud" that existed only to keep a floating bar's
+ink legible over the photo, is deleted. `.masthead-scrim` is unchanged. /contact
+is now the one route that floats its bar over a PageMasthead, and the homepage
+is untouched.
+
+**The title's contrast did not move, and the reason is geometry.** Measured on
+the real CMS photo on production builds, the H1's worst pixel is 3.47:1 at 1440
+and 3.62:1 at 390, before and after. Those match the 2026-09-28 numbers, which
+checks the script. The shade's box was 0–176px of the band at 1440 and 0–154
+at 390. The H1's line box is 266–346 and 159.5–207.5. They never overlapped, so
+the scrim's stops needed no change.
+
+**#91 is moot.** The canvas above the document was garnet and is now the page
+ground (#f3f1ef), which also fixed a defect nobody had filed. The before
+screenshots show a 15px garnet strip down the right edge: the
+`scrollbar-gutter: stable` gutter showing the garnet canvas.
+
+**Two test helpers leaned on the floating bar without saying so.**
+
+- `hydrated()` waited only for the bar to be `position: fixed`. That proves
+  script ran only where the server ships the bar unpinned. With every script
+  request refused, the old wait PASSED on both /properties routes. It now also
+  waits for `html[data-hydrated]`, which only the root layout's onMount writes
+  (#57).
+- The first map on /properties no longer boots at load at 1440x900. A map
+  boots once half of it is on screen (#103). Its top moved from y 596, with 304
+  of 595px showing (6.5px past the threshold), to y 676, with 224 showing. It
+  needs 297.5px, so it boots after about 76px of scroll and shows its MAP_HOME
+  picture until then. It had not booted after 5s at rest on a production build.
+  Sixteen tests waited for it at scroll 0. `tests/interaction/map-boot.ts`
+  scrolls just far enough to boot it without making any listing active. This
+  is a behaviour change the operator may want to weigh; nothing about it is
+  broken.
+
+**What review caught.** Two reviewers, then two refuters per finding:
+
+- The new scripting-off test read the bar at `domcontentloaded`. With no
+  scripts, that event does not wait for stylesheets, and the production build
+  links /properties' CSS as two files where `vite dev` inlines it. So on
+  preview the test raced the CSS. A reviewer's probe got an unstyled page on
+  10 of 20 reads at 1440 and 8 of 20 at 390. With both sheets held back 1.5s,
+  the read got `static` 30 of 30 times at DOMContentLoaded and `fixed` 30 of 30
+  at `load`. The builder's "preview run green" had been luck. It now waits for
+  `load`.
+- The reworked "photo shows above the h1" check could not fail on its own. It
+  scanned from row 0, which the new "top of the band undarkened" test already
+  forces to 0. A flat 0.44-black haze from 31% down (the "one grey haze" the
+  check exists to stop) passed every unit and browser test. The window now
+  runs from under the top strip to a fixed 36% of the band (`PHOTO_TO`, a
+  constant, not read back from the scrim, which would move with it). A guard
+  stops the window being empty, since `Math.max()` of no rows is -Infinity and
+  passes any ceiling.
+- `Nav.test.ts` still modelled a client navigation to /properties as a floating
+  page. It uses /contact now.
+
+**Found and not fixed:** the same stylesheet race in
+`listing-carousel.spec.ts`'s no-script case at 390, which fails OPEN: an
+unstyled page is exactly a visible stacked list (#199).
+
+**Still on hold:** lightening the masthead scrim. Erik's note on the gradient's
+transparency came the same afternoon. The operator stopped that work because it
+may become a design change, so the scrim's stops are the 2026-09-28 ones.
+
+## 2026-09-29 — Ken Burns is one CSS transition now: the compositor draws it, a hold that ends with the dissolve, and a Chromium start time the plan assumed wrong (`claude/roalson-comments-review-45cstm`)
+
+> Superseded in part by 2026-09-30 — Ken Burns at twice the speed, tilted 0.02° for Firefox, and on its layer only while it moves.
+
+The operator said the homepage band's Ken Burns "feels a little stuttery,
+maybe because it's too slow or not using gpu?", then, before any fix of that
+shape landed: "rather than that, can it be one clean transform scale with a
+transition? this seems overbuilt". The drift had been drawn by script: a rAF
+loop writing `transform: scale()` on the `<img>` every frame off the
+carousel's clock, with a `kick` run for visitor turns, a hidden-tab re-base, a
+per-slide park and a Play hand-over (`handedAt`). All of that is gone. The
+on-stage photo gets `transform: scale(1.03); transition: transform 8000ms
+linear <delay>`. Pause and Play act on that transition's own Animation
+(`getAnimations()` → `pause()`/`play()`). The slice's drift code went from 61
+lines of code to about 31.
+
+**The stutter was the main thread, and now it is not.** The probe injected
+80ms of main-thread spin every 200ms and screencast the photo, with a
+rAF-painted box as a main-thread frame counter; the signal is two captures
+with the same counter colour (no main-thread frame between them) but
+different photo pixels. On main (86c92e9), 0 such pairs in 42, 57 and 39
+captures: the photo only moved when script ran, so it held still through
+every spin. On the branch, 6/6, 13/13 and 8/8 such pairs changed the photo,
+and 10/10, 14/14 and 13/13 after the review fixes. The compositor keeps
+drawing it with the main thread blocked. No `will-change` was added, because
+nothing measured wanted it.
+
+**Belief corrected on contact: "a 0s transition delayed by the settle holds
+the outgoing photo through the dissolve".** Chromium starts a transition that
+REPLACES a running one at once, on the last frame's timeline time, while the
+dissolve's fresh transitions wait for the next frame. A minimal page
+reproduces it. On arrow presses the leaving transform started up to 283ms
+ahead idle and 767ms ahead at 4x CPU throttle, so a 500ms hold reset one
+photo at 486ms with the incoming photo still at 0.867 opacity, and a 1000ms
+hold reset one 263ms into the fade. The builder then held for a whole DWELL.
+
+**Review found that DWELL hold was a regression.** Two reviewers, then two
+refuters each. A photo brought back within 8s came back at the value it left
+with (~1.028–1.0299) and sat still for its whole visit; main drifted the same
+press 1.00 → 1.03. The reviewers measured Chromium shortening the return
+transition to 83.7, 17 and 0.36ms by the reversing rule; the fixer, on
+Chromium 151.0.7922.34, got the full 8000ms from the held 1.02994 instead,
+which is still a still photo. The reversing rule did apply to a photo brought
+back while it was still showing (5983.5ms, same rate, no step backward). The
+hold now ends at the wrapper's own opacity `transitionend`: the photo is
+marked resting and gets `scale(1); transition: none`, which cancels the hold
+and snaps it while hidden. In the measured case that landed 516.6ms after the
+turn, at opacity 0. A returning photo reads 1 through the settle and travels
+0.03.
+
+The first slide's drift had been delayed by the settle although the
+carousel's first dwell starts at hydration with none, so it reached only
+~1.028 by the first turn. The delay now applies only when a turn brought the
+photo on (`turned || i !== shown`). The flag alone was not enough: the
+`$effect` runs after the markup, so the first turned photo also got 0ms;
+mutating to the flag alone turns two tests red.
+
+**Dropped on purpose, as "overbuilt":** frame-exact sync with the bar (both
+wait the settle and run DWELL, so they agree to within frames, not by
+construction); the hidden-tab re-base (the bar stops while the tab is hidden,
+the drift runs on); and handing a visitor's drift to the clock on Play. #156
+is unchanged: a Play after the drift has finished leaves the photo at 1.03
+while the bar fills. Its guard, deleted by the builder with the hand-over
+tests, was restored after review: every frame from before Play to the clock's
+turn reads 1.03, and a Play that snaps it to 1 goes red on 501 frames.
+
+**Tests that measured the machine.** The clock and Pause guards allowed
+0.0006 of scale between the last sampled frame and the turn and needed more
+than 5 frames in the settle; at load 7.5–10.9 they went red 2 of 4 on
+unmodified code. They now check against the drift's own timeline, bound the
+value held at the turn by the drift's rate times the gap, and need 2 settle
+frames. 12/12 at load 6.2–13.4. The same shape remains in the #146 fill test,
+red on main too at load 7–9 (#202). A `pausedAtTurn` flag the builder wrote
+was dead state, found because removing its check left everything green.
+
+`pnpm verify` passed on the fix head (a11y 0 violations, 1662 unit tests, 328
+browser tests). WebKit and Firefox were not measured.
+
+## 2026-09-29 — Both partner headshots are the client's own, and Prismic serves an upload's original bytes, metadata and all (#73, `claude/roalson-comments-review-45cstm`)
+
+Erik sent Bart's headshot at 19:15 UTC, after the bios entry above was
+written. Both are studio shots on an off-white wall: Matt's 2416×2417, Bart's
+3351×3298. On the site each is cropped by the Person `photo` field to a
+612×612 square (Bart's `rect=26,0,3298,3298`, Matt's `rect=0,0,2416,2416`).
+Each went out as its own one-field release, checked by `diff_release` before
+publish.
+
+**Prismic serves the ORIGINAL bytes at the bare asset URL.** Measured on
+Bart's upload: `images.prismic.io/…png` with no query string answered the
+full 12,187,767-byte PNG with its XMP and EXIF intact. With
+`auto=format,compress`, or with the crop parameters the site uses, it
+answered a JPEG with no metadata at all. So anything embedded in an upload
+is public to anyone who strips the query string from an image URL on the
+page. That is why Matt's original was never uploaded: its XMP carried
+`exif:GPSLatitude`/`GPSLongitude` (12 m horizontal error), the camera model
+and the capture time. Bart's carried a camera make and model and a Photoshop
+date, and no location, so it went up as sent.
+
+**How each got there.**
+
+- Bart's, first attempt: `upload_asset` from Erik's Dropbox `dl=1` link
+  landed as `kind: "document"` on `roalson-interests.cdn.prismic.io`, with no
+  dimensions, because Dropbox answers `dl=1` with
+  `content-type: application/binary`. The `raw=1` form of the same link
+  answers `image/png`, and that upload landed as an image. The stray document
+  asset (`xTB3P7pPEe8KIkIm`) is unused in the media library and can only be
+  deleted from the dashboard.
+- Matt's: the connector only fetches a public URL. Two ways to host the
+  clean copy for it (a temp file host, and a draft Netlify deploy) were
+  refused by the session's permission checks, so the operator uploaded the
+  clean file by hand. The bytes Prismic serves were then checked:
+  pixel-identical to the clean copy, and no GPS, XMP or EXIF.
+
+**The hook build was stale again.** For Bart's publish the site still served
+the old photo at 19:45:59 UTC, with two hook builds already ready (created
+19:45:08 and 19:45:32); the new one was served at 19:46:20, after a third
+build. That makes three of four connector publishes today whose first builds
+went live with the old content. The live check reads the served HTML, never
+a deploy's state. Both photos are live on `/team/*` and `/`, and the old
+assets appear on neither.
+
+**The seed follows.** An earlier note in this session said updating the seed
+would mean committing a 12 MB PNG. That was wrong: `$image` filenames resolve
+against the media library by name (`scripts/seed/people.mjs`), so the seed
+now names `Matt_Howard_Headshot_NO_GPS.png` and
+`partner-bart-wilson-headshot.png`. Both are real assets in the library
+(`cFFHT_6MUPYzj2U1` and `kTmxa9BbS5HuG7uV`), checked with `search_assets`
+and the upload's reply. The seed's own dry run was not run, because it needs
+a Roalson-scoped token (#164). The old `partner-*.jpg` assets stay in the
+library, unused.
+
+## 2026-09-29 — The active listing's map marker is featured: every other marker at 0.81, a value that was 0.67 until review measured beside the pin (#205, `claude/roalson-comments-review-45cstm`)
+
+The operator: "for the map, whatever the active pin is should stay full
+opacity and the rest should be slightly reduced opacity so it's featured",
+and later confirmed a hovered pin should come back to full. On every
+PropertyMap (the /properties section maps, their expanded overlay, the
+homepage band's map and the static pictures both draw before the canvas),
+while the map has an active listing, every other marker is drawn at
+`DIMMED_MARKER_OPACITY = 0.81`.
+
+The rule, in `markerDimmed`:
+
+- Nothing dims when nothing is active, or when the active id is not on
+  this map. Dimming everything would feature nothing.
+- The marker holding the active listing is never dimmed, whether it is the
+  listing's own pin or the cluster it has been grouped into.
+- These go back to 1: a marker under the pointer or with `:focus-visible`,
+  the marker whose list link has keyboard focus (pins are `tabindex=-1`, so
+  the link is the keyboard's way to a listing), and on the band the pin
+  whose details sheet is open.
+- The change fades on the garnet card's own 150ms, and is instant under
+  reduced motion.
+
+**The number was measured, and the first measurement had the wrong model.**
+The builder took "slightly" as "the lowest opacity that keeps WCAG 1.4.11",
+compositing garnet over each ground the tinted style paints and comparing it
+with that same ground. Water `#a8b4b8` bound it at 0.67 (3.0820:1, and
+3.0018:1 with every channel moved one 8-bit step against it). A cluster's
+sand count needs 4.5:1 on its disc, which gave 0.74.
+
+Review found the flaw. A see-through pin takes its colour from the ground
+under it, but 1.4.11 compares it with what is beside it. Where a pin's edge
+sits on land next to a river or shoreline, 0.67 measured 2.25:1 over the
+background beside water and 2.10:1 over a white road. The two refuters
+split: one held that W3C's own test for 1.4.11 ("if the least-contrasting
+area is less than 3:1, assume that area is invisible; is the graphical
+object still understandable?") excuses a strip along a shoreline. The
+operator's "slightly" pointed higher anyway, so the guard was rewritten:
+
+- It composites garnet over each of 21 ground colours (59 style layers,
+  rivers included) and compares it with every ground beside it: 441 pairs,
+  all with the one-step margin.
+- The pin floor and the cluster floor both come out at 0.81, so they are one
+  constant.
+- The binding pair is a white bridge deck beside water: 3.1706:1 at 0.81
+  (3.0886 with the margin). At 0.80 it is 3.0773 (2.9979), which fails.
+- The guard asserts the constant IS the floor, and that the old one-ground
+  model would give 0.67 and 0.74. Putting the diagonal model back turns it
+  red.
+
+**Strokes are reported, not guarded.** Road casings and boundaries are lines
+under a pixel a side at these zooms. The fix round first recorded them with
+the rejected model, comparing a pin over a casing with that same casing. That
+said two were under 3:1 at 0.81, needing 0.84 and 0.94, and that the
+link/trunk casing cleared. Measured as crossings, three are under: the
+motorway casing 2.1664 (needs 0.93), the link/trunk casing 2.8167 (0.83) and
+the country boundary 1.8672 (0.98). The record now says so, and the old
+figures turn it red. Whether these count as grounds is the operator's call
+(#205), and the only compliant answer if they do is not to dim.
+
+**What review caught in the behaviour.**
+
+- The centre-line watcher stops reporting below lg and never cleared. Load
+  /properties at 1440, scroll a card to the line, then turn an iPad to
+  portrait: the carousel showed one listing while the map still featured
+  another and dimmed the one on stage. `activeIds` now empties when the
+  carousel takes over.
+- On the band, the pin a visitor pressed stayed dimmed while its details
+  sheet named it.
+
+**What review caught in the tests.**
+
+- The browser guard read each marker's own computed `opacity`. A rule of
+  `opacity: 0.6` on the pins' `<svg>` dimmed every pin, the active one
+  included, and passed all 12 cases. It now multiplies the painted opacity
+  from the element that paints the garnet up to the map. The same rule turns
+  9 of 16 cases red. A `filter: opacity()` still gets past it (#205).
+- axe blends a cluster's count over the already-dimmed disc. It reported
+  3.44:1 where the page paints 4.86:1, so the audit failed on correct code
+  whenever a dimmed cluster was in view. Cluster counts are now left out of
+  the spec's contrast results, with that reason, and the audit is called a
+  no-regression check of the maps' text, not coverage of dimming. The
+  site-wide gate has no such exclusion: a two-digit dimmed cluster would get
+  a false serious violation. Today's largest is 6 (#205).
+
+Also found: with scripting off, the band's focused list link names a pin
+that stays at 0.81, because the held link is JS-only (#205).
+
+## 2026-09-30 — Ken Burns at twice the speed, tilted 0.02° for Firefox, and on its layer only while it moves (#212, `claude/roalson-comments-review-45cstm`)
+
+After #204 the operator still found the drift stuttery, in Firefox: "it still feels like it's calculating every tick rather than interpolating like smoother effects". They added "being too slow may be the answer, let's speed it up. ideally we aren't moving by fractions of pixels". That last wish cannot be met by any zoom. For the edges to move a whole pixel every 60Hz frame they would travel about 480px across the 8s dwell. So the aim was a speed that reads as motion, drawn so its sub-pixel steps are filtered rather than snapped.
+
+**Speed.** `KEN_BURNS` went 0.03 → 0.06, the pace before the dwell doubled from 4s to 8s. The 928px box gains 55.7px of width, each edge moves about 3.5px a second, and that is about 0.058px a frame at 60Hz. It is still sub-pixel, and that is unavoidable.
+
+**Firefox, measured by the operator, not here.** There is no Firefox in the cloud container. A throwaway page on the deploy preview ran five variants of one photo side by side, each looping 1 → 1.06:
+
+- A: `scale()` with `will-change`;
+- B: A plus `rotate(0.02deg)` at both ends;
+- C: a `translateZ(0)` 3D transform;
+- D: no `will-change`;
+- E: B at 1.12.
+
+B and E glided and the rest ticked. So the cause was never speed or GPU promotion: it was the transform being a pure axis-aligned scale.
+
+The likely mechanism was read in Firefox's source, not measured. WebRender's `ScaleOffset::from_transform` treats off-diagonal terms within 1/4096 of zero as a plain scale plus offset, which snaps to device pixels. sin(0.02°) = 0.000349, about 1.4× the threshold, and anything under about 0.014° would not count. `TILT_DEG = 0.02` is now in every photo state `zoom()` writes, in the same function position, so every transition runs between identical lists.
+
+**A defect the tilt would have had on its own.** The server markup carries no style, so at hydration each photo's transform is `none`. A first drift from `none` to `scale(1.06) rotate(0.02deg)` animates the tilt up from 0 along with the scale, and stays under 1/4096 for the first 5378ms of the dwell. So Firefox would have ticked through most of the first listing. A priming effect now writes each photo's tilted rest before the drift and reads its computed style. With it, slide 1 reads 0.0199999–0.0200001° on every frame of its first dwell in Chromium. The read cannot be shown to matter there, because something else in the same flush already resolves style. It is kept so the priming does not depend on that.
+
+**`will-change` now follows the drift.** It went on every eligible photo for Firefox. Review then found a cost in Chromium: once a visitor's drift has finished, the photo is held at 1.06 while the arrow's focus keeps the clock paused, and the same happens in #156's Play-after-end hold. Chromium keeps the drift's composited raster and stretches it. The held photo measured 17.3% less detail (mean |Laplacian| 12.38 against 14.97 with the layer dropped) and never re-sharpened. Without the hint, Chromium re-rasters about 150ms after the transition ends.
+
+The photo now drops `will-change` when its own `transform` `transitionend` fires, and gets it back at rest and at re-priming. A Pause mid-drift keeps it, because the transition has not ended. The operator's Firefox check was made with `will-change` on before motion, and that is kept. Whether dropping it on a still, tilted photo changes anything in Firefox is unmeasured.
+
+**Sharp at the end scale.** `sizes` had said "65vw", the box at scale 1, so several end frames were upscaled even at the old 1.03. The worst was 13810 Lookout Road at 1440 on a 1× screen: it is wider than the box, so `object-cover` draws it 1073.6px wide, and it was fetched at 1024. `sizes` now carries `1 + KEN_BURNS` and the photo's own aspect (68.9vw/106vw, or 79.79vw/122.75vw for Lookout), and `srcset` gained 2048. Where the source is narrower than the drawn size (1872 and 1717px), nothing is requested past it.
+
+**Tests.** Every reader takes the scale as `hypot(a, b)` and the tilt as `atan2(b, a)`, rounded to 1e-6, because Chromium serialises six significant digits. Three guards were added:
+
+- the on-stage angle equals `TILT_DEG` on every frame of slide 1's first dwell, the incoming photo's dwell and a returning photo's dwell;
+- `willChange` is "transform" mid-drift and "auto" once a visitor's drift has ended;
+- the held frame is as sharp as a photo never layered.
+
+Each was proven red by its mutation: no tilt on stage, no priming, the layer never cleared, the layer never set, the layer cleared on Pause.
+
+`pnpm verify` had one red, `carousel.spec.ts:478` (#203). An A/B at load ~1 showed it intermittent on both sides. Its cause was found on the way: the a11y-fixtures form focuses its error summary asynchronously and races the test's own focus.
+
+**Corrected before merge: "that is kept" was not true of the first slide.** The paragraph above says the operator's before-motion `will-change` is kept. A final review found the first listing's drift is written with a 0ms delay in the same flush as the priming, so its `will-change` arrived in the same style change that started the drift. Every later drift already had it from the photo's rest. The priming now writes `will-change: transform` with the tilted rest, so every drift, the first included, starts on a photo already carrying it. The unit test for the priming order was red with the layer taken back out of it. A second unit test covers a photo brought back mid-dissolve: a `transitioncancel` on its transform must not drop it off its layer. It went red when a cancel handler that marks the drift ended was added.
+
+## 2026-09-30 — The active pin grows and shrinks about its tip, on the dim's clock (#218, `claude/roalson-comments-review-45cstm`)
+
+The operator, on 2026-09-29: "the pin scale change needs a transition". The active listing's pin was drawn 1.5× by its SVG's `width`/`height` attributes, and an attribute swap cannot transition. On a production build of /properties at 1440, the incoming pin was already 72 × 64.86 and the outgoing one already 48 × 43.23 in the MutationObserver callback that saw `data-map-active` move. There was no frame in between.
+
+Every pin (live, the loading picture's, the expanded overlay's) is now drawn at its frame's size. `--pin-scale` carries `ACTIVE_PIN_SCALE` on the active pin and 1 on the rest, and is applied as `transform: scale()` on the SVG, with the origin at 50% 100%, which is the tip where `PIN_VIEWBOX` ends. It runs on 150ms `cubic-bezier(0.4, 0, 0.2, 1)`, Tailwind's default and the dim's own timing, so the grow and the fade move together. Under reduced motion it does not animate. The scale sits on the SVG rather than the pin element because MapLibre's per-frame loop owns the element's `transform`. Measured every frame on a production build, the tip drifted 0.000–0.001px through the grow.
+
+**Three things the scale brought with it.**
+
+- The focus ring was the element's outline, so it would have stayed at 48px while the pin drew at 72. It moved to the pin's `::after`, sized from the same variable, so it stays 2px solid, 2px out, round the pin as painted.
+- Stacking. The incoming pin is z 2 from its first frame. The outgoing one holds z 1 until its shrink ends (`steps(1, jump-both)`), so a pin still larger than its neighbours never dips under one, and the incoming pin is never under the outgoing one.
+- Those z-indexes escaped the picture. With the picture box not isolated, the picture's active pin at z 2 rose over the canvas and the live overlay (`z-[1]`) for the whole 300ms cross-fade, drawn over the live map and taking its presses as a link to Google Maps. The picture box is now `isolate`. Nothing guarded that at first: with `isolate` removed, all five map specs stayed green on a production build. The guard added freezes the animation clock (DevTools playback rate 0) with MapLibre's style held back, lets the style through, and reads `elementFromPoint` at the picture's active pin one frame after `data-map-ready`. Unmutated it finds a live marker on top; with `isolate` removed, the picture's pin.
+
+**Hit targets did not change.** `elementFromPoint` 1px inside each edge of the drawn 72 × 64.85 active pin hits it, and 1px outside hits the canvas, before and after.
+
+**Tests, and what a restart cost.** A container restart interrupted the last round of test fixes. The unverified edit was saved as a WIP commit and then verified separately rather than trusted. The guards read the transition's own easing from `getTiming()`, because `getKeyframes()` reports a CSS transition's easing as "linear"; the ring's painted place in pixels; and an opacity fade on every painted pin the move changed. Each went red for its named reason with the component mutated: a `linear` grow, a `linear` fade, the ring without `translate: -50% 0` (its outer edge 40px out on the active pin's right, where 2px of offset and 2px of outline put it at 4), the ring with `top: 0` for `bottom: 0` (26px out below it), and pins whose `transition-property` dropped opacity. The spec from before those fixes stayed green on the same mutants. map-featured-pin.spec.ts ran 21/21 on a production build, at load 0.25 to 2.41.
+
+## 2026-09-30 — Phone maps carry expand alone, and the credit shows its whole line until the first touch or five seconds (#225, `claude/roalson-comments-review-45cstm`)
+
+The operator's two calls on 2026-09-29. The first, option two: "happy not to have the zoom buttons on mobile since we've thumbs". A compact frame (`frameFor`: box under 300 tall) now draws expand alone. The expanded overlay a phone map grows into keeps + above − above expand, because pinch is multipoint and a double-tap only zooms in, and WCAG 2.5.1 needs a single-pointer way out. The second, option A, came after the first build collapsed the OSM credit to MapLibre's (i) from the first frame. That is outside the OSMF attribution safe harbour, which says the credit "should not require individuals to interact with the map ... to see the attribution" and may collapse only on a dismiss, on map interaction, or after five seconds. So a compact credit now opens on its whole line and collapses to the (i) on the visitor's first pan, zoom, tap or pin press, or `MAP_CREDIT_OPEN_MS` (5000) after MapLibre's `load`, whichever comes first.
+
+**Measured before writing it** (maplibre-gl 6.10.0, /properties at 390):
+
+- A `compact: true` control left alone already opens the line when its text arrives.
+- A drag collapses it, but leaves `open` on the `<details>`.
+- A wheel, a double-click and time all leave it open.
+
+So the clock, the zoom hooks (tagged `movestart` and the wheel listener, the same two halves as `drivenAt`), a tap, a pin press and the clearing of `open` are this code's. A press on the (i) ends the window, so the clock cannot shut a line the visitor re-opened. The clock starts at `load`, not page load, because a map boots when it is half on screen (#103): a band scrolled to after six seconds still opens on the line. Measured on dev, the line collapsed 4971ms after the observed `data-map-ready`.
+
+**The picture had no credit at all.** It was rendered with `attributionControl: false` and nothing put one back. So a visitor without JS saw an uncredited map everywhere, and everyone saw one until `load`. It now carries `MAP_HOME_CREDIT`, the style's own attribution; `scripts/map-home.test.ts` holds the two equal. It is drawn as the live chip's 224 × 18 box, clear of the control column.
+
+**What the open line covers**, recorded by guard 2i for the five seconds it shows: the downtown cluster at widths 265–525, Dove Canyon at 265–676, IH 10 East at 271–321, and 101 W Commerce at 265–519. After the window, no marker collides at any compact width from 265. The guard now has two rules: a marker's centre under a control's target or the credit (#182), and a marker's own box under anything painted (#188). The second is needed because the downtown cluster's centre sat 0.2px above the old chip, where a centre rule could not see it. A guard-the-guard case finds both issues against the old furniture, and also the Dove Canyon pin (265–608), which no issue named.
+
+**A review found two real defects in the first build, both mine.**
+
+- **The overlay under 300 tall.** The column and credit followed the box's frame, and the overlay is the window. At 800 × 280, a landscape phone, the overlay was a compact frame: expand alone, and no single-pointer zoom-out anywhere. Main had drawn all three buttons there, so this was a regression. `fullControls` (expanded, or a full frame) now decides both the column and the credit. The overlay keeps the whole chip at every height, so no resize inside it removes anything focusable. The frame itself (pins, picture, camera) still follows the box.
+- **Focus dropped to `<body>`.** The picture's credit is two real links in the tab order, and the hand-over removed them under focus: Tab 3 on the homepage band at 1440 landed on "OpenMapTiles" about 1.9s in, and the hand-over at about 3.7s left `document.activeElement` on BODY.
+
+**The whole class, enumerated before fixing.** Four more ways in turned up, each confirmed on a production build before any change:
+
+- the clock collapsing the line under focus;
+- the credit swapped when crossing lg with focus on the chip's link;
+- - and − removed on the same crossing with one of them focused;
+- - and − removed by a resize to 280 inside the overlay.
+
+`focusCredit` moves focus to the live credit's counterpart: the link with the same href while the line shows, otherwise the (i). The hand-over, `collapse` and `placeCredit` call it only when focus is inside what they are about to remove. A `$effect.pre` moves a focused + or − to expand before the column drops them.
+
+**Verify caught three misses of the same shape**, one run at a time. They were tests that read the map's links without importing the component: two unit tests and the no-JS band case, each counting the picture credit's new links. The class was not enumerated first. Each now asserts the credit as its own set, exactly OpenMapTiles and OpenStreetMap's copyright page, so the exemption is a claim rather than a hole. A fake map without `removeControl` failed a later run, because expanding a compact map now swaps its credit.
+
+**A second review found the fixes had moved the problem, and two members of the class that also broke on main.**
+
+- **The (i) covered the sheet's first link.** A pin press ends the credit's window, so every sheet opened with the credit already collapsed to MapLibre's (i), 24 × 24 inset 10px. It sat over "View listing": 5 of 20 points along the link hit the (i) at 390, and at 320 it was "Get directions". A tap there opened the licence line, which then hid both links. The sheet now starts its links 44px in (`pl-11`) on a compact frame. Bottom padding was mocked and rejected: it made the 200-tall sheet 93 tall and, at 320, cut into the pressed pin. The `onTop` hit test now covers every link and button in the sheet, at 12 points each.
+- **A drag left the (i) reporting "expanded".** MapLibre's own minimise removes `maplibregl-compact-show` but leaves `open` on the `<details>`, and the settle that cleared it was one-shot. Every drag now collapses.
+- **Two credits for ~280ms at the hand-over.** For 17–18 frames the picture's chip (0,0,224,18) and the live line (10,10,248,24) were both visible, in different boxes. With scripting on, the picture's credit on a compact frame now takes the open line's box, so the swap is like for like: 0 differing frames. With scripting off it keeps the chip, because the picture never leaves and the line's box would sit on pins the chip leaves clear.
+- **The sheet's × and Escape dropped focus to `<body>`, on main too**, in-page and inside the modal. So did the band's lock, which disables the pins and takes the canvas's tabindex, and Chrome blurs a focused element synchronously on both. A keyboard close now lands on the listing's named list link, and a pointer close on the pin that opened the sheet.
+- **The band crossing lg under reduced motion unmounted the whole column, on main too.** The cause was app.css's reduced-motion reset. A 0.01ms duration over the default `transition-property: all` turned the root's `lg:h-full` → `h-50` into a transition. Its first frame resolved `100%` against an indefinite slot, which gave 985×0, so `measured` went false. The root now has no transition, and a single 985×200 entry arrives. The rest of the site is unaudited for the same shape (#223).
+- **The live credit was tabbable before `ready`** under a transparent host, for 450–530ms. The host is `inert` until ready.
+
+**Beliefs corrected on contact.**
+
+- **"Return focus to the pin that opened the sheet" was wrong for a keyboard.** The third review measured the pins' focus rings in pixels, which no test had done. On the homepage band the root is `bg-dark`, so app.css drew an off-white ring round the pins, the sheet's links and × and the credit's links. Over #f3f1ef tiles or sand, 0 changed pixels reached 3:1. The canvas's ring sat outside the root and `overflow-hidden` clipped it. A pin is also `aria-hidden` with no name. The earlier guard had read `:focus-visible`, which stayed true with the ring deleted.
+  - The rings on this map are now garnet, measured round every focus target at 390, expanded and 1440: pin 138/177, sheet 424/424, canvas 4105/4440 changed pixels at 3:1.
+  - A keyboard close goes to the named list link.
+  - `indicatorOf` is the guard, and it must see at least 40 changed pixels at 3:1 with the median there too.
+- **Not every red was real, and not every red was test noise.** `indicatorOf` read 0 of 0 once in a 124-case run and never again. It now waits two frames and re-reads a no-change result, and a ring that is really gone still reads 0 five times. Separately, featured-properties' "ONE showable listing" fails on any production build because it counts the map's expand button (#221). It had only ever run on dev, where it passes, probably by timing.
+
+**Honest accounting.** The branch took four reviews and three fix rounds. It found more on main than on the branch. Four focus rules still have no guard, and live pins paint over the picture's credit line during the ~280ms fade (#222). A pin removed by re-clustering while it holds focus is the one member of the class left (#224).
+
+## 2026-09-30 — Before final approval: a readiness audit, the three client asks it found unbuilt, and launch prep (#239, `claude/roalson-comments-review-45cstm`)
+
+The operator asked whether the site was ready to send for final approval, and what it would take to roll it into the fleet. The answer came from a read-only audit rather than memory. Six auditors covered the backlog, a ledger of every client ask in Discord and Figma, live content and SEO, live quality and forms, Prismic, and fleet onboarding. A skeptic re-checked every blocker, and a completeness critic went looking for what the six had missed.
+
+**Beliefs corrected on contact.**
+
+- **"The client" is not who the brief assumed.** Erik Svendsen is Reddoor's account lead (erik@reddoorla.com, "Reddoor Creative" signature), not Roalson. The client is Matt Howard and Bart Wilson, who have never posted in #roalson-interests: 236 messages from Nicole, Erik, Tucker and Tim. Erik presents to them in person. "Send to the client" means a ready-for-review message to Erik.
+- **"Everything is addressed" was wrong.** Two asks had sat in Figma, unresolved, for months:
+  - Erik's "Remove word 'total'" (2026-07-10). All 22 listing pages still showed "Total price".
+  - "Limit … to a maximum of 10" and "Toggle on and off for feature" (2026-09-01). Nicole had answered "whole section will go away if toggled off".
+
+  Neither was ever built. Discord was the channel everyone read, and Figma comments were not.
+
+- **The skyline photos were believed unlicensed; they are licensed.** #3 had held them as unlicensed stock since the build began. The critic matched both to Unsplash-License originals: mean difference 0.8/255 and 1.77/255, against 44.7–59.4/255 for mismatched pairs.
+- **The hero clip was believed to be 720p (#82); it is 4K.** The player config for Vimeo 1229048743 now reports 3840×2160, after Erik's 4K master replaced it under the same id.
+
+**What the PR builds.**
+
+- **Price.** "Total price" becomes "Price". The per-unit row names its unit: all four live values end "/ SF", so it reads "Price per SF". "/ acre" gives "Price per acre", and anything else gives "Unit price" with the text as typed. No page shows two rows with the same label. The price reaches a visitor only through `propertyFacts` → `PropertyDetail`; cards, the map sheet, meta and JSON-LD carry none. A smoke test reads every listing the served `/properties` links.
+- **Featured band.** It gains `show_featured`, a Boolean defaulting to on, and a cap of 10 showable picks in editor order, applied after the existing drops.
+  - The live home document predates the field, so its value is absent, and the code shows the band unless the value is exactly `false`.
+  - Prismic reportedly returns null for a never-saved Boolean even when the model has a default. That was not observable before merge (no writes), so it is the first post-merge check.
+  - The model reaches Prismic through `prismic-models.yml`'s apply job on push to main. It is additive and changes no document.
+  - Today's page has 3 picks, so the cap changes nothing yet.
+- **The homepage bar over the hero photo.** It measured 1.09:1 (Menu, 390), 1.14 and 1.15:1 (768), and 1.18 and 1.10:1 (1024) against the poster's sunlit sky.
+  - 1024 is `lg`, so the audit's "below lg" framing would have left it failing.
+  - The client had asked for the dark overlay on /properties to go (#201), so there is no scrim. Instead each control wears its own garnet ground while the bar floats over the hero: a 40px disc behind the menu glyph, a garnet fill inside CONTACT US's sand outline, and a garnet box for the scripting-off links and the revealed wordmark. Sand on garnet is 9.38:1 whatever frame is behind.
+  - A translucent `bg-dark/70` was tried first and went muddy brown over the yellow sky.
+  - The video's frames could not be observed here: the harness forces reduced motion, Vimeo's config answered 403, and there is no ffmpeg. With no frame to justify a width cutoff, the grounds apply at every width, desktop included. The desktop bar the client already saw changes, and the operator should look at it.
+  - This closes the homepage half of #45, which #96 closed without fixing it.
+- **Old www.roalson.com URLs.** A read-only crawl of the old frameset site found 86 URLs answering 200: 20 pages and 66 PDFs, including 41 older packages linked from `SAmap.htm`. Each now 301s to its new page.
+  - The 22 current packages go to their own `/properties/<uid>`, the TREC PDFs to the same-origin copies, contact pages to `/contact`, and property pages to `/properties`.
+  - `netlify.toml` redirects would never be read: adapter-netlify publishes one `/*` function, and Netlify runs functions before redirects. So the table lives in `src/lib/legacy-redirects.ts` and `hooks.server.ts` answers the 301, matching case-insensitively on the decoded path.
+  - The first crawl hit GoDaddy's transient 502s; retries fixed it.
+  - The archived-listing trap is #236.
+- **The 404 page** now wears the site's bar, footer and type. It keeps `<h1>404</h1>` exactly, because the fleet's `launch` recipe (`SITE_404_MARKER`, `src/recipes/launch.ts:63`) refuses a site whose 404 lacks it.
+- **The axe gate** now scans `/properties/101-w-commerce-street`: 0 violations across 8 routes.
+
+Every guard went red for its named reason under mutation, and the builder's and two reviewers' mutations were independent of each other. One example: with `onPhoto` forced false, the photograph guard read 1.088, 1.145 and 1.184 against its threshold of 3. A polish round then:
+
+- **Moved the menu disc onto the gutter.** Its right edge had overhung by 10px at every width (at 1440 the disc spanned 1315–1355 against a gutter at 1345). While over the photo, the button's pull drops from 12px to 2px, the overlay's Close takes the same pull, and the margin glides back over 300ms at the gate.
+- **Made the scripting-off links chips that match CONTACT US.** Both now share one `PHOTO_CHIP` constant, clear of the wordmark's halo.
+- **Widened the contrast guard to 1280, 1440 and 1920, and added the CTA's focus ring.** With the grounds stripped, 1280 measured 1.83:1 (menu) and 1.95:1 (CONTACT US), between the widths the guard had covered.
+
+The one thing still open is the scripting-off chips wrapping at 390 before the webfont loads. It has the same fallback-metrics cause as #220, and is noted there.
+
+**Found and not fixed, filed.**
+
+- In the site repo: #227 (broker disclaimer and TREC name), #228 (Prismic publish hook builds go live stale), #229 (listing-package generator only on a branch), #230 (share cards cut heads), #231 (listing imagery), #232 (COOP and Permissions-Policy on server-rendered responses), #233 (seed state and a Roalson-scoped token), #234 (privacy page before GA4), #236, #237, #238.
+- In reddoor-maintenance: #1055 (no fleet site has a privacy policy) and #1056 (`launch` scores Lighthouse on the local checkout; VLF got 52 for a site that scored 85).
+- The launch path, from approval through cutover to fleet launch, is #235. The one trap in it: roalson.com's GoDaddy zone also runs `pay.roalson.com` (the client's GoDaddy Payments page) and Microsoft 365. Cutover must change only the apex and `www`, never the nameservers.
+
+**Closed with evidence:** #52, #82, #147, #193 and #216.
+
+**Honest accounting.** Every browser measurement in this session was Chromium. WebKit and Firefox were never run, and Erik shows the site on a phone, so a ten-minute pass on a real iPhone is the operator's before sending.
+
+## 2026-10-01 — Nicole's MarkUp round: seven pins landed and resolved, two PRs held, three pins left open (#240, #241; held #242, #243)
+
+An overnight worker cleared the design-review round Nicole posted at 00:57Z. There were 12 unresolved pins across two boards, "Roalson Homepage" (9) and "Roalson Properties" (3). The comments alone were ambiguous, so every pin's screenshot was fetched. The pins' x/y percentages do not line up with their screenshots: "remove the menu text" sits at 4%/3%, but the MENU eyebrow is at 9%/40% of its frame. Read a pin by its screenshot and comment, never by its coordinates.
+
+**#240 (`b7a96e1`): four homepage pins.**
+
+- The Partners eyebrow ("OUR LEGACY") went from `t-h5` to `t-h4`, the featured band's size: 12px to 14px.
+- The space either side of its hairline went from 32/30 to 29/27, the "10%" asked for. The band is now 551 tall at 1440, down from 556, and 1156 at 390, down from 1161.
+- The footer headline is `t-h2` below `sm`, the size of "Representing Your Best Interests". Before, it was H1 down to 360px.
+- The open menu's MENU eyebrow is gone. `lg:col-start-2` keeps the links on the listing column.
+
+**A consequence of #240, accepted rather than worked around.** The H2 headline makes the 390 footer 812 tall in an 844 window, so it no longer covers the 240px pinned photo band completely at the very end of the homepage: the band's top 32px shows above it. That was not a regression in kind. The 800px band's top has always shown above the ~512px footer at 1440, and the phone's full cover was only ever a side effect of a tall footer. `photo-band.spec.ts` caught it, the only real red among the five a loaded local run threw up. Its 390 test now asserts that the footer ends on the viewport's foot. If full cover on phones matters, `min-height: 100vh` on that page's footer is the lever.
+
+**#241 (`35a35c1`): three pins** ("can this stay in the same position…", and "remove white outline" twice).
+
+- Over the hero photograph the menu trigger took a 2px pull, everywhere else a 12px one. It and CONTACT US therefore slid 10px at the gate, which the old comment called "gliding". The pull is now 12px in every state: the glyph never moves, and the garnet disc over the photo is centred on it, 10px past the gutter.
+- The disc's ring and the CTA chip's border are garnet, not sand, over the photo.
+- A new hold-still test compares the boxes across the gate at 390 and 1440. It went red on the old pull.
+
+**#242 (draft, held): "Improved Projects" under its own tab is dressed as Land.** Under its own view, Improved is the page's first section but kept the second section's dressing: sand ground, 100px gradient strip, a divider that pins. That is "the background changes and the title moves down". The fix is CSS keyed to `data-view` / `:target`, so it holds with no script too.
+
+- Round 1 found that the cards kept the cream tone, the same colour as the new ground, and that with no script the map stayed offset for a pinned divider (145.4 against 100).
+- Round 2 found that a unit test still expected the old fallback string, and that the carousel's photo-less photo box missed the re-tone, because it was selected by `:has(> img)`.
+
+Two dirty rounds is the stop rule, so it waits for the operator, fixed and green. On deploy-preview-242 with real listings, Land and Improved now read identically: ground, card `rgb(234,231,228)`, photo box `rgb(243,241,239)`, heading 51px under the tabs.
+
+**#243 (held): a pin press flies straight to its listing.** Reproduced first. The press smooth-scrolls its card to the centre, and the centre rule reports every card crossed. The camera flew to the first card crossed, then back to the pressed one, which was "bounces around". For example, IH-35 pressed from the top gave `[potranco-road, ih-35-new-braunfels]`.
+
+Now each map holds `heading` while its press scroll runs, and the camera targets it. `active` is untouched, so the operator's rule ("only the viewport centre sets `active`") stands. #136 was closed on 09-28 as "keep the three flights … reopen only if someone reports the press as janky", and this pin is that report. That is why it is the operator's to merge, not the worker's.
+
+**Left open on MarkUp, for the operator, Erik or Nicole:**
+
+- **Homepage #4:** Nicole asks Erik whether the featured band's PROPERTIES button should stay.
+- **Homepage #3:** "Drop down back color to 20% opacity" names no dropdown. Nothing on the page is one. The likeliest reading is the map panel's solid garnet ground: in Nicole's screenshots the homepage map never drew its tiles, so she saw a maroon box.
+- **Properties #3:** "should the property package button be an arrow or a download button?"
+
+**Honest accounting.**
+
+- The local `pnpm verify` runs were not clean evidence. Three suites and a subagent shared one container. The subagent's `pkill -f vite` killed another worktree's dev server mid-run, which produced 196 ECONNREFUSED failures. Two `featured-band-live` motion tests fail identically on untouched `main` here.
+- CI on each PR was the authority.
+
+## 2026-10-01 — A pressed pin sends the camera straight to its listing (`fix/markup-map-press`)
+
+The designer, on a MarkUp pin over /properties at desktop width: "when I click
+on a point on the map, it bounces around before returning to the same point."
+This is #136 coming back. #136 measured the cost of #127/#128's flight rule (a
+press goes from one flight to three) and was closed "keep the three flights …
+reopen only if someone reports the press as janky". This report is that.
+
+**The mechanism, reproduced before any code changed.** A press calls
+`revealCard`, which smooth-scrolls the card to the centre line, and the centre
+rule reports every card the glide crosses. The camera flew to the FIRST crossed
+card, refused the rest while that arc was in the air (`in-flight`), then flew
+on to the pressed listing. So the visitor pressed X and the camera went to Y and
+back to X. Camera targets after the press, through `camera-probe.ts`, at
+1440x900 with motion allowed, pressed from scrollY 0:
+
+- `/dev/properties`, IH-35 pin: `[potranco-road, ih-35-new-braunfels]` on one
+  run and `[fm-1560-galm, ih-35-new-braunfels]` on another. Castroville pin:
+  `[fm-1560-galm, hwy-90-castroville]`. Glides of 1146px/560–637ms and
+  884px/506–508ms.
+- Production build of `/properties`, the land section's last pin (card 16 of
+  17): three flights, the first two to listings the glide passed. The middle
+  pin (card 10): three flights. Glides 5193px in 1230–1319ms and 3296px in
+  1011–1068ms.
+
+After the fix, every one of those is a single flight to the pressed listing.
+
+**The fix lives at the camera, per map.** PropertyMap keeps `heading`: the
+listing a travelling press is taking the page to. While it is set, the camera
+effect hands `cameraMove` that id in place of `active`. Nothing else reads it,
+so the garnet card, the dimmed markers, `drivenAt` and the centre rule are
+unchanged. The hold ends at whichever comes first:
+
+- the rule reports the same id;
+- `scrollend`;
+- a wheel, touch, pointerdown or keydown anywhere;
+- a second press;
+- `PRESS_HOLD_MAX_MS` (2000), a backstop for engines with no `scrollend`,
+  sized against the 1230–1319ms longest real press.
+
+Only the caller knows whether the press will ever reach `active`, so `onselect`
+now answers it. `revealCard` returns true on the centre-line path and false on
+the carousel path. Below `lg` the centre rule does not run, and a hold there
+would fly to the listing and then back to MAP_HOME at the cap.
+
+**What #126 found is kept.** That fix removed a press special-case from
+PropertyListing for two reasons. It was the wrong place: it suspended the RULE,
+and every other smooth scroll chains the same way. And its timers were shared
+across sections, so one map froze on another section's press. `heading`
+suspends nothing in the rule, ordinary scrolling still goes through
+`in-flight` exactly as before, and the listeners and timer belong to each map
+instance. The cross-section test in the production spec stays green.
+
+**Tests.** `tests/interaction/property-map-press-direct.spec.ts` asserts that
+every camera command between the press and settling names the pressed listing.
+It runs with motion allowed (the harness's `reduce` makes the press instant and
+makes the test vacuous), and it was red on `origin/main` before green with the
+fix. Its 390 case asserts that a carousel press moves no camera through the
+cap. The production spec's press case now asserts the destinations as well as
+the arcs: red on `origin/main` (`longitudes [-98.7301826, -98.0289331,
+-97.8487066]`), green with the fix. Nine unit cases in
+`PropertyMap.camera.svelte.test.ts` cover the hold and each way it ends. One of
+them checks that an inner scroller's `scrollend` does not end it, since a
+capture listener on the window hears those too.
+
+Mutations, each run against the tests named and each red:
+
+| mutation                           | tests           | result                  |
+| ---------------------------------- | --------------- | ----------------------- |
+| camera ignores `heading`           | unit / dev spec | 7 of 8 red / 2 of 2 red |
+| any element's `scrollend` releases | unit            | 1 red                   |
+| `revealCard` answers false         | dev spec        | 2 of 2 red              |
+| no `scrollend` release             | unit            | 1 red                   |
+| no release when the rule agrees    | unit            | 1 red                   |
+| no gesture release                 | unit            | 2 red                   |
+| no cap                             | unit            | 2 red                   |
+| carousel path answers true         | dev spec at 390 | 1 red                   |
+| `origin/main` src                  | prod press case | red                     |
+
+**Honest accounting.**
+
+- Chromium only. Safari's `scrollend` support was not checked here. Without
+  it, the hold still ends when the rule reports the pressed listing, or at the
+  cap.
+- One unrelated red in the 137-test dev run: the homepage band's credit
+  hand-over premise. It passed 24 of 24 alone. That map has no `onselect`.
+
+## 2026-10-01 — The MarkUp round closes: 12 of 12 pins resolved, and the bar at 75% on the hero (#246, #247, #248)
+
+> Follows 2026-10-01 — Nicole's MarkUp round (#240, #241; held #242, #243).
+
+The held PRs landed on the operator's word, as #242 and #243, along with #245, the package download. The last three answers followed.
+
+**Home #3, "drop down back color to 20% opacity".** The operator read it as the progress bar's unfilled track. The search through Figma and history for a removed colour found nothing at 20% in any homepage frame, which is what you would expect when the request is a new value and not a lost one. The track was 53%, chosen so the track holds 3:1 against the card (WCAG 1.4.11), because in `position` mode the bar is the only "2 of 3".
+
+#246 makes the track 20% only while the bar is timed. There it is a countdown, and the fill still clears 3:1 against both the 20% track and the card. The 3:1 track stays wherever the bar draws position. If the operator wants 20% everywhere, it is a one-line change.
+
+**Home #4, the PROPERTIES button.** The operator's answer was "eliminate it, add an 'all' button next to the slideshow controls". #248 makes it the arrows' 40px circle reading ALL, last in the controls row and outside their `data-js-only` wrapper, so it still serves no-JS visitors (#47). Two consequences:
+
+- **The 320 layout.** With 190px of controls, "PROPERTIES" (94px) no longer fits beside them at 320, so the row now wraps there. The heading carries `min-w-min grow basis-0`, reset at `lg`; 360 and up keep one row.
+- **The hydration instrument.** The instrument proving the hydration-mismatch listener went silent when its injection target was the chrome's head. It injects into the controls row now. That was the instrument failing, not the system.
+
+**The nav at 75% on the hero** (operator, unprompted by a pin), #247. The CONTACT US chip and the menu disc are garnet at 75% over the photograph, with transparent borders so no 94% ring forms. Sand on that ground over a pure-white pixel is 4.57:1, and the pixel contrast tests pass at six widths. Tailwind v4 computes `bg-primary/75` as an `oklab(...)` string, so the specs read it off a probe element rather than typing an `rgba`.
+
+**Process, twice over.** `pkill -f <pattern>` and `ps | grep | kill` both matched the calling shell's own command line and killed it (exit 144). The dev server's PID now goes in a file when it is started.
+
+## 2026-10-04 — Hovering a listing card makes it the active listing; contact recipients pinned to the launch checklist (`fix/properties-hover-activate`)
+
+**Hover activation (Erik, 2026-10-02, after Pinthouse's menu).** A mouse resting on a /properties card for 200ms now writes the same `activeIds[section.id]` the centre rule writes, so the garnet card, the camera and the dimmed markers follow it. PropertyListing's header used to say "There is no second source of truth: not a press, not focus, not a hover". The single source still holds: there are now two writers to one state, not a second state. The header now says so. The logic is `$lib/actions/hoverActivate.ts` and is not folded into `centreWatch`, whose header is explicit that it has one job.
+
+Why 200ms: the cards are 220–284px tall. A move from the map to a card further down crosses one or two of them at well under 200ms each, and every new card restarts the timer, so only the card the mouse settles on is reported. Past about 250ms it reads as sluggish next to the 500ms flight. The camera's `in-flight` refusal still coalesces flights, so no flight-coalescing was added here.
+
+Two guards, and what proves each. (1) `pointerType === "mouse"` inside a `(hover: hover) and (pointer: fine)` + `min-width: 1024px` query, also off while a carousel is on: touch is untouched. (2) A pointermove at the same clientX/clientY as the last is ignored, and a scroll cancels a pending dwell. That is meant to stop a wheel turning under a still cursor from handing the card to whatever scrolled beneath it. **Correction made on contact with the browser:** headless Chromium sends NO pointermove after a wheel under a still mouse, and none on a tap. So the browser test I wrote for (2), and a tap test for (1), both stayed green with their guard deleted. The tap test was removed. The wheel test was kept and renamed to what it does prove: after a hover, the centre line takes the card back. Guards (1) and (2) are proven only by the unit tests, which do go red when either is deleted. Deleting the action turns both browser tests red.
+
+**Contact form recipients.** Nothing in this repo picks who gets /contact mail. reddoor-maintenance `resolveRecipients` reads Roalson's Turso row: Status `building` means the operator only, which is why Tucker gets the test leads. A single Point of Contact cannot reach two people, so the change is `Notify Routing` = `{"field":"inquiry","routes":{},"default":["mhoward@roalson.com","bwilson@roalson.com"]}`. `field` must be non-empty and `routes` present, or the parser returns null and silently falls back to the single POC. It is inert until the Launch report sets `maintained`. Nothing was changed. I added this as a section D line on #235, with a comment carrying the verification command. The addresses are #160's (public on roalson.com and in the Figma wireframe), not anything said in Discord, so the line asks for Erik's confirmation. I did not read the live Turso row; that access was denied in this session.
+
+**Profile back button.** Left alone on #251. The PR body proposes a version for Tucker that uses `afterNavigate`'s `from` (client navigations don't update `document.referrer`), then a same-origin referrer, then `/`, and calls `history.back()` so the homepage's scroll position comes back.
+
+**Verify, honestly.** prettier, eslint, svelte-check, build and the a11y audit (0 violations, 8 routes) pass. Unit tests: 1752 pass and 2 fail in `download.test.ts`. Those two fail identically on a clean `origin/main` worktree in this Node 22 container; CI pins Node 24. Filed as #252. The smoke suite had 360 passing and 98 failing in this sandbox. All 54 `property-map.spec.ts` failures fail identically on `origin/main` (diffed by test title), and they need tiles, fonts and photos this container can't fetch. My two new specs pass. Playwright here wanted chromium_headless_shell-1234 and only 1194 is installed, so I symlinked it. That works, but it's the reason any measurement from this container is Chromium-1194's.
+
+**Later the same day: the back-button proposal is withdrawn.** Tucker: the back button "should just go to home, there's no other way a user could get there other than direct navigation". A profile is reached only from the homepage's partner band or by typing the URL, so `/` is always where the visitor came from. #251's `href="/"` stands. The `afterNavigate` / referrer / `history.back()` version described above solved a navigation path this site doesn't have.
+
+## 2026-10-04 — Tests build; they don't freeze: a `@smoke` gate, a nightly tier, and the design pins out of the unit gate (`claude/trusting-hawking-aauv3f`)
+
+The developer's ask, verbatim from the session: tests "have been useful to you in autonomously building, but those tests should be used to build not to freeze". The evidence was #251. A taller masthead (`xl:h-120`), a Go Back button on the profile and an arrow on SEE ALL cost five gutted tests, among them `expect(true)` stubs and the deletion of a real contract (the profile's email and phone links), and not one of the reds was a bug. On `main` those three edits turn 7 unit tests red (six PageMasthead class-list cases and the PersonProfile href list) and `contact.spec.ts:106` red (`near(g.masthead.height, 400)`). On this branch the same edits pass all 1,642 unit tests and all 60 `@smoke` tests that run. #251 itself went red on prettier alone, in 20 seconds, before any test ran.
+
+**What a red now means.** Every Playwright spec still exists (463 tests) but only 66 are tagged `@smoke`, of which 60 run on CI's dev server; `pnpm test` runs those plus vitest. `test:nightly` runs 19 map, carousel and motion spec files from `nightly.yml` and blocks nothing. `test:scaffold` is everything not `@smoke`, on demand. CLAUDE.md carries the rule and the tier table. A `@smoke` test may hold no fixed sleep, frame count, animation window, `boundingBox`/`near()`, computed colour or size, or element count a new button would change. Where a tagged test carried such a pin, the pin moved to an untagged variant in the same file, so the scaffold kept it.
+
+**Measured, in this container** (4 vCPU, the proxy CA in Chromium's NSS store):
+
+|                        | before (`main`)                        | after                                      |
+| ---------------------- | -------------------------------------- | ------------------------------------------ |
+| Playwright in the gate | 463 tests, 15.6 min, 455 passed, 1 red | 60 run, 6 skip, 47–64 s, 3 of 3 runs green |
+| `pnpm verify`          | not run whole                          | 194 s, exit 0                              |
+| unit tests             | 1,744 in 27,712 lines                  | 1,642 in 26,031 lines                      |
+
+On GitHub's runner the whole `ci / ci` job for this branch (install, prettier, eslint, svelte-check, build, the a11y audit, vitest, `@smoke`) took 3 min 33 s, 19:21:12 to 19:24:45 UTC on `c5db79b`.
+
+The one red on `main` was `featured-properties.spec.ts:2869`, #202's rAF count, under the load of this session's own agents: the issue reproducing itself. CI on `main` had drifted from ~11 min (late September) to 15–27 min per PR, retries 2.
+
+**A gate that still catches bugs.** Four real regressions planted in a clean worktree, each reverted after:
+
+| planted bug                                    | unit   | `@smoke` |
+| ---------------------------------------------- | ------ | -------- |
+| contact `name="email"` → `"mail"`              | 1 red  | 2 red    |
+| the menu button loses `aria-label="Open menu"` | 14 red | 3 red    |
+| `emailHref` drops the address                  | 6 red  | green    |
+| SEE ALL `href` → `#`                           | 1 red  | 1 red    |
+
+**Belief corrected on contact.** Early in the session I told the developer that many tests restate the code. That was wrong. A file-by-file audit put ~75% of the unit lines on real behaviour (carousel, focus trap, camera state machine, seed safety, data transforms), with no bare `expect()` anywhere. The friction was ~14% design pins sitting inside otherwise good files, plus ~3% that read `.svelte`/`.css` as text and held a scraped number to a literal (PageMasthead's `lg:h-[…px]` regex, `type-ramp.test.ts`), so one design edit cost two. The net cut is 1,681 unit lines, not the ~4,700 the audit's categories added up to, because several pins were rewritten into properties (contrast as `>= 4.5` at every breakpoint read from the rendered classes; tap targets `>= 24px` by size or padding; an href list as containment). Only `type-ramp.test.ts` was deleted whole. Playwright lost no tests; its CI time came from the 463-test gate, and the map specs alone were 30% of the suite's test-seconds.
+
+**Another wrong first reading.** The first local baseline showed 106 reds. All were `ERR_CERT_AUTHORITY_INVALID` on Prismic images and Google Fonts: this container's Chromium did not trust the egress proxy. With the CA imported, 455 of 456 ran green. Reading the error before counting the reds saved a false finding that the suite was rotten.
+
+**Tailwind scans test files.** The shipped JS is unchanged (the only differing chunk is SvelteKit's per-build `__sveltekit_*` id), but the CSS is not: 4 utilities left the bundle (`antialiased`, `bg-primary/55`, `focus-visible:outline-background`, `size-[153px]`) and 7 entered (`bg-[#652323]`, `text-light/90` and others from new test code). None of the four is in site source, literal or composed. The coupling is real, though: a class built dynamically in a component and spelled literally only in a test would vanish from the CSS when the test is deleted.
+
+**Comments that cited deleted tests.** About 20 source and doc comments claimed coverage this change removed (e.g. "PageMasthead.test.ts pins that", "map-marker-contrast.test.ts asserts it is exactly the floor"). They were cut to what is still true, comment text only. `src/lib/components/carousel-arrows.figma/{l,r}-arrow.svg` now has no reader; it stays as the comp's export.
+
+**Not done.**
+
+- **A pre-commit `prettier --write` hook.** It would have kept #251 green. Installing git hooks was refused by this session's permission policy, so it waits on the developer.
+- **The nightly runs on the dev server**, so `property-map-camera-prod` still never tests the shipped bundle (#255, beside #213).
+- **Gaps in the masthead contrast check.** It measures one line of title, and nothing reads an `opacity` on the scrim or the h1 (#254).
+- **A missing space on #251's branch:** `'…to-dark'{passedClasses}` would fuse into `to-darkmb-10` if a caller ever passes `class`. That one is reported to the developer, not fixed here.
+
+The pre-commit hook is a decision for the developer, so it has no issue.
+
+The flaky-test issues whose tests left the gate (#190, #197, #200, #202, #203, #214, #217) close with this PR, and so does #221, whose test now counts only the carousel's named controls.
+
+## 2026-10-04 — The site carries a DRAFT `/privacy` page before launch adds GA4 (reddoor-maintenance#1055)
+
+The fleet privacy page (reddoor-starter#165, `f538398`) arrives here before launch, because the launch adds GA4, and GA4's terms require a posted policy that discloses it. The central `analytics-tag` recipe now refuses a site without one (reddoor-maintenance#1129). The code is the starter's, copied as landed. The page's service list is derived from this site's own code and its resolved CSP. Measured on this build, it lists the central forms, Google Fonts (`app.html` loads Atkinson Hyperlegible Next), Vimeo (the CSP's `frame-src` admits the player) and Netlify. GA4 joins when the recipe writes `src/hooks.client.ts`. The test that pins this site's list leaves `ga4` out on purpose, so that install does not have to edit it.
+
+Four things differ from the starter, each because this repo already had a rule or a service the starter does not use:
+
+- **Footer link.** The link sits on the rights line (`© <year> Roalson Interests · Privacy Policy`), rendered by `Footer.svelte`, not added to `footer.legal`. That list is pinned to exactly the two TREC PDFs whose wording TREC prescribes. The first version put the link as a third item under them. Review round 1 said that would push the band past the comp's 512.56px and break `footer.spec.ts`'s rights-line pins. A negative control did not bear that out: with the third item restored, the 1440 and 390 footer specs still passed. So that spec does not see an extra legal item. The rights line is still the placement that adds no height, so it stays there.
+- **DRAFT banner colours.** The banner uses `border-primary bg-light text-primary` (garnet on sand) rather than the starter's `amber-*`. `src/tailwind-sources.test.ts` refuses any default-palette utility.
+- **noindex.** `noindex` rides the hook this site already had: `isNoindexPage(pathname, page.data.noindex)`.
+- **Contact notice.** The notice comes after the submit button. Placed before it, the notice puts 80px between the message box and the button, against `contact.spec.ts`'s pinned 30. That spec is untagged, so CI does not run it. A negative control reproduced the 80, and the spec passes with the notice after the button.
+- **OpenFreeMap.** The property map loads its tiles from `tiles.openfreemap.org`, so every visitor's IP goes there. The starter's derivation had no rule for a map tile host. Here it is a code-driven service, on when `src/` loads the host and `connect-src` admits it. Review round 1 caught it. The starter will want the same rule the first time a starter site ships a map.
+
+**Not done here.**
+
+- `privacy.legalName`, `contactEmail` and `effectiveDate` in `site-config.json` are empty, so the page shows bracketed placeholders. None of the three values is anywhere in this repo. The footer's "Roalson Interests" is a brand, not necessarily the legal entity, and was not guessed at.
+- The text stays marked DRAFT, `noindex` and out of the sitemap until reddoor-maintenance BACKLOG item 45, a lawyer's review.
+
+## 2026-10-04 — #256 landed, and #251 rides the new gate: one scaffold number moved, no test gutted (`working-session-changes`)
+
+> Follows 2026-10-04 — Tests build; they don't freeze.
+
+#256 was squash-merged as `59a87a1`, pinned to the head CI had passed (`5616efd`). Then `main` was merged into #251 with a merge commit, because it is the developer's branch. The developer's three design edits kept: the taller masthead (`xl:h-120`, the gradient only without a photo, `blur-[1px]` on the photo), Go Back on the profile, and SEE ALL with `border-0` and an arrow. Every test edit on the branch gave way to #256's version: the `expect(true)` stubs, the deleted PersonProfile link test, the `toHaveCount(1)`, and the dropped masthead height.
+
+Three fixes in the edits themselves, none of them design. `'… to-dark'{passedClasses}` had no trailing space, so a caller passing `class` would have fused it into `to-darkmb-10`. An unused `DefaultButton` import came out. Prettier fixed the formatting, which is the only thing that turned #251 red on 2026-10-01.
+
+The new gate held on its first real customer. `pnpm verify` passed locally (1,653 unit, 60 `@smoke`), and `ci / ci` passed on `409a66c` in 2 min 54 s. The scaffold tier ran against the same edits: 397 of 398 green. The one red was `contact.spec.ts:106`, `masthead height: 480 vs 400`, which is exactly the number the design moved. It now reads 480 rather than being deleted, so the scaffold still measures the masthead the site has.
+
+**Left with the developer, not changed.** With a photo, the band no longer paints the garnet gradient under it. Until the photo decodes, or if it fails, the white h1 sits on the cream page behind the scrim alone. That is a design call, and the unit contrast gate measures the photo case only.
+
+## 2026-10-04 — A pre-commit hook runs prettier on what is staged (`claude/trusting-hawking-aauv3f`)
+
+> Follows 2026-10-04 — Tests build; they don't freeze.
+
+#251 went red on 2026-10-01 in 20 seconds, on `prettier --check`, before a single test ran. Formatting is the one CI failure a machine can fix without judgement. So `pnpm install` now installs a pre-commit hook: `simple-git-hooks`, wired through `prepare`, runs `lint-staged`, which runs `prettier --write --ignore-unknown` on the staged files. Earlier in the day this was refused by the session's permission policy as persistence. It went in once the developer asked for it by name.
+
+Measured on scratch worktrees, each thrown away after:
+
+- **A staged, badly formatted line** went into the commit as `export const uglyThing = { a: 1, b: 2 };`. An unstaged edit to the same file stayed unstaged and unformatted, so lint-staged's stash round-trip leaves a half-staged file alone.
+- **A staged syntax error** fails the hook (`✖ prettier --write`), rc 1, and HEAD does not move.
+- **An install with no `.git`**, as a tarball or a Netlify build might be, logs `No .git root folder found, skipping` and exits 0, with `CI=true` too.
+- **A worktree with no `node_modules`** commits with a `pre-commit:` line saying prettier did not run. It is not blocked.
+
+That last behaviour was a change, not the first draft. The first hook was `pnpm exec lint-staged`. Git hooks live in the shared `.git/hooks`, so they fire in every worktree, and agent sessions make worktrees constantly. Two things went wrong with it:
+
+- In a worktree with a symlinked `node_modules`, pnpm 11's dependency-status check aborted the commit with a stack trace.
+- A worktree with no install at all would have had every commit blocked.
+
+The hook now calls `node_modules/.bin/lint-staged` when it exists and says so when it does not. CI's `prettier --check` is still the gate, and the hook only moves the fix earlier.
+
+`simple-git-hooks` is `false` under `allowBuilds` in `pnpm-workspace.yaml`. Its own postinstall would install hooks from inside `node_modules`, and the root `prepare` already does that job. pnpm 11 refuses an unlisted build (`ERR_PNPM_IGNORED_BUILDS`), so the entry has to exist either way.
+
+Not done: the starter template does not carry this. CLAUDE.md says this file ships with the template, but `package.json` is per-site, so other sites get the paragraph without the hook until the starter adopts it.
+
+## 2026-10-05 — Erik's final round: labels, menu, inline package, whole-card links, pins and aerials (#263, #264, #265; Prismic release `asP91BIAAH8K23X-`)
+
+Erik's 19:11Z list, worked from a reddoor-maintenance worker brief. The full account is in that repo's journal for the same date. This entry keeps what someone working in this repo next needs.
+
+**Code.**
+
+- **#263** renames Improved Projects to Improved Properties. The `#improved` fragment is kept, so shared links still work.
+- **#263** also makes the menu read HOME, PROPERTIES, ABOUT US, CONTACT US. ABOUT US is `/#about`, which is `ABOUT_ID` on the Partners band. The site has no About page, and the operator confirmed the reading.
+  - The capitals come from CSS, because `properties-label.test.ts` holds the data label at "Properties".
+  - The no-script bar drops fragment links, so it keeps two chips. The footer list carries About Us.
+  - Choosing a fragment link from the menu now hands focus to its target (`Nav.svelte` `restoreFocus` / `land`). Before, focus went back to the menu button. Round 1 of review found that, and round 2 found it still touched the button for one frame.
+- **#264** turns the package link into a plain new-tab link. Prismic's CDN already serves the PDFs `inline`, so `$lib/download` and the download glyph are gone, and so is the size line. This reverses #245 at the client's request.
+- **#265** makes each card one link. The title's `::after` covers the card, and LEARN MORE is an `aria-hidden` picture of it.
+
+**What #265 cost, and why.** A stretched link sits under every pointer-down on the card, so it changed two things nobody asked about:
+
+- **The carousel swipe.** A mouse drag on a link starts a native link drag, and a finished swipe can end in a click that opens the listing. The fix needs both `draggable="false"` and `carousel.svelte.ts`'s click guard for 500 ms after a swipe. The spec goes red if either is removed. The guard also covers FeaturedProperties, which spreads the same `carousel.swipe`.
+- **Visibility under reduced motion.** `app.css`'s reduced-motion rule gives every element a 0.01 ms `transition: all`, and `all` includes `visibility`. So right after hydration, a new element inside an off-stage slide could stay `visible` for 20–45 ms. The off-stage @smoke caught it 3 times in 20 on the branch and never on main. `in-[[inert]]:invisible` on the link fixes it.
+  - Read this before putting a new element in a card. Anything that must be hidden inside an inert slide should hide itself rather than rely on inheriting `invisible`.
+  - It never shows without reduced motion, so a single run looks like a flake.
+
+**Content (staged, not published; Operator decision 81).**
+
+- 8 map pins moved onto their parcels, checked against each listing's own outlined aerial. The table is in #264.
+- 14 feature images were re-cropped in Prismic so the whole outline survives every frame they are drawn in. Measured, those frames run from 0.81 (the 834 carousel, where the photo spans the slide) to 1.71 (the homepage band).
+- Dove Canyon and 5930 Bandera can't fit and need wider sources (decision 82).
+- The new listing `hwy-46-at-spencer-ranch-blvd` waits on two files being linked.
+
+**Not done:** the map rework (bigger map, the map filters the list) waits on Nicole's design (decision 83). Erik's 10-02 hover-to-select had already shipped as #253.
+
+## 2026-10-07 — Properties map Option 1: a 925 map beside a one-listing panel, and the map holds still (`claude/properties-map-option-1`)
+
+Erik's 10-05 list asked for a bigger map, a smaller list, and "the map dictates the listings that show next to it", because "the map constantly moving in and out is a bit wonky to us". Nicole drew two options in the "Full Screen Map" frame (`7153:969`) on 10-05 at 22:08Z, and Erik answered "Option 1!" in #roalson-interests on 10-06 at 22:03Z. The operator confirmed the reading the same evening. It was Nicole's own: "basically the mobile version but the picture is taller".
+
+**What Option 1 is, measured off the frame.** At 1440 the map is 925 wide by 827 tall, full bleed from the left edge. A 515 panel sits beside it, holding a 538 photo over the same bar, arrows and text the 390 carousel already draws. The panel shows one listing at a time. The frame's eyebrow, "FEATURED PROPERTIES", was dropped: it is the homepage band's label, and each section already has its own divider label (Land, Improved Properties). Only the 1440 frame exists, so the 925 : 515 split is kept at every width from `lg`.
+
+**Most of it already existed.** #14 made each section a carousel below `lg`, and #13 made a pin press turn the carousel to its card. So the change turns the carousel on at every width once hydrated (`enabled={hydrated}` where it was `narrow`). The panel is the same subgrid laid out as one column from `lg` (`lg:grid-rows-[minmax(0,1fr)_auto_auto_auto]`), so the photo takes whatever height the tallest text leaves. Past Projects is untouched: still a grid from `lg` and a carousel below it.
+
+**The map holds still.** `PropertyMap` gained `follow` (default `true`, which the homepage band keeps). With `follow={false}`, `active` still decides which pin is drawn active (1.5x, the others at `--map-dim`). It no longer moves the camera. The camera stays on MAP_HOME until the visitor zooms or pans. The gesture-suspension bookkeeping (`drivenAt`) reads the camera's listing, which is always null here, so a page turn can no longer "release" a visitor's zoom and fly back. Measured with a probe on the fixture at 1440×1000, comparing every pin's transform:
+
+- An arrow press changed the listing (fm-1560-galm → potranco-road) and left the transforms byte-identical.
+- A press on hwy-90-castroville's pin turned the panel to it and marked its pin active, with the transforms identical again.
+- A + press changed them. That is the control: the comparison can see a camera move.
+
+The first version of that probe matched no pins at all, so it reported "identical" over three empty strings. It was rewritten before its answer was used.
+
+**Removed with the stacked desktop list:** the centre-line rule (`centreWatch`, #112) and hover-to-select (`hoverActivate`, Erik's 10-02 ask, #253). Every section with more than one listing is now a carousel, so neither could run, and both modules had no other importer. The garnet card follows #14's rule at every width: the first section's first card only.
+
+**A defect the change made, caught by an old test.** With scripting off, the map is still `lg:sticky` beside the stacked list. At 827 tall and pinned 100px down, a 1440×844 window put its bottom edge, and the OpenStreetMap credit, off screen. `property-map.spec.ts`'s no-JS credit case found it (`elementFromPoint` returned null). `--map-height` is now `min(57.43vw, 827px, 100svh − --sticky-top − 20px)`. The cost: at 1440×900 the map is 780 tall, not the comp's 827, and the comp's 827 returns on windows 947 or taller.
+
+**Tests.** Unit: 1,689 pass. 14 failed after the change, and all of them were the stacked list's premise. jsdom now renders carousels, which add `region` roles, so section queries read `section[aria-labelledby^='listing-']`. The three centre-rule cases were deleted. Browser (scaffold and nightly tiers, none in `@smoke`): 69 failed on the first full run. The same 14 specs on an untouched `main` failed 4, and those are filed as #269 with a swipe flake (1 in 10 on `main`). Of the rest:
+
+- `active-card-highlight`, `hover-activate` and `property-map-centred` were deleted whole.
+- The `/properties` camera-follows-cards cases in `property-map-camera(-prod)`, `-press-direct`, `-scroll-zoom`, `map-home` and `map-featured-pin` were cut. The homepage band's cases stay.
+- `listing-carousel`'s three lg cases and `property-map`'s 595 geometry case were rewritten for the panel.
+
+The new `properties-map-still.spec.ts` (nightly) covers the panel beside the map, an arrow and a pin press with the camera held, the markers dimmed beside the active one, and the wheel over the map zooming it without scrolling the page.
+
+Mutations, each restored after:
+
+| Mutation                              | Red                      |
+| ------------------------------------- | ------------------------ |
+| `follow={true}`                       | 2 (arrow, pin press)     |
+| `active={null}`                       | 1 (pin press)            |
+| carousel back to `enabled={narrow}`   | 2 unit                   |
+| `--map-height` without the window cap | 1 (no-JS credit at 1440) |
+
+**Review round 1 found one major, and it was real.** The panel had a fixed height: `lg:h-(--map-height)` with the photo row at `minmax(0,1fr)`. On a short window the map's window cap squeezed the photo to nothing, and then the text ran past the section, under the next pinned divider. A 1366×625 case now asserts that no slide's text runs past its panel and that the photo keeps at least 190px. It goes red with the old classes, and passes with `lg:min-h-(--map-height)` and a `minmax(12rem,1fr)` photo row.
+
+The other fixes from that round:
+
+- A one-listing section marks its pin active.
+- Only Land's first card is garnet, before and after hydration. Before, Improved's first card faded from garnet on every desktop load, through app.css's `[data-centre-id]` fade, which is deleted with the highlight it served.
+- The panel photo's `sizes` reads 515px and 36vw from `lg`.
+- The list carries the pinned divider's scroll margin, so a pin press doesn't land it under the divider.
+- The arrow case asserts exactly one undimmed marker, a pin or a cluster, in place of an `if` that skipped itself whenever the listing was clustered.
+- `PropertyMap.camera.svelte.test.ts` now covers `follow={false}` in the gate. The camera holds through panel turns, before and after a wheel zoom, and a default map flying is the control. Both cases go red with `cameraActive` reverted to `active`.
+
+Back to slide 1 after leaving a listing is #271.
+
+**Review round 2 found no blocker or major.** Its minors are fixed:
+
+- `focus-ring.spec.ts`'s card case now reads the ring from `::after` (it had been red on `main` since #265, the first item of #269) and walks the carousel instead of the centre line.
+- A one-listing section's active pin has a unit test, red with the line removed.
+- The last stale comments are corrected.
+
+One flaky test was the test's own: `listing-carousel`'s "narrowed below lg" case clicked Next twice and focused at once. 2 runs in 3 caught slide 2 before slide 3 took the stage, and the focus net then correctly moved focus to the region. A probe outside the test kept focus 4 times in 4. The case now waits for "3 of N" before focusing, and passed 5 of 5.
+
+Round 2 also raised a product question, left open: under its own view (`#improved`), Improved Properties no longer has a garnet card, because only Land's first card is garnet now.
+
+**What a held map costs, measured on the deploy preview.** At MAP_HOME, six Land tracts near Boerne draw as one cluster. Turning the panel between two of them changes nothing on the map: the cluster stays the featured marker, and the rest dim only to 0.81. That is the price of not moving the camera. It is the operator's call whether it needs a fix.
+
+**Not done here.** Erik's 10-06 22:05Z ask, a Bill Miller HQ photo band above the footer on the Properties page only (Nicole drew it in "Properties 1" at 50% of the window's height), is a separate task.
+
+## 2026-10-07 — The listing on stage keeps its own pin, and Improved leads its own view (`claude/properties-map-followups`)
+
+> Follows 2026-10-07 — Properties map Option 1.
+
+Two calls the operator handed back after #270 ("do the fixes, taking your calls").
+
+**A held map hid the listing it was showing.** At MAP_HOME, six Land tracts near Boerne draw as one cluster. Turning the panel between two of them changed nothing on the map, and the other markers dimmed only to 0.81. Three ways out were weighed:
+
+- Zooming in when the listing on stage is hidden brings back the movement Erik asked to remove, and after one zoom-in the next listing is usually off screen, so it moves again.
+- Making the active cluster louder still doesn't say which of its listings is showing.
+
+The pick: `clusterPoints` takes a `keep` id, which is never merged into a cluster, and the rest cluster as before. `PropertyMap` passes the active listing only when `follow` is off, so the homepage band is untouched. The live markers and the loading picture's markers come from the same call, so they still agree.
+
+On the real portfolio the Boerne marker now reads as the active tract's grown pin on top of a dimmed "5". The cost is that overlap: the kept pin sits over its former neighbours, and a press at a covered neighbour's centre lands on the active pin. The spec now presses a pin whose own centre hit-tests to it. With `keep` forced to null, "every listing on stage has a pin of its own" goes red.
+
+The pin-press spec also had to stop fingerprinting the camera by cluster membership. Pulling a pin out of a cluster re-keys the cluster with no camera move at all. The comparison now reads the single pins drawn in both snapshots, and a zoom-in is still the control that proves it can see a move.
+
+**Improved under its own view.** #270 made only Land's first card garnet, so `#improved`, which app.css dresses as Land, had no garnet card. Now whichever section leads the view leads in tone too: Land's first card always, and Improved's first card when its own tab is chosen. app.css's dressing already skips `.bg-primary`, so nothing there changed. A unit test turns the view to `#improved` and back to `#all`, and goes red with the rule removed. With no script, `#improved` still has no garnet card: the server can't know the fragment, and `:target` can't change a component's variant.
+
+Review round 1 on #272 found no blocker. Its "major" was the overlap above, already seen and accepted.
+
+- The reviewer measured it on the 17 land listings at MAP_HOME: for the 9 that cluster at rest, the kept pin's tip lands 0.9–7.4px from the disc it left.
+- So the top half of that disc presses the pin, not the cluster.
+- A pin that leaves or re-joins a cluster is a new keyed element, so it appears at its size without the grow, shrink or fade.
+
+`clusterPoints`' "every pair is at least `radius` apart" now says the kept listing is the exception. Two tests were missing, and each was shown to go red under its mutation:
+
+- keeping a non-seed member (the first test only ever kept a seed, so removing the absorb guard left it green);
+- the arrows' tone under `#improved`.
+
+## 2026-10-07 — A photo band above the footer on Properties, Bill Miller's headquarters (`claude/properties-photo-band`)
+
+Erik, 10-06 22:05Z: "Could we create an image footer just like the homepage, right above the footer, and use this image here only on the properties page". The image is Bill Miller Bar-B-Q's new headquarters and commissary, a big client's campus. Nicole drew it in "Properties 1" (`7165:737`, 1440×600 at 1440) and set the rule: "50% screenheight so it always fits with the footer".
+
+**The same band as the homepage, not a copy of it.** The homepage band's markup (the `data-pinned-band` section and its spacer sibling, which app.css pins under a footer that slides up over it) moved out of the PhotoBand slice into `PinnedPhotoBand.svelte`. The slice and /properties both use it, so the pin's two-element contract lives in one place. The slice's own seven tests pass unchanged.
+
+**Where the photo lives.** It is a second Image field, `properties_band`, on the `page_media` singleton beside `properties_masthead`, for the same reason the masthead is there: /properties is a filesystem route with no `page` document behind it. `loadPropertiesMedia` reads both fields in one `getSingle`. An empty field draws no band at all, unlike the masthead's gradient fallback, because Erik asked for this photo, not for a band.
+
+**Height and crop.** `--band-h: max(240px, 50svh)`, so the band is 450 at 1440×900 and 422 on a 390×844 phone. The source is 5135×2885 (1.78:1). A half-window band at 1440×900 is 3.2:1, and no crop holds both the building tops and the sign. `object-position: 50% 70%` keeps the whole sign and the pond and trims the roofline. Nicole's 600-tall mock shows more roof, because her band is taller than half a 900 window.
+
+**The upload went wrong once.** Prismic's `upload_asset` fetched Erik's Dropbox `dl=1` link and stored it as `kind: document`. Dropbox serves that link as `application/json`, and the `raw=1` form serves it as `application/binary`. `dl.dropboxusercontent.com` serves the same file as `image/jpeg`, and the second upload is the image (`HERaGn6Q1LM0MDE7`). The first asset (`5B7ksUrfZQr1ToST`) is still in the media library, and no tool here can delete it.
+
+**Tests.** `properties-band.spec.ts` checks, with motion allowed at 1440×900 and 390×844:
+
+- the band is half the window tall (or 240);
+- at the page's end it pins at the top with the footer over it;
+- with `?noband` there is no band and no footer margin.
+
+A fixed 400px height turns the height cases red, and removing the spacer turns the pin cases red. Loader unit tests cover both fields, an empty band, and a missing document.
+
+**After merge:** CI pushes the model, then `page_media.properties_band` is set to the uploaded asset and published in its own release. The pending release `asP91BIAAH8K23X-` (Operator decisions 81) is not touched.
+
+Review round 1 on #273 found no blocker or major. It found two minors, both fixed:
+
+- **A half-vacuous test.** The `?noband` case ran under the shared config's `reducedMotion: "reduce"`, where app.css applies none of the pin rules, so "the footer is not pulled up" could not fail. It now runs with motion allowed. The band case gained the control that the footer's margin is not zero, and a `?noband` that still draws the band turns the no-band case red.
+- **Notes deleted, not moved.** The slice's notes on `--band-h` being read twice and on the lazy photo now sit at the top of `PinnedPhotoBand.svelte`.
+
+`class` is now kept out of the component's props type, because the component would silently drop it.
+
+## 2026-10-07 — Back returns each Properties panel to the listing it was on (#271, `claude/properties-panel-restore`)
+
+Since #270 every section from `lg` is a one-listing carousel. Leaving for a listing and pressing Back remounted the page with every panel on slide 1. SvelteKit's page `snapshot` is the mechanism built for this: it is captured when the page is left and handed back when its history entry returns, including after a reload, because snapshots are kept in session storage.
+
+`PropertyListing` exports `capture()` (each enabled carousel's index, by section id) and `restore(saved)`. Both `/properties` and the `/dev/properties` fixture wire them into `snapshot`. A carousel's `goTo` does nothing until it is enabled, and it is enabled only after hydration. So `restore` keeps what it was handed and applies each index once its carousel is enabled, from an effect that reads every carousel's `enabled`. Restoring before the panels exist is harmless.
+
+Tests: a unit case captures slide 3, unmounts, mounts fresh and restores. `properties-panel-restore.spec.ts`, at 1440 and 390, turns Land to slide 3, follows a real `/contact` link, presses Back, and expects slide 3. With `restore` emptied, both browser cases go red, and with `goTo` removed from it, the unit case goes red.
+
+Traced, not built and not measured: on a full reload SvelteKit restores the scroll position before hydration, against the taller stacked no-JS list, and the page then collapses to the carousels. Where the visitor lands on a reload depends on the browser's scroll anchoring. Back within the site is the case #271 named, and it is the one tested.
+
+Review round 1 on #274 found no blocker or major. It found three minors, all fixed.
+
+- **The deferred path was untested.** Every test called `restore` after the panels were already enabled, so deleting the effect that lands a deferred restore left both suites green. Past Projects is a genuinely late carousel: it only becomes one below `lg`. A unit case restores it on a wide window, narrows the window, and expects the saved slide. It goes red with the effect removed.
+- **A restore that could not land could fire much later.** For example, Past Projects saved in portrait, Back in landscape, rotated back minutes after. A restore now lapses after one second: `RESTORE_WINDOW_MS`, red without the expiry.
+- **Saved by position.** Snapshots outlive a reload in session storage, so a listing added or reordered in Prismic between leaving and returning would land on the wrong card. `capture` now saves the listing's id and `restore` finds it again; a case reverses the list in between.
+
+## 2026-10-07 — A drag across a carousel card never opens it, and the rest of #269 (`claude/swipe-test-window`)
+
+#269 listed three non-gate reds that also fail on an untouched `main`. Each one was traced to a cause.
+
+**The two `featured-band-live` cases** ("a clock turn dissolves a FULL bar", 4 frames sampled where the case needs 2 in the handover; and "a photo brought back … drifts again from 1.00") fail in the cloud container and pass on GitHub's runner. The 10-06 nightly ran on the same commit as the local baseline (`799cf1b`): 308 passed, 1 skipped, none flaky. Its job is `112389666780`. They sample animation frames, and this container renders WebGL in software under four workers, which starves the page of frames while the band's map flies. That is the environment, not the band. Nothing was changed for them.
+
+**The swipe flake was a product edge as well.** `svelte-gestures` counts a swipe only if the pointer is released within `timeframe` (300 ms) of the press. A slower mouse drag across a card is therefore no swipe at all. Its release is an ordinary click on the stretched card link from #265, and it opened the listing. That is exactly what the test caught 1 run in 10 on `main`, when its four-step drag ran slow.
+
+The carousel's click guard used to swallow clicks only for 500 ms after a recognised swipe. It now also swallows a pointer click (`detail > 0`) whose pointer moved more than `DRAG_SLOP_PX` (10) between press and release, however long that took. A keyboard click is never touched. The unit case covers a 200px drag, a still press, and a keyboard click, and goes red with the drag check removed. The test's drag also takes two mouse steps instead of four, so its swipe lands inside the window.
+
+On the branch it passed 59 of 60 runs alone. The one failure was not captured. With the guard, a slow drag can no longer open a listing, so the only remaining failure mode is the swipe not being recognised at all.
+
+Review round 1 on #275 found no blocker or major. Its two minors are fixed:
+
+- **Controls inside the swiped area.** The arrows and Pause sit inside the swiped element. On a touchscreen that tolerates about 15px before cancelling a tap, a tap that moved more than 10px would have been dropped. The drag guard now applies only to clicks on links.
+- **A stale press point.** A touch swipe usually fires no click, so its press point could linger and be measured against a later click. It is now cleared when a swipe registers and on `pointercancel`.
+
+The unit case adds an arrow tapped with movement, a click with no recorded press, and a cancelled press. Removing the link scope or the cancel clearing turns it red.
+
+**After #273 landed: the photo, corrected on the live page.** Published, the band showed the sign and the pond and none of the campus. The source is 1.78:1, and a half-window band at 1440×900 is 3.2:1, so no crop of it holds both. Erik's `_EXPAND` version, in the same Dropbox folder (`…_LG EXPAND.jpg`, 6981×3537, 1.97:1, with sky and sides added), puts the buildings, the pond and the sign in one middle strip.
+
+Rendered at 1440×900, the existing `object-position: 50% 70%` frames all three, as do 50% and 60%, so no code changed. It went up as Prismic asset `LuXr4Tvh-u3ipR6B`, replaced `page_media.properties_band` in its own release, and was published at the operator's go-ahead. The live page served it by 15:14Z.
+
+The first screenshot after publishing showed the garnet fallback. The image itself was fine (200, 305 KB at w=1920): the first request for a 21 MB source is slow while imgix resizes it, and the lazy `<img>` had not loaded. The screenshot now waits for the image to finish loading.
+
+The two unused assets from the day stay in the media library: `5B7ksUrfZQr1ToST`, which Dropbox's `dl=1` link turned into a `document`, and `HERaGn6Q1LM0MDE7`, the 1.78:1 original.
+
+## 2026-10-07 — A List tab on Properties brings back the full list beside a following map (`claude/properties-list-tab`)
+
+The operator, after Option 1 went live: "add a tab to properties called List that brings back the old behavior so they have a full list". Option 1 (#270) shows one listing at a time in a 515 panel beside a 925 map, and a client who wants to read every listing has to page through the arrows. List is a fourth tab after Land, Improved Properties and All. It shows every active section, as All does, laid out as the page was before #270: a 397 × 595 sticky map beside the 847 column of stacked `row` cards, with no carousel. Below `lg` it is the stacked list with the 200px map above it, the layout a no-JS visitor already got. It is a fragment, `#list`, like the other tabs, so a shared link opens on it, and Back works.
+
+**What came back, and from where.** `centreWatch` and `hoverActivate`, with their unit tests, are restored verbatim from `799cf1b`, the last commit before #270 deleted them. Under List the card crossing the middle of the window is the active listing: it turns garnet, and a mouse resting on a card for 200 ms does the same. Leaving List turns the carousels back on.
+
+**The map follows under List, and that is a call against Erik's 10-05 note.** The first build kept `follow={false}` everywhere, because Erik had called the moving map "a bit wonky". Measured on `/dev/properties#list` at 1440×900, the 397-wide map's fixed opening frame put two of the four Land pins outside the map, at x = 75 and x = 494 against a map spanning 80–472. On a map that never moves, those listings could not be found or pressed. Option 1's 925 map holds the same frame and shows them all. So under List the camera follows the card on the centre line, as it did before #270, and a pin press scrolls its card to the middle (`revealCard` answers true again, which wakes PropertyMap's dormant `heading`). The other three views keep the still map. If Erik objects, the alternative is a still map under List with its own fitted frame for the narrow box.
+
+**Not brought back.** Since #272 the listing on stage keeps its own pin and is never merged into a cluster. That applies only where `follow` is false, so under List the active listing can sit inside a cluster, exactly as it did before #270. Changing it would also change the homepage band's map.
+
+**The tab rule changed shape.** Tabs used to appear only with two active sections. List now also appears whenever an active section has more than one listing, and All comes with it so there is always a way back. A page with one active section therefore draws All and List, not nothing.
+
+Mutations, each run against the new tests and each red:
+
+| Mutation                                        | Red                                    |
+| ----------------------------------------------- | -------------------------------------- |
+| carousel stays on under List                    | 2 unit cases, 3 `@smoke` browser cases |
+| centre rule never enabled                       | the centre-line spec                   |
+| a pin press scrolls `nearest`, not `center`     | the pin-press spec                     |
+| no `(selected)` name for `#list` with no script | `listing-views-name` `#list` case      |
+| List offered for a section of one               | 3 unit cases                           |
+| the garnet card stays on the first listing      | the centre-line spec                   |
+
+Review round 1 found no blocker and one major: nothing proved the camera follows under List. The centre-line test read the pin's `data-map-active`, which PropertyMap sets whatever `follow` says, so `follow={false}` left every test green. A nightly case now measures the last Land listing's pin against the map's middle. It starts more than 0.25 of the map away and must come within 0.1 once its card is on the centre line. `follow={false}` turns it red.
+
+The minors, all fixed:
+
+- **A phone press flew the camera out and back.** Below `lg` there is no centre rule, so a press that answered true held the camera on a listing that never became active, then released it home. `revealCard` now answers true only from `lg`. No test covers it: the camera ends where it started either way, and only the flight in between differs.
+- **The rotation reset was missing.** 799cf1b cleared the centre rule's choice on the way below `lg` (the iPad 1180 → 820 fix), and the first restore left that line out. It is back, with a case that turns the window to 820 × 1180 and expects the first card garnet again. Without the line, it goes red.
+- **The garnet fade was missing.** #270 had removed the `transition-colors` rule on `[data-centre-id]` cards, and it is restored from 799cf1b.
+- **Three test fixes.** A `@smoke` count of three tabs on the live page is now a check that Land is there. The axe loop covers List. The no-JS `#list` case is deleted: it passed on `main`, because with no script `#list` draws as All does, which the component header now says.
+
+Left as is: a shared `/properties#list` link renders the panel layout on the server and switches to the list on mount, so the page visibly changes once it hydrates.
+
+Review round 2 confirmed the round-1 fixes and found no blocker or major. It found three minors, all fixed:
+
+- **A pin press on a phone under List marked nothing.** Phones had always had a carousel here, so this state is new: the card scrolled into view but stayed sand, and the map showed no active pin. Below `lg` the press now writes the listing itself, since no centre rule runs there to race it, and scrolls `nearest` so the 200px map stays in sight. A 390px case presses a pin and expects its card garnet and its pin active, and goes red without the write.
+- **A fragment for a view the page does not offer used to switch the page to it.** `/properties#list` on a page with no List tab still drew the 397 map, with no tab selected. Such a fragment is now All. A unit case covers it and goes red without the check.
+- **The two restored actions measured `lg` in px** (`min-width: 1024px`), while the stylesheet and `narrow` use `64rem`. At a 20px default font the centre rule could run over the phone layout. Both actions now take the same `64rem`.
+
+What round 2 called nits stays as is. The restored fade and the `scroll-mb` margin come back without 799cf1b's long comments (the operator's preference is code without new comments), and nothing tests the fade, since `active-card-highlight.spec.ts` is not restored.
+
+## 2026-10-07 — The All tab is gone (`claude/properties-no-all-tab`)
+
+The operator, after List shipped (#276): "remove the all tab". List already shows every listing, so the tabs are now Land, Improved Properties and List. All survives as the view with no fragment: `/properties` opens on both sections in the Option 1 panel with no tab selected, and a visitor returns to it with Back. A page with only one active section draws no tabs at all. The rule #276 added (All and List for one section) only existed so that List was never a dead end. `#all` still resolves to All for a link that already carries it, but no tab points there now.
+
+The all-tab selected and "(selected)" rules are deleted from app.css. Four specs that pressed All to get back now use Back, which is the visitor's own way back. Adding All back to `listingViews` turns 5 unit cases red.
+
+## 2026-10-11 — Erik's pre-launch notes: Home, Properties and the listing page (#280; #281, #282 and this PR)
+
+Erik's "final website notes before launch" (Discord, 10-09 21:46Z) came in four groups. Each shipped as its own PR, and the copy changes went into one Prismic release ("Erik's pre-launch notes (2026-10-09)") for the operator to publish.
+
+**Listing page (#281).**
+
+- "View on Google Maps" is now "Aerial Map". It opens Google's documented map URL on satellite imagery, centred on the pin. That form draws no marker, and `mapsUrl` keeps the pinned search link for the map's own links.
+- The Details section is gone. Its facts follow the highlights as "Label: value" bullets, and each tract follows as "Tract N: acres, status".
+- The extra bullets made the panel taller than the photo, leaving up to 155px of page ground under it at 1024. Stretching the photo with `lg:self-stretch` alone made it take its _width_ from the stretched height: 679 wide in a 473 column at 1024 in Chromium, with 245px of it under the panel. `justify-self: normal` acts as `start` for a box with an aspect ratio, and Firefox does not show the bug. `lg:justify-self-stretch` holds it to the column. That was review round 2, and it landed on the operator's word.
+
+**Properties (#282).**
+
+- All is back, and it is not the All that #277 removed on 10-07. That one was Land stacked over Improved, the very view Erik asked to eliminate. This one is a single map holding every active listing beside one panel. It is the first tab, and it is selected on landing.
+- Land and Improved show only under their own tabs. List is unchanged.
+- Sections are dressed by their place among the sections shown together (`stackIndex`), no longer by their DOM index.
+- **Pins.** The selected pin is 1.8×: Erik's "120% of the current size" applied to the 1.5× it already was. The other reading, 1.2× of the base pin, would have made the selected pin smaller, against "the differentiation is not enough". It carries the favicon's Ri monogram in its head.
+- The other pins are 0.9×, with their fill at 0.5 and a solid garnet outline. A whole pin at 0.5 falls under WCAG 1.4.11's 3:1 against the map; 0.81 was the measured floor. The outline keeps 3:1, and `map-pin-outline.spec.ts` measures it painted. Clusters keep 0.81, because their count is text.
+
+**Home (this PR).**
+
+- The band's map is gone. Nicole's "we are losing the map now?" was a lament, not an objection (the operator, 2026-10-11).
+- "Featured Properties" left the card's chrome, where it was a `t-h4` eyebrow, for the column the map left, set in `t-h2`. Option B, a full-width card with a `t-h3` eyebrow, is screenshotted in the PR.
+- A bio's Go Back goes to `/#about`.
+- About 60 nightly and scaffold cases tested the band's map: `property-map-band-lock.spec.ts` whole, and the homepage rows of six other specs. They are deleted, and every `/properties` case stays.
+- The two `featured-band-live` motion cases that the 10-07 entry blamed on software WebGL now pass. Without a map to boot, the band gets its frames.
+
+**Past Projects: no code.** The control Erik asked for, "like a checkbox", already exists: "Show on the site as" → "Past project", built from his 09-25 note, and a Sold status does the same. The three-column grid is the comp's Sold frame. Nothing shows because no listing is marked. The operator kept the dropdown, and the reply to Erik says where it is.
+
+Not here: the listing-PDF notes Erik sends on Monday 10-12.
+
 ## 2026-09-29 — All 22 listing packages rebuilt in Erik's Claude Design template, with new maps, aerials, traffic and flood exhibits (`tools/listing-packages`, Dropbox)
 
 > Superseded in part by 2026-09-29 — The listing-package tool now rebuilds from a fresh clone; two uploaded packages had stale traffic distances.
@@ -12138,3 +13185,44 @@ the `build` ignore trap) are a runbook in reddoor-maintenance,
 
 **Not done.** The three temporary Dropbox file requests used for uploading are
 still open; the connector has no way to close them, so the operator has to.
+
+## 2026-10-12 — Listing packages take the client's package standards; the generator reaches main (`tools/listing-packages`)
+
+Erik relayed two sources in Discord: his own notes on the Hwy 46 package and the
+client's marked-up 116 Old San Antonio Road package, which the client called the
+"global standards" for every PDF. The markup made nine marks. Read together with
+Erik's notes, they set one structure for all 23 packages: the cover chip shows
+only the transaction, the contact block is larger, the Ri watermark shrinks to
+262px so its right edge sits under the wordmark's (Erik guessed "maybe 70%"; it
+is 70.4%), "Investment" prints as "Price", and the exhibits are Location Map,
+Area Map with Traffic Counts, Aerial Map and FEMA Flood Zones. The close street
+map, the close aerial and the survey go. Erik's area-map notes (show the nearest
+major intersection; show the big businesses) landed on the traffic map, since the
+client's markup deleted the plain area map and renamed the traffic map in its
+place.
+
+**Measured before trusting it.** The unchanged generator at `890a36c` rebuilt the
+live Hwy 46 package with zero text differences on all 11 pages, and pixel-identical
+at 40 dpi on 10 of them. The eleventh is the survey, which the 10-08 build cut by
+hand and which the new standard drops anyway.
+
+**What broke on contact.** The OpenMapTiles POI layer carries businesses only from
+z14, and the traffic map renders at 13.4, so the brand style showed none; the
+businesses now come from the z14 tiles decoded in Python. USGS answered NAIP
+requests with 502s and 504s for minutes at a time, and MapLibre never retries a
+tile, so two render runs hung. Tiles are now cached with backoff, and a map with a
+tile that never arrived is neither written nor stamped. The first JPEG check
+rejected every good tile: USGS appends a 56-byte trailer after the end marker.
+
+**Review.** Three rounds. Round 1: a failed tile could leave a broken image with a
+matching stamp, and a Land ID hero would have replaced broker photography. Round
+2: the flood caption on four pin-only listings pointed to a survey page that no
+longer exists. Round 3: five listings' own copy says "See Survey". The operator
+chose to keep the survey on exactly those five. The minors are filed as one
+issue, #292.
+
+**Still open.** The Land ID list (23 links from Matt Howard) is in
+`build/heroes.json`; no image is fetched until the operator rolls the standards
+out to all 23. Logos stay names and pins (the operator, after the research:
+Brandfetch's terms forbid storing logos in a PDF, logo.dev's free plan needs a
+public credit link). The other 22 packages are not rebuilt.

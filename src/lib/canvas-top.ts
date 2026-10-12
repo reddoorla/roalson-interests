@@ -93,7 +93,7 @@ export function canvasTopRule(token?: string | null): string | undefined {
  * value is `CANVAS_TOP_COLORS[token]`, a lookup on a frozen map of two literals
  * that the caller cannot add to. An unknown token returns `undefined` and
  * nothing is written. `canvas-top.test.ts` asserts that every possible output
- * is one of exactly three values, so a future edit that starts interpolating
+ * is a rule from that map or nothing, so a future edit that starts interpolating
  * the token itself fails there rather than in a browser.
  */
 export function canvasTopStyleTag(token?: string | null): string | undefined {

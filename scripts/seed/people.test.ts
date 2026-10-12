@@ -30,9 +30,10 @@ describe("the people data file", () => {
     expect(unknown).toEqual([]);
   });
 
-  it("flags every biography as a placeholder, and seeds no mobile or license number (D4)", () => {
+  it("carries each partner's own biography, and seeds no mobile or license number (D4)", () => {
     for (const p of people) {
-      expect(p.data.bio_is_placeholder, p.uid).toBe(true);
+      expect(p.data.bio_is_placeholder, p.uid).toBe(false);
+      expect(JSON.stringify(p.data.bio), p.uid).not.toMatch(/placeholder/i);
       expect(p.data.license, p.uid).toBeUndefined();
       expect(p.data.phone, p.uid).toBe("(210) 496-5800");
     }
@@ -45,13 +46,13 @@ describe("the people data file", () => {
     );
     expect(imageRefs(band)).toEqual([]);
     expect(people.flatMap((p) => imageRefs(p.data))).toEqual([
-      "partner-matt-howard.jpg",
-      "partner-bart-wilson.jpg",
+      "Matt_Howard_Headshot_NO_GPS.png",
+      "partner-bart-wilson-headshot.png",
     ]);
   });
 
   it("stages the name as the document title and resolves the headshot to its asset id", () => {
-    const payload = toPayload(people[0], { "partner-matt-howard.jpg": { id: "A1" } });
+    const payload = toPayload(people[0], { "Matt_Howard_Headshot_NO_GPS.png": { id: "A1" } });
     expect(payload).toMatchObject({ type: "person", uid: "matt-howard", title: "Matt Howard" });
     expect(payload.data.photo).toEqual({ id: "A1" });
     expect(() => toPayload(people[0], {})).toThrow(/no asset in the media library/);

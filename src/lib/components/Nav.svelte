@@ -139,6 +139,12 @@
    *  see (2) above. A solid bar is legible over anything, so it pins in the
    *  server's markup. */
   const pinned = $derived(!canFloat || mounted);
+  /** Floating over the homepage hero, which is a PHOTOGRAPH (the poster, then
+   *  the video), not a flat band: on its sunlit sky the sand controls measured
+   *  1.09–1.23:1 at 390, 768 and 1024. So there every control carries its own
+   *  garnet ground (sand on it is 9.38:1 whatever the frame) and draws its
+   *  focus ring inside that ground, where the sky cannot be. */
+  const onPhoto = $derived(floating && gated);
 
   /** Rect against rect, never a scrollY: the hero pins, so how far the page
    *  has moved is not what is under the bar — and the threshold is 448 or 458
@@ -190,6 +196,33 @@
   const openMenu = () => (isMenuOpen = true);
   const closeMenu = () => (isMenuOpen = false);
 
+  let landing: string | null = null;
+  const follow = (href: string) => {
+    landing = new URL(href, location.href).hash.slice(1) || null;
+    closeMenu();
+  };
+  const land = (id: string, until = performance.now() + 3000) => {
+    const target = document.getElementById(id);
+    if (target && !isMenuOpen) {
+      if (!target.hasAttribute("tabindex")) target.setAttribute("tabindex", "-1");
+      target.focus({ preventScroll: true });
+      return;
+    }
+    if (performance.now() < until) requestAnimationFrame(() => land(id, until));
+  };
+  const restoreFocus = () => {
+    const id = landing;
+    landing = null;
+    if (!id) return openButtonEl;
+    const target = document.getElementById(id);
+    if (target) {
+      if (!target.hasAttribute("tabindex")) target.setAttribute("tabindex", "-1");
+      return target;
+    }
+    requestAnimationFrame(() => land(id));
+    return null;
+  };
+
   // The page must not slide past behind a full-screen menu — on a phone that
   // reads as the menu having closed. Returned, so every close path releases it.
   $effect(() => {
@@ -238,8 +271,47 @@
     "group-data-[pressed]:scale-90 group-data-[pressed]:opacity-70";
 
   // A 44px target around a 20×16 glyph, pulled 12px into the gutter so the
-  // GLYPH's edge — not the target's — lands on the comp's x=1360 / x=370.
+  // GLYPH's edge, not the target's, lands on the comp's x=1360 / x=370. ONE
+  // pull in every state (MarkUp, 2026-10-01: "can this stay in the same
+  // position instead of moving after you scroll?"). Over the photograph it
+  // was 2px, so the disc's edge stood on the gutter, and the trigger and the
+  // CTA beside it slid 10px at the gate. Now the disc is centred on the glyph
+  // where the glyph always is, and runs 10px past the gutter on the photo.
+  // The Close takes the same pull, so it sits where the trigger was.
   const ICON_BUTTON = "group -mr-3 flex min-h-11 min-w-11 items-center justify-center";
+  // The trigger's 40px garnet disc on a photograph (`onPhoto`), with the
+  // focus ring pulled inside it. No sand ring (MarkUp, 2026-10-01: "remove
+  // white outline"); the border stays, in the disc's own garnet, so the disc
+  // is the same size. Always drawn, transparent off the photograph, so it
+  // fades with the bar.
+  //
+  // ON THE HERO THE GROUNDS ARE 75% (operator, 2026-10-01: "start nav opacity
+  // at 75 when on the hero, back to full everywhere else"): the disc here and
+  // the CTA chip below, so the photograph shows through a little. The border
+  // goes transparent rather than 75% too: the ground already paints under it,
+  // and a 75% border over a 75% ground would draw a 94% ring. Sand on garnet
+  // at 75% over a PURE WHITE pixel is 4.57:1, so the chip's label still clears
+  // AA wherever the photo is brightest; home-hero-live.spec.ts measures it.
+  // Off the photograph the bar is its solid off-white and every control full.
+  const ICON_DISC = (on: boolean) =>
+    "relative isolate before:absolute before:inset-0.5 before:-z-10 before:rounded-full before:border " +
+    "before:border-solid before:transition-colors before:duration-300 before:content-[''] " +
+    (on
+      ? "rounded-full before:border-transparent before:bg-primary/75 focus-visible:outline-offset-[-5px]"
+      : "before:border-transparent before:bg-transparent");
+
+  // CONTACT US on the photograph, and the scripting-off links beside it. No
+  // sand border (the same MarkUp pin) and no border of its own: the 75%
+  // ground paints under a transparent one. `!` because the light tone's
+  // `border-light` is a BrandButton utility of equal weight.
+  const PHOTO_CHIP = "border-transparent! bg-primary/75 focus-visible:outline-offset-[-5px]";
+
+  // Both forms of the trigger.
+  const trigger = $derived(
+    `${ICON_BUTTON} ${ICON_DISC(onPhoto)} duration-300 ` +
+      "transition-[color,outline-color] motion-reduce:transition-colors " +
+      (floating ? "text-light" : "text-primary"),
+  );
 
   // The bar's box, shared with the overlay's own bar so the wordmark and the
   // Close sit exactly where the wordmark and the trigger were: 80 tall from
@@ -292,7 +364,12 @@
     : 'absolute'} {floating ? 'bg-transparent' : 'bg-background'}"
 >
   <div class={BAR}>
-    <a href="/" class="{WORDMARK} group/home">
+    <a
+      href="/"
+      class="{WORDMARK} group/home {held && onPhoto
+        ? 'focus-visible:bg-primary focus-visible:ring-[6px] focus-visible:ring-primary'
+        : ''}"
+    >
       {#if logo}
         <!-- `|| held` is redundant today — a held bar is a floating bar — and
              is here so that "no wordmark while the gate holds" is stated where
@@ -349,14 +426,22 @@
              list's markup across the bar. tests/interaction/nav.spec.ts looks. -->
         <noscript>
           <ul
-            class="t-h6 mr-3 flex flex-wrap items-center justify-end gap-x-5 gap-y-1 {floating
-              ? 'text-light'
-              : 'text-primary'}"
+            class="t-h6 flex flex-wrap items-center justify-end {onPhoto
+              ? 'gap-2'
+              : 'mr-3 gap-x-5 gap-y-1'} {floating ? 'text-light' : 'text-primary'}"
           >
-            {#each items.filter((item) => item.href && item.href !== "/") as item, i (i)}
+            {#each items.filter((item) => item.href && item.href !== "/" && !item.href.includes("#")) as item, i (i)}
               <!-- From `sm` the CTA is in the bar and already is this link. -->
               <li class={item.href === cta?.href ? "sm:hidden" : undefined}>
-                <a href={item.href} class="hover:underline">{item.label}</a>
+                {#if onPhoto}
+                  <!-- On the photo, the CTA's chip. Narrower below `sm`, where
+                       two share the bar with the wordmark's halo. -->
+                  <BrandButton href={item.href} tone="light" class="{PHOTO_CHIP} max-sm:px-2.5"
+                    >{item.label}</BrandButton
+                  >
+                {:else}
+                  <a href={item.href} class="hover:underline">{item.label}</a>
+                {/if}
               </li>
             {/each}
           </ul>
@@ -365,7 +450,10 @@
 
       {#if cta}
         <div class="hidden sm:block">
-          <BrandButton href={cta.href} tone={floating ? "light" : "garnet"}>{cta.label}</BrandButton
+          <BrandButton
+            href={cta.href}
+            tone={floating ? "light" : "garnet"}
+            class={onPhoto ? PHOTO_CHIP : ""}>{cta.label}</BrandButton
           >
         </div>
       {/if}
@@ -375,9 +463,7 @@
           <button
             bind:this={openButtonEl}
             type="button"
-            class="{ICON_BUTTON} transition-colors duration-300 {floating
-              ? 'text-light'
-              : 'text-primary'}"
+            class={trigger}
             onclick={openMenu}
             aria-label="Open menu"
             aria-expanded={isMenuOpen}
@@ -403,9 +489,7 @@
             href="#{FOOTER_NAV_ID}"
             data-js-only
             data-menu-fallback
-            class="{ICON_BUTTON} transition-colors duration-300 {floating
-              ? 'text-light'
-              : 'text-primary'}"
+            class={trigger}
             aria-label="Menu"
           >
             <span class={ICON_GLYPH}>{@render menuGlyph()}</span>
@@ -429,7 +513,7 @@
     id={MENU_ID}
     class="fixed inset-0 z-[60] flex h-dvh flex-col overflow-y-auto bg-gradient-to-b from-primary to-dark pr-[var(--scroll-lock-gutter,0px)] text-light"
     transition:fade={{ duration: 200 }}
-    use:trapFocus={{ onEscape: closeMenu, restoreFocus: () => openButtonEl }}
+    use:trapFocus={{ onEscape: closeMenu, restoreFocus }}
   >
     <div class="{BAR} shrink-0">
       <a href="/" class={WORDMARK} onclick={closeMenu}>
@@ -465,18 +549,19 @@
     <div
       class="mx-auto grid w-full max-w-[1440px] flex-1 content-center gap-y-10 px-5 pt-10 pb-[70px] sm:px-8 lg:grid-cols-[397fr_847fr] lg:gap-x-9 lg:pb-20 xl:px-20"
     >
-      <!-- The dialog is already named "Menu"; this is the comp's eyebrow over
-           a heading, for the eye only. -->
-      <p class="t-h5 text-dust" aria-hidden="true">Menu</p>
-      <ul class="flex flex-col gap-10 lg:gap-12">
+      <!-- No "MENU" eyebrow in column 1 (MarkUp, 2026-10-01: "remove the
+           menu text"); the dialog is still named "Menu". `lg:col-start-2`
+           keeps the links on the listing column the eyebrow used to push
+           them to. -->
+      <ul class="flex flex-col gap-10 lg:col-start-2 lg:gap-12">
         {#each items as item, i (i)}
           <li in:fly={{ y: 24, delay: 60 + i * 60, duration: 400 }}>
             {#if item.href}
               <a
                 href={item.href}
                 aria-current={isCurrent(item.href) ? "page" : undefined}
-                class="t-h2 lg:t-h1 inline-block decoration-dust decoration-2 underline-offset-8 hover:underline aria-[current=page]:text-dust"
-                onclick={closeMenu}
+                class="t-h2 lg:t-h1 inline-block uppercase decoration-dust decoration-2 underline-offset-8 hover:underline aria-[current=page]:text-dust"
+                onclick={() => follow(item.href)}
               >
                 {item.label}
               </a>
@@ -492,7 +577,7 @@
                         href={child.href}
                         aria-current={isCurrent(child.href) ? "page" : undefined}
                         class="t-h3 inline-block decoration-dust decoration-2 underline-offset-4 hover:underline aria-[current=page]:text-dust"
-                        onclick={closeMenu}
+                        onclick={() => follow(child.href)}
                       >
                         {child.label}
                       </a>

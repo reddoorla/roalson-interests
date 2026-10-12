@@ -11,18 +11,26 @@ import { hydrated } from "./hydrated";
 // The names are CHROME's, read from its accessibility tree over CDP: the tree
 // a screen reader is handed, not Playwright's own name computation. Chrome
 // applies the tabs' `uppercase` to the name ("LAND"), so the pseudo-element
-// sets `normal-case` and the state reads as a word, not as capitals.
+// sets `normal-case` and the state reads as a word, not as capitals. The
+// label's case is the tabs' type style and is folded before comparing; the
+// state's is not.
 //
 //   pnpm exec playwright test tests/interaction/listing-views-name.spec.ts
 //   REDDOOR_GATE_SERVER=preview pnpm exec playwright test tests/interaction/listing-views-name.spec.ts
 const FIXTURE = "/dev/properties";
 const LIVE = "/properties";
 const PREVIEW = process.env.REDDOOR_GATE_SERVER === "preview";
-const LABELS = { land: "LAND", improved: "IMPROVED PROJECTS", all: "ALL" } as const;
+const LABELS = {
+  all: "all",
+  land: "land",
+  improved: "improved properties",
+  list: "list",
+} as const;
 type View = keyof typeof LABELS;
 const VIEWS = Object.keys(LABELS) as View[];
 
-/** Each tab's accessible name, whitespace collapsed, keyed by view. */
+/** Each tab's accessible name, whitespace collapsed and its label lower-cased,
+ *  keyed by view. */
 async function tabNames(page: Page): Promise<Record<View, string>> {
   const cdp = await page.context().newCDPSession(page);
   const { root } = await cdp.send("DOM.getDocument", { depth: 0 });
@@ -38,7 +46,11 @@ async function tabNames(page: Page): Promise<Record<View, string>> {
     });
     names[view] = String(nodes[0]?.name?.value ?? "")
       .replace(/\s+/g, " ")
-      .trim();
+      .trim()
+      .replace(
+        /^(.*?)( \(selected\))?$/i,
+        (_, label: string, state: string | undefined) => label.toLowerCase() + (state ?? ""),
+      );
   }
   await cdp.detach();
   return names;
@@ -55,13 +67,20 @@ async function noScript(browser: Browser, url: string) {
   return { context, page };
 }
 
-test.describe("with no script", () => {
+test.describe("with no script", { tag: "@smoke" }, () => {
   test.skip(PREVIEW, "/dev/* 404s on a production build (#120)");
 
+  test("no fragment: only the All tab's name says it is selected", async ({ browser }) => {
+    const { context, page } = await noScript(browser, FIXTURE);
+    expect(await tabNames(page)).toEqual(selectedIn("all"));
+    await context.close();
+  });
+
   for (const [hash, view] of [
-    ["", "all"],
+    ["#all", "all"],
     ["#land", "land"],
     ["#improved", "improved"],
+    ["#list", "list"],
   ] as const) {
     test(`${hash || "no fragment"}: only the ${view} tab's name says it is selected`, async ({
       browser,
@@ -83,7 +102,7 @@ test.describe("with no script", () => {
   });
 });
 
-test.describe("hydrated", () => {
+test.describe("hydrated", { tag: "@smoke" }, () => {
   test.skip(PREVIEW, "/dev/* 404s on a production build (#120)");
 
   test("aria-current carries the state and the name no longer does", async ({ page }) => {
@@ -94,7 +113,7 @@ test.describe("hydrated", () => {
   });
 });
 
-test.describe("live", () => {
+test.describe("live", { tag: "@smoke" }, () => {
   test.skip(!PREVIEW, "the real portfolio is read on the production build");
 
   test("/properties#land names the Land tab selected with no script", async ({ browser }) => {

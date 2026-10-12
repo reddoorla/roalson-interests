@@ -32,7 +32,7 @@ import sharp from "sharp";
 import { describe, it, expect } from "vitest";
 
 import { digest, inkStats, MIN_DISTINCT_COLOURS, MIN_PAINTED_SHARE } from "./map-home.mjs";
-import { MAP_HOME, MAP_HOME_GROUND } from "../src/lib/map-home";
+import { MAP_HOME, MAP_HOME_CREDIT, MAP_HOME_GROUND } from "../src/lib/map-home";
 
 const ROOT = join(import.meta.dirname, "..");
 const STYLE_PATH = join(ROOT, "static", "map-style.json");
@@ -68,6 +68,23 @@ describe("the raster is a picture of the style beside it", () => {
     };
     expect(background.paint["background-color"]).toBe(MAP_HOME_GROUND);
     expect(manifest.ground).toBe(MAP_HOME_GROUND);
+  });
+
+  // The picture's credit (`MAP_HOME_CREDIT`) is the style's own attribution,
+  // character for character — every source that carries one, joined the way
+  // MapLibre's control joins them, so the line on the picture and the line the
+  // live map draws over it at `load` are the same words and the same links.
+  // A second source, or OpenFreeMap rewording its credit in a `pnpm map:style`
+  // refresh, is a different licence line; this is where that is caught.
+  it("carries the style's own credit, word for word", () => {
+    const credits = Object.values(style.sources as Record<string, { attribution?: string }>)
+      .map((source) => source.attribution?.trim())
+      .filter((credit): credit is string => !!credit);
+    expect(credits, "the style credits at least one source").not.toHaveLength(0);
+    expect(MAP_HOME_CREDIT).toBe(credits.join(" | "));
+    expect(MAP_HOME_CREDIT, "and that credit names OpenStreetMap's licence page").toContain(
+      'href="https://www.openstreetmap.org/copyright"',
+    );
   });
 
   // THE ONE CASE HERE THAT OPENS THE PICTURE. Every other guard on the ground

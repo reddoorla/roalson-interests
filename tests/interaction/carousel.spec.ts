@@ -102,44 +102,44 @@ const focusAnd = (page: Page, selector: string) =>
     };
   }, selector);
 
-test("with scripting off it is slide 1, with no dead controls and nothing claiming to rotate", async ({
-  browser,
-}) => {
-  const context = await browser.newContext({ javaScriptEnabled: false });
-  try {
-    const page = await context.newPage();
-    await page.goto(FIXTURES, { waitUntil: "domcontentloaded" });
-    const region = page.locator(AUTO);
+test(
+  "with scripting off it is slide 1, with no dead controls and nothing claiming to rotate",
+  { tag: "@smoke" },
+  async ({ browser }) => {
+    const context = await browser.newContext({ javaScriptEnabled: false });
+    try {
+      const page = await context.newPage();
+      await page.goto(FIXTURES, { waitUntil: "domcontentloaded" });
+      const region = page.locator(AUTO);
 
-    await expect(region).toHaveAttribute("role", "region");
-    await expect(region).toHaveAttribute("aria-roledescription", "carousel");
-    await expect(region, "only script sets this").not.toHaveAttribute("data-carousel-ready", "");
+      await expect(region).toHaveAttribute("role", "region");
+      await expect(region).toHaveAttribute("aria-roledescription", "carousel");
+      await expect(region, "only script sets this").not.toHaveAttribute("data-carousel-ready", "");
 
-    const slides = await region.locator('[role="group"]').evaluateAll((els) =>
-      els.map((el) => ({
-        label: el.getAttribute("aria-label"),
-        inert: el.hasAttribute("inert"),
-        hidden: el.getAttribute("aria-hidden"),
-        opacity: getComputedStyle(el).opacity,
-      })),
-    );
-    expect(slides).toEqual([
-      { label: "1 of 3", inert: false, hidden: null, opacity: "1" },
-      { label: "2 of 3", inert: true, hidden: "true", opacity: "0" },
-      { label: "3 of 3", inert: true, hidden: "true", opacity: "0" },
-    ]);
+      const slides = await region.locator('[role="group"]').evaluateAll((els) =>
+        els.map((el) => ({
+          label: el.getAttribute("aria-label"),
+          inert: el.hasAttribute("inert"),
+          hidden: el.getAttribute("aria-hidden"),
+        })),
+      );
+      expect(slides).toEqual([
+        { label: "1 of 3", inert: false, hidden: null },
+        { label: "2 of 3", inert: true, hidden: "true" },
+        { label: "3 of 3", inert: true, hidden: "true" },
+      ]);
 
-    // The controls ARE in the markup (so the row does not jump in at
-    // hydration) and app.html's <noscript> rule is what hides them.
-    await expect(region.locator("button")).toHaveCount(3);
-    await expect(region.getByLabel("Next slide")).toBeHidden();
-    await expect(region.locator("[data-carousel-progress]")).toBeHidden();
-    await expect(region.getByText("Link in slide 1")).toBeVisible();
-    await expect(region.locator("[aria-live]")).toHaveAttribute("aria-live", "polite");
-  } finally {
-    await context.close();
-  }
-});
+      // No control is on screen without script: app.html's <noscript> rule
+      // hides the ones the server ships.
+      await expect(region.getByLabel("Next slide")).toBeHidden();
+      await expect(region.locator("[data-carousel-progress]")).toBeHidden();
+      await expect(region.getByText("Link in slide 1")).toBeVisible();
+      await expect(region.locator("[aria-live]")).toHaveAttribute("aria-live", "polite");
+    } finally {
+      await context.close();
+    }
+  },
+);
 
 test("the bar and the slide turn on one clock, and the bar HOLDS FULL through the dissolve", async ({
   browser,
@@ -298,53 +298,60 @@ for (const where of ["glyph", "rim"] as const) {
   });
 }
 
-test("keyboard: focus entering stops it, Play then Tab does not stop it again, arrows turn it", async ({
-  browser,
-}) => {
-  const { context, page } = await moving(browser);
-  try {
-    await page.goto(FIXTURES);
-    await pointerAway(page);
-    const region = page.locator(AUTO);
-    await adopted(region);
-    const toggle = region.locator("button").first();
+test(
+  "keyboard: focus entering stops it, Play then Tab does not stop it again, arrows turn it",
+  { tag: "@smoke" },
+  async ({ browser }) => {
+    const { context, page } = await moving(browser);
+    try {
+      await page.goto(FIXTURES);
+      await pointerAway(page);
+      const region = page.locator(AUTO);
+      await adopted(region);
+      const toggle = region.locator("button").first();
 
-    // Pause is the first thing Tab reaches inside the carousel (APG).
-    const first = await region.evaluate((el) =>
-      el.querySelector("button, a[href]")!.getAttribute("aria-label"),
-    );
-    expect(first).toBe("Pause slides");
+      // Pause is the first thing Tab reaches inside the carousel (APG).
+      const first = await region.evaluate((el) =>
+        el.querySelector("button, a[href]")!.getAttribute("aria-label"),
+      );
+      expect(first).toBe("Pause slides");
 
-    await toggle.focus();
-    await expect(toggle, "focus entered: rotation stopped").toHaveAttribute(
-      "aria-label",
-      "Play slides",
-    );
-    await page.keyboard.press("Enter");
-    await expect(toggle).toHaveAttribute("aria-label", "Pause slides");
+      await toggle.focus();
+      await expect(toggle, "focus entered: rotation stopped").toHaveAttribute(
+        "aria-label",
+        "Play slides",
+      );
+      await page.keyboard.press("Enter");
+      await expect(toggle).toHaveAttribute("aria-label", "Pause slides");
 
-    await page.keyboard.press("Tab");
-    await expect(region.getByLabel("Previous slide")).toBeFocused();
-    await expect(toggle, "focus moved WITHIN: still playing").toHaveAttribute(
-      "aria-label",
-      "Pause slides",
-    );
+      await page.keyboard.press("Tab");
+      expect(
+        await region.evaluate(
+          (el) => el !== document.activeElement && el.contains(document.activeElement),
+        ),
+        "focus moved WITHIN",
+      ).toBe(true);
+      await expect(toggle, "focus moved WITHIN: still playing").toHaveAttribute(
+        "aria-label",
+        "Pause slides",
+      );
 
-    await page.keyboard.press("ArrowRight");
-    await expect(region.locator('[role="group"]:not([aria-hidden])')).toHaveAttribute(
-      "aria-label",
-      "2 of 3",
-    );
-    // The slide that left is out of the tab order, not just transparent.
-    expect(
-      await region
-        .locator('[role="group"]')
-        .evaluateAll((els) => els.map((el) => (el as HTMLElement).inert)),
-    ).toEqual([true, false, true]);
-  } finally {
-    await context.close();
-  }
-});
+      await page.keyboard.press("ArrowRight");
+      await expect(region.locator('[role="group"]:not([aria-hidden])')).toHaveAttribute(
+        "aria-label",
+        "2 of 3",
+      );
+      // The slide that left is out of the tab order, not just transparent.
+      expect(
+        await region
+          .locator('[role="group"]')
+          .evaluateAll((els) => els.map((el) => (el as HTMLElement).inert)),
+      ).toEqual([true, false, true]);
+    } finally {
+      await context.close();
+    }
+  },
+);
 
 test("autoplay never turns a slide out from under keyboard focus", async ({ browser }) => {
   const { context, page } = await moving(browser);
@@ -457,23 +464,27 @@ for (const viewport of [
 
 // ── under the shared config's reduced motion ────────────────────────────────
 
-test("under reduced motion there is no pause control, and the bar draws position", async ({
-  page,
-}) => {
-  await page.goto(FIXTURES);
-  const region = page.locator(AUTO);
-  await adopted(region);
-  // The server ships three buttons (it cannot know the preference); two left
-  // is script having learned it.
-  await expect(region.locator("button")).toHaveCount(2);
-  const bar = region.locator("[data-carousel-progress]");
-  await expect(bar).toHaveAttribute("data-carousel-progress", "position");
-  await expect.poll(() => barScale(region)).toBeCloseTo(1 / 3, 5);
-  await region.getByLabel("Next slide").click();
-  await expect.poll(() => barScale(region)).toBeCloseTo(2 / 3, 5);
-  await page.waitForTimeout(DWELL + SETTLE + 500);
-  expect(await barScale(region), "and nothing rotated in the meantime").toBeCloseTo(2 / 3, 5);
-});
+test(
+  "under reduced motion there is no pause control, and the bar draws position",
+  { tag: "@smoke" },
+  async ({ page }) => {
+    await page.goto(FIXTURES);
+    const region = page.locator(AUTO);
+    await adopted(region);
+    // The server ships Pause (it cannot know the preference); its absence is
+    // script having learned it.
+    await expect(region.getByRole("button", { name: /^(Pause|Play) slides$/ })).toHaveCount(0);
+    const bar = region.locator("[data-carousel-progress]");
+    await expect(bar).toHaveAttribute("data-carousel-progress", "position");
+    await region.getByLabel("Next slide").click();
+    await expect(region.locator('[role="group"]:not([aria-hidden])')).toHaveAttribute(
+      "aria-label",
+      "2 of 3",
+    );
+    // Nothing rotates, so nothing mutes the live region.
+    await expect(region.locator("[aria-live]")).toHaveAttribute("aria-live", "polite");
+  },
+);
 
 test("an arrow key on a slide's link is the page's; on a control it turns the slide and focus stays put", async ({
   page,

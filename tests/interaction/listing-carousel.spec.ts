@@ -122,41 +122,51 @@ async function expectSettledRing(page: Page, target: Locator, color: string) {
 }
 
 test.describe("with no script", () => {
-  test("390: every section is the stacked list — every card shown, every link reachable", async ({
-    browser,
-  }) => {
-    const { context, page } = await open(browser, PHONE, { js: false });
-    try {
-      const lists = page.locator(LISTS);
-      expect(await lists.count(), "a list per section").toBeGreaterThan(0);
-      expect(await page.locator(`${CAROUSEL}, ${SLIDE}, ${LISTS} [inert]`).count()).toBe(0);
-      expect(await page.locator(`${LISTS} button`).count(), "no dead arrows").toBe(0);
-
-      for (let i = 0; i < (await lists.count()); i++) {
-        const boxes = await lists
-          .nth(i)
-          .locator("article")
-          .evaluateAll((cards) =>
-            cards.map((c) => {
-              const r = c.getBoundingClientRect();
-              const v = getComputedStyle(c).visibility;
-              return { top: r.top, bottom: r.bottom, h: r.height, visible: v === "visible" };
-            }),
-          );
+  test(
+    "390: every section is the stacked list — every card shown, every link reachable",
+    { tag: "@smoke" },
+    async ({ browser }) => {
+      const { context, page } = await open(browser, PHONE, { js: false });
+      try {
+        const lists = page.locator(LISTS);
+        expect(await lists.count(), "a list per section").toBeGreaterThan(0);
+        expect(await page.locator(`${CAROUSEL}, ${SLIDE}, ${LISTS} [inert]`).count()).toBe(0);
         expect(
-          boxes.every((b) => b.visible && b.h > 0),
-          `list ${i}: every card painted`,
-        ).toBe(true);
-        for (let j = 1; j < boxes.length; j++) {
-          expect(boxes[j]!.top, `list ${i}: card ${j} below card ${j - 1}`).toBeGreaterThan(
-            boxes[j - 1]!.bottom,
-          );
+          await lists.getByRole("button", { name: /^(Previous|Next) slide$/ }).count(),
+          "no dead arrows",
+        ).toBe(0);
+
+        const shown = page.locator(`section:has(${LISTS})`).filter({ visible: true });
+        // The live portfolio has no Past Projects yet; the fixture has three.
+        expect(
+          (
+            await shown.evaluateAll((els) => els.map((el) => el.getAttribute("aria-labelledby")))
+          ).filter((id) => id !== "listing-past"),
+          "the landing view: All, then Past Projects where there are any",
+        ).toEqual(["listing-all"]);
+        for (let i = 0; i < (await shown.count()); i++) {
+          const cards = shown.nth(i).locator(`${LISTS} article`);
+          for (let j = 0; j < (await cards.count()); j++)
+            await expect(cards.nth(j), `section ${i}: card ${j} painted`).toBeVisible();
         }
+        const hrefs = async (where: string) =>
+          new Set(
+            await page
+              .locator(`${where} ${LISTS} a[href^="/properties/"]`)
+              .evaluateAll((els) => els.map((el) => el.getAttribute("href"))),
+          );
+        const everyListing = await hrefs("section[data-view-section]");
+        const onAll = await hrefs('section[data-view-section="all"]');
+        expect(onAll.size).toBeGreaterThan(0);
+        expect(
+          [...everyListing].filter((h) => !onAll.has(h)),
+          "every listing is on All",
+        ).toEqual([]);
+      } finally {
+        await context.close();
       }
-    } finally {
-      await context.close();
-    }
-  });
+    },
+  );
 });
 
 test.describe("at 390, hydrated", () => {
@@ -237,45 +247,50 @@ test.describe("at 390, hydrated", () => {
     }
   });
 
-  test("off-stage cards take no focus: Tab goes from the arrows to the card on stage and on", async ({
-    browser,
-  }) => {
-    const { context, page } = await open(browser);
-    try {
-      const carousel = await firstCarousel(page);
-      const links = await carousel.evaluate((region) =>
-        [...region.querySelectorAll<HTMLElement>("a[href]")].map((a) => ({
-          inert: !!a.closest("[inert]"),
-          hidden: getComputedStyle(a).visibility !== "visible",
-        })),
-      );
-      const reachable = links.filter((l) => !l.inert);
-      expect(reachable.length, "one card's links").toBeLessThanOrEqual(1);
-      expect(links.filter((l) => l.inert).every((l) => l.hidden)).toBe(true);
+  test(
+    "off-stage cards take no focus: Tab goes from the arrows to the card on stage and on",
+    { tag: "@smoke" },
+    async ({ browser }) => {
+      const { context, page } = await open(browser);
+      try {
+        const carousel = await firstCarousel(page);
+        const links = await carousel.evaluate((region) =>
+          [...region.querySelectorAll<HTMLElement>("a[href]")].map((a) => ({
+            inert: !!a.closest("[inert]"),
+            hidden: getComputedStyle(a).visibility !== "visible",
+            card: a.closest("article")?.querySelector("h3")?.textContent?.trim() ?? null,
+          })),
+        );
+        const reachable = links.filter((l) => !l.inert);
+        expect(new Set(reachable.map((l) => l.card)).size, "one card's links").toBeLessThanOrEqual(
+          1,
+        );
+        expect(links.filter((l) => l.inert).every((l) => l.hidden)).toBe(true);
 
-      const next = carousel.getByRole("button", { name: "Next slide" });
-      await next.focus();
-      await page.keyboard.press("Enter");
-      expect(await focus(page), "pressing an arrow keeps focus on it").toMatchObject({
-        at: "Next slide",
-        inert: false,
-      });
-      const onStage = (await state(carousel)).title!;
-      await page.keyboard.press("Tab");
-      const landed = await page.evaluate(() => {
-        const el = document.activeElement as HTMLElement;
-        return {
-          inert: !!el.closest("[inert]"),
-          card: el.closest("article")?.querySelector("h3")?.textContent?.trim() ?? null,
-        };
-      });
-      // A past project has no link, so Tab leaves the carousel instead.
-      if (landed.card !== null) expect(landed).toEqual({ inert: false, card: onStage });
-      expect(landed.inert).toBe(false);
-    } finally {
-      await context.close();
-    }
-  });
+        const next = carousel.getByRole("button", { name: "Next slide" });
+        await next.focus();
+        await page.keyboard.press("Enter");
+        expect(await focus(page), "pressing an arrow keeps focus on it").toMatchObject({
+          at: "Next slide",
+          inert: false,
+        });
+        const onStage = (await state(carousel)).title!;
+        await page.keyboard.press("Tab");
+        const landed = await page.evaluate(() => {
+          const el = document.activeElement as HTMLElement;
+          return {
+            inert: !!el.closest("[inert]"),
+            card: el.closest("article")?.querySelector("h3")?.textContent?.trim() ?? null,
+          };
+        });
+        // A past project has no link, so Tab leaves the carousel instead.
+        if (landed.card !== null) expect(landed).toEqual({ inert: false, card: onStage });
+        expect(landed.inert).toBe(false);
+      } finally {
+        await context.close();
+      }
+    },
+  );
 
   test("the ring shows on both card tones: off-white on the garnet card, garnet on the light ones", async ({
     browser,
@@ -300,30 +315,34 @@ test.describe("at 390, hydrated", () => {
     }
   });
 
-  test("axe passes on the carousels, on the garnet card and on a light one", async ({
-    browser,
-  }) => {
-    const { context, page } = await open(browser);
-    try {
-      await firstCarousel(page);
-      const audit = async () => {
-        const results = await axe(page)
-          .include(LISTS)
-          .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
-          .analyze();
-        const contrast = results.passes.find((r) => r.id === "color-contrast");
-        expect(contrast?.nodes.length ?? 0, "contrast measured something").toBeGreaterThan(0);
-        return results.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target).join()}`);
-      };
-      expect(await audit()).toEqual([]);
-      for (const carousel of await page.locator(`${CAROUSEL}[data-carousel-ready]`).all()) {
-        await carousel.getByRole("button", { name: "Next slide" }).click();
+  test(
+    "axe passes on the carousels, on the garnet card and on a light one",
+    { tag: "@smoke" },
+    async ({ browser }) => {
+      const { context, page } = await open(browser);
+      try {
+        await firstCarousel(page);
+        const audit = async () => {
+          const results = await axe(page)
+            .include(LISTS)
+            .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
+            .analyze();
+          const contrast = results.passes.find((r) => r.id === "color-contrast");
+          expect(contrast?.nodes.length ?? 0, "contrast measured something").toBeGreaterThan(0);
+          return results.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target).join()}`);
+        };
+        expect(await audit()).toEqual([]);
+        const shown = page.locator(`${CAROUSEL}[data-carousel-ready]`).filter({ visible: true });
+        expect(await shown.count(), "premise: a carousel on screen").toBeGreaterThan(0);
+        for (const carousel of await shown.all()) {
+          await carousel.getByRole("button", { name: "Next slide" }).click();
+        }
+        expect(await audit()).toEqual([]);
+      } finally {
+        await context.close();
       }
-      expect(await audit()).toEqual([]);
-    } finally {
-      await context.close();
-    }
-  });
+    },
+  );
 
   test("a pressed pin turns the carousel to its card", async ({ browser }) => {
     const { context, page } = await open(browser);
@@ -353,7 +372,8 @@ test.describe("at 390, hydrated", () => {
           if (el.dataset.mapPin === onStage) continue;
           const r = el.getBoundingClientRect();
           const [x, y] = [r.left + r.width / 2, r.top + r.height / 2];
-          if (x > m.left + 4 && x < m.right - 4 && y > m.top + 4 && y < m.bottom - 4) {
+          const inside = x > m.left + 4 && x < m.right - 4 && y > m.top + 4 && y < m.bottom - 4;
+          if (inside && el.contains(document.elementFromPoint(x, y))) {
             return { id: el.dataset.mapPin!, x, y };
           }
         }
@@ -382,24 +402,24 @@ test.describe("beside the view tabs (#180)", () => {
   }) => {
     const { context, page } = await open(browser);
     try {
-      const land = page.locator(`section[data-view-section="land"] ${CAROUSEL}`);
+      const all = page.locator(`section[data-view-section="all"] ${CAROUSEL}`);
       const improved = page.locator(`section[data-view-section="improved"] ${CAROUSEL}`);
-      await expect(land).toHaveAttribute("data-carousel-ready", "", {
+      await expect(all).toHaveAttribute("data-carousel-ready", "", {
         timeout: HYDRATION_TIMEOUT,
       });
       test.skip((await improved.count()) === 0, "one listing in Improved: no carousel there");
-      await land.getByRole("button", { name: "Next slide" }).click();
-      const landSlide = (await state(land)).label;
+      await all.getByRole("button", { name: "Next slide" }).click();
+      const allSlide = (await state(all)).label;
 
       await page.locator('[data-view-tab="improved"]').click();
-      await expect(land).toBeHidden();
+      await expect(all).toBeHidden();
       await expect(improved).toBeVisible();
       await improved.getByRole("button", { name: "Next slide" }).click();
       expect((await state(improved)).label).toMatch(/^2 of /);
 
-      await page.locator('[data-view-tab="all"]').click();
-      await expect(land).toBeVisible();
-      expect((await state(land)).label, "Land is where it was left").toBe(landSlide);
+      await page.goBack();
+      await expect(all).toBeVisible();
+      expect((await state(all)).label, "All is where it was left").toBe(allSlide);
     } finally {
       await context.close();
     }
@@ -447,8 +467,14 @@ test.describe("the focus net (#34), in a real browser", () => {
     const { context, page } = await open(browser, WIDE);
     try {
       const list = page.locator(LISTS).first();
-      const link = list.locator("li a[href]").nth(2);
+      await expect(list).toHaveAttribute("aria-roledescription", "carousel");
+      const next = list.getByRole("button", { name: "Next slide" });
+      await next.click();
+      await next.click();
+      await expect.poll(async () => (await state(list)).label).toMatch(/^3 of /);
+      const link = list.locator("li:not([aria-hidden]) a[href]").first();
       await link.focus();
+      await expect(link).toBeFocused();
       const name = await link.evaluate(
         (a) => a.closest("article")!.querySelector("h3")!.textContent,
       );
@@ -465,16 +491,18 @@ test.describe("the focus net (#34), in a real browser", () => {
     }
   });
 
-  test("widened past lg with focus on an arrow, focus goes to the region as the arrows go", async ({
+  test("widened past lg with focus on an arrow, the carousel and the focus both stay", async ({
     browser,
   }) => {
     const { context, page } = await open(browser);
     try {
       const carousel = await firstCarousel(page);
+      const before = await page.locator(CAROUSEL).count();
       await carousel.getByRole("button", { name: "Next slide" }).focus();
       await page.setViewportSize(WIDE);
-      await expect(page.locator(CAROUSEL)).toHaveCount(0);
-      expect(await focus(page)).toEqual({ at: "REGION", inert: false, connected: true });
+      await expect(page.locator(CAROUSEL)).toHaveCount(before - 1);
+      await expect(carousel).toHaveAttribute("aria-roledescription", "carousel");
+      expect(await focus(page)).toEqual({ at: "Next slide", inert: false, connected: true });
     } finally {
       await context.close();
     }
@@ -482,17 +510,20 @@ test.describe("the focus net (#34), in a real browser", () => {
 });
 
 test.describe("what does not change", () => {
-  test("from lg: no carousel, nothing inert, every card shown in its column", async ({
+  test("from lg: Past Projects is a grid, nothing in it inert, every card shown", async ({
     browser,
   }) => {
     const { context, page } = await open(browser, WIDE);
     try {
-      // Positive evidence script ran and chose: the view tabs hydrate too.
       await expect(page.locator("[data-listing][data-view]")).toBeAttached();
-      expect(await page.locator(`${CAROUSEL}, ${SLIDE}, ${LISTS} [inert]`).count()).toBe(0);
-      expect(await page.locator(`${LISTS} button, ${LISTS} .invisible`).count()).toBe(0);
+      const past = `section[data-past] ${LISTS}`;
+      await expect(page.locator(past)).toHaveCount(1);
+      expect(
+        await page.locator(`${past}${CAROUSEL}, ${past} ${SLIDE}, ${past} [inert]`).count(),
+      ).toBe(0);
+      expect(await page.locator(`${past} button, ${past} .invisible`).count()).toBe(0);
       const cards = await page
-        .locator(`${LISTS} article`)
+        .locator(`${past} article`)
         .evaluateAll((all) => all.map((a) => a.getBoundingClientRect().height > 0));
       expect(cards.length).toBeGreaterThan(0);
       expect(cards.every(Boolean)).toBe(true);

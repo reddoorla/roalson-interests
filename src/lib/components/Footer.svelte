@@ -45,6 +45,7 @@
   import { OFFICE, officeAddressLines } from "$lib/office";
   import { SITE_NAME } from "$lib/seo";
   import { FOOTER_NAV_ID, type FooterLink } from "$lib/site-config";
+  import { PRIVACY_PATH } from "$lib/privacy/policy";
 
   interface Props {
     /** The closing call to action: one string per drawn line, then its
@@ -144,14 +145,15 @@
     <div class="lg:grid lg:grid-cols-[397fr_847fr] lg:gap-9">
       {#if cta}
         <div class="lg:col-start-2 lg:row-start-1">
-          <!-- H1's size on an h2: it is the band's headline, not the page's.
-               Still 66/80 at 390, as drawn (four lines there). Below 360 its
-               longest line — "to serving", 294px in the comp and 297 as
-               Chromium sets it — no longer fits the column, and the body clips
-               overflow, so it steps down to H2 rather than lose a letter (WCAG
-               1.4.10 asks for 320). `break-words` is for a fallback face wider
-               than the real one: a broken word, never a clipped one. -->
-          <h2 class="t-h1 max-[359px]:t-h2 break-words text-primary">
+          <!-- H1's size on an h2 from `sm`: it is the band's headline, not the
+               page's. Below `sm` it is H2, the size of the homepage's
+               "Representing Your Best Interests" (MarkUp, 2026-10-01: "on
+               mobile, change to same size"). The comp drew 66/80 at 390, four
+               lines; H2 also keeps "to serving" (297px at H1) inside a 280px
+               column at 320, which is why it stepped down there before.
+               `break-words` is for a fallback face wider than the real one: a
+               broken word, never a clipped one. -->
+          <h2 class="t-h2 sm:t-h1 break-words text-primary">
             <!-- One <br> per drawn break, with a real space after it: the comp
                  breaks the line with U+2028, which is not shipped, and a
                  reader that ignores the <br> must not get "forwardto". -->
@@ -230,10 +232,10 @@
                  "Phone:" is a link distinguished from its sentence by nothing,
                  which is what axe's link-in-text-block reports. -->
             <a href={OFFICE.phone.href} class="hover:underline">Phone: {OFFICE.phone.display}</a>
+            <!-- The label text sits directly in the <a>: an underline does not
+                 propagate into an inline-block, and app.css makes every
+                 <span> one. -->
             {#if legal.length > 0}
-              <!-- The label text sits directly in the <a>: an underline does not
-                   propagate into an inline-block, and app.css makes every
-                   <span> one. -->
               <ul class="flex flex-col items-start gap-[10px]">
                 {#each legal as link, i (i)}
                   <li class="max-w-[298px]">
@@ -256,7 +258,11 @@
         <!-- The same grid cell as the headline, pinned to its foot: level with
              the last TREC line at `lg`, under the wordmark block on mobile. -->
         <p class="t-body-2 mt-10 text-primary lg:col-start-2 lg:row-start-1 lg:mt-0 lg:self-end">
-          {rights}
+          {rights} · <a href={PRIVACY_PATH} class="underline hover:no-underline">Privacy Policy</a>
+        </p>
+      {:else}
+        <p class="t-body-2 mt-10 text-primary lg:col-start-2 lg:row-start-1 lg:mt-0 lg:self-end">
+          <a href={PRIVACY_PATH} class="underline hover:no-underline">Privacy Policy</a>
         </p>
       {/if}
     </div>

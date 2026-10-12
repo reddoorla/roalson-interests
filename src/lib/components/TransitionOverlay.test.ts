@@ -204,8 +204,8 @@ describe("TransitionOverlay — how long the cover lasts", () => {
     expect(vi.getTimerCount(), "no ceiling armed for the cover").toBe(1);
   });
 
-  it("holds for a couple of frames once the route arrives, not a second", async () => {
-    render(TransitionOverlay);
+  it("swaps the ceiling for the hold once the route arrives, and the hold lifts", async () => {
+    render(TransitionOverlay, { visibleDuration: 100 });
 
     beforeNavigateCb!(makeNav("/about"));
     await tick();
@@ -215,16 +215,12 @@ describe("TransitionOverlay — how long the cover lasts", () => {
     // it — a stale failsafe would lift a cover that is already gone.
     expect(vi.getTimerCount(), "the ceiling outlived the navigation it bounded").toBe(1);
 
-    // The old hold was 1050ms plus a 700ms fade: nearly two seconds of cover
-    // over a page that had been ready for most of it. `afterNavigate` runs
-    // before the incoming route has painted, so the hold is not zero either —
-    // a couple of frames is the whole job.
-    await vi.advanceTimersByTimeAsync(200);
-    expect(vi.getTimerCount(), "still holding 200ms after the route arrived").toBe(0);
+    await vi.advanceTimersByTimeAsync(100);
+    expect(vi.getTimerCount(), "still holding after the hold elapsed").toBe(0);
   });
 
   it("does not leave a superseded navigation's timer running", async () => {
-    render(TransitionOverlay);
+    render(TransitionOverlay, { visibleDuration: 200 });
 
     beforeNavigateCb!(makeNav("/first"));
     await tick();
@@ -237,10 +233,9 @@ describe("TransitionOverlay — how long the cover lasts", () => {
     beforeNavigateCb!(makeNav("/second", { fromPath: "/first" }));
     await tick();
 
-    // Past where the stale hide would have fired, and past the fade it would
-    // have started, a correct component is still covering: the second
-    // navigation has not completed, so its ceiling is what remains pending.
-    await vi.advanceTimersByTimeAsync(1100);
-    expect(vi.getTimerCount(), "the second cover has nothing left to lift it").toBe(1);
+    // Counted now, while the stale hide would still be pending: once it has
+    // fired, only the second ceiling is left either way. One timer is that
+    // ceiling; two is the stale hide beside it; none is a cover nothing lifts.
+    expect(vi.getTimerCount(), "the superseded navigation's hold is still armed").toBe(1);
   });
 });

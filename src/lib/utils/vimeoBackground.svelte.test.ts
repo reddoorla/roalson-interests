@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { backgroundEmbedSrc, VimeoBackground, VIMEO_PLAYER_ORIGIN } from "./vimeoBackground.svelte";
 
 // The controller is exercised end to end through its two renderings
-// (VimeoBanner.test.ts and HeroBackgroundVideo.test.ts, 18 cases between them).
+// (VimeoBanner.test.ts and HeroBackgroundVideo.test.ts).
 // What is here is the part neither of those can state plainly: the embed URL's
 // own parameters, and the algebra of `visible` / `controllable`, which is what
 // decides whether a page shows motion and whether it offers a way to stop it.

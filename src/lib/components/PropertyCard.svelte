@@ -1,8 +1,7 @@
 <script lang="ts">
-  // The comp's `property` card, three tones. On the Properties page ONE
-  // listing of each active section is the garnet card (6904:2068: off-white
-  // text and an off-white-outlined LEARN MORE) — the comp draws the first, and
-  // PropertyListing moves it to the card on the centre line. Every other card takes
+  // The comp's `property` card, three tones. On the Properties page the first
+  // section's first listing is the garnet card (6904:2068: off-white text and
+  // an off-white-outlined LEARN MORE). Every other card takes
   // whichever light token its section's ground does NOT use, so it always
   // reads as a panel: sand (6913:1982, `#e8e1d1`) on the first section's
   // off-white ground, off-white (6913:2062, `#f2efe9`) on the sand ground the
@@ -11,22 +10,15 @@
   // button — a past project keeps its page but its card is unlinked (Stage B
   // call 5), and shows only photo, address and bullets (client, 2026-09-25).
   //
-  // The tones are colour only, and the fade between them is NOT in this file:
-  // app.css gives a watched card's ground, photo box and status badges
-  // `transition-colors` by selector, so the server's markup did not change
-  // when the highlight started moving. Those selectors read this markup's
-  // structure — tests/interaction/active-card-highlight.spec.ts goes red if
-  // it moves out from under them.
-  //
   // Anatomy, shared with PropertyDetail: photo box 423.5 × 267.5 beside (or
   // above) a panel padded 20 / 20 / 40; size line over title with the card's
   // 15px gap; 20px between blocks. Every block renders only when its field is
   // filled — and no photo is the common case (three real photos for 22
   // listings), so a photo-less row card gives the panel the full width.
   //
-  // AS A CAROUSEL SLIDE (`inCarousel`, #14 below `lg`) the card is laid out by
+  // AS A CAROUSEL SLIDE (`inCarousel`, #14) the card is laid out by
   // its carousel, not by itself: the article is a SUBGRID of the carousel's
-  // grid, the photo takes the first row (the left column from `md`) and the
+  // grid, the photo takes the first row (the left column from `md` to `lg`) and the
   // panel the last, and the rows between belong to the carousel's bar and
   // arrows, which are its siblings in the DOM and not its children — a
   // control inside a slide goes inert with it (#34). The photo box is drawn
@@ -37,7 +29,12 @@
   import { cappedWidths } from "@reddoorla/maintenance/images";
 
   import type { PropertyDocument } from "../../prismicio-types";
-  import BrandButton from "$lib/components/BrandButton.svelte";
+  import ArrowRight from "$lib/components/ArrowRight.svelte";
+  import {
+    BRAND_BUTTON_TONES,
+    brandButtonBase,
+    brandButtonPadding,
+  } from "$lib/components/BrandButton.svelte";
   import { linkResolver } from "$lib/prismicio";
   import { isPastProject, propertyHighlights, statusLabel } from "$lib/property";
 
@@ -47,12 +44,12 @@
      *  one is the caller's call); "sand" and "cream" are the flat card on the
      *  off-white and the sand ground respectively. */
     variant?: "featured" | "sand" | "cream";
-    /** "row": photo beside the panel from md up, as in the listing column.
-     *  "column": photo above, as in the Past Projects grid. Below md every card is a
-     *  column; the 390 comp stacks them. */
-    layout?: "row" | "column";
+    /** "row": photo beside the panel from md up. "column": photo above, as
+     *  in the Past Projects grid. "panel": a row from md and a column again
+     *  from lg, beside the map. Below md every card is a column. */
+    layout?: "row" | "column" | "panel";
     /** One slide of PropertyListing's carousel: see the header. `layout` is
-     *  the carousel's then — a column below `md`, a row from it. */
+     *  the carousel's then — a column below `md`, a row to `lg`, a column from it. */
     inCarousel?: boolean;
     class?: string;
   }
@@ -87,6 +84,12 @@
   const highlights = $derived(propertyHighlights(property));
   const hasPhoto = $derived(isFilled.image(data.feature_image));
   const href = $derived(asLink(property, { linkResolver }));
+  const linked = $derived(!past && !!href);
+  const CARD_FILL = {
+    garnet: "group-hover/card:bg-primary group-hover/card:text-light",
+    cream: "group-hover/card:bg-background group-hover/card:text-primary",
+  } as const;
+  const learnMoreTone = $derived(featured ? "cream" : "garnet");
 
   // The carousel's placements: rows 1 and 4 of its [photo][bar][arrows][text]
   // below `md`; from `md` the photo spans column 1 and the text is row 3 of
@@ -95,21 +98,21 @@
   const frame = $derived(
     inCarousel
       ? "col-span-full row-span-full grid grid-cols-subgrid grid-rows-subgrid"
-      : `flex flex-col ${layout === "row" ? "md:flex-row" : ""}`,
+      : `flex flex-col ${layout === "column" ? "" : "md:flex-row"} ${layout === "panel" ? "lg:flex-col" : ""}`,
   );
   const photoBox = $derived(
     inCarousel
-      ? "relative row-start-1 aspect-[423.5/267.5] overflow-hidden md:col-start-1 md:row-span-full md:aspect-auto"
-      : `aspect-[423.5/267.5] shrink-0 overflow-hidden ${layout === "row" ? "md:w-1/2" : ""}`,
+      ? "relative row-start-1 aspect-[423.5/267.5] overflow-hidden md:col-start-1 md:row-span-full md:aspect-auto lg:row-span-1 lg:row-start-1"
+      : `aspect-[423.5/267.5] shrink-0 overflow-hidden ${layout === "column" ? "" : "md:w-1/2"} ${layout === "panel" ? "lg:w-auto" : ""}`,
   );
   const panel = $derived(
     `flex min-w-0 flex-1 flex-col gap-5 px-5 pt-5 pb-10${
-      inCarousel ? " row-start-4 md:col-start-2 md:row-start-3" : ""
+      inCarousel ? " row-start-4 md:col-start-2 md:row-start-3 lg:col-start-1 lg:row-start-4" : ""
     }`,
   );
 </script>
 
-<article class="{frame} {tone.card} {passedClasses}">
+<article class="{frame} {tone.card} {linked ? 'group/card relative' : ''} {passedClasses}">
   {#if hasPhoto || inCarousel}
     <div class="{photoBox} {tone.photo}">
       {#if hasPhoto}
@@ -117,7 +120,9 @@
           field={data.feature_image}
           fallbackAlt=""
           widths={cappedWidths(data.feature_image)}
-          sizes="(min-width: 1024px) 30vw, (min-width: 768px) 50vw, 100vw"
+          sizes={layout === "panel"
+            ? "(min-width: 1440px) 458px, (min-width: 1280px) calc((100vw - 160px) * 0.358), (min-width: 1024px) calc((100vw - 64px) * 0.358), (min-width: 768px) 50vw, 100vw"
+            : "(min-width: 1024px) 30vw, (min-width: 768px) 50vw, 100vw"}
           class={inCarousel ? "absolute inset-0 size-full object-cover" : "size-full object-cover"}
         />
       {/if}
@@ -144,7 +149,19 @@
       {#if !past && data.size_label}
         <p class="t-h4">{data.size_label}</p>
       {/if}
-      <h3 class="t-h3">{data.title}</h3>
+      <h3 class="t-h3">
+        {#if linked}
+          <a
+            {href}
+            draggable="false"
+            data-card-link
+            class="in-[[inert]]:invisible after:absolute after:inset-0 after:content-[''] focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:-outline-offset-4 focus-visible:after:outline-[var(--focus-ring)]"
+            >{data.title}</a
+          >
+        {:else}
+          {data.title}
+        {/if}
+      </h3>
     </div>
 
     {#if highlights.length}
@@ -155,10 +172,16 @@
       </ul>
     {/if}
 
-    {#if !past && href}
-      <BrandButton {href} arrow tone={featured ? "cream" : "garnet"} class="self-start">
-        Learn more <span class="sr-only">about {data.title}</span>
-      </BrandButton>
+    {#if linked}
+      <span
+        aria-hidden="true"
+        data-card-cta
+        class="{brandButtonBase} {BRAND_BUTTON_TONES[learnMoreTone]} {CARD_FILL[
+          learnMoreTone
+        ]} {brandButtonPadding(true)} self-start"
+      >
+        Learn more <ArrowRight />
+      </span>
     {/if}
   </div>
 </article>

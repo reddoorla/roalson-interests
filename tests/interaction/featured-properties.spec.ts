@@ -5,11 +5,12 @@ import {
   FEATURED_DWELL,
   FEATURED_KEN_BURNS,
   FEATURED_REVEAL_FAILSAFE,
+  FEATURED_TILT_DEG,
 } from "./featured-dwell";
 import { measuresGutter, viewportFor } from "./gutter";
 import { HYDRATION_TIMEOUT } from "./hydrated";
-import { DARK, SAND } from "./palette";
 import { axe } from "./axe";
+import { DARK } from "./palette";
 
 // The homepage's featured band (src/lib/slices/FeaturedProperties) is the
 // headless carousel's first consumer, and makes promises jsdom cannot check:
@@ -26,6 +27,12 @@ import { axe } from "./axe";
 //     (operator call, 2026-09-23);
 //  3. turning a slide never drops keyboard focus on <body> (#34);
 //  4. ONE listing is a card and NONE is no band at all.
+//
+// SINCE 2026-10-09 THE BAND HAS NO MAP (Erik: "lose map entirely"), and its
+// heading is no longer the card's eyebrow: it is an H2 in its own element
+// (`[data-featured-heading]`), and the chrome holds only the controls. Since
+// 2026-10-12 (Erik's right-hand option) that element is in the card, atop the
+// left column under a full-width photo, and the chrome foots the column.
 //
 // House rules, paid for in nav.spec.ts and footer.spec.ts: no x derived from
 // the window (the page lays out a scrollbar gutter narrower than its viewport:
@@ -49,15 +56,20 @@ const DISSOLVE = FEATURED_DISSOLVE;
 /** How long to WAIT for a turn before calling it a failure — a ceiling, never
  *  a measurement. What a lap actually took is stamped in the page by
  *  `stampTurns` and asserted from those numbers, so this only decides how
- *  patient the wait is, and being patient costs a green run nothing. Raised
- *  from `DWELL + 2000` when the homepage band gained its map (#13, #103): a
- *  426 KB MapLibre boot lands inside the first dwell on a cold dev server and
- *  pushed one turn past 6s, which read as "the carousel never turned". */
+ *  patient the wait is, and being patient costs a green run nothing. It was
+ *  raised from `DWELL + 2000` for the band's map's boot (#13, #103); the map
+ *  went on 2026-10-11 and the ceiling stays, since a wait costs nothing. */
 const TURN_CEILING = DWELL + DISSOLVE + 6000;
-/** Half the leading the ramp trims off `t-h4` (25.2 line, 9 cap box). The comp
- *  measures from the CAP box, CSS from the line box. */
-const H4_TRIM = 8.1;
-
+/** The off-diagonal under which Firefox's WebRender takes a transform for a
+ *  plain scale — `NEARLY_ZERO` in `ScaleOffset::from_transform`
+ *  (gfx/wr/webrender_api/src/fast_transform.rs), read in its source on
+ *  2026-09-30. The photo's tilt (TILT_DEG in the slice) is there to be past
+ *  it on every frame: at or under it, the drift ticks there again. */
+const NEARLY_ZERO = 1 / 4096;
+/** How far a frame's angle may read from TILT_DEG, in degrees: well over what
+ *  Chromium's six serialized digits cost (~1e-7), well under what a tilt
+ *  interpolated to or from 0 is off by a second into a dwell (~0.0025). */
+const ANGLE_SLACK = 5e-6;
 /** Every width in this file is the layout width the comp is drawn at, and
  *  `viewportFor` (./gutter.ts) turns it into the viewport that produces it.
  *  Asked for 1440 directly under a classic 15px scrollbar, the card measures
@@ -101,22 +113,17 @@ const holdClock = async (page: Page) => {
 
 const status = (page: Page) => page.locator(`${CARD} [aria-live]`);
 
-/** THE MAP BOOTS BEFORE THE CLOCK IS TIMED (#117). The band's map sits below
- *  the fold and boots once half of it is on screen, and the first press on
- *  the card scrolls it there — Playwright scrolls before it clicks — so a
- *  426 KB parse and a WebGL context start with that press. Measured at 4x CPU
- *  throttle, the engine's first request goes out 8-37ms AFTER the pointerdown:
- *  not ahead of the press, as #117 first read it, but inside whatever the case
- *  times next. Scroll to it, and wait for the canvas to be up and the picture
- *  under it gone (the axe case below has the long form), before timing
- *  anything. */
-async function mapBooted(page: Page) {
+/** THE BAND IS ON SCREEN, AND ITS REVEAL OVER, BEFORE THE CLOCK IS TIMED.
+ *  The first press on the card scrolls it into view — Playwright scrolls
+ *  before it clicks — and that scroll starts whatever the band does on
+ *  arrival inside whatever the case times next. Until 2026-10-09 that was the
+ *  band's map booting (#117: a 426 KB parse and a WebGL context, whose first
+ *  request went out 8-37ms AFTER the pointerdown at 4x CPU throttle), and this
+ *  helper waited for it. The map is gone; the scroll still starts the card's
+ *  reveal, so that is what is waited out now. */
+async function bandInView(page: Page) {
   await page.locator(BAND).scrollIntoViewIfNeeded();
-  await expect(
-    page.locator(`${BAND} [data-property-map]`),
-    "the band's map never finished booting",
-  ).toHaveAttribute("data-map-ready", "", { timeout: 40_000 });
-  await expect(page.locator(`${BAND} [data-map-home-box]`)).toHaveCount(0, { timeout: 10_000 });
+  await revealed(page.locator(CARD));
 }
 
 /** Presses Pause EARLY in a dwell: after a clock turn, once the handover is
@@ -238,21 +245,6 @@ type AxeRule = {
   nodes: { html: string; target: unknown[]; any?: { data?: unknown }[] }[];
 };
 
-/** How many of the elements matching `selector` axe PASSED for `rule` — read
- *  off each node's own target, because axe abbreviates a long `html`
- *  mid-attribute (`data-map-home-cluste...="2"`), so a substring can miss. */
-const passedOn = (page: Page, results: { passes: AxeRule[] }, rule: string, selector: string) =>
-  page.evaluate(
-    ({ targets, selector }) =>
-      targets.filter((t) => document.querySelector(t)?.matches(selector)).length,
-    {
-      targets: (results.passes.find((r) => r.id === rule)?.nodes ?? []).map((n) =>
-        String(n.target[0]),
-      ),
-      selector,
-    },
-  );
-
 /** Which slides are on stage, by title — read off `inert`, the thing that
  *  actually takes a slide out of the tab order. */
 const onStage = (page: Page) =>
@@ -309,7 +301,8 @@ const stampTurns = (page: Page) =>
   }, CARD);
 
 /** Every box relative to the CARD's own top-left — the comp's card-relative
- *  table (home-featured-properties §3) — never to the window. */
+ *  table (home-featured-properties §3) — never to the window. The band's
+ *  heading is inside the card since 2026-10-12, atop its left column. */
 const geometry = (page: Page) =>
   page.evaluate(
     ({ CARD, BAND }) => {
@@ -330,30 +323,16 @@ const geometry = (page: Page) =>
       const active = [...card.querySelectorAll("[data-featured-slide]")].find(
         (s) => !s.hasAttribute("inert"),
       )!;
-      const slot = document.querySelector(`${BAND} [data-map-slot]`)!;
       return {
         card: { width: C.width, height: C.height },
         photo: rel(active.querySelector("img")!.parentElement)!,
         bar: rel(card.querySelector("[data-carousel-progress]")),
-        eyebrow: rel(card.querySelector("h2"))!,
-        controls: rel(card.querySelector("div[data-js-only]:has(> button)")),
+        heading: rel(document.querySelector(`${BAND} [data-featured-heading] h2`))!,
+        controls: rel(card.querySelector("[data-featured-controls]")),
         text: rel(active.querySelector("h3")!.parentElement!.parentElement)!,
         sizeLine: rel(active.querySelector("p.t-h4"))!,
         button: rel(active.querySelector("a"))!,
-        portfolio: rel(card.querySelector("[data-featured-portfolio] a")),
-        slot: {
-          display: getComputedStyle(slot).display,
-          right: slot.getBoundingClientRect().right - C.left,
-          width: slot.getBoundingClientRect().width,
-          background: getComputedStyle(slot).backgroundColor,
-        },
-        // The child of the slot, which is the element that actually paints the
-        // column before the tiles arrive. Reading only the slot's background
-        // is what let a sand rectangle ship over the band's #3d0707.
-        map: {
-          background: getComputedStyle(slot.firstElementChild!).backgroundColor,
-          width: slot.firstElementChild!.getBoundingClientRect().width,
-        },
+        portfolio: rel(card.querySelector("[data-featured-portfolio]")),
         // Positive means content wider than the box, which is the defect.
         // It reads minus the gutter even when nothing overflows: `clientWidth`
         // reports the viewport while the page lays out inside the gutter.
@@ -365,8 +344,8 @@ const geometry = (page: Page) =>
     { CARD, BAND },
   );
 
-test.describe("where the comp draws it", () => {
-  test("1440: the chrome is INSIDE the panel beside the text — 285 under a 928:542 photo", async ({
+test.describe("where Erik's right-hand option draws it (2026-10-12)", () => {
+  test("1440: a clean full-width photo; the heading tops the left column and the controls foot it, level with LEARN MORE", async ({
     browser,
   }) => {
     const { context, page } = await moving(browser);
@@ -376,128 +355,118 @@ test.describe("where the comp draws it", () => {
       await holdClock(page);
       const g = await geometry(page);
 
-      expect(g.layout, "premise: the page is laid out at the comp's 1440").toBe(1440);
-      expect(g.photo.width / g.photo.height).toBeCloseTo(928 / 542, 2);
+      expect(g.layout, "premise: the page is laid out at 1440").toBe(1440);
+      expect(g.photo.left).toBeCloseTo(0, 0);
       expect(g.photo.width).toBeCloseTo(g.card.width, 0);
-      // THE regression for the grid-row shorthand: with the chrome auto-placed
-      // under the slides this was 545.
-      expect(g.card.height - g.photo.height).toBeGreaterThanOrEqual(284);
-      expect(g.card.height - g.photo.height).toBeLessThanOrEqual(286);
+      expect(g.photo.width / g.photo.height).toBeCloseTo(1440 / 744, 1);
 
-      // bar: 20 under the photo, 20 in from both edges, 2 tall
-      expect(g.bar!.top - g.photo.bottom).toBeCloseTo(20, 0);
-      expect(g.bar!.left).toBeCloseTo(20, 0);
-      expect(g.card.width - g.bar!.right).toBeCloseTo(20, 0);
-      expect(g.bar!.height).toBeCloseTo(2, 1);
+      expect(g.heading.top, "the heading is under the photo, not over it").toBeGreaterThan(
+        g.photo.bottom,
+      );
+      expect(g.heading.right, "the heading is in the left column").toBeLessThan(g.text.left);
+      expect(Math.abs(g.heading.top - g.sizeLine.top), "the heading tops the column").toBeLessThan(
+        16,
+      );
 
-      // The eyebrow and the listing's size line share a cap line (comp y=584):
-      // the chrome is BESIDE the text, not under it.
-      expect(g.eyebrow.top).toBeCloseTo(g.sizeLine.top, 0);
-      expect(g.eyebrow.top + H4_TRIM - g.bar!.bottom).toBeCloseTo(20, 0);
-      expect(g.eyebrow.left).toBeCloseTo(20, 0);
-      expect(g.eyebrow.right).toBeLessThan(g.text.left);
-
-      // arrows: pinned 43 above the card's foot, in the left column, 40 tall
-      expect(g.card.height - g.controls!.bottom).toBeCloseTo(43, 0);
-      expect(g.controls!.left).toBeCloseTo(20, 0);
-      expect(g.controls!.height).toBeCloseTo(40, 0);
+      expect(g.controls!.top, "the controls are under the heading").toBeGreaterThan(
+        g.heading.bottom + 40,
+      );
       expect(g.controls!.right).toBeLessThan(g.text.left);
-      expect(g.controls!.top).toBeGreaterThan(g.photo.bottom);
+      expect(
+        Math.abs(g.controls!.bottom - g.button.bottom),
+        "the controls' foot is LEARN MORE's",
+      ).toBeLessThanOrEqual(1);
+      expect(g.controls!.left).toBeCloseTo(g.heading.left, 0);
 
-      // text column: the comp's 434 / 474 (one px narrower card, see the slice)
-      expect(g.text.left).toBeGreaterThan(432);
-      expect(g.text.left).toBeLessThan(435);
-      expect(g.card.width - g.text.right).toBeCloseTo(20, 0);
-      expect(g.button.height).toBeCloseTo(40, 0);
+      expect(g.bar!.top - g.photo.bottom).toBeCloseTo(20, 0);
+      expect(g.bar!.left).toBeCloseTo(g.text.left, 0);
+      expect(g.overflowX).toBeLessThanOrEqual(0);
     } finally {
       await context.close();
     }
   });
 
-  // The line is read off the FOOTER's headline, which sits in the site's grid
-  // (`[397fr_847fr] gap-9`, the same gutters) at `lg:col-start-2`. It was the
-  // hero's H1 until the revised hero went one column (2026-09-28) and moved
-  // that H1 to the gutter — the anchor had to move, the line did not.
-  test("the card starts on the site's column line — the footer headline's — at every lg width", async ({
+  test("the heading wears the About Us heading's style, in dark garnet", async ({ page }) => {
+    await page.setViewportSize(viewportFor(1440));
+    await page.goto(HOME);
+    const read = (selector: string) =>
+      page.locator(selector).evaluate((h) => {
+        const c = getComputedStyle(h);
+        return {
+          tag: h.tagName,
+          fontFamily: c.fontFamily,
+          fontSize: c.fontSize,
+          fontWeight: c.fontWeight,
+          lineHeight: c.lineHeight,
+          letterSpacing: c.letterSpacing,
+          textTransform: c.textTransform,
+          color: c.color,
+        };
+      });
+    const featured = await read(`${BAND} [data-featured-heading] h2`);
+    const about = await read('[data-slice-type="partners"] h2');
+    const { color: featuredColor, ...featuredType } = featured;
+    const { color: _aboutColor, ...aboutType } = about;
+    expect(featuredType).toEqual(aboutType);
+    expect(featuredColor).toBe(DARK);
+  });
+
+  test("at every lg width the heading stands on the gutter and the text on the About Us column line", async ({
     page,
   }) => {
-    for (const width of [1440, 1280, 1100, 1920]) {
+    for (const width of [1440, 1280, 1100, 1024, 1920]) {
       await page.setViewportSize(viewportFor(width));
       await page.goto(HOME);
-      const line = page.locator("footer h2");
-      await expect(line).toHaveCount(1);
-      // Auto-retrying: the first read after a viewport change can be the old layout.
+      const lines = () =>
+        page.evaluate((BAND) => {
+          const x = (sel: string) => document.querySelector(sel)!.getBoundingClientRect().left;
+          return {
+            heading: x(`${BAND} [data-featured-heading] h2`),
+            text: x(`${BAND} [data-featured-slide]:not([inert]) h3`),
+            eyebrow: x('[data-slice-type="partners"] p.t-h4'),
+            about: x('[data-slice-type="partners"] h2'),
+          };
+        }, BAND);
       await expect
         .poll(
           async () => {
-            const [a, b] = await Promise.all([
-              line.boundingBox(),
-              page.locator(CARD).boundingBox(),
-            ]);
-            return Math.abs(a!.x - b!.x);
+            const l = await lines();
+            return Math.max(Math.abs(l.heading - l.eyebrow), Math.abs(l.text - l.about));
           },
-          { message: `card vs the footer headline's left edge at ${width}` },
+          { message: `${width}` },
         )
         .toBeLessThanOrEqual(1);
-      // …and the map's column is the rest of the band, flush against the card.
       const g = await geometry(page);
-      expect(g.slot.display, `${width}`).toBe("block");
-      expect(g.slot.right, `${width}`).toBeCloseTo(0, 0);
-      expect(g.slot.width, `${width}`).toBeGreaterThan(300);
+      const right = await page
+        .locator(`${BAND} [data-carousel-progress]`)
+        .evaluate((el) => el.getBoundingClientRect().right);
+      expect(right, `${width}: the right column stops 20 short of the centred 1440`).toBeCloseTo(
+        g.layout - Math.max(0, (g.layout - 1440) / 2) - 20,
+        0,
+      );
       expect(g.overflowX, `${width}`).toBeLessThanOrEqual(0);
-
-      // THE GROUND, READ OFF THE ELEMENT THAT ACTUALLY PAINTS. The slot is
-      // transparent and always was — and that is not the claim worth making,
-      // because the slot is transparent whatever its child does. The first
-      // version of this asserted only the slot and passed while PropertyMap's
-      // own root filled the whole column with hard-coded SAND over the band's
-      // #3d0707. Until the tiles arrive the map IS its ground plus a list of
-      // links, so the ground is the child's, and it is the child that is read.
-      expect(g.slot.background, `${width}: the slot itself`).toBe("rgba(0, 0, 0, 0)");
-      expect(g.map.background, `${width}: what the visitor sees before tiles`).toBe(DARK);
-      expect(g.map.background, `${width}: sand over the dark band`).not.toBe(SAND);
     }
   });
 
-  test("the arrows are 43 above the card's foot however tall the text runs", async ({
+  test("the controls stay level with LEARN MORE however tall the text runs", async ({
     browser,
   }) => {
-    // The comp puts the arrows' bottom and the slide's LEARN MORE on one line
-    // (y=784). `lg:h-[200px]` made the chrome a FIXED box top-aligned in its
-    // grid area, so the moment a slide's text ran past 203px the area grew
-    // underneath it and the arrows stayed put: measured 60.03 above the foot at
-    // 1024 / 1100 / 1280 with the three-listing fixture (slide 2 runs to five
-    // bullet lines) and at 1440 with the launch listing's five. `lg:h-auto
-    // lg:min-h-[200px]` lets the grid item stretch, which is its default.
-    //
-    // Two shapes, both real, on the SAME three-listing fixture: at 1440 its
-    // copy fits the comp's 285 and the floor is what holds the panel there; at
-    // 1280 and 1024 slide 2 runs to five bullet lines, the stack grows to the
-    // tallest of them, and the arrows must follow. (The launch listing's five
-    // bullets do this at a true 1440, but ?featured=one draws no arrows at all
-    // — one listing is not a carousel — so the width is the repro that can be
-    // asserted without a fourth fixture.)
-    for (const [width, panel] of [
-      [1440, "285"],
-      [1280, "taller"],
-      [1024, "taller"],
-    ] as const) {
+    for (const width of [1440, 1280, 1024]) {
       const { context, page } = await moving(browser, viewportFor(width));
       try {
         await page.goto(HOME);
         await adopted(page);
         await holdClock(page);
-        const g = await geometry(page);
-        expect(g.card.height - g.controls!.bottom, `arrows above the foot at ${width}`).toBeCloseTo(
-          43,
-          0,
-        );
-        const panelHeight = g.card.height - g.photo.height;
-        if (panel === "285") {
-          expect(panelHeight, `panel at ${width}`).toBeGreaterThanOrEqual(284);
-          expect(panelHeight, `panel at ${width}`).toBeLessThanOrEqual(286);
-        } else {
-          expect(panelHeight, `panel at ${width} outgrew the comp's 285`).toBeGreaterThan(286);
+        for (let turn = 0; turn < 3; turn++) {
+          const g = await geometry(page);
+          expect(
+            Math.abs(g.controls!.bottom - g.button.bottom),
+            `${width}, slide ${turn + 1}`,
+          ).toBeLessThanOrEqual(1);
+          expect(g.controls!.top, `${width}, slide ${turn + 1}`).toBeGreaterThan(g.heading.bottom);
+          await page.getByRole("button", { name: "Next slide" }).click();
+          await expect(status(page)).toContainText(`${((turn + 1) % 3) + 1} of 3`);
+          await page.waitForTimeout(DISSOLVE + 200);
         }
       } finally {
         await context.close();
@@ -505,7 +474,7 @@ test.describe("where the comp draws it", () => {
     }
   });
 
-  test("390: map, photo, bar, [eyebrow | controls], text", async ({ browser }) => {
+  test("390: photo, bar, heading, controls, text — one column", async ({ browser }) => {
     const { context, page } = await moving(browser, viewportFor(390, 844));
     try {
       await page.goto(HOME);
@@ -514,24 +483,14 @@ test.describe("where the comp draws it", () => {
       await holdClock(page);
       const g = await geometry(page);
 
-      // WAS `toBe("none")`, with the title "and no map box". The comp does
-      // draw one at 390 — 390 x 200, full bleed, the first thing in the band —
-      // and #13 built it; the old assertion was a reading of the comp that
-      // re-reading it overturned. Everything the map does with that box is
-      // measured in tests/interaction/property-map.spec.ts; what belongs here
-      // is only that it is drawn and that it did not move the card's anatomy,
-      // which is what every line below this one is about.
-      expect(g.slot.display).toBe("block");
       expect(g.photo.width / g.photo.height).toBeCloseTo(390 / 227.8, 2);
       expect(g.bar!.top - g.photo.bottom).toBeCloseTo(20, 0);
-      // comp: 10 between the bar and the chrome row at 390 (20 at 1440)
-      expect(g.controls!.top - g.bar!.bottom).toBeCloseTo(10, 0);
-      // the eyebrow's CAP top is flush with the controls' top edge, not centred
-      expect(g.eyebrow.top + H4_TRIM).toBeCloseTo(g.controls!.top, 0);
-      // controls right-aligned on the panel's padding; Pause makes them 140
-      expect(g.card.width - g.controls!.right).toBeCloseTo(20, 0);
-      expect(g.controls!.width).toBeCloseTo(140, 0);
-      // text 20 under the row
+      expect(g.heading.top).toBeGreaterThan(g.bar!.bottom);
+      expect(g.controls!.top).toBeGreaterThan(g.heading.bottom);
+      expect(g.text.top).toBeGreaterThan(g.controls!.bottom);
+      expect(g.heading.left).toBeCloseTo(20, 0);
+      expect(g.controls!.left).toBeCloseTo(20, 0);
+      expect(g.controls!.width).toBeCloseTo(150 + g.portfolio!.width, 0);
       expect(g.text.top - g.controls!.bottom).toBeCloseTo(20, 0);
       expect(g.overflowX).toBeLessThanOrEqual(0);
     } finally {
@@ -539,14 +498,9 @@ test.describe("where the comp draws it", () => {
     }
   });
 
-  test("at 360 and 320 the eyebrow WRAPS beside the 140px controls; nothing collides or moves", async ({
+  test("at 360 and 320 the controls and the heading fit their column; nothing collides", async ({
     browser,
   }) => {
-    // The decision #32 asked for. "FEATURED PROPERTIES" is 176.6 wide; with
-    // Pause the controls are 140, so under 377 they no longer fit on one line
-    // with the 20 gap. The eyebrow breaks onto two lines (34.2 tall) INSIDE
-    // the 40px row, so the text below does not move — rather than the controls
-    // dropping to their own row and costing every phone 60px.
     for (const width of [360, 320]) {
       const { context, page } = await moving(browser, viewportFor(width, 780));
       try {
@@ -555,12 +509,22 @@ test.describe("where the comp draws it", () => {
         await page.locator(BAND).scrollIntoViewIfNeeded();
         await holdClock(page);
         const g = await geometry(page);
-        expect(g.eyebrow.height, `${width}: two lines`).toBeGreaterThan(40);
-        expect(g.eyebrow.right, `${width}`).toBeLessThanOrEqual(g.controls!.left - 19);
-        // two trimmed lines are 34.2: still inside the 40px controls row
-        expect(g.eyebrow.bottom - H4_TRIM, `${width}`).toBeLessThanOrEqual(g.controls!.bottom);
+        const inked = await page.locator(`${BAND} [data-featured-heading] h2`).evaluate((h) => {
+          const r = document.createRange();
+          r.selectNodeContents(h);
+          const C = document.querySelector("[data-featured-card]")!.getBoundingClientRect();
+          return Math.max(...[...r.getClientRects()].map((l) => l.right)) - C.left;
+        });
+        expect(g.controls!.width, `${width}`).toBeCloseTo(150 + g.portfolio!.width, 0);
+        expect(g.controls!.left, `${width}: inside the column`).toBeGreaterThanOrEqual(20);
+        expect(g.controls!.right, `${width}: inside the column`).toBeLessThanOrEqual(
+          g.card.width - 20,
+        );
+        expect(inked, `${width}: the heading inside the column`).toBeLessThanOrEqual(
+          g.card.width - 20,
+        );
+        expect(g.controls!.top, `${width}`).toBeGreaterThan(g.heading.bottom);
         expect(g.text.top - g.controls!.bottom, `${width}`).toBeCloseTo(20, 0);
-        expect(g.controls!.width, `${width}`).toBeCloseTo(140, 0);
         expect(g.overflowX, `${width}`).toBeLessThanOrEqual(0);
       } finally {
         await context.close();
@@ -697,7 +661,7 @@ test.describe("rotation", () => {
 
   test("Pause holds the slide AND the bar; Play starts them again", async ({ browser }) => {
     // 60s: the wait below is the rest of a dwell pressed EARLY in it, ~8s,
-    // after a map boot and a turn (#117). It was late in the dwell, to keep
+    // after the scroll to the band and a turn (#117). It was late in the dwell, to keep
     // that wait short, and that is what left the press no room.
     test.setTimeout(60_000);
     const { context, page } = await moving(browser);
@@ -705,7 +669,7 @@ test.describe("rotation", () => {
       await page.goto(HOME);
       await adopted(page);
       await pointerAway(page);
-      await mapBooted(page);
+      await bandInView(page);
       await pauseEarlyInADwell(page);
 
       // WHAT IS HELD is read off the page once the press has landed, never
@@ -755,7 +719,7 @@ test.describe("rotation", () => {
     //     what stops it — and no frame after the press moves it;
     //  3. Play, pressed without moving, starts it again.
     test.setTimeout(60_000);
-    const { context, page } = await moving(browser);
+    const { context, page } = await moving(browser, viewportFor(1440, 1200));
     try {
       await stampTurns(page);
       await page.goto(HOME);
@@ -891,61 +855,52 @@ test.describe("rotation", () => {
     }
   });
 
-  test("the arrows turn the slide and never drop keyboard focus on <body> (#34)", async ({
-    browser,
-  }) => {
-    const { context, page } = await moving(browser);
-    try {
-      await page.goto(HOME);
-      await adopted(page);
-      await pointerAway(page);
+  test(
+    "the arrows turn the slide and never drop keyboard focus on <body> (#34)",
+    { tag: "@smoke" },
+    async ({ browser }) => {
+      const { context, page } = await moving(browser);
+      try {
+        await page.goto(HOME);
+        await adopted(page);
+        await pointerAway(page);
 
-      const next = page.getByRole("button", { name: "Next slide" });
-      await next.focus();
-      // Focus entering is a pause (APG): the clock no longer drives.
-      await expect(page.getByRole("button", { name: "Play slides" })).toBeVisible();
+        const next = page.getByRole("button", { name: "Next slide" });
+        await next.focus();
+        // Focus entering is a pause (APG): the clock no longer drives.
+        await expect(page.getByRole("button", { name: "Play slides" })).toBeVisible();
 
-      const focused = () =>
-        page.evaluate(() => document.activeElement?.getAttribute("aria-label") ?? "BODY");
+        const focused = () =>
+          page.evaluate(() => document.activeElement?.getAttribute("aria-label") ?? "BODY");
 
-      for (const expected of ["Slide 2 of 3", "Slide 3 of 3", "Slide 1 of 3"]) {
-        await page.keyboard.press("Enter");
-        await expect(status(page)).toHaveText(expected);
-        expect(await focused(), `after ${expected}`).toBe("Next slide");
+        for (const expected of ["Slide 2 of 3", "Slide 3 of 3", "Slide 1 of 3"]) {
+          await page.keyboard.press("Enter");
+          await expect(status(page)).toHaveText(expected);
+          expect(await focused(), `after ${expected}`).toBe("Next slide");
+        }
+        await page.keyboard.press("ArrowLeft");
+        await expect(status(page)).toHaveText("Slide 3 of 3");
+        expect(await focused()).toBe("Next slide");
+
+        // Tab goes on past the rest of the controls, and the first slide it
+        // reaches is the one on stage — its LEARN MORE — not one off it.
+        for (let tab = 0; tab < 5; tab++) {
+          await page.keyboard.press("Tab");
+          if (await page.evaluate(() => !!document.activeElement?.closest("[data-featured-slide]")))
+            break;
+        }
+        await expect(
+          page.locator(`${CARD} [data-featured-slide]:not([inert]) a`),
+          "the on-stage slide's link takes focus",
+        ).toBeFocused();
+        expect(await page.evaluate(() => document.activeElement?.textContent)).toContain(
+          "13810 Lookout Road",
+        );
+      } finally {
+        await context.close();
       }
-      await page.keyboard.press("ArrowLeft");
-      await expect(status(page)).toHaveText("Slide 3 of 3");
-      expect(await focused()).toBe("Next slide");
-
-      // THE USER'S TURNS DISSOLVE NOW (operator call, 2026-09-23), and this
-      // assertion is the reversal: it read `transition-duration: 0s` and "the
-      // USER's turns are instant, as the comp wires its arrows (CHANGE_TO, no
-      // transition)". The comp read was faithful; the operator overruled it.
-      // Kept and inverted rather than deleted, so the record of which way it
-      // used to point survives in the file that measures it.
-      //
-      // 0.5s is DISSOLVE, which is CAMERA_FLIGHT_MS: the same half second the
-      // map's camera has always taken on THIS path, because `activeBy` reports
-      // an arrow press as "visitor". The card used to snap while the camera
-      // flew. The `motion` block below measures what the dissolve looks like.
-      const photo = page.locator(`${CARD} [data-featured-slide]:not([inert]) img`).locator("..");
-      await expect(photo).toHaveCSS("transition-duration", "0.5s");
-      await expect(photo).toHaveCSS("opacity", "1");
-
-      // Tab goes on INTO the slide that is on stage — its LEARN MORE — and
-      // not into one that is off it.
-      await page.keyboard.press("Tab");
-      await expect(
-        page.locator(`${CARD} [data-featured-slide]:not([inert]) a`),
-        "the on-stage slide's link takes focus next",
-      ).toBeFocused();
-      expect(await page.evaluate(() => document.activeElement?.textContent)).toContain(
-        "13810 Lookout Road",
-      );
-    } finally {
-      await context.close();
-    }
-  });
+    },
+  );
 
   test("with Pause drawn, the band passes axe and its rings follow their grounds", async ({
     browser,
@@ -953,11 +908,11 @@ test.describe("rotation", () => {
     // The a11y gate runs under reduced motion, where there is no Pause — so the
     // rotating state is audited here or nowhere.
     //
-    // 60s, NOT THE DEFAULT 30. This case now waits for the band's map to finish
-    // booting (see below), which is a 426 KB engine parse, a WebGL context, a
-    // style fetch and a first tile. Measured on this machine at load average
-    // 6.05: 7.0s for the whole case warm. The headroom is for a cold CI runner;
-    // the wait itself is on positive evidence, so it is never a fixed sleep.
+    // Until 2026-10-09 this audit also waited for the band's map to boot and
+    // hand over, and asserted axe had measured its OpenStreetMap credit (an
+    // opaque chip, 9.38:1). The map is gone, and with it that half: the credit
+    // is measured on /properties (property-map.spec.ts), and the 60s it took is
+    // kept as headroom for a cold runner.
     test.setTimeout(60_000);
     const { context, page } = await moving(browser);
     try {
@@ -978,124 +933,18 @@ test.describe("rotation", () => {
       await page.getByRole("button", { name: "Pause slides" }).click();
       await expect(page.getByRole("button", { name: "Play slides" })).toBeVisible();
 
-      // THE MAP IS IN THIS RUN, AND THE EXCLUSION THAT USED TO TAKE IT OUT WAS
-      // BOTH WRONGLY EXPLAINED AND HARMFUL. It read: "a cluster marker draws
-      // its count in sand on garnet ON TOP OF A CANVAS, and axe cannot see
-      // through a canvas". The homepage band has three slides and
-      // `clusterPoints` never groups three pins that far apart — measured on
-      // /dev/home: clusters 0, pins 3 — so the stated cause cannot occur on
-      // the page the exclusion was written for. What axe actually could not
-      // measure was the ATTRIBUTION: `.maplibregl-ctrl-attrib-inner` and its
-      // three links, "Element's background color could not be determined
-      // because element contains an image node", because the chip was
-      // translucent over the canvas. (Recorded here as "88% sand", which was
-      // wrong in a way nobody could see from this file: the chip was never
-      // sand at ANY alpha. Our rule had lost a specificity tie to maplibre's
-      // own, so the measured value was its `rgba(255, 255, 255, 0.5)`. See
-      // PropertyMap.svelte, and the note on the credit assertion below.)
-      //
-      // Excluding the map's whole subtree therefore silenced axe over the
-      // OpenStreetMap credit — which this component argues is a LICENCE
-      // CONDITION and not a style choice, so it is the last thing that should
-      // go unmeasured. Nothing is excluded here.
-      //
-      // AND THE AUDIT WAITS FOR THE MAP, which is the whole of this case's
-      // 2026-09-22 correction. What stood here asserted that MapLibre "never
-      // boots" on this band because the map slot's top is y=1007 against a 900
-      // viewport (921 since the revised hero, 2026-09-28) — true at REST, and
-      // false three lines after the scroll this very test performs. Measured
-      // at 1455x900 right after `scrollIntoViewIfNeeded()`: scrollY 922, slot
-      // top 85, slot height 831, 815px of it on screen — and, re-measured on
-      // 2026-09-28 with the revised hero, scrollY 834, slot top 87, slot height
-      // 826.4, 813px on screen. PropertyMap's lazy gate wants half of
-      // `min(826.4, 900)` = 413.2px. It opens every time. Whether MapLibre then
-      // finished before `analyze()` ran was a RACE, and the audit asserted on
-      // the losing side of it: the listing links go `sr-only` at
-      // `data-map-ready`, and axe does not measure contrast on visually hidden
-      // text. CI called it flaky at e59970f — it passed on retry — which is
-      // what a race looks like from outside.
-      //
-      // So the state is made determinate the way this repo makes every other
-      // one determinate: wait for the positive artefact. `data-map-ready` is
-      // set by MapLibre's own `load`, so past this line there is a canvas, an
-      // attribution control and cluster markers, on every run.
-      //
-      // THE COST, SAID OUT LOUD: this audits the BOOTED state, so the band's
-      // pre-boot state — what every visitor sees for as long as 426 KB takes,
-      // and for good without WebGL — is not audited here. It never was
-      // deterministically; the old line reached it by winning a race. It has
-      // its own cases now, just below (#125), and since #122 it is the picture
-      // of MAP_HOME rather than the link list. The CLOCK cases in this block
-      // boot the map before they time anything (#117).
-      await expect(
-        page.locator("[data-property-map]").first(),
-        "the band's map never finished booting, so this audit has no map in it",
-      ).toHaveAttribute("data-map-ready", "", { timeout: 40_000 });
-      // …AND FOR THE HAND-OVER (#122). `data-map-ready` is MapLibre's `load`,
-      // which is where the canvas STARTS coming up over the fixed-frame
-      // picture — MAP_HOME_FADE_MS of `transition-opacity` on the canvas host,
-      // with the picture opaque beneath it. Auditing inside that window put
-      // the whole canvas subtree under an ancestor at partial opacity, and axe
-      // answers `color-contrast` with an incomplete rather than a ratio for
-      // everything in it: this case found ZERO openstreetmap.org nodes among
-      // the passes, on a chip whose measured colour is fine. The picture being
-      // GONE is the positive evidence that the canvas is fully opaque, so it
-      // is what the audit waits for rather than a sleep.
-      await expect(
-        page.locator("[data-map-home-box]"),
-        "the picture never handed over, so the canvas is still mid-fade",
-      ).toHaveCount(0, { timeout: 10_000 });
-
       const results = await axe(page).include(BAND).analyze();
       expect(results.violations.map((v) => `${v.id}: ${v.nodes.length}`)).toEqual([]);
       // Positive evidence that axe looked at the controls at all.
       expect(results.passes.map((p) => p.id)).toContain("button-name");
-
-      // …and that it measured the MAP'S OWN TEXT, which is what the exclusion
-      // was really hiding — and it is now the ATTRIBUTION, by name, which is a
-      // STRONGER claim than the one this line used to make and not a weaker
-      // one. The old assertion read the server-rendered listing links, which
-      // exist only in the seconds before the engine lands; the credit line is
-      // what a reader actually has in front of them, it is the licence
-      // condition, and it is the exact text the old blanket exclusion hid.
-      //
-      // WAITING FOR THE MAP IS WHAT FOUND THE DEFECT UNDER IT. With the boot
-      // allowed to finish, axe answered `color-contrast` with THREE
-      // `imgNode` incompletes — `.maplibregl-ctrl-attrib-inner` and both
-      // licence links, "background color could not be determined because
-      // element contains an image node" — i.e. precisely the symptom
-      // PropertyMap's <style> claims to have cured by painting the chip
-      // opaque. It had not: `[data-property-map] .maplibregl-ctrl-attrib` is
-      // specificity (0,2,0) and ties maplibre's own
-      // `.maplibregl-ctrl.maplibregl-ctrl-attrib`, which is injected later and
-      // won. Measured `rgba(255, 255, 255, 0.5)` on /dev/home and
-      // /dev/properties alike. Fixed in PropertyMap.svelte by naming
-      // `.maplibregl-ctrl` too, (0,3,0); the chip now computes
-      // `rgb(232, 225, 209)` and axe reads the OpenStreetMap credit at
-      // **8.86:1**, against the 8.87 that component predicted. (That was the
-      // sand of the time; since 2026-09-28 the chip is `rgb(234, 231, 228)`
-      // and the pair is 9.38:1 by app.css's table.)
-      const contrast = results.passes.find((p) => p.id === "color-contrast");
-      const credit = contrast?.nodes.filter((n) => n.html.includes("openstreetmap.org")) ?? [];
-      expect(
-        credit.length,
-        "axe measured the map's OpenStreetMap credit, rather than skipping the map",
-      ).toBeGreaterThan(0);
-      // The ratio itself, not merely that a ratio exists: an opaque chip is the
-      // only thing that gives this number, and a regression to a translucent
-      // one takes it back to `incomplete` rather than to a lower figure.
-      expect(
-        (credit[0]?.any?.[0]?.data as { contrastRatio?: number } | undefined)?.contrastRatio,
-        "the credit's measured ratio",
-      ).toBeGreaterThan(4.5);
 
       // AND THAT IT COULD MEASURE THE CARD'S TEXT. A violation count of zero
       // is not a contrast result: axe answers `color-contrast` with
       // "incomplete — bgOverlap" for anything it thinks something else is
       // painted over, and an off-stage slide left at opacity 0 covers the whole
       // card. Measured on this band before the fix: 1 node passed and 6 were
-      // incomplete at 1440 (the h2, the size line, the h3, both bullets and
-      // LEARN MORE). Incomplete is not a pass — so the assertion is that
+      // incomplete at 1440 (the h2 — the eyebrow, in the card then — the size
+      // line, the h3, both bullets and LEARN MORE). Incomplete is not a pass — so the assertion is that
       // nothing in the band is incomplete FOR CONTRAST, and that the ratios
       // axe did compute cover the card's own words.
       const incomplete = results.incomplete.find((r) => r.id === "color-contrast");
@@ -1117,73 +966,16 @@ test.describe("rotation", () => {
     }
   });
 
-  test("before the engine: the band's map is its picture, and axe passes it — refused, not late", async ({
-    browser,
-  }) => {
-    // THE PRE-BOOT STATE, AUDITED ON PURPOSE (#125). The case above waits the
-    // boot OUT; this one takes it away, so there is no race in either
-    // direction: the engine's module is refused at the network, the lazy gate
-    // still opens on the scroll, and the import that follows fails. Since #122
-    // what a visitor has in that state is the committed picture of MAP_HOME
-    // with the listings' pins over it, and the list under it `sr-only` — not
-    // the visible list this issue was first written about (that state is the
-    // next case's).
-    test.setTimeout(60_000);
-    const { context, page } = await moving(browser);
-    try {
-      await page.route(/map-engine|maplibre/, (route) => route.abort());
-      const refused = page.waitForEvent("requestfailed", (r) => /map-engine/.test(r.url()));
-      await page.goto(HOME);
-      await adopted(page);
-      await settledForAudit(page, page.locator(CARD));
-      // Positive evidence the boot was ATTEMPTED and refused, rather than the
-      // gate simply never having opened.
-      await refused;
-      await page.getByRole("button", { name: "Pause slides" }).click();
-      await expect(page.getByRole("button", { name: "Play slides" })).toBeVisible();
-
-      const map = page.locator(`${BAND} [data-property-map]`);
-      await expect(map).not.toHaveAttribute("data-map-ready", "");
-      await expect(map.locator("[data-map-home-box]"), "the picture is drawn").toBeVisible();
-      const pins = map.locator('[data-map-home-frame="full"] [data-map-home-pin]');
-      expect(await pins.count(), "with the listings' pins on it").toBeGreaterThan(0);
-      for (const link of await map.locator("[data-map-link]").all())
-        await expect(link).toHaveClass(/\bsr-only\b/);
-
-      const results = await axe(page).include(BAND).analyze();
-      expect(results.violations.map((v) => `${v.id}: ${v.nodes.length}`)).toEqual([]);
-      const { measured, unmeasured } = contrastOf(results);
-      expect(
-        unmeasured.map((n) => n.html.slice(0, 60)),
-        "axe could not measure these",
-      ).toEqual([]);
-      expect(measured.length, "every text node in the card").toBeGreaterThanOrEqual(6);
-      // WHAT AXE LOOKED AT IN THE MAP, by name. The picture's text is the
-      // list, which is `sr-only`, so there is no contrast in it to measure;
-      // what can go wrong is the pins — links a pointer can press, hidden from
-      // the accessibility tree — and the list's names. The picture is hidden
-      // as ONE subtree, so axe reports its root and checks every pin in it.
-      expect(
-        await passedOn(page, results, "aria-hidden-focus", "[data-map-home-box]"),
-        "the hidden picture, pins and all, was checked for a tab stop",
-      ).toBe(1);
-      expect(
-        await passedOn(page, results, "link-name", "[data-map-link]"),
-        "every listing link was checked for a name",
-      ).toBe(await map.locator("[data-map-link]").count());
-    } finally {
-      await context.close();
-    }
-  });
-
   test("…and where no listing is inside the opening frame, the LIST is the map — axe measures it on both grounds", async ({
     page,
   }) => {
     // The other pre-boot state (#125): `homeFrames` is null, so no picture is
     // drawn and the links are what a sighted visitor reads — on the band's
-    // #3d0707 as on a section's sand. /dev/home cannot reach it (every
-    // featured listing is inside MAP_HOME), so /dev/a11y-fixtures draws one
-    // box per ground with `engine="off"`: nothing to race at all.
+    // #3d0707 as on a section's sand. /dev/home could not reach it (every
+    // featured listing was inside MAP_HOME), so /dev/a11y-fixtures draws one
+    // box per ground with `engine="off"`: nothing to race at all. (The band
+    // itself has drawn no map since 2026-10-09; the component's garnet ground
+    // is still the fixture's.)
     await page.goto("/dev/a11y-fixtures");
     for (const tone of ["garnet", "cream"]) {
       const selector = `[data-property-map]:has([aria-label="Beyond the opening frame, ${tone} listings"])`;
@@ -1231,7 +1023,8 @@ test.describe("motion", () => {
   interface Frame {
     /** Each on-stage text line's opacity and vertical translate, in order. */
     lines: { opacity: number; ty: number }[];
-    /** The on-stage photo's scale, out of its computed matrix; null = none. */
+    /** The on-stage photo's scale, out of its computed matrix (as
+     *  `photoScale` reads it); null = none. */
     scale: number | null;
     /** `width` is the PAINTED width of the fill, and it is the only one of
      *  these that can see the dissolve. `value` is the scaleX the component
@@ -1275,7 +1068,11 @@ test.describe("motion", () => {
           const fill = region.querySelector<HTMLElement>("[data-carousel-progress] > div")!;
           return {
             lines,
-            scale: transform === "none" ? null : Number(/matrix\(([^,]+),/.exec(transform)![1]),
+            // √(a² + b²), not `a`: see `photoScale`.
+            scale:
+              transform === "none"
+                ? null
+                : ((m) => Math.round(Math.hypot(m.a, m.b) * 1e6) / 1e6)(new DOMMatrix(transform)),
             bar: {
               opacity: Number(getComputedStyle(fill).opacity),
               value: Number(/scaleX\(([^)]+)\)/.exec(fill.getAttribute("style") ?? "")?.[1]),
@@ -1411,12 +1208,14 @@ test.describe("motion", () => {
    *
    *  The press FOCUSES the control and clicks it in one task, which lands the
    *  arrow's focus-pause and the turn in ONE flush. A real mouse puts them in
-   *  two. The slice orders its freeze check before its turn handling for
-   *  exactly this, and the drift case below is what holds it there.
+   *  two. The slice counts a pause that lands WITH the turn as the arrow's own
+   *  and does not freeze the drift for it, and the drift case below is what
+   *  holds it there.
    *
    *  TWO CLOCKS, AND CONFUSING THEM COST 6 REDS IN 64 UNDER LOAD. `t` is
-   *  `performance.now()` from the press, which is what the script-driven drift
-   *  is timed from. A CSS transition is not: it runs on the DOCUMENT TIMELINE
+   *  `performance.now()` from the press. A CSS transition — the text's, and
+   *  since 2026-09-29 the photo's drift too — is not timed from it: it runs
+   *  on the DOCUMENT TIMELINE
    *  from its own `startTime`, which Chromium resolves on a frame AFTER the
    *  style change — so neither the press nor the first sampled frame is its
    *  origin, and on a loaded machine the gap is whole frames. Measured at load
@@ -1432,9 +1231,12 @@ test.describe("motion", () => {
         const region = document.querySelector(card)!;
         const slides = [...region.querySelectorAll("[data-featured-slide]")];
         const photoOf = (el: Element) => el.querySelector<HTMLElement>("[data-featured-photo]")!;
+        /** √(a² + b²), not `a`: see `photoScale`. */
         const scaleOf = (el: Element) => {
           const t = getComputedStyle(photoOf(el)).transform;
-          return t === "none" ? null : Number(/matrix\(([^,]+),/.exec(t)![1]);
+          if (t === "none") return null;
+          const m = new DOMMatrix(t);
+          return Math.round(Math.hypot(m.a, m.b) * 1e6) / 1e6;
         };
         const linesOf = (el: Element) =>
           [...el.querySelectorAll("[data-featured-line]")].map((line) => {
@@ -1459,6 +1261,9 @@ test.describe("motion", () => {
 
         const was = slides.findIndex((el) => !el.hasAttribute("inert"));
         const before = read();
+        /** The timeline time `before` was read at — a frame's, so it can be
+         *  well before the press on a loaded machine. */
+        const beforeTl = Number(document.timeline.currentTime);
         const button = [...region.querySelectorAll("button")].find(
           (b) => b.getAttribute("aria-label") === label,
         )!;
@@ -1492,7 +1297,7 @@ test.describe("motion", () => {
           };
           requestAnimationFrame(tick);
         });
-        return { was, before, series, origin: origin ?? series[0].tl };
+        return { was, before, beforeTl: beforeTl - t0, series, origin: origin ?? series[0].tl };
       },
       { card: CARD, ms, label },
     );
@@ -1606,15 +1411,14 @@ test.describe("motion", () => {
   test("a VISITOR's turn drifts the photo it brought on — with the clock stopped", async ({
     browser,
   }) => {
-    // THE HALF THE OLD GATE COULD NOT REACH, and the harder one: the drift was
-    // `progress`, the rotation's clock, and the press stops that clock. The
-    // slice gives a visitor's turn one dwell's worth of drift of its own —
-    // still through the 500ms dissolve, then 1.00 → 1.03 over DWELL (8000ms
-    // since 2026-09-23), then held — without restarting the rotation (see
-    // `kick` in the slice). The
-    // rate is pinned to the frame in FeaturedProperties.test.ts under fake
-    // timers; this is the browser's word that it happens at all, with the
-    // arrow's focus-pause landing in the same flush as the turn.
+    // THE HALF THE OLD GATE COULD NOT REACH: the drift was `progress`, the
+    // rotation's clock, and the press stops that clock. Since 2026-09-29 the
+    // drift is ONE CSS transition that every activation starts again, so a
+    // visitor's turn needs nothing of its own: still through the 500ms
+    // dissolve (the transition's delay), then 1.00 → 1 + KEN_BURNS over DWELL, then
+    // held, without restarting the rotation. The press focuses and clicks in
+    // one task, so this is also the case that holds "a pause landing WITH the
+    // turn is the arrow's own, and does not freeze the drift".
     test.setTimeout(40_000);
     const { context, page } = await moving(browser);
     try {
@@ -1628,8 +1432,7 @@ test.describe("motion", () => {
 
       // Still through the dissolve, as a clock turn is still through its
       // settle: the drift starts on a photo that has finished arriving. Timed
-      // from the PRESS, which is what the drift is timed from — and a frame's
-      // read can only be staler than its timestamp, never ahead of it.
+      // from the PRESS, which the transition's own start can only follow.
       const drift = series.map((f) => ({ t: f.t, s: f.v[now].scale! }));
       const still = drift.filter((f) => f.t < DISSOLVE - 60);
       expect(still.length, "sampled the dissolve").toBeGreaterThan(0);
@@ -1638,17 +1441,52 @@ test.describe("motion", () => {
       for (let i = 1; i < drift.length; i++)
         expect(drift[i].s, `${drift[i].t.toFixed(1)}ms`).toBeGreaterThanOrEqual(drift[i - 1].s);
 
+      // WIRED: the transition on the photo's transform, RUNNING — not frozen
+      // by the arrow's focus, which paused the carousel in the same flush.
+      expect(
+        await page
+          .locator(`${CARD} [data-featured-photo]`)
+          .nth(now)
+          .evaluate((el) =>
+            el.getAnimations().map((a) => {
+              const timing = a.effect!.getTiming();
+              return {
+                property: (a as CSSTransition).transitionProperty,
+                state: a.playState,
+                duration: timing.duration,
+                delay: timing.delay,
+                easing: timing.easing,
+              };
+            }),
+          ),
+        "the photo's animations",
+      ).toEqual([
+        {
+          property: "transform",
+          state: "running",
+          duration: DWELL,
+          delay: DISSOLVE,
+          easing: "linear",
+        },
+      ]);
+
       // …and then it TRAVELS, with the rotation stopped — polled rather than
       // read off one frame, because the frame a sampler lands on can be a
       // whole second stale on a loaded machine (measured: 1.0015 read at
       // t ≥ 2000ms, where the drift was due at 1.0113, after a 1.3s frame gap).
       // The rate is the unit test's; this is the browser's word that it moves.
-      await expect.poll(() => photoScale(page), { timeout: 8_000 }).toBeGreaterThan(1.005);
+      await expect
+        .poll(() => photoScale(page), { timeout: 8_000 })
+        .toBeGreaterThan(1 + FEATURED_KEN_BURNS / 6);
       // It ENDS, at the end scale, and HOLDS — DISSOLVE + DWELL from the press
       // (8.5s; it was 4.5 before the dwell doubled), then still.
-      await expect.poll(() => photoScale(page), { timeout: DISSOLVE + DWELL + 2_000 }).toBe(1.03);
+      await expect
+        .poll(() => photoScale(page), { timeout: DISSOLVE + DWELL + 2_000 })
+        .toBe(1 + FEATURED_KEN_BURNS);
       await page.waitForTimeout(600);
-      expect(await photoScale(page), "held at the end, not a second lap").toBe(1.03);
+      expect(await photoScale(page), "held at the end, not a second lap").toBe(
+        1 + FEATURED_KEN_BURNS,
+      );
       // It turned nothing: same slide, rotation still stopped, bar at 0.
       expect(await onStage(page)).toHaveLength(1);
       await expect(status(page)).toHaveText(`Slide ${now + 1} of 3`);
@@ -1671,14 +1509,15 @@ test.describe("motion", () => {
   }) => {
     // TWO CLAIMS, AND THE SECOND ONE IS AN ACCESSIBILITY GUARD.
     //
-    // 1. The photo that just left is held at the drift it HAD. Off-stage
-    //    photos used to sit at the end scale unconditionally, which was sound
-    //    while a visitor's turn was instant — nobody ever saw that photo. It is
-    //    opaque for the whole 500ms now (its `opacity-0` waits out
-    //    `delay-500`), so an unconditional 1.03 would jump it under the
-    //    incoming one in a single frame: up to 27.8px of width on the 928 ×
-    //    542 box. Asserted as bit-equality with the frame before the press,
-    //    every frame, for as long as it is visible.
+    // 1. The photo that just left is held at the drift it HAD. It is opaque
+    //    for the whole 500ms (its `opacity-0` waits out `delay-500`), so any
+    //    jump — to the end scale, or straight back to 1 — shows in a single
+    //    frame: up to 55.7px of width on the 928 × 542 box at 1.06. Since 2026-09-29 the hold
+    //    is the leaving transition's DELAY, until the photo's wrapper has
+    //    faded out and it rests at 1 (see the slice). Asserted as ONE value
+    //    for every frame it is visible, and that value is where the drift had
+    //    got to when the turn was drawn — no further than the drift's own
+    //    rate allows past the frame before the press.
     //
     // 2. It then LEAVES THE STACK. A slide at opacity 0 still paints a box
     //    over the card, and axe answers `color-contrast` with `bgOverlap`
@@ -1694,23 +1533,33 @@ test.describe("motion", () => {
       await adopted(page);
       await pointerAway(page);
       // Press MID-DWELL, so the held value is distinguishable both from 1.00
-      // (the incoming photo's) and from 1.03 (what the old rule held).
+      // (the incoming photo's) and from 1 + KEN_BURNS (what the old rule held).
       await expect.poll(() => barScale(page), { timeout: TURN_CEILING }).toBeGreaterThan(0.2);
 
-      const { was, before, series, origin } = await sampleAfterPress(page, 900);
-      const parked = before[was].scale!;
-      expect(parked, `the outgoing photo was mid-drift at ${parked}`).toBeGreaterThan(1.0001);
-      expect(parked).toBeLessThan(1.03);
+      const { was, before, beforeTl, series, origin } = await sampleAfterPress(page, 900);
+      const was0 = before[was].scale!;
+      expect(was0, `the outgoing photo was mid-drift at ${was0}`).toBeGreaterThan(1.0001);
+      expect(was0).toBeLessThan(1 + FEATURED_KEN_BURNS);
 
-      // 1 — every frame, while it is in the stack, at exactly where it was.
+      // 1 — every frame, while it is in the stack, at one value…
       const shown = series.filter((f) => f.v[was].visibility === "visible");
       expect(shown.length, "sampled the outgoing slide while it was visible").toBeGreaterThan(0);
+      const parked = shown[0].v[was].scale!;
       expect(
         shown
           .filter((f) => f.v[was].scale !== parked)
           .map((f) => `${f.t.toFixed(1)}ms: ${f.v[was].scale}`),
         `the outgoing photo moved from ${parked}`,
       ).toEqual([]);
+      // …which is where it was: not below the frame before the press, and
+      // not past what the drift's own rate covers from that frame to the
+      // first one sampled after it.
+      const reach = (FEATURED_KEN_BURNS * (series[0].tl - beforeTl)) / DWELL + 0.00002;
+      expect(parked, `held at ${parked}, from ${was0}`).toBeGreaterThanOrEqual(was0);
+      expect(
+        parked - was0,
+        `held ${parked - was0} past ${was0}; the drift reaches ${reach}`,
+      ).toBeLessThanOrEqual(reach);
 
       // 2 — the WINDOW: two slides in the stack for as long as the fade runs…
       // (times from the transitions' origin; see `sampleAfterPress`)
@@ -1806,7 +1655,10 @@ test.describe("motion", () => {
           held,
           inStack: slides.filter((s) => getComputedStyle(s).visibility === "visible").length,
           titleOnTop: topAt(slides[now].querySelector("h3")!),
-          photoOnTop: topAt(slides[now].querySelector("[data-featured-photo]")!),
+          // The photo's WRAPPER, which clips it: the press's drift is
+          // finished above, and at 1.06 the <img>'s own box runs 27.8px past
+          // the clip, so a point 4px inside it is outside the card.
+          photoOnTop: topAt(slides[now].querySelector("[data-featured-photo]")!.parentElement!),
         };
       },
       { card: CARD, label },
@@ -1823,7 +1675,8 @@ test.describe("motion", () => {
     //
     // BOTH DIRECTIONS, because they are not the same window. Next from slide 1
     // puts the incoming slide LATER in the DOM, so it paints over the leaving
-    // one and axe measured 7 of 7. Previous puts it EARLIER, so the leaving
+    // one and axe measured 7 of 7 (the eyebrow was the card's seventh then).
+    // Previous puts it EARLIER, so the leaving
     // slide — words at opacity 0, still `visible` — painted over the words on
     // stage, and axe measured 2 and answered `bgOverlap` for the size line,
     // the title, both bullets and LEARN MORE. The clock meets the same order
@@ -1835,7 +1688,7 @@ test.describe("motion", () => {
     // violations": zero violations is also what a card with nothing
     // measurable reports.
     test.setTimeout(60_000);
-    const { context, page } = await moving(browser);
+    const { context, page } = await moving(browser, viewportFor(1440, 1200));
     try {
       await page.goto(HOME);
       await adopted(page);
@@ -1857,8 +1710,8 @@ test.describe("motion", () => {
           unmeasured.map((n) => n.html.slice(0, 60)),
           `${when}: axe could not measure these`,
         ).toEqual([]);
-        // The seven: the eyebrow, the size line, the title, two bullets,
-        // LEARN MORE and the portfolio button.
+        // The seven: the band's heading (in the card since 2026-10-12), the
+        // size line, the title, two bullets, LEARN MORE and the portfolio button.
         expect(measured.length, `${when}: text nodes measured with a ratio`).toBe(7);
         expect(
           measured.some((n) => n.html.includes(title)),
@@ -1915,7 +1768,8 @@ test.describe("motion", () => {
     // old slide for one more frame, then the new one — never anything in
     // between. So the claim is: no frame part-way, every frame from 100ms on
     // whole, and no photo ever given a transform. The last is the one app.css
-    // CANNOT enforce: the drift is written by script every frame.
+    // CANNOT give: it cuts a declared transition to 0.01ms, which would snap
+    // the photo to its end scale, so the slice must declare none.
     await page.goto(HOME);
     await adopted(page);
     const { was, series } = await sampleAfterPress(page, 700);
@@ -1951,19 +1805,36 @@ test.describe("motion", () => {
     }
   });
 
-  // ── B: the Ken Burns drift ───────────────────────────────────────────────
+  // ── B: the Ken Burns drift — ONE CSS transition (2026-09-29) ─────────────
+  //
+  // The operator: "the ken burns on the home slide show feels a little
+  // stuttery, maybe because it's too slow or not using gpu", then "can it be
+  // one clean transform scale with a transition? this seems overbuilt". The
+  // drift was a `scale()` written into the photo's style on every animation
+  // frame, off the carousel's rAF clock, so it stopped whenever the main
+  // thread did. It is one transition on `transform` now, which the
+  // compositor runs.
 
-  /** The active photo's scale, read out of the computed matrix. */
+  /** The active photo's scale, read out of the computed matrix — as the
+   *  LENGTH of its first column, √(a² + b²), and not `a`. Every state is
+   *  `scale(s) rotate(TILT_DEG)` since 2026-09-30 (Firefox; see TILT_DEG in
+   *  the slice), so the matrix is s·(cos θ, sin θ, −sin θ, cos θ) and `a` is
+   *  s·cos θ. Rounded to 1e-6 because Chromium serializes six significant
+   *  digits: scale(1) rotate(0.02deg) reads matrix(1, 0.000349066, …), whose
+   *  √(a² + b²) is 1.00000006 — not the 1 the style declares, where the
+   *  rounded value is, exactly. Every in-page reader in this file does the
+   *  same, written out because a page.evaluate body cannot share a helper. */
   const photoScale = (page: Page) =>
     page
       .locator(`${CARD} [data-featured-slide]:not([inert]) [data-featured-photo]`)
       .evaluate((el) => {
         const t = getComputedStyle(el).transform;
         if (t === "none") return null;
-        return Number(/matrix\(([^,]+),/.exec(t)![1]);
+        const m = new DOMMatrix(t);
+        return Math.round(Math.hypot(m.a, m.b) * 1e6) / 1e6;
       });
 
-  test("the photo drifts 1.00 → 1.03 across its dwell, on the carousel's own clock", async ({
+  test("the drift is ONE running CSS transition on transform — and no style is written per frame", async ({
     browser,
   }) => {
     test.setTimeout(40_000);
@@ -1972,41 +1843,540 @@ test.describe("motion", () => {
       await page.goto(HOME);
       await adopted(page);
       await pointerAway(page);
+      // Mid-dwell on the clock: a turn, then past the settle.
+      const before = await status(page).textContent();
+      await expect(status(page), "the clock turned").not.toHaveText(before!, {
+        timeout: TURN_CEILING,
+      });
+      await expect.poll(() => timedFill(page), { intervals: [50] }).toBeGreaterThan(0);
 
-      // Sampled from a turn, so the dwell's start is known: the settle runs
-      // 0–500 with `progress` pinned at 0, then DWELL of dwell. 0.03 over
-      // 8000ms is 3.75e-6 per ms (half the 4000 dwell's rate), so a 1200ms
-      // window is ~0.0045 of travel — still more than two orders of magnitude
-      // above the matrix's resolution.
-      const series = await sampleAfterTurn(page, 2000);
-      const settle = series.filter((s) => s.t < DISSOLVE - 100).map((s) => s.v.scale);
-      const late = series
-        .filter((s) => s.t > DISSOLVE + 100)
-        .map((s) => ({ t: s.t, v: s.v.scale }));
+      const seen = await page.evaluate(async (card) => {
+        const photo = document
+          .querySelector(card)!
+          .querySelector("[data-featured-slide]:not([inert]) [data-featured-photo]")!;
+        const matrix = () => {
+          const t = getComputedStyle(photo).transform;
+          if (t === "none") throw new Error("the on-stage photo has no transform");
+          return new DOMMatrix(t);
+        };
+        /** √(a² + b²), not `a`: see `photoScale`. */
+        const scale = () => ((m) => Math.round(Math.hypot(m.a, m.b) * 1e6) / 1e6)(matrix());
+        const transitions = photo.getAnimations().map((a) => {
+          const timing = a.effect!.getTiming();
+          return {
+            kind: a.constructor.name,
+            property: (a as CSSTransition).transitionProperty,
+            state: a.playState,
+            duration: timing.duration,
+            delay: timing.delay,
+            easing: timing.easing,
+            inDocument: document.getAnimations().includes(a),
+          };
+        });
+        // Every write to the photo's style attribute across one second.
+        let writes = 0;
+        const observer = new MutationObserver((records) => (writes += records.length));
+        observer.observe(photo, { attributes: true, attributeFilter: ["style"] });
+        const from = scale();
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        observer.disconnect();
+        const m = matrix();
+        return {
+          transitions,
+          writes,
+          from,
+          to: scale(),
+          tilt: m.b,
+          angle: (Math.atan2(m.b, m.a) * 180) / Math.PI,
+        };
+      }, CARD);
 
-      // It sits STILL through the handover — `progress` is 0 while `elapsed`
-      // is negative — and only then starts to travel. That is the one-clock
-      // property: the zoom begins when the slide is fully shown, with the bar.
-      expect(settle.length, "sampled the settle").toBeGreaterThan(5);
-      expect(new Set(settle.map((v) => v!.toFixed(4)))).toEqual(new Set(["1.0000"]));
-
-      const first = late[0].v!;
-      const last = late[late.length - 1].v!;
-      expect(
-        last,
-        `${first} → ${last} over ${late[late.length - 1].t - late[0].t}ms`,
-      ).toBeGreaterThan(first);
-      expect(first).toBeGreaterThanOrEqual(1);
-      expect(last).toBeLessThanOrEqual(1.03);
-      // Monotone, never a jump back: a second clock would beat against this one.
-      for (let i = 1; i < late.length; i++)
-        expect(late[i].v!, `frame ${i} at ${late[i].t}ms`).toBeGreaterThanOrEqual(late[i - 1].v!);
+      // Soft, so one run reports all three.
+      expect.soft(seen.transitions, "the on-stage photo's animations").toEqual([
+        {
+          kind: "CSSTransition",
+          property: "transform",
+          state: "running",
+          duration: DWELL,
+          delay: DISSOLVE,
+          easing: "linear",
+          inDocument: true,
+        },
+      ]);
+      // POSITIVE EVIDENCE IT MOVED in that second — a photo standing still
+      // would also be written nothing.
+      expect
+        .soft(seen.to, `${seen.from} → ${seen.to} across 1s mid-dwell`)
+        .toBeGreaterThan(seen.from);
+      test.info().annotations.push({
+        type: "tilt",
+        description: `${seen.from} → ${seen.to} across 1s mid-dwell, b = ${seen.tilt}, ${seen.angle}deg`,
+      });
+      // TILTED WHILE IT DRIFTS (Firefox, operator, 2026-09-30; TILT_DEG in the
+      // slice): the matrix's off-diagonal is nonzero — and past the 1/4096
+      // under which WebRender takes it for a plain scale…
+      expect
+        .soft(Math.abs(seen.tilt), `the drifting photo's tilt, b = ${seen.tilt}`)
+        .toBeGreaterThan(NEARLY_ZERO);
+      // …and it is the WHOLE tilt, a second into the drift. A drift written
+      // without it, from a tilted rest, still has b past 1/4096 there: the
+      // rotation runs down to 0 across the dwell (measured with the on-stage
+      // state's rotate() removed: b = 0.000291706 at scale 1.01037, which is
+      // 0.01654deg), and only the angle sees that.
+      expect
+        .soft(Math.abs(seen.angle - FEATURED_TILT_DEG), `the drifting photo at ${seen.angle}deg`)
+        .toBeLessThan(ANGLE_SLACK);
+      expect(seen.writes, "style writes on the photo across 1s mid-dwell").toBe(0);
     } finally {
       await context.close();
     }
   });
 
-  test("the drift FREEZES with the bar on pause — one clock, not two", async ({ browser }) => {
+  test("will-change: transform on every photo of a band that drifts — and on no photo of one that never does", async ({
+    browser,
+  }) => {
+    // The photo's own compositor layer (operator, 2026-09-29: "I'm in firefox
+    // … ideally we aren't moving by fractions of pixels"), where it can drift
+    // and only there. Reduced motion is the case below; the server's markup
+    // carries no style at all (the same case, and featured-band-live.spec.ts
+    // on the shipped bundle). A one-listing card never turns, so it never
+    // drifts, and a layer held for nothing is memory for nothing. A photo
+    // whose drift has ENDED drops it until it rests — #156's case below, and
+    // featured-band-live.spec.ts's held photo, measured for sharpness.
+    const { context, page } = await moving(browser);
+    const willChange = () =>
+      page
+        .locator(`${CARD} [data-featured-photo]`)
+        .evaluateAll((els) => els.map((el) => getComputedStyle(el).willChange));
+    try {
+      await page.goto(HOME);
+      await adopted(page);
+      expect(await willChange(), "three listings, hydrated").toEqual([
+        "transform",
+        "transform",
+        "transform",
+      ]);
+      await page.goto(`${HOME}?featured=one`);
+      await adopted(page);
+      expect(await willChange(), "one listing, hydrated").toEqual(["auto"]);
+    } finally {
+      await context.close();
+    }
+  });
+
+  /** Every frame, IN THE PAGE, from now until `after` ms past the band's
+   *  SECOND turn from now: one whole dwell of the photo the first turn brings
+   *  on, and that photo leaving at the second. Each frame carries the
+   *  timeline time, how many turns the live region has seen, and every
+   *  photo's computed scale, its slide's visibility and its wrapper's
+   *  opacity, by DOM order. `turnTls` is the timeline time of each turn,
+   *  taken as the live region changes — inside the clock's own frame.
+   *  `origin` is the start time of the first incoming photo's transition,
+   *  read off its Animation — the drift's own zero — and `timing` is that
+   *  transition's. */
+  const recordTwoTurns = (page: Page, after: number) =>
+    page.evaluate(
+      async ({ card, after }) => {
+        const region = document.querySelector(card)!;
+        const live = region.querySelector("[aria-live]")!;
+        const slides = [...region.querySelectorAll("[data-featured-slide]")];
+        const photo = (i: number) => slides[i].querySelector("[data-featured-photo]")!;
+        /** √(a² + b²), not `a`: see `photoScale`. */
+        const scaleOf = (i: number) => {
+          const t = getComputedStyle(photo(i)).transform;
+          if (t === "none") return null;
+          const m = new DOMMatrix(t);
+          return Math.round(Math.hypot(m.a, m.b) * 1e6) / 1e6;
+        };
+        /** Its rotation in degrees, out of the same matrix; 0 for `none`. */
+        const angleOf = (i: number) => {
+          const m = new DOMMatrix(getComputedStyle(photo(i)).transform);
+          return (Math.atan2(m.b, m.a) * 180) / Math.PI;
+        };
+        const frames: {
+          tl: number;
+          turns: number;
+          onStage: number;
+          photos: { scale: number | null; angle: number; visible: boolean; opacity: number }[];
+        }[] = [];
+        const turnTls: number[] = [];
+        const observer = new MutationObserver(() =>
+          turnTls.push(Number(document.timeline.currentTime)),
+        );
+        observer.observe(live, { childList: true, characterData: true, subtree: true });
+        let turns = 0;
+        let text = live.textContent;
+        let origin: number | null = null;
+        let timing: object | null = null;
+        let doneAt: number | null = null;
+        await new Promise<void>((resolve) => {
+          const tick = () => {
+            if (live.textContent !== text) {
+              turns++;
+              text = live.textContent;
+            }
+            const tl = Number(document.timeline.currentTime);
+            const onStage = slides.findIndex((el) => !el.hasAttribute("inert"));
+            if (turns === 1 && origin === null) {
+              const drift = photo(onStage).getAnimations()[0];
+              if (drift?.startTime != null) {
+                origin = Number(drift.startTime);
+                const t = drift.effect!.getTiming();
+                timing = {
+                  property: (drift as CSSTransition).transitionProperty,
+                  duration: t.duration,
+                  delay: t.delay,
+                  easing: t.easing,
+                };
+              }
+            }
+            frames.push({
+              tl,
+              turns,
+              onStage,
+              photos: slides.map((el, i) => ({
+                scale: scaleOf(i),
+                angle: angleOf(i),
+                visible: getComputedStyle(el).visibility === "visible",
+                opacity: Number(getComputedStyle(photo(i).parentElement!).opacity),
+              })),
+            });
+            if (turns >= 2 && doneAt === null) doneAt = tl;
+            if (doneAt !== null && tl - doneAt >= after) resolve();
+            else requestAnimationFrame(tick);
+          };
+          requestAnimationFrame(tick);
+        });
+        observer.disconnect();
+        return { frames, origin, timing, turnTls };
+      },
+      { card: CARD, after },
+    );
+
+  /** Slide 1's whole FIRST dwell, from the served page on: every frame from
+   *  the flush that made the carousel ready (`ready`, which starts the
+   *  clock's first dwell) until two frames past the first turn, the photo
+   *  held by reference. Installed before the page's first script, because
+   *  that dwell starts at hydration and not at anything a case can wait on. */
+  interface FirstDwell {
+    ready: number | null;
+    origin: number | null;
+    timing: object | null;
+    turnTl: number | null;
+    /** `tilt` is the matrix's off-diagonal, b, and `angle` its rotation in
+     *  degrees: both 0 for `none`. */
+    frames: { tl: number; scale: number; tilt: number; angle: number; turned: boolean }[];
+  }
+  const recordFirstDwell = (page: Page) =>
+    page.addInitScript((card: string) => {
+      const w = window as unknown as { __first: FirstDwell };
+      const first: FirstDwell = {
+        ready: null,
+        origin: null,
+        timing: null,
+        turnTl: null,
+        frames: [],
+      };
+      w.__first = first;
+      const ready = new MutationObserver(() => {
+        const region = document.querySelector(card);
+        if (!region?.hasAttribute("data-carousel-ready")) return;
+        ready.disconnect();
+        first.ready = performance.now();
+        const photo = region.querySelector("[data-featured-photo]")!;
+        new MutationObserver((_, observer) => {
+          first.turnTl ??= Number(document.timeline.currentTime);
+          observer.disconnect();
+        }).observe(region.querySelector("[aria-live]")!, {
+          childList: true,
+          characterData: true,
+          subtree: true,
+        });
+        let after = 0;
+        const tick = () => {
+          const drift = photo.getAnimations()[0];
+          if (first.origin === null && drift?.startTime != null) {
+            first.origin = Number(drift.startTime);
+            const t = drift.effect!.getTiming();
+            first.timing = {
+              property: (drift as CSSTransition).transitionProperty,
+              duration: t.duration,
+              delay: t.delay,
+              easing: t.easing,
+            };
+          }
+          // √(a² + b²), not `a`: see `photoScale`. `none` is the identity.
+          const m = new DOMMatrix(getComputedStyle(photo).transform);
+          first.frames.push({
+            tl: Number(document.timeline.currentTime),
+            scale: Math.round(Math.hypot(m.a, m.b) * 1e6) / 1e6,
+            tilt: m.b,
+            angle: (Math.atan2(m.b, m.a) * 180) / Math.PI,
+            turned: first.turnTl !== null,
+          });
+          if (first.turnTl === null || ++after < 2) requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+      });
+      ready.observe(document, {
+        attributes: true,
+        subtree: true,
+        attributeFilter: ["data-carousel-ready"],
+      });
+    }, CARD);
+
+  /** How far the drift may be short of 1 + KEN_BURNS at a clock turn, in ms
+   *  of drift.
+   *  The clock counts a dwell from the frame it turned on; the drift starts
+   *  on the first frame after (a new transition waits for one) — `lag`,
+   *  measured — and the two clocks read that frame's time a callback apart.
+   *  100ms covers the second: it is a fifth of what a drift delayed by the
+   *  settle, or run over DWELL + the settle, is short by (500 and 471ms). */
+  const SHORT_BY = 100;
+
+  test("on the clock: still through the settle, 1.00 → 1 + KEN_BURNS across the dwell, then held still while it leaves", async ({
+    browser,
+  }) => {
+    // One whole dwell and both of its ends, on the timeline, every frame:
+    //  - the photo a clock turn brings on sits at 1 through the settle (the
+    //    transition's delay), then travels at KEN_BURNS per DWELL — halfway
+    //    at half a dwell — and lands on 1 + KEN_BURNS as the clock turns again;
+    //  - at that turn it is still showing under the incoming photo for
+    //    500ms, and holds ONE value — the value it had — for as long as it
+    //    shows, then rests at 1 (featured-band-live.spec.ts brings one back);
+    //  - and slide 1, on stage from load with no settle to wait out, drifts
+    //    from hydration and lands on the end scale at the FIRST turn too.
+    // Every end-of-dwell tolerance is TIME: frames are sparse under load, so
+    // a value is bounded by the drift's own rate over the time it had.
+    test.setTimeout(60_000);
+    const rate = FEATURED_KEN_BURNS / DWELL;
+    /** How far off its own curve a frame may read: ±133ms of drift, which was
+     *  ±0.0005 of scale when KEN_BURNS was 0.03 and is ±0.001 at 0.06. In
+     *  TIME, because frames are sparse under load whatever the amplitude. */
+    const ON_CURVE = rate * 133;
+    const { context, page } = await moving(browser);
+    try {
+      await recordFirstDwell(page);
+      await page.goto(HOME);
+      await adopted(page);
+      await pointerAway(page);
+      await bandInView(page);
+
+      const { frames, origin, timing, turnTls } = await recordTwoTurns(page, DISSOLVE + 300);
+      expect(origin, "the incoming photo's transition started").not.toBeNull();
+      expect.soft(timing, "its transition").toEqual({
+        property: "transform",
+        duration: DWELL,
+        delay: DISSOLVE,
+        easing: "linear",
+      });
+      const dwell = frames.filter((f) => f.turns === 1);
+      const p = dwell[0].onStage;
+      const since = (f: { tl: number }) => f.tl - origin!;
+      const at = (f: (typeof frames)[number]) => f.photos[p].scale!;
+      const where = (f: (typeof frames)[number]) => `${since(f).toFixed(1)}ms: ${at(f)}`;
+      const due = (tl: number, delay: number, from: number) =>
+        1 + FEATURED_KEN_BURNS * Math.min(1, Math.max(0, (tl - from - delay) / DWELL));
+
+      // Still through the settle…
+      const settle = dwell.filter((f) => since(f) < DISSOLVE - 20);
+      expect(settle.length, "sampled the settle").toBeGreaterThanOrEqual(2);
+      expect(settle.filter((f) => at(f) !== 1).map(where), "moved in the settle").toEqual([]);
+      // …then monotone, never a jump back…
+      const back = dwell.filter((f, i) => i > 0 && at(f) < at(dwell[i - 1]));
+      expect(back.map(where), "went backwards").toEqual([]);
+      // …at TILT_DEG on every frame, settle and drift alike: the tilt is in
+      // every state, so no transition turns it (Firefox, 2026-09-30).
+      expect
+        .soft(
+          dwell
+            .filter((f) => !(Math.abs(f.photos[p].angle - FEATURED_TILT_DEG) < ANGLE_SLACK))
+            .map((f) => `${since(f).toFixed(1)}ms: ${f.photos[p].angle}deg`),
+          "the incoming photo's frames off TILT_DEG",
+        )
+        .toEqual([]);
+      // …halfway at half a dwell (±ON_CURVE)…
+      const half = dwell.find((f) => since(f) >= DISSOLVE + DWELL / 2)!;
+      expect(half, "sampled half a dwell in").toBeDefined();
+      const want = due(half.tl, DISSOLVE, origin!);
+      expect.soft(Math.abs(at(half) - want), `${where(half)}, due ${want}`).toBeLessThan(ON_CURVE);
+      // …and on its own curve on the last frame before the turn, however
+      // long before the turn that frame was.
+      const last = dwell.at(-1)!;
+      const dueLast = due(last.tl, DISSOLVE, origin!);
+      expect
+        .soft(Math.abs(at(last) - dueLast), `${where(last)}, due ${dueLast}`)
+        .toBeLessThan(ON_CURVE);
+
+      // THE TURN: held at one value for as long as its wrapper shows at all…
+      const leaving = frames.filter((f) => f.turns === 2);
+      const shows = (f: (typeof frames)[number]) => f.photos[p].opacity > 0;
+      expect(leaving.filter(shows).length, "sampled it leaving, still showing").toBeGreaterThan(0);
+      expect(
+        leaving.filter((f) => !shows(f) && !f.photos[p].visible).length,
+        "sampled it hidden",
+      ).toBeGreaterThan(0);
+      const held = at(leaving[0]);
+      expect(
+        leaving
+          .filter((f) => shows(f) && at(f) !== held)
+          .map((f) => `${(f.tl - leaving[0].tl).toFixed(1)}ms: ${at(f)}`),
+        `left at ${held}, and moved while it showed`,
+      ).toEqual([]);
+      // …and at rest at 1 once it does not (DISSOLVE + 300 after the turn).
+      expect(at(leaving.at(-1)!), "at rest, hidden").toBe(1);
+      // …which is where the drift had got to ON the turn: no further from the
+      // last frame than its rate covers in the time between…
+      expect(turnTls.length, "timed both turns").toBe(2);
+      const [turn1, turn2] = turnTls;
+      expect
+        .soft(
+          Math.abs(held - at(last)),
+          `from ${at(last)} to ${held} in ${(turn2 - last.tl).toFixed(1)}ms`,
+        )
+        .toBeLessThanOrEqual(rate * (turn2 - last.tl) + 0.00002);
+      // …and it LANDED: 1 + KEN_BURNS, short by no more than its start lagged
+      // the turn.
+      const lag = origin! - turn1;
+      test.info().annotations.push({
+        type: "landed",
+        description: `held ${held} at the turn, ${(turn2 - last.tl).toFixed(1)}ms after the last frame (${at(last)}); drift started ${lag.toFixed(1)}ms after the turn; ${settle.length} frames in the settle`,
+      });
+      expect
+        .soft(held, `held at the turn (drift started ${lag.toFixed(1)}ms after it)`)
+        .toBeGreaterThanOrEqual(1 + FEATURED_KEN_BURNS - rate * (lag + SHORT_BY));
+      // The photo coming on starts from 1.
+      expect(leaving[0].photos[leaving[0].onStage].scale, "the next photo, from 1").toBe(1);
+
+      // SLIDE 1'S FIRST DWELL, from load: no settle, and the same landing.
+      const first = await page.evaluate(
+        () => (window as unknown as { __first: FirstDwell }).__first,
+      );
+      expect(first.origin, "slide 1's drift started").not.toBeNull();
+      expect(first.turnTl, "the first turn was timed").not.toBeNull();
+      expect.soft(first.timing, "slide 1's transition: nothing to arrive, no settle").toEqual({
+        property: "transform",
+        duration: DWELL,
+        delay: 0,
+        easing: "linear",
+      });
+      const before = first.frames.filter((f) => !f.turned);
+      const firstLag = first.origin! - first.ready!;
+      expect(before.length, "sampled the first dwell").toBeGreaterThanOrEqual(2);
+      expect(first.frames.at(-1)!.turned, "sampled the first turn").toBe(true);
+      const firstHeld = first.frames.find((f) => f.turned)!.scale;
+      const firstLast = before.at(-1)!;
+      test.info().annotations.push({
+        type: "first dwell",
+        description: `held ${firstHeld} at the first turn, ${(first.turnTl! - firstLast.tl).toFixed(1)}ms after the last frame (${firstLast.scale}); drift started ${firstLag.toFixed(1)}ms after hydration; ${before.length} frames, |b| ${Math.min(...before.map((f) => Math.abs(f.tilt)))} at least, ${Math.min(...before.map((f) => f.angle))}–${Math.max(...before.map((f) => f.angle))}deg`,
+      });
+      const dueFirst = due(firstLast.tl, 0, first.origin!);
+      expect
+        .soft(
+          Math.abs(firstLast.scale - dueFirst),
+          `slide 1 on the last frame before the turn, ${(firstLast.tl - first.origin!).toFixed(1)}ms in: ${firstLast.scale}, due ${dueFirst}`,
+        )
+        .toBeLessThan(ON_CURVE);
+      expect
+        .soft(
+          firstLast.scale,
+          `slide 1 on the last frame, ${(first.turnTl! - firstLast.tl).toFixed(1)}ms before the turn`,
+        )
+        .toBeGreaterThanOrEqual(
+          1 + FEATURED_KEN_BURNS - rate * (first.turnTl! - firstLast.tl + firstLag + SHORT_BY),
+        );
+      expect
+        .soft(
+          Math.abs(firstHeld - firstLast.scale),
+          `slide 1, from ${firstLast.scale} to ${firstHeld}`,
+        )
+        .toBeLessThanOrEqual(rate * (first.turnTl! - firstLast.tl) + 0.00002);
+      expect
+        .soft(
+          firstHeld,
+          `slide 1 held at the first turn (drift started ${firstLag.toFixed(1)}ms after hydration)`,
+        )
+        .toBeGreaterThanOrEqual(1 + FEATURED_KEN_BURNS - rate * (firstLag + SHORT_BY));
+      // AND TILTED ON EVERY FRAME OF IT, FROM HYDRATION. The server's markup
+      // carries no style, and a first drift written straight onto `none` turns
+      // the photo up from 0deg with the scale: b under NEARLY_ZERO for the
+      // first 5378ms of the dwell — Firefox's tick, on the first listing a
+      // visitor sees. `primed` in the slice resolves the tilted rest first.
+      expect
+        .soft(
+          before
+            .filter(
+              (f) =>
+                !(Math.abs(f.tilt) > NEARLY_ZERO) ||
+                !(Math.abs(f.angle - FEATURED_TILT_DEG) < ANGLE_SLACK),
+            )
+            .map((f) => `${(f.tl - first.origin!).toFixed(1)}ms: ${f.angle}deg, b = ${f.tilt}`),
+          "slide 1's first-dwell frames off TILT_DEG, or not past 1/4096",
+        )
+        .toEqual([]);
+    } finally {
+      await context.close();
+    }
+  });
+
+  /** Presses Play and records every frame from BEFORE the press until the
+   *  clock's next turn: the toggle's label, whether the turn has landed, and
+   *  the photo that was on stage — held BY REFERENCE, because after the turn
+   *  `:not([inert])` names the next one, so the last frame is that photo's
+   *  value as the turn sent it away. `turnTl` is the turn's own timeline
+   *  time, taken as the live region changes, inside the clock's frame. */
+  async function playToTheTurn(page: Page) {
+    await page.evaluate((card) => {
+      const region = document.querySelector(card)!;
+      const live = region.querySelector("[aria-live]")!;
+      const photo = region.querySelector(
+        "[data-featured-slide]:not([inert]) [data-featured-photo]",
+      )!;
+      const first = live.textContent;
+      const w = window as unknown as { __resume: unknown[]; __turnTl: number };
+      w.__resume = [];
+      const turn = new MutationObserver(() => {
+        w.__turnTl = Number(document.timeline.currentTime);
+        turn.disconnect();
+      });
+      turn.observe(live, { childList: true, characterData: true, subtree: true });
+      const tick = () => {
+        const turned = live.textContent !== first;
+        w.__resume.push({
+          tl: Number(document.timeline.currentTime),
+          label: region.querySelector("button")!.getAttribute("aria-label"),
+          turned,
+          // √(a² + b²), not `a`: see `photoScale`.
+          scale: ((m) => Math.round(Math.hypot(m.a, m.b) * 1e6) / 1e6)(
+            new DOMMatrix(getComputedStyle(photo).transform),
+          ),
+        });
+        if (!turned) requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+    }, CARD);
+    const text = await status(page).textContent();
+    await page.getByRole("button", { name: "Play slides" }).click();
+    await pointerAway(page);
+    await expect(status(page), "the clock ran the dwell out").not.toHaveText(text!, {
+      timeout: TURN_CEILING,
+    });
+    type Resumed = { tl: number; label: string; turned: boolean; scale: number };
+    const read = () =>
+      page.evaluate(() => {
+        const w = window as unknown as { __resume: Resumed[]; __turnTl: number };
+        return { frames: w.__resume, turnTl: w.__turnTl };
+      });
+    await expect.poll(async () => (await read()).frames.at(-1)?.turned).toBe(true);
+    return read();
+  }
+
+  test("Pause freezes the drift where it stands; Play resumes it from there, and it lands on 1 + KEN_BURNS", async ({
+    browser,
+  }) => {
+    // WCAG 2.2.2: the Pause button must stop the motion, not only the bar.
+    // Frozen on the transition's own Animation, so Play resumes it with the
+    // time it had left, which on a linear curve is the travel it had left.
     // 60s for the Pause case's reason: pressed early in a dwell (#117).
     test.setTimeout(60_000);
     const { context, page } = await moving(browser);
@@ -2014,39 +2384,179 @@ test.describe("motion", () => {
       await page.goto(HOME);
       await adopted(page);
       await pointerAway(page);
-      await mapBooted(page);
+      await bandInView(page);
       await pauseEarlyInADwell(page);
 
-      const frozenScale = await photoScale(page);
+      const frozenScale = (await photoScale(page))!;
       const frozenBar = await barScale(page);
       expect(frozenScale).toBeGreaterThan(1);
-      expect(frozenScale).toBeLessThan(1.03);
-      // Past the end of the dwell the bar says is left: a CSS animation timed
-      // to it would have run to its end by then.
+      expect(frozenScale).toBeLessThan(1 + FEATURED_KEN_BURNS);
+      // Past the end of the dwell the bar says is left: a running
+      // transition would have reached 1 + KEN_BURNS by then.
       await page.waitForTimeout((1 - frozenBar) * DWELL + 700);
-      expect(await photoScale(page)).toBe(frozenScale);
+      expect(await photoScale(page), "frozen with the bar").toBe(frozenScale);
       expect(await barScale(page)).toBe(frozenBar);
+      // …and still ON ITS LAYER: a paused transition has not ended, so the
+      // layer an ENDED drift drops (see `LAYER` in the slice) stays on.
+      expect(
+        await page
+          .locator(`${CARD} [data-featured-slide]:not([inert]) [data-featured-photo]`)
+          .evaluate((el) => ({
+            animations: el.getAnimations().map((a) => a.playState),
+            willChange: getComputedStyle(el).willChange,
+          })),
+        "paused past the end of its drift",
+      ).toEqual({ animations: ["paused"], willChange: "transform" });
+
+      const { frames, turnTl } = await playToTheTurn(page);
+      const played = frames.findIndex((f) => f.label === "Pause slides");
+      expect(played, "sampled across the Play press").toBeGreaterThan(0);
+      expect(
+        frames.slice(0, played).filter((f) => f.scale !== frozenScale),
+        "frozen until Play",
+      ).toEqual([]);
+      const after = frames.slice(played).filter((f) => !f.turned);
+      expect(after.length, "sampled the resumed dwell").toBeGreaterThan(10);
+
+      // NO JUMP, EVER: every step is forward, and no faster than the drift's
+      // own rate over the time between the two frames.
+      const rate = FEATURED_KEN_BURNS / DWELL;
+      const series = [frames[played - 1], ...after];
+      const jumps = series
+        .slice(1)
+        .map((f, i) => ({ f, d: f.scale - series[i].scale, dt: f.tl - series[i].tl }))
+        .filter(({ d, dt }) => d < 0 || d > rate * dt + 0.00002)
+        .map(({ f, d, dt }) => `${f.scale}: ${d.toFixed(6)} in ${dt.toFixed(1)}ms`);
+      expect(jumps, "steps that went back or outran the drift").toEqual([]);
+      // …and it LANDS on 1 + KEN_BURNS with the bar, read where the clock turns and
+      // not on the last frame before it (under load that frame can be whole
+      // tenths of a second early): the photo the turn sends away is held at
+      // what the drift reached ON the turn. Short of it by no more than it
+      // trailed the bar when both were paused (plus SHORT_BY); a resume that
+      // re-declared the transition, or never resumed, is a whole dwell short.
+      const last = after.at(-1)!;
+      const held = frames.at(-1)!.scale;
+      const trailed = Math.max(0, (frozenBar - (frozenScale - 1) / FEATURED_KEN_BURNS) * DWELL);
+      test.info().annotations.push({
+        type: "landed",
+        description: `held ${held} at the turn, ${(turnTl - last.tl).toFixed(1)}ms after the last frame (${last.scale}); trailed the bar by ${trailed.toFixed(1)}ms at the pause`,
+      });
+      expect(
+        Math.abs(held - last.scale),
+        `from ${last.scale} to ${held} in ${(turnTl - last.tl).toFixed(1)}ms`,
+      ).toBeLessThanOrEqual(rate * (turnTl - last.tl) + 0.00002);
+      expect(
+        held,
+        `at the clock's turn (it trailed the bar by ${trailed.toFixed(1)}ms)`,
+      ).toBeGreaterThanOrEqual(1 + FEATURED_KEN_BURNS - rate * (trailed + SHORT_BY));
+      expect(held).toBeLessThanOrEqual(1 + FEATURED_KEN_BURNS);
     } finally {
       await context.close();
     }
   });
 
-  test("reduced motion: the photo carries no transform at all", async ({ page }) => {
-    // Not `scale(1)` — NO transform. app.css zeroes animation-duration to
-    // 0.01ms with iteration-count 1, so a @keyframes with `forwards` would
-    // snap to its end state and hold it: a permanently zoomed photo dressed up
-    // as "no animation". Driving it off `progress`, which is 0 wherever the
-    // carousel is not `eligible`, is what makes the style disappear entirely.
+  test("Play after a visitor's drift has ENDED holds 1 + KEN_BURNS — the photo is never sent back (#156)", async ({
+    browser,
+  }) => {
+    // #156, which main held in a unit test while the drift was drawn by
+    // script. A visitor's turn drifts the photo to 1 + KEN_BURNS and the drift ENDS
+    // there, the rotation stopped by the arrow's focus. A Play after that has
+    // no travel left to draw, and every way to draw some moves the photo
+    // backwards in full view: the quick "fix", restarting it at 1.00, is
+    // 55.7px of width in one frame at 1.06. So it holds, while the bar fills, until
+    // the clock turns it away. (It finished ON STAGE: it never left, so it is
+    // never resting either.)
+    test.setTimeout(60_000);
+    const { context, page } = await moving(browser);
+    try {
+      await page.goto(HOME);
+      await adopted(page);
+      await pointerAway(page);
+      await bandInView(page);
+      await page.getByRole("button", { name: "Next slide" }).click();
+      await pointerAway(page);
+      await expect(page.getByRole("button", { name: "Play slides" })).toBeVisible();
+      // ENDED, not merely at the end scale: no animation left on it.
+      await expect
+        .poll(
+          () =>
+            page
+              .locator(`${CARD} [data-featured-slide]:not([inert]) [data-featured-photo]`)
+              .evaluate((el) => ({
+                // √(a² + b²), not `a`: see `photoScale`.
+                scale: ((m) => Math.round(Math.hypot(m.a, m.b) * 1e6) / 1e6)(
+                  new DOMMatrix(getComputedStyle(el).transform),
+                ),
+                animations: el.getAnimations().length,
+                // Held, so off its layer: see `LAYER` in the slice.
+                willChange: getComputedStyle(el).willChange,
+              })),
+          { timeout: DISSOLVE + DWELL + 4_000 },
+        )
+        .toEqual({ scale: 1 + FEATURED_KEN_BURNS, animations: 0, willChange: "auto" });
+
+      const { frames } = await playToTheTurn(page);
+      const played = frames.findIndex((f) => f.label === "Pause slides");
+      expect(played, "sampled across the Play press").toBeGreaterThan(0);
+      expect(frames.length - played, "sampled the dwell Play started").toBeGreaterThan(10);
+      expect(frames.at(-1)!.turned, "sampled to the clock's turn").toBe(true);
+      expect(
+        frames
+          .filter((f) => f.scale !== 1 + FEATURED_KEN_BURNS)
+          .map((f) => `${(f.tl - frames[played].tl).toFixed(1)}ms from Play: ${f.scale}`),
+        "every frame from before Play to the clock's turn, at 1 + KEN_BURNS",
+      ).toEqual([]);
+    } finally {
+      await context.close();
+    }
+  });
+
+  test("reduced motion: no transform and no transition on any photo, from the served markup on", async ({
+    page,
+  }) => {
+    // Not `scale(1)` — NO style. app.css cuts every transition to 0.01ms with
+    // no delay under reduce, so a declared transition to the end scale would SNAP there
+    // and hold: a permanently zoomed photo dressed up as "no animation".
+    //
+    // FROM FIRST PAINT: the server's markup carries no style on any photo (it
+    // cannot know the preference, and a declared end scale there would be the
+    // photo's first style, with nothing to transition from), and a recorder
+    // installed before any script sees nothing written through hydration and
+    // a turn.
+    const served = await (await page.request.get(HOME)).text();
+    const tags = served.match(/<img\b[^>]*data-featured-photo[^>]*>/g) ?? [];
+    expect(tags, "the served markup's photos").toHaveLength(3);
+    for (const tag of tags) expect(tag, "a served photo with a style").not.toMatch(/\sstyle=/);
+
+    await page.addInitScript(() => {
+      const w = window as unknown as { __photoWrites: string[] };
+      w.__photoWrites = [];
+      new MutationObserver((records) => {
+        for (const r of records)
+          if ((r.target as Element).hasAttribute("data-featured-photo"))
+            w.__photoWrites.push(String((r.target as Element).getAttribute("style")));
+      }).observe(document, { attributes: true, attributeFilter: ["style"], subtree: true });
+    });
     await page.goto(HOME);
     await adopted(page);
+    await page.getByRole("button", { name: "Next slide" }).click();
+    await expect(status(page)).toHaveText("Slide 2 of 3");
+    await page.waitForTimeout(DISSOLVE + 300);
     const photos = await page.locator(`${CARD} [data-featured-photo]`).evaluateAll((els) =>
       els.map((el) => ({
         style: el.getAttribute("style"),
         transform: getComputedStyle(el).transform,
+        willChange: getComputedStyle(el).willChange,
+        animations: el.getAnimations().length,
       })),
     );
     expect(photos).toHaveLength(3);
-    for (const photo of photos) expect(photo).toEqual({ style: null, transform: "none" });
+    for (const photo of photos)
+      expect(photo).toEqual({ style: null, transform: "none", willChange: "auto", animations: 0 });
+    expect(
+      await page.evaluate(() => (window as unknown as { __photoWrites: string[] }).__photoWrites),
+      "style writes on a photo, from first paint",
+    ).toEqual([]);
   });
 
   // ── C: the bar dissolves at a turn ───────────────────────────────────────
@@ -2334,180 +2844,6 @@ test.describe("motion", () => {
     }
   });
 
-  test("Play after a VISITOR's turn: the clock takes the drift over, and the photo lands with the bar", async ({
-    browser,
-  }) => {
-    // THE HAND-OVER THE SLICE USED TO ONLY CLAIM. It drew max(clock, the
-    // visitor's run), and the run is AHEAD of a restarted clock by however
-    // long the visitor waited before Play — so the photo followed the run,
-    // reached 1.03 8.5s after the turn and sat there while the bar filled on
-    // to the clock's turn (the combined-tree verifier, production build: Play
-    // at +3.2s, the photo still from 8.5s to the turn at 11.7s). Now the clock
-    // takes it over on Play: from where the run stood, across what is left.
-    //
-    // Every frame from before Play to the clock's turn is recorded IN THE
-    // PAGE, the bar's declared value and the photo's computed scale in the
-    // same callback, so the two are one frame's state and never a round trip
-    // apart. What is asserted is the relation between them on every frame,
-    // not a time: on a loaded machine when a frame lands is noise, and what
-    // it draws is not.
-    test.setTimeout(60_000);
-    const { context, page } = await moving(browser);
-    try {
-      await page.goto(HOME);
-      await adopted(page);
-      await pointerAway(page);
-
-      // A real press: the arrow's focus is the pause, and Play lifts it.
-      await page.getByRole("button", { name: "Next slide" }).click();
-      await expect(page.getByRole("button", { name: "Play slides" })).toBeVisible();
-      await pointerAway(page);
-      // Let the visitor's run travel, so the hand-over has travel on BOTH
-      // sides of it — the case the max got wrong, and the one it cannot fake.
-      await expect.poll(() => photoScale(page), { timeout: 8_000 }).toBeGreaterThan(1.006);
-
-      await page.evaluate((card) => {
-        const w = window as unknown as {
-          __drift: {
-            t: number;
-            label: string | null;
-            turned: boolean;
-            mode: string;
-            bar: number;
-            scale: number | null;
-          }[];
-        };
-        w.__drift = [];
-        const region = document.querySelector(card)!;
-        const live = region.querySelector("[aria-live]")!;
-        const fill = region.querySelector<HTMLElement>("[data-carousel-progress] > div")!;
-        // THIS slide's photo, held by reference: it must be read through the
-        // turn, when `:not([inert])` starts naming the next one.
-        const photo = region.querySelector(
-          "[data-featured-slide]:not([inert]) [data-featured-photo]",
-        )!;
-        const first = live.textContent;
-        const tick = () => {
-          const transform = getComputedStyle(photo).transform;
-          const turned = live.textContent !== first;
-          w.__drift.push({
-            t: performance.now(),
-            label: region.querySelector("button")!.getAttribute("aria-label"),
-            turned,
-            mode: fill.dataset.carouselFill ?? "",
-            bar: Number(/scaleX\(([^)]+)\)/.exec(fill.getAttribute("style") ?? "")?.[1]),
-            scale: transform === "none" ? null : Number(/matrix\(([^,]+),/.exec(transform)![1]),
-          });
-          if (!turned) requestAnimationFrame(tick);
-        };
-        requestAnimationFrame(tick);
-      }, CARD);
-      const onStageText = await status(page).textContent();
-      await page.getByRole("button", { name: "Play slides" }).click();
-      await pointerAway(page);
-      // Positive evidence the clock ran this dwell OUT: it turned the slide.
-      await expect(status(page)).not.toHaveText(onStageText!, { timeout: TURN_CEILING });
-      await expect
-        .poll(() =>
-          page.evaluate(
-            () => (window as unknown as { __drift: { turned: boolean }[] }).__drift.at(-1)?.turned,
-          ),
-        )
-        .toBe(true);
-
-      const frames = await page.evaluate(
-        () =>
-          (
-            window as unknown as {
-              __drift: {
-                t: number;
-                label: string | null;
-                turned: boolean;
-                mode: string;
-                bar: number;
-                scale: number | null;
-              }[];
-            }
-          ).__drift,
-      );
-      const drift = (f: { scale: number | null }) => (f.scale! - 1) / FEATURED_KEN_BURNS;
-      const pressed = frames.findIndex((f) => f.label === "Pause slides");
-      expect(pressed, "sampled across the Play press").toBeGreaterThan(0);
-      const before = frames.slice(0, pressed);
-      // THE CLOCK'S VALUE, which is not always the bar's scaleX since #146:
-      // through the settle Play runs down, the fill is `departing`, held out
-      // at the width the visitor's turn found it at, while the clock reads 0.
-      const after = frames
-        .slice(pressed)
-        .filter((f) => !f.turned)
-        .map((f) => (f.mode === "departing" ? { ...f, bar: 0 } : f));
-      expect(
-        before.every((f) => f.label === "Play slides"),
-        "premise: stopped until Play",
-      ).toBe(true);
-      expect(
-        after.every(
-          (f) => f.label === "Pause slides" && (f.mode === "timed" || f.mode === "departing"),
-        ),
-        "premise: running from Play to the turn — the settle, then COUNTING",
-      ).toBe(true);
-      const departing = after.filter((f) => f.mode === "departing");
-      expect(
-        after.slice(0, departing.length),
-        "premise: the settle comes first, then the count, never again",
-      ).toEqual(departing);
-      expect(
-        Math.max(...after.map((f) => f.bar)),
-        "premise: the bar counted the dwell out",
-      ).toBeGreaterThan(0.95);
-
-      // The visitor's run, on the last frame before Play: it has travelled,
-      // and has travel left — the only case where the two answers differ.
-      const ran = drift(before.at(-1)!);
-      expect(ran, "premise: the run had travelled before Play").toBeGreaterThan(0.1);
-      expect(ran, "premise: the run had travel left at Play").toBeLessThan(0.8);
-
-      // Where the hand-over took the drift, solved from the first frame after
-      // Play: drift = from + (1 − from) × bar. That frame is normally in the
-      // settle, where the bar reads 0 and the photo simply IS `from`; solving
-      // rather than requiring a bar of 0 keeps this honest when a loaded
-      // machine drops the whole 500ms settle between two frames. It can only
-      // be at or past `ran` — the run moves on until the flush Play lands in.
-      const from = (drift(after[0]) - after[0].bar) / (1 - after[0].bar);
-      expect(
-        from,
-        "the clock took the drift over from where the run stood — not from the top",
-      ).toBeGreaterThanOrEqual(ran - 0.001);
-      const settled = after.filter((f) => f.bar === 0).length;
-
-      // EVERY FRAME from Play to the turn: the run's share, plus the bar's
-      // share of the travel the run left. Under the old max this is off by the
-      // run's lead — 500ms of drift already in the settle, and the whole of
-      // what was left by the time the run parked at 1.03.
-      const off = after
-        .map((f) => ({ f, want: from + (1 - from) * f.bar }))
-        .filter(({ f, want }) => Math.abs(drift(f) - want) > 0.01)
-        .map(
-          ({ f, want }) =>
-            `${f.scale} with the bar at ${f.bar.toFixed(3)}: expected ${(1 + FEATURED_KEN_BURNS * want).toFixed(5)}`,
-        );
-      expect(
-        off,
-        `frames where the photo and the bar disagreed (${after.length} after Play, ${settled} in the settle)`,
-      ).toEqual([]);
-
-      // Never backwards, through the press and the hand-over.
-      const seen = frames.filter((f) => !f.turned);
-      for (let i = 1; i < seen.length; i++)
-        expect(
-          seen[i].scale!,
-          `${(seen[i].t - seen[0].t).toFixed(1)}ms into the recording`,
-        ).toBeGreaterThanOrEqual(seen[i - 1].scale!);
-    } finally {
-      await context.close();
-    }
-  });
-
   test("reduced motion: the bar is position mode, and never dissolves", async ({ page }) => {
     await page.goto(HOME);
     await adopted(page);
@@ -2728,39 +3064,40 @@ test.describe("motion", () => {
 });
 
 test.describe("the portfolio button", () => {
-  // Removed on 2026-09-21 for three reasons and restored by the operator's call
-  // the same day on one condition — the card's own column, never a band-wide
-  // overlay. These are the reasons, as numbers.
-  test("1440 and 1280: it is in the CARD, clear of the map column, and level with LEARN MORE", async ({
+  // Since 2026-10-01 (operator, answering Nicole's MarkUp pin) it is the ALL
+  // circle at the end of the controls row, not a PROPERTIES button on LEARN
+  // MORE's line. It is still the card's own column, never a band-wide overlay
+  // (the 2026-09-21 condition), so the overlay and contrast cases below stand.
+  test("1440 and 1280: it is the last of the controls — 10 right of Next, their size, their line", async ({
     browser,
   }) => {
-    // THE OLD COMPLAINT, closed. It used to sit on the band's floor at
-    // `lg:pb-[43px]` — the ARROWS' line — so it was 3px under LEARN MORE at
-    // 1440 on launch day and 12 at 1280. It is pinned to the text column's
-    // bottom edge now (the card's 40px foot padding, the slide's own `mb-10`),
-    // which is exactly where LEARN MORE lands whenever the slide's text is what
-    // sizes the panel — every one-listing state, which is the state this site
-    // ships. Measured 0.00 at both widths.
     for (const width of [1440, 1280]) {
       const { context, page } = await moving(browser, viewportFor(width));
       try {
-        await page.goto(`${HOME}?featured=one`);
-        await page.locator(`${CARD} [data-featured-portfolio]`).waitFor();
+        await page.goto(HOME);
+        await adopted(page);
+        const card = page.locator(CARD);
+        const all = card.getByRole("link", { name: "See all properties" });
+        await expect(all).toBeVisible();
+        await expect(all).toHaveText("See all");
+        await expect(all).toHaveAttribute("href", "/properties");
+        const [a, n, c] = await Promise.all([
+          all.boundingBox(),
+          card.getByRole("button", { name: "Next slide" }).boundingBox(),
+          card.boundingBox(),
+        ]);
+        const at = JSON.stringify({ width, a, n });
+        // A square button like LEARN MORE, not one more circle (2026-10-01):
+        // it is a link, and reads as one.
+        expect(a!.height, at).toBeCloseTo(40, 0);
+        expect(a!.width, at).toBeGreaterThan(60);
+        await expect(all).toHaveCSS("border-radius", "0px");
+        expect(a!.y, `${at}: on the arrows' line`).toBeCloseTo(n!.y, 0);
+        expect(a!.x - (n!.x + n!.width), `${at}: 10 after Next`).toBeCloseTo(10, 0);
+        // In the CARD, which is the card's column — never the heading's.
+        expect(a!.x, at).toBeGreaterThan(c!.x);
+        expect(a!.x + a!.width, at).toBeLessThan(c!.x + c!.width);
         const g = await geometry(page);
-        expect(g.portfolio, `drawn at ${width}`).not.toBeNull();
-        // In the CARD, which is the card's column — the reserved map column is
-        // the other one, and the reason the old placement was removed.
-        expect(g.portfolio!.left, `${width}: not in the map column`).toBeGreaterThan(0);
-        expect(g.card.width - g.portfolio!.right, `${width}: on the card's 20`).toBeCloseTo(20, 0);
-        expect(g.slot.right, `${width}: flush against the card's left edge`).toBeCloseTo(0, 0);
-        // Level with LEARN MORE, to the pixel, at both widths.
-        expect(
-          g.portfolio!.bottom - g.button.bottom,
-          `${width}: level with LEARN MORE`,
-        ).toBeCloseTo(0, 1);
-        expect(g.card.height - g.portfolio!.bottom, `${width}: the card's 40`).toBeCloseTo(40, 0);
-        // …and clear of it: the two never share a pixel of x.
-        expect(g.portfolio!.left, `${width}: clear of LEARN MORE`).toBeGreaterThan(g.button.right);
         expect(g.overflowX, `${width}`).toBeLessThanOrEqual(0);
       } finally {
         await context.close();
@@ -2768,53 +3105,25 @@ test.describe("the portfolio button", () => {
     }
   });
 
-  test("a card too narrow for both buttons drops it to its own row rather than over the text", async ({
+  test("a squeezed card: it paints over no word, and axe measures every one", async ({
     browser,
   }) => {
-    // WHY THE QUERY IS ON THE CARD AND NOT THE VIEWPORT. /dev/a11y-fixtures
-    // renders this band inside a `max-w-3xl` wrapper, so at a 1455 viewport the
-    // card is 425.89 — and on LEARN MORE's line this button landed ACROSS it
-    // (left 236.42 against LEARN MORE's right 355.13). Axe answered the launch
-    // band 9 measured / 1 INCOMPLETE, which is the bgOverlap defect the button
-    // was removed for, reintroduced by the placement that fixed the alignment.
-    // A viewport media query cannot see it. `@container` can.
+    // /dev/a11y-fixtures renders this band inside a `max-w-3xl` wrapper, so
+    // the card is 704 wide at a 1455 viewport. The PROPERTIES button once
+    // landed ACROSS LEARN MORE there (the bgOverlap defect); the SEE ALL button
+    // lives in the controls row, and this holds that nothing in the card is
+    // under it.
     const { context, page } = await moving(browser, viewportFor(1440));
     try {
       await page.goto("/dev/a11y-fixtures");
       const card = page.locator(CARD).nth(1);
-      // The settled state, and the correction #142 asked for. What stood here
-      // read the card the instant the document had loaded, which in 10 of 16
-      // measured runs was BEFORE hydration: the assertions below were being
-      // made against the server's markup, and the three runs that lost that
-      // race met a card at opacity 0 — `color-contrast` absent from `passes`
-      // altogether, and `passes.find(...)!.nodes.length` a TypeError.
       await settledForAudit(page, card);
-
-      const learn = card.getByRole("link", { name: /Learn more/ });
-      const portfolio = card.getByRole("link", { name: "Properties", exact: true });
-      // Read after the scroll, not before: every assertion below is one box
-      // against another, so the frame they share only has to be the same one.
-      const [c, l, p] = await Promise.all([
-        card.boundingBox(),
-        learn.boundingBox(),
-        portfolio.boundingBox(),
-      ]);
-      expect(c!.width, "the wrapper squeezes the card").toBeLessThan(640);
-
-      // THE TITLE'S CLAIM, MEASURED AS GEOMETRY, because that is what it is
-      // about. What stood here made it entirely through axe's contrast count,
-      // and a count of the nodes axe HAPPENED TO RESOLVE is a bad proxy for
-      // "the button is not over the text": the count moves with the frame the
-      // audit landed in (#142) and it cannot say WHICH node was covered.
-      //
-      // ITS OWN ROW, UNDER THE TEXT: the button's box shares no pixel with any
-      // word in the card. `row-start-4` — the placement this `@container`
-      // query replaced — put it at left 236.42 against LEARN MORE's right
-      // 355.13 on LEARN MORE's own line, so this is the assertion that goes
-      // red on a revert, by 118.71px of overlap, naming the element it lands on.
+      const all = card.getByRole("link", { name: "See all properties" });
+      const [c, p] = await Promise.all([card.boundingBox(), all.boundingBox()]);
+      expect(c!.width, "the wrapper squeezes the card").toBeCloseTo(704, 0);
       const text = await card.evaluate((el) =>
-        [...el.querySelectorAll<HTMLElement>("h2, h3, p, li, a")]
-          .filter((n) => !n.closest("[data-featured-portfolio]") && n.textContent?.trim())
+        [...el.querySelectorAll<HTMLElement>("h3, p, li, a")]
+          .filter((n) => !n.hasAttribute("data-featured-portfolio") && n.textContent?.trim())
           .map((n) => {
             const b = n.getBoundingClientRect();
             return {
@@ -2833,18 +3142,9 @@ test.describe("the portfolio button", () => {
       );
       expect(
         overlapping.map((t) => t.tag),
-        "the button is painted over these",
+        "the circle is painted over these",
       ).toEqual([]);
-      // …and below, not merely clear of: the row IS the claim, and a button
-      // that cleared the words by sitting in the margin beside them would pass
-      // the line above.
-      expect(p!.y, "below LEARN MORE").toBeGreaterThanOrEqual(l!.y + l!.height);
-      expect(p!.x - c!.x, "on the card's 20").toBeCloseTo(20, 0);
 
-      // AND THE CONSEQUENCE THE BUTTON WAS ONCE REMOVED FOR, which geometry
-      // alone cannot reach: axe can still MEASURE every word on this card.
-      // An element painted over text does not move it — it makes its contrast
-      // unknowable, which axe answers with an INCOMPLETE rather than a ratio.
       await card.evaluate((el) => el.setAttribute("data-narrow-scope", ""));
       const results = await axe(page).include("[data-narrow-scope]").analyze();
       const { measured, unmeasured } = contrastOf(results as never);
@@ -2852,13 +3152,9 @@ test.describe("the portfolio button", () => {
         unmeasured.map((n) => n.html.slice(0, 60)),
         "axe could not measure these",
       ).toEqual([]);
-      // Over the SUM, never over `passes` alone. Which side of the line a node
-      // lands on is timing-dependent — this very file records the split going
-      // both ways at :1288 and :1331 — but every node axe looked at is in one
-      // list or the other, so the total is what a settled card makes stable.
-      // The emptiness asserted above is what keeps this from being satisfied by
-      // ten incompletes: the two lines together say ten nodes, all resolved.
-      expect(measured.length + unmeasured.length, "nine and this one, on a 425.89 card too").toBe(
+      // Nine and this one: the band's heading (in the card since 2026-10-12),
+      // the size line, the title, five bullets, LEARN MORE and SEE ALL.
+      expect(measured.length + unmeasured.length, "nine and this one, on a squeezed card too").toBe(
         10,
       );
     } finally {
@@ -2866,7 +3162,7 @@ test.describe("the portfolio button", () => {
     }
   });
 
-  test("1440, one listing: axe measures the card's nine nodes AND this button — none incomplete", async ({
+  test("1440, one listing: axe measures the band's nine nodes AND this button — none incomplete", async ({
     browser,
   }) => {
     // THE GATE THE REMOVAL SET. As a `lg:absolute lg:inset-0` overlay this
@@ -2874,9 +3170,10 @@ test.describe("the portfolio button", () => {
     // with `bgOverlap` for the card's words: 1 node measured and 9 INCOMPLETE
     // at 1440 on the one-listing state; 9 and 0 with the button gone. An
     // incomplete is not a pass, so what is required here is that the same nine
-    // are still measured — the eyebrow, the size line, the title, five bullets
-    // and LEARN MORE — and that this button is a TENTH measurement rather than
-    // a reason nine become unmeasurable.
+    // are still measured — the band's heading (the card's eyebrow until
+    // 2026-10-09; in the card, on its sand, since 2026-10-12), the size line,
+    // the title, five bullets and LEARN MORE — and that this button is a TENTH
+    // measurement rather than a reason nine become unmeasurable.
     const { context, page } = await moving(browser, viewportFor(1440));
     try {
       await page.goto(`${HOME}?featured=one`);
@@ -2888,17 +3185,10 @@ test.describe("the portfolio button", () => {
       // below are unchanged — 10 measured, 0 incomplete — which is the
       // evidence that the wait costs this case nothing.
       await settledForAudit(page, page.locator(CARD));
-      // The map's subtree is EXCLUDED rather than the audit narrowed to the
-      // card: the band's ground is part of what this measures, and the map
-      // (#13) brings text nodes of its own — the section's listings, as links.
-      // Counting them here would turn "nine and this one" into a number that
-      // moves whenever an editor adds a listing. The map's own contrast is
-      // covered on /dev/a11y-fixtures, where it is mounted with `engine="off"`
-      // so the gate never waits on a tile host.
-      const results = await axe(page)
-        .include(BAND)
-        .exclude(`${BAND} [data-property-map]`)
-        .analyze();
+      // The BAND, not the card: it covers the heading wherever it sits. (The
+      // band's map was excluded here, for the listing links it brought, until
+      // it went on 2026-10-09.)
+      const results = await axe(page).include(BAND).analyze();
       expect(results.violations.map((v) => `${v.id}: ${v.nodes.length}`)).toEqual([]);
 
       const incomplete = results.incomplete.find((r) => r.id === "color-contrast");
@@ -2912,7 +3202,7 @@ test.describe("the portfolio button", () => {
       const html = measured!.nodes.map((n) => n.html);
       expect(
         html.filter((h) => h.startsWith("<h2")),
-        "the eyebrow",
+        "the band's heading",
       ).toHaveLength(1);
       expect(
         html.filter((h) => h.startsWith("<h3")),
@@ -2942,139 +3232,131 @@ test.describe("the portfolio button", () => {
 });
 
 test.describe("the other states", () => {
-  test("reduced motion: no Pause, no rotation — the bar shows POSITION and the arrows still work", async ({
-    page,
-  }) => {
-    // The shared config's context: reducedMotion "reduce".
-    await page.goto(HOME);
-    await adopted(page);
-    const bar = page.locator(`${CARD} [data-carousel-progress]`);
-    await expect(bar).toHaveAttribute("data-carousel-progress", "position");
-    await expect(page.locator(`${CARD} button`)).toHaveCount(2);
-    expect(await barScale(page)).toBeCloseTo(1 / 3, 2);
-
-    await page.getByRole("button", { name: "Next slide" }).click();
-    await expect(status(page)).toHaveText("Slide 2 of 3");
-    expect(await barScale(page)).toBeCloseTo(2 / 3, 2);
-    expect(await onStage(page)).toEqual(["101 W. Commerce Street"]);
-  });
-
-  test("ONE showable listing is a card: no carousel, no controls, nothing to rotate", async ({
-    browser,
-  }) => {
-    const { context, page } = await moving(browser);
-    try {
-      await page.goto(`${HOME}?featured=one`);
-      const band = page.locator(BAND);
-      await expect(band).toHaveAttribute("data-featured-picked", "3");
-      await expect(band).toHaveAttribute("data-featured-shown", "1");
-      await expect(band.locator('[role="region"]')).toHaveCount(0);
-      await expect(band.locator("button")).toHaveCount(0);
-      await expect(band.locator("[data-carousel-progress]")).toHaveCount(0);
-      // The landmark's name moves to the <section>.
-      await expect(page.getByRole("region", { name: "Featured Properties" })).toHaveCount(1);
+  test(
+    "reduced motion: no Pause, no rotation — the bar shows POSITION and the arrows still work",
+    { tag: "@smoke" },
+    async ({ page }) => {
+      // The shared config's context: reducedMotion "reduce".
+      await page.goto(HOME);
+      await adopted(page);
+      const bar = page.locator(`${CARD} [data-carousel-progress]`);
+      await expect(bar).toHaveAttribute("data-carousel-progress", "position");
       await expect(
-        band.getByRole("link", { name: /Learn more about 25331 IH 10 West/ }),
-      ).toBeVisible();
-      // The SLIDE's five bullets. The band also holds the map's list of
-      // Google Maps links (#13), which is <li>s too — an unqualified count
-      // reads six and stops being about the panel this test is measuring.
-      await expect(band.locator("[data-featured-slide] li")).toHaveCount(5);
+        page.locator(CARD).getByRole("button", { name: /^(Pause|Play) slides$/ }),
+      ).toHaveCount(0);
 
-      // The live listing's five bullets GROW the panel past the comp's 285;
-      // LEARN MORE keeps the panel's 40 under it.
-      const g = await geometry(page);
-      expect(g.card.height - g.photo.height).toBeGreaterThan(285);
-      expect(g.card.height - g.button.bottom).toBeCloseTo(40, 0);
-      // The eyebrow still shares the size line's cap line.
-      expect(g.eyebrow.top).toBeCloseTo(g.sizeLine.top, 0);
-    } finally {
-      await context.close();
-    }
-  });
+      await page.getByRole("button", { name: "Next slide" }).click();
+      await expect(status(page)).toHaveText("Slide 2 of 3");
+      expect(await onStage(page)).toEqual(["101 W. Commerce Street"]);
+    },
+  );
 
-  test("NO showable listing is no band: the page closes up over it", async ({ page }) => {
-    await page.goto(`${HOME}?featured=none`);
-    const band = page.locator(BAND);
-    await expect(band).toHaveCount(1);
-    await expect(band).toBeHidden();
-    await expect(band).toHaveAttribute("data-featured-picked", "2");
-    await expect(band).toHaveAttribute("data-featured-shown", "0");
-    await expect(band).toHaveAttribute("data-featured-unembedded", "0");
-    await expect(page.locator(CARD)).toHaveCount(0);
-    expect(await band.evaluate((el) => el.getBoundingClientRect().height)).toBe(0);
-  });
-
-  test("with scripting off it is slide 1 with its link, and no dead controls", async ({
-    browser,
-  }) => {
-    const context = await browser.newContext({ javaScriptEnabled: false });
-    try {
-      const page = await context.newPage();
-      await page.goto(HOME, { waitUntil: "domcontentloaded" });
-      const card = page.locator(CARD);
-      await expect(card, "only script sets this").not.toHaveAttribute("data-carousel-ready", "");
-      await expect(card.locator("h2")).toBeVisible();
-      await expect(
-        card.getByRole("link", { name: /Learn more about 25331 IH 10 West/ }),
-      ).toBeVisible();
-      // In the markup (so nothing jumps at hydration) but not on screen. THREE:
-      // the server cannot know the visitor's motion preference, so Pause ships
-      // too and is hidden with the arrows by app.html's <noscript> rule.
-      await expect(card.locator("button")).toHaveCount(3);
-      for (const button of await card.locator("button").all()) await expect(button).toBeHidden();
-      await expect(card.locator("[data-carousel-progress]")).toBeHidden();
-
-      // #32's first promise, and the thing the unit tests cannot see: the
-      // SERVER's markup puts exactly one slide on stage. A regression that
-      // shipped all three stacked at opacity 1 would still pass every
-      // assertion above — slide 1's link is visible either way.
-      const slides = card.locator("[data-featured-slide]");
-      await expect(slides).toHaveCount(3);
-      await expect(card.locator("[data-featured-slide]:not([inert])")).toHaveCount(1);
-      await expect(slides.nth(0)).not.toHaveAttribute("inert", "");
-      for (const i of [1, 2]) {
-        await expect(slides.nth(i)).toHaveAttribute("inert", "");
-        await expect(slides.nth(i)).toHaveAttribute("aria-hidden", "true");
-        await expect(slides.nth(i).locator("h3")).toBeHidden();
+  test(
+    "ONE showable listing is a card: no carousel, no controls, nothing to rotate",
+    { tag: "@smoke" },
+    async ({ browser }) => {
+      const { context, page } = await moving(browser);
+      try {
+        await page.goto(`${HOME}?featured=one`);
+        const band = page.locator(BAND);
+        await expect(band).toHaveAttribute("data-featured-picked", "3");
+        await expect(band).toHaveAttribute("data-featured-shown", "1");
+        await expect(band.locator('[role="region"]')).toHaveCount(0);
+        // The carousel's own controls (#221).
+        await expect(
+          band.getByRole("button", {
+            name: /^(Previous slide|Next slide|Pause slides|Play slides)$/,
+          }),
+        ).toHaveCount(0);
+        await expect(band.locator("[data-carousel-progress]")).toHaveCount(0);
+        // The landmark's name moves to the <section>.
+        await expect(page.getByRole("region", { name: "Featured Properties" })).toHaveCount(1);
+        await expect(
+          band.getByRole("link", { name: /Learn more about 25331 IH 10 West/ }),
+        ).toBeVisible();
+        // The SLIDE's five bullets, scoped to the slide: the band held the
+        // map's list of Google Maps links (#13), <li>s too, until 2026-10-09,
+        // and a band-wide count would be about whatever else it holds next.
+        expect(await band.locator("[data-featured-slide] li").count()).toBeGreaterThanOrEqual(5);
+      } finally {
+        await context.close();
       }
-      // WITHOUT THE BUNDLE THE BAND IS ITS FIRST LISTING, and that is the
-      // decision, not an oversight: slides 2..N are `inert` in the server's
-      // markup by the primitive's reviewed design, and CSS cannot undo `inert`.
-      // Every listing is reachable from /properties — and THAT is the one link
-      // this band draws of its own, server-rendered like everything else here,
-      // so a visitor without the bundle still has a way to all of them (#47).
-      // It is a plain <a> in the markup: nothing about it waits on hydration.
-      const portfolio = card.getByRole("link", { name: "Properties", exact: true });
-      await expect(portfolio).toBeVisible();
-      await expect(portfolio).toHaveAttribute("href", "/properties");
-      // The map's own links go to Google Maps by design (#13), and they are
-      // the OTHER thing a visitor without the bundle still gets here. Since
-      // #122 there are TWO sets of them and they are the same three places:
-      // the LIST — the map's accessible equivalent, `sr-only` now that the box
-      // draws the committed picture of MAP_HOME — and the PINS the picture
-      // draws over that raster, which is what a pointer actually has. Both are
-      // asserted as their own claim rather than folded into the loop below.
-      const rows = page.locator(`${BAND} [data-map-link]`);
-      await expect(rows).toHaveCount(3);
-      for (const row of await rows.all())
-        await expect(row).toHaveAttribute(
-          "href",
-          /^https:\/\/www\.google\.com\/maps\/search\/\?api=1&query=/,
-        );
-      const pins = page.locator(`${BAND} [data-map-home-frame="full"] [data-map-home-pin]`);
-      expect(await pins.count(), "the picture drew pins with no script at all").toBeGreaterThan(0);
-      const rowHrefs = await rows.evaluateAll((els) => els.map((e) => e.getAttribute("href")));
-      for (const pin of await pins.all())
-        expect(rowHrefs).toContain(await pin.getAttribute("href"));
-      for (const link of await page
-        .locator(`${BAND} a:not([data-map-link]):not([data-map-home-pin])`)
-        .all())
-        await expect(link).toHaveAttribute("href", /^\/properties(\/.+)?$/);
-    } finally {
-      await context.close();
-    }
-  });
+    },
+  );
+
+  test(
+    "NO showable listing is no band: the page closes up over it",
+    { tag: "@smoke" },
+    async ({ page }) => {
+      await page.goto(`${HOME}?featured=none`);
+      const band = page.locator(BAND);
+      await expect(band).toHaveCount(1);
+      await expect(band).toBeHidden();
+      await expect(band).toHaveAttribute("data-featured-picked", "2");
+      await expect(band).toHaveAttribute("data-featured-shown", "0");
+      await expect(band).toHaveAttribute("data-featured-unembedded", "0");
+      await expect(page.locator(CARD)).toHaveCount(0);
+    },
+  );
+
+  test(
+    "with scripting off it is slide 1 with its link, and no dead controls",
+    { tag: "@smoke" },
+    async ({ browser }) => {
+      const context = await browser.newContext({ javaScriptEnabled: false });
+      try {
+        const page = await context.newPage();
+        await page.goto(HOME, { waitUntil: "domcontentloaded" });
+        const card = page.locator(CARD);
+        await expect(card, "only script sets this").not.toHaveAttribute("data-carousel-ready", "");
+        const heading = page.locator(`${BAND} h2`);
+        await expect(heading).toBeVisible();
+        await heading.scrollIntoViewIfNeeded();
+        expect(
+          await heading.evaluate((el) => {
+            const r = el.getBoundingClientRect();
+            return el.contains(document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2));
+          }),
+          "the heading is drawn on the band, not only named in the accessibility tree",
+        ).toBe(true);
+        await expect(
+          card.getByRole("link", { name: /Learn more about 25331 IH 10 West/ }),
+        ).toBeVisible();
+        // No control is on screen without script: the server cannot know the
+        // visitor's motion preference, so Pause ships too and is hidden with the
+        // arrows by app.html's <noscript> rule.
+        for (const button of await card.locator("button").all()) await expect(button).toBeHidden();
+        await expect(card.locator("[data-carousel-progress]")).toBeHidden();
+
+        // #32's first promise, and the thing the unit tests cannot see: the
+        // SERVER's markup puts exactly one slide on stage. A regression that
+        // shipped all three stacked at opacity 1 would still pass every
+        // assertion above — slide 1's link is visible either way.
+        const slides = card.locator("[data-featured-slide]");
+        await expect(slides).toHaveCount(3);
+        await expect(card.locator("[data-featured-slide]:not([inert])")).toHaveCount(1);
+        await expect(slides.nth(0)).not.toHaveAttribute("inert", "");
+        for (const i of [1, 2]) {
+          await expect(slides.nth(i)).toHaveAttribute("inert", "");
+          await expect(slides.nth(i)).toHaveAttribute("aria-hidden", "true");
+          await expect(slides.nth(i).locator("h3")).toBeHidden();
+        }
+        // WITHOUT THE BUNDLE THE BAND IS ITS FIRST LISTING, and that is the
+        // decision, not an oversight: slides 2..N are `inert` in the server's
+        // markup by the primitive's reviewed design, and CSS cannot undo `inert`.
+        // Every listing is reachable from /properties — and THAT is the one link
+        // this band draws of its own, server-rendered like everything else here,
+        // so a visitor without the bundle still has a way to all of them (#47).
+        // It is a plain <a> in the markup: nothing about it waits on hydration.
+        const portfolio = card.getByRole("link", { name: "See all properties", exact: true });
+        await expect(portfolio).toBeVisible();
+        await expect(portfolio).toHaveAttribute("href", "/properties");
+        await expect(page.locator(`${BAND} [data-property-map]`)).toHaveCount(0);
+      } finally {
+        await context.close();
+      }
+    },
+  );
 
   test("script ON, bundle never arrives: the controls are QUIET, and the row does not move when it does (#47)", async ({
     browser,
@@ -3121,15 +3403,15 @@ test.describe("the other states", () => {
         "no tab stop inside the quiet controls",
       ).toBe(false);
 
-      // The eyebrow's width IS the webfont's: measured before `document.fonts`
-      // settles it reads 182 against Atkinson's 176.56, which is a font race,
-      // not a layout shift.
+      // The heading's width IS the webfont's (the eyebrow's, as it was: 182
+      // before `document.fonts` settled against Atkinson's 176.56), which is a
+      // font race, not a layout shift.
       await page.evaluate(() => document.fonts.ready);
       const quietBoxes = await geometry(page);
 
       // …and the SAME page with script gives the same boxes: reserving the
-      // space is the whole reason the controls ship at all. (The eyebrow/photo
-      // are read from the card, never the window — house rule.)
+      // space is the whole reason the controls ship at all. (The photo is read
+      // from the card and the heading from the band, never the window.)
       const { context, page: live } = await moving(browser);
       try {
         await live.goto(HOME);
@@ -3140,7 +3422,7 @@ test.describe("the other states", () => {
         ]);
         await live.evaluate(() => document.fonts.ready);
         const liveBoxes = await geometry(live);
-        for (const key of ["card", "photo", "bar", "eyebrow", "controls", "text"] as const) {
+        for (const key of ["card", "photo", "bar", "heading", "controls", "text"] as const) {
           const [before, after] = [quietBoxes[key]!, liveBoxes[key]!] as Record<string, number>[];
           for (const edge of Object.keys(before)) {
             expect(

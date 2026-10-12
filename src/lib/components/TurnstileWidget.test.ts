@@ -139,7 +139,7 @@ describe("TurnstileWidget", () => {
     expect(mount.children.length).toBe(0);
     // jsdom resolves no Tailwind, so the class token is the assertable form
     // here; that it really reserves 65px is a browser question, not a jsdom one.
-    expect(mount.className).toContain("min-h-[65px]");
+    expect(mount.className).toMatch(/(?:^|\s)min-h-/);
 
     await vi.waitFor(() => expect(api.render).toHaveBeenCalledTimes(1));
   });

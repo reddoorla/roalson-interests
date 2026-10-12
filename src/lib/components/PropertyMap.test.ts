@@ -5,10 +5,19 @@ import { flushSync, tick } from "svelte";
 import PropertyMap from "./PropertyMap.svelte";
 import {
   ACTIVE_PIN_SCALE,
+  RESTING_PIN_SCALE,
   CAMERA_FLIGHT_MS,
   DEFAULT_MAP_STYLE_URL,
+  DIMMED_MARKER_OPACITY,
+  DIMMED_PIN_FILL,
+  PIN_PATH,
+  RI_PIN_BODY,
+  RI_PIN_MARK,
+  RI_PIN_VIEWBOX,
   frameFor,
   homeMarkers,
+  MAP_CREDIT_OPEN_MS,
+  MAP_FRAMES,
   MAP_HOME_FADE_MS,
   MAP_HOME,
   type MapPoint,
@@ -32,6 +41,8 @@ const engine = vi.hoisted(() => {
     options: Record<string, unknown>;
     handlers: Record<string, (e?: unknown) => void>;
     controls: { control: unknown; position: string }[];
+    /** Every control `removeControl` was called with, in order. */
+    removedControls: unknown[];
     canvas: HTMLCanvasElement;
     canvasContainer: HTMLDivElement;
     jumps: unknown[];
@@ -156,6 +167,7 @@ const engine = vi.hoisted(() => {
         options,
         handlers: this.handlers,
         controls: [],
+        removedControls: [],
         canvas: this.canvas,
         canvasContainer: this.canvasContainer,
         jumps: [],
@@ -187,6 +199,9 @@ const engine = vi.hoisted(() => {
     }
     addControl(control: unknown, position: string) {
       this.record.controls.push({ control, position });
+    }
+    removeControl(control: unknown) {
+      this.record.removedControls.push(control);
     }
     getCanvas() {
       return this.canvas;
@@ -451,6 +466,7 @@ describe("when the engine is asked for", () => {
   // no attribution and this departs from it on purpose, so the control being
   // added is asserted rather than assumed.
   it("always adds an attribution control, clear of the expand affordance", async () => {
+    stubResizeTo(397, 595);
     stubIntersecting();
     render(PropertyMap, { props: { points, label: "Land" } });
     await vi.waitFor(() => expect(engine.created).toHaveLength(1));
@@ -458,16 +474,60 @@ describe("when the engine is asked for", () => {
     expect(added, "an attribution control is added").toBeTruthy();
     expect(added!.position).toBe("bottom-left");
     expect(engine.created[0]!.options.attributionControl).toBe(false);
+    // A full frame keeps the whole chip, as it always has.
+    expect((added!.control as { options: unknown }).options).toEqual({ compact: false });
+  });
+
+  // Operator, 2026-09-29: a compact map's credit is maplibre's compact credit
+  // — the whole line for its open window, then the (i).
+  // `compact` is read once, at construction, so the frame changing — a phone
+  // map expanded to the window and collapsed again, a /properties map
+  // crossing `lg` — has to swap the control, and a resize INSIDE a frame must
+  // not. What this cannot see is the line at the first frame, its collapse on
+  // the clock or a first gesture, and the (i) opening onto the text: those are
+  // DOM claims about maplibre, and tests/interaction/property-map.spec.ts
+  // reads each of them in a browser.
+  it("collapses the credit on a compact frame, and swaps it only when the frame changes", async () => {
+    const resize = stubResizableTo(350, 200);
+    stubIntersecting({ mapHeight: 200, visible: 200 });
+    render(PropertyMap, { props: { points, label: "Land" } });
+    await vi.waitFor(() => expect(engine.created).toHaveLength(1));
+    const record = engine.created[0]!;
+    const kinds = () =>
+      record.controls.map(({ control, position }) => ({
+        compact: (control as { options: { compact: boolean } }).options.compact,
+        position,
+      }));
+    expect(kinds(), "a 200 box is compact").toEqual([{ compact: true, position: "bottom-left" }]);
+
+    resize({ width: 700, height: 200 });
+    await tick();
+    expect(kinds(), "wider, still compact: nothing swapped").toHaveLength(1);
+    expect(record.removedControls).toEqual([]);
+
+    resize({ width: 390, height: 844 });
+    await tick();
+    expect(kinds().at(-1), "the window is a full frame").toEqual({
+      compact: false,
+      position: "bottom-left",
+    });
+    expect(record.removedControls, "and the (i) went").toEqual([record.controls[0]!.control]);
+
+    resize({ width: 350, height: 200 });
+    await tick();
+    expect(kinds().at(-1), "back to compact").toEqual({ compact: true, position: "bottom-left" });
+    expect(record.removedControls.at(-1), "and the chip went").toBe(record.controls[1]!.control);
+    expect(record.controls, "one credit per frame change, never two at once").toHaveLength(3);
   });
 
   // MapLibre names its canvas "Map" and gives it role="region", so two maps on
   // the Properties page would be two identically named landmarks.
   it("renames the canvas after the section it is showing", async () => {
     stubIntersecting();
-    render(PropertyMap, { props: { points, label: "Improved Projects" } });
+    render(PropertyMap, { props: { points, label: "Improved Properties" } });
     await vi.waitFor(() => expect(engine.created).toHaveLength(1));
     expect(engine.created[0]!.canvas.getAttribute("aria-label")).toBe(
-      "Improved Projects listings, interactive map",
+      "Improved Properties listings, interactive map",
     );
   });
 
@@ -558,25 +618,6 @@ describe("the expand affordance", () => {
     );
   });
 
-  it("carries a 44 x 44 target around the comp's 20.88px box (WCAG 2.5.8)", async () => {
-    stubResizeTo(350, 200);
-    const { container } = render(PropertyMap, {
-      props: { points, label: "Land", engine: "off" },
-    });
-    await tick();
-    // jsdom resolves no stylesheet, so the classes are what can be asserted —
-    // the rendered geometry is measured in a real browser by
-    // tests/interaction/property-map.spec.ts.
-    const button = container.querySelector<HTMLButtonElement>("[data-map-expand]")!;
-    const classes = button.className.split(/\s+/);
-    expect(classes).toContain("h-11");
-    expect(classes).toContain("w-11");
-    const painted = button.querySelector("span")!.className;
-    expect(painted).toContain("h-[20.88px]");
-    expect(painted).toContain("w-[20.884px]");
-    expect(painted).toContain("bg-primary");
-  });
-
   describe("expanded: one full-window overlay (M1)", () => {
     const open = async (props: Record<string, unknown> = {}) => {
       stubResizeTo(350, 200);
@@ -594,7 +635,9 @@ describe("the expand affordance", () => {
       const root = view.container.querySelector("[data-property-map]")!;
       const spacer = view.container.querySelector("[data-map-spacer]");
       expect(spacer, "the spacer holds the map's slot").not.toBeNull();
-      expect(spacer!.className, "with the caller's own classes").toBe("mb-5 h-50");
+      expect(spacer!.className.split(/\s+/), "with the caller's own classes").toEqual(
+        expect.arrayContaining(["mb-5", "h-50"]),
+      );
       expect(spacer!.getAttribute("aria-hidden")).toBe("true");
       expect(root.getAttribute("role")).toBe("dialog");
       expect(root.getAttribute("aria-modal")).toBe("true");
@@ -677,25 +720,176 @@ describe("the zoom buttons (P3)", () => {
       "Enlarge the Land map",
     ]);
   });
+
+  // Operator, 2026-09-29, option two: "happy not to have the zoom buttons on
+  // mobile since we've thumbs". A compact frame carries expand alone; the
+  // frame it expands to carries all three again (WCAG 2.5.1 wants a
+  // single-pointer zoom-out, and a pinch is two pointers).
+  it("are not drawn on a compact frame, and come back on the full frame it expands to", async () => {
+    const resize = stubResizableTo(350, 200);
+    stubIntersecting({ mapHeight: 200, visible: 200 });
+    const view = render(PropertyMap, { props: { points, label: "Land" } });
+    await vi.waitFor(() => expect(engine.created).toHaveLength(1));
+    engine.created[0]!.handlers.load?.();
+    await tick();
+    const which = () =>
+      [...view.container.querySelectorAll("[data-map-control]")].map((b) =>
+        b.getAttribute("data-map-control"),
+      );
+    // Positive evidence it is drawn and ready — the canvas-only state has no
+    // zoom buttons either, and would pass the next line for that reason.
+    expect(
+      view.container.querySelector("[data-map-ready]"),
+      "premise: the map drew",
+    ).not.toBeNull();
+    expect(which(), "compact: expand alone").toEqual(["expand"]);
+
+    view.container.querySelector<HTMLButtonElement>("[data-map-expand]")!.click();
+    resize({ width: 390, height: 844 });
+    await tick();
+    expect(which(), "expanded to the window: + above − above expand").toEqual([
+      "zoom-in",
+      "zoom-out",
+      "expand",
+    ]);
+
+    view.container.querySelector<HTMLButtonElement>("[data-map-expand]")!.click();
+    resize({ width: 350, height: 200 });
+    await tick();
+    expect(which(), "collapsed: expand alone again").toEqual(["expand"]);
+  });
+
+  // A landscape phone's overlay (800 x 280) is a COMPACT frame — the window is
+  // under COMPACT_MAX_HEIGHT — and it is still the single-pointer zoom-out.
+  it("stay, with the whole chip, in an overlay under 300 tall and through a resize inside it", async () => {
+    const resize = stubResizableTo(350, 200);
+    stubIntersecting({ mapHeight: 200, visible: 200 });
+    const view = render(PropertyMap, { props: { points, label: "Land" } });
+    await vi.waitFor(() => expect(engine.created).toHaveLength(1));
+    const record = engine.created[0]!;
+    record.handlers.load?.();
+    await tick();
+    const which = () =>
+      [...view.container.querySelectorAll("[data-map-control]")].map((b) =>
+        b.getAttribute("data-map-control"),
+      );
+    const chip = () =>
+      (record.controls.at(-1)!.control as { options: { compact: boolean } }).options.compact ===
+      false;
+    expect(which(), "premise: compact, expand alone").toEqual(["expand"]);
+    expect(chip(), "premise: the compact credit").toBe(false);
+
+    view.container.querySelector<HTMLButtonElement>("[data-map-expand]")!.click();
+    resize({ width: 800, height: 280 });
+    await tick();
+    expect(which(), "expanded at 800 x 280").toEqual(["zoom-in", "zoom-out", "expand"]);
+    expect(chip(), "and the whole chip").toBe(true);
+    const placed = record.controls.length;
+
+    resize({ width: 390, height: 844 });
+    await tick();
+    resize({ width: 800, height: 280 });
+    await tick();
+    expect(which(), "across 300 and back, inside the overlay").toEqual([
+      "zoom-in",
+      "zoom-out",
+      "expand",
+    ]);
+    expect(record.controls, "no credit swapped inside the overlay").toHaveLength(placed);
+
+    view.container.querySelector<HTMLButtonElement>("[data-map-expand]")!.click();
+    resize({ width: 350, height: 200 });
+    await tick();
+    expect(which(), "collapsed: expand alone again").toEqual(["expand"]);
+    expect(chip(), "and the compact credit").toBe(false);
+  });
 });
 
 describe("the active listing's pin (P2/P4)", () => {
-  const svgWidth = (el: Element | null) => Number(el!.querySelector("svg")!.getAttribute("width"));
+  // WHAT THIS CAN AND CANNOT SEE. The active pin used to be drawn larger by
+  // its SVG's width/height attributes, which this compared — and an attribute
+  // swap cannot transition, so the pin snapped (operator, 2026-09-29). It is
+  // now drawn at the frame's size like every pin and scaled by a transform
+  // the stylesheet derives from `--pin-scale`. jsdom lays nothing out and
+  // applies no transform, so what is decided here is the MARKUP: every pin at
+  // one size, and the scale each one is told to be drawn at. What the page
+  // PAINTS — 1.5x, grown about the tip, eased — is read off real boxes in
+  // map-featured-pin.spec.ts.
+  const drawnAt = (el: Element | null) => {
+    const svg = el!.querySelector("svg")!;
+    return [Number(svg.getAttribute("width")), Number(svg.getAttribute("height"))];
+  };
+  const scaleOf = (el: Element | null) =>
+    Number((el as HTMLElement).style.getPropertyValue("--pin-scale"));
 
-  it("is marked and drawn ACTIVE_PIN_SCALE larger than the rest, live", async () => {
+  it("is marked and told to draw ACTIVE_PIN_SCALE larger than the rest, live", async () => {
     const { view } = await booted({ active: "a" });
     const a = view.container.querySelector("[data-map-pin='a']");
     const b = view.container.querySelector("[data-map-pin='b']");
     expect(a!.hasAttribute("data-map-active")).toBe(true);
     expect(b!.hasAttribute("data-map-active")).toBe(false);
-    expect(svgWidth(a)).toBe(svgWidth(b) * ACTIVE_PIN_SCALE);
+    expect(scaleOf(a)).toBe(ACTIVE_PIN_SCALE);
+    expect(scaleOf(b)).toBe(RESTING_PIN_SCALE);
+    // Both at the frame's own size: the difference is the scale, never the box.
+    expect(drawnAt(a)).toEqual(drawnAt(b));
+    expect(drawnAt(a)[0]).toBeGreaterThan(0);
     expect(view.container.querySelectorAll("[data-map-active]")).toHaveLength(1);
+  });
+
+  it("moves its scale, and only its scale, when the active listing moves", async () => {
+    // On the server's picture, because `rerender` re-runs the boot effect and
+    // tears a live map down (see `stubResizableTo`); the live half is
+    // measured in the browser, where the page moves `active`.
+    const props = { points, label: "Land", engine: "off" as const };
+    const view = render(PropertyMap, { props: { ...props, active: "a" } });
+    await tick();
+    const at = (id: string) => view.container.querySelector(`[data-map-home-pin='${id}']`);
+    const [a, b] = [at("a"), at("b")];
+    const before = [drawnAt(a), drawnAt(b)];
+    await view.rerender({ ...props, active: "b" });
+    await tick();
+    // The SAME elements — a keyed pin that was re-created would start at its
+    // end state and there would be nothing to transition.
+    expect(at("a")).toBe(a);
+    expect(at("b")).toBe(b);
+    expect([scaleOf(a), scaleOf(b)]).toEqual([RESTING_PIN_SCALE, ACTIVE_PIN_SCALE]);
+    expect([drawnAt(a), drawnAt(b)], "the attribute size never changes").toEqual(before);
   });
 
   it("marks nothing when nothing is active — the control", async () => {
     const { view } = await booted({ active: null });
-    expect(view.container.querySelectorAll("[data-map-pin]").length).toBeGreaterThan(0);
+    const pins = [...view.container.querySelectorAll("[data-map-pin]")];
+    expect(pins.length).toBeGreaterThan(0);
     expect(view.container.querySelector("[data-map-active]")).toBeNull();
+    for (const pin of pins) expect(scaleOf(pin)).toBe(1);
+    expect(view.container.querySelector("[data-map-pin-mark]")).toBeNull();
+  });
+
+  it("is drawn as Erik's Ri-Pin2, where every other pin keeps the comp's pin and its hole", async () => {
+    const { view } = await booted({ active: "a" });
+    const a = view.container.querySelector("[data-map-pin='a']")!;
+    const b = view.container.querySelector("[data-map-pin='b']")!;
+    const drawn = (el: Element, selector: string) =>
+      [...el.querySelectorAll(selector)].map((p) => p.getAttribute("d"));
+    expect(drawn(a, "[data-map-pin-mark] path")).toEqual([RI_PIN_BODY, RI_PIN_MARK]);
+    expect(a.querySelector("[data-map-pin-mark]")!.getAttribute("viewBox")).toBe(RI_PIN_VIEWBOX);
+    expect(drawn(a, ":scope > svg > path"), "not the comp's pin under it").toEqual([]);
+    expect(a.querySelector(":scope > svg > circle"), "nor its hole").toBeNull();
+    expect(b.querySelector("[data-map-pin-mark]")).toBeNull();
+    expect(drawn(b, ":scope > svg > path")).toEqual([PIN_PATH]);
+    expect(b.querySelector(":scope > svg > circle")).not.toBeNull();
+    expect(view.container.querySelectorAll("[data-map-pin-mark]")).toHaveLength(1);
+  });
+
+  it("carries it on the server's picture too, on the active pin only", async () => {
+    const { container } = render(PropertyMap, {
+      props: { points, label: "Land", engine: "off", active: "a" },
+    });
+    await tick();
+    const marks = [...container.querySelectorAll("[data-map-pin-mark]")];
+    expect(marks.length, "premise: the picture draws `a`").toBeGreaterThan(0);
+    for (const mark of marks)
+      expect(mark.closest("[data-map-home-pin]")!.getAttribute("data-map-home-pin")).toBe("a");
   });
 
   it("is marked the same way on the server's picture", async () => {
@@ -706,8 +900,215 @@ describe("the active listing's pin (P2/P4)", () => {
     const pins = [...container.querySelectorAll("[data-map-home-pin='a']")];
     expect(pins.length, "premise: 'a' is in the picture").toBeGreaterThan(0);
     for (const pin of pins) expect(pin.hasAttribute("data-map-active")).toBe(true);
-    const others = container.querySelectorAll("[data-map-home-pin]:not([data-map-home-pin='a'])");
+    for (const pin of pins) expect(scaleOf(pin)).toBe(ACTIVE_PIN_SCALE);
+    const others = [
+      ...container.querySelectorAll("[data-map-home-pin]:not([data-map-home-pin='a'])"),
+    ];
+    expect(others.length, "premise: other pins in the picture").toBeGreaterThan(0);
     for (const pin of others) expect(pin.hasAttribute("data-map-active")).toBe(false);
+    for (const pin of others) expect(scaleOf(pin)).toBe(RESTING_PIN_SCALE);
+    // One size per layer, the active pin's included.
+    for (const layer of container.querySelectorAll("[data-map-home-frame]")) {
+      const sizes = new Set(
+        [...layer.querySelectorAll("[data-map-home-pin]")].map((p) => drawnAt(p).join("x")),
+      );
+      expect(sizes.size, `${layer.getAttribute("data-map-home-frame")}: one drawn size`).toBe(1);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Every other marker, while one is active (operator, 2026-09-29)
+// ---------------------------------------------------------------------------
+
+/**
+ * "whatever the active pin is should stay full opacity and the rest should be
+ * slightly reduced opacity so it's featured".
+ *
+ * WHAT jsdom CAN SAY HERE, AND WHAT IT CANNOT. The component decides a
+ * marker's opacity by writing `--map-dim` on it — the constant itself — and
+ * the stylesheet turns that into `opacity`. jsdom loads no component CSS and
+ * resolves no `var()`, so these cases read the VALUE the component assigns to
+ * each marker, and "no value" is full opacity. That the stylesheet really
+ * applies it, that hover and keyboard focus take it back to 1, and that it
+ * fades on the card's clock are measured in a browser, on a production build,
+ * by tests/interaction/map-featured-pin.spec.ts.
+ */
+describe("every other marker, while one is active", () => {
+  /** The opacity the component assigns a marker: `--map-dim`, or 1. */
+  const opacityOf = (el: Element | null) => {
+    expect(el, "premise: the marker is drawn").not.toBeNull();
+    const dim = (el as HTMLElement).style.getPropertyValue("--map-dim");
+    return dim === "" ? 1 : Number(dim);
+  };
+  /** Every marker, live or in the picture, with the opacity it was given. */
+  const readAll = (root: Element) =>
+    [
+      ...root.querySelectorAll<HTMLElement>(
+        "[data-map-pin],[data-map-cluster],[data-map-home-pin],[data-map-home-cluster]",
+      ),
+    ].map((el) => ({
+      id:
+        el.dataset.mapPin ??
+        el.dataset.mapHomePin ??
+        `cluster(${el.dataset.mapCluster ?? el.dataset.mapHomeCluster})`,
+      opacity: opacityOf(el),
+      dimmed: el.hasAttribute("data-map-dimmed"),
+    }));
+
+  it("draws the active pin at 1 and every other pin's fill at DIMMED_PIN_FILL, live", async () => {
+    const { view } = await booted({ active: "a" });
+    expect(opacityOf(view.container.querySelector("[data-map-pin='a']"))).toBe(1);
+    expect(opacityOf(view.container.querySelector("[data-map-pin='b']"))).toBe(DIMMED_PIN_FILL);
+    // The attribute the stylesheet keys on agrees with the value, both ways.
+    expect(
+      view.container.querySelector("[data-map-pin='a']")!.hasAttribute("data-map-dimmed"),
+    ).toBe(false);
+    expect(
+      view.container.querySelector("[data-map-pin='b']")!.hasAttribute("data-map-dimmed"),
+    ).toBe(true);
+  });
+
+  it("dims nothing when nothing is active — the control", async () => {
+    const { view } = await booted({ active: null });
+    const all = readAll(view.container);
+    expect(all.length, "premise: markers to read").toBeGreaterThan(0);
+    expect(all.filter((m) => m.opacity !== 1 || m.dimmed)).toEqual([]);
+  });
+
+  it("dims nothing for an active id this map has no pin for", async () => {
+    // The homepage band's slide with no location; another section's listing.
+    // An active listing that is not ON this map features nothing here, so
+    // dimming the rest would feature nothing either.
+    const { view } = await booted({ active: "not-on-this-map" });
+    const all = readAll(view.container);
+    expect(all.length, "premise: markers to read").toBeGreaterThan(0);
+    expect(all.filter((m) => m.opacity !== 1 || m.dimmed)).toEqual([]);
+  });
+
+  it("moves with `active`: the new pin comes up to 1 and the old one goes down", async () => {
+    // On the server's picture, because `rerender` re-runs the boot effect and
+    // tears a live map down (see `stubResizableTo`); the live half of a moving
+    // `active` is measured in the browser, where the page moves it.
+    const props = { points, label: "Land", engine: "off" as const };
+    const view = render(PropertyMap, { props: { ...props, active: "a" } });
+    await tick();
+    const at = (id: string) => view.container.querySelector(`[data-map-home-pin='${id}']`);
+    expect(opacityOf(at("a"))).toBe(1);
+    expect(opacityOf(at("b"))).toBe(DIMMED_PIN_FILL);
+    await view.rerender({ ...props, active: "b" });
+    await tick();
+    expect(opacityOf(at("b"))).toBe(1);
+    expect(opacityOf(at("a"))).toBe(DIMMED_PIN_FILL);
+    await view.rerender({ ...props, active: null });
+    await tick();
+    expect(readAll(view.container).filter((m) => m.opacity !== 1)).toEqual([]);
+  });
+
+  describe("a cluster", () => {
+    // `c` is 1.1 km from `a`: one disc at the fake map's z7, and in the
+    // picture at MAP_HOME's z8.6/z8.0. `b` is 300 km away and always its own.
+    const clustered: MapPoint[] = [
+      points[0]!,
+      {
+        ...points[0]!,
+        id: "c",
+        title: "Next door to IH 10",
+        lat: points[0]!.lat + 0.01,
+      },
+      points[1]!,
+    ];
+
+    it("holding the active listing counts as the active one — it stays at 1", async () => {
+      const { view } = await booted({ points: clustered, active: "a" });
+      const cluster = view.container.querySelector("[data-map-cluster='2']");
+      expect(cluster, "premise: `a` and `c` are one disc").not.toBeNull();
+      expect(view.container.querySelector("[data-map-pin='a']"), "and `a` has no pin").toBeNull();
+      expect(opacityOf(cluster)).toBe(1);
+      expect(opacityOf(view.container.querySelector("[data-map-pin='b']"))).toBe(DIMMED_PIN_FILL);
+    });
+
+    it("that does not hold it is dimmed, to the value that keeps its count legible", async () => {
+      const { view } = await booted({ points: clustered, active: "b" });
+      expect(opacityOf(view.container.querySelector("[data-map-cluster='2']"))).toBe(
+        DIMMED_MARKER_OPACITY,
+      );
+      expect(opacityOf(view.container.querySelector("[data-map-pin='b']"))).toBe(1);
+    });
+
+    it("…and the same in the server's picture", async () => {
+      const { container } = render(PropertyMap, {
+        props: { points: clustered, label: "Land", engine: "off", active: "c" },
+      });
+      await tick();
+      const discs = [...container.querySelectorAll("[data-map-home-cluster='2']")];
+      expect(discs.length, "premise: the picture groups `a` and `c`").toBeGreaterThan(0);
+      for (const disc of discs) expect(opacityOf(disc)).toBe(1);
+      for (const pin of container.querySelectorAll("[data-map-home-pin='b']"))
+        expect(opacityOf(pin)).toBe(DIMMED_PIN_FILL);
+    });
+  });
+
+  it("draws the server's picture the same way: the active pin at 1, the rest dimmed", async () => {
+    const { container } = render(PropertyMap, {
+      props: { points, label: "Land", engine: "off", active: "a" },
+    });
+    await tick();
+    const all = readAll(container);
+    expect(
+      all.filter((m) => m.id === "a").length,
+      "premise: `a` is in the picture",
+    ).toBeGreaterThan(0);
+    expect(all.filter((m) => m.id !== "a").length, "premise: others are too").toBeGreaterThan(0);
+    for (const m of all)
+      expect(m.opacity, m.id).toBe(
+        m.id === "a" ? 1 : m.id.startsWith("cluster(") ? DIMMED_MARKER_OPACITY : DIMMED_PIN_FILL,
+      );
+  });
+
+  it("…and with nothing active the picture dims nothing — /properties' no-JS state", async () => {
+    const { container } = render(PropertyMap, {
+      props: { points, label: "Land", engine: "off", active: null },
+    });
+    await tick();
+    const all = readAll(container);
+    expect(all.length, "premise: the picture draws markers").toBeGreaterThan(0);
+    expect(all.filter((m) => m.opacity !== 1 || m.dimmed)).toEqual([]);
+  });
+
+  it("brings a listing's marker to 1 while its link has keyboard focus, and back after", async () => {
+    const { view } = await booted({ active: "a" });
+    const b = () => view.container.querySelector("[data-map-pin='b']");
+    expect(opacityOf(b()), "premise: dimmed before").toBe(DIMMED_PIN_FILL);
+    const link = view.container.querySelectorAll<HTMLElement>("[data-map-link]")[1]!;
+    expect(link.textContent, "premise: that is `b`'s link").toContain(points[1]!.title);
+    link.focus();
+    await tick();
+    expect(opacityOf(b()), "the chip names it, so it is not drawn disabled").toBe(1);
+    link.blur();
+    await tick();
+    expect(opacityOf(b())).toBe(DIMMED_PIN_FILL);
+  });
+
+  it("draws the pin a visitor pressed at 1 while the sheet names it, and dims it after", async () => {
+    // The homepage band passes no `onselect`, so a press opens the sheet and
+    // leaves `active` where the slide on stage put it.
+    const { view } = await booted({ active: "a" });
+    const b = () => view.container.querySelector<HTMLButtonElement>("[data-map-pin='b']");
+    expect(opacityOf(b()), "premise: dimmed before").toBe(DIMMED_PIN_FILL);
+    b()!.click();
+    await tick();
+    const sheet = view.container.querySelector("[data-map-sheet]");
+    expect(sheet?.textContent, "premise: the sheet names `b`").toContain(points[1]!.title);
+    expect(opacityOf(b()), "the listing the sheet names is not drawn disabled").toBe(1);
+    expect(b()!.hasAttribute("data-map-dimmed")).toBe(false);
+    expect(opacityOf(view.container.querySelector("[data-map-pin='a']")), "active stays").toBe(1);
+    view.container
+      .querySelector<HTMLButtonElement>(`[aria-label="Close ${points[1]!.title}"]`)!
+      .click();
+    await tick();
+    expect(view.container.querySelector("[data-map-sheet]"), "premise: closed").toBeNull();
+    expect(opacityOf(b())).toBe(DIMMED_PIN_FILL);
   });
 });
 
@@ -825,7 +1226,7 @@ describe("the camera the page drives", () => {
     expect(boot.flights).toHaveLength(1);
     const handover = boot.flights[0] as { center: number[]; zoom: number };
     expect(handover.center[0]).toBeCloseTo(points[1]!.lng, 6);
-    expect(handover.zoom).toBe(12);
+    expect(handover.zoom).toBe(MAP_FRAMES[frameFor({ width: 397, height: 595 })].maxZoom);
   });
 
   it("is constructed at the fit, as before, when no placeholder is drawn", async () => {
@@ -844,7 +1245,7 @@ describe("the camera the page drives", () => {
     await tick();
     await tick();
     expect(view.container.querySelector("[data-map-home-box]")).toBeNull();
-    expect(record.options.zoom).toBe(12);
+    expect(record.options.zoom).toBe(MAP_FRAMES[frameFor({ width: 397, height: 595 })].maxZoom);
     expect((record.options.center as number[])[0]).toBeCloseTo(points[1]!.lng, 6);
     expect(record.flights).toHaveLength(0);
   });
@@ -856,8 +1257,9 @@ describe("the camera the page drives", () => {
     expect(record.flights).toHaveLength(1);
     const flight = record.flights[0] as { center: number[]; zoom: number; duration: number };
     expect(flight.center[0]).toBeCloseTo(points[0]!.lng, 6);
-    expect(flight.zoom).toBe(12);
-    expect(flight.duration).toBe(500);
+    expect(flight.zoom).toBe(MAP_FRAMES[frameFor({ width: 397, height: 595 })].maxZoom);
+    expect(flight.duration).toBe(CAMERA_FLIGHT_MS);
+    expect(flight.duration).toBeLessThanOrEqual(5000);
   });
 
   // WHAT THIS BLOCK CAN AND CANNOT SAY, because the previous version of it
@@ -994,8 +1396,8 @@ describe("the camera the page drives", () => {
   // written here would report "no flight" for a map that does not exist, which
   // is precisely the shape it would exist to catch.
   //
-  // It is measured in tests/interaction/property-map-camera.spec.ts ("a drag
-  // holds the view while the same listing is active, then lets go", step 3),
+  // It is measured in tests/interaction/property-map-camera.spec.ts ("and lets
+  // go the moment the page asks for a different listing, every time", step 2),
   // against a real MapLibre map and a real mouse drag.
 
   // WHO ASKED (#118 review, MAJOR 2). The suspension ends when the VISITOR
@@ -1168,7 +1570,7 @@ describe("the camera the page drives", () => {
     expect(record.flights, "the crossing ends the suspension, so it flies").toHaveLength(1);
     const flight = record.flights[0] as { center: number[]; zoom: number };
     expect(flight.center[0], "to the next listing").toBeCloseTo(points[1]!.lng, 6);
-    expect(flight.zoom, "at THEIR zoom, not the frame's 12").toBe(13.25);
+    expect(flight.zoom, "at THEIR zoom, not the frame's own").toBe(13.25);
 
     // That it STAYS theirs at the crossing after this one needs a second
     // `active` change, and `rerender` cannot give one here: it re-runs the boot
@@ -1192,7 +1594,9 @@ describe("the camera the page drives", () => {
     await view.rerender({ points, label: "Land", active: "b" });
     await tick();
     expect(record.flights).toHaveLength(1);
-    expect((record.flights[0] as { zoom: number }).zoom, "the frame's own zoom").toBe(12);
+    expect((record.flights[0] as { zoom: number }).zoom, "the frame's own zoom").toBe(
+      MAP_FRAMES[frameFor({ width: 397, height: 595 })].maxZoom,
+    );
   });
 
   // THE PRE-FRAME WHEEL (`forwardWheel`'s `ready` gate). Before maplibre's
@@ -1704,7 +2108,14 @@ describe("the hand-over from the picture to the canvas", () => {
     engine.created[0]!.handlers.load?.();
     await tick();
     expect(view.container.querySelector("[data-map-home-box]")).toBeNull();
-    // Nothing was scheduled, so nothing can fire late.
+    // No fade guard was scheduled, so nothing can fire late. The one timer
+    // `load` does start is the credit's clock (MAP_CREDIT_OPEN_MS, "option A",
+    // 2026-09-29), named by when it fires; a leak guard scheduled here too
+    // would make the count two.
+    expect(vi.getTimerCount(), "the credit's clock, and nothing else").toBe(1);
+    vi.advanceTimersByTime(MAP_CREDIT_OPEN_MS - 1);
+    expect(vi.getTimerCount(), "the clock has not run out").toBe(1);
+    vi.advanceTimersByTime(1);
     expect(vi.getTimerCount()).toBe(0);
   });
 });

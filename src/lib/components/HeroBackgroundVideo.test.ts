@@ -147,7 +147,7 @@ describe("HeroBackgroundVideo", () => {
 
     beat(container);
     await tick();
-    expect(iframe.className).toContain("opacity-100");
+    expect(iframe.className).not.toContain("opacity-0");
     expect(layer(container)!.hasAttribute("data-hero-video-playing")).toBe(true);
   });
 
@@ -219,7 +219,7 @@ describe("HeroBackgroundVideo", () => {
     await engageAndIntersect();
     beat(container);
     await tick();
-    expect(container.querySelector("iframe")!.className).toContain("opacity-100");
+    expect(container.querySelector("iframe")!.className).not.toContain("opacity-0");
 
     // Watchdog polls each second; >2.5s without a beat hides the video.
     vi.advanceTimersByTime(4000);

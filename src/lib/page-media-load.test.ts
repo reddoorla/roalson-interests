@@ -1,7 +1,11 @@
 import { NotFoundError, RepositoryNotFoundError } from "@prismicio/client";
 import { describe, expect, it } from "vitest";
 
-import { loadPropertiesMasthead, type PageMediaClient } from "./page-media-load";
+import {
+  loadPropertiesMasthead,
+  loadPropertiesMedia,
+  type PageMediaClient,
+} from "./page-media-load";
 import type { PageMediaDocument } from "../prismicio-types";
 
 const IMAGE = {
@@ -53,5 +57,34 @@ describe("loadPropertiesMasthead", () => {
     // A 5xx or a network fault must fail the prerender, not bake a gradient in.
     const boom = new Error("502");
     await expect(loadPropertiesMasthead(throwing(boom))).rejects.toBe(boom);
+  });
+});
+
+describe("loadPropertiesMedia", () => {
+  const both = (data: Record<string, unknown>): PageMediaClient => ({
+    getSingle: async () => ({ data }) as unknown as PageMediaDocument,
+  });
+
+  it("returns the band photo beside the masthead, each from its own field", async () => {
+    const band = { ...IMAGE, id: "band" };
+    await expect(
+      loadPropertiesMedia(both({ properties_masthead: IMAGE, properties_band: band })),
+    ).resolves.toEqual({ masthead: IMAGE, band });
+  });
+
+  it("answers null for an empty or absent band field and keeps the masthead", async () => {
+    await expect(loadPropertiesMedia(both({ properties_masthead: IMAGE }))).resolves.toEqual({
+      masthead: IMAGE,
+      band: null,
+    });
+    await expect(
+      loadPropertiesMedia(both({ properties_masthead: IMAGE, properties_band: {} })),
+    ).resolves.toEqual({ masthead: IMAGE, band: null });
+  });
+
+  it("answers null for both when there is no page_media document", async () => {
+    await expect(
+      loadPropertiesMedia(throwing(new NotFoundError("missing", "", undefined))),
+    ).resolves.toEqual({ masthead: null, band: null });
   });
 });

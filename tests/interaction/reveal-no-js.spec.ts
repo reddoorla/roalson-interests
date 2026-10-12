@@ -73,37 +73,41 @@ test("the server ships a hidden reveal target in the markup", async ({ page }) =
   ).toBeGreaterThan(0);
 });
 
-test("with scripting off, the same markup paints at full opacity", async ({ browser }) => {
-  // A browser that will never run the reveal must never be shown less content
-  // than a crawler reading the SSR HTML gets. The whole hidden state is gated
-  // on the <noscript> style in app.html; without it this content is stranded
-  // at opacity 0 forever.
-  const context = await browser.newContext({
-    javaScriptEnabled: false,
-    reducedMotion: "no-preference",
-  });
-  try {
-    const page = await context.newPage();
-    await page.goto(FIXTURE, { waitUntil: "domcontentloaded" });
+test(
+  "with scripting off, the same markup paints at full opacity",
+  { tag: "@smoke" },
+  async ({ browser }) => {
+    // A browser that will never run the reveal must never be shown less content
+    // than a crawler reading the SSR HTML gets. The whole hidden state is gated
+    // on the <noscript> style in app.html; without it this content is stranded
+    // at opacity 0 forever.
+    const context = await browser.newContext({
+      javaScriptEnabled: false,
+      reducedMotion: "no-preference",
+    });
+    try {
+      const page = await context.newPage();
+      await page.goto(FIXTURE, { waitUntil: "domcontentloaded" });
 
-    const states = await page.evaluate(() =>
-      Array.from(document.querySelectorAll("[data-reveal]")).map((el) => {
-        const cs = getComputedStyle(el);
-        return { opacity: cs.opacity, transform: cs.transform };
-      }),
-    );
+      const states = await page.evaluate(() =>
+        Array.from(document.querySelectorAll("[data-reveal]")).map((el) => {
+          const cs = getComputedStyle(el);
+          return { opacity: cs.opacity, transform: cs.transform };
+        }),
+      );
 
-    // Non-vacuity guard: with no subject, "every subject is visible" is true
-    // and says nothing.
-    expect(states.length, "the page ships data-reveal markup").toBeGreaterThan(0);
-    for (const s of states) {
-      expect(s.opacity, "scripting off: opacity").toBe("1");
-      expect(s.transform, "scripting off: transform").toBe("none");
+      // Non-vacuity guard: with no subject, "every subject is visible" is true
+      // and says nothing.
+      expect(states.length, "the page ships data-reveal markup").toBeGreaterThan(0);
+      for (const s of states) {
+        expect(s.opacity, "scripting off: opacity").toBe("1");
+        expect(s.transform, "scripting off: transform").toBe("none");
+      }
+    } finally {
+      await context.close();
     }
-  } finally {
-    await context.close();
-  }
-});
+  },
+);
 
 test("with scripting on, it is hidden on the first frame and never flashes", async ({
   browser,

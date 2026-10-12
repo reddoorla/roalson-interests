@@ -20,9 +20,9 @@ export async function load({ fetch, cookies }) {
   // `footerGround`: the homepage is the one page whose footer grades from
   // off-white to sand (Footer.svelte). `navWordmark`: the homepage is the one
   // page whose bar has no wordmark until the hero's RI cutout has scrolled away
-  // (operator call 8; Nav.svelte measures it against HomeHero's band). All
-  // three are literals because src/routes/nav-over.test.ts reads this file as
-  // text.
+  // (operator call 8; Nav.svelte measures it against HomeHero's band).
+  // `navOver` and `navWordmark` are literals because
+  // src/routes/nav-over.test.ts reads this file as text.
   // `canvasTop`: the colour above the top of the document, which the hero's
   // ground is — HomeHero is FLAT `bg-dark`, not the brand gradient the mastheads
   // wear (see the slice's header). A literal for the same reason as the rest.

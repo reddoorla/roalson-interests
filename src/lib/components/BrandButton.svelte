@@ -51,12 +51,11 @@
   // THE EXPORTS follow DefaultButton's precedent, and exist because this
   // component is an <a> with a required href: the contact form's submit has to
   // be a <button type="submit">. They are literal strings, so Tailwind's
-  // source scan still sees every class. Nav.test.ts reads `text-light` /
-  // `text-primary` off the CTA's resting classes and BrandButton.test.ts reads
+  // source scan still sees every class. Nav.test.ts read `text-light` /
+  // `text-primary` off the CTA's resting classes and BrandButton.test.ts read
   // the rest, so the rendered class list did not change when these strings
-  // moved here — and BrandButton.test.ts now pins the exports to what the
-  // component renders, so a class added to the markup beside them cannot reach
-  // every link and miss the submit.
+  // moved here — and BrandButton.test.ts now checks the component renders
+  // every class the exports carry.
 
   /** Geometry and type. Carries no colour, and no padding — the arrow changes
    *  the padding (`brandButtonPadding`). */

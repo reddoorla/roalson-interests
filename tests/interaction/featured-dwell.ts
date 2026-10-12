@@ -2,10 +2,8 @@ import { readFileSync } from "node:fs";
 
 // THE HOMEPAGE BAND'S CLOCK, FOR EVERY SPEC THAT WAITS ON IT. It lives here,
 // beside hydrated.ts, because Playwright will not let one spec import another,
-// and three specs time something against this band's turns: its own
-// (featured-properties.spec.ts) and the map's two (property-map-camera and
-// property-map-camera-prod, whose "a paused carousel is a still map" and "the
-// band really did turn on its own" both need a wait longer than one lap).
+// and two specs time something against this band's turns:
+// featured-properties.spec.ts and featured-band-live.spec.ts.
 //
 // READ OUT OF THE SLICE, NOT COPIED FROM IT. Every one of those specs said
 // 4000 until the operator doubled the time on each listing (2026-09-23), and
@@ -32,9 +30,10 @@ export const FEATURED_DWELL = (() => {
 })();
 
 /** How far the photo's drift travels across a dwell: the slice's KEN_BURNS
- *  (1.00 → 1.03). Read out of the slice for DWELL's reason — the slice calls
- *  it reversible (0.06 is the old speed over the new dwell), and a spec that
- *  checks where the photo should be on a given frame must follow it. */
+ *  (1.00 → 1.06). Read out of the slice for DWELL's reason — it has already
+ *  moved once, 0.03 to 0.06 on the operator's call of 2026-09-29 ("let's
+ *  speed it up"), and a spec that checks where the photo should be on a
+ *  given frame must follow it. */
 export const FEATURED_KEN_BURNS = (() => {
   const declared = /^\s*export const KEN_BURNS = (\d*\.?\d+);$/m.exec(readFileSync(SLICE, "utf8"));
   if (!declared)
@@ -44,11 +43,30 @@ export const FEATURED_KEN_BURNS = (() => {
   return Number(declared[1]);
 })();
 
-/** The slice's DISSOLVE, which is CAMERA_FLIGHT_MS — pinned at 500 by
- *  property-map.test.ts (property-map-camera-prod.spec.ts repeats it the same
- *  way). The dwell doubling did not touch it: the hand-over is how long a turn
- *  takes to look finished, and the operator asked for longer on each listing. */
-export const FEATURED_DISSOLVE = 500;
+/** The photo's tilt, in degrees: the slice's TILT_DEG, on every Ken Burns
+ *  state for Firefox (operator, 2026-09-30). Read out of the slice for
+ *  KEN_BURNS's reason: the specs check the photo's angle on every frame
+ *  against it, and an angle checked against a copy would follow the copy. */
+export const FEATURED_TILT_DEG = (() => {
+  const declared = /^\s*export const TILT_DEG = (\d*\.?\d+);$/m.exec(readFileSync(SLICE, "utf8"));
+  if (!declared)
+    throw new Error(
+      "src/lib/slices/FeaturedProperties/index.svelte no longer declares `export const TILT_DEG = <deg>;`",
+    );
+  return Number(declared[1]);
+})();
+
+/** The slice's DISSOLVE. The dwell doubling did not touch it: the hand-over is
+ *  how long a turn takes to look finished, and the operator asked for longer
+ *  on each listing. */
+export const FEATURED_DISSOLVE = (() => {
+  const declared = /^\s*export const DISSOLVE = (\d+);$/m.exec(readFileSync(SLICE, "utf8"));
+  if (!declared)
+    throw new Error(
+      "src/lib/slices/FeaturedProperties/index.svelte no longer declares `export const DISSOLVE = <ms>;`",
+    );
+  return Number(declared[1]);
+})();
 
 /** One whole turn of the band's clock: the dwell, then the settle the next
  *  dwell waits out. 8500 since 2026-09-23; 4500 before. */

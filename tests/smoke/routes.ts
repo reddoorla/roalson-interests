@@ -40,7 +40,7 @@ export type SmokeRoute = {
 // process, so read process.env rather than import.meta.env.
 const PLACEHOLDER_SENTINEL = "your-prismic-repo-name";
 const repositoryName = process.env.VITE_PRISMIC_ENVIRONMENT || slicemachineConfig.repositoryName;
-const isPlaceholderRepo = repositoryName === PLACEHOLDER_SENTINEL;
+export const isPlaceholderRepo = repositoryName === PLACEHOLDER_SENTINEL;
 
 // The env-var route to the sentinel is a LOCAL-ONLY hatch (#120). Under CI or
 // Netlify it would flip `/`'s expectation to 404 and pass — the smoke half of a
@@ -80,6 +80,7 @@ export const smokeRoutes: SmokeRoute[] = [
   // `load` touches no CMS (a timestamp, a title and the `navOver` claim), so
   // the contact page answers 200 on the placeholder repo as well.
   { path: "/contact", name: "contact", hydrationMarker: HYDRATED },
+  { path: "/privacy", name: "privacy policy", hydrationMarker: HYDRATED },
   // One listing detail page, only where a repository can answer for it. It is
   // the site's one route with a dynamic segment, so it is the only place a
   // broken `[uid]` load shows up — and on the placeholder it would 404 like
@@ -95,6 +96,16 @@ export const smokeRoutes: SmokeRoute[] = [
         {
           path: "/properties/25331-ih-10-west",
           name: "property detail",
+          hydrationMarker: HYDRATED,
+        },
+        {
+          path: "/team/matt-howard",
+          name: "partner profile (Matt Howard)",
+          hydrationMarker: HYDRATED,
+        },
+        {
+          path: "/team/bart-wilson",
+          name: "partner profile (Bart Wilson)",
           hydrationMarker: HYDRATED,
         },
       ]),

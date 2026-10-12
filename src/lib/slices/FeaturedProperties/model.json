@@ -12,6 +12,15 @@
       "description": "Featured listings, one at a time, auto-advancing with a pause control",
       "imageUrl": "",
       "primary": {
+        "show_featured": {
+          "type": "Boolean",
+          "config": {
+            "label": "Show featured properties — turned off, this whole section is removed from the page",
+            "placeholder_true": "Shown",
+            "placeholder_false": "Hidden",
+            "default_value": true
+          }
+        },
         "heading": {
           "type": "Text",
           "config": {
@@ -22,7 +31,7 @@
         "properties": {
           "type": "Group",
           "config": {
-            "label": "Featured listings — shown in this order",
+            "label": "Featured listings — up to 10, shown in this order; any after the tenth are not shown",
             "repeat": true,
             "fields": {
               "property": {

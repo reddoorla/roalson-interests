@@ -223,7 +223,7 @@ test.describe("with motion allowed", () => {
     expect(Math.abs(end.band.top - seat), "pinned to the end").toBeLessThan(1);
   });
 
-  test("at 390 the band is 240 tall, pins, and the footer ends up covering it whole", async ({
+  test("at 390 the band is 240 tall, pins, and the footer ends up covering all but the gap a short footer leaves", async ({
     page,
   }) => {
     await open(page, 1440, 900);
@@ -260,10 +260,15 @@ test.describe("with motion allowed", () => {
     await scrollTo(page, rest.reach);
     const end = await read(page);
     expect(end.band.top, "pinned to the end").toBeCloseTo(0, 2);
-    expect(end.footer.top, "the footer has passed the band's top").toBeLessThanOrEqual(0);
-    expect(await hit(page, "footer", x, end.band.top + 120), "and paints over all of it").toBe(
-      true,
-    );
+    // The footer ends on the viewport's foot, over the band. Since the footer's
+    // headline went to H2 on a phone (MarkUp, 2026-10-01) it is 812 tall in an
+    // 844 window, so the band's top 32px still shows above it at the very end,
+    // as the 800 band's top always has above the 1440 footer.
+    expect(
+      Math.abs(end.footer.top - (end.innerHeight - end.footer.height)),
+      "the footer's foot on the viewport's",
+    ).toBeLessThan(1);
+    expect(await hit(page, "footer", x, end.band.top + 120), "and paints over the band").toBe(true);
   });
 
   test("the band only pins as the LAST thing in <main> — mid-page it is a plain band and the footer keeps its place", async ({

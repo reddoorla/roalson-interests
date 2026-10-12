@@ -1,5 +1,11 @@
 import { expect, test, type Browser, type ConsoleMessage, type Page } from "@playwright/test";
-import { FEATURED_DISSOLVE, FEATURED_DWELL } from "./featured-dwell";
+import sharp from "sharp";
+import {
+  FEATURED_DISSOLVE,
+  FEATURED_DWELL,
+  FEATURED_KEN_BURNS,
+  FEATURED_TILT_DEG,
+} from "./featured-dwell";
 import { measuresGutter, viewportFor } from "./gutter";
 import { hydrated, HYDRATION_TIMEOUT } from "./hydrated";
 import { GARNET, SAND } from "./palette";
@@ -30,6 +36,16 @@ const BAND = '[data-slice-type="featured_properties"]';
 const CARD = "[data-featured-card]";
 const SLIDES = `${CARD} [data-featured-slide]`;
 const FILL = `${CARD} [data-carousel-progress] > div`;
+/** The off-diagonal under which Firefox's WebRender takes a transform for a
+ *  plain scale — `NEARLY_ZERO` in `ScaleOffset::from_transform`
+ *  (gfx/wr/webrender_api/src/fast_transform.rs), read in its source on
+ *  2026-09-30. The photo's tilt (TILT_DEG in the slice) is there to be past
+ *  it on every frame. */
+const NEARLY_ZERO = 1 / 4096;
+/** How far a frame's angle may read from TILT_DEG, in degrees: well over what
+ *  Chromium's six serialized digits cost (~1e-7), well under what a tilt
+ *  interpolated to or from 0 is off by a second into a dwell (~0.0025). */
+const ANGLE_SLACK = 5e-6;
 
 measuresGutter();
 
@@ -68,6 +84,28 @@ const focusAnd = (page: Page) =>
     };
   }, CARD);
 
+/** How much fine detail a screenshot holds: the mean |4-neighbour Laplacian|
+ *  of its greyscale, 8px in from its edges so the clip is not measured. A
+ *  raster stretched by 6% loses exactly this. */
+async function detail(png: Buffer) {
+  const { data, info } = await sharp(png)
+    .removeAlpha()
+    .greyscale()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+  expect(info.channels, "premise: one grey channel").toBe(1);
+  const { width: w, height: h } = info;
+  let sum = 0;
+  let n = 0;
+  for (let y = 8; y < h - 8; y++)
+    for (let x = 8; x < w - 8; x++) {
+      const i = y * w + x;
+      sum += Math.abs(4 * data[i] - data[i - 1] - data[i + 1] - data[i - w] - data[i + w]);
+      n++;
+    }
+  return sum / n;
+}
+
 /** Every console warning and error, and every uncaught page error. */
 function listen(page: Page) {
   const heard: string[] = [];
@@ -79,73 +117,76 @@ function listen(page: Page) {
 }
 
 test.describe("scripting off", () => {
-  test("slide 1 on stage, the rest inert and hidden, no controls or bar, a polite live region — and the card SHOWN", async ({
-    browser,
-  }) => {
-    // Motion allowed, so the card's server-rendered `data-reveal` (#105) is
-    // live CSS here and app.html's <noscript> rule is what shows it.
-    const context = await browser.newContext({
-      javaScriptEnabled: false,
-      reducedMotion: "no-preference",
-      viewport: viewportFor(1440),
-    });
-    try {
-      const page = await context.newPage();
-      await page.goto(HOME, { waitUntil: "domcontentloaded" });
-      const card = page.locator(CARD);
-      await expect(card, "only script sets this").not.toHaveAttribute("data-carousel-ready", "");
+  test(
+    "slide 1 on stage, the rest inert and hidden, no controls or bar, a polite live region — and the card SHOWN",
+    { tag: "@smoke" },
+    async ({ browser }) => {
+      // Motion allowed, so the card's server-rendered `data-reveal` (#105) is
+      // live CSS here and app.html's <noscript> rule is what shows it.
+      const context = await browser.newContext({
+        javaScriptEnabled: false,
+        reducedMotion: "no-preference",
+        viewport: viewportFor(1440),
+      });
+      try {
+        const page = await context.newPage();
+        await page.goto(HOME, { waitUntil: "domcontentloaded" });
+        const card = page.locator(CARD);
+        await expect(card, "only script sets this").not.toHaveAttribute("data-carousel-ready", "");
 
-      const slides = await page.locator(SLIDES).evaluateAll((els) =>
-        els.map((el) => ({
-          label: el.getAttribute("aria-label"),
-          inert: el.hasAttribute("inert"),
-          hidden: el.getAttribute("aria-hidden"),
-        })),
-      );
-      expect(slides.length, "premise: the live document features more than one").toBeGreaterThan(1);
-      expect(slides[0]).toEqual({ label: `1 of ${slides.length}`, inert: false, hidden: null });
-      for (const [i, slide] of slides.entries())
-        if (i > 0)
-          expect(slide, `slide ${i + 1}`).toEqual({
-            label: `${i + 1} of ${slides.length}`,
-            inert: true,
-            hidden: "true",
-          });
+        const slides = await page.locator(SLIDES).evaluateAll((els) =>
+          els.map((el) => ({
+            label: el.getAttribute("aria-label"),
+            inert: el.hasAttribute("inert"),
+            hidden: el.getAttribute("aria-hidden"),
+          })),
+        );
+        expect(slides.length, "premise: the live document features more than one").toBeGreaterThan(
+          1,
+        );
+        expect(slides[0]).toEqual({ label: `1 of ${slides.length}`, inert: false, hidden: null });
+        for (const [i, slide] of slides.entries())
+          if (i > 0)
+            expect(slide, `slide ${i + 1}`).toEqual({
+              label: `${i + 1} of ${slides.length}`,
+              inert: true,
+              hidden: "true",
+            });
 
-      // In the markup (so nothing jumps at hydration), hidden by `data-js-only`.
-      await expect(card.locator("button")).toHaveCount(3);
-      for (const button of await card.locator("button").all()) await expect(button).toBeHidden();
-      await expect(card.locator("[data-carousel-progress]")).toBeHidden();
-      await expect(status(page)).toHaveAttribute("aria-live", "polite");
+        // No control is on screen without script: `data-js-only` hides them.
+        for (const button of await card.locator("button").all()) await expect(button).toBeHidden();
+        await expect(card.locator("[data-carousel-progress]")).toBeHidden();
+        await expect(status(page)).toHaveAttribute("aria-live", "polite");
 
-      await expect(card).toHaveAttribute("data-reveal");
-      await expect(card).toHaveCSS("opacity", "1");
-      await expect(card).toHaveCSS("transform", "none");
-      await expect(page.locator(`${SLIDES}:not([inert]) a`).first()).toBeVisible();
-    } finally {
-      await context.close();
-    }
-  });
+        // The reveal's hidden state never strands the card without script.
+        await expect(card).not.toHaveCSS("opacity", "0");
+        await expect(page.locator(`${SLIDES}:not([inert]) a`).first()).toBeVisible();
+      } finally {
+        await context.close();
+      }
+    },
+  );
 });
 
 test.describe("hydration", () => {
-  test("the band is adopted with no hydration warning and no page error", async ({ page }) => {
-    const heard = listen(page);
-    await page.goto(HOME);
-    await hydrated(page);
-    await adopted(page);
-    // Positive evidence script owns the band, not only that nothing complained:
-    // the server shipped three buttons, and under the harness's reduced motion
-    // script has dropped Pause.
-    await expect(page.locator(`${CARD} button`)).toHaveCount(2);
-    await page.waitForTimeout(500);
-    expect(heard.filter((m) => /hydrat|pageerror/i.test(m))).toEqual([]);
-  });
+  test(
+    "the band is adopted with no hydration warning and no page error",
+    { tag: "@smoke" },
+    async ({ page }) => {
+      const heard = listen(page);
+      await page.goto(HOME);
+      await hydrated(page);
+      // Positive evidence script owns the band, not only that nothing complained:
+      // `data-carousel-ready` is written by an effect, after hydration.
+      await adopted(page);
+      expect(heard.filter((m) => /hydrat|pageerror/i.test(m))).toEqual([]);
+    },
+  );
 
   test("…and the listener DOES hear one when the served markup is broken on purpose", async ({
     page,
   }) => {
-    // THE INSTRUMENT, PROVEN. A stray element at the head of the card's chrome
+    // THE INSTRUMENT, PROVEN. A stray element at the head of the card's controls row
     // is a server/client structure mismatch Svelte must report — as
     // "[svelte] hydration_mismatch" in dev and as the bare
     // https://svelte.dev/e/hydration_mismatch in production. If this ever
@@ -153,7 +194,7 @@ test.describe("hydration", () => {
     await page.route(HOME, async (route) => {
       const response = await route.fetch();
       const body = (await response.text()).replace(
-        /(<div[^>]*data-featured-chrome[^>]*>)/,
+        /(<div[^>]*data-featured-controls[^>]*>)/,
         "$1<i data-injected></i>",
       );
       expect(body, "premise: the injection found its target").toContain("data-injected");
@@ -190,14 +231,15 @@ test.describe("the production CSS", () => {
       return out;
     });
 
-  test("the bar's two track alphas and the arrows' hover utilities are in the bundle — and the hover paints", async ({
+  test("the bar's track alphas and the arrows' hover utilities are in the bundle — and the hover paints", async ({
     page,
   }) => {
     await page.goto(HOME);
     await adopted(page);
     const all = await selectors(page);
     expect(all.length, "read the page's own stylesheets").toBeGreaterThan(100);
-    for (const cls of ["bg-dark\\/53", "bg-background\\/44"])
+    // Position's 3:1 tracks and the timed bar's 20% ones (MarkUp, 2026-10-01).
+    for (const cls of ["bg-dark\\/53", "bg-background\\/44", "bg-dark\\/20", "bg-background\\/20"])
       expect(all, `.${cls}`).toContain(`.${cls}`);
     for (const cls of [
       "not-aria-disabled\\:hover\\:bg-primary",
@@ -234,10 +276,13 @@ test.describe("keyboard focus", () => {
     const count = await page.locator(SLIDES).count();
     const next = page.getByRole("button", { name: "Next slide" });
 
+    const all = page.getByRole("link", { name: "See all properties" });
     await next.focus();
     await page.keyboard.press("Tab");
+    await expect(all, "Tab goes on to ALL, the last of the controls").toBeFocused();
+    await page.keyboard.press("Tab");
     const link = page.locator(`${SLIDES}:not([inert]) a`).first();
-    await expect(link, "Tab goes from the controls into the slide on stage").toBeFocused();
+    await expect(link, "…then into the slide on stage").toBeFocused();
     const linkName = (await link.textContent())!.trim();
 
     await page.keyboard.press("ArrowRight");
@@ -245,6 +290,8 @@ test.describe("keyboard focus", () => {
       .poll(() => focusAnd(page))
       .toEqual({ focus: linkName, inCard: true, status: `Slide 1 of ${count}`, live: "polite" });
 
+    await page.keyboard.press("Shift+Tab");
+    await expect(all).toBeFocused();
     await page.keyboard.press("Shift+Tab");
     await expect(next).toBeFocused();
     await page.keyboard.press("ArrowRight");
@@ -261,10 +308,11 @@ test.describe("keyboard focus", () => {
     // it is `visible`. Under the harness's reduced motion app.css's 0.01ms
     // rule puts the slide's `visibility` on a transition that Chromium
     // resolves two frames late (measured: `hidden` at +26 and +30ms, `visible`
-    // by +130), and a Tab inside that window skips the hidden link for the
-    // portfolio button — 4 of 5 runs. The 0.01ms class (#93, #170); two
-    // frames is under any human's keypress.
+    // by +130). The 0.01ms class (#93, #170); two frames is under any
+    // human's keypress. From Next, ALL comes first (2026-10-01).
     await expect(page.locator(`${SLIDES}:not([inert])`)).toHaveCSS("visibility", "visible");
+    await page.keyboard.press("Tab");
+    await expect(all).toBeFocused();
     await page.keyboard.press("Tab");
     await expect(page.locator(`${SLIDES}:not([inert]) a`).first()).toBeFocused();
     expect((await focusAnd(page)).focus).not.toBe(linkName);
@@ -293,6 +341,7 @@ test.describe("keyboard focus", () => {
 
       await page.keyboard.press("Tab"); // Previous
       await page.keyboard.press("Tab"); // Next
+      await page.keyboard.press("Tab"); // ALL
       await page.keyboard.press("Tab"); // the slide on stage's link
       const link = page.locator(`${SLIDES}:not([inert]) a`).first();
       await expect(link).toBeFocused();
@@ -328,15 +377,10 @@ test.describe("motion on the shipped bundle", () => {
       // and its reveal over, so the bar measured is a bar a reader sees.
       await page.locator(BAND).scrollIntoViewIfNeeded();
       await expect(page.locator(CARD)).toHaveCSS("opacity", "1", { timeout: 10_000 });
-      // …and the MAP BOOTED before anything is timed (#117): the scroll opens
-      // its lazy gate, and a MapLibre parse and a WebGL context inside the
-      // sampled window starve it of frames (measured: 2 frames in 400ms).
-      await expect(page.locator(`${BAND} [data-property-map]`)).toHaveAttribute(
-        "data-map-ready",
-        "",
-        { timeout: 40_000 },
-      );
-      await expect(page.locator(`${BAND} [data-map-home-box]`)).toHaveCount(0, { timeout: 10_000 });
+      // (This case used to wait here for the band's MAP to boot as well (#117):
+      // the scroll opened its lazy gate, and a MapLibre parse and a WebGL
+      // context inside the sampled window starved it of frames, measured at 2
+      // frames in 400ms. The band has had no map since 2026-10-09.)
       const track = (await page.locator(`${CARD} [data-carousel-progress]`).boundingBox())!.width;
 
       // One frame's reading of the fill: its PAINTED width (#102: an opacity
@@ -382,11 +426,12 @@ test.describe("motion on the shipped bundle", () => {
           { card: CARD, press },
         );
 
-      // FRAMES ARE FEW HERE, AND THE ASSERTIONS ARE SHAPED FOR IT. With the
-      // map booted each turn is also a 500ms camera flight, and on headless
-      // software GL that starves the page: measured 2 to 4 frames inside the
-      // first 400ms of a handover at load 9-10. So nothing below counts
-      // frames beyond a floor. What it requires is what a snap cannot give:
+      // FRAMES ARE FEW HERE, AND THE ASSERTIONS ARE SHAPED FOR IT. While the
+      // band had a map, each turn was also a 500ms camera flight, and on
+      // headless software GL that starved the page: measured 2 to 4 frames
+      // inside the first 400ms of a handover at load 9-10. The map is gone and
+      // the shape stays, since a loaded runner starves frames too: nothing
+      // below counts frames beyond a floor. What it requires is what a snap cannot give:
       // a frame PART-WAY through the fade, painting the width being faded.
       const partWay = (frames: { opacity: number }[]) =>
         frames.filter((f) => f.opacity > 0.05 && f.opacity < 0.95);
@@ -431,6 +476,561 @@ test.describe("motion on the shipped bundle", () => {
       await expect(page.getByRole("button", { name: "Play slides" })).toBeVisible();
     } finally {
       await context.close();
+    }
+  });
+
+  test("the photo's drift is ONE running CSS transition, and nothing writes it per frame", async ({
+    browser,
+  }) => {
+    // The operator's "stuttery" (2026-09-29), on the bundle that ships. The
+    // drift used to be a `scale()` written into the photo's style on every
+    // animation frame, so it stopped whenever the main thread did; it is one
+    // transition on `transform` now, which the compositor runs.
+    // featured-properties.spec.ts measures its curve, its hold and Pause on
+    // /dev/home; this is the production build's word that it is wired.
+    //
+    // AND TILTED (Firefox, operator, 2026-09-30; TILT_DEG in the slice), from
+    // the first frame the photo drifts: the served markup carries no style,
+    // and a first drift written straight onto `none` turns the photo up from
+    // 0deg — under NEARLY_ZERO for its first 5378ms. A hydration claim, so it
+    // is made on the shipped bundle too. The first photo's off-diagonal, every
+    // frame of the first second from the flush that made the band ready.
+    test.setTimeout(45_000);
+    const { context, page } = await moving(browser);
+    try {
+      await page.addInitScript((card: string) => {
+        const w = window as unknown as { __tilts: { tl: number; b: number; angle: number }[] };
+        w.__tilts = [];
+        const ready = new MutationObserver(() => {
+          const region = document.querySelector(card);
+          if (!region?.hasAttribute("data-carousel-ready")) return;
+          ready.disconnect();
+          const photo = region.querySelector("[data-featured-photo]")!;
+          const t0 = Number(document.timeline.currentTime);
+          const tick = () => {
+            const tl = Number(document.timeline.currentTime);
+            const m = new DOMMatrix(getComputedStyle(photo).transform);
+            w.__tilts.push({ tl: tl - t0, b: m.b, angle: (Math.atan2(m.b, m.a) * 180) / Math.PI });
+            if (tl - t0 < 1000) requestAnimationFrame(tick);
+          };
+          requestAnimationFrame(tick);
+        });
+        ready.observe(document, {
+          attributes: true,
+          subtree: true,
+          attributeFilter: ["data-carousel-ready"],
+        });
+      }, CARD);
+      await page.goto(HOME);
+      await adopted(page);
+      await page.mouse.move(2, 2);
+      // Mid-dwell on the clock: a turn, then a second into its dwell.
+      const was = (await status(page).textContent())!;
+      await expect(status(page), "the clock turned").not.toHaveText(was, {
+        timeout: FEATURED_DWELL + FEATURED_DISSOLVE + 6000,
+      });
+      await page.waitForTimeout(FEATURED_DISSOLVE + 1000);
+      const seen = await page.evaluate(async (card) => {
+        const photo = document
+          .querySelector(card)!
+          .querySelector("[data-featured-slide]:not([inert]) [data-featured-photo]")!;
+        const matrix = () => {
+          const t = getComputedStyle(photo).transform;
+          if (t === "none") throw new Error("the on-stage photo has no transform");
+          return new DOMMatrix(t);
+        };
+        // The scale is the LENGTH of the matrix's first column, √(a² + b²),
+        // not `a`: every state is `scale(s) rotate(TILT_DEG)`, so `a` is
+        // s·cos θ. Rounded to 1e-6, the six significant digits Chromium
+        // serializes: scale(1) rotate(0.02deg) reads matrix(1, 0.000349066,
+        // …), whose √(a² + b²) is 1.00000006 and not the declared 1.
+        const scale = () => ((m) => Math.round(Math.hypot(m.a, m.b) * 1e6) / 1e6)(matrix());
+        const animations = photo.getAnimations().map((a) => ({
+          kind: a.constructor.name,
+          property: (a as CSSTransition).transitionProperty,
+          state: a.playState,
+          duration: a.effect!.getTiming().duration,
+        }));
+        let writes = 0;
+        const observer = new MutationObserver((records) => (writes += records.length));
+        observer.observe(photo, { attributes: true, attributeFilter: ["style"] });
+        const from = scale();
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+        observer.disconnect();
+        const willChange = [...document.querySelectorAll(`${card} [data-featured-photo]`)].map(
+          (el) => getComputedStyle(el).willChange,
+        );
+        const m = matrix();
+        return {
+          animations,
+          writes,
+          from,
+          to: scale(),
+          tilt: m.b,
+          angle: (Math.atan2(m.b, m.a) * 180) / Math.PI,
+          willChange,
+        };
+      }, CARD);
+      // Every photo on its own layer, the one drifting and the ones resting.
+      expect(seen.willChange.length, "premise: more than one photo").toBeGreaterThan(1);
+      expect(new Set(seen.willChange), "every photo's will-change").toEqual(new Set(["transform"]));
+      expect(seen.animations).toEqual([
+        {
+          kind: "CSSTransition",
+          property: "transform",
+          state: "running",
+          duration: FEATURED_DWELL,
+        },
+      ]);
+      expect(seen.to, `${seen.from} → ${seen.to} across 1s mid-dwell`).toBeGreaterThan(seen.from);
+      // The drifting photo carries the tilt: its off-diagonal is nonzero, and
+      // past the 1/4096 under which WebRender takes it for a plain scale — and
+      // it is the WHOLE tilt, which the first check alone is not: a rotation
+      // running down to 0 across the dwell stays past 1/4096 for about the
+      // first third of it (measured on this case with the on-stage state's
+      // rotate() removed: 0.01392deg, b still past 1/4096).
+      expect
+        .soft(Math.abs(seen.tilt), `the drifting photo's tilt, b = ${seen.tilt}`)
+        .toBeGreaterThan(NEARLY_ZERO);
+      expect
+        .soft(Math.abs(seen.angle - FEATURED_TILT_DEG), `the drifting photo at ${seen.angle}deg`)
+        .toBeLessThan(ANGLE_SLACK);
+      expect(seen.writes, "style writes on the photo across 1s mid-dwell").toBe(0);
+      // …and slide 1 carried it from its first frame after hydration.
+      const tilts = await page.evaluate(
+        () =>
+          (window as unknown as { __tilts: { tl: number; b: number; angle: number }[] }).__tilts,
+      );
+      test.info().annotations.push({
+        type: "tilt",
+        description: `on stage mid-dwell b = ${seen.tilt}, ${seen.angle}deg; slide 1's first second: ${tilts.length} frames, |b| ${Math.min(...tilts.map((f) => Math.abs(f.b)))} at least, ${Math.min(...tilts.map((f) => f.angle))}–${Math.max(...tilts.map((f) => f.angle))}deg`,
+      });
+      expect(tilts.length, "sampled slide 1's first second").toBeGreaterThanOrEqual(2);
+      expect
+        .soft(
+          tilts
+            .filter(
+              (f) =>
+                !(Math.abs(f.b) > NEARLY_ZERO) ||
+                !(Math.abs(f.angle - FEATURED_TILT_DEG) < ANGLE_SLACK),
+            )
+            .map((f) => `${f.tl.toFixed(1)}ms: ${f.angle}deg, b = ${f.b}`),
+          "slide 1's first-second frames off TILT_DEG, or not past 1/4096",
+        )
+        .toEqual([]);
+    } finally {
+      await context.close();
+    }
+  });
+
+  test("a visitor's drift keeps its layer while it runs and DROPS it once it has ended — held as sharp as a photo never layered", async ({
+    browser,
+  }) => {
+    // A layer with will-change keeps the raster it was first drawn at, so in
+    // Chromium a photo held at 1 + KEN_BURNS on one is its start raster
+    // stretched, for as long as it is held (`LAYER` in the slice). A
+    // visitor's turn is what holds it: the arrow's focus stops the clock,
+    // and the drift the turn started runs to its end and stays there.
+    //
+    // THREE RUNS OF THAT TURN, on the same photo, at 1440 × DPR 2: the page
+    // as it ships, and two controls whose photos have will-change forced by
+    // an !important rule, which beats the inline style — `transform`
+    // throughout (the layer kept, as #212 shipped it) and `auto` throughout
+    // (never layered). The controls must differ by more than SHARPER, or the
+    // measurement cannot tell a stretched raster from a fresh one and the
+    // shipped run's number means nothing.
+    test.setTimeout(240_000);
+    const SHARPER = 1.1;
+    const turn = async (forced: "transform" | "auto" | null) => {
+      const context = await browser.newContext({
+        reducedMotion: "no-preference",
+        viewport: viewportFor(1440),
+        deviceScaleFactor: 2,
+      });
+      try {
+        const page = await context.newPage();
+        if (forced)
+          await page.addInitScript((value: string) => {
+            const add = () => {
+              const style = document.createElement("style");
+              style.textContent = `[data-featured-photo] { will-change: ${value} !important; }`;
+              document.head.append(style);
+            };
+            if (document.head) add();
+            else document.addEventListener("DOMContentLoaded", add);
+          }, forced);
+        await page.goto(HOME);
+        await adopted(page);
+        // Focus in the card stops the clock on slide 1 before anything has
+        // loaded, so every run turns from 1 to 2: the same photo, fetched
+        // whole before its drift starts.
+        const next = page.getByRole("button", { name: "Next slide" });
+        await next.focus();
+        await page.locator(CARD).scrollIntoViewIfNeeded();
+        await expect
+          .poll(
+            () =>
+              page
+                .locator(`${CARD} [data-featured-photo]`)
+                .evaluateAll((els) =>
+                  (els as HTMLImageElement[]).every((img) => img.complete && img.naturalWidth > 0),
+                ),
+            { timeout: 30_000 },
+          )
+          .toBe(true);
+        const photo = page.locator(`${SLIDES}:not([inert]) [data-featured-photo]`);
+        const read = () =>
+          photo.evaluate((el) => {
+            const m = new DOMMatrix(getComputedStyle(el).transform);
+            return {
+              // √(a² + b²), rounded to 1e-6: see the drift's case above.
+              scale: Math.round(Math.hypot(m.a, m.b) * 1e6) / 1e6,
+              animations: el
+                .getAnimations()
+                .map((a) => a.playState)
+                .join(","),
+              willChange: getComputedStyle(el).willChange,
+            };
+          });
+        await next.click();
+        await page.mouse.move(2, 2);
+        await expect(page.locator(`${SLIDES}:not([inert])`)).toHaveAttribute(
+          "aria-label",
+          /^2 of \d+$/,
+        );
+        await expect(page.getByRole("button", { name: "Play slides" })).toBeVisible();
+
+        // MID-DRIFT: past the settle, moving — on its layer.
+        await expect
+          .poll(async () => (await read()).scale, { timeout: 10_000 })
+          .toBeGreaterThan(1.005);
+        const mid = await read();
+        expect(mid.scale, "mid-drift").toBeLessThan(1 + FEATURED_KEN_BURNS);
+        expect(mid.animations, "mid-drift").toBe("running");
+        expect(mid.willChange, "mid-drift").toBe(forced ?? "transform");
+
+        // ENDED: no animation left, at the end scale — and, as shipped, off
+        // its layer.
+        await expect
+          .poll(read, { timeout: FEATURED_DISSOLVE + FEATURED_DWELL + 6_000 })
+          .toEqual({ scale: 1 + FEATURED_KEN_BURNS, animations: "", willChange: forced ?? "auto" });
+
+        // HELD: the photo as painted, a second, two and three after the
+        // end. The best of the three, so a re-raster that load delays past
+        // the first still counts — and a raster that never re-sharpens is
+        // the same all three times.
+        const wrapper = photo.locator("..");
+        const held: number[] = [];
+        for (let k = 0; k < 3; k++) {
+          await page.waitForTimeout(1000);
+          held.push(await detail(await wrapper.screenshot()));
+        }
+        return {
+          held,
+          best: Math.max(...held),
+          src: await photo.evaluate((el) => (el as HTMLImageElement).currentSrc),
+          box: await wrapper.evaluate((el) => `${el.clientWidth}×${el.clientHeight}`),
+        };
+      } finally {
+        await context.close();
+      }
+    };
+
+    const shipped = await turn(null);
+    const layered = await turn("transform");
+    const never = await turn("auto");
+    test.info().annotations.push({
+      type: "held detail",
+      description: [
+        ["shipped", shipped],
+        ["forced transform", layered],
+        ["forced auto", never],
+      ]
+        .map(
+          ([name, r]) =>
+            `${name}: ${(r as typeof shipped).held.map((d) => d.toFixed(4)).join(" / ")}`,
+        )
+        .join("; ")
+        .concat(` — ${shipped.box}, w=${new URL(shipped.src).searchParams.get("w")}`),
+    });
+    expect([layered.src, never.src], "premise: the same photo, the same candidate").toEqual([
+      shipped.src,
+      shipped.src,
+    ]);
+    expect(
+      never.best,
+      `premise: never layered (${never.best}) against kept on its layer (${layered.best})`,
+    ).toBeGreaterThan(layered.best * SHARPER);
+    expect(
+      shipped.best,
+      `as shipped (${shipped.best}), held, against never layered (${never.best})`,
+    ).toBeGreaterThanOrEqual(never.best * 0.97);
+    expect(
+      shipped.best,
+      `as shipped (${shipped.best}), held, against kept on its layer (${layered.best})`,
+    ).toBeGreaterThan(layered.best * SHARPER);
+  });
+
+  test("a photo brought back after it stopped showing drifts again from 1.00 — a Previous, and a Next, Next that wraps", async ({
+    browser,
+  }) => {
+    // A photo that LEFT is held where it was while it still shows, and rests
+    // at 1 once its wrapper's fade-out has ended. So a photo brought back ~2s
+    // after a clock turn gets the drift a clock turn draws: still through
+    // the settle, then 1.00 → 1 + KEN_BURNS. On 3c7284e it was held for a
+    // whole DWELL instead and drifted on from there: from 1.02994 to 1.03 (at
+    // 0.03) over a whole DWELL, a still photo for its visit (this case's red
+    // on that code).
+    test.setTimeout(150_000);
+    for (const wraps of [false, true]) {
+      const { context, page } = await moving(browser);
+      try {
+        await page.goto(HOME);
+        await adopted(page);
+        // Round to the photo the clock just sent away: back one, or on
+        // through every other listing (Next, Next on the live three).
+        const count = await page.locator(SLIDES).count();
+        const presses = wraps ? Array<string>(count - 1).fill("Next slide") : ["Previous slide"];
+        await page.mouse.move(2, 2);
+        await page.locator(BAND).scrollIntoViewIfNeeded();
+        // On screen and its reveal over. (It waited for the band's map to boot
+        // here until the map went, 2026-10-09.)
+        await expect(page.locator(CARD)).toHaveCSS("opacity", "1", { timeout: 10_000 });
+        // IN THE PAGE, every frame: the next clock turn, 2s, the presses
+        // (400ms apart, so the ones between leave while they still show),
+        // then the photo brought back across its whole drift.
+        const run = await page.evaluate(
+          async ({ card, presses, until }) => {
+            const region = document.querySelector(card)!;
+            const live = region.querySelector("[aria-live]")!;
+            const slides = [...region.querySelectorAll("[data-featured-slide]")];
+            const photos = slides.map((s) =>
+              s.querySelector<HTMLElement>("[data-featured-photo]")!,
+            );
+            const onStage = () => slides.findIndex((s) => !s.hasAttribute("inert"));
+            const now = () => Number(document.timeline.currentTime);
+            // √(a² + b²), rounded to 1e-6: see the case above. `none` is 1.
+            const scaleOf = (el: Element) => {
+              const m = new DOMMatrix(getComputedStyle(el).transform);
+              return Math.round(Math.hypot(m.a, m.b) * 1e6) / 1e6;
+            };
+            /** Its rotation in degrees; 0 for `none`. */
+            const angleOf = (el: Element) => {
+              const m = new DOMMatrix(getComputedStyle(el).transform);
+              return (Math.atan2(m.b, m.a) * 180) / Math.PI;
+            };
+            const wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+            const frames: {
+              tl: number;
+              on: number;
+              scale: number[];
+              angle: number[];
+              opacity: number[];
+            }[] = [];
+            let back = -1;
+            let pressedAt: number | null = null;
+            let origin: number | null = null;
+            let timing: object | null = null;
+            const left = onStage();
+            await new Promise<void>((resolve) => {
+              const turned = new MutationObserver(() => {
+                turned.disconnect();
+                resolve();
+              });
+              turned.observe(live, { childList: true, characterData: true, subtree: true });
+            });
+            const finished = new Promise<void>((resolve) => {
+              const tick = () => {
+                frames.push({
+                  tl: now(),
+                  on: onStage(),
+                  scale: photos.map(scaleOf),
+                  angle: photos.map(angleOf),
+                  opacity: photos.map((p) => Number(getComputedStyle(p.parentElement!).opacity)),
+                });
+                const drift = back < 0 ? undefined : photos[back].getAnimations()[0];
+                if (origin === null && drift?.startTime != null) {
+                  origin = Number(drift.startTime);
+                  const t = drift.effect!.getTiming();
+                  timing = { state: drift.playState, duration: t.duration, delay: t.delay };
+                }
+                // From the drift's start — or from the press, if none ever
+                // starts, so a photo left standing still fails and not hangs.
+                if (pressedAt !== null && now() - (origin ?? pressedAt) >= until) resolve();
+                else requestAnimationFrame(tick);
+              };
+              requestAnimationFrame(tick);
+            });
+            await wait(2000);
+            const pressTl = now();
+            for (const [k, label] of presses.entries()) {
+              if (k > 0) await wait(400);
+              const button = [...region.querySelectorAll("button")].find(
+                (b) => b.getAttribute("aria-label") === label,
+              )!;
+              button.focus();
+              button.click();
+            }
+            await new Promise(requestAnimationFrame);
+            back = onStage();
+            pressedAt = now();
+            await finished;
+            return {
+              left,
+              back,
+              pressTl,
+              pressedAt,
+              origin: origin as number | null,
+              timing,
+              frames,
+            };
+          },
+          { card: CARD, presses, until: FEATURED_DISSOLVE + FEATURED_DWELL + 100 },
+        );
+        const name = presses.join(", ");
+        const { left, back, pressTl, frames } = run;
+        expect(back, `${name}: brought back the photo the clock turned away`).toBe(left);
+        expect.soft(run.origin, `${name}: its drift started`).not.toBeNull();
+        const origin = run.origin ?? run.pressedAt;
+
+        // IT RESTED, IN THE DARK. Every photo off stage holds one value for
+        // as long as its wrapper shows at all…
+        const moved: string[] = [];
+        for (let p = 0; p < count; p++) {
+          let held: number | null = null;
+          for (const f of frames)
+            if (f.on === p || f.opacity[p] === 0) held = null;
+            else if ((held ??= f.scale[p]) !== f.scale[p])
+              moved.push(
+                `photo ${p}, ${f.tl - pressTl}ms from the press: ${f.scale[p]} from ${held}`,
+              );
+        }
+        expect.soft(moved, `${name}: a photo off stage moved while it showed`).toEqual([]);
+        // …and the one brought back was at 1, hidden, before the press.
+        expect
+          .soft(
+            frames.some(
+              (f) =>
+                f.tl < pressTl && f.on !== left && f.opacity[left] === 0 && f.scale[left] === 1,
+            ),
+            `${name}: rested at 1 before it was brought back`,
+          )
+          .toBe(true);
+
+        // BACK: still, at 1, through the settle…
+        expect.soft(run.timing, `${name}: its drift`).toEqual({
+          state: "running",
+          duration: FEATURED_DWELL,
+          delay: FEATURED_DISSOLVE,
+        });
+        const settle = frames.filter(
+          (f) => f.tl > pressTl && f.tl < origin + FEATURED_DISSOLVE - 20,
+        );
+        expect(settle.length, `${name}: sampled the settle`).toBeGreaterThan(0);
+        expect
+          .soft(
+            settle
+              .filter((f) => f.scale[back] > 1.0005)
+              .map((f) => `${f.tl - origin}: ${f.scale[back]}`),
+            `${name}: through the settle`,
+          )
+          .toEqual([]);
+        // …then the whole drift: sampled until 100ms past its end, so all of
+        // KEN_BURNS but for 100ms of drift's worth of slack.
+        // …at TILT_DEG on every frame from the press, settle and drift alike:
+        // a photo that RESTED starts from its tilted rest, so nothing turns it.
+        expect
+          .soft(
+            frames
+              .filter(
+                (f) =>
+                  f.tl > pressTl && !(Math.abs(f.angle[back] - FEATURED_TILT_DEG) < ANGLE_SLACK),
+              )
+              .map((f) => `${f.tl - pressTl}ms from the press: ${f.angle[back]}deg`),
+            `${name}: the photo brought back, off TILT_DEG`,
+          )
+          .toEqual([]);
+        const drift = frames.filter((f) => f.tl >= origin).map((f) => f.scale[back]);
+        const travel = Math.max(...drift) - Math.min(...drift);
+        expect
+          .soft(travel, `${name}: travelled ${travel} over the dwell`)
+          .toBeGreaterThanOrEqual(FEATURED_KEN_BURNS * (1 - 100 / FEATURED_DWELL));
+      } finally {
+        await context.close();
+      }
+    }
+  });
+
+  test("every photo is fetched at least as wide as it is drawn at the drift's END — or at the widest its source has", async ({
+    browser,
+  }) => {
+    // THE END SCALE IS WHAT `sizes` DESCRIBES (see `photoSizes` in the slice).
+    // It used to say 65vw — the box — so at 1440 × DPR 2 Chromium took 1920
+    // for a photo drawn 1965 device px wide at 1.06, and at DPR 1 a photo
+    // wider than the box (object-cover draws it at the box's height) took
+    // 1024 for 1139. Nothing here names a listing: each photo is held to its
+    // own box, its own aspect and its own srcset. Where the source itself is
+    // narrower than the end frame, the widest candidate is all there is.
+    for (const dpr of [1, 2]) {
+      const context = await browser.newContext({
+        reducedMotion: "no-preference",
+        viewport: viewportFor(1440),
+        deviceScaleFactor: dpr,
+      });
+      try {
+        const page = await context.newPage();
+        await page.goto(HOME);
+        await adopted(page);
+        await page.locator(CARD).scrollIntoViewIfNeeded();
+        await expect
+          .poll(() =>
+            page
+              .locator(`${CARD} [data-featured-photo]`)
+              .evaluateAll((els) =>
+                (els as HTMLImageElement[]).every((img) => img.complete && img.naturalWidth > 0),
+              ),
+          )
+          .toBe(true);
+        const photos = await page.locator(`${CARD} [data-featured-photo]`).evaluateAll(
+          (els, end) =>
+            (els as HTMLImageElement[]).map((img) => {
+              const box = img.parentElement!.getBoundingClientRect();
+              const drawn = Math.max(
+                box.width,
+                box.height * (img.naturalWidth / img.naturalHeight),
+              );
+              const offered = (img.getAttribute("srcset") ?? "")
+                .split(", ")
+                .map((c) => Number(/ (\d+)w$/.exec(c)?.[1]))
+                .filter((w) => w > 0);
+              return {
+                picked: Number(new URL(img.currentSrc).searchParams.get("w")),
+                widest: Math.max(...offered),
+                offered: offered.length,
+                needed: Math.round(drawn * devicePixelRatio * end * 10) / 10,
+              };
+            }),
+          1 + FEATURED_KEN_BURNS,
+        );
+        test.info().annotations.push({
+          type: `DPR ${dpr}`,
+          description: photos.map((p) => `${p.picked} of ${p.widest} for ${p.needed}`).join("; "),
+        });
+        expect(photos.length, "premise: more than one photo").toBeGreaterThan(1);
+        for (const [i, p] of photos.entries()) {
+          expect(p.offered, `photo ${i + 1} at DPR ${dpr}: a srcset`).toBeGreaterThan(1);
+          expect(p.picked, `photo ${i + 1} at DPR ${dpr}: a candidate was fetched`).toBeGreaterThan(
+            0,
+          );
+          if (p.picked < p.widest)
+            expect(
+              p.picked,
+              `photo ${i + 1} at DPR ${dpr}: fetched ${p.picked} of ${p.widest} for ${p.needed} device px`,
+            ).toBeGreaterThanOrEqual(p.needed);
+        }
+      } finally {
+        await context.close();
+      }
     }
   });
 

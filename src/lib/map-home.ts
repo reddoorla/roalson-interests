@@ -23,7 +23,7 @@
  * THE NUMBERS. Operator's call, 2026-09-22, from three framed options: centre
  * 29.62, -98.52 ("frame A"). The zooms were re-derived here from the 22 real
  * seeded coordinates (`scripts/seed/listings.json`) with this repo's own
- * `clusterPoints`, and `src/lib/property-map.test.ts` re-measures them:
+ * `clusterPoints`:
  *
  *                       in frame   own pin   inside a cluster
  *   full    z8.6        18 / 22    9         13
@@ -114,6 +114,27 @@ export const MAP_HOME = {
  * from the map's is a visible seam at exactly the moment the tiles arrive.
  */
 export const MAP_HOME_GROUND = "#f3f1ef";
+
+/**
+ * THE PICTURE'S OWN CREDIT: the attribution of the one source the raster is
+ * drawn from, exactly as `static/map-style.json` carries it and exactly what
+ * MapLibre's control inserts once the engine is up.
+ *
+ * The raster is a produced work of OpenStreetMap data (ODbL) on the
+ * OpenMapTiles schema, and it was rendered with `attributionControl: false`,
+ * so until 2026-09-29 the picture carried NO credit at all: for a visitor
+ * with scripting off that was every map on the site, forever, and for
+ * everyone else it was every map between first paint and MapLibre's `load`
+ * (a map below the fold stays a picture until half of it is scrolled on
+ * screen, #103). A picture has no interaction to collapse it on and no clock,
+ * so the OSMF safe harbour asks for the whole line, and that is what is drawn.
+ *
+ * Typed here once, not read from the style at runtime — that would ship the
+ * whole style JSON to draw one line — and `scripts/map-home.test.ts` fails the
+ * day the two stop being the same string.
+ */
+export const MAP_HOME_CREDIT =
+  '© <a href="https://www.openmaptiles.org/" target="_blank" rel="noreferrer">OpenMapTiles</a> © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a> contributors';
 
 /**
  * How long the canvas takes to come up over the picture, in ms.

@@ -18,9 +18,9 @@ export const load: PageServerLoad = () => ({
   meta_description: `Contact Roalson Interests about commercial real estate in San Antonio and across Texas — call ${OFFICE.phone.display} or send us a message.`,
   // The page opens on PageMasthead, which runs UNDER the bar (Nav.svelte), so
   // the bar floats over it. A literal on purpose: src/routes/nav-over.test.ts
-  // reads this file for it and holds the claim to the page's markup in both
-  // directions. `load` re-runs after the action, with and without script, so
-  // the success and failure renders keep the floating bar too.
+  // reads this file for it and holds the claim to the page's markup. `load`
+  // re-runs after the action, with and without script, so the success and
+  // failure renders keep the floating bar too.
   navOver: "dark" as const,
   // The top of that band, for the ground above the document (`.canvas-top` in
   // app.css): PageMasthead's gradient starts on garnet (`from-primary`).

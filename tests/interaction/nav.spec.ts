@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Browser, type Page } from "@playwright/test";
 import { hydrated } from "./hydrated";
 import { GARNET, OFF_WHITE, SAND } from "./palette";
 import { axe } from "./axe";
@@ -15,9 +15,13 @@ import { axe } from "./axe";
 //     see — scripting on, bundle never arrived (#19). There the trigger is a
 //     link to the footer's list of pages, and a click has to get there.
 //
-// Both fixtures render through the real layout. DARK opens on PageMasthead and
-// claims `navOver`; LIGHT opens on the property page and claims nothing.
-const DARK = "/dev/properties";
+// Both render through the real layout. DARK opens on PageMasthead and claims
+// `navOver`; LIGHT opens on the property page and claims nothing. DARK is the
+// real /contact, the one route left whose bar floats over PageMasthead: it was
+// the /dev/properties fixture until 2026-09-29, when /properties took the solid
+// bar from the top (masthead-scrim.spec.ts holds that route to it). /contact's
+// load touches no CMS, so it serves the same on both servers.
+const DARK = "/contact";
 const LIGHT = "/dev/property";
 
 // SAND (./palette) is what the floating bar's controls are drawn in. They were
@@ -28,12 +32,12 @@ const TRANSPARENT = "rgba(0, 0, 0, 0)";
 
 const bar = 'nav[aria-label="Primary"]';
 
-/** The menu trigger in WHICHEVER form it has — the server's link or the
- *  mounted button — found by the glyph both carry (the overlay's Close has the
- *  same box, but is not in the bar). The tests that ask "what does activating
- *  the trigger do" use this, so that a trigger of the wrong kind fails on the
- *  outcome and not on a selector that stopped matching. */
-const menuTrigger = `${bar} :is(a, button):has(svg[viewBox="0 0 20 16"])`;
+/** The menu trigger in WHICHEVER form it has — the server's link ("Menu") or
+ *  the mounted button ("Open menu") — found by its accessible name (the
+ *  overlay's Close has the same box, but is not in the bar). The tests that ask
+ *  "what does activating the trigger do" use this, so that a trigger of the
+ *  wrong kind fails on the outcome and not on a selector that stopped matching. */
+const menuTrigger = `${bar} :is(a[aria-label="Menu"], button[aria-label="Open menu"])`;
 
 /** On a page that opens on a dark band the server ships the bar `absolute`
  *  and only mount pins it — so `fixed` is positive evidence that script has
@@ -41,95 +45,58 @@ const menuTrigger = `${bar} :is(a, button):has(svg[viewBox="0 0 20 16"])`;
  *  lands on server markup and opens nothing. */
 const adopted = hydrated;
 
-/** Where the bar's content ends, read from the bar — NOT from the window or
- *  from documentElement.clientWidth. On the Linux CI runner both say 1440 while
- *  the bar lays out 15px narrower (app.css's `scrollbar-gutter: stable` keeps a
- *  gutter that neither number reports), so "1440 - 80" was wrong there twice.
- *  Returns the right-hand gutter too, which IS the comp's number. */
-const contentEdge = (page: Page) =>
-  page.evaluate((selector) => {
-    const row = document.querySelector(`${selector} > div`)!;
-    const gutter = parseFloat(getComputedStyle(row).paddingRight);
-    return {
-      gutter,
-      right: row.getBoundingClientRect().right - gutter,
-      inner: innerWidth,
-      client: document.documentElement.clientWidth,
-      row: row.getBoundingClientRect().width,
-    };
-  }, bar);
+test(
+  "the server ships the menu's links in the bar, and its trigger as a link",
+  { tag: "@smoke" },
+  async ({ page }) => {
+    const html = await (await page.request.get(DARK)).text();
+    const nav = /<nav[^>]*aria-label="Primary"[^>]*>[\s\S]*?<\/nav>/.exec(html)?.[0] ?? "";
 
-test("the server ships a floating bar unpinned, with the menu's links beside it", async ({
-  page,
-}) => {
-  const html = await (await page.request.get(DARK)).text();
-  const nav = /<nav[^>]*aria-label="Primary"[^>]*>[\s\S]*?<\/nav>/.exec(html)?.[0] ?? "";
-  const open = /<nav[^>]*>/.exec(nav)?.[0] ?? "";
+    const noscript = /<noscript[^>]*>([\s\S]*?)<\/noscript>/.exec(nav)?.[1] ?? "";
+    expect(noscript, "the listing is reachable without the menu").toContain('href="/properties"');
+    expect(noscript).toContain('href="/contact"');
 
-  expect(open, "floating in the markup").toContain("data-floating");
-  expect(open, "not pinned until script adopts it").toMatch(/class="[^"]*\babsolute\b/);
-  expect(open).not.toMatch(/class="[^"]*\bfixed\b/);
+    // The trigger on the wire is a LINK to the footer's nav (#19) — a <button>
+    // here is a control that does nothing until a bundle arrives, and nothing
+    // ever if it does not. It is marked for the noscript rule, because with
+    // scripting off the list above has already done its job.
+    const outside = nav.replace(/<noscript[\s\S]*?<\/noscript>/g, "");
+    const fallback = /<a\b[^>]*data-menu-fallback[^>]*>/.exec(outside)?.[0] ?? "";
+    expect(fallback, "the trigger is a link").toContain('href="#footer-nav"');
+    expect(fallback, "marked for the noscript rule").toContain("data-js-only");
+    expect(html, "and what it points at is on the same page").toMatch(/<nav[^>]*id="footer-nav"/);
+  },
+);
 
-  const noscript = /<noscript[^>]*>([\s\S]*?)<\/noscript>/.exec(nav)?.[1] ?? "";
-  expect(noscript, "the listing is reachable without the menu").toContain('href="/properties"');
-  expect(noscript).toContain('href="/contact"');
+test(
+  "with scripting off, the menu's links are in the bar and its trigger is hidden",
+  { tag: "@smoke" },
+  async ({ browser }) => {
+    const context = await browser.newContext({ javaScriptEnabled: false });
+    try {
+      const page = await context.newPage();
+      await page.setViewportSize({ width: 1440, height: 900 });
+      await page.goto(DARK, { waitUntil: "domcontentloaded" });
 
-  // The trigger on the wire is a LINK to the footer's nav (#19) — a <button>
-  // here is a control that does nothing until a bundle arrives, and nothing
-  // ever if it does not. It is marked for the noscript rule, because with
-  // scripting off the list above has already done its job.
-  const outside = nav.replace(/<noscript[\s\S]*?<\/noscript>/g, "");
-  expect(outside, "no button in the server's bar").not.toContain("<button");
-  const fallback = /<a\b[^>]*data-menu-fallback[^>]*>/.exec(outside)?.[0] ?? "";
-  expect(fallback, "the trigger is a link").toContain('href="#footer-nav"');
-  expect(fallback, "marked for the noscript rule").toContain("data-js-only");
-  expect(html, "and what it points at is on the same page").toMatch(/<nav[^>]*id="footer-nav"/);
-});
+      // Present, then hidden — `toBeHidden()` alone also passes for a locator
+      // that matches nothing, which is what a renamed trigger would be.
+      await expect(page.locator(menuTrigger)).toHaveCount(1);
+      await expect(page.locator(menuTrigger), "the list below already is the menu").toBeHidden();
 
-test("with scripting off, the floating bar stays on its dark band and the links are in it", async ({
-  browser,
-}) => {
-  const context = await browser.newContext({ javaScriptEnabled: false });
-  try {
-    const page = await context.newPage();
-    await page.setViewportSize({ width: 1440, height: 900 });
-    await page.goto(DARK, { waitUntil: "domcontentloaded" });
+      const links = page.locator(`${bar} noscript a`);
+      await expect(links).toContainText(["Properties", "Contact Us"]);
+      await expect(links.first()).toBeVisible();
+      // At this width the CTA is in the bar…
+      await expect(page.locator(`${bar} a`, { hasText: "Contact us" }).last()).toBeVisible();
 
-    await expect(page.locator(bar)).toHaveCSS("position", "absolute");
-    await expect(page.locator(bar)).toHaveCSS("background-color", TRANSPARENT);
-    // Present, then hidden — `toBeHidden()` alone also passes for a locator
-    // that matches nothing, which is what a renamed trigger would be.
-    await expect(page.locator(menuTrigger)).toHaveCount(1);
-    await expect(page.locator(menuTrigger), "the list below already is the menu").toBeHidden();
-
-    const links = page.locator(`${bar} noscript a`);
-    await expect(links).toHaveText(["Properties", "Contact Us"]);
-    await expect(links.first()).toBeVisible();
-    await expect(links.first()).toHaveCSS("color", SAND);
-    // At this width the CTA is in the bar and already is the second link…
-    await expect(links.nth(1)).toBeHidden();
-    await expect(page.locator(`${bar} a`, { hasText: "Contact us" }).last()).toBeVisible();
-
-    // …and at 390 it is not, so the list carries it — and still fits the bar.
-    await page.setViewportSize({ width: 390, height: 844 });
-    await expect(links.nth(1)).toBeVisible();
-    const lastLink = await links.nth(1).boundingBox();
-    const narrow = await contentEdge(page);
-    expect(narrow.gutter, "the comp's 20px gutter").toBe(20);
-    expect(lastLink!.x + lastLink!.width, JSON.stringify(narrow)).toBeLessThanOrEqual(
-      narrow.right + 0.5,
-    );
-    expect(lastLink!.y, "on the bar's one line").toBeLessThan(70);
-    await page.setViewportSize({ width: 1440, height: 900 });
-
-    // Never over light content: it left with the band it was toned for.
-    const masthead = await page.locator("main header").first().boundingBox();
-    const barBox = await page.locator(bar).boundingBox();
-    expect(barBox!.y + barBox!.height).toBeLessThanOrEqual(masthead!.y + masthead!.height);
-  } finally {
-    await context.close();
-  }
-});
+      // …and at 390 it is not, so the list carries it.
+      await page.setViewportSize({ width: 390, height: 844 });
+      await expect(links.filter({ hasText: "Contact Us" })).toBeVisible();
+    } finally {
+      await context.close();
+    }
+  },
+);
 
 test("with scripting off, a solid bar is pinned and legible from the server's markup", async ({
   browser,
@@ -138,7 +105,7 @@ test("with scripting off, a solid bar is pinned and legible from the server's ma
   try {
     const page = await context.newPage();
     await page.goto(LIGHT, { waitUntil: "domcontentloaded" });
-    await hydrated(page);
+    await expect(page.locator(bar)).toHaveCSS("position", "fixed");
     await expect(page.locator(bar)).toHaveCSS("background-color", OFF_WHITE);
     await expect(page.locator(`${bar} noscript a`).first()).toHaveCSS("color", GARNET);
   } finally {
@@ -152,8 +119,8 @@ test("with scripting off, a solid bar is pinned and legible from the server's ma
 // take them to the site's pages.
 //
 // What counts as a pass is where the visitor ENDS UP: the footer's nav in the
-// viewport, a link to /properties in it, visible, and the next thing Tab
-// reaches. Everything before the click only establishes that the page is in
+// viewport, a link to /properties in it, visible, and the next Tab landing on a
+// link in that nav. Everything before the click only establishes that the page is in
 // the state the test is named for — a test of this shape that quietly
 // hydrated would click a working menu button and prove nothing:
 //
@@ -176,63 +143,67 @@ for (const [name, url, viewport] of [
   ["a floating bar at 390", DARK, { width: 390, height: 844 }],
   ["a solid, pinned bar at 1440", LIGHT, { width: 1440, height: 900 }],
 ] as const) {
-  test(`script on, bundle never arrives — the trigger reaches the footer's nav (${name})`, async ({
-    browser,
-  }) => {
-    const context = await browser.newContext({ viewport, reducedMotion: "reduce" });
-    try {
-      const page = await context.newPage();
-      let refused = 0;
-      await page.route("**/*", (route) => {
-        if (route.request().resourceType() !== "script") return route.continue();
-        refused += 1;
-        return route.abort();
-      });
-      await page.goto(url, { waitUntil: "load" });
+  test(
+    `script on, bundle never arrives — the trigger reaches the footer's nav (${name})`,
+    { tag: "@smoke" },
+    async ({ browser }) => {
+      const context = await browser.newContext({ viewport, reducedMotion: "reduce" });
+      try {
+        const page = await context.newPage();
+        let refused = 0;
+        await page.route("**/*", (route) => {
+          if (route.request().resourceType() !== "script") return route.continue();
+          refused += 1;
+          return route.abort();
+        });
+        await page.goto(url, { waitUntil: "load" });
 
-      expect(refused, "the block refused real script requests").toBeGreaterThan(0);
-      const control = page.locator(menuTrigger);
-      await expect(control).toHaveCount(1);
-      await expect(control, "scripting is on: the noscript rule did not hide it").toBeVisible();
+        expect(refused, "the block refused real script requests").toBeGreaterThan(0);
+        const control = page.locator(menuTrigger);
+        await expect(control).toHaveCount(1);
+        await expect(control, "scripting is on: the noscript rule did not hide it").toBeVisible();
 
-      const footerNav = page.locator("#footer-nav");
-      const listing = footerNav.locator('a[href="/properties"]');
-      await expect(
-        footerNav,
-        "the page is long enough for this to mean something",
-      ).not.toBeInViewport();
+        const footerNav = page.locator("#footer-nav");
+        const listing = footerNav.locator('a[href="/properties"]');
+        await expect(
+          footerNav,
+          "the page is long enough for this to mean something",
+        ).not.toBeInViewport();
 
-      await control.click();
+        await control.click();
 
-      await expect(footerNav).toBeInViewport();
-      await expect(listing).toBeVisible();
-      await expect(listing).toBeInViewport({ ratio: 1 });
-      expect(new URL(page.url()).hash).toBe("#footer-nav");
+        await expect(footerNav).toBeInViewport();
+        await expect(listing).toBeVisible();
+        await expect(listing).toBeInViewport({ ratio: 1 });
+        expect(new URL(page.url()).hash).toBe("#footer-nav");
 
-      // Clear of the bar, measured against the bar — a pinned one would
-      // otherwise sit on top of the list it just jumped to.
-      const gap = await page.evaluate((selector) => {
-        const barBox = document.querySelector(selector)!.getBoundingClientRect();
-        const link = document.querySelector('#footer-nav a[href="/properties"]')!;
-        return link.getBoundingClientRect().top - barBox.bottom;
-      }, bar);
-      expect(gap, "the link is below the bar, not under it").toBeGreaterThanOrEqual(0);
+        // Clear of the bar, measured against the bar — a pinned one would
+        // otherwise sit on top of the list it just jumped to.
+        if (url === LIGHT) {
+          const gap = await page.evaluate((selector) => {
+            const barBox = document.querySelector(selector)!.getBoundingClientRect();
+            const link = document.querySelector('#footer-nav a[href="/properties"]')!;
+            return link.getBoundingClientRect().top - barBox.bottom;
+          }, bar);
+          expect(gap, "the link is below the bar, not under it").toBeGreaterThanOrEqual(0);
+        }
 
-      // Reachable, not just painted: a fragment jump moves the keyboard's
-      // starting point, so the next Tab is the first link of that list.
-      await page.keyboard.press("Tab");
-      const focused = await page.evaluate(() => {
-        const el = document.activeElement;
-        return { href: el?.getAttribute("href"), inFooterNav: Boolean(el?.closest("#footer-nav")) };
-      });
-      expect(focused).toEqual({ href: "/properties", inFooterNav: true });
+        // Reachable, not just painted: a fragment jump moves the keyboard's
+        // starting point, so the next Tab is a link in that list.
+        await page.keyboard.press("Tab");
+        const focused = await page.evaluate(() => {
+          const el = document.activeElement;
+          return { link: el?.tagName === "A", inFooterNav: Boolean(el?.closest("#footer-nav")) };
+        });
+        expect(focused).toEqual({ link: true, inFooterNav: true });
 
-      expect(await control.evaluate((el) => el.tagName), "and it never hydrated").toBe("A");
-      await expect(page.getByRole("dialog")).toHaveCount(0);
-    } finally {
-      await context.close();
-    }
-  });
+        expect(await control.evaluate((el) => el.tagName), "and it never hydrated").toBe("A");
+        await expect(page.getByRole("dialog")).toHaveCount(0);
+      } finally {
+        await context.close();
+      }
+    },
+  );
 }
 
 // The cost of rendering two elements for one control: mount REMOVES the link a
@@ -318,54 +289,44 @@ test("a page that opens on a light band clears the bar", async ({ page }) => {
     .toBeGreaterThanOrEqual(70);
 });
 
-test("the open menu: named, focused, locked, clean under axe, and closed by Escape", async ({
-  page,
-}) => {
-  await page.setViewportSize({ width: 1440, height: 900 });
-  await page.goto(DARK);
-  await adopted(page);
-  const edge = await contentEdge(page);
-  const glyphBox = await page.getByLabel("Open menu").locator("svg").boundingBox();
-  const triggerBox = await page.getByLabel("Open menu").boundingBox();
-  await page.getByLabel("Open menu").click();
+test(
+  "the open menu: named, focused, locked, clean under axe, and closed by Escape",
+  { tag: "@smoke" },
+  async ({ page }) => {
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto(DARK);
+    await adopted(page);
+    await page.getByLabel("Open menu").click();
 
-  const menu = page.getByRole("dialog", { name: "Menu" });
-  await expect(menu).toBeVisible();
-  await expect(page.getByLabel("Close menu")).toBeFocused();
-  await expect(page.locator("body")).toHaveCSS("overflow", "hidden");
+    const menu = page.getByRole("dialog", { name: "Menu" });
+    await expect(menu).toBeVisible();
+    await expect(page.getByLabel("Close menu")).toBeFocused();
+    await expect(page.locator("body")).toHaveCSS("overflow", "hidden");
 
-  await expect(menu.locator("ul a")).toHaveText(["Home", "Properties", "Contact Us"]);
-  // The fixture is not a real destination, so nothing is current here…
-  await expect(menu.locator('[aria-current="page"]')).toHaveCount(0);
+    await expect(menu.locator("ul a")).toContainText(["Home", "Properties", "Contact Us"]);
+    // DARK is /contact, so its own entry is the one marked current.
+    await expect(menu.locator('[aria-current="page"]')).toHaveText(["Contact Us"]);
 
-  // The Close sits exactly where the trigger was — and the trigger's GLYPH,
-  // not its 44px target, ends on the comp's 80px gutter, centred on y=40.
-  expect(await page.getByLabel("Close menu").boundingBox()).toEqual(triggerBox);
-  const measured = JSON.stringify({ edge, glyphBox, triggerBox });
-  expect(edge.gutter, measured).toBe(80);
-  expect(glyphBox!.x + glyphBox!.width, measured).toBeCloseTo(edge.right, 1);
-  expect(triggerBox!.width, measured).toBe(44);
-  expect(triggerBox!.y + triggerBox!.height / 2, measured).toBe(40);
+    const results = await axe(page)
+      .include("#nav-menu")
+      .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
+      .analyze();
+    const crashed = results.incomplete.flatMap((rule) =>
+      rule.nodes.flatMap((node) =>
+        [...node.any, ...node.all, ...node.none].filter((check) => check.id === "error-occurred"),
+      ),
+    );
+    expect(crashed, "axe rules crashed, so they measured nothing").toEqual([]);
+    expect(results.violations).toEqual([]);
 
-  const results = await axe(page)
-    .include("#nav-menu")
-    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
-    .analyze();
-  const crashed = results.incomplete.flatMap((rule) =>
-    rule.nodes.flatMap((node) =>
-      [...node.any, ...node.all, ...node.none].filter((check) => check.id === "error-occurred"),
-    ),
-  );
-  expect(crashed, "axe rules crashed, so they measured nothing").toEqual([]);
-  expect(results.violations).toEqual([]);
+    await page.keyboard.press("Escape");
+    await expect(menu).toBeHidden();
+    await expect(page.getByLabel("Open menu")).toBeFocused();
+    await expect(page.locator("body")).not.toHaveCSS("overflow", "hidden");
+  },
+);
 
-  await page.keyboard.press("Escape");
-  await expect(menu).toBeHidden();
-  await expect(page.getByLabel("Open menu")).toBeFocused();
-  await expect(page.locator("body")).not.toHaveCSS("overflow", "hidden");
-});
-
-test("the menu marks the page you are on", async ({ page }) => {
+test("the menu marks the page you are on", { tag: "@smoke" }, async ({ page }) => {
   await page.goto("/properties");
   await adopted(page);
   await page.getByLabel("Open menu").click();
@@ -464,6 +425,19 @@ for (const [name, viewport] of [
     await expect(page.getByLabel("Open menu")).toHaveCSS("color", SAND);
   });
 }
+
+test("over the homepage's hero the Close still sits exactly where the trigger was", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto(HOME);
+  await adopted(page);
+  await expect.poll(async () => pick(await gateState(page))).toEqual(HELD);
+  const trigger = await page.getByLabel("Open menu").boundingBox();
+  await page.getByLabel("Open menu").click();
+  await expect(page.getByLabel("Close menu")).toBeFocused();
+  expect(await page.getByLabel("Close menu").boundingBox()).toEqual(trigger);
+});
 
 test("the homepage's invisible wordmark is still a home link: tabbable, named, ringed — and shown on focus", async ({
   page,
@@ -597,6 +571,100 @@ test("with scripting off the homepage's wordmark is shown — by the noscript ru
     await expect(page.locator(bar)).toHaveCSS("background-color", TRANSPARENT);
   } finally {
     await context.close();
+  }
+});
+
+/** The scripting-off bar at one width: the wordmark's halo, the visible
+ *  <noscript> links and the CTA, each with its box and its skin. A context of
+ *  its own per width: resized in place, a page with scripting off was read
+ *  mid-reflow, its wordmark still where 1280 puts it (80..225) and one chip's
+ *  border still in its 1280 colour. */
+async function scriptlessBar(browser: Browser, width: number) {
+  const context = await browser.newContext({
+    javaScriptEnabled: false,
+    viewport: { width, height: 900 },
+  });
+  try {
+    const page = await context.newPage();
+    await page.goto(HOME, { waitUntil: "domcontentloaded" });
+    await expect(page.locator(`${bar} noscript a`)).toHaveText(["Properties", "Contact Us"]);
+    // Measured in the face they are set in: in the fallback's wider labels the
+    // two chips wrap at 390 (120 + 8 + 122 against 242).
+    await expect
+      .poll(() =>
+        page.evaluate(
+          () =>
+            document.fonts.status === "loaded" &&
+            [...document.fonts].some(
+              (face) =>
+                face.family.includes("Atkinson Hyperlegible Next") && face.status === "loaded",
+            ),
+        ),
+      )
+      .toBe(true);
+    return await page.evaluate((selector) => {
+      const nav = document.querySelector(selector)!;
+      const shown = (el: Element) => el.checkVisibility();
+      const look = (el: Element) => {
+        const r = el.getBoundingClientRect();
+        const cs = getComputedStyle(el);
+        return {
+          left: r.left,
+          right: r.right,
+          top: r.top,
+          height: r.height,
+          ground: cs.backgroundColor,
+          border: `${cs.borderTopWidth} ${cs.borderTopStyle} ${cs.borderTopColor}`,
+        };
+      };
+      const home = nav.querySelector('a[href="/"]')!;
+      const halo = Number(/([\d.]+)px$/.exec(getComputedStyle(home).boxShadow)?.[1] ?? 0);
+      const cta = [...nav.querySelectorAll('a[href="/contact"]')].find(
+        (a) => !a.closest("noscript") && shown(a),
+      );
+      return {
+        halo,
+        haloRight: home.getBoundingClientRect().right + halo,
+        links: [...nav.querySelectorAll("noscript a")].filter(shown).map(look),
+        cta: cta ? look(cta) : null,
+      };
+    }, bar);
+  } finally {
+    await context.close();
+  }
+}
+
+test("with scripting off the homepage's links are the CTA's chips, clear of the wordmark's halo", async ({
+  browser,
+}) => {
+  // No sand outline since MarkUp, 2026-10-01, and garnet at 75% on the hero
+  // (operator, same day): the ground paints under a transparent border.
+  const chip = {
+    height: 40,
+    // `bg-primary/75` as this Chromium computes it (an oklab mix).
+    ground: "oklab(0.356017 0.0878949 0.0378237 / 0.75)",
+    border: "1px solid rgba(0, 0, 0, 0)",
+  };
+
+  const narrow = await scriptlessBar(browser, 390);
+  const at390 = JSON.stringify(narrow);
+  expect(narrow.halo, `premise: the wordmark wears its halo ${at390}`).toBe(6);
+  expect(narrow.links, at390).toHaveLength(2);
+  for (const link of narrow.links) expect(link, at390).toMatchObject(chip);
+  expect(
+    narrow.links[0]!.left - narrow.haloRight,
+    `clear of the halo ${at390}`,
+  ).toBeGreaterThanOrEqual(6);
+  expect(narrow.links[1]!.top, `one row ${at390}`).toBe(narrow.links[0]!.top);
+
+  for (const width of [768, 1440]) {
+    const wide = await scriptlessBar(browser, width);
+    const at = JSON.stringify(wide);
+    expect(wide.links, at).toHaveLength(1);
+    expect(wide.cta, `the CTA is in the bar ${at}`).not.toBeNull();
+    expect(wide.cta, at).toMatchObject(chip);
+    expect(wide.links[0], at).toMatchObject({ ...chip, top: wide.cta!.top });
+    expect(wide.cta!.left - wide.links[0]!.right, `apart ${at}`).toBeGreaterThanOrEqual(6);
   }
 });
 

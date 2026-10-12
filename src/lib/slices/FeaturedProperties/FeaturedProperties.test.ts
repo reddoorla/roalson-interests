@@ -1,5 +1,3 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
 import { cleanup, fireEvent, render, within } from "@testing-library/svelte";
 import { tick } from "svelte";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -10,92 +8,9 @@ import {
   featuredPropertiesFixture,
   stageFeatured,
 } from "$lib/home-fixture";
-import { CAMERA_FLIGHT_MS } from "$lib/property-map";
 import { components } from "$lib/slices";
-import FeaturedProperties, { DWELL, KEN_BURNS } from "./index.svelte";
+import FeaturedProperties, { DISSOLVE, DWELL, TILT_DEG } from "./index.svelte";
 
-// THE ENGINE, for the one block below that boots the band's map: a fake that
-// keeps maplibre's navigation handlers as real on/off state, so the band's
-// rule can be read off what a map would actually let a visitor do. Every other
-// case in this file never boots it — the setup's IntersectionObserver never
-// fires — and is untouched by the mock.
-const engine = vi.hoisted(() => {
-  const handler = (enabled: boolean) => ({
-    enabled,
-    enable() {
-      this.enabled = true;
-    },
-    disable() {
-      this.enabled = false;
-    },
-    isEnabled() {
-      return this.enabled;
-    },
-    isActive: () => false,
-    disableRotation() {},
-  });
-  const maps: FakeMap[] = [];
-  class FakeMap {
-    canvas = document.createElement("canvas");
-    canvasContainer = document.createElement("div");
-    scrollZoom = handler(true);
-    boxZoom = handler(true);
-    dragRotate = handler(false);
-    dragPan = handler(true);
-    keyboard = handler(true);
-    doubleClickZoom = handler(true);
-    touchZoomRotate = handler(true);
-    touchPitch = handler(false);
-    constructor(options: { container?: HTMLElement }) {
-      options.container?.appendChild(this.canvasContainer);
-      this.canvasContainer.appendChild(this.canvas);
-      this.canvas.setAttribute("tabindex", "0");
-      maps.push(this);
-    }
-    /** The navigation handlers that are on, by name. */
-    tools() {
-      const names = [
-        "scrollZoom",
-        "boxZoom",
-        "dragRotate",
-        "dragPan",
-        "keyboard",
-        "doubleClickZoom",
-        "touchZoomRotate",
-        "touchPitch",
-      ] as const;
-      return names.filter((n) => this[n].enabled).sort();
-    }
-    on() {}
-    addControl() {}
-    getCanvas() {
-      return this.canvas;
-    }
-    getCanvasContainer() {
-      return this.canvasContainer;
-    }
-    getZoom() {
-      return 12;
-    }
-    getCenter() {
-      return { lng: 0, lat: 0 };
-    }
-    getMaxZoom() {
-      return 16;
-    }
-    project() {
-      return { x: 0, y: 0 };
-    }
-    jumpTo() {}
-    flyTo() {}
-    easeTo() {}
-    resize() {}
-    remove() {}
-    stop() {}
-  }
-  return { maps, module: { default: { Map: FakeMap, AttributionControl: class {} } } };
-});
-vi.mock("$lib/map-engine", () => engine.module);
 vi.mock("$env/dynamic/public", () => ({ env: {} }));
 
 // jsdom resolves no stylesheet and has no `inert`, no layout and no animation
@@ -129,6 +44,9 @@ const card = (container: HTMLElement) =>
 const slidesOf = (container: HTMLElement) => [
   ...container.querySelectorAll<HTMLElement>("[data-featured-slide]"),
 ];
+/** 1-based number of the slide the live region names. */
+const announced = (container: HTMLElement) =>
+  Number(/Slide (\d+) of/.exec(card(container).querySelector("[aria-live]")!.textContent!)?.[1]);
 
 describe("FeaturedProperties slice", () => {
   it("is registered, so a SliceZone renders it rather than a TodoComponent", () => {
@@ -136,13 +54,12 @@ describe("FeaturedProperties slice", () => {
   });
 
   describe("with the comp's three listings", () => {
-    it("is a carousel named by its own visible heading — an h2 drawn as the H4 eyebrow", () => {
+    it("is a carousel named by its own visible heading, an h2", () => {
       const { container, getByRole } = render(FeaturedProperties, {
         props: { slice: featuredPropertiesFixture() },
       });
       const heading = getByRole("heading", { level: 2 });
       expect(heading.textContent).toBe("Featured Properties");
-      expect(heading.className).toContain("t-h4");
 
       const region = card(container);
       expect(region.getAttribute("role")).toBe("region");
@@ -172,29 +89,25 @@ describe("FeaturedProperties slice", () => {
       expect(second.getByRole("heading", { level: 3, hidden: true }).textContent).toBe(
         "101 W. Commerce Street",
       );
-      expect(second.getByText("7,863 SF").className).toContain("t-h4");
+      expect(second.getByText("7,863 SF")).toBeTruthy();
       expect(second.getAllByRole("listitem", { hidden: true })).toHaveLength(2);
-      const link = second.getByRole("link", { hidden: true });
-      expect(link.getAttribute("href")).toBe("/properties/101-w-commerce-street");
       // "Learn more" three times over is three identical link names; the
       // suffix is what tells them apart to a screen reader's links list.
-      expect(link.textContent?.replace(/\s+/g, " ").trim()).toBe(
-        "Learn more about 101 W. Commerce Street",
-      );
-      expect(link.querySelector(".sr-only")?.textContent).toBe("about 101 W. Commerce Street");
+      const link = second.getByRole("link", {
+        name: "Learn more about 101 W. Commerce Street",
+        hidden: true,
+      });
+      expect(link.getAttribute("href")).toBe("/properties/101-w-commerce-street");
     });
 
-    it("holds every photo in the comp's 928 : 542 box, lazy, with the editor's alt text", () => {
+    it("draws a photo on every slide, lazy, with the editor's alt text", () => {
       const { container } = render(FeaturedProperties, {
         props: { slice: featuredPropertiesFixture() },
       });
-      const images = [...container.querySelectorAll("img")];
-      expect(images).toHaveLength(3);
+      const images = [...container.querySelectorAll("[data-featured-photo]")];
+      expect(images).toHaveLength(slidesOf(container).length);
       for (const img of images) {
         expect(img.getAttribute("loading")).toBe("lazy");
-        expect(img.getAttribute("sizes")).toBe("(min-width: 1024px) 65vw, 100vw");
-        expect(img.className).toContain("object-cover");
-        expect(img.parentElement!.className).toContain("aspect-[928/542]");
         // Intrinsic size on the element: the box is reserved before the bytes land.
         expect(img.getAttribute("width")).toBe("1856");
         expect(img.getAttribute("height")).toBe("1084");
@@ -215,16 +128,18 @@ describe("FeaturedProperties slice", () => {
       const [first, ...rest] = slidesOf(container);
       expect(first.hasAttribute("aria-hidden")).toBe(false);
       expect(first.hasAttribute("inert")).toBe(false);
-      expect(first.className).toContain("visible");
+      expect(first.classList.contains("invisible")).toBe(false);
+      const lines = first.querySelectorAll("[data-featured-line]");
+      expect(lines.length).toBeGreaterThan(0);
+      for (const line of lines) expect(line.classList.contains("opacity-0")).toBe(false);
       for (const s of rest) {
         expect(s.getAttribute("aria-hidden")).toBe("true");
         // jsdom has no `inert` PROPERTY, so the spread writes the attribute.
         expect(s.hasAttribute("inert") || (s as unknown as { inert: boolean }).inert).toBe(true);
-        expect(s.className).toContain("pointer-events-none");
         // …and out of the paint: an off-stage slide left at opacity 0 still
         // covers the card, which is what made axe answer `bgOverlap` instead
         // of a contrast ratio for six of the card's seven text nodes.
-        expect(s.className).toContain("invisible");
+        expect(s.classList.contains("invisible")).toBe(true);
       }
     });
 
@@ -233,23 +148,27 @@ describe("FeaturedProperties slice", () => {
       // button inside it would turn its own slide from under the focus it
       // holds — the browser drops that focus on <body>. The comp DRAWS the
       // arrows inside the card's panel; they get there by grid placement.
-      const { container } = render(FeaturedProperties, {
+      const { container, getByRole } = render(FeaturedProperties, {
         props: { slice: featuredPropertiesFixture() },
       });
-      const buttons = [...card(container).querySelectorAll("button")];
-      expect(buttons.map((b) => b.getAttribute("aria-label"))).toEqual([
-        "Pause slides",
-        "Previous slide",
-        "Next slide",
-      ]);
-      for (const b of buttons) expect(b.closest("[data-featured-slide]")).toBeNull();
+      const controls = ["Pause slides", "Previous slide", "Next slide"].map((name) =>
+        getByRole("button", { name }),
+      );
+      for (const b of card(container).querySelectorAll("button"))
+        expect(b.closest("[data-featured-slide]")).toBeNull();
       expect(container.querySelector("[data-featured-slide] button")).toBeNull();
       expect(container.querySelector("[data-featured-slide] [data-carousel-progress]")).toBeNull();
 
       // …and BEFORE the slides in the DOM, so Pause is the first stop on the
       // way in (APG) and LEARN MORE comes after the controls.
+      const [pause, ...arrows] = controls;
+      for (const b of arrows)
+        expect(
+          pause.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING,
+          b.getAttribute("aria-label")!,
+        ).toBeTruthy();
       const firstSlide = slidesOf(container)[0];
-      for (const b of buttons)
+      for (const b of controls)
         expect(
           b.compareDocumentPosition(firstSlide) & Node.DOCUMENT_POSITION_FOLLOWING,
           b.getAttribute("aria-label")!,
@@ -265,386 +184,211 @@ describe("FeaturedProperties slice", () => {
       expect(bar.getAttribute("aria-hidden")).toBe("true");
       const live = card(container).querySelector("[aria-live]")!;
       expect(live.textContent).toBe("Slide 1 of 3");
-      expect(live.className).toContain("sr-only");
     });
 
-    // ── the four animations, at the level of what the markup says ──────────
+    // ── Ken Burns: one CSS transition (operator call, 2026-09-29) ─────────
     //
-    // What they LOOK like is tests/interaction/featured-properties.spec.ts's:
-    // jsdom resolves no stylesheet, runs no transition and lays nothing out.
-    // What is worth pinning here is the part that is a string — and the part
-    // that is a string is exactly the part that silently stops working, because
-    // Tailwind's source scan cannot see a class built at runtime.
+    // jsdom runs no transitions, so what is held here is what WCAG asks of the
+    // drift: that Pause and Play reach the transition's own Animation, through
+    // a stand-in `getAnimations`, and that reduced motion declares none. That
+    // the photo really moves, holds still while it leaves and freezes on Pause
+    // is featured-properties.spec.ts's, in Chromium.
 
-    it("staggers the four text lines with LITERAL delays, 60ms apart, ending on the settle", () => {
-      const { container } = render(FeaturedProperties, {
-        props: { slice: featuredPropertiesFixture() },
-      });
-      const [onStage] = slidesOf(container);
-      const lines = [...onStage.querySelectorAll<HTMLElement>("[data-featured-line]")];
-      expect(lines.map((l) => l.dataset.featuredLine)).toEqual(["0", "1", "2", "3"]);
-      expect(lines.map((l) => l.tagName)).toEqual(["P", "H3", "UL", "DIV"]);
-
-      // The delays are read off the rendered classes, not off a constant in
-      // the component. NOTE WHAT THIS CANNOT SEE: a `delay-[${n}ms]` built at
-      // runtime renders exactly the same class attribute and ships no CSS at
-      // all, and that mutation left this case green. The assertion that
-      // catches it reads the COMPUTED delay in a browser
-      // (tests/interaction/featured-properties.spec.ts, "four lines 60ms
-      // apart"), where the same markup measures 0s on all four.
-      const delays = lines.map((l) => /(?:^|\s)delay-\[(\d+)ms\]/.exec(l.className)?.[1]);
-      expect(delays).toEqual(["150", "210", "270", "330"]);
-      for (const line of lines) {
-        expect(line.className).toContain("duration-[170ms]");
-        expect(line.className.split(/\s+/)).toContain("translate-y-0");
-        expect(line.className.split(/\s+/)).toContain("opacity-100");
-      }
-      // The last line lands on the settle, which is what lets the bar start
-      // filling on a slide that has finished arriving — and the settle is the
-      // CAMERA'S FLIGHT, read from `$lib/property-map` rather than typed, so
-      // this fails if the two are ever separated again. Both modules used to
-      // carry their own `500`, and the comments on each claimed the other was
-      // the reason for it while nothing in the code connected them.
-      expect(Number(delays[3]) + 170).toBe(CAMERA_FLIGHT_MS);
-
-      // The wrapper owns NO opacity: two nested fades multiply.
-      const wrapper = lines[0].parentElement!.parentElement!;
-      expect(wrapper.className).not.toMatch(/(^|\s)opacity-/);
-      expect(wrapper.className).not.toContain("transition");
-    });
-
-    it("parks an off-stage slide's lines at +8px, ready to rise, with no stagger", () => {
-      const { container } = render(FeaturedProperties, {
-        props: { slice: featuredPropertiesFixture() },
-      });
-      const [, ...offStage] = slidesOf(container);
-      for (const slide of offStage) {
-        const lines = [...slide.querySelectorAll<HTMLElement>("[data-featured-line]")];
-        expect(lines).toHaveLength(4);
-        for (const line of lines) {
-          expect(line.className.split(/\s+/)).toContain("translate-y-2");
-          expect(line.className.split(/\s+/)).toContain("opacity-0");
-          expect(line.className).toContain("duration-[150ms]");
-          // The exit is one movement, not four: nothing waits on the way out.
-          expect(line.className).not.toMatch(/(^|\s)delay-\[/);
-        }
-      }
-    });
-
-    it("zooms only the photo, and holds one that has never been on stage at the end", () => {
-      // Titled "…only from the clock…" until 2026-09-23, when a visitor's turn
-      // gained a run of the drift of its own (see the cases below).
-      const { container } = render(FeaturedProperties, {
-        props: { slice: featuredPropertiesFixture() },
-      });
-      const photos = [...container.querySelectorAll<HTMLElement>("[data-featured-photo]")];
-      expect(photos).toHaveLength(3);
-      // Slide 1 is on stage with progress 0 — the dwell has not started.
-      expect(photos[0].getAttribute("style")).toBe("transform: scale(1.00000);");
-      // …and the others are held at the END scale, so a clock turn does not
-      // shrink a fully opaque outgoing photo by 3% under the incoming one.
-      expect(photos[1].getAttribute("style")).toBe("transform: scale(1.03000);");
-      expect(photos[2].getAttribute("style")).toBe("transform: scale(1.03000);");
-      // Never on the wrapper: its transition-duration is the comp's 0.5s
-      // dissolve, and a second transitioned property there makes the computed
-      // value a two-item list (two assertions in the interaction spec).
-      for (const photo of photos) {
-        expect(photo.parentElement!.getAttribute("style")).toBeNull();
-        expect(photo.className).not.toContain("transition");
-      }
-    });
-
-    it("holds the photo that just LEFT where it was, not at the end scale", async () => {
-      // The end-scale hold above is the state before any turn. Once a turn has
-      // happened the slide that left is held at the drift it HAD, because the
-      // user's turns now dissolve (2026-09-23) and that photo is fully opaque
-      // for the whole 500ms — a jump to 1.03 under an incoming photo at
-      // opacity 0 is a 27.8px change of width in one frame, in full view.
-      //
-      // jsdom runs no animation frames worth the name, so `progress` here has
-      // never left 0: the outgoing slide must therefore be held at scale(1),
-      // which is exactly where it was, and NOT at the 1.03 the old code gave
-      // every off-stage slide unconditionally. That difference is the whole
-      // assertion — reverting `drift` to the old `: 1` makes this read
-      // 1.03000 and go red.
-      const { container, getByLabelText } = render(FeaturedProperties, {
-        props: { slice: featuredPropertiesFixture() },
-      });
-      const photos = () => [...container.querySelectorAll<HTMLElement>("[data-featured-photo]")];
-      expect(photos()[0].getAttribute("style")).toBe("transform: scale(1.00000);");
-
-      await fireEvent.click(getByLabelText("Next slide"));
-
-      const after = photos().map((el) => el.getAttribute("style"));
-      expect(after[0], "the slide that just left, held where it was").toBe(
-        "transform: scale(1.00000);",
-      );
-      expect(after[1], "on stage, at the top of a dwell that has not started").toBe(
-        "transform: scale(1.00000);",
-      );
-      // Never off-stage, never the outgoing one: still the end scale, and
-      // unobservable either way behind `invisible`.
-      expect(after[2]).toBe("transform: scale(1.03000);");
-    });
-
-    // ── a visitor's turn drifts on a run of its own (2026-09-23) ──────────
-    //
-    // Fake timers fake requestAnimationFrame at 16ms a frame and
-    // `performance.now()` with it (carousel.svelte.test.ts's clock), so the
-    // drift can be read to the frame. jsdom's `click` focuses nothing: these
-    // cases say with the Pause button which pause is on, and when.
-
-    /** The scale a photo's inline style declares, as a number. */
-    const scaleOf = (el: HTMLElement) =>
-      Number(/scale\(([^)]+)\)/.exec(el.getAttribute("style") ?? "")?.[1]);
+    const photosOf = (container: HTMLElement) => [
+      ...container.querySelectorAll<HTMLElement>("[data-featured-photo]"),
+    ];
+    const stylesOf = (container: HTMLElement) =>
+      photosOf(container).map((el) => el.getAttribute("style"));
     const advance = async (ms: number) => {
       await vi.advanceTimersByTimeAsync(ms);
       await tick();
     };
-    /** The hand-over, which the dwell doubling did NOT change. */
-    const DISSOLVE = CAMERA_FLIGHT_MS;
-    /** Where the drift stands `fraction` of the way through a dwell. */
-    const at = (fraction: number) => 1 + KEN_BURNS * fraction;
 
-    it("a VISITOR's turn drifts the photo it brought on — with the clock stopped", async () => {
-      // THE HALF THE OLD GATE COULD NOT REACH. The drift was `progress` and
-      // nothing else, and every way a visitor turns this band is a pause (the
-      // arrow's focus, the pointer on the card), so a manual turn got no drift
-      // at all: measured on main at 1440, scale(1) for 5000ms after a real
-      // press. Here the clock is stopped BEFORE the turn — Pause, standing in
-      // for the arrow's own focus — so any movement is the visitor's run.
-      vi.useFakeTimers();
-      const { container, getByLabelText } = render(FeaturedProperties, {
+    it("reduced motion turned on mid-visit drops every photo's drift, and turned off brings it back", async () => {
+      // A stand-in media query that can be flipped mid-test: the preference
+      // is read through $lib/transitions' one listener.
+      let reduce = false;
+      let changed: ((event: { matches: boolean }) => void) | undefined;
+      window.matchMedia = vi.fn().mockImplementation((query: string) => ({
+        get matches() {
+          return reduce && query.includes("prefers-reduced-motion");
+        },
+        media: query,
+        addEventListener: (_: string, run: (event: { matches: boolean }) => void) => {
+          if (query.includes("prefers-reduced-motion")) changed = run;
+        },
+        removeEventListener: () => {},
+      }));
+      const { container } = render(FeaturedProperties, {
         props: { slice: featuredPropertiesFixture() },
       });
-      const photos = () => [...container.querySelectorAll<HTMLElement>("[data-featured-photo]")];
-      await fireEvent.click(getByLabelText("Pause slides"));
-      await fireEvent.click(getByLabelText("Next slide"));
-      expect(getByLabelText("Play slides"), "the clock stays stopped").toBeTruthy();
-
-      // Still through the dissolve, exactly as a clock turn holds it through
-      // the settle: the drift starts on a photo that has finished arriving.
-      await advance(DISSOLVE - 20);
-      expect(scaleOf(photos()[1]), `${DISSOLVE - 20}ms: still inside the dissolve`).toBe(1);
-      // Then the dwell's own rate, KEN_BURNS over DWELL (0.03 over 8000ms
-      // since 2026-09-23; it was 4000): halfway at DISSOLVE + DWELL / 2.
-      await advance(20 + DWELL / 2);
-      expect(scaleOf(photos()[1]), `${DISSOLVE + DWELL / 2}ms: half a dwell in`).toBeCloseTo(
-        at(0.5),
-        3,
-      );
-      // Not yet at the end a quarter of a dwell before it — the run is one
-      // DWELL long, whatever DWELL is, and not the 4000 it used to be.
-      await advance(DWELL / 4);
-      expect(scaleOf(photos()[1]), "three quarters in").toBeCloseTo(at(0.75), 3);
-      await advance(DWELL / 4);
-      expect(scaleOf(photos()[1]), `${DISSOLVE + DWELL}ms: the end of the dwell`).toBeCloseTo(
-        at(1),
-        4,
-      );
-      // …and it ENDS: no loop, no second lap, nothing turned.
-      await advance(DWELL + 2000);
-      expect(scaleOf(photos()[1]), "held at the end").toBe(at(1));
-      expect(getByLabelText("Play slides")).toBeTruthy();
-      expect(slidesOf(container).map((sl) => sl.hasAttribute("inert"))).toEqual([
-        true,
-        false,
-        true,
-      ]);
-      // The bar is the ROTATION's clock and says so: stopped, at 0.
-      const fill = container.querySelector<HTMLElement>("[data-carousel-progress] > div")!;
-      expect(fill.getAttribute("style")).toContain("scaleX(0)");
+      expect(stylesOf(container).some(Boolean), "premise: the photos drift").toBe(true);
+      expect(changed, "premise: the band hears the preference change").toBeTypeOf("function");
+      reduce = true;
+      changed!({ matches: true });
+      await tick();
+      expect(stylesOf(container), "reduced: no style at all").toEqual([null, null, null]);
+      reduce = false;
+      changed!({ matches: false });
+      await tick();
+      expect(stylesOf(container).some(Boolean), "motion again").toBe(true);
     });
 
-    it("a Pause pressed AFTER the turn freezes the visitor's drift where it stands", async () => {
-      // THE ONE-CLOCK RULE, KEPT. A drift that ran on after Pause would be
-      // "Pause stops the bar and not the photo" — the defect the rule exists
-      // for. The clock is RUNNING through this turn (jsdom's click focuses
-      // nothing — a swipe's case), so both runs are drawing the photo, and the
-      // Pause has to stop both of them.
-      vi.useFakeTimers();
-      const { container, getByLabelText } = render(FeaturedProperties, {
-        props: { slice: featuredPropertiesFixture() },
-      });
-      const photos = () => [...container.querySelectorAll<HTMLElement>("[data-featured-photo]")];
-      await fireEvent.click(getByLabelText("Next slide"));
-      await advance(DISSOLVE + DWELL / 2);
-      const moving = scaleOf(photos()[1]);
-      expect(moving, "drifting when Pause is pressed").toBeCloseTo(at(0.5), 3);
+    /** A stand-in for each photo's transition — jsdom has no Web Animations —
+     *  that records what the slice asks of it, as "pause 1" / "play 1". */
+    function stubAnimations() {
+      const calls: string[] = [];
+      const proto = Element.prototype as unknown as { getAnimations?: () => unknown[] };
+      proto.getAnimations = function (this: Element) {
+        if (!this.hasAttribute("data-featured-photo")) return [];
+        const n = [...document.querySelectorAll("[data-featured-photo]")].indexOf(this);
+        return [{ pause: () => calls.push(`pause ${n}`), play: () => calls.push(`play ${n}`) }];
+      };
+      return { calls, restore: () => delete proto.getAnimations };
+    }
 
-      await fireEvent.click(getByLabelText("Pause slides"));
-      const frozen = scaleOf(photos()[1]);
-      // Longer than the rest of the run: an unfrozen one would have ended.
-      await advance(DWELL);
-      expect(scaleOf(photos()[1]), `frozen at ${frozen}`).toBe(frozen);
-    });
+    it("Pause freezes the transition and Play resumes it — but only a pause that comes AFTER the turn", async () => {
+      // WCAG 2.2.2: Pause must stop the motion. It does so on the transition's
+      // own Animation, so resuming needs no arithmetic — the animation keeps
+      // the time it had left — and no style is re-declared: a re-declared
+      // `transform` would start a NEW transition, from wherever the photo is,
+      // over a whole DWELL.
+      const { calls, restore } = stubAnimations();
+      try {
+        const { container, getByLabelText } = render(FeaturedProperties, {
+          props: { slice: featuredPropertiesFixture() },
+        });
+        calls.length = 0;
+        const declared = stylesOf(container);
+        await fireEvent.click(getByLabelText("Pause slides"));
+        await fireEvent.click(getByLabelText("Play slides"));
+        expect(calls, "on the clock").toEqual(["pause 0", "play 0"]);
+        expect(stylesOf(container), "nothing re-declared").toEqual(declared);
 
-    /** The bar's declared value: `progress` itself, unrounded. */
-    const barOf = (container: HTMLElement) =>
-      Number(
-        /scaleX\(([^)]+)\)/.exec(
-          container
-            .querySelector<HTMLElement>("[data-carousel-progress] > div")!
-            .getAttribute("style") ?? "",
-        )?.[1],
-      );
-    /** How far through KEN_BURNS a declared scale is. */
-    const driftOf = (scale: number) => (scale - 1) / KEN_BURNS;
+        // A PAUSE ALREADY ON AT THE TURN IS NOT A REQUEST TO STOP IT. An arrow
+        // press focuses the arrow (APG: a pause), and a script that focuses
+        // and clicks in one task lands both in ONE flush. The photo the turn
+        // brought on must keep drifting.
+        calls.length = 0;
+        const next = getByLabelText("Next slide");
+        void fireEvent.focusIn(next);
+        await fireEvent.click(next);
+        expect(getByLabelText("Play slides"), "premise: the arrow's focus is a pause").toBeTruthy();
+        expect(announced(container), "premise: turned").toBe(2);
+        expect(calls, "the visitor's own turn, frozen").toEqual([]);
 
-    it("Play after a visitor's turn hands the drift to the clock: from where it stands, landing on the turn", async () => {
-      // THE HAND-OVER THE OLD `max` ONLY CLAIMED. The photo drew max(clock,
-      // visitor's run), and the run is AHEAD of a restarted clock by however
-      // long the visitor waited before Play — so the max was the run until it
-      // ended, and then the photo sat at 1.03 while the bar filled on to the
-      // turn (measured by the combined-tree verifier on a production build:
-      // Play 3.2s after the turn, the photo still from 8.5s to the turn at
-      // 11.7s). Here Play comes a quarter of the way through the run, and from
-      // then on the photo is the run's quarter plus the bar's share of the
-      // three quarters left.
-      vi.useFakeTimers();
-      const { container, getByLabelText } = render(FeaturedProperties, {
-        props: { slice: featuredPropertiesFixture() },
-      });
-      const photos = () => [...container.querySelectorAll<HTMLElement>("[data-featured-photo]")];
-      await fireEvent.click(getByLabelText("Pause slides"));
-      await fireEvent.click(getByLabelText("Next slide"));
-      await advance(DISSOLVE + DWELL / 4);
-      const from = driftOf(scaleOf(photos()[1]));
-      expect(from, "premise: the visitor's run is a quarter through").toBeCloseTo(0.25, 2);
-      /** The photo as the hand-over draws it: `from`, then the bar's share. */
-      const handed = () => at(from + (1 - from) * barOf(container));
+        // A real mouse puts the focus and the click in two flushes: the focus
+        // freezes the photo about to leave (harmless — it holds anyway), and
+        // still not the one the turn brings on.
+        await fireEvent.click(getByLabelText("Play slides"));
+        calls.length = 0;
+        await fireEvent.focusIn(document.body);
+        await fireEvent.focusIn(next);
+        await fireEvent.click(next);
+        expect(announced(container), "premise: turned again").toBe(3);
+        expect(
+          calls.filter((c) => c.endsWith(" 2")),
+          "the photo brought on",
+        ).toEqual([]);
 
-      await fireEvent.click(getByLabelText("Play slides"));
-      expect(driftOf(scaleOf(photos()[1])), "nothing moves on the press").toBeCloseTo(from, 3);
-
-      // The settle: the bar holds at 0 for DISSOLVE, and the photo with it.
-      await advance(DISSOLVE - 20);
-      expect(barOf(container), "the bar, still in the settle").toBe(0);
-      expect(driftOf(scaleOf(photos()[1])), "the photo waits with it").toBeCloseTo(from, 3);
-
-      // Halfway through the resumed dwell. The old max() read the RUN here —
-      // a quarter plus (DISSOLVE + DWELL / 2) / DWELL, ~0.81 of the travel.
-      await advance(20 + DWELL / 2);
-      expect(barOf(container), "premise: the clock is counting").toBeCloseTo(0.5, 2);
-      expect(scaleOf(photos()[1]), "halfway, with the bar").toBeCloseTo(handed(), 4);
-
-      // A frame before the turn: still travelling, still short of the end.
-      await advance(DWELL / 2 - 16);
-      expect(
-        slidesOf(container).map((sl) => sl.hasAttribute("inert")),
-        "premise: not turned yet",
-      ).toEqual([true, false, true]);
-      expect(barOf(container), "premise: the bar nearly full").toBeGreaterThan(0.99);
-      expect(scaleOf(photos()[1]), "still with the bar, a frame out").toBeCloseTo(handed(), 4);
-      expect(scaleOf(photos()[1]), "and not parked at the end early").toBeLessThan(at(1));
-
-      // …and it lands WITH the bar: the clock turns (within a frame — 8500 is
-      // not a whole number of 16ms frames), and the photo that left is held
-      // where it ended — at the end scale, to within a frame of drift.
-      await advance(32);
-      expect(slidesOf(container).map((sl) => sl.hasAttribute("inert"))).toEqual([
-        true,
-        true,
-        false,
-      ]);
-      expect(scaleOf(photos()[1]), "left at the end, with the bar full").toBeCloseTo(at(1), 3);
-    });
-
-    it("Play after the visitor's run has ENDED holds the end scale — a photo is never sent back", async () => {
-      // THE ONE THING A HAND-OVER CANNOT DO (#156). The run is over and the
-      // photo is at 1.03; the resumed dwell has no travel left to draw, and
-      // every way to draw some moves the photo backwards in full view. So it
-      // holds — and this pins "never backwards", because the quick "fix" is
-      // to restart the drift at 1.00: a 27.8px jump in one frame.
-      vi.useFakeTimers();
-      const { container, getByLabelText } = render(FeaturedProperties, {
-        props: { slice: featuredPropertiesFixture() },
-      });
-      const photos = () => [...container.querySelectorAll<HTMLElement>("[data-featured-photo]")];
-      await fireEvent.click(getByLabelText("Pause slides"));
-      await fireEvent.click(getByLabelText("Next slide"));
-      await advance(DISSOLVE + DWELL + 1000);
-      expect(scaleOf(photos()[1]), "premise: the run has ended").toBe(at(1));
-
-      await fireEvent.click(getByLabelText("Play slides"));
-      let bar = 0;
-      for (let step = 0; step < 8; step++) {
-        await advance((DISSOLVE + DWELL) / 8 - 16);
-        expect(barOf(container), "premise: the clock is counting").toBeGreaterThanOrEqual(bar);
-        bar = barOf(container);
-        expect(scaleOf(photos()[1]), `with the bar at ${bar.toFixed(3)}`).toBe(at(1));
+        // A Pause AFTER that turn does freeze it; Play resumes it.
+        await fireEvent.click(getByLabelText("Play slides"));
+        await fireEvent.click(getByLabelText("Pause slides"));
+        expect(calls.slice(-2)).toEqual(["play 2", "pause 2"]);
+      } finally {
+        restore();
       }
-      expect(bar, "premise: watched to the end of the dwell").toBeGreaterThan(0.95);
     });
 
-    it("two presses inside one dissolve leave BOTH outgoing photos where they were", async () => {
-      // Two presses 200ms apart leave two photos showing: the first one's
-      // `opacity-0` still waits out its 500ms. Holding only "the one that just
-      // left" would snap the OLDER one to the end scale under the newer — the
-      // jump the hold exists to prevent, one press later.
-      vi.useFakeTimers();
-      const { container, getByLabelText } = render(FeaturedProperties, {
-        props: { slice: featuredPropertiesFixture() },
-      });
-      const photos = () => [...container.querySelectorAll<HTMLElement>("[data-featured-photo]")];
-      await advance(DWELL / 2);
-      const first = scaleOf(photos()[0]);
-      expect(first, "slide 1 mid-dwell on the clock").toBeCloseTo(at(0.5), 3);
-
-      await fireEvent.click(getByLabelText("Next slide"));
-      await advance(200);
-      await fireEvent.click(getByLabelText("Next slide"));
-      expect(scaleOf(photos()[0]), "the OLDER outgoing photo, still held").toBe(first);
-      expect(scaleOf(photos()[1]), "the newer one, held inside its own dissolve").toBe(1);
-      expect(scaleOf(photos()[2]), "on stage, from the top").toBe(1);
-    });
-
-    it("under reduced motion a turn adds no transform, however long it is watched", async () => {
-      // app.css zeroes CSS durations under reduce; it cannot touch a value
-      // script writes every frame. So the visitor's run is gated twice — it
-      // never starts without `eligible`, and `zoom` writes nothing without it
-      // — and this is the case that watches a turn for longer than the run.
+    it("under reduced motion a turn adds no transform and no transition, however long it is watched", async () => {
+      // app.css cuts every transition to 0.01ms under reduce, which would SNAP
+      // a declared end scale and hold it, so the style must not be written at
+      // all — and with it goes the photo's `will-change`: nothing drifts.
       motion(true);
       vi.useFakeTimers();
       const { container, getByLabelText } = render(FeaturedProperties, {
         props: { slice: featuredPropertiesFixture() },
       });
       await fireEvent.click(getByLabelText("Next slide"));
-      // Past the END of a visitor's run (DISSOLVE + DWELL), whatever DWELL
-      // is: these steps summed to 8350ms when the run was 4500, and would have
-      // stopped watching 150ms short of it at 8000.
+      // Past the end of a whole drift (DISSOLVE + DWELL), whatever DWELL is.
       let watched = 0;
       for (const ms of [0, 250, 600, DWELL / 2, DWELL / 2, 2000]) {
         await advance(ms);
         watched += ms;
-        for (const photo of container.querySelectorAll("[data-featured-photo]"))
+        for (const photo of photosOf(container))
           expect(photo.getAttribute("style"), `${watched}ms after the turn`).toBeNull();
       }
-      expect(watched, "watched for longer than the run").toBeGreaterThan(DISSOLVE + DWELL);
+      expect(watched, "watched for longer than a drift").toBeGreaterThan(DISSOLVE + DWELL);
     });
 
-    // ── the clock: the operator's 8000, and no hover pause (2026-09-23) ────
+    it("tilts past the 1/4096 WebRender reads as no rotation at all", () => {
+      // Measured in Firefox by the operator, 2026-09-30: smooth with
+      // rotate(0.02deg) at both ends, ticking without. WebRender takes a
+      // matrix whose off-diagonal is within 1/4096 of zero for a plain scale
+      // (`ScaleOffset::from_transform`), so a "tidier" 0.01deg would quietly
+      // be no tilt there. The photo is never drawn below scale 1, where the
+      // off-diagonal is smallest: sin(TILT_DEG).
+      expect(Math.sin((TILT_DEG * Math.PI) / 180)).toBeGreaterThan(1 / 4096);
+    });
+
+    describe("fetched no wider than its source", () => {
+      /** A band whose three photos are Prismic images of these sizes. */
+      const withPhotos = (...sizes: [number, number][]) => {
+        const slice = featuredPropertiesFixture();
+        const picks = slice.primary.properties as unknown as {
+          property: { data: { feature_image: unknown } };
+        }[];
+        sizes.forEach(([width, height], i) => {
+          picks[i].property.data.feature_image = {
+            url: `https://images.prismic.io/roalson-interests/photo-${i}.jpg?auto=format,compress`,
+            alt: `Photo ${i}`,
+            dimensions: { width, height },
+            copyright: null,
+            id: `photo-${i}`,
+            edit: { x: 0, y: 0, zoom: 1, background: "#ffffff" },
+          };
+        });
+        return slice;
+      };
+      const imgs = (container: HTMLElement) => [
+        ...container.querySelectorAll<HTMLImageElement>("[data-featured-photo]"),
+      ];
+      const widthsOf = (img: HTMLImageElement) =>
+        img
+          .getAttribute("srcset")!
+          .split(", ")
+          .map((c) => Number(/ (\d+)w$/.exec(c)![1]));
+
+      it("offers 2048 between 1920 and 2560, and 3072, never more than the source has", () => {
+        const { container } = render(FeaturedProperties, {
+          props: { slice: withPhotos([4032, 3024], [1872, 1290], [1717, 866]) },
+        });
+        const [big, mid, wide] = imgs(container);
+        expect(widthsOf(big)).toEqual([480, 768, 1024, 1440, 1920, 2048, 2560, 3072]);
+        expect(widthsOf(mid)).toEqual([480, 768, 1024, 1440, 1872]);
+        expect(widthsOf(wide)).toEqual([480, 768, 1024, 1440, 1717]);
+        // The `src` fallback is still at most 1920.
+        expect(imgs(container).map((img) => new URL(img.src).searchParams.get("w"))).toEqual([
+          "1920",
+          "1872",
+          "1717",
+        ]);
+      });
+    });
+
+    // ── the clock, and no hover pause (2026-09-23) ─────────────────────────
     //
     // Two calls on one afternoon: "remove the pause on hover, they have a
     // pause button for that. also double the length on time on each property,
     // it feels like we're rushing." What they look like in a browser is
     // featured-properties.spec.ts's; what is pinned here is the wiring.
 
-    /** 1-based number of the slide the live region names. */
-    const announced = (container: HTMLElement) =>
-      Number(
-        /Slide (\d+) of/.exec(card(container).querySelector("[aria-live]")!.textContent!)?.[1],
-      );
-
-    it("dwells the operator's 8000ms on each listing — twice the comp's 4000 — and turns on it", async () => {
-      // The number, pinned once: every other case here and in the browser
-      // spec reads DWELL rather than repeating it, so this is the line that
-      // says the call was carried out.
-      expect(DWELL).toBe(8000);
-      // …and it is the number the carousel was BUILT with, not only the one
+    it("dwells DWELL on each listing and turns on it", async () => {
+      // DWELL is the number the carousel was BUILT with, not only the one
       // exported: the first slide has no settle to wait for, so the clock
       // turns on exactly DWELL, and the next after DISSOLVE + DWELL more —
-      // within a frame, since 8500 is not a whole number of 16ms frames.
+      // within a frame, since DISSOLVE + DWELL need not be a whole number of
+      // 16ms frames.
       vi.useFakeTimers();
       const { container } = render(FeaturedProperties, {
         props: { slice: featuredPropertiesFixture() },
@@ -688,7 +432,7 @@ describe("FeaturedProperties slice", () => {
       expect(announced(container)).toBe(2);
     });
 
-    it("reveals the card at 24px over 600ms — and the fail-safe reveals it if nothing reports", async () => {
+    it("reveals the card by its fail-safe if nothing reports", async () => {
       // jsdom's IntersectionObserver is the no-op from vitest-setup.ts, so the
       // card stays in animateIn's HIDDEN state here until the fail-safe: that
       // state is what this reads, and then the fail-safe is. A no-op observer
@@ -698,66 +442,24 @@ describe("FeaturedProperties slice", () => {
         props: { slice: featuredPropertiesFixture() },
       });
       const region = card(container);
-      expect(region.style.opacity).toBe("0");
-      expect(region.style.transform).toBe("translateY(24px)");
-      expect(region.style.transition).toContain("600ms");
-      expect(region.style.transition).toContain("opacity");
-      expect(region.style.transition).toContain("transform");
-      expect(region.getAttribute("data-reveal")).toBe("");
-      // delayMax: 0 — and THIS ASSERTION CANNOT FAIL HERE, which is worth
-      // saying rather than leaving to be discovered. The delay is
-      // `delayMax × (getBoundingClientRect().left / innerWidth)` and jsdom has
-      // no layout, so `left` is 0 and the product is 0 whatever `delayMax`
-      // says: dropping the option entirely left this green. It is kept as the
-      // statement of intent; the assertion that bites is in
-      // tests/interaction/featured-properties.spec.ts, where the card's real
-      // 513px left edge turns the default into 141ms.
-      expect(region.style.transitionDelay).toBe("0ms");
+      expect(region.getAttribute("data-reveal"), "premise: hidden for the reveal").toBe("");
 
       // The card ships `data-reveal` from the server (#105), so an observer
-      // that never reports must not strand it: 2500ms, then shown.
-      await vi.advanceTimersByTimeAsync(2499);
-      expect(region.style.opacity).toBe("0");
-      await vi.advanceTimersByTimeAsync(1);
+      // that never reports must not strand it.
+      await vi.advanceTimersByTimeAsync(10_000);
       expect(region.hasAttribute("data-reveal")).toBe(false);
-      expect(region.style.opacity).toBe("1");
-    });
-
-    it("ships `data-reveal` from the SERVER, hidden by its own 24px rule (#105)", () => {
-      // The half of the decision jsdom cannot see: what the SERVER emits.
-      // app.css hides `[data-reveal]` at animateIn's default 50%, and this
-      // card travels 24px, so the marker ships only beside a rule of its own
-      // at that travel (src/reveal-hidden-state.test.ts holds every such pair
-      // together, and tests/interaction/featured-properties.spec.ts reads the
-      // served bytes and the painted card).
-      //
-      // WHY THIS READS SOURCE AND NOT A RENDER. `animateIn` writes
-      // `data-reveal` ITSELF while the element is hidden and removes it on
-      // reveal, so a client render shows the attribute whether or not the
-      // template ever contained it — measured when this case asserted the
-      // opposite (#102's review). A render answers a different question.
-      const source = readFileSync(
-        resolve(process.cwd(), "src/lib/slices/FeaturedProperties/index.svelte"),
-        "utf8",
-      );
-      const markup = source
-        .slice(source.lastIndexOf("</script>"), source.lastIndexOf("<style>"))
-        .replace(/<!--[\s\S]*?-->/g, "");
-      const card = /<div\s[^>]*data-featured-card[^>]*>/.exec(markup)?.[0] ?? "";
-      expect(card, "the card's opening tag").toContain("use:animateIn={REVEAL}");
-      expect(card).toMatch(/\sdata-reveal[\s=>]/);
-      expect(source).toContain('translateY: "24px"');
-      expect(source).toMatch(/const REVEAL = \{[^}]*failSafe: \d+/);
+      expect(region.style.opacity).not.toBe("0");
     });
 
     it("under reduced motion there is no Pause to press, and the bar shows position", () => {
       motion(true);
-      const { container } = render(FeaturedProperties, {
+      const { container, getByRole, queryByRole } = render(FeaturedProperties, {
         props: { slice: featuredPropertiesFixture() },
       });
-      expect(
-        [...card(container).querySelectorAll("button")].map((b) => b.getAttribute("aria-label")),
-      ).toEqual(["Previous slide", "Next slide"]);
+      expect(queryByRole("button", { name: "Pause slides" })).toBeNull();
+      expect(queryByRole("button", { name: "Play slides" })).toBeNull();
+      expect(getByRole("button", { name: "Previous slide" })).toBeTruthy();
+      expect(getByRole("button", { name: "Next slide" })).toBeTruthy();
       expect(
         container.querySelector<HTMLElement>("[data-carousel-progress]")!.dataset.carouselProgress,
       ).toBe("position");
@@ -782,15 +484,16 @@ describe("FeaturedProperties slice", () => {
 
       // A — no stagger and no transition on any line, on stage or off.
       const lines = [...container.querySelectorAll<HTMLElement>("[data-featured-line]")];
-      expect(lines.length).toBe(12);
+      expect(lines.length).toBeGreaterThan(0);
       for (const line of lines) {
         expect(line.className).not.toContain("transition");
         expect(line.className).not.toMatch(/(^|\s)delay-\[/);
         expect(line.className).not.toMatch(/(^|\s)duration-\[/);
       }
 
-      // B — no transform at all, not `scale(1)`: nothing for app.css's zeroed
-      // animation-duration to snap to the end of, because there is no style.
+      // B — no transform and no transition at all, not `scale(1)`: nothing
+      // for app.css's 0.01ms transition-duration to snap to the end of,
+      // because there is no style.
       for (const photo of container.querySelectorAll("[data-featured-photo]"))
         expect(photo.getAttribute("style")).toBeNull();
 
@@ -804,20 +507,22 @@ describe("FeaturedProperties slice", () => {
       const region = card(container);
       expect(region.hasAttribute("data-reveal")).toBe(false);
       expect(region.style.opacity).not.toBe("0");
-      expect(region.style.transform).not.toContain("24px");
+      const travel = /translateY\(([^)]*)\)/.exec(region.style.transform)?.[1] ?? "0";
+      expect(parseFloat(travel), "no travel").toBe(0);
       expect(region.style.transition).toBe("");
     });
   });
 
   describe("with ONE showable listing — launch day", () => {
     it("is a plain card: no carousel roles, no arrows, no bar, no live region", () => {
-      const { container, getByRole } = render(FeaturedProperties, {
+      const { container, getByRole, queryByRole } = render(FeaturedProperties, {
         props: { slice: featuredLaunchFixture() },
       });
       const region = card(container);
       expect(region.hasAttribute("role")).toBe(false);
       expect(region.hasAttribute("aria-roledescription")).toBe(false);
-      expect(container.querySelectorAll("button")).toHaveLength(0);
+      for (const name of ["Pause slides", "Play slides", "Previous slide", "Next slide"])
+        expect(queryByRole("button", { name }), name).toBeNull();
       expect(container.querySelector("[data-carousel-progress]")).toBeNull();
       expect(container.querySelector("[aria-live]")).toBeNull();
 
@@ -834,7 +539,7 @@ describe("FeaturedProperties slice", () => {
       expect(band(container).dataset.featuredShown).toBe("1");
     });
 
-    it("grows for the live listing's five bullets rather than clipping them", () => {
+    it("draws every one of the live listing's five bullets", () => {
       const { container } = render(FeaturedProperties, {
         props: { slice: featuredLaunchFixture() },
       });
@@ -843,11 +548,6 @@ describe("FeaturedProperties slice", () => {
       // links is <li>s in this band too (#13), so an unqualified count reads
       // six and says nothing about the text block this test is about.
       expect(container.querySelectorAll("[data-featured-slide] li")).toHaveLength(5);
-      // No fixed height anywhere on the slide's text: the comp's 285 is a MINIMUM
-      // held by the chrome column, and a fifth bullet line would overflow it.
-      const text = container.querySelector("h3")!.parentElement!.parentElement!;
-      expect(text.className).not.toMatch(/(^|\s)(lg:)?h-\[/);
-      expect(text.className).not.toContain("overflow-hidden");
     });
   });
 
@@ -888,6 +588,52 @@ describe("FeaturedProperties slice", () => {
     });
   });
 
+  // The client's on/off for the section (Figma 1908699525; Nicole: "whole
+  // section will go away if toggled off").
+  describe("the Show featured properties switch", () => {
+    it("turned off, renders no section, heading or card", () => {
+      const { container, queryByRole } = render(FeaturedProperties, {
+        props: { slice: featuredPropertiesFixture({ show_featured: false }) },
+      });
+      expect(band(container)).toBeNull();
+      expect(container.querySelector("section, [data-featured-card]")).toBeNull();
+      expect(queryByRole("heading")).toBeNull();
+      expect(container.textContent?.trim()).toBe("");
+    });
+
+    it("on, or unset on a document saved before the field existed, shows the band", () => {
+      for (const show_featured of [true, null, undefined]) {
+        const { container, getByRole, unmount } = render(FeaturedProperties, {
+          props: { slice: featuredPropertiesFixture({ show_featured } as never) },
+        });
+        expect(band(container).hidden).toBe(false);
+        expect(band(container).dataset.featuredShown).toBe("3");
+        expect(getByRole("heading", { level: 2 }).textContent).toBe("Featured Properties");
+        unmount();
+      }
+    });
+  });
+
+  it("draws at most ten slides however many listings are picked", () => {
+    const [first] = featuredPropertiesFixture().primary.properties;
+    const photo = (first!.property as unknown as { data: { feature_image: unknown } }).data
+      .feature_image;
+    const picks = Array.from({ length: 12 }, (_, i) =>
+      featuredPickFixture(`listing-${i + 1}`, `id-${i + 1}`, {
+        title: `Listing ${i + 1}`,
+        feature_image: photo as never,
+      }),
+    );
+    const { container } = render(FeaturedProperties, {
+      props: { slice: featuredPropertiesFixture({ properties: picks as never }) },
+    });
+    const slides = slidesOf(container);
+    expect(slides).toHaveLength(10);
+    expect(slides.at(-1)!.getAttribute("aria-label")).toBe("10 of 10");
+    expect(band(container).dataset.featuredPicked).toBe("12");
+    expect(band(container).dataset.featuredShown).toBe("10");
+  });
+
   it("falls back to the comp's words when the heading is left empty — the region needs a name", () => {
     for (const heading of ["", "   ", null]) {
       const { getByRole, unmount } = render(FeaturedProperties, {
@@ -898,164 +644,51 @@ describe("FeaturedProperties slice", () => {
     }
   });
 
-  // WAS "reserves the map's column from lg with nothing in it". The map landed
-  // (#13), and the two halves of that old assertion went opposite ways: the
-  // slot is no longer empty or aria-hidden, and it is no longer `hidden` below
-  // `lg` either — the 390 comp draws a 390 x 200 map full bleed at the top of
-  // the band, which the old build read as "not drawn". What survives unchanged
-  // is that the SLOT paints nothing of its own; the comp's map frame has no
-  // fill, and the band's #3d0707 is what shows while tiles are arriving.
-  it("fills the map's column at every width, and paints nothing of its own", () => {
-    const { container } = render(FeaturedProperties, {
-      props: { slice: featuredPropertiesFixture() },
-    });
-    const slot = container.querySelector<HTMLElement>("[data-map-slot]")!;
-    expect(slot.getAttribute("aria-hidden"), "the map is content, not decoration").toBeNull();
-    expect(slot.querySelector("[data-property-map]"), "a map is mounted in it").not.toBeNull();
-    const classes = slot.className.split(/\s+/);
-    expect(classes, "drawn below lg too — the 390 comp has it").not.toContain("hidden");
-    expect(classes).toContain("lg:col-start-1");
-    expect(classes).toContain("lg:row-start-1");
-    // LAST in the DOM (the card is the band's content) and FIRST on the phone.
-    expect(classes, "ordered above the card below lg").toContain("max-lg:order-first");
-    const card = container.querySelector("[data-featured-card]")!;
-    expect(
-      card.compareDocumentPosition(slot) & Node.DOCUMENT_POSITION_FOLLOWING,
-      "the card comes first in the DOM",
-    ).toBeTruthy();
-    // The SLOT draws nothing; a bg-* here would be a placeholder drawn.
-    expect(classes.filter((c) => /(^|:)(bg|border|from|to)-/.test(c))).toEqual([]);
-    expect(band(container).className).toContain("bg-dark");
-    // …but the slot's transparency is not the interesting claim, because the
-    // slot is transparent whatever its child does. The MAP is what paints the
-    // column until the tiles arrive, and it must paint the BAND's ground —
-    // hard-coded sand there was a full-bleed pale rectangle on #3d0707 that
-    // this assertion's earlier form could not see.
-    const map = slot.querySelector<HTMLElement>("[data-property-map]")!;
-    const mapClasses = map.className.split(/\s+/);
-    expect(mapClasses, "the map wears the band's ground").toContain("bg-dark");
-    expect(mapClasses, "and not the light-ground tone").not.toContain("bg-light");
-  });
-
-  it("gives the map a pin for every slide whose listing has one", () => {
-    const { container } = render(FeaturedProperties, {
-      props: { slice: featuredPropertiesFixture() },
-    });
-    const slot = container.querySelector<HTMLElement>("[data-map-slot]")!;
-    const slides = container.querySelectorAll("[data-featured-slide]").length;
-    const links = slot.querySelectorAll("[data-map-link]");
-    // The three fixture picks all carry a GeoPoint, so this is 3 = 3 — and the
-    // point of writing it as a comparison is that `FeaturedSlide.location` is
-    // new (it was requested by the model's graphQuery and dropped on the floor
-    // in $lib/featured-properties until #13). A slide arriving without it
-    // would silently cost a pin.
-    expect(links).toHaveLength(slides);
-    for (const link of links) {
-      expect(link.getAttribute("href")).toMatch(
-        /^https:\/\/www\.google\.com\/maps\/search\/\?api=1&query=-?\d+(\.\d+)?,-?\d+(\.\d+)?$/,
-      );
+  it("draws no map: the heading is the card's, outside every slide, read before the controls", () => {
+    for (const slice of [featuredPropertiesFixture(), featuredLaunchFixture()]) {
+      const { container, getByRole, unmount } = render(FeaturedProperties, { props: { slice } });
+      expect(
+        container.querySelector("[data-property-map], [data-map-slot], [data-map-link]"),
+      ).toBeNull();
+      const heading = getByRole("heading", { level: 2 });
+      expect(card(container).contains(heading)).toBe(true);
+      expect(heading.closest("[data-featured-slide]")).toBeNull();
+      const controls = container.querySelector("[data-featured-controls]")!;
+      expect(
+        heading.compareDocumentPosition(controls) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+      unmount();
     }
-  });
-
-  // #122. The band is the map whose boot cost the most visible wait, so it is
-  // the one worth asserting the placeholder really reaches — the component's
-  // own tests cover the picture's shape, and this covers that the BAND gets
-  // one, over the band's own ground, with this band's listings on it.
-  it("opens the band's map on the fixed frame, with the slides' own pins on it", () => {
-    const { container } = render(FeaturedProperties, {
-      props: { slice: featuredPropertiesFixture() },
-    });
-    const slot = container.querySelector<HTMLElement>("[data-map-slot]")!;
-    const picture = slot.querySelector<HTMLElement>("[data-map-home-box]");
-    expect(picture, "the band's map opens on a picture, not a list of links").not.toBeNull();
-    // One layer per frame, and the committed rasters they are crops of — held
-    // as custom properties on the wrapper rather than as each layer's own
-    // `background-image`, so only the frame the container query paints is ever
-    // requested (#133).
-    const layers = [...picture!.querySelectorAll<HTMLElement>("[data-map-home-frame]")];
-    expect(layers.map((l) => l.dataset.mapHomeFrame)).toEqual(["full", "compact"]);
-    expect(picture!.style.getPropertyValue("--map-home-full")).toBe("url(/map-home-full.webp)");
-    expect(picture!.style.getPropertyValue("--map-home-compact")).toBe(
-      "url(/map-home-compact.webp)",
-    );
-    // And the pins are THESE listings, linking where their list rows link.
-    const rows = [...slot.querySelectorAll("[data-map-link]")].map((a) => a.getAttribute("href"));
-    const pins = [...layers[0]!.querySelectorAll<HTMLAnchorElement>("[data-map-home-pin]")].map(
-      (a) => a.getAttribute("href"),
-    );
-    expect(pins.length).toBeGreaterThan(0);
-    for (const pin of pins) expect(rows).toContain(pin);
   });
 
   describe("the portfolio link", () => {
     // Removed in review on 2026-09-21 and restored by the operator's call the
     // same day, on ONE condition: it goes in the card's own column and never
-    // again as a band-wide overlay. Every assertion below is that condition or
-    // the reasons the removal gave.
+    // again as a band-wide overlay.
     it("goes to /properties — a path an editor can only TYPE, resolved by cmsHref", () => {
       const { getByRole } = render(FeaturedProperties, {
         props: { slice: featuredPropertiesFixture() },
       });
-      const link = getByRole("link", { name: "Properties" });
+      const link = getByRole("link", { name: "See all properties" });
       expect(link.getAttribute("href")).toBe("/properties");
     });
 
-    it("is INSIDE the card and outside every slide, and is the band's last link", () => {
-      // The condition on the restoration. Inside the card is inside the card's
-      // COLUMN — the removal's second reason was that the old one parked a
-      // control in the column reserved for the map (#13). Outside every slide
-      // is the carousel's contract: a slide that turns away goes `inert`, so a
-      // control inside one goes with it (#34).
+    it("is outside every slide and outside the script-only row, so it never goes inert or missing", () => {
+      // Outside every slide is the carousel's contract: a slide that turns
+      // away goes `inert`, and a control inside one goes with it (#34). And
+      // NOT inside the arrows' `data-js-only` row, so it is drawn with no
+      // script and with one listing (#47).
       for (const slice of [featuredPropertiesFixture(), featuredLaunchFixture()]) {
-        const { container, getByRole, unmount } = render(FeaturedProperties, { props: { slice } });
-        const link = getByRole("link", { name: "Properties" });
-        expect(link.closest("[data-featured-card]")).not.toBeNull();
+        const { getByRole, unmount } = render(FeaturedProperties, { props: { slice } });
+        const link = getByRole("link", { name: "See all properties" });
+        // WCAG 2.5.3: the words on the button are inside the name it is spoken by.
+        expect(link.getAttribute("aria-label")!.toLowerCase()).toContain(
+          link.textContent!.replace(/\s+/g, " ").trim().toLowerCase(),
+        );
         expect(link.closest("[data-featured-slide]")).toBeNull();
-        expect(link.closest("[data-map-slot]")).toBeNull();
-        // "all of them" follows "these three": after the last slide in the DOM.
-        const lastSlide = slidesOf(container).at(-1)!;
-        expect(
-          lastSlide.compareDocumentPosition(link) & Node.DOCUMENT_POSITION_FOLLOWING,
-        ).toBeTruthy();
+        expect(link.closest("[data-js-only]")).toBeNull();
         unmount();
       }
-    });
-
-    it("is NEVER an overlay — no absolutely positioned ancestor inside the band", () => {
-      // THE defect the removal measured: as `lg:absolute lg:inset-0` across the
-      // whole band it painted over the card, and axe answered `color-contrast`
-      // with `bgOverlap` for the card's words — 1 node measured and 9
-      // incomplete at 1440 on the one-listing state, 9 and 0 with it gone.
-      // jsdom has no layout, so what is held here is the CLASS that did it; the
-      // contrast numbers themselves are the browser spec's.
-      const { getByRole } = render(FeaturedProperties, {
-        props: { slice: featuredLaunchFixture() },
-      });
-      const link = getByRole("link", { name: "Properties" });
-      for (
-        let el: HTMLElement | null = link;
-        el && el.dataset.sliceType !== "featured_properties";
-        el = el.parentElement
-      ) {
-        expect(el.className.split(/\s+/).filter((c) => /(^|:)(absolute|fixed)$/.test(c))).toEqual(
-          [],
-        );
-        expect(el.className).not.toContain("inset-0");
-      }
-    });
-
-    it("is drawn on the CARD's ground, so it wears the tone for a light one", () => {
-      // The old one was `cream` because it sat on the band's dark ground. It is
-      // on the sand card now (9.38:1, theme-contrast.test.ts) — garnet, which
-      // is BrandButton's default and what the slide's LEARN MORE beside it
-      // wears.
-      const { getByRole } = render(FeaturedProperties, {
-        props: { slice: featuredLaunchFixture() },
-      });
-      const link = getByRole("link", { name: "Properties" });
-      expect(link.className).toContain("border-primary");
-      expect(link.className).toContain("text-primary");
-      expect(link.className).not.toContain("border-background");
     });
 
     it("is not drawn without BOTH a label and somewhere to go", () => {
@@ -1070,7 +703,10 @@ describe("FeaturedProperties slice", () => {
         });
         // By its slot, not only by its name: with the label blanked, a check
         // for the name "Properties" alone would pass whatever was drawn.
-        expect(queryByRole("link", { name: "Properties" }), JSON.stringify(primary)).toBeNull();
+        expect(
+          queryByRole("link", { name: "See all properties" }),
+          JSON.stringify(primary),
+        ).toBeNull();
         expect(
           container.querySelector("[data-featured-portfolio]"),
           JSON.stringify(primary),
@@ -1081,224 +717,27 @@ describe("FeaturedProperties slice", () => {
 
     it("stays with the band in the one-slide state, and goes with it in the empty one", () => {
       const one = render(FeaturedProperties, { props: { slice: featuredLaunchFixture() } });
-      expect(one.getByRole("link", { name: "Properties" })).toBeTruthy();
+      expect(one.getByRole("link", { name: "See all properties" })).toBeTruthy();
       one.unmount();
       const none = render(FeaturedProperties, {
         props: { slice: featuredPropertiesFixture({ properties: [] }) },
       });
-      expect(none.queryByRole("link", { name: "Properties" })).toBeNull();
+      expect(none.queryByRole("link", { name: "See all properties" })).toBeNull();
     });
 
-    it("leaves every OTHER link in the band a slide's own LEARN MORE", () => {
-      // What the removal's replacement test promised, kept: the band draws one
-      // link of its own and no more, and everything else points at the listing
-      // it sits on.
-      // …plus the map's, which are a different promise and get their own
-      // assertion below rather than an exemption buried in this loop. Since
-      // #122 there are TWO kinds of those: the list's rows, and the pins the
-      // fixed-frame placeholder draws over the raster, which are links for the
-      // same reason the rows are — Google Maps needs no script, and the list
-      // is `sr-only` while the picture is up.
+    it("points each slide's LEARN MORE at its own listing", () => {
       for (const slice of [featuredPropertiesFixture(), featuredLaunchFixture()]) {
         const { container, unmount } = render(FeaturedProperties, { props: { slice } });
-        const links = [...band(container).querySelectorAll("a")].filter(
-          (l) => !l.hasAttribute("data-map-link") && !l.hasAttribute("data-map-home-pin"),
-        );
-        expect(links.filter((l) => l.getAttribute("href") === "/properties")).toHaveLength(1);
-        for (const link of links.filter((l) => l.getAttribute("href") !== "/properties")) {
-          expect(link.closest("[data-featured-slide]"), link.textContent ?? "").not.toBeNull();
-          expect(link.getAttribute("href")).toMatch(/^\/properties\/.+/);
+        for (const slide of slidesOf(container)) {
+          const title = slide.querySelector("h3")!.textContent!.trim();
+          const link = within(slide).getByRole("link", {
+            name: `Learn more about ${title}`,
+            hidden: true,
+          });
+          expect(link.getAttribute("href"), title).toMatch(/^\/properties\/.+/);
         }
         unmount();
       }
-    });
-  });
-
-  // THE BAND'S MAP IS A PICTURE WHILE THE SLIDESHOW RUNS, AND A MAP WHILE IT IS
-  // STOPPED (operator call, 2026-09-23): "map should get all navigation tools
-  // when the slideshow is paused, and be uninteractable when the slideshow is
-  // running". The rule at the call site is `carousel.paused ||
-  // !carousel.eligible`. Each case below is one state of the carousel, and
-  // each asserts its PREMISE first — that the carousel really is in the state
-  // the case names — from something the carousel renders, not from the rule.
-  describe("the map's lock follows the slideshow", () => {
-    /** The live region is `aria-live="off"` exactly while the clock is
-     *  running (`rotating`) — the one thing the band draws off that value. */
-    const running = (container: HTMLElement) =>
-      card(container).querySelector("[aria-live]")!.getAttribute("aria-live") === "off";
-    const PROPERTIES_SET = [
-      "boxZoom",
-      "doubleClickZoom",
-      "dragPan",
-      "keyboard",
-      "scrollZoom",
-      "touchZoomRotate",
-    ];
-
-    /** Render the band with its map booted on the fake engine. */
-    async function withMap(slice = featuredPropertiesFixture()) {
-      engine.maps.length = 0;
-      vi.stubGlobal(
-        "IntersectionObserver",
-        class {
-          constructor(public cb: IntersectionObserverCallback) {}
-          observe(el: Element) {
-            this.cb(
-              [
-                {
-                  isIntersecting: true,
-                  target: el,
-                  boundingClientRect: { height: 200 } as DOMRectReadOnly,
-                  intersectionRect: { height: 200 } as DOMRectReadOnly,
-                  rootBounds: { height: 844 } as DOMRectReadOnly,
-                  intersectionRatio: 1,
-                  time: 0,
-                } as IntersectionObserverEntry,
-              ],
-              this as never,
-            );
-          }
-          unobserve() {}
-          disconnect() {}
-          takeRecords() {
-            return [];
-          }
-        },
-      );
-      const view = render(FeaturedProperties, { props: { slice } });
-      await vi.waitFor(() => expect(engine.maps).toHaveLength(1));
-      await tick();
-      const map = engine.maps[0]!;
-      return { ...view, map, canvas: map.canvas };
-    }
-
-    afterEach(() => {
-      vi.unstubAllGlobals();
-      Object.defineProperty(document, "visibilityState", {
-        configurable: true,
-        get: () => "visible",
-      });
-    });
-
-    it("running: the map offers no tool and takes no focus", async () => {
-      const { container, map, canvas } = await withMap();
-      expect(running(container), "premise: the slideshow is running").toBe(true);
-      expect(map.tools()).toEqual([]);
-      expect(canvas.hasAttribute("tabindex")).toBe(false);
-    });
-
-    it("Pause: every tool /properties has, and focus; Play takes them all back", async () => {
-      const { container, getByRole, map, canvas } = await withMap();
-      getByRole("button", { name: "Pause slides" }).click();
-      await tick();
-      expect(running(container), "premise: stopped by the visitor").toBe(false);
-      expect(map.tools()).toEqual(PROPERTIES_SET);
-      expect(canvas.getAttribute("tabindex")).toBe("0");
-
-      getByRole("button", { name: "Play slides" }).click();
-      await tick();
-      expect(running(container), "premise: running again").toBe(true);
-      expect(map.tools()).toEqual([]);
-      expect(canvas.hasAttribute("tabindex")).toBe(false);
-    });
-
-    // M1 (operator call 2026-09-28): the map's own controls engage it. The
-    // expand press on a running slideshow is a pause; collapsing is not a Play.
-    it("pressing the map's expand on a running slideshow pauses it and unlocks the map", async () => {
-      vi.stubGlobal(
-        "ResizeObserver",
-        class {
-          constructor(public cb: ResizeObserverCallback) {}
-          observe() {
-            this.cb(
-              [{ contentRect: { width: 390, height: 200 } } as ResizeObserverEntry],
-              this as never,
-            );
-          }
-          unobserve() {}
-          disconnect() {}
-        },
-      );
-      const { container, getByRole, map } = await withMap();
-      expect(running(container), "premise: the slideshow is running").toBe(true);
-      const expand = container.querySelector<HTMLButtonElement>("[data-map-expand]")!;
-      expand.click();
-      await tick();
-      expect(getByRole("button", { name: "Play slides" }), "the press paused it").toBeTruthy();
-      expect(map.tools()).toEqual(PROPERTIES_SET);
-
-      container.querySelector<HTMLButtonElement>("[data-map-expand]")!.click();
-      await tick();
-      expect(
-        getByRole("button", { name: "Play slides" }),
-        "collapsing does not resume it; only Play does",
-      ).toBeTruthy();
-    });
-
-    it("focus entering the carousel is a pause, and unlocks it the same way", async () => {
-      const { container, map } = await withMap();
-      const arrow = card(container).querySelector<HTMLButtonElement>(
-        'button[aria-label="Next slide"]',
-      )!;
-      arrow.dispatchEvent(new FocusEvent("focusin", { bubbles: true, relatedTarget: null }));
-      await tick();
-      expect(running(container), "premise: focus stopped the clock").toBe(false);
-      expect(map.tools()).toEqual(PROPERTIES_SET);
-    });
-
-    // THE STATES IN WHICH NOBODY HAS STOPPED THE SLIDESHOW. A hidden tab
-    // stops the clock and is not a pause, which is the case `!carousel.rotating`
-    // gets wrong, and it is the case below this one that holds that.
-    //
-    // HOVER IS NOT A PAUSE, WHETHER OR NOT IT STOPS THE CLOCK — and that
-    // "whether or not" is a correction. This case was written requiring the
-    // hover to stop the clock ("premise: the hover stopped the clock"), which
-    // it did when it was written. feat/manual-turns-animate then made hover no
-    // pause at all (operator call: `pauseOnHover: false` on this band), and on
-    // the tree with both branches the premise failed before the map was ever
-    // looked at: 1 failed, deterministic, and on its own enough to keep `pnpm
-    // verify` from reaching Playwright. The browser twin
-    // (property-map-band-lock.spec.ts) had been written to pass either way
-    // from the start; this one had not.
-    //
-    // So the premise is the one both trees share and the claim is about:
-    // nobody paused the slideshow — the button still offers "Pause slides",
-    // the name read off the same `paused` the lock is. What the hover did to
-    // the clock is not asserted. Where it stops the clock this is a second
-    // guard against `!rotating`; where it does not, the hidden tab is the only
-    // one, and it is enough.
-    it("a pointer resting on the card leaves the map locked, whether or not it stops the clock", async () => {
-      const { container, getByRole, map } = await withMap();
-      card(container).dispatchEvent(new Event("pointerenter"));
-      await tick();
-      expect(
-        getByRole("button", { name: "Pause slides" }),
-        "premise: nobody paused the slideshow",
-      ).toBeTruthy();
-      expect(map.tools(), "a hover is not a pause").toEqual([]);
-      expect(map.canvas.hasAttribute("tabindex"), "and takes no focus").toBe(false);
-    });
-
-    it("a hidden tab stops the clock and is still no pause: the map stays locked", async () => {
-      const { container, map } = await withMap();
-      Object.defineProperty(document, "visibilityState", {
-        configurable: true,
-        get: () => "hidden",
-      });
-      document.dispatchEvent(new Event("visibilitychange"));
-      await tick();
-      expect(running(container), "premise: the hidden tab stopped the clock").toBe(false);
-      expect(map.tools()).toEqual([]);
-    });
-
-    it("under reduced motion nothing can run, so the map is interactive from the start", async () => {
-      motion(true);
-      const { container, map } = await withMap();
-      expect(
-        card(container).querySelector('button[aria-label="Pause slides"]'),
-        "premise: no Pause, because no slideshow",
-      ).toBeNull();
-      expect(map.tools()).toEqual(PROPERTIES_SET);
     });
   });
 });

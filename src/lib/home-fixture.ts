@@ -81,7 +81,8 @@ export function homeHeroFixture(primary: Partial<HomeHeroPrimary> = {}): Content
           spans: [],
         },
       ],
-      subheading: "A placeholder for a sentence to come.",
+      subheading:
+        "Straight answers, honest advice, and a team that represents your interests, not ours. Done right for over 40 years.",
       buttons: [
         { label: "Properties", link: { link_type: "Web", url: "/properties" } },
         { label: "Contact us", link: { link_type: "Web", url: "https:///contact" } },
@@ -219,7 +220,7 @@ export function partnersFixture(primary: Partial<PartnersPrimary> = {}): Content
     variation: "default",
     version: "initial",
     primary: {
-      eyebrow: "Our legacy",
+      eyebrow: "About Us",
       heading: [
         {
           type: "heading2",
@@ -450,17 +451,20 @@ export function featuredLaunchFixture(
 
 /** /dev/home's `?featured=` states: "one" is launch day (above); "none" is a
  *  band whose every pick is photo-less — the empty state, which draws no band
- *  at all. Anything else leaves the slices as they are. */
+ *  at all; "off" is the editor's Show switch turned off. Anything else leaves
+ *  the slices as they are. */
 export function stageFeatured<T extends { slice_type: string }>(
   slices: readonly T[],
   state: string | null,
 ): T[] {
-  if (state !== "one" && state !== "none") return [...slices];
+  if (state !== "one" && state !== "none" && state !== "off") return [...slices];
   const launch = featuredLaunchFixture();
   const staged =
     state === "one"
       ? launch
-      : featuredPropertiesFixture({ properties: launch.primary.properties.slice(1) as never });
+      : state === "off"
+        ? featuredPropertiesFixture({ show_featured: false })
+        : featuredPropertiesFixture({ properties: launch.primary.properties.slice(1) as never });
   return slices.map((slice) =>
     slice.slice_type === "featured_properties" ? (staged as unknown as T) : slice,
   );
