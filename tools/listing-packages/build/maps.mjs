@@ -1,5 +1,5 @@
 import { chromium } from 'playwright-core';
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync, renameSync, rmSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -150,6 +150,22 @@ async function render(page, job) {
     const taken = [...document.querySelectorAll('.pin .tag, .pin .dot, .ref')].map((el) => el.getBoundingClientRect()).map((r) => ({ l: r.left - 3, t: r.top - 3, r: r.right + 3, b: r.bottom + 3 }));
     const hit = (a) => taken.some((o) => !(a.r < o.l || a.l > o.r || a.b < o.t || a.t > o.b));
     const W = job.width, H = job.height;
+    const segs = [];
+    const boxHitsSeg = (b) => segs.some(([x1, y1, x2, y2]) => {
+      for (let i = 0; i <= 20; i++) {
+        const x = x1 + (x2 - x1) * i / 20, y = y1 + (y2 - y1) * i / 20;
+        if (x >= b.l && x <= b.r && y >= b.t && y <= b.b) return true;
+      }
+      return false;
+    });
+    const segHitsTaken = (x1, y1, x2, y2) => {
+      const n = Math.max(2, Math.ceil(Math.hypot(x2 - x1, y2 - y1) / 3));
+      for (let i = 0; i <= n; i++) {
+        const x = x1 + (x2 - x1) * i / n, y = y1 + (y2 - y1) * i / n;
+        if (taken.some((o) => x > o.l && x < o.r && y > o.t && y < o.b)) return true;
+      }
+      return false;
+    };
     const place = (el, pt, side = false) => {
       el.style.cssText = 'position:absolute;left:0;top:0;visibility:hidden;z-index:4';
       document.body.appendChild(el);
@@ -159,23 +175,30 @@ async function render(page, job) {
         [pt.x + 10, pt.y - h - 6], [pt.x - w - 10, pt.y - h - 6], [pt.x + 10, pt.y + 6], [pt.x - w - 10, pt.y + 6],
         [pt.x - w / 2, pt.y - h - 34], [pt.x - w / 2, pt.y + 34], [pt.x + 40, pt.y - h / 2], [pt.x - w - 40, pt.y - h / 2],
         [pt.x - w / 2, pt.y - h - 60], [pt.x - w / 2, pt.y + 60], [pt.x + 40, pt.y - h - 40], [pt.x - w - 40, pt.y - h - 40], [pt.x + 40, pt.y + 40], [pt.x - w - 40, pt.y + 40]];
-      let chosen = null;
+      const near = side ? 9 : 12;
       for (const [x, y] of cands) {
         const box = { l: x, t: y, r: x + w, b: y + h };
         if (box.l < 4 || box.t < 50 || box.r > W - 4 || box.b > H - 18) continue;
-        if (!hit(box)) { chosen = box; break; }
+        if (hit(box) || boxHitsSeg(box)) continue;
+        const cx = Math.max(box.l, Math.min(pt.x, box.r)), cy = Math.max(box.t, Math.min(pt.y, box.b));
+        const d = Math.hypot(cx - pt.x, cy - pt.y);
+        if (d > near) {
+          const k = Math.min(1, 12 / d);
+          if (segHitsTaken(pt.x + (cx - pt.x) * k, pt.y + (cy - pt.y) * k, cx, cy)) continue;
+        }
+        el.style.left = `${box.l}px`; el.style.top = `${box.t}px`; el.style.visibility = 'visible';
+        taken.push({ l: box.l - 3, t: box.t - 3, r: box.r + 3, b: box.b + 3 });
+        if (d > near) {
+          segs.push([pt.x, pt.y, cx, cy]);
+          const ln = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+          ln.setAttribute('style', `position:absolute;left:0;top:0;width:${W}px;height:${H}px;z-index:2;pointer-events:none`);
+          ln.innerHTML = `<line x1="${pt.x}" y1="${pt.y}" x2="${cx}" y2="${cy}" stroke="${GARNET}" stroke-width="1.2"/>`;
+          document.body.appendChild(ln);
+        }
+        return true;
       }
-      if (!chosen) { el.remove(); return false; }
-      el.style.left = `${chosen.l}px`; el.style.top = `${chosen.t}px`; el.style.visibility = 'visible';
-      taken.push({ l: chosen.l - 3, t: chosen.t - 3, r: chosen.r + 3, b: chosen.b + 3 });
-      const cx = Math.max(chosen.l, Math.min(pt.x, chosen.r)), cy = Math.max(chosen.t, Math.min(pt.y, chosen.b));
-      if (Math.hypot(cx - pt.x, cy - pt.y) > (side ? 9 : 12)) {
-        const ln = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-        ln.setAttribute('style', `position:absolute;left:0;top:0;width:${W}px;height:${H}px;z-index:2;pointer-events:none`);
-        ln.innerHTML = `<line x1="${pt.x}" y1="${pt.y}" x2="${cx}" y2="${cy}" stroke="${GARNET}" stroke-width="1.2"/>`;
-        document.body.appendChild(ln);
-      }
-      return true;
+      el.remove();
+      return false;
     };
     for (const t of job.traffic ?? []) {
       const pt = map.project([t.lon, t.lat]);
@@ -188,26 +211,33 @@ async function render(page, job) {
       const pt = map.project([b.lon, b.lat]);
       taken.push({ l: pt.x - 5, t: pt.y - 5, r: pt.x + 5, b: pt.y + 5 });
     }
-    for (const r of (job.refs ?? []).filter((r) => r.place)) {
+    const xrefs = (job.refs ?? []).filter((r) => r.place).map((r) => {
       const pt = map.project([r.lon, r.lat]);
       const ring = document.createElement('div'); ring.className = 'xring';
       ring.style.cssText = `position:absolute;left:${pt.x - 8}px;top:${pt.y - 8}px;width:12px;height:12px;border-radius:50%;border:2.5px solid ${GARNET};background:rgba(255,255,255,.6);z-index:3`;
       document.body.appendChild(ring);
       taken.push({ l: pt.x - 10, t: pt.y - 10, r: pt.x + 10, b: pt.y + 10 });
+      return { r, pt };
+    });
+    const dropped = [];
+    for (const { r, pt } of xrefs) {
       const el = document.createElement('div'); el.className = 'ref'; el.textContent = r.label;
-      place(el, pt);
-    }
-    for (const b of job.businesses ?? []) {
-      const el = document.createElement('div'); el.className = 'biz'; el.textContent = b.name;
-      place(el, map.project([b.lon, b.lat]), true);
+      if (!place(el, pt)) dropped.push(`intersection ${r.label}`);
     }
     for (const t of job.traffic ?? []) {
-      const pt = map.project([t.lon, t.lat]);
       const el = document.createElement('div'); el.className = 'aadt';
       el.innerHTML = `<b></b><span></span>`;
       el.querySelector('b').textContent = t.qty;
       el.querySelector('span').textContent = t.road;
-      place(el, pt);
+      if (!place(el, map.project([t.lon, t.lat]))) dropped.push(`count ${t.qty}`);
+    }
+    for (const b of job.businesses ?? []) {
+      const el = document.createElement('div'); el.className = 'biz'; el.textContent = b.name;
+      if (!place(el, map.project([b.lon, b.lat]), true)) dropped.push(`business ${b.name}`);
+    }
+    if (map.getSource('biz')) {
+      const keep = (job.businesses ?? []).filter((b) => !dropped.includes(`business ${b.name}`));
+      map.getSource('biz').setData({ type: 'FeatureCollection', features: keep.map((b) => ({ type: 'Feature', properties: { name: b.name }, geometry: { type: 'Point', coordinates: [b.lon, b.lat] } })) });
     }
     const blockers = [];
     for (const el of document.querySelectorAll('.pin .tag, .ref, .aadt, .aadt-dot, .xring, .biz')) {
@@ -253,28 +283,37 @@ async function render(page, job) {
     await new Promise((res) => { if (map.loaded() && map.areTilesLoaded()) res(); else map.once('idle', res); });
     await new Promise((res) => setTimeout(res, 400));
     await new Promise((res) => { if (map.areTilesLoaded()) res(); else map.once('idle', res); });
-    return { zoom: map.getZoom(), center: map.getCenter() };
+    return { zoom: map.getZoom(), center: map.getCenter(), dropped };
   }, { job, style, GARNET, DUST });
   mkdirSync(dirname(job.out), { recursive: true });
-  await page.screenshot({ path: job.out, type: job.out.endsWith('.png') ? 'png' : 'jpeg', quality: job.out.endsWith('.png') ? undefined : 90, clip: { x: 0, y: 0, width: job.width, height: job.height } });
+  await page.screenshot({ path: job.tmp, type: job.out.endsWith('.png') ? 'png' : 'jpeg', quality: job.out.endsWith('.png') ? undefined : 90, clip: { x: 0, y: 0, width: job.width, height: job.height } });
   return ok;
 }
 
 const TILECACHE = join(HERE, '..', 'tilecache', 'naip');
 mkdirSync(TILECACHE, { recursive: true });
-let naipFailures = 0;
+let currentJob = null;
+
+const isJpeg = (b) => b.length > 4 && b[0] === 0xff && b[1] === 0xd8 && b.subarray(-128).includes(Buffer.from([0xff, 0xd9]));
 
 async function cachedNaip(route) {
+  const job = currentJob;
   const url = route.request().url();
   const file = join(TILECACHE, createHash('sha1').update(url).digest('hex') + '.jpg');
-  if (existsSync(file)) return route.fulfill({ status: 200, contentType: 'image/jpeg', body: readFileSync(file) });
+  if (existsSync(file)) {
+    const body = readFileSync(file);
+    if (isJpeg(body)) return route.fulfill({ status: 200, contentType: 'image/jpeg', body });
+  }
   for (let attempt = 1; attempt <= 6; attempt++) {
     if (attempt > 1) await new Promise((res) => setTimeout(res, [0, 0, 5000, 15000, 30000, 60000, 60000][attempt]));
+    if (job !== currentJob) return route.abort().catch(() => {});
     try {
       const res = await route.fetch({ timeout: 150000 });
       const body = await res.body();
-      if (res.status() === 200 && (res.headers()['content-type'] ?? '').startsWith('image/')) {
-        writeFileSync(file, body);
+      if (res.status() === 200 && isJpeg(body)) {
+        const tmp = `${file}.${process.pid}.tmp`;
+        writeFileSync(tmp, body);
+        renameSync(tmp, file);
         return route.fulfill({ status: 200, contentType: 'image/jpeg', body });
       }
       console.error('naip', res.status(), 'attempt', attempt);
@@ -283,8 +322,8 @@ async function cachedNaip(route) {
     }
   }
   console.error('naip gave up', url.slice(0, 160));
-  naipFailures++;
-  return route.abort();
+  if (job && job === currentJob) job.failures++;
+  return route.abort().catch(() => {});
 }
 
 const jobs = JSON.parse(readFileSync(process.argv[2], 'utf8'));
@@ -308,14 +347,27 @@ for (const job of jobs) {
   const spec = JSON.stringify(job);
   if (!force && existsSync(job.out) && existsSync(stamp) && readFileSync(stamp, 'utf8') === spec) { console.log('skip', job.out); continue; }
   const t = Date.now();
+  rmSync(stamp, { force: true });
+  const run = { failures: 0 };
+  currentJob = run;
+  job.tmp = `${job.out}.${process.pid}.tmp${job.out.endsWith('.png') ? '.png' : '.jpg'}`;
   try {
-    naipFailures = 0;
-    const r = await render(pages[job.dpr], job);
-    if (naipFailures) throw new Error(`${naipFailures} imagery tiles failed; not stamped, so the next run re-renders it`);
+    const rendering = render(pages[job.dpr], job);
+    rendering.catch(() => {});
+    const r = await Promise.race([rendering, new Promise((_, rej) => { run.watch = setInterval(() => run.failures && rej(new Error(`${run.failures} imagery tiles failed; the previous image is kept and nothing is stamped, so the next run re-renders it`)), 1000); })]);
+    if (r.dropped.length) console.error('dropped', job.out, r.dropped.join('; '));
+    if (r.dropped.some((x) => x.startsWith('intersection '))) throw new Error(`no room for ${r.dropped.join('; ')}; nothing is stamped`);
+    if (run.failures) throw new Error(`${run.failures} imagery tiles failed; the previous image is kept and nothing is stamped, so the next run re-renders it`);
+    renameSync(job.tmp, job.out);
     writeFileSync(stamp, spec);
     console.log('ok', job.out, `z=${r.zoom.toFixed(2)}`, `${Date.now() - t}ms`);
   } catch (e) {
     console.error('FAIL', job.out, e.message);
+    process.exitCode = 1;
+  } finally {
+    clearInterval(run.watch);
+    rmSync(job.tmp, { force: true });
+    currentJob = null;
   }
 }
 await browser.close();

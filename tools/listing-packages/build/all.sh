@@ -5,8 +5,9 @@ python3 build/fetch_originals.py
 python3 build/extract.py
 python3 build/flood_verdicts.py
 python3 build/make_jobs.py
-for k in 0 1 2; do node build/maps.mjs "build/jobs-$k.json" & done
-wait
+pids=()
+for k in 0 1 2; do node build/maps.mjs "build/jobs-$k.json" & pids+=($!); done
+for p in "${pids[@]}"; do wait "$p"; done
 python3 build/postfix.py
 UIDS=$(python3 -c "import json;print(' '.join(sorted(json.load(open('build/filenames.json')))))")
 for u in $UIDS; do python3 build/pkg.py "$u"; done

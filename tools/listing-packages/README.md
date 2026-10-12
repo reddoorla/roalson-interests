@@ -91,16 +91,24 @@ live in the generator, so a rebuild picks them up:
 Two per-site fields in `geo/sites.json` feed the area and aerial maps:
 
 - `intersection` (`lat`, `lon`, `label`): the closest major intersection. Both maps are framed
-  to include it and label it. `python3 lib/intersection.py <lat> <lon>` lists the nearest
-  crossings of motorway, trunk and primary roads in the OpenFreeMap tiles, nearest first;
-  check its answer on the map before storing it.
-- `businesses`: names to label first on the area map (as spelled in OpenStreetMap). The map
-  adds supermarkets, DIY stores, hospitals and the like from the same tiles (`lib/pois.py`), up
-  to six, each with its own leader line. Names and pins only, no logos.
+  to include it and label it. `python3 lib/intersection.py <lat> <lon>` lists crossings of
+  motorway, trunk and primary roads in the OpenFreeMap tiles: those with a motorway or trunk
+  first, then nearest first. Check its answer on the map before storing it.
+- `businesses`: names to label first on the Area Map with Traffic Counts (as spelled in
+  OpenStreetMap). The map adds supermarkets, DIY stores, hospitals and the like from the same
+  tiles (`lib/pois.py`), up to six, labelled after the traffic counts and the intersection; a
+  business whose label does not fit is left off, dot and all. Names and pins only, no logos.
+  The plain Area Map fallback shows OpenStreetMap's own POI labels instead.
 
 `build/heroes.json` maps each listing to its Land ID share link (Matt Howard, 2026-10-12) and
 the path its hero image will have, `build/assets/heroes/<uid>.jpg`. When that file exists the
-cover uses it instead of the NAIP aerial. 25331 IH-10 West keeps its photography.
+cover uses it instead of the NAIP aerial. A listing whose plan sets a `cover` (photography:
+25331 IH-10 West, 101 W Commerce, 13810 Lookout Road, Urban Loop Road) keeps it.
+
+`maps.mjs` caches NAIP tiles in `tilecache/naip/` and retries a failed tile with backoff. A
+map with a tile that never arrived is not written or stamped, and the process exits non-zero,
+so `all.sh` stops before `pkg.py`. `postfix.json` still names the retired close aerial at
+Seguin; whether the wide aerial there needs the same seam patch has not been checked.
 
 ## Known limits
 

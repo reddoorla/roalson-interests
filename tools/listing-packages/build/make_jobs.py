@@ -31,7 +31,7 @@ for uid, s in sites.items():
     for j in J:
         if j['out'].endswith('/flood.jpg'):
             j['legend'] = LEG.replace('{verdict}', verdicts[uid]['verdict']).replace('{approx}', ' (approximate boundary)' if geom else ' (site pin)')
-        if s.get('extra_pins') and (j['out'].endswith('/aerial.jpg') or j['out'].endswith('/cover.jpg')) and j.get('bounds'):
+        if s.get('extra_pins') and (j['out'].endswith('/aerial-wide.jpg') or j['out'].endswith('/cover.jpg')) and j.get('bounds'):
             b = j['bounds']
             for p in s['extra_pins']:
                 b = [min(b[0], p['lat']), min(b[1], p['lon']), max(b[2], p['lat']), max(b[3], p['lon'])]

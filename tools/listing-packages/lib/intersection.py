@@ -1,7 +1,6 @@
-import json, math, os, subprocess, sys
+import json, math, os, re, subprocess, sys
 from itertools import combinations
-import mapbox_vector_tile as mvt
-from shapely.geometry import LineString, MultiLineString, Point
+from shapely.geometry import LineString, Point
 from shapely.ops import unary_union
 
 TILEJSON = 'https://tiles.openfreemap.org/planet'
@@ -24,72 +23,81 @@ def _lonlat(x, y, px, py, z, ext):
     return lon, lat
 
 
-def _fetch(url, z, x, y):
+def meters(a, b):
+    return math.hypot((a[0] - b[0]) * 111320, (a[1] - b[1]) * 111320 * math.cos(math.radians(a[0])))
+
+
+def tile_url():
     os.makedirs(CACHE, exist_ok=True)
+    p = os.path.join(CACHE, 'tilejson.json')
+    if not os.path.exists(p):
+        b = subprocess.run(['curl', '-sS', '-f', '-m', '60', TILEJSON], check=True, capture_output=True).stdout
+        json.loads(b)
+        open(p + '.tmp', 'wb').write(b)
+        os.replace(p + '.tmp', p)
+    return json.load(open(p))['tiles'][0]
+
+
+def fetch_tile(z, x, y):
+    import mapbox_vector_tile as mvt
     p = os.path.join(CACHE, f'{z}-{x}-{y}.pbf')
     if not os.path.exists(p):
-        b = subprocess.run(['curl', '-sS', '-f', '-m', '60', url.format(z=z, x=x, y=y)], check=True, capture_output=True).stdout
-        open(p, 'wb').write(b)
-    return open(p, 'rb').read()
+        b = subprocess.run(['curl', '-sS', '-f', '-m', '60', tile_url().format(z=z, x=x, y=y)], check=True, capture_output=True).stdout
+        open(p + '.tmp', 'wb').write(b)
+        os.replace(p + '.tmp', p)
+    return mvt.decode(open(p, 'rb').read(), default_options={'y_coord_down': True})
 
 
 def road_key(p):
-    ref = (p.get('ref') or '').upper().replace('TX ', '').replace('SH ', '').replace('IH ', '').replace('I ', '').strip()
+    ref = (p.get('ref') or '').upper()
+    ref = re.sub(r'\bBUSINESS\b', 'BUS', ref)
+    ref = re.sub(r'^(TX|SH|IH|I)[ -]+', '', ref).strip()
     return ref or (p.get('name') or '').strip()
 
 
 def major_roads(lat, lon, radius_tiles=2):
-    url = json.loads(subprocess.run(['curl', '-sS', '-f', '-m', '60', TILEJSON], check=True, capture_output=True, text=True).stdout)['tiles'][0]
-    url = url.replace('{z}', '{z}').replace('{x}', '{x}').replace('{y}', '{y}')
     x0, y0 = _tile(lat, lon, Z)
-    names, lines = {}, {}
+    roads = {}
     for dx in range(-radius_tiles, radius_tiles + 1):
         for dy in range(-radius_tiles, radius_tiles + 1):
             x, y = x0 + dx, y0 + dy
-            t = mvt.decode(_fetch(url, Z, x, y), default_options={'y_coord_down': True})
-            for layer in ('transportation', 'transportation_name'):
-                L = t.get(layer)
-                if not L:
+            L = fetch_tile(Z, x, y).get('transportation_name')
+            if not L:
+                continue
+            ext = L.get('extent', 4096)
+            for f in L['features']:
+                p = f['properties']
+                if p.get('class') not in MAJOR:
                     continue
-                ext = L.get('extent', 4096)
-                for f in L['features']:
-                    p = f['properties']
-                    if p.get('class') not in MAJOR or p.get('ramp') == 1 or p.get('brunnel') == 'ramp':
-                        continue
-                    g = f['geometry']
-                    parts = g['coordinates'] if g['type'] == 'MultiLineString' else [g['coordinates']] if g['type'] == 'LineString' else []
-                    if layer == 'transportation_name':
-                        k = road_key(p)
-                        if k:
-                            names.setdefault(k, {'name': p.get('name'), 'ref': p.get('ref'), 'class': p['class'], 'lines': []})
-                            names[k]['lines'] += [LineString([_lonlat(x, y, a, b, Z, ext) for a, b in part]) for part in parts if len(part) > 1]
-    return names
+                g = f['geometry']
+                parts = g['coordinates'] if g['type'] == 'MultiLineString' else [g['coordinates']] if g['type'] == 'LineString' else []
+                k = road_key(p)
+                if not k:
+                    continue
+                r = roads.setdefault(k, {'name': p.get('name'), 'ref': p.get('ref'), 'class': p['class'], 'lines': []})
+                r['lines'] += [LineString([_lonlat(x, y, a, b, Z, ext) for a, b in part]) for part in parts if len(part) > 1]
+    return roads
 
 
-def nearest_intersection(lat, lon, radius_tiles=2):
-    roads = major_roads(lat, lon, radius_tiles)
-    site = Point(lon, lat)
-    best = []
-    for (ka, a), (kb, b) in combinations(roads.items(), 2):
+def crossings(lat, lon, radius_tiles=2):
+    """Crossings of two different major roads, those involving a motorway or trunk first, then nearest first."""
+    site = (lat, lon)
+    out = []
+    for (ka, a), (kb, b) in combinations(major_roads(lat, lon, radius_tiles).items(), 2):
         if not a['lines'] or not b['lines']:
             continue
-        ga, gb = unary_union(a['lines']), unary_union(b['lines'])
-        hit = ga.intersection(gb)
+        hit = unary_union(a['lines']).intersection(unary_union(b['lines']))
         if hit.is_empty:
-            ga2 = ga.buffer(0.0004)
-            hit = ga2.intersection(gb)
-            if hit.is_empty:
-                continue
-        pt = hit.representative_point() if hit.geom_type != 'Point' else hit
-        pts = [g for g in getattr(hit, 'geoms', [hit])]
-        pt = min((g.centroid for g in pts), key=lambda c: c.distance(site))
+            continue
+        pts = [g.centroid for g in getattr(hit, 'geoms', [hit])]
+        pt = min(pts, key=lambda c: meters((c.y, c.x), site))
         rank = MAJOR[a['class']] + MAJOR[b['class']]
-        d = pt.distance(site) * 111320 * math.cos(math.radians(lat))
-        best.append({'lat': round(pt.y, 6), 'lon': round(pt.x, 6), 'm': round(d), 'rank': rank, 'a': a['ref'] or a['name'], 'b': b['ref'] or b['name'], 'a_class': a['class'], 'b_class': b['class']})
-    return sorted(best, key=lambda r: (-(r['rank'] >= 4), r['m']))
+        out.append({'lat': round(pt.y, 6), 'lon': round(pt.x, 6), 'm': round(meters((pt.y, pt.x), site)), 'rank': rank,
+                    'a': a['ref'] or a['name'], 'b': b['ref'] or b['name'], 'a_class': a['class'], 'b_class': b['class']})
+    return sorted(out, key=lambda r: (r['rank'] < 4, r['m']))
 
 
 if __name__ == '__main__':
     lat, lon = float(sys.argv[1]), float(sys.argv[2])
-    for r in nearest_intersection(lat, lon)[:6]:
+    for r in crossings(lat, lon)[:6]:
         print(json.dumps(r))

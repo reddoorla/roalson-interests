@@ -85,6 +85,8 @@ def para(text):
 
 def row_html(r):
     label = LABEL_STANDARD.get(r['label'].strip().lower(), r['label'])
+    if label != r['label'] and str(r.get('text', '')).strip().rstrip(':').lower() == label.lower():
+        r = {k: v for k, v in r.items() if k != 'text'}
     if label.lower().startswith('investment opportunity') and r.get('pairs'):
         cells = ''.join(f'<div><div class="ik">{esc(k)}</div><div class="iv">{esc(v)}</div></div>' for k, v in r['pairs'])
         return f'<div class="item invest"><div class="h">{esc(label)}</div><div class="g">{cells}</div></div>'
@@ -150,8 +152,8 @@ def build(uid, plan):
     overlays = []
 
     # cover
-    hero = hero_for(uid)
-    cover_img = hero or plan.get('cover') or os.path.join(maps, 'cover.jpg')
+    hero = None if plan.get('cover') else hero_for(uid)
+    cover_img = plan.get('cover') or hero or os.path.join(maps, 'cover.jpg')
     cover_uri = img_uri(cover_img, max_px=2600, quality=86, enhance=False if hero else plan.get('cover_enhance', False))
     title = d['title']
     long = ' long' if len(title) > 30 else ''
@@ -190,9 +192,9 @@ def build(uid, plan):
     def mapimg(name):
         return img_uri(os.path.join(maps, name), max_px=2400, quality=87)
     accessed = geo.get('accessed', TODAY)
-    boundary_note = geo.get('boundary_note') or ('Boundary shown is approximate, drawn from county appraisal district parcel data (Texas StratMap, ' + TODAY + '); refer to the survey for exact lines.') if geo['geom'] else 'Site location shown by pin; refer to the survey and exhibits for tract boundaries.'
+    boundary_note = geo.get('boundary_note') or ('Boundary shown is approximate, drawn from county appraisal district parcel data (Texas StratMap, ' + TODAY + '); refer to a survey for exact lines.') if geo['geom'] else 'Site location shown by pin; refer to a survey for tract boundaries.'
     pages.append(exhibit_page(W, 'Exhibit', 'Location Map', f'<div class="frame"><img src="{mapimg("location.jpg")}" alt="Location map"></div>', cap='Map data © OpenMapTiles © OpenStreetMap contributors.'))
-    if os.path.exists(os.path.join(maps, 'traffic.jpg')) and meta['traffic']:
+    if meta['traffic']:
         yr = max(t['year'] for t in meta['traffic'])
         top = sorted([t for t in meta['traffic'] if t.get('label')], key=lambda t: t['d'])[:3]
         facts = ''.join(f'<div><div class="fk">{esc(t["label"])}</div><div class="fv">{t["qty"]:,} vehicles per day<br><span style="color:#8e8676;font-size:9.5px">{t["d"] / 1609.34:.1f} mi from site · {t["year"]}</span></div></div>' for t in top)
