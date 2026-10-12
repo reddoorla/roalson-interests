@@ -48,6 +48,9 @@ def qr_uri(url):
     return 'data:image/svg+xml;base64,' + base64.b64encode(s.encode()).decode()
 
 
+LABEL_STANDARD = {'investment': 'Price'}
+
+
 STD_EMAIL = {'bart wilson': 'bwilson@roalson.com', 'matt howard': 'mhoward@roalson.com'}
 
 
@@ -81,7 +84,7 @@ def para(text):
 
 
 def row_html(r):
-    label = r['label']
+    label = LABEL_STANDARD.get(r['label'].strip().lower(), r['label'])
     if label.lower().startswith('investment opportunity') and r.get('pairs'):
         cells = ''.join(f'<div><div class="ik">{esc(k)}</div><div class="iv">{esc(v)}</div></div>' for k, v in r['pairs'])
         return f'<div class="item invest"><div class="h">{esc(label)}</div><div class="g">{cells}</div></div>'
@@ -123,6 +126,13 @@ def exhibit_page(W, eyebrow, title, inner, cap='', date='', cls=''):
             f'<h2 class="x">{esc(title)}</h2><div class="hair"></div>{inner}{c}{foot(W)}</section>')
 
 
+def hero_for(uid):
+    p = A('build', 'heroes.json')
+    h = json.load(open(p)).get(uid, {}) if os.path.exists(p) else {}
+    img = h.get('image')
+    return A(img) if img and os.path.exists(A(img)) else None
+
+
 def build(uid, plan):
     d = json.load(open(A('data', f'{uid}.json')))
     d = apply_corrections(uid, d)
@@ -140,11 +150,12 @@ def build(uid, plan):
     overlays = []
 
     # cover
-    cover_img = plan.get('cover') or os.path.join(maps, 'cover.jpg')
-    cover_uri = img_uri(cover_img, max_px=2600, quality=86, enhance=plan.get('cover_enhance', False))
+    hero = hero_for(uid)
+    cover_img = hero or plan.get('cover') or os.path.join(maps, 'cover.jpg')
+    cover_uri = img_uri(cover_img, max_px=2600, quality=86, enhance=False if hero else plan.get('cover_enhance', False))
     title = d['title']
     long = ' long' if len(title) > 30 else ''
-    chips = f'<span>{esc(d["transaction"])}</span><i></i><span>{esc(d["type_label"])}</span>'
+    chips = f'<span>{esc(d["transaction"])}</span>'
     tag = f'<div class="tag">{esc(d["eyebrow"])}</div>' if d.get('eyebrow') and d['eyebrow'].lower() != d['transaction'].lower() else ''
     size = f' &nbsp;·&nbsp; {esc(d["size_headline"])}' if d.get('size_headline') else ''
     cover_credit = ''
@@ -158,14 +169,14 @@ def build(uid, plan):
  <div class="city">{esc(d["city"])}{size}</div>
  {tag}
 </div>
-<div class="photo"><img class="ph" src="{cover_uri}" alt="" style="object-position:{plan.get('cover_pos', '50% 50%')}"></div>
+<div class="photo"><img class="ph" src="{cover_uri}" alt="" style="object-position:{'50% 50%' if hero else plan.get('cover_pos', '50% 50%')}"></div>
 <img class="mark" src="{WATER}" alt="">
 {cover_credit}
 <div class="pgc">{{PG}}</div>
 </section>''')
 
     # spec pages (flowed by JS)
-    spec_eyebrow = d['eyebrow'] or f'{d["transaction"]} — {d["type_label"]}'
+    spec_eyebrow = d['eyebrow'] or d['transaction']
     items = ''.join(row_html(r) for r in d['rows'])
     if d.get('comments'):
         items += '<div class="item row"><div class="k">Comments</div><div class="v"><ul class="bul">' + ''.join(f'<li><span>{esc(x)}</span></li>' for x in d['comments']) + '</ul></div></div>'
@@ -181,19 +192,19 @@ def build(uid, plan):
     accessed = geo.get('accessed', TODAY)
     boundary_note = geo.get('boundary_note') or ('Boundary shown is approximate, drawn from county appraisal district parcel data (Texas StratMap, ' + TODAY + '); refer to the survey for exact lines.') if geo['geom'] else 'Site location shown by pin; refer to the survey and exhibits for tract boundaries.'
     pages.append(exhibit_page(W, 'Exhibit', 'Location Map', f'<div class="frame"><img src="{mapimg("location.jpg")}" alt="Location map"></div>', cap='Map data © OpenMapTiles © OpenStreetMap contributors.'))
-    pages.append(exhibit_page(W, 'Exhibit', 'Area Map', f'<div class="frame"><img src="{mapimg("area.jpg")}" alt="Area map"></div>', cap='Map data © OpenMapTiles © OpenStreetMap contributors. ' + boundary_note))
-    pages.append(exhibit_page(W, 'Exhibit', 'Aerial Map', f'<div class="frame"><img src="{mapimg("aerial.jpg")}" alt="Aerial map"></div>', cap='Imagery: USGS The National Map, NAIP / high-resolution orthoimagery (public domain). Labels © OpenStreetMap contributors. ' + boundary_note))
-    pages.append(exhibit_page(W, 'Exhibit', 'Aerial Map — Surrounding Area', f'<div class="frame"><img src="{mapimg("aerial-wide.jpg")}" alt="Aerial map, surrounding area"></div>', cap='Imagery: USGS The National Map, NAIP / high-resolution orthoimagery (public domain). Road labels © OpenStreetMap contributors.'))
     if os.path.exists(os.path.join(maps, 'traffic.jpg')) and meta['traffic']:
         yr = max(t['year'] for t in meta['traffic'])
         top = sorted([t for t in meta['traffic'] if t.get('label')], key=lambda t: t['d'])[:3]
         facts = ''.join(f'<div><div class="fk">{esc(t["label"])}</div><div class="fv">{t["qty"]:,} vehicles per day<br><span style="color:#8e8676;font-size:9.5px">{t["d"] / 1609.34:.1f} mi from site · {t["year"]}</span></div></div>' for t in top)
-        pages.append(exhibit_page(W, 'Exhibit', 'Traffic Counts', f'<div class="frame"><img src="{mapimg("traffic.jpg")}" alt="Traffic count map"></div><div class="facts">{facts}</div>',
-                                  cap=f'Annual average daily traffic (AADT), {yr} counts published by the Texas Department of Transportation (TxDOT), for count stations near the site; two-way totals. The specification pages quote the counts in the original package. Map data © OpenMapTiles © OpenStreetMap contributors.'))
+        pages.append(exhibit_page(W, 'Exhibit', 'Area Map with Traffic Counts', f'<div class="frame"><img src="{mapimg("traffic.jpg")}" alt="Area map with traffic counts"></div><div class="facts">{facts}</div>',
+                                  cap=f'Annual average daily traffic (AADT), {yr} counts published by the Texas Department of Transportation (TxDOT), for count stations near the site; two-way totals. The specification pages quote the counts in the original package. Map data © OpenMapTiles © OpenStreetMap contributors. ' + boundary_note))
+    else:
+        pages.append(exhibit_page(W, 'Exhibit', 'Area Map', f'<div class="frame"><img src="{mapimg("area.jpg")}" alt="Area map"></div>', cap='Map data © OpenMapTiles © OpenStreetMap contributors. ' + boundary_note))
+    pages.append(exhibit_page(W, 'Exhibit', 'Aerial Map', f'<div class="frame"><img src="{mapimg("aerial-wide.jpg")}" alt="Aerial map"></div>', cap='Imagery: USGS The National Map, NAIP / high-resolution orthoimagery (public domain). Road labels © OpenStreetMap contributors. ' + boundary_note))
     pages.append(exhibit_page(W, 'Exhibit', 'FEMA Flood Zones', f'<div class="frame"><img src="{mapimg("flood.jpg")}" alt="FEMA flood zone map"></div>',
                               cap=f'<b>{esc(flood["verdict"])}</b> Source: FEMA National Flood Hazard Layer, accessed {accessed}. Imagery: USGS; labels © OpenStreetMap contributors. Panel {esc(", ".join(x for x in (meta.get("dfirm") or []) if x) or "n/a")}. For general reference only — verify with a current FEMA FIRMette, survey or elevation certificate.'))
 
-    for ex in plan.get('carry', []):
+    for ex in [x for x in plan.get('carry', []) if x.get('kind') != 'survey' or plan.get('keep_survey')]:
         uri = img_uri(ex['img'], max_px=3000, quality=90)
         iw, ih = Image.open(ex['img'] if os.path.isabs(ex['img']) else A(ex['img'])).size
         pages.append(exhibit_page(W, ex.get('eyebrow', 'Exhibit'), ex['title'], f'<div class="frame white"><img class="contain" src="{uri}" alt="{esc(ex["title"])}"></div>', cap=esc(ex.get('cap', '')), cls='land' if iw > ih * 1.2 else ''))

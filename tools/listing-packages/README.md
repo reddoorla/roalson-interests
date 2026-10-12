@@ -38,7 +38,7 @@ public GIS services and prints with the pre-installed Chromium.
 
 ## Regenerating
 
-Needs Python 3 with `pymupdf pillow shapely qrcode markdown numpy`, Node 22, and in `build/`
+Needs Python 3 with `pymupdf pillow shapely qrcode markdown numpy mapbox-vector-tile`, Node 22, and in `build/`
 a local `npm i playwright-core@1.56.1 maplibre-gl@5 qrcode` (gitignored). In a cloud container
 Chromium must also trust the egress proxy CA (`~/.pki/nssdb`, see issue #164).
 
@@ -72,6 +72,35 @@ The documents for the people involved are made separately:
   every file's size afterwards.
 
 `review/` also holds both QA reports, with every finding marked fixed or open.
+
+## Package standards (Roalson markup, 2026-10-12)
+
+The client's marked-up 116 Old San Antonio Road package set these for every listing. They
+live in the generator, so a rebuild picks them up:
+
+- Cover: no property-type chip after the transaction ("For Sale", not "For Sale · Land"), a
+  larger contact block, and the Ri watermark sized so its right edge lines up under the
+  Roalson Interests wordmark (`--mark-w` in `template.css`).
+- Spec pages: a row labelled "Investment" prints as "Price" (`LABEL_STANDARD` in `pkg.py`).
+  The data files keep the broker's wording.
+- Exhibits, in order: Location Map, Area Map with Traffic Counts, Aerial Map, FEMA Flood
+  Zones. The close street map and the close aerial are gone. A site with no TxDOT station
+  falls back to a plain Area Map.
+- No survey page unless `build/plans.json` sets `"keep_survey": true` for that listing.
+
+Two per-site fields in `geo/sites.json` feed the area and aerial maps:
+
+- `intersection` (`lat`, `lon`, `label`): the closest major intersection. Both maps are framed
+  to include it and label it. `python3 lib/intersection.py <lat> <lon>` lists the nearest
+  crossings of motorway, trunk and primary roads in the OpenFreeMap tiles, nearest first;
+  check its answer on the map before storing it.
+- `businesses`: names to label first on the area map (as spelled in OpenStreetMap). The map
+  adds supermarkets, DIY stores, hospitals and the like from the same tiles (`lib/pois.py`), up
+  to six, each with its own leader line. Names and pins only, no logos.
+
+`build/heroes.json` maps each listing to its Land ID share link (Matt Howard, 2026-10-12) and
+the path its hero image will have, `build/assets/heroes/<uid>.jpg`. When that file exists the
+cover uses it instead of the NAIP aerial. 25331 IH-10 West keeps its photography.
 
 ## Known limits
 

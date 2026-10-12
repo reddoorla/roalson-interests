@@ -1,5 +1,6 @@
 import { chromium } from 'playwright-core';
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -79,6 +80,7 @@ function pageHtml(job) {
   .aadt b{font:700 12px/1.1 Archivo,Arial,sans-serif;color:${GARNET};letter-spacing:.3px}
   .aadt span{font:600 8px/1.2 Archivo,Arial,sans-serif;color:#6f6a60;letter-spacing:.6px;text-transform:uppercase;white-space:nowrap}
   .aadt-dot{width:9px;height:9px;border-radius:50%;background:${GARNET};border:2px solid #fff;box-shadow:0 0 0 1px ${GARNET}}
+  .biz{font:700 11px/1 Archivo,Arial,sans-serif;letter-spacing:.3px;color:${GARNET};background:rgba(255,255,255,.92);padding:4px 6px 3px;white-space:nowrap}
   .ref{font:700 10px/1 Archivo,Arial,sans-serif;letter-spacing:.8px;text-transform:uppercase;color:${GARNET};background:rgba(255,255,255,.88);padding:5px 7px 4px;border:1px solid ${GARNET}}
   .legend{position:absolute;left:14px;bottom:14px;background:rgba(255,255,255,.94);padding:10px 12px;font:400 10.5px/1.45 'Atkinson Hyperlegible Next',Arial,sans-serif;color:#2D2D2D;display:flex;flex-direction:column;gap:5px;max-width:330px}
   .legend b{font:700 9.5px/1.2 Archivo,Arial,sans-serif;letter-spacing:.8px;text-transform:uppercase;color:${GARNET};margin-bottom:2px}
@@ -125,7 +127,11 @@ async function render(page, job) {
       map.addLayer({ id: 'site-halo', type: 'line', source: 'site', paint: { 'line-color': DUST, 'line-width': job.kind === 'brand' ? 0 : 6, 'line-opacity': 0.95 } });
       map.addLayer({ id: 'site-line', type: 'line', source: 'site', paint: { 'line-color': GARNET, 'line-width': job.kind === 'brand' ? 2.5 : 3 } });
     }
-    for (const r of job.refs ?? []) {
+    if (job.businesses?.length) {
+      map.addSource('biz', { type: 'geojson', data: { type: 'FeatureCollection', features: job.businesses.map((b, i) => ({ type: 'Feature', properties: { name: b.name, k: i, f: b.featured ? 1 : 0 }, geometry: { type: 'Point', coordinates: [b.lon, b.lat] } })) } });
+      map.addLayer({ id: 'biz-dot', type: 'circle', source: 'biz', paint: { 'circle-radius': 3.4, 'circle-color': GARNET, 'circle-stroke-color': '#fff', 'circle-stroke-width': 1.4 } });
+    }
+    for (const r of (job.refs ?? []).filter((r) => !r.place)) {
       const el = document.createElement('div'); el.className = 'ref'; el.textContent = r.label;
       new maplibregl.Marker({ element: el }).setLngLat([r.lon, r.lat]).addTo(map);
     }
@@ -144,41 +150,67 @@ async function render(page, job) {
     const taken = [...document.querySelectorAll('.pin .tag, .pin .dot, .ref')].map((el) => el.getBoundingClientRect()).map((r) => ({ l: r.left - 3, t: r.top - 3, r: r.right + 3, b: r.bottom + 3 }));
     const hit = (a) => taken.some((o) => !(a.r < o.l || a.l > o.r || a.b < o.t || a.t > o.b));
     const W = job.width, H = job.height;
-    for (const t of job.traffic ?? []) {
-      const pt = map.project([t.lon, t.lat]);
-      const dot = document.createElement('div'); dot.className = 'aadt-dot';
-      dot.style.cssText = `position:absolute;left:${pt.x - 6.5}px;top:${pt.y - 6.5}px;z-index:3`;
-      document.body.appendChild(dot);
-      taken.push({ l: pt.x - 7, t: pt.y - 7, r: pt.x + 7, b: pt.y + 7 });
-      const el = document.createElement('div'); el.className = 'aadt';
-      el.innerHTML = `<b></b><span></span>`;
-      el.querySelector('b').textContent = t.qty;
-      el.querySelector('span').textContent = t.road;
+    const place = (el, pt, side = false) => {
       el.style.cssText = 'position:absolute;left:0;top:0;visibility:hidden;z-index:4';
       document.body.appendChild(el);
       const w = el.offsetWidth, h = el.offsetHeight;
-      const cands = [[pt.x - w / 2, pt.y - h - 9], [pt.x - w / 2, pt.y + 9], [pt.x + 10, pt.y - h / 2], [pt.x - w - 10, pt.y - h / 2],
+      const sides = [[pt.x + 8, pt.y - h / 2], [pt.x - w - 8, pt.y - h / 2]];
+      const cands = [...(side ? sides : []), [pt.x - w / 2, pt.y - h - 9], [pt.x - w / 2, pt.y + 9], [pt.x + 10, pt.y - h / 2], [pt.x - w - 10, pt.y - h / 2],
         [pt.x + 10, pt.y - h - 6], [pt.x - w - 10, pt.y - h - 6], [pt.x + 10, pt.y + 6], [pt.x - w - 10, pt.y + 6],
-        [pt.x - w / 2, pt.y - h - 34], [pt.x - w / 2, pt.y + 34], [pt.x + 40, pt.y - h / 2], [pt.x - w - 40, pt.y - h / 2]];
+        [pt.x - w / 2, pt.y - h - 34], [pt.x - w / 2, pt.y + 34], [pt.x + 40, pt.y - h / 2], [pt.x - w - 40, pt.y - h / 2],
+        [pt.x - w / 2, pt.y - h - 60], [pt.x - w / 2, pt.y + 60], [pt.x + 40, pt.y - h - 40], [pt.x - w - 40, pt.y - h - 40], [pt.x + 40, pt.y + 40], [pt.x - w - 40, pt.y + 40]];
       let chosen = null;
       for (const [x, y] of cands) {
         const box = { l: x, t: y, r: x + w, b: y + h };
         if (box.l < 4 || box.t < 50 || box.r > W - 4 || box.b > H - 18) continue;
         if (!hit(box)) { chosen = box; break; }
       }
-      if (!chosen) { el.remove(); continue; }
+      if (!chosen) { el.remove(); return false; }
       el.style.left = `${chosen.l}px`; el.style.top = `${chosen.t}px`; el.style.visibility = 'visible';
       taken.push({ l: chosen.l - 3, t: chosen.t - 3, r: chosen.r + 3, b: chosen.b + 3 });
       const cx = Math.max(chosen.l, Math.min(pt.x, chosen.r)), cy = Math.max(chosen.t, Math.min(pt.y, chosen.b));
-      if (Math.hypot(cx - pt.x, cy - pt.y) > 12) {
+      if (Math.hypot(cx - pt.x, cy - pt.y) > (side ? 9 : 12)) {
         const ln = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
         ln.setAttribute('style', `position:absolute;left:0;top:0;width:${W}px;height:${H}px;z-index:2;pointer-events:none`);
         ln.innerHTML = `<line x1="${pt.x}" y1="${pt.y}" x2="${cx}" y2="${cy}" stroke="${GARNET}" stroke-width="1.2"/>`;
         document.body.appendChild(ln);
       }
+      return true;
+    };
+    for (const t of job.traffic ?? []) {
+      const pt = map.project([t.lon, t.lat]);
+      const dot = document.createElement('div'); dot.className = 'aadt-dot';
+      dot.style.cssText = `position:absolute;left:${pt.x - 6.5}px;top:${pt.y - 6.5}px;z-index:3`;
+      document.body.appendChild(dot);
+      taken.push({ l: pt.x - 7, t: pt.y - 7, r: pt.x + 7, b: pt.y + 7 });
+    }
+    for (const b of job.businesses ?? []) {
+      const pt = map.project([b.lon, b.lat]);
+      taken.push({ l: pt.x - 5, t: pt.y - 5, r: pt.x + 5, b: pt.y + 5 });
+    }
+    for (const r of (job.refs ?? []).filter((r) => r.place)) {
+      const pt = map.project([r.lon, r.lat]);
+      const ring = document.createElement('div'); ring.className = 'xring';
+      ring.style.cssText = `position:absolute;left:${pt.x - 8}px;top:${pt.y - 8}px;width:12px;height:12px;border-radius:50%;border:2.5px solid ${GARNET};background:rgba(255,255,255,.6);z-index:3`;
+      document.body.appendChild(ring);
+      taken.push({ l: pt.x - 10, t: pt.y - 10, r: pt.x + 10, b: pt.y + 10 });
+      const el = document.createElement('div'); el.className = 'ref'; el.textContent = r.label;
+      place(el, pt);
+    }
+    for (const b of job.businesses ?? []) {
+      const el = document.createElement('div'); el.className = 'biz'; el.textContent = b.name;
+      place(el, map.project([b.lon, b.lat]), true);
+    }
+    for (const t of job.traffic ?? []) {
+      const pt = map.project([t.lon, t.lat]);
+      const el = document.createElement('div'); el.className = 'aadt';
+      el.innerHTML = `<b></b><span></span>`;
+      el.querySelector('b').textContent = t.qty;
+      el.querySelector('span').textContent = t.road;
+      place(el, pt);
     }
     const blockers = [];
-    for (const el of document.querySelectorAll('.pin .tag, .ref, .aadt')) {
+    for (const el of document.querySelectorAll('.pin .tag, .ref, .aadt, .aadt-dot, .xring, .biz')) {
       const r = el.getBoundingClientRect();
       const lngLat = map.unproject([r.left + r.width / 2, r.top + r.height / 2]);
       blockers.push({ type: 'Feature', properties: { w: Math.ceil(r.width + 8), h: Math.ceil(r.height + 6) }, geometry: { type: 'Point', coordinates: [lngLat.lng, lngLat.lat] } });
@@ -228,6 +260,33 @@ async function render(page, job) {
   return ok;
 }
 
+const TILECACHE = join(HERE, '..', 'tilecache', 'naip');
+mkdirSync(TILECACHE, { recursive: true });
+let naipFailures = 0;
+
+async function cachedNaip(route) {
+  const url = route.request().url();
+  const file = join(TILECACHE, createHash('sha1').update(url).digest('hex') + '.jpg');
+  if (existsSync(file)) return route.fulfill({ status: 200, contentType: 'image/jpeg', body: readFileSync(file) });
+  for (let attempt = 1; attempt <= 6; attempt++) {
+    if (attempt > 1) await new Promise((res) => setTimeout(res, [0, 0, 5000, 15000, 30000, 60000, 60000][attempt]));
+    try {
+      const res = await route.fetch({ timeout: 150000 });
+      const body = await res.body();
+      if (res.status() === 200 && (res.headers()['content-type'] ?? '').startsWith('image/')) {
+        writeFileSync(file, body);
+        return route.fulfill({ status: 200, contentType: 'image/jpeg', body });
+      }
+      console.error('naip', res.status(), 'attempt', attempt);
+    } catch (e) {
+      console.error('naip', e.message.slice(0, 80), 'attempt', attempt);
+    }
+  }
+  console.error('naip gave up', url.slice(0, 160));
+  naipFailures++;
+  return route.abort();
+}
+
 const jobs = JSON.parse(readFileSync(process.argv[2], 'utf8'));
 const force = process.argv.includes('--force');
 const browser = await chromium.launch({
@@ -239,6 +298,7 @@ const dprs = [...new Set(jobs.map((j) => j.dpr ?? 3))];
 const pages = {};
 for (const d of dprs) {
   const ctx = await browser.newContext({ deviceScaleFactor: d });
+  await ctx.route(/imagery\.nationalmap\.gov\/.*exportImage/, cachedNaip);
   pages[d] = await ctx.newPage();
   pages[d].on('pageerror', (e) => console.error('pageerror', e.message));
 }
@@ -249,7 +309,9 @@ for (const job of jobs) {
   if (!force && existsSync(job.out) && existsSync(stamp) && readFileSync(stamp, 'utf8') === spec) { console.log('skip', job.out); continue; }
   const t = Date.now();
   try {
+    naipFailures = 0;
     const r = await render(pages[job.dpr], job);
+    if (naipFailures) throw new Error(`${naipFailures} imagery tiles failed; not stamped, so the next run re-renders it`);
     writeFileSync(stamp, spec);
     console.log('ok', job.out, `z=${r.zoom.toFixed(2)}`, `${Date.now() - t}ms`);
   } catch (e) {

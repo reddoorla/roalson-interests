@@ -7136,6 +7136,17 @@
   ],
   "note": "Boundary is the broker's red outline from the intake-form aerial, georeferenced to USGS NAIP Plus by its 4,000 ft scale bar (1.6431 m/px) and FFT cross-correlation (peak z = 11): 61.41 ac traced vs 61.81 ac stated. County parcel 14916 (74.91 ac) at the pin is larger than the listing.",
   "accessed": "October 2026",
-  "boundary_note": "Boundary shown is approximate, traced from the broker's site aerial and fitted to USGS imagery (October 2026); refer to the survey for exact lines."
+  "boundary_note": "Boundary shown is approximate, traced from the broker's site aerial and fitted to USGS imagery (October 2026); refer to the survey for exact lines.",
+  "intersection": {
+   "lat": 29.780001,
+   "lon": -98.737831,
+   "label": "IH 10 & SH 46",
+   "source": "lib/intersection.py: nearest crossing of major OSM roads (OpenFreeMap 2026-10-04), 1.29 km from the site; the intersection Erik named on 2026-10-12"
+  },
+  "businesses": [
+   "The Home Depot",
+   "Whataburger",
+   "Chili's"
+  ]
  }
 }

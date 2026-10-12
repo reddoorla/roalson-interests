@@ -9,7 +9,7 @@ straighten nothing else. Keep the broker's wording, numbers, punctuation and typ
   "uid": "loop-1604-at-dove-canyon",
   "variant": "land", // "land" or "existing" (existing = improved property with a building)
   "transaction": "For Sale", // "For Sale" | "For Lease" | "For Sale or Lease" (from the PDF; if the PDF never says, use "For Sale" and note it)
-  "type_label": "Land", // cover chip after the divider: "Land" or "Existing Property"
+  "type_label": "Land", // "Land" or "Existing Property": PDF metadata only; not printed in the package since 2026-10-12
   "eyebrow": "Commercial Development Site", // the headline/tagline above the address on the original cover (Title Case); "" if none
   "title": "Loop 1604 at Dove Canyon", // property name / cross streets / address, Title Case, keep numbers exactly
   "city": "San Antonio, Texas", // City, State as printed (spell out Texas if abbreviated "TX" -> keep as printed but note)

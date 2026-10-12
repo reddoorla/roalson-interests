@@ -2,6 +2,7 @@ import json,math,sys,os
 sys.path.insert(0,os.path.dirname(__file__))
 from flood import flood_geojson
 from traffic import stations
+from pois import businesses
 SA=(29.4246,-98.4951)
 W,H=672,760
 CREDIT_BRAND='© OpenMapTiles © OpenStreetMap contributors'
@@ -46,7 +47,9 @@ def choose_stations(st,limit=7,sep=190):
         out.append(x)
         if len(out)>=limit: break
     return sorted(out,key=lambda x:x['d'])
-def jobs_for(uid,site,outdir,title,geom=None,cover=True,date='September 2026',extra_pins=None,pin_label='Site'):
+def with_point(b,p):
+    return [min(b[0],p['lat']),min(b[1],p['lon']),max(b[2],p['lat']),max(b[3],p['lon'])]
+def jobs_for(uid,site,outdir,title,geom=None,cover=True,date='September 2026',extra_pins=None,pin_label='Site',intersection=None,featured=()):
     lat,lon=site
     J=[]
     poly=fc(geom) if geom else None
@@ -64,21 +67,28 @@ def jobs_for(uid,site,outdir,title,geom=None,cover=True,date='September 2026',ex
         b=[min(lat,SA[0]),min(lon,SA[1]),max(lat,SA[0]),max(lon,SA[1])]
         loc={'bounds':b,'padding':{'top':170,'bottom':120,'left':170,'right':170},'maxZoom':11.3}; refs=[{'lat':SA[0],'lon':SA[1],'label':'Downtown San Antonio'}]
     J.append({'out':f'{outdir}/location.jpg','kind':'brand','width':W,'height':H,'dpr':2.5,'center':[lat,lon],**loc,'pin':{'lat':lat,'lon':lon,'label':title,'large':True},'refs':refs,'scale':True,'credit':CREDIT_BRAND})
-    area={'zoom':15.0 if ext<400 else 14.4}
-    J.append({'out':f'{outdir}/area.jpg','kind':'brand','pois':True,'width':W,'height':H,'dpr':2.5,'center':[lat,lon],**area,'polygon':poly,'pin':pin,'scale':True,'north':True,'credit':CREDIT_BRAND})
-    aer={'bounds':bbox_geom(geom),'padding':150,'maxZoom':18.0} if geom else {'zoom':17.6}
-    J.append({'out':f'{outdir}/aerial.jpg','kind':'aerial','width':W,'height':H,'dpr':2.5,'center':[lat,lon],**aer,'polygon':poly,'pin':None if geom else pin,'scale':True,'north':True,'credit':CREDIT_AER})
-    J.append({'out':f'{outdir}/aerial-wide.jpg','kind':'aerial','width':W,'height':H,'dpr':2.5,'center':[lat,lon],'zoom':15.3 if ext<500 else 14.6,'polygon':poly,'pin':pin,'scale':True,'north':True,'credit':CREDIT_AER})
+    sb=bbox_geom(geom) if geom else [lat,lon,lat,lon]
+    xref=[{'lat':intersection['lat'],'lon':intersection['lon'],'label':intersection['label'],'place':True}] if intersection else []
+    near={'bounds':with_point(sb,intersection),'padding':{'top':110,'bottom':70,'left':90,'right':90},'maxZoom':15.3} if intersection else None
+    aw=near or {'zoom':15.3 if ext<500 else 14.6}
+    J.append({'out':f'{outdir}/aerial-wide.jpg','kind':'aerial','width':W,'height':H,'dpr':2.5,'center':[lat,lon],**aw,'polygon':poly,'pin':pin,'refs':xref,'scale':True,'north':True,'credit':CREDIT_AER})
     st=stations(uid,lat,lon,2600)
     pick=choose_stations(st)
     if pick:
         pts=[(lat,lon)]+[(s['lat'],s['lon']) for s in pick]
         if geom:
             gb=bbox_geom(geom); pts+=[(gb[0],gb[1]),(gb[2],gb[3])]
+        if intersection:
+            pts.append((intersection['lat'],intersection['lon']))
         tb=[min(p[0] for p in pts),min(p[1] for p in pts),max(p[0] for p in pts),max(p[1] for p in pts)]
-        J.append({'out':f'{outdir}/traffic.jpg','kind':'brand','width':W,'height':690,'dpr':2.5,'center':[lat,lon],'bounds':tb,'padding':{'top':120,'bottom':80,'left':110,'right':110},'maxZoom':15.2,
-                  'polygon':poly,'pin':pin,'traffic':[{'lat':s['lat'],'lon':s['lon'],'qty':f"{s['qty']:,}",'road':f"{s['label']} · {s['year']}"} for s in pick],
+        biz,missing=businesses(tb,(lat,lon),featured)
+        if missing: print(uid,'featured businesses not in the tiles:',missing)
+        J.append({'out':f'{outdir}/traffic.jpg','kind':'brand','businesses':biz,'width':W,'height':690,'dpr':2.5,'center':[lat,lon],'bounds':tb,'padding':{'top':120,'bottom':80,'left':110,'right':110},'maxZoom':15.2,
+                  'polygon':poly,'pin':pin,'refs':xref,'traffic':[{'lat':s['lat'],'lon':s['lon'],'qty':f"{s['qty']:,}",'road':f"{s['label']} · {s['year']}"} for s in pick],
                   'scale':True,'north':True,'credit':CREDIT_BRAND+' · Counts: TxDOT'})
+    else:
+        area=near or {'zoom':15.0 if ext<400 else 14.4}
+        J.append({'out':f'{outdir}/area.jpg','kind':'brand','pois':True,'width':W,'height':H,'dpr':2.5,'center':[lat,lon],**area,'polygon':poly,'pin':pin,'refs':xref,'scale':True,'north':True,'credit':CREDIT_BRAND})
     fl=flood_geojson(uid,lat,lon,1500)
     fb={'bounds':bbox_geom(geom,pad_m=max(250,ext*0.6)),'padding':30,'maxZoom':17.4} if geom else {'zoom':16.2}
     J.append({'out':f'{outdir}/flood.jpg','kind':'aerial','labels':True,'width':W,'height':H,'dpr':2.5,'center':[lat,lon],**fb,'polygon':poly,'pin':None if geom else pin,
