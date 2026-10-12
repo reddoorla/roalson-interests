@@ -30,9 +30,9 @@ import { DARK } from "./palette";
 //
 // SINCE 2026-10-09 THE BAND HAS NO MAP (Erik: "lose map entirely"), and its
 // heading is no longer the card's eyebrow: it is an H2 in its own element
-// (`[data-featured-heading]`) in the column the map left, and the chrome holds
-// only the controls. The cases that measured the map or the eyebrow in the
-// chrome went or were rewritten with it.
+// (`[data-featured-heading]`), and the chrome holds only the controls. Since
+// 2026-10-12 (Erik's right-hand option) that element is in the card, atop the
+// left column under a full-width photo, and the chrome foots the column.
 //
 // House rules, paid for in nav.spec.ts and footer.spec.ts: no x derived from
 // the window (the page lays out a scrollbar gutter narrower than its viewport:
@@ -302,8 +302,7 @@ const stampTurns = (page: Page) =>
 
 /** Every box relative to the CARD's own top-left — the comp's card-relative
  *  table (home-featured-properties §3) — never to the window. The band's
- *  heading is outside the card since 2026-10-09, and is read in the same frame
- *  of reference, so where it sits is said relative to the card too. */
+ *  heading is inside the card since 2026-10-12, atop its left column. */
 const geometry = (page: Page) =>
   page.evaluate(
     ({ CARD, BAND }) => {
@@ -329,15 +328,6 @@ const geometry = (page: Page) =>
         photo: rel(active.querySelector("img")!.parentElement)!,
         bar: rel(card.querySelector("[data-carousel-progress]")),
         heading: rel(document.querySelector(`${BAND} [data-featured-heading] h2`))!,
-        /** The heading against the BAND, which the card's reveal does not move. */
-        headingInBand: (() => {
-          const B = document.querySelector(BAND)!.getBoundingClientRect();
-          const h = document.querySelector(`${BAND} [data-featured-heading] h2`)!;
-          const r = h.getBoundingClientRect();
-          return { left: r.left - B.left, top: r.top - B.top, width: r.width, height: r.height };
-        })(),
-        /** Any h2 still inside the card: the eyebrow's old place. */
-        headingsInCard: card.querySelectorAll("h2").length,
         controls: rel(card.querySelector("[data-featured-controls]")),
         text: rel(active.querySelector("h3")!.parentElement!.parentElement)!,
         sizeLine: rel(active.querySelector("p.t-h4"))!,
@@ -447,6 +437,13 @@ test.describe("where Erik's right-hand option draws it (2026-10-12)", () => {
         )
         .toBeLessThanOrEqual(1);
       const g = await geometry(page);
+      const right = await page
+        .locator(`${BAND} [data-carousel-progress]`)
+        .evaluate((el) => el.getBoundingClientRect().right);
+      expect(right, `${width}: the right column stops 20 short of the centred 1440`).toBeCloseTo(
+        g.layout - Math.max(0, (g.layout - 1440) / 2) - 20,
+        0,
+      );
       expect(g.overflowX, `${width}`).toBeLessThanOrEqual(0);
     }
   });
@@ -3112,7 +3109,7 @@ test.describe("the portfolio button", () => {
     browser,
   }) => {
     // /dev/a11y-fixtures renders this band inside a `max-w-3xl` wrapper, so
-    // the card is ~426 wide at a 1455 viewport. The PROPERTIES button once
+    // the card is 704 wide at a 1455 viewport. The PROPERTIES button once
     // landed ACROSS LEARN MORE there (the bgOverlap defect); the ALL circle
     // lives in the controls row, and this holds that nothing in the card is
     // under it.
@@ -3123,7 +3120,7 @@ test.describe("the portfolio button", () => {
       await settledForAudit(page, card);
       const all = card.getByRole("link", { name: "See all properties" });
       const [c, p] = await Promise.all([card.boundingBox(), all.boundingBox()]);
-      expect(c!.width, "the wrapper squeezes the card").toBeLessThan(768);
+      expect(c!.width, "the wrapper squeezes the card").toBeCloseTo(704, 0);
       const text = await card.evaluate((el) =>
         [...el.querySelectorAll<HTMLElement>("h3, p, li, a")]
           .filter((n) => !n.hasAttribute("data-featured-portfolio") && n.textContent?.trim())
@@ -3425,7 +3422,7 @@ test.describe("the other states", () => {
         ]);
         await live.evaluate(() => document.fonts.ready);
         const liveBoxes = await geometry(live);
-        for (const key of ["card", "photo", "bar", "headingInBand", "controls", "text"] as const) {
+        for (const key of ["card", "photo", "bar", "heading", "controls", "text"] as const) {
           const [before, after] = [quietBoxes[key]!, liveBoxes[key]!] as Record<string, number>[];
           for (const edge of Object.keys(before)) {
             expect(

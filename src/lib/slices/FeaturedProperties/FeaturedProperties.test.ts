@@ -359,12 +359,12 @@ describe("FeaturedProperties slice", () => {
           .split(", ")
           .map((c) => Number(/ (\d+)w$/.exec(c)![1]));
 
-      it("offers 2048 between 1920 and 2560, and never more than the source has", () => {
+      it("offers 2048 between 1920 and 2560, and 3072, never more than the source has", () => {
         const { container } = render(FeaturedProperties, {
           props: { slice: withPhotos([4032, 3024], [1872, 1290], [1717, 866]) },
         });
         const [big, mid, wide] = imgs(container);
-        expect(widthsOf(big)).toEqual([480, 768, 1024, 1440, 1920, 2048, 2560]);
+        expect(widthsOf(big)).toEqual([480, 768, 1024, 1440, 1920, 2048, 2560, 3072]);
         expect(widthsOf(mid)).toEqual([480, 768, 1024, 1440, 1872]);
         expect(widthsOf(wide)).toEqual([480, 768, 1024, 1440, 1717]);
         // The `src` fallback is still at most 1920.

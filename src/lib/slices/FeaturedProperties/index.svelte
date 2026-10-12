@@ -27,7 +27,7 @@
    *  day the dwell doubled until then.
    *
    *  STILL FRACTIONS OF A PIXEL, AND FOR A ZOOM THAT IS UNAVOIDABLE. On the
-   *  928 × 542 box the photo gains 55.7px of width over DWELL, so each edge
+   *  928 × 542 box (below `lg`) the photo gains 55.7px of width over DWELL, so each edge
    *  moves 27.8px across the dwell, ~3.5px a second: ~0.058px a frame at
    *  60Hz, ~0.029 at 120Hz. A whole pixel a frame would be ~60px a second at
    *  each edge, ~480px over the dwell. Smooth sub-pixel motion is the GPU's
@@ -43,7 +43,7 @@
    *  The accepted explanation: an axis-aligned scale lets Firefox's renderer
    *  snap the photo to whole device pixels each frame, and a transform that
    *  is not axis-aligned is resampled with filtering instead. 0.02deg is
-   *  0.32px of skew across the 928px box.
+   *  0.32px of skew across a 928px box, 0.50px across the 1440 one.
    *
    *  NOT ANY SMALL ANGLE — read in Firefox's source, not measured (there is
    *  no Firefox in the build container): WebRender's
@@ -103,12 +103,14 @@
   // THE RIGHT COLUMN STARTS ON THE SITE'S COLUMN LINE, not the comp's 512. The
   // two-column bands put their right column at x=513 (1440) through the gutters
   // and `[397fr_847fr] gap-9`; the comp draws this one at 512 as a bare 512 : 928
-  // ratio. The two are 1px apart at 1440 (513 against 512 — the pixel critic
-  // ruling C3 accepts, and why the card measures 927 × 541.41 for the comp's
-  // 928 × 542) and drift from there: 6.83px at 1280, where the ratio gives
-  // 455.11 and the site's line is 461.94. The column below is the site's
-  // arithmetic, so this card shares one edge with the Partners headline below
-  // it and the footer's at every width. (It shared it with the hero's H1 until
+  // ratio. The two are 1px apart at 1440 (513 against 512, the pixel critic
+  // ruling C3 accepts) and drift from there: 6.83px at 1280, where the ratio
+  // gives 455.11 and the site's line is 461.94. The grid is the site's
+  // arithmetic, so the listing column shares one edge with the Partners
+  // headline below it and the footer's at every width, and the heading shares
+  // the gutter with the Partners eyebrow. The right column stops 20 short of
+  // the band's edge at 1440, where Erik's option draws it, and 20 short of the
+  // centred 1440 beyond it. (It shared it with the hero's H1 until
   // the revised hero went one column, 2026-09-28: that H1 stands on the
   // gutter, x=80, now.)
   //
@@ -138,14 +140,14 @@
 
   const uid = $props.id();
 
-  /** The srcset's widths: the defaults and 2048 (see `photoSizes`). */
-  const PHOTO_WIDTHS = [...DEFAULT_IMAGE_WIDTHS, 2048].sort((a, b) => a - b);
+  /** The srcset's widths: the defaults, 2048 and 3072 (see `photoSizes`). */
+  const PHOTO_WIDTHS = [...DEFAULT_IMAGE_WIDTHS, 2048, 3072].sort((a, b) => a - b);
 
   /** The card's scroll reveal: 24px and 600ms, not the action's 50% / 2400ms.
    *  `delayMax: 0` because the default 400 is multiplied by the element's
-   *  `left / innerWidth` — at a 1440 window the card's left edge is 513 of a
-   *  1455 layout width, so 400 × 513 / 1455 = 141.031ms of unasked-for delay
-   *  before a reveal nobody staggered against.
+   *  `left / innerWidth`: with the card at 513 of a 1455 layout width (until
+   *  2026-10-12) that was 141.031ms of unasked-for delay before a reveal nobody
+   *  staggered against. The card starts at 0 now, and the 0 still says so.
    *
    *  `failSafe` because the card ships `data-reveal` from the server (#105,
    *  see the card's comment): hidden by CSS before script runs, it must not be
@@ -195,7 +197,7 @@
   const listings = $derived(featuredListings(primary.properties));
   const slides = $derived(switchedOn ? listings.slides : []);
 
-  // The visible heading is an H2 in the column the map left (Erik, 2026-10-09:
+  // The visible heading is an H2 atop the card's left column (Erik, 2026-10-09:
   // "make FEATURED PROPERTIES more prominent, within existing site type
   // styles"). It also names the carousel, so an empty field falls back to the
   // comp's words rather than to no name.
@@ -428,7 +430,8 @@
   //
   // SINCE 2026-10-12 THE BOX IS THE WHOLE BAND FROM `lg` (1440 / 744), so
   // the `lg` term is 100vw at that ratio; below `lg` it is 100vw at 928 / 542.
-  // At 1440 × DPR 2 the end frame needs ~3050px, past the 2560 cap.
+  // At 1440 × DPR 2 the end frame needs 1440 × 1.06 × 2 = 3052.8px, past the
+  // 2560 default, so 3072 joins the widths for the reason 2048 did.
   //
   // 2048 BESIDE THE DEFAULTS because Chromium takes the smallest candidate at
   // least as dense as the screen: at 1440–1470 × DPR 2 the end frame needs
@@ -539,7 +542,7 @@
 {#if !switchedOn}
   <!-- Turned off: no section at all. -->
 {:else if slides.length === 0}
-  <!-- THE EMPTY STATE IS NO BAND: a dark 827px box around an empty card is a
+  <!-- THE EMPTY STATE IS NO BAND: a photo-less box around an empty card is a
        broken page, and every listing is still one link away (the hero's and
        the footer's "Properties"). What is left is a hidden marker carrying
        the counts, so "the editor picked nothing showable" and "the API sent the
@@ -658,9 +661,7 @@
         <!-- The bar's 2px and the 20 above it are held whether or not there is a
              bar to draw (one listing; no script), so the card is the same card
              in every state. -->
-        <div
-          class="relative z-[2] col-span-full row-start-2 mx-5 mt-5 h-0.5 lg:col-start-4 lg:ml-0"
-        >
+        <div class="relative z-[2] col-span-full row-start-2 mx-5 mt-5 h-0.5 lg:col-[4] lg:ml-0">
           <CarouselProgress {carousel} />
         </div>
 
@@ -792,7 +793,9 @@
     }
   }
 
-  /* The site's column line, as every gutter-ed band computes it:
+  /* The site's columns, as every gutter-ed band computes them, and a fifth
+     track mirroring the first's centring so the right column never runs past
+     the centred 1440. The site's column line:
      gutter + (content − gap) × 397/1244 + gap, with content capped at 1440 and
      centred. 513px at 1440. Tailwind's `lg` and `xl`, where the gutter changes
      (px-5 sm:px-8 xl:px-20). `100%` is the band's own width, never `vw` — the
@@ -804,7 +807,8 @@
         calc(max(0px, (100% - 1440px) / 2) + var(--gutter))
         calc((min(100%, 1440px) - 2 * var(--gutter) - 36px) * 397 / 1244)
         36px
-        minmax(0, 1fr);
+        minmax(0, 1fr)
+        max(0px, (100% - 1440px) / 2);
     }
   }
   @media (min-width: 80rem) {

@@ -627,10 +627,10 @@
 
        SO THE LAUNCH BAND STAYS NARROW, ON PURPOSE, and it is the only thing
        on this page that is (#87). The three-listing band is drawn at the
-       site's width; the launch band keeps the old 768 column, because the
-       site never draws a card under 640 in the two-column layout and
-       featured-properties.spec.ts's "a card too narrow for both buttons"
-       needs one to hold that container query to. -->
+       site's width; the launch band keeps the old 768 column (its card 704
+       wide since the band went full-width, 2026-10-12), where
+       featured-properties.spec.ts's "a squeezed card" holds that nothing in
+       it paints over a word. -->
 
   <FeaturedProperties slice={featuredPropertiesFixture()} />
   <div class="mx-auto max-w-3xl px-8">
