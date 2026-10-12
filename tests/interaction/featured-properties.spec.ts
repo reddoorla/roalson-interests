@@ -10,6 +10,7 @@ import {
 import { measuresGutter, viewportFor } from "./gutter";
 import { HYDRATION_TIMEOUT } from "./hydrated";
 import { axe } from "./axe";
+import { DARK } from "./palette";
 
 // The homepage's featured band (src/lib/slices/FeaturedProperties) is the
 // headless carousel's first consumer, and makes promises jsdom cannot check:
@@ -29,9 +30,9 @@ import { axe } from "./axe";
 //
 // SINCE 2026-10-09 THE BAND HAS NO MAP (Erik: "lose map entirely"), and its
 // heading is no longer the card's eyebrow: it is an H2 in its own element
-// (`[data-featured-heading]`) in the column the map left, and the chrome holds
-// only the controls. The cases that measured the map or the eyebrow in the
-// chrome went or were rewritten with it.
+// (`[data-featured-heading]`), and the chrome holds only the controls. Since
+// 2026-10-12 (Erik's right-hand option) that element is in the card, atop the
+// left column under a full-width photo, and the chrome foots the column.
 //
 // House rules, paid for in nav.spec.ts and footer.spec.ts: no x derived from
 // the window (the page lays out a scrollbar gutter narrower than its viewport:
@@ -301,8 +302,7 @@ const stampTurns = (page: Page) =>
 
 /** Every box relative to the CARD's own top-left — the comp's card-relative
  *  table (home-featured-properties §3) — never to the window. The band's
- *  heading is outside the card since 2026-10-09, and is read in the same frame
- *  of reference, so where it sits is said relative to the card too. */
+ *  heading is inside the card since 2026-10-12, atop its left column. */
 const geometry = (page: Page) =>
   page.evaluate(
     ({ CARD, BAND }) => {
@@ -328,15 +328,6 @@ const geometry = (page: Page) =>
         photo: rel(active.querySelector("img")!.parentElement)!,
         bar: rel(card.querySelector("[data-carousel-progress]")),
         heading: rel(document.querySelector(`${BAND} [data-featured-heading] h2`))!,
-        /** The heading against the BAND, which the card's reveal does not move. */
-        headingInBand: (() => {
-          const B = document.querySelector(BAND)!.getBoundingClientRect();
-          const h = document.querySelector(`${BAND} [data-featured-heading] h2`)!;
-          const r = h.getBoundingClientRect();
-          return { left: r.left - B.left, top: r.top - B.top, width: r.width, height: r.height };
-        })(),
-        /** Any h2 still inside the card: the eyebrow's old place. */
-        headingsInCard: card.querySelectorAll("h2").length,
         controls: rel(card.querySelector("[data-featured-controls]")),
         text: rel(active.querySelector("h3")!.parentElement!.parentElement)!,
         sizeLine: rel(active.querySelector("p.t-h4"))!,
@@ -353,8 +344,8 @@ const geometry = (page: Page) =>
     { CARD, BAND },
   );
 
-test.describe("where the comp draws it", () => {
-  test("1440: the chrome is INSIDE the panel beside the text — 285 under a 928:542 photo", async ({
+test.describe("where Erik's right-hand option draws it (2026-10-12)", () => {
+  test("1440: a clean full-width photo; the heading tops the left column and the controls foot it, level with LEARN MORE", async ({
     browser,
   }) => {
     const { context, page } = await moving(browser);
@@ -364,118 +355,118 @@ test.describe("where the comp draws it", () => {
       await holdClock(page);
       const g = await geometry(page);
 
-      expect(g.layout, "premise: the page is laid out at the comp's 1440").toBe(1440);
-      expect(g.photo.width / g.photo.height).toBeCloseTo(928 / 542, 2);
+      expect(g.layout, "premise: the page is laid out at 1440").toBe(1440);
+      expect(g.photo.left).toBeCloseTo(0, 0);
       expect(g.photo.width).toBeCloseTo(g.card.width, 0);
-      // THE regression for the grid-row shorthand: with the chrome auto-placed
-      // under the slides this was 545.
-      expect(g.card.height - g.photo.height).toBeGreaterThanOrEqual(284);
-      expect(g.card.height - g.photo.height).toBeLessThanOrEqual(286);
+      expect(g.photo.width / g.photo.height).toBeCloseTo(1440 / 744, 1);
 
-      // bar: 20 under the photo, 20 in from both edges, 2 tall
-      expect(g.bar!.top - g.photo.bottom).toBeCloseTo(20, 0);
-      expect(g.bar!.left).toBeCloseTo(20, 0);
-      expect(g.card.width - g.bar!.right).toBeCloseTo(20, 0);
-      expect(g.bar!.height).toBeCloseTo(2, 1);
+      expect(g.heading.top, "the heading is under the photo, not over it").toBeGreaterThan(
+        g.photo.bottom,
+      );
+      expect(g.heading.right, "the heading is in the left column").toBeLessThan(g.text.left);
+      expect(Math.abs(g.heading.top - g.sizeLine.top), "the heading tops the column").toBeLessThan(
+        16,
+      );
 
-      // The eyebrow that shared the size line's cap line here (comp y=584) left
-      // the chrome on 2026-10-09: the band's heading is outside the card now,
-      // in the column the map left, and the chrome is the controls alone.
-      expect(g.headingsInCard, "no heading left in the card's chrome").toBe(0);
-      expect(g.heading.right, "the heading is beside the card, not in it").toBeLessThan(0);
-
-      // arrows: pinned 43 above the card's foot, in the left column, 40 tall
-      expect(g.card.height - g.controls!.bottom).toBeCloseTo(43, 0);
-      expect(g.controls!.left).toBeCloseTo(20, 0);
-      expect(g.controls!.height).toBeCloseTo(40, 0);
+      expect(g.controls!.top, "the controls are under the heading").toBeGreaterThan(
+        g.heading.bottom + 40,
+      );
       expect(g.controls!.right).toBeLessThan(g.text.left);
-      expect(g.controls!.top).toBeGreaterThan(g.photo.bottom);
+      expect(
+        Math.abs(g.controls!.bottom - g.button.bottom),
+        "the controls' foot is LEARN MORE's",
+      ).toBeLessThanOrEqual(1);
+      expect(g.controls!.left).toBeCloseTo(g.heading.left, 0);
 
-      // text column: the comp's 434 / 474 (one px narrower card, see the slice)
-      expect(g.text.left).toBeGreaterThan(432);
-      expect(g.text.left).toBeLessThan(435);
-      expect(g.card.width - g.text.right).toBeCloseTo(20, 0);
-      expect(g.button.height).toBeCloseTo(40, 0);
+      expect(g.bar!.top - g.photo.bottom).toBeCloseTo(20, 0);
+      expect(g.bar!.left).toBeCloseTo(g.text.left, 0);
+      expect(g.overflowX).toBeLessThanOrEqual(0);
     } finally {
       await context.close();
     }
   });
 
-  // The line is read off the FOOTER's headline, which sits in the site's grid
-  // (`[397fr_847fr] gap-9`, the same gutters) at `lg:col-start-2`. It was the
-  // hero's H1 until the revised hero went one column (2026-09-28) and moved
-  // that H1 to the gutter — the anchor had to move, the line did not.
-  test("the card starts on the site's column line — the footer headline's — at every lg width", async ({
+  test("the heading wears the About Us heading's style, in dark garnet", async ({ page }) => {
+    await page.setViewportSize(viewportFor(1440));
+    await page.goto(HOME);
+    const read = (selector: string) =>
+      page.locator(selector).evaluate((h) => {
+        const c = getComputedStyle(h);
+        return {
+          tag: h.tagName,
+          fontFamily: c.fontFamily,
+          fontSize: c.fontSize,
+          fontWeight: c.fontWeight,
+          lineHeight: c.lineHeight,
+          letterSpacing: c.letterSpacing,
+          textTransform: c.textTransform,
+          color: c.color,
+        };
+      });
+    const featured = await read(`${BAND} [data-featured-heading] h2`);
+    const about = await read('[data-slice-type="partners"] h2');
+    const { color: featuredColor, ...featuredType } = featured;
+    const { color: _aboutColor, ...aboutType } = about;
+    expect(featuredType).toEqual(aboutType);
+    expect(featuredColor).toBe(DARK);
+  });
+
+  test("at every lg width the heading stands on the gutter and the text on the About Us column line", async ({
     page,
   }) => {
-    for (const width of [1440, 1280, 1100, 1920]) {
+    for (const width of [1440, 1280, 1100, 1024, 1920]) {
       await page.setViewportSize(viewportFor(width));
       await page.goto(HOME);
-      const line = page.locator("footer h2");
-      await expect(line).toHaveCount(1);
-      // Auto-retrying: the first read after a viewport change can be the old layout.
+      const lines = () =>
+        page.evaluate((BAND) => {
+          const x = (sel: string) => document.querySelector(sel)!.getBoundingClientRect().left;
+          return {
+            heading: x(`${BAND} [data-featured-heading] h2`),
+            text: x(`${BAND} [data-featured-slide]:not([inert]) h3`),
+            eyebrow: x('[data-slice-type="partners"] p.t-h4'),
+            about: x('[data-slice-type="partners"] h2'),
+          };
+        }, BAND);
       await expect
         .poll(
           async () => {
-            const [a, b] = await Promise.all([
-              line.boundingBox(),
-              page.locator(CARD).boundingBox(),
-            ]);
-            return Math.abs(a!.x - b!.x);
+            const l = await lines();
+            return Math.max(Math.abs(l.heading - l.eyebrow), Math.abs(l.text - l.about));
           },
-          { message: `card vs the footer headline's left edge at ${width}` },
+          { message: `${width}` },
         )
         .toBeLessThanOrEqual(1);
-      // …and the heading is in the column the map left (2026-10-09): the
-      // site's left column, the footer headline's gap to the right of it, then
-      // the card. It used to be the map's column, flush against the card.
       const g = await geometry(page);
-      expect(g.heading.right, `${width}: the column gap to the card`).toBeCloseTo(-36, 0);
-      expect(g.heading.top, `${width}: beside the card, not above it`).toBeGreaterThanOrEqual(0);
-      expect(g.heading.bottom, `${width}: beside the card`).toBeLessThan(g.card.height);
+      const right = await page
+        .locator(`${BAND} [data-carousel-progress]`)
+        .evaluate((el) => el.getBoundingClientRect().right);
+      expect(right, `${width}: the right column stops 20 short of the centred 1440`).toBeCloseTo(
+        g.layout - Math.max(0, (g.layout - 1440) / 2) - 20,
+        0,
+      );
       expect(g.overflowX, `${width}`).toBeLessThanOrEqual(0);
     }
   });
 
-  test("the arrows are 43 above the card's foot however tall the text runs", async ({
+  test("the controls stay level with LEARN MORE however tall the text runs", async ({
     browser,
   }) => {
-    // The comp puts the arrows' bottom and the slide's LEARN MORE on one line
-    // (y=784). `lg:h-[200px]` made the chrome a FIXED box top-aligned in its
-    // grid area, so the moment a slide's text ran past 203px the area grew
-    // underneath it and the arrows stayed put: measured 60.03 above the foot at
-    // 1024 / 1100 / 1280 with the three-listing fixture (slide 2 runs to five
-    // bullet lines) and at 1440 with the launch listing's five. `lg:h-auto
-    // lg:min-h-[200px]` lets the grid item stretch, which is its default.
-    //
-    // Two shapes, both real, on the SAME three-listing fixture: at 1440 its
-    // copy fits the comp's 285 and the floor is what holds the panel there; at
-    // 1280 and 1024 slide 2 runs to five bullet lines, the stack grows to the
-    // tallest of them, and the arrows must follow. (The launch listing's five
-    // bullets do this at a true 1440, but ?featured=one draws no arrows at all
-    // — one listing is not a carousel — so the width is the repro that can be
-    // asserted without a fourth fixture.)
-    for (const [width, panel] of [
-      [1440, "285"],
-      [1280, "taller"],
-      [1024, "taller"],
-    ] as const) {
+    for (const width of [1440, 1280, 1024]) {
       const { context, page } = await moving(browser, viewportFor(width));
       try {
         await page.goto(HOME);
         await adopted(page);
         await holdClock(page);
-        const g = await geometry(page);
-        expect(g.card.height - g.controls!.bottom, `arrows above the foot at ${width}`).toBeCloseTo(
-          43,
-          0,
-        );
-        const panelHeight = g.card.height - g.photo.height;
-        if (panel === "285") {
-          expect(panelHeight, `panel at ${width}`).toBeGreaterThanOrEqual(284);
-          expect(panelHeight, `panel at ${width}`).toBeLessThanOrEqual(286);
-        } else {
-          expect(panelHeight, `panel at ${width} outgrew the comp's 285`).toBeGreaterThan(286);
+        for (let turn = 0; turn < 3; turn++) {
+          const g = await geometry(page);
+          expect(
+            Math.abs(g.controls!.bottom - g.button.bottom),
+            `${width}, slide ${turn + 1}`,
+          ).toBeLessThanOrEqual(1);
+          expect(g.controls!.top, `${width}, slide ${turn + 1}`).toBeGreaterThan(g.heading.bottom);
+          await page.getByRole("button", { name: "Next slide" }).click();
+          await expect(status(page)).toContainText(`${((turn + 1) % 3) + 1} of 3`);
+          await page.waitForTimeout(DISSOLVE + 200);
         }
       } finally {
         await context.close();
@@ -483,7 +474,7 @@ test.describe("where the comp draws it", () => {
     }
   });
 
-  test("390: heading, then the card — photo, bar, controls, text", async ({ browser }) => {
+  test("390: photo, bar, heading, controls, text — one column", async ({ browser }) => {
     const { context, page } = await moving(browser, viewportFor(390, 844));
     try {
       await page.goto(HOME);
@@ -492,22 +483,14 @@ test.describe("where the comp draws it", () => {
       await holdClock(page);
       const g = await geometry(page);
 
-      // Below lg the band is one column: the heading (2026-10-09, where a
-      // 390 x 200 map was the first thing in the band until then), then the
-      // card. The heading is on the band's own ground, ABOVE the card.
-      expect(g.heading.bottom, "the heading is above the card").toBeLessThan(0);
-      expect(g.headingsInCard, "and not in it").toBe(0);
       expect(g.photo.width / g.photo.height).toBeCloseTo(390 / 227.8, 2);
       expect(g.bar!.top - g.photo.bottom).toBeCloseTo(20, 0);
-      // comp: 10 between the bar and the chrome row at 390 (20 at 1440). The
-      // row starts with the controls now, not with the eyebrow's cap top.
-      expect(g.controls!.top - g.bar!.bottom).toBeCloseTo(10, 0);
-      // The chrome holds only the controls, justified to the END of the row
-      // (2026-10-09); they sat on the left under the eyebrow until then.
-      expect(g.card.width - g.controls!.right, "on the panel's 20, at the end").toBeCloseTo(20, 0);
-      // three 40px circles, SEE ALL, and 10 between each
+      expect(g.heading.top).toBeGreaterThan(g.bar!.bottom);
+      expect(g.controls!.top).toBeGreaterThan(g.heading.bottom);
+      expect(g.text.top).toBeGreaterThan(g.controls!.bottom);
+      expect(g.heading.left).toBeCloseTo(20, 0);
+      expect(g.controls!.left).toBeCloseTo(20, 0);
       expect(g.controls!.width).toBeCloseTo(150 + g.portfolio!.width, 0);
-      // text 20 under the row
       expect(g.text.top - g.controls!.bottom).toBeCloseTo(20, 0);
       expect(g.overflowX).toBeLessThanOrEqual(0);
     } finally {
@@ -518,11 +501,6 @@ test.describe("where the comp draws it", () => {
   test("at 360 and 320 the controls and the heading fit their column; nothing collides", async ({
     browser,
   }) => {
-    // With SEE ALL the controls are 238 (2026-10-01). On every phone the
-    // eyebrow used to take one line and the controls the row under it; since
-    // 2026-10-09 the heading is above the card, the controls have the row to
-    // themselves, and what is left to hold is that neither runs out of its
-    // column.
     for (const width of [360, 320]) {
       const { context, page } = await moving(browser, viewportFor(width, 780));
       try {
@@ -531,8 +509,6 @@ test.describe("where the comp draws it", () => {
         await page.locator(BAND).scrollIntoViewIfNeeded();
         await holdClock(page);
         const g = await geometry(page);
-        // The heading's INK, line by line: a word too long for the column
-        // overflows its box without widening it.
         const inked = await page.locator(`${BAND} [data-featured-heading] h2`).evaluate((h) => {
           const r = document.createRange();
           r.selectNodeContents(h);
@@ -547,6 +523,7 @@ test.describe("where the comp draws it", () => {
         expect(inked, `${width}: the heading inside the column`).toBeLessThanOrEqual(
           g.card.width - 20,
         );
+        expect(g.controls!.top, `${width}`).toBeGreaterThan(g.heading.bottom);
         expect(g.text.top - g.controls!.bottom, `${width}`).toBeCloseTo(20, 0);
         expect(g.overflowX, `${width}`).toBeLessThanOrEqual(0);
       } finally {
@@ -742,7 +719,7 @@ test.describe("rotation", () => {
     //     what stops it — and no frame after the press moves it;
     //  3. Play, pressed without moving, starts it again.
     test.setTimeout(60_000);
-    const { context, page } = await moving(browser);
+    const { context, page } = await moving(browser, viewportFor(1440, 1200));
     try {
       await stampTurns(page);
       await page.goto(HOME);
@@ -1711,7 +1688,7 @@ test.describe("motion", () => {
     // violations": zero violations is also what a card with nothing
     // measurable reports.
     test.setTimeout(60_000);
-    const { context, page } = await moving(browser);
+    const { context, page } = await moving(browser, viewportFor(1440, 1200));
     try {
       await page.goto(HOME);
       await adopted(page);
@@ -1733,10 +1710,9 @@ test.describe("motion", () => {
           unmeasured.map((n) => n.html.slice(0, 60)),
           `${when}: axe could not measure these`,
         ).toEqual([]);
-        // The six: the size line, the title, two bullets, LEARN MORE and the
-        // portfolio button. (Seven until 2026-10-09, with the eyebrow: the
-        // band's heading is outside the card now, and this audit is the card.)
-        expect(measured.length, `${when}: text nodes measured with a ratio`).toBe(6);
+        // The seven: the band's heading (in the card since 2026-10-12), the
+        // size line, the title, two bullets, LEARN MORE and the portfolio button.
+        expect(measured.length, `${when}: text nodes measured with a ratio`).toBe(7);
         expect(
           measured.some((n) => n.html.includes(title)),
           `${when}: the slide on stage's own title was among them`,
@@ -3133,8 +3109,8 @@ test.describe("the portfolio button", () => {
     browser,
   }) => {
     // /dev/a11y-fixtures renders this band inside a `max-w-3xl` wrapper, so
-    // the card is ~426 wide at a 1455 viewport. The PROPERTIES button once
-    // landed ACROSS LEARN MORE there (the bgOverlap defect); the ALL circle
+    // the card is 704 wide at a 1455 viewport. The PROPERTIES button once
+    // landed ACROSS LEARN MORE there (the bgOverlap defect); the SEE ALL button
     // lives in the controls row, and this holds that nothing in the card is
     // under it.
     const { context, page } = await moving(browser, viewportFor(1440));
@@ -3144,7 +3120,7 @@ test.describe("the portfolio button", () => {
       await settledForAudit(page, card);
       const all = card.getByRole("link", { name: "See all properties" });
       const [c, p] = await Promise.all([card.boundingBox(), all.boundingBox()]);
-      expect(c!.width, "the wrapper squeezes the card").toBeLessThan(640);
+      expect(c!.width, "the wrapper squeezes the card").toBeCloseTo(704, 0);
       const text = await card.evaluate((el) =>
         [...el.querySelectorAll<HTMLElement>("h3, p, li, a")]
           .filter((n) => !n.hasAttribute("data-featured-portfolio") && n.textContent?.trim())
@@ -3176,13 +3152,11 @@ test.describe("the portfolio button", () => {
         unmeasured.map((n) => n.html.slice(0, 60)),
         "axe could not measure these",
       ).toEqual([]);
-      // Eight and this one: the size line, the title, five bullets, LEARN MORE
-      // and SEE ALL. It was "nine and this one" with the eyebrow in the card,
-      // until 2026-10-09.
-      expect(
-        measured.length + unmeasured.length,
-        "eight and this one, on a squeezed card too",
-      ).toBe(9);
+      // Nine and this one: the band's heading (in the card since 2026-10-12),
+      // the size line, the title, five bullets, LEARN MORE and SEE ALL.
+      expect(measured.length + unmeasured.length, "nine and this one, on a squeezed card too").toBe(
+        10,
+      );
     } finally {
       await context.close();
     }
@@ -3197,7 +3171,7 @@ test.describe("the portfolio button", () => {
     // at 1440 on the one-listing state; 9 and 0 with the button gone. An
     // incomplete is not a pass, so what is required here is that the same nine
     // are still measured — the band's heading (the card's eyebrow until
-    // 2026-10-09; now in its own column, on the band's ground), the size line,
+    // 2026-10-09; in the card, on its sand, since 2026-10-12), the size line,
     // the title, five bullets and LEARN MORE — and that this button is a TENTH
     // measurement rather than a reason nine become unmeasurable.
     const { context, page } = await moving(browser, viewportFor(1440));
@@ -3211,7 +3185,7 @@ test.describe("the portfolio button", () => {
       // below are unchanged — 10 measured, 0 incomplete — which is the
       // evidence that the wait costs this case nothing.
       await settledForAudit(page, page.locator(CARD));
-      // The BAND, not the card: the heading is the band's, on its ground. (The
+      // The BAND, not the card: it covers the heading wherever it sits. (The
       // band's map was excluded here, for the listing links it brought, until
       // it went on 2026-10-09.)
       const results = await axe(page).include(BAND).analyze();
@@ -3448,7 +3422,7 @@ test.describe("the other states", () => {
         ]);
         await live.evaluate(() => document.fonts.ready);
         const liveBoxes = await geometry(live);
-        for (const key of ["card", "photo", "bar", "headingInBand", "controls", "text"] as const) {
+        for (const key of ["card", "photo", "bar", "heading", "controls", "text"] as const) {
           const [before, after] = [quietBoxes[key]!, liveBoxes[key]!] as Record<string, number>[];
           for (const edge of Object.keys(before)) {
             expect(

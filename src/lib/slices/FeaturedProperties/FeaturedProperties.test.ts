@@ -359,12 +359,12 @@ describe("FeaturedProperties slice", () => {
           .split(", ")
           .map((c) => Number(/ (\d+)w$/.exec(c)![1]));
 
-      it("offers 2048 between 1920 and 2560, and never more than the source has", () => {
+      it("offers 2048 between 1920 and 2560, and 3072, never more than the source has", () => {
         const { container } = render(FeaturedProperties, {
           props: { slice: withPhotos([4032, 3024], [1872, 1290], [1717, 866]) },
         });
         const [big, mid, wide] = imgs(container);
-        expect(widthsOf(big)).toEqual([480, 768, 1024, 1440, 1920, 2048, 2560]);
+        expect(widthsOf(big)).toEqual([480, 768, 1024, 1440, 1920, 2048, 2560, 3072]);
         expect(widthsOf(mid)).toEqual([480, 768, 1024, 1440, 1872]);
         expect(widthsOf(wide)).toEqual([480, 768, 1024, 1440, 1717]);
         // The `src` fallback is still at most 1920.
@@ -644,16 +644,18 @@ describe("FeaturedProperties slice", () => {
     }
   });
 
-  it("draws no map: the heading stands alone in the column beside the card", () => {
+  it("draws no map: the heading is the card's, outside every slide, read before the controls", () => {
     for (const slice of [featuredPropertiesFixture(), featuredLaunchFixture()]) {
       const { container, getByRole, unmount } = render(FeaturedProperties, { props: { slice } });
       expect(
         container.querySelector("[data-property-map], [data-map-slot], [data-map-link]"),
       ).toBeNull();
       const heading = getByRole("heading", { level: 2 });
-      expect(card(container).contains(heading)).toBe(false);
+      expect(card(container).contains(heading)).toBe(true);
+      expect(heading.closest("[data-featured-slide]")).toBeNull();
+      const controls = container.querySelector("[data-featured-controls]")!;
       expect(
-        heading.compareDocumentPosition(card(container)) & Node.DOCUMENT_POSITION_FOLLOWING,
+        heading.compareDocumentPosition(controls) & Node.DOCUMENT_POSITION_FOLLOWING,
       ).toBeTruthy();
       unmount();
     }

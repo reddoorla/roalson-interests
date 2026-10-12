@@ -621,16 +621,16 @@
        927 the site ever draws, and on LEARN MORE's line the button landed
        across it: 9 measured / 1 incomplete on the launch band, the same
        `bgOverlap` the paragraph above is about. A `lg:` query could not see
-       it — the viewport here says 1440 — so the button's placement is a
-       container query on the CARD, and this page draws its narrow-card
-       layout: its own row under the text.
+       it — the viewport here says 1440. The button has lived in the controls
+       row since 2026-10-01, and this narrow card is kept as the case that
+       holds nothing in a squeezed card paints over a word.
 
        SO THE LAUNCH BAND STAYS NARROW, ON PURPOSE, and it is the only thing
        on this page that is (#87). The three-listing band is drawn at the
-       site's width; the launch band keeps the old 768 column, because the
-       site never draws a card under 640 in the two-column layout and
-       featured-properties.spec.ts's "a card too narrow for both buttons"
-       needs one to hold that container query to. -->
+       site's width; the launch band keeps the old 768 column (its card 704
+       wide since the band went full-width, 2026-10-12), where
+       featured-properties.spec.ts's "a squeezed card" holds that nothing in
+       it paints over a word. -->
 
   <FeaturedProperties slice={featuredPropertiesFixture()} />
   <div class="mx-auto max-w-3xl px-8">
