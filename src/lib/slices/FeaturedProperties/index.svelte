@@ -431,13 +431,14 @@
   // SINCE 2026-10-12 THE BOX IS THE WHOLE BAND FROM `lg` (1440 / 744), so
   // the `lg` term is 100vw at that ratio; below `lg` it is 100vw at 928 / 542.
   // At 1440 × DPR 2 the end frame needs 1440 × 1.06 × 2 = 3052.8px, past the
-  // 2560 default, so 3072 joins the widths for the reason 2048 did.
+  // 2560 default, so 3072 joins the widths.
   //
   // 2048 BESIDE THE DEFAULTS because Chromium takes the smallest candidate at
-  // least as dense as the screen: at 1440–1470 × DPR 2 the end frame needs
-  // 1965–2006px, which 1920 misses and 2560 overshoots — 191 KB of AVIF at
-  // 2048 against 172 at 1920 and 268 at 2560. cappedWidths still stops at the
-  // source's own width.
+  // least as dense as the screen. It was added when the box was a 927 card
+  // (1440–1470 × DPR 2 then needed 1965–2006px: 191 KB of AVIF at 2048
+  // against 172 at 1920 and 268 at 2560); it now fits `lg` windows of about
+  // 1812–1932 at DPR 1 and phones-to-tablets of about 906–966 at DPR 2.
+  // cappedWidths still stops at the source's own width.
   const BOX = 928 / 542;
   const BOX_LG = 1440 / 744;
   const photoSizes = ({ width, height }: { width: number; height: number }) => {

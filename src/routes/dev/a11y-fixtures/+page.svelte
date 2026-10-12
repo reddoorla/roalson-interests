@@ -621,9 +621,9 @@
        927 the site ever draws, and on LEARN MORE's line the button landed
        across it: 9 measured / 1 incomplete on the launch band, the same
        `bgOverlap` the paragraph above is about. A `lg:` query could not see
-       it — the viewport here says 1440 — so the button's placement is a
-       container query on the CARD, and this page draws its narrow-card
-       layout: its own row under the text.
+       it — the viewport here says 1440. The button has lived in the controls
+       row since 2026-10-01, and this narrow card is kept as the case that
+       holds nothing in a squeezed card paints over a word.
 
        SO THE LAUNCH BAND STAYS NARROW, ON PURPOSE, and it is the only thing
        on this page that is (#87). The three-listing band is drawn at the

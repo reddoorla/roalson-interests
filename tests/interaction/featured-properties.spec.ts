@@ -3110,7 +3110,7 @@ test.describe("the portfolio button", () => {
   }) => {
     // /dev/a11y-fixtures renders this band inside a `max-w-3xl` wrapper, so
     // the card is 704 wide at a 1455 viewport. The PROPERTIES button once
-    // landed ACROSS LEARN MORE there (the bgOverlap defect); the ALL circle
+    // landed ACROSS LEARN MORE there (the bgOverlap defect); the SEE ALL button
     // lives in the controls row, and this holds that nothing in the card is
     // under it.
     const { context, page } = await moving(browser, viewportFor(1440));
@@ -3171,7 +3171,7 @@ test.describe("the portfolio button", () => {
     // at 1440 on the one-listing state; 9 and 0 with the button gone. An
     // incomplete is not a pass, so what is required here is that the same nine
     // are still measured — the band's heading (the card's eyebrow until
-    // 2026-10-09; now in its own column, on the band's ground), the size line,
+    // 2026-10-09; in the card, on its sand, since 2026-10-12), the size line,
     // the title, five bullets and LEARN MORE — and that this button is a TENTH
     // measurement rather than a reason nine become unmeasurable.
     const { context, page } = await moving(browser, viewportFor(1440));
@@ -3185,7 +3185,7 @@ test.describe("the portfolio button", () => {
       // below are unchanged — 10 measured, 0 incomplete — which is the
       // evidence that the wait costs this case nothing.
       await settledForAudit(page, page.locator(CARD));
-      // The BAND, not the card: the heading is the band's, on its ground. (The
+      // The BAND, not the card: it covers the heading wherever it sits. (The
       // band's map was excluded here, for the listing links it brought, until
       // it went on 2026-10-09.)
       const results = await axe(page).include(BAND).analyze();
