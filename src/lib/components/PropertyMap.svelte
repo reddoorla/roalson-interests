@@ -2459,8 +2459,9 @@
      control that looks disabled while it is being pointed at is lying, and
      `opacity` would dim the focus ring drawn on the element with it.
      The change animates on Tailwind's default duration and easing
-     (`transition-opacity` on a cluster, the pin rules below on a pin, 150ms)
-     — and not at all under
+     (`transition-opacity` on a cluster, the pin rules below on a pin, 150ms),
+     except on the two pins an active swap redraws (the active pin is another
+     drawing, so their paths are new and start at their dim) — and not at all under
      reduced motion (`motion-reduce:transition-none`, as on the canvas host,
      and the pin rules' own media block). The expanded overlay is this same
      box, so it needs nothing of its own. */

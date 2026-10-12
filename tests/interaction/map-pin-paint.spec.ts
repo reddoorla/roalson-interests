@@ -79,3 +79,42 @@ test("the active pin's tip sits on its listing's point, as a dimmed pin's does",
     all.locator("[data-map-pin][data-map-dimmed]").first(),
   );
 });
+
+// The gate's half: map-marker-contrast.test.ts proves DIMMED_PIN_FILL keeps
+// 3:1, which holds only if a dimmed pin is painted at exactly its own
+// `--map-dim`, with no ancestor opacity multiplied on top.
+async function expectPaintedAtItsDim(pins: Locator) {
+  expect(await pins.count(), "premise: dimmed pins to measure").toBeGreaterThan(0);
+  for (const pin of await pins.all()) {
+    const { painted, dim } = await pin.evaluate((el) => {
+      const path = el.querySelector(":scope > svg > path")!;
+      let chain = 1;
+      for (let n: Element | null = path; n; n = n.parentElement)
+        chain *= Number(getComputedStyle(n).opacity);
+      return {
+        painted: chain * Number(getComputedStyle(path).fillOpacity),
+        dim: Number(getComputedStyle(el).getPropertyValue("--map-dim")),
+      };
+    });
+    expect(dim, "premise: the pin is dimmed").toBeLessThan(1);
+    expect(painted, "painted at its own dim, nothing more").toBeCloseTo(dim, 6);
+  }
+}
+
+test(
+  "a dimmed pin is painted at its own dim, on the picture and on the live map",
+  { tag: "@smoke" },
+  async ({ page }) => {
+    test.skip(PREVIEW, "/dev/* 404s on a production build (#120)");
+    await page.setViewportSize({ width: 1440, height: 900 });
+    await page.goto("/dev/properties");
+    await hydrated(page);
+    const all = page.locator('section[data-view-section="all"]');
+    await expectPaintedAtItsDim(all.locator("[data-map-home-pin][data-map-dimmed]"));
+
+    const map = all.locator("[data-property-map]");
+    await scrollMapToBoot(map);
+    await expect(map, "the map booted").toHaveAttribute("data-map-ready", "", { timeout: 45_000 });
+    await expectPaintedAtItsDim(all.locator("[data-map-pin][data-map-dimmed]"));
+  },
+);

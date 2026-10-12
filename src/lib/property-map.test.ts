@@ -912,7 +912,8 @@ function lowestPoint(d: string): { x: number; y: number } {
       x = nx;
       see(x, y);
     } else if (cmd === "Z") {
-      continue;
+      if (i < tokens.length && !/[A-Za-z]/.test(tokens[i]!))
+        throw new Error("lowestPoint cannot read numbers after Z");
     } else throw new Error(`lowestPoint cannot read "${cmd}"`);
   }
   return low;
