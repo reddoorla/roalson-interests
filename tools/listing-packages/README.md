@@ -86,9 +86,10 @@ live in the generator, so a rebuild picks them up:
 - Exhibits, in order: Location Map, Area Map with Traffic Counts, Aerial Map, FEMA Flood
   Zones. The close street map and the close aerial are gone. A site with no TxDOT station
   falls back to a plain Area Map.
-- No survey page unless `build/plans.json` sets `"keep_survey": true` for that listing. Five do,
-  because their own spec text cites the survey (the operator, 2026-10-12): Cascade Caverns, IH-10 at
-  Hwy 87 Comfort, IH-10 at Menger Springs, IH-35 at Wonderworld and St. Mary's at Martin.
+- No survey page unless `build/plans.json` sets `"keep_survey": true` for that listing. None
+  does: Matt Howard's package comments (2026-10-12) remove every survey. Four listings' "See Survey"
+  cross-references are cut in `build/corrections.json`; St. Mary's flood sentence, which reports
+  what the survey shows, is the broker's and stays.
 
 Two per-site fields in `geo/sites.json` feed the area and aerial maps:
 

@@ -174,5 +174,29 @@
   "where": "demographic_overview",
   "scope": "demographic_overview",
   "why": "Missing dollar sign on the 3-mile Average Household Income; the other two radii and the spec page print $."
+ },
+ {
+  "uid": "cascade-caverns-at-old-san-antonio-road",
+  "find": "Varies, See Survey.",
+  "replace": "Varies.",
+  "why": "The survey page is removed (client, Matt Howard's package comments 2026-10-12, forwarded by Erik 22:12Z); the cross-reference would point at nothing"
+ },
+ {
+  "uid": "ih-10-at-highway-87-comfort",
+  "find": " See Survey.",
+  "replace": "",
+  "why": "The survey page is removed (client, Matt Howard's package comments 2026-10-12, forwarded by Erik 22:12Z); the cross-reference would point at nothing"
+ },
+ {
+  "uid": "ih-10-at-menger-springs",
+  "find": " Refer to Survey.",
+  "replace": "",
+  "why": "The survey page is removed (client, Matt Howard's package comments 2026-10-12, forwarded by Erik 22:12Z); the cross-reference would point at nothing"
+ },
+ {
+  "uid": "ih-35-at-wonderworld-san-marcos",
+  "find": " See Survey.",
+  "replace": "",
+  "why": "The survey page is removed (client, Matt Howard's package comments 2026-10-12, forwarded by Erik 22:12Z); the cross-reference would point at nothing"
  }
 ]

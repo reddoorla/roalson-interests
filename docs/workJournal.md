@@ -13226,3 +13226,13 @@ issue, #292.
 out to all 23. Logos stay names and pins (the operator, after the research:
 Brandfetch's terms forbid storing logos in a PDF, logo.dev's free plan needs a
 public credit link). The other 22 packages are not rebuilt.
+
+**Corrected the same evening.** The paragraph above says the operator kept the
+survey on five listings. Half an hour later Matt Howard's per-package comments
+reached us (Erik's 22:12Z forward), and they say "remove survey" for all five.
+The flags came out, and the four "See Survey" cross-references went into
+`build/corrections.json`. St. Mary's "The survey appears to indicate … Floodplain"
+stays: it is the broker's flood statement, not a pointer to a page. The rest of
+Matt's per-package list (Land ID boundaries, copy edits, exhibit keeps and
+removes, an HEB logo on IH-10 East at 1604) is the rollout's work, not this
+change's.
