@@ -7,7 +7,7 @@ sys.path.insert(0, os.path.join(ROOT, 'lib'))
 from flood import flood_geojson
 
 A = lambda *p: os.path.join(ROOT, *p)
-PIN = 'Tract boundaries appear on the survey and exhibit pages; the zones mapped around the site pin are shown for comparison.'
+PIN = 'No share of the site is computed for this listing; the zones mapped around it are shown for comparison.'
 
 
 def pct(v):

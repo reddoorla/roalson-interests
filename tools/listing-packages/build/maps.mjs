@@ -200,9 +200,11 @@ async function render(page, job) {
       el.remove();
       return false;
     };
+    const countDots = new Map();
     for (const t of job.traffic ?? []) {
       const pt = map.project([t.lon, t.lat]);
       const dot = document.createElement('div'); dot.className = 'aadt-dot';
+      countDots.set(t, dot);
       dot.style.cssText = `position:absolute;left:${pt.x - 6.5}px;top:${pt.y - 6.5}px;z-index:3`;
       document.body.appendChild(dot);
       taken.push({ l: pt.x - 7, t: pt.y - 7, r: pt.x + 7, b: pt.y + 7 });
@@ -229,7 +231,7 @@ async function render(page, job) {
       el.innerHTML = `<b></b><span></span>`;
       el.querySelector('b').textContent = t.qty;
       el.querySelector('span').textContent = t.road;
-      if (!place(el, map.project([t.lon, t.lat]))) dropped.push(`count ${t.qty}`);
+      if (!place(el, map.project([t.lon, t.lat]))) { dropped.push(`count ${t.qty}`); countDots.get(t).remove(); }
     }
     for (const b of job.businesses ?? []) {
       const el = document.createElement('div'); el.className = 'biz'; el.textContent = b.name;
