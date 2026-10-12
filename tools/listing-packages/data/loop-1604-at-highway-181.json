@@ -1,0 +1,112 @@
+{
+  "uid": "loop-1604-at-highway-181",
+  "variant": "land",
+  "transaction": "For Sale",
+  "type_label": "Land",
+  "eyebrow": "Commercial Corner Pad Site Opportunity",
+  "title": "Loop 1604 / U. S. Highway 181",
+  "city": "San Antonio, Texas",
+  "size_headline": "",
+  "rows": [
+    {"label": "Location", "text": "The property is located on the north corner of U. S. Highway 181 and Southeast Loop 1604."},
+    {"label": "Size", "text": "3.08 Acres"},
+    {"label": "Frontage", "text": "Approximately 502.25 feet along Loop 1604\nApproximately 619.44 feet along Highway 181\nApproximately 246.86 feet along Laguna Road"},
+    {"label": "Utilities", "pairs": [
+        ["Electricity", "City Public Service indicates it has a 3-phase line along S. E. Loop 1604."],
+        ["Sewer", "Septic is required."],
+        ["Water", "The City of Elmendorf indicates it has a 6 inch water main along Highway 181 and S. E. Loop 1604 on the property frontage."],
+        ["Gas", "Not Available."]],
+     "note": "Prospective buyers should retain an independent engineer to verify the location, accessibility and available capacity of all utilities."},
+    {"label": "Zoning", "text": "The property is outside the city limits.",
+     "note": "Prospective buyers should verify the zoning and permitted uses for the property with the appropriate governing authority."},
+    {"label": "Demographics", "table": {
+        "columns": ["", "3 - mile", "5 - mile"],
+        "rows": [["2025 Population Estimates", "5,733", "14,214"],
+                 ["Average Household Income", "$88,337", "$97,848"]]},
+     "note": "Source: U. S. Bureau of the Census, 2020 Census of Population and Housing. ESRI forecasts for 2025 and 2030."},
+    {"label": "Traffic Count", "text": "Most recent (2025) Texas Department of Transportation maps indicate 23,338 vehicles per day on U. S. Highway 181 just northwest of the property and 25,093 vehicles per day southeast of the intersection. The maps also show 6,593 vehicles on Loop 1604 northeast of its intersection with Highway 181 and 7,936 vehicles per day southwest of the intersection."},
+    {"label": "Flood Plain", "text": "Federal Emergency Management Agency maps do not appear to indicate any 100-year flood plain on the property"},
+    {"label": "Topography", "text": "The property is generally level to a gentle northerly slope."},
+    {"label": "Easements", "text": "There are two electrical easements to service the property."},
+    {"label": "Deed Restrictions", "text": "None of record."},
+    {"label": "Area Development", "text": "Developments at the intersection area include a Valero C-Store, Texas Best Travel Center and The Hickory Ridge Subdivision."},
+    {"label": "Potential Use", "text": "The property’s major intersection location offers opportunity for a variety of retail and commercial services."},
+    {"label": "Investment", "text": "Contact Broker"}
+  ],
+  "comments": [
+    "The corner location makes the site one of the most appealing development options in the area.",
+    "The property is located at a signalized intersection."
+  ],
+  "contact": {
+    "names": "Bart Wilson or Matt Howard",
+    "phone": "(210) 496-5800",
+    "fax": "(210) 496-5809",
+    "emails": ["bwilson@roalson.com", "mhoward@roalson.com"],
+    "web": "www.roalson.com"
+  },
+  "demographic_overview": {
+    "title": "Loop 1604 at Highway 181",
+    "date": "September 16, 2025",
+    "columns": ["3.0 Miles", "5.0 Miles", "7.0 Miles"],
+    "sections": [
+      {"heading": "Population", "rows": [
+        ["2020 Census", "5,161", "12,721", "26,198"],
+        ["2025 Estimate", "5,733", "14,214", "33,322"],
+        ["5 Year Projection", "6,779", "17,613", "44,159"]]},
+      {"heading": "Households", "rows": [
+        ["2020 Census", "1,841", "4,444", "9,083"],
+        ["2025 Estimate", "2,119", "5,103", "11.565"],
+        ["5 Year Projection", "2,558", "6,394", "15,428"]]},
+      {"heading": "2025 Population by Race", "rows": [
+        ["White", "53.0%", "54.9%", "54.6%"],
+        ["Black", "1.5%", "1.9%", "2.5%"],
+        ["Asian or Pacific Islander", "0.7%", "0.7%", "0.8%"],
+        ["American Indian", "1.3%", "1.1%", "1.2%"]]},
+      {"heading": "2025 Population by Ethnicity", "rows": [
+        ["Hispanic Origin", "61.3%", "57.6%", "57.2%"]]},
+      {"heading": "2025 Total Housing Units", "rows": [
+        ["Owner-Occupied", "1,832", "4,446", "10,223"],
+        ["Renter-Occupied", "287", "657", "1,342"],
+        ["Average Household Size", "2.70", "2.78", "2.88"]]},
+      {"heading": "2025 Household Income", "rows": [
+        ["Income $ 0 - $15,000", "6.7%", "7.6%", "6.4%"],
+        ["Income $ 15,000 - $24,999", "8.5%", "7.0%", "6.0%"],
+        ["Income $ 25,000 - $34,999", "10.2%", "8.3%", "6.8%"],
+        ["Income $ 35,000 - $49,999", "12.0%", "11.1%", "9.1%"],
+        ["Income $ 50,000 - $74,999", "17.7%", "15.8%", "15.7%"],
+        ["Income $ 75,000 - $99,999", "11.8%", "11.7%", "11.2%"],
+        ["Income $ 100,000 - $149,999", "18.1%", "20.0%", "20.3%"],
+        ["Income $ 150,000 - $199,999", "7.3%", "9.7%", "11.8%"],
+        ["Income $200,000 +", "7.5%", "8.9%", "12.6%"],
+        ["Average Household Income", "$88,337", "$97,848", "$114,832"],
+        ["Median Household Income", "$66,952", "$75,400", "$86,609"],
+        ["Per Capita Income", "$31,895", "$35,190", "$39,677"]]}
+    ],
+    "source": "Source: U.S. Bureau of the Census, 2020 Census of Population and Housing. ESRI forecasts for 2025 and 2030.",
+    "from_image": false
+  },
+  "pages": [
+    {"page": 1, "kind": "cover_spec", "caption": ""},
+    {"page": 2, "kind": "spec", "caption": ""},
+    {"page": 3, "kind": "location_map", "caption": "Location Map", "annotations": "Older Microsoft MapPoint road map (© 1988–2008 Microsoft) of San Antonio metro; yellow pushpin at Loop 1604 / US 181 near Elmendorf, southeast of the city"},
+    {"page": 4, "kind": "area_map", "caption": "Area Map", "annotations": "MapPoint-style road map; yellow pushpin at US 181 / Laguna Rd / Loop 1604, northeast of Elmendorf, Calaveras Lake to the north"},
+    {"page": 5, "kind": "aerial", "caption": "Aerial Map", "annotations": "Image-only page. Regional satellite aerial with 'Aerial Map' label box inside the image; yellow 'SAN ANTONIO' label at downtown; yellow/red 'SITE' arrow southeast near Calaveras Lake; north arrow bottom-left"},
+    {"page": 6, "kind": "site_plan", "caption": "Site Plan Exhibit", "annotations": "Image-only page. Pape-Dawson preliminary site plan 'BILL MILLER LOOP 1604 & US HWY 181, BEXAR COUNTY, TEXAS - SITE PLAN EXHIBIT' (Job 13391-00, July 2026) over aerial. Subject LOT 2 ±3.08 AC outlined in red and shaded green with a 'CONVENIENCE STORE/GAS STATION ±4,500 SF' concept; LOT 1 ±2.01 AC (yellow) shows a Bill Miller restaurant; LOT 3 ±1.29 AC (magenta) 'QSR ±3,000 SF'; roads labelled HIGHWAY 181, LAGUNA RD, LOOP 1604; inset location map shows site in City of San Antonio ETJ, Bexar County"},
+    {"page": 7, "kind": "demographics", "caption": ""},
+    {"page": 8, "kind": "disclosure", "caption": ""},
+    {"page": 9, "kind": "iabs", "caption": ""}
+  ],
+  "qa_notes": [
+    "DEMOGRAPHIC OVERVIEW TYPO: Households 2025 Estimate, 7.0 Miles is printed '11.565' (period instead of comma); Owner-Occupied 10,223 + Renter-Occupied 1,342 = 11,565, so it should read 11,565. Transcribed as printed.",
+    "TITLE MISMATCH: cover title is 'LOOP 1604 / U. S. HIGHWAY 181' with city 'SAN ANTONIO, TEXAS'; Prismic title is 'Loop 1604 at Highway 181, Elmendorf' and the demographic page says 'LOOP 1604 AT HIGHWAY 181'. The water utility is from the City of Elmendorf.",
+    "ZONING MISMATCH (wording): PDF says 'The property is outside the city limits.'; Prismic zoning says 'Bexar County San Antonio ETJ' (the site-plan inset map on p6 does show the site in the City of San Antonio ETJ, Bexar County).",
+    "SIZE: spec 3.08 Acres; site plan LOT 2 ±3.08 AC; Prismic 3.08 acres (match). The cover has no acreage line, so size_headline is blank.",
+    "PRICE: 'Contact Broker' in PDF and Prismic (match).",
+    "TRANSACTION: the PDF never says 'For Sale'/'For Lease'; set to 'For Sale' (Investment row, pad site). Prismic transaction_type is null. The site plan (p6) now shows the 3.08 ac as Lot 2 of a three-lot Bill Miller plan with a c-store/gas concept - broker should confirm the offering (sale vs. ground lease/pad) is still as described.",
+    "FRONTAGE: printed as three unlabelled sentences (not label/value pairs), so kept as text with line breaks. Worth verifying: the site plan shows Lot 2 fronting Highway 181 and Laguna Rd with Loop 1604 across Laguna Rd; the 502.25 ft 'along Loop 1604' figure may describe the original larger tract.",
+    "Traffic Count omits 'per day' in '6,593 vehicles on Loop 1604' (other three counts say 'vehicles per day'). Flood Plain sentence has no closing period. Contact line prints 'Email' without a colon. All kept as printed.",
+    "Spec-page demographics use '3 - mile' / '5 - mile' headers and match the overview (5,733 / 14,214; $88,337 / $97,848). Overview includes a 7.0-mile column not on the spec page.",
+    "Prismic highlight 1 reads 'Corner location makes the site...' whereas the PDF comment reads 'The corner location makes the site...'.",
+    "Location and Area maps are old Microsoft MapPoint maps (printed 'Copyright © and (P) 1988–2008 Microsoft Corporation'); consider refreshing in the new template."
+  ]
+}

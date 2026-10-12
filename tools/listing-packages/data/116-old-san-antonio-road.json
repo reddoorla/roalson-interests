@@ -1,0 +1,112 @@
+{
+  "uid": "116-old-san-antonio-road",
+  "variant": "land",
+  "transaction": "For Sale",
+  "type_label": "Land",
+  "eyebrow": "Commercial Development Site",
+  "title": "116 Old San Antonio Road",
+  "city": "Boerne, TX",
+  "size_headline": "17.2 Acres",
+  "rows": [
+    {"label": "Location", "text": "The property is located on the north side of IH 10, at 116 Old San Antonio Road in Boerne, Texas."},
+    {"label": "Size", "text": "17.2 +/- Acres"},
+    {"label": "Frontage", "text": "556 +/- feet on Old San Antonio Road"},
+    {"label": "Utilities", "pairs": [["Electricity", "Available"], ["Sewer", "Available"], ["Water", "Available"]],
+     "note": "Prospective buyers should retain an independent engineer to verify the location, accessibility and capacity of all utilities."},
+    {"label": "Zoning", "text": "R-E (Residential Estate), City of Boerne",
+     "note": "Prospective buyers should verify the zoning and permitted uses for this property with the appropriate governing authority."},
+    {"label": "Topography", "text": "Property gently slopes from west to the east."},
+    {"label": "Flood Plain", "text": "According to FEMA maps, there does not appear to be a 100-year flood plain on the property."},
+    {"label": "Easements", "text": "Sewer easement and various electrical easements are on the property."},
+    {"label": "Deed Restrictions", "text": "None of Record."},
+    {"label": "Traffic Count", "text": "2024 Texas Department of Transportation maps indicate 10,657 vehicles per day on Old San Antonio Road, north of the property and 57,215 vehicles per day on IH 10, west of the property."},
+    {"label": "Demographics", "table": {
+        "columns": ["2025 ESRI Estimates", "Population", "Average Household Income"],
+        "rows": [["3-mile radius", "23,838", "$150,844"],
+                 ["5-mile radius", "40,561", "$161,160"],
+                 ["7-mile radius", "63,120", "$169,616"]]},
+     "note": "Source: U.S. Bureau of the Census, 2020 Census of Population and Housing. ESRI forecasts for 2025 and 2030."},
+    {"label": "Area Development", "text": "The property is near many new commercial, multifamily, and residential developments."},
+    {"label": "Potential Uses", "text": "This property would suit a variety of commercial uses."},
+    {"label": "Investment", "text": "Contact Broker"}
+  ],
+  "comments": [
+    "The property has easy access to IH 10.",
+    "The Kendall County area (and Boerne in particular) continue to have very strong population growth.",
+    "The property has close proximity to Boerne Middle School South and Kendall Elementary as well as The Geneva School of Boerne."
+  ],
+  "contact": {
+    "names": "Matt Howard or Bart Wilson",
+    "phone": "(210) 496-5800",
+    "fax": "",
+    "emails": ["mhoward@roalson.com", "bwilson@roalson.com"],
+    "web": "www.roalson.com"
+  },
+  "demographic_overview": {
+    "title": "116 Old San Antonio Road, Boerne, TX",
+    "date": "October 5, 2025",
+    "columns": ["3.0 Miles", "5.0 Miles", "7.0 Miles"],
+    "sections": [
+      {"heading": "Population", "rows": [
+        ["2020 Census", "20,382", "34,668", "53,322"],
+        ["2025 Estimate", "23,838", "40,561", "63,120"],
+        ["5 Year Projection", "29,248", "48,343", "74,674"]]},
+      {"heading": "Households", "rows": [
+        ["2020 Census", "7,335", "12,461", "18,937"],
+        ["2025 Estimate", "8,789", "14,982", "23,062"],
+        ["5 Year Projection", "10,988", "18,189", "27,829"]]},
+      {"heading": "2025 Population by Race", "rows": [
+        ["White", "73.4%", "73.5%", "71.1%"],
+        ["Black", "1.6%", "1.6%", "1.8%"],
+        ["Asian or Pacific Islander", "1.8%", "2.1%", "2.9%"],
+        ["American Indian", "0.7%", "0.6%", "0.6%"]]},
+      {"heading": "2025 Population by Ethnicity", "rows": [
+        ["Hispanic Origin", "27.6%", "26.8%", "27.9%"]]},
+      {"heading": "2025 Total Housing Units", "rows": [
+        ["Owner-Occupied", "6,254", "11,532", "18,507"],
+        ["Renter-Occupied", "2,535", "3,450", "4,555"],
+        ["Average Household Size", "2.63", "2.66", "2.70"]]},
+      {"heading": "2025 Household Income", "rows": [
+        ["Income $ 0 - $15,000", "6.2%", "5.3%", "4.4%"],
+        ["Income $ 15,000 - $24,999", "4.4%", "3.6%", "2.7%"],
+        ["Income $ 25,000 - $34,999", "4.6%", "4.6%", "3.9%"],
+        ["Income $ 35,000 - $49,999", "11.5%", "10.7%", "8.4%"],
+        ["Income $ 50,000 - $74,999", "10.5%", "9.4%", "9.6%"],
+        ["Income $ 75,000 - $99,999", "11.1%", "9.5%", "10.0%"],
+        ["Income $ 100,000 - $149,999", "15.0%", "17.1%", "17.7%"],
+        ["Income $ 150,000 - $199,999", "11.5%", "11.3%", "12.5%"],
+        ["Income $200,000 +", "25.2%", "28.6%", "30.7%"],
+        ["Average Household Income", "$150,844", "$161,160", "$169,616"],
+        ["Median Household Income", "$105,213", "$117,753", "$131,390"],
+        ["Per Capita Income", "$56,083", "$59,930", "$62,206"]]}
+    ],
+    "source": "Source: U.S. Bureau of the Census, 2020 Census of Population and Housing. ESRI forecasts for 2025 and 2030.",
+    "from_image": false
+  },
+  "pages": [
+    {"page": 1, "kind": "cover_spec", "caption": ""},
+    {"page": 2, "kind": "spec", "caption": ""},
+    {"page": 3, "kind": "location_map", "caption": "Location Map", "annotations": "landscape Google map of the San Antonio metro with a red pin at Boerne (NW of San Antonio along IH 10)"},
+    {"page": 4, "kind": "area_map", "caption": "Area Map", "annotations": "landscape Google map of Boerne with a red pin on Old San Antonio Rd just northeast of IH 10; nearby H-E-B plus!, The Home Depot, Cibolo Nature Center & Farm, Toyota of Boerne, Cascade Caverns"},
+    {"page": 5, "kind": "aerial", "caption": "Aerial Map", "annotations": "wide aerial of Boerne and IH 10; site outlined in red; scale bar 0-8000ft; footer Matt Howard / mhoward@roalson.com"},
+    {"page": 6, "kind": "aerial", "caption": "Aerial Map", "annotations": "close aerial; irregular site boundary outlined in red, fronting Old San Antonio Road on the east, IH 10 to the southwest, Industrial Dr to the south; scale bar 0-800ft; footer Matt Howard / mhoward@roalson.com"},
+    {"page": 7, "kind": "survey", "caption": "Survey", "annotations": "landscape boundary survey by Macina • Bose • Copeland & Assoc., Inc. (MBC Engineers): '17.200 ACRES (749,230 SQ. FT.)', a called 17.0 acre tract excepting 0.4 acre and a called 0.21 acre tract, Kendall County; Old San Antonio Road on the east line; overhead electric and easement lines shown; scale 1\" = 60'"},
+    {"page": 8, "kind": "demographics", "caption": "Demographic Overview"},
+    {"page": 9, "kind": "disclosure", "caption": "Property Disclosure Statement"},
+    {"page": 10, "kind": "iabs", "caption": "Information About Brokerage Services"}
+  ],
+  "qa_notes": [
+    "Transaction: the PDF never says 'For Sale' or 'For Lease'; set 'For Sale' from context ('Prospective buyers', 'Investment' row). Verify.",
+    "City is printed 'BOERNE, TX' on the cover (abbreviated state); kept as printed. The Location row spells it 'Boerne, Texas'.",
+    "Size consistent: cover '17.2 ACRES', spec '17.2 +/- Acres', survey '17.200 ACRES (749,230 SQ. FT.)'; Prismic size_label '17.2 acres' / acres 17.2 (match).",
+    "Zoning: PDF 'R-E (Residential Estate), City of Boerne' matches Prismic zoning.",
+    "Price: PDF 'Contact Broker' matches Prismic total_price 'Contact Broker'.",
+    "Title: PDF '116 Old San Antonio Road' matches Prismic title.",
+    "Eyebrow 'Commercial Development Site' and 'Potential Uses: ...commercial uses' while zoning is R-E (Residential Estate) - a buyer-facing tension worth a broker's eye (rezoning presumably needed); transcribed as printed.",
+    "Utilities list only Electricity, Sewer and Water (no Gas row).",
+    "Comment 2 grammar: 'The Kendall County area (and Boerne in particular) continue to have' (singular subject, plural verb); transcribed as printed.",
+    "Spec-page demographics (3/5/7-mile radii) match the Demographic Overview page values.",
+    "Demographic Overview column headers print with trailing colons ('3.0 Miles:'), dropped per schema convention. Note this listing uses 3/5/7-mile radii, not 1/3/5.",
+    "Page footer disclaimer on portrait pages misspells 'represetation'; the landscape map pages spell it correctly. Template-wide, not transcribed."
+  ]
+}

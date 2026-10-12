@@ -1,0 +1,49 @@
+{
+  "uid": "hwy-46-at-spencer-ranch-blvd",
+  "variant": "land",
+  "transaction": "Available",
+  "type_label": "Land",
+  "eyebrow": "Premium Hwy. 46 West Development Site",
+  "title": "Hwy 46 West and Spencer Ranch Blvd.",
+  "city": "Boerne, Texas",
+  "size_headline": "61.81 Acres",
+  "rows": [
+    {"label": "Location", "text": "The property is located at Hwy 46 West and Spencer Ranch Blvd., just west of the IH-10 and Hwy 46 interchange on the west side of Boerne."},
+    {"label": "Size", "text": "61.81 +/- Acres"},
+    {"label": "Frontage", "text": "Approximately 2,313 feet on Hwy. 46 and 1,215 feet on Spencer Ranch Blvd."},
+    {"label": "Utilities", "text": "Contact Broker",
+     "note": "Prospective buyers should retain an independent engineer to verify the location, accessibility and capacity of all utilities."},
+    {"label": "Zoning", "text": "Development Agreement in place. Contact Broker.",
+     "note": "Prospective buyers should verify the zoning and permitted uses for this property with the appropriate governing authority."},
+    {"label": "Easements", "text": "Emergency secondary access for subdivision."},
+    {"label": "Deed Restrictions", "text": "Contact Broker"},
+    {"label": "Traffic Count", "text": "2025: the Texas Department of Transportation shows 10,340 vehicles on Hwy 46, just west of IH-10."},
+    {"label": "Area Development", "text": "The site is adjacent to the new single-family development The Birch at Spencer Ranch, which contains approximately 209 lots. Construction on new homes began in 2026. The site is just west of Home Depot, Whataburger and Chili’s, and very close to the planned Baptist Healthcare facility."},
+    {"label": "Potential Uses", "text": "Mixed use, multifamily, residential, office and retail."},
+    {"label": "Investment", "text": "Contact Broker"}
+  ],
+  "comments": [],
+  "contact": {
+    "names": "Bart Wilson or Matt Howard",
+    "phone": "(210) 496-5800",
+    "fax": "",
+    "emails": ["bwilson@roalson.com", "mhoward@roalson.com"],
+    "web": "www.roalson.com"
+  },
+  "demographic_overview": null,
+  "pages": [
+    {"page": 1, "kind": "spec", "caption": ""},
+    {"page": 2, "kind": "spec", "caption": ""},
+    {"page": 3, "kind": "aerial", "caption": "Aerial Map"},
+    {"page": 4, "kind": "survey", "caption": "Survey"},
+    {"page": 5, "kind": "disclosure", "caption": ""},
+    {"page": 6, "kind": "iabs", "caption": ""}
+  ],
+  "qa_notes": [
+    "Built 2026-10-05 from Matt Howard's intake form (Gmail 'Fwd: New Listing 61.81 Acres'); transcribed here from that package, which is the original. Nine open questions for Erik are in roalson-interests#264.",
+    "Transaction: the intake form never says sale or lease (#264 question 1), so the cover chip says 'Available', the listing's status on the website, rather than the schema's 'For Sale' default.",
+    "No Flood Plain, Topography or Demographics rows: the form's boxes held the template's example text, so they were left out (#264 questions 2-4). The FEMA exhibit page states what NFHL maps show.",
+    "No Comments: the form gave none; the three website highlights were drafted by the 10-05 session and are not in the package (#264 question 5).",
+    "Fax not printed: the original package does not print one."
+  ]
+}

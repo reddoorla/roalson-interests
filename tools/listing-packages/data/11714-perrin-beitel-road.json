@@ -1,0 +1,109 @@
+{
+  "uid": "11714-perrin-beitel-road",
+  "variant": "land",
+  "transaction": "For Sale",
+  "type_label": "Land",
+  "eyebrow": "Pad Site Opportunity",
+  "title": "Perrin Beitel Road",
+  "city": "San Antonio, Texas",
+  "size_headline": "",
+  "rows": [
+    {"label": "Location", "text": "The property is located at 11714 Perrin Beitel Road, just south of Thousand Oaks Drive and north of Naco Perrin Blvd."},
+    {"label": "Size", "text": "2.172 +/- Acres (Vacant Land)"},
+    {"label": "Frontage", "text": "Approximately 450 feet on Perrin Beitel Road"},
+    {"label": "Utilities", "pairs": [["Electricity", "City Public Service"], ["Sewer", "San Antonio Water System (SAWS)"], ["Water", "San Antonio Water System (SAWS)"], ["Gas", "City Public Service"]],
+     "note": "Prospective buyers should retain an independent engineer to verify the location, accessibility and capacity of all utilities."},
+    {"label": "Zoning", "text": "The property is zoned C-2 in the City of San Antonio.",
+     "note": "Prospective buyers should verify the zoning and permitted uses for this property with the appropriate governing authority."},
+    {"label": "Flood Plain", "text": "FEMA shows a very small amount of 100-year flood plain on the property. Seller completed a LOMR."},
+    {"label": "Topography", "text": "The site has a gentle slope. Drainage is to the southwest."},
+    {"label": "Easements", "text": "Utility easements are on the property."},
+    {"label": "Deed Restrictions", "text": "None of record."},
+    {"label": "Traffic Count", "text": "Texas Department of Transportation 2024 maps indicate 18,988 vehicles per day on Perrin Beitel, just south of the property."},
+    {"label": "Demographics", "table": {
+        "columns": ["", "1-mile", "3-mile", "5-mile"],
+        "rows": [["Population, 2025 Estimate", "10,958", "97,150", "268,757"],
+                 ["Population, 5 Year Projection", "10,499", "96,173", "272,111"],
+                 ["Average Household Income", "$67,603", "$84,470", "$96,301"]]},
+     "note": "Source: U.S. Bureau of the Census, 2020 Census of Population and Housing. ESRI forecasts for 2025 and 2030."},
+    {"label": "Area Development", "text": "The property is completely surrounded by commercial and residential development which includes HEB, Wal-Mart, McDonalds, and many more."},
+    {"label": "Investment", "text": "$17.00 per square foot; $1,608,409.44"}
+  ],
+  "comments": [
+    "Excellent visibility and access",
+    "Prime commercial location on a major thoroughfare in northeast San Antonio",
+    "Improvements have been removed."
+  ],
+  "contact": {
+    "names": "Bart Wilson or Matt Howard",
+    "phone": "(210) 496-5800",
+    "fax": "(210) 496-5809",
+    "emails": ["bwilson@roalson.com", "mhoward@roalson.com"],
+    "web": "www.roalson.com"
+  },
+  "demographic_overview": {
+    "title": "11714 Perrin Beitel Road, San Antonio, TX",
+    "date": "October 10, 2025",
+    "columns": ["1.0 Miles", "3.0 Miles", "5.0 Miles"],
+    "sections": [
+      {"heading": "Population", "rows": [
+        ["2020 Census", "11,419", "97,994", "264,138"],
+        ["2025 Estimate", "10,958", "97,170", "268,757"],
+        ["5 Year Projection", "10,499", "96,173", "272,111"]]},
+      {"heading": "Households", "rows": [
+        ["2020 Census", "5,133", "39,776", "104,839"],
+        ["2025 Estimate", "5,094", "40,707", "110,441"],
+        ["5 Year Projection", "4,997", "41,135", "114,090"]]},
+      {"heading": "2025 Population by Race", "rows": [
+        ["White", "42.2%", "47.2%", "48.2%"],
+        ["Black", "12.4%", "10.4%", "10.4%"],
+        ["Asian or Pacific Islander", "1.9%", "2.7%", "3.6%"],
+        ["American Indian", "1.4%", "1.1%", "1.1%"]]},
+      {"heading": "2025 Population by Ethnicity", "rows": [
+        ["Hispanic Origin", "58.2%", "50.9%", "48.3%"]]},
+      {"heading": "2025 Total Housing Units", "rows": [
+        ["Owner-Occupied", "1,886", "23,011", "64,149"],
+        ["Renter-Occupied", "3,208", "17,696", "46,292"],
+        ["Average Household Size", "2.15", "2.38", "2.41"]]},
+      {"heading": "2025 Household Income", "rows": [
+        ["Income $ 0 - $15,000", "8.3%", "7.0%", "6.3%"],
+        ["Income $ 15,000 - $24,999", "8.3%", "6.9%", "5.9%"],
+        ["Income $ 25,000 - $34,999", "12.9%", "8.6%", "7.4%"],
+        ["Income $ 35,000 - $49,999", "14.6%", "11.9%", "10.6%"],
+        ["Income $ 50,000 - $74,999", "23.5%", "20.8%", "20.2%"],
+        ["Income $ 75,000 - $99,999", "16.7%", "15.1%", "15.3%"],
+        ["Income $ 100,000 - $149,999", "11.8%", "18.7%", "18.3%"],
+        ["Income $ 150,000 - $199,999", "1.8%", "5.9%", "8.0%"],
+        ["Income $200,000 +", "2.3%", "5.1%", "8.0%"],
+        ["Average Household Income", "$67,603", "$84,470", "$96,301"],
+        ["Median Household Income", "$55,505", "$67,407", "$74,227"],
+        ["Per Capita Income", "$30,625", "$35,443", "$39,460"]]}
+    ],
+    "source": "Source: U.S. Bureau of the Census, 2020 Census of Population and Housing. ESRI forecasts for 2025 and 2030.",
+    "from_image": false
+  },
+  "pages": [
+    {"page": 1, "kind": "cover_spec", "caption": ""},
+    {"page": 2, "kind": "spec", "caption": ""},
+    {"page": 3, "kind": "location_map", "caption": "Location Map", "annotations": "Google map of the San Antonio region with a red pin in northeast San Antonio near Loop 410 / Live Oak"},
+    {"page": 4, "kind": "area_map", "caption": "Area Map", "annotations": "Google map with a red pin on Perrin Beitel Rd between Thousand Oaks Dr and Wurzbach Pkwy; nearby H-E-B, Walmart Supercenter, McDonald's, Whataburger, Toyota Field, Heroes Stadium"},
+    {"page": 5, "kind": "aerial", "caption": "Aerial Map", "annotations": "wide aerial; small site outlined in red on Perrin Beitel; Wurzbach Pkwy and Toyota Field/Heroes Stadium visible; scale bar 0-4000ft; map-tool header 'Texas, AC +/-' (acreage blank); footer Matt Howard / mhoward@roalson.com"},
+    {"page": 6, "kind": "aerial", "caption": "Aerial Map", "annotations": "close aerial headed '11714 Perrin Beitel / Texas, 2.172 AC +/-'; site outlined in red fronting Perrin Beitel Rd; FEMA 100-year floodplain shaded cyan along the south/southeast boundary; legend Boundary, 100 Year Floodplain, 500 Year Floodplain, Floodway, Special, Unmapped/Excluded; scale bar 0-400ft; footer Matt Howard / www.roalson.com"},
+    {"page": 7, "kind": "demographics", "caption": "Demographic Overview"},
+    {"page": 8, "kind": "disclosure", "caption": "Property Disclosure Statement"},
+    {"page": 9, "kind": "iabs", "caption": "Information About Brokerage Services"}
+  ],
+  "qa_notes": [
+    "Transaction: the PDF never says 'For Sale' or 'For Lease'; set 'For Sale' from context ('Prospective buyers', priced per SF in 'Investment'). Verify.",
+    "Title: the cover prints only 'PERRIN BEITEL ROAD' (no street number); Prismic title is '11714 Perrin Beitel Road' and the Location row / Demographic Overview give '11714 Perrin Beitel Road'. Transcribed the cover as printed - decide whether the new cover should carry the number.",
+    "Demographics contradiction: spec-page table gives 3-mile 2025 Estimate population '97,150'; the Demographic Overview page gives '97,170' (verified in the PDF text layer and a 300dpi render). All other spec-table values match the overview.",
+    "Price: PDF '$17.00 per square foot; $1,608,409.44' (= 2.172 ac x 43,560 x $17.00, checks out); Prismic total_price '$1,608,409' (cents dropped) and price_per_unit '$17.00 / SF' (match).",
+    "Size: PDF '2.172 +/- Acres (Vacant Land)', aerial header '2.172 AC +/-'; Prismic size_label '2.172 acres' (match). The cover has no size line, so size_headline is ''.",
+    "Zoning: PDF 'The property is zoned C-2 in the City of San Antonio.'; Prismic zoning 'C-2' (consistent).",
+    "Demographics table row labels print with trailing colons ('2025 Estimate:', '5 Year Projection:', 'Income:') and 'Population' as a group label above '2025 Estimate:'; flattened to 'Population, 2025 Estimate' etc. per the schema example.",
+    "Area Development 'McDonalds' lacks the apostrophe (brand is McDonald's); transcribed as printed.",
+    "Deed Restrictions reads 'None of record.' (lower-case 'record' with period), unlike other packages' 'None of Record.'; transcribed as printed.",
+    "Wide aerial (p5) carries the map tool's placeholder header 'Texas, AC +/-' with no acreage.",
+    "Demographic Overview column headers print with trailing colons ('1.0 Miles:'), dropped per schema convention."
+  ]
+}

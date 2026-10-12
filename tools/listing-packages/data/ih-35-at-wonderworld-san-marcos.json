@@ -1,0 +1,398 @@
+{
+  "uid": "ih-35-at-wonderworld-san-marcos",
+  "variant": "land",
+  "transaction": "For Sale",
+  "type_label": "Land",
+  "eyebrow": "1.47 Acre Pad Site",
+  "title": "IH-35 at Wonderworld Drive",
+  "city": "San Marcos, TX",
+  "size_headline": "",
+  "rows": [
+    {
+      "label": "Location",
+      "text": "The property is located on the southwest corner of IH-35 and Wonderworld Drive in San Marcos, TX."
+    },
+    {
+      "label": "Size",
+      "text": "1.47 Acre; 64,033 Square Feet"
+    },
+    {
+      "label": "Frontage",
+      "text": "The tract has an approximate total frontage of 454 feet along IH-35 and Wonderworld Drive."
+    },
+    {
+      "label": "Utilities",
+      "pairs": [
+        [
+          "Electricity",
+          "San Marcos Electric Utility provides water to the property."
+        ],
+        [
+          "Sewer",
+          "Provided by San Marcos Water-Wastewater Utility."
+        ],
+        [
+          "Water",
+          "Provided by San Marcos Water-Wastewater Utility."
+        ],
+        [
+          "Gas",
+          "CenterPoint Energy provides gas to the property."
+        ]
+      ],
+      "note": "Prospective buyers should retain an independent engineer to verify the location, accessibility and capacity of all utilities."
+    },
+    {
+      "label": "Zoning",
+      "text": "General Commercial, City of San Marcos, Texas",
+      "note": "Prospective buyers should verify the zoning and permitted uses for this property with the appropriate governing authority."
+    },
+    {
+      "label": "Flood Plain",
+      "text": "The property has some floodplain along the frontage at IH-35. See Survey."
+    },
+    {
+      "label": "Topography",
+      "text": "The property has gentle drainage to the south."
+    },
+    {
+      "label": "Easements",
+      "text": "There are various utility easements and access easements on the property. See Survey."
+    },
+    {
+      "label": "Deed Restrictions",
+      "text": "Hospitality and banking restrictions are recorded on parts of the property. Prelim title commitment can be provided."
+    },
+    {
+      "label": "Traffic Count",
+      "text": "2023 Texas Department of Transportation maps indicate 120,768 vehicles per day on IH-35, directly in front of the property and 26,337 vehicles per day on Wonderworld Drive, just east of IH-35."
+    },
+    {
+      "label": "Demographics",
+      "table": {
+        "columns": [
+          "2024 ESRI Estimates",
+          "3 Miles",
+          "5 Miles"
+        ],
+        "rows": [
+          [
+            "Population:",
+            "47,325",
+            "79,304"
+          ],
+          [
+            "Average Household Income",
+            "$80,534",
+            "$63,497"
+          ]
+        ]
+      },
+      "note": "Source: U.S. Bureau of the Census, 2020 Census of Population and Housing. ESRI forecasts are for 2024 and 2029."
+    },
+    {
+      "label": "Area Development",
+      "text": "The property is surrounded by major retailers, including Sam’s Club, Target, Academy, PetsMart, and Lowe’s which are all at the intersection of IH-35 and Wonderworld Drive or just south of it."
+    },
+    {
+      "label": "Potential Use",
+      "text": "The property lends itself to a variety of uses, including retail, restaurants, banking or a pharmacy."
+    },
+    {
+      "label": "Investment",
+      "text": "Contact Broker."
+    }
+  ],
+  "comments": [
+    "The property is on a hard corner at a major intersection along IH-35.",
+    "It is surrounded by major retail developments, along with substantial residential and medical development.",
+    "There is a reciprocal cross-access easement with the adjacent motel offering direct access to Wonderworld Drive.",
+    "Drive cuts are in place."
+  ],
+  "contact": {
+    "names": "Bart Wilson or Matt Howard",
+    "phone": "(210) 496-5800",
+    "fax": "(210) 496-5809",
+    "emails": [
+      "bwilson@roalson.com",
+      "mhoward@roalson.com"
+    ],
+    "web": "www.roalson.com"
+  },
+  "demographic_overview": {
+    "title": "IH 35 at Wonderworld Drive, San Marcos, TX",
+    "date": "January 12, 2025",
+    "columns": [
+      "3 Miles",
+      "5 Miles",
+      "7 Miles"
+    ],
+    "sections": [
+      {
+        "heading": "Population",
+        "rows": [
+          [
+            "2020 Census",
+            "43,618",
+            "73,898",
+            "83,453"
+          ],
+          [
+            "2024 Estimate",
+            "47,325",
+            "80,176",
+            "92,465"
+          ],
+          [
+            "5 Year Projection",
+            "49,758",
+            "83,602",
+            "97,597"
+          ]
+        ]
+      },
+      {
+        "heading": "Households",
+        "rows": [
+          [
+            "2020 Census",
+            "16,105",
+            "29,235",
+            "32,155"
+          ],
+          [
+            "2024 Estimate",
+            "17,833",
+            "32,410",
+            "36,294"
+          ],
+          [
+            "5 Year Projection",
+            "19,390",
+            "34,782",
+            "39,467"
+          ]
+        ]
+      },
+      {
+        "heading": "2024 Population by Race",
+        "rows": [
+          [
+            "White",
+            "53.3%",
+            "53.7%",
+            "53.7%"
+          ],
+          [
+            "Black",
+            "5.9%",
+            "6.6%",
+            "6.6%"
+          ],
+          [
+            "Asian or Pacific Islander",
+            "3.0%",
+            "2.9%",
+            "2.8%"
+          ],
+          [
+            "American Indian",
+            "0.9%",
+            "1.0%",
+            "1.0%"
+          ]
+        ]
+      },
+      {
+        "heading": "2024 Population by Ethnicity",
+        "rows": [
+          [
+            "Hispanic Origin",
+            "42.3%",
+            "43.3%",
+            "44.0%"
+          ]
+        ]
+      },
+      {
+        "heading": "2024 Total Housing Units",
+        "rows": [
+          [
+            "Owner-Occupied",
+            "6,797",
+            "11,200",
+            "13,620"
+          ],
+          [
+            "Renter-Occupied",
+            "11,036",
+            "21,210",
+            "22,674"
+          ],
+          [
+            "Average Household Size",
+            "2.34",
+            "2.26",
+            "2.34"
+          ]
+        ]
+      },
+      {
+        "heading": "2024 Household Income",
+        "rows": [
+          [
+            "Income $ 0 - $15,000",
+            "15.3%",
+            "15.5%",
+            "14.9%"
+          ],
+          [
+            "Income $ 15,000 - $24,999",
+            "7.8%",
+            "7.2%",
+            "7.0%"
+          ],
+          [
+            "Income $ 25,000 - $34,999",
+            "9.3%",
+            "9.2%",
+            "9.5%"
+          ],
+          [
+            "Income $ 35,000 - $49,999",
+            "11.3%",
+            "14.3%",
+            "13.8%"
+          ],
+          [
+            "Income $ 50,000 - $74,999",
+            "20.1%",
+            "21.0%",
+            "20.8%"
+          ],
+          [
+            "Income $ 75,000 - $99,999",
+            "11.9%",
+            "11.6%",
+            "11.8%"
+          ],
+          [
+            "Income $ 100,000 - $149,999",
+            "12.7%",
+            "11.6%",
+            "11.7%"
+          ],
+          [
+            "Income $ 150,000 - $199,999",
+            "5.0%",
+            "3.8%",
+            "4.1%"
+          ],
+          [
+            "Income $200,000 +",
+            "6.6%",
+            "5.7%",
+            "6.3%"
+          ],
+          [
+            "Average Household Income",
+            "$80,534",
+            "$75,830",
+            "$78,602"
+          ],
+          [
+            "Median Household Income",
+            "$55,780",
+            "$53,038",
+            "$54,014"
+          ],
+          [
+            "Per Capita Income",
+            "$30,831",
+            "$30,746",
+            "$31,255"
+          ]
+        ]
+      }
+    ],
+    "source": "Source: U.S. Bureau of the Census, 2020 Census of Population and Housing. ESRI forecasts for 2024 and 2029.",
+    "from_image": false
+  },
+  "pages": [
+    {
+      "page": 1,
+      "kind": "cover_spec",
+      "caption": ""
+    },
+    {
+      "page": 2,
+      "kind": "spec",
+      "caption": ""
+    },
+    {
+      "page": 3,
+      "kind": "location_map",
+      "caption": "Location Map",
+      "annotations": "regional road map (San Marcos to New Braunfels); site marked with yellow starburst on IH 35 south-west of central San Marcos"
+    },
+    {
+      "page": 4,
+      "kind": "area_map",
+      "caption": "Area Map",
+      "annotations": "San Marcos street map; site marked with yellow starburst on IH 35 at Wonder World Dr (road shield 3407)"
+    },
+    {
+      "page": 5,
+      "kind": "aerial",
+      "caption": "Aerial Map",
+      "annotations": "wide aerial; yellow 'SITE' arrow; labels Starplex Cinema, Central Texas Medical Center, Sam's Club, 'Best Buy / Marshall's / PetSmart', Academy, Target; address box 'Roalson Interests, Inc. 18618 Tuscany Stone, Suite 200 San Antonio, TX 78258'; north arrow; bing and STDBonline/esri credits"
+    },
+    {
+      "page": 6,
+      "kind": "aerial",
+      "caption": "Aerial Map",
+      "annotations": "close aerial; site outlined in yellow at IH 35 and Wonder World Dr with yellow 'SITE' arrow; numbered legend 1. Candlewood Suites, 2. Sac N Pac, 3. Shell, 4. Jack In The Box, 5. Chick Fil A, 6. Carl's Jr.; same outdated Tuscany Stone address box; 100 m / 400 ft scale"
+    },
+    {
+      "page": 7,
+      "kind": "aerial",
+      "caption": "",
+      "annotations": "Pape-Dawson Engineers exhibit '±1.47 ACRES AT IH-35/WONDER WORLD DR, SAN MARCOS, TEXAS, AERIAL EXHIBIT' (Job 8586-00, Nov 2014); boundary with bearings/distances over aerial; 100-year FEMA floodplain hatched along Interstate Highway 35; 34' ingress/egress, 25' utility & road, 20' and 10' public utility easements and a 0.1006 acre City of San Marcos public utility easement labelled"
+    },
+    {
+      "page": 8,
+      "kind": "survey",
+      "caption": "Survey",
+      "annotations": "Flores & Company Consulting Engineers property survey of 'A 1.470 ACRE TRACT BEING LOT 1B, WARREN PROPERTIES SUBDIVISION NUMBER 3...'; '1.470 ACRE TRACT' along Interstate Highway 35 and Wonder World Drive; certified 25th day of March 2016 by Thomas Flores RPLS 2238"
+    },
+    {
+      "page": 9,
+      "kind": "demographics",
+      "caption": ""
+    },
+    {
+      "page": 10,
+      "kind": "disclosure",
+      "caption": ""
+    },
+    {
+      "page": 11,
+      "kind": "iabs",
+      "caption": ""
+    }
+  ],
+  "qa_notes": [
+    "INTERNAL CONTRADICTION (demographics): the spec-page table gives 5-mile Population 79,304 and 5-mile Average Household Income $63,497, but the Demographic Overview (p9) gives 5-mile 2024 Estimate 80,176 and Average Household Income $75,830. The 3-mile figures agree (47,325 / $80,534). The spec table appears to come from an older run; transcribed verbatim.",
+    "ERROR IN SOURCE: Utilities 'Electricity: San Marcos Electric Utility provides water to the property.' — says 'water' on the electricity line. Kept verbatim; broker should correct to electricity.",
+    "Possible contradiction: Deed Restrictions say 'Hospitality and banking restrictions are recorded on parts of the property', while Potential Use lists 'banking' as a suitable use.",
+    "Typo: 'PetsMart' in Area Development (brand is PetSmart; the p5 aerial label reads 'PETSMART'). Kept verbatim.",
+    "Data vintage is older than the other packages: 2023 TxDOT traffic counts, 2024 ESRI estimates ('ESRI forecasts are for 2024 and 2029'), Demographic Overview dated January 12, 2025. The spec table has only 3- and 5-mile columns; the overview adds 7 miles.",
+    "Cover headline is '1.47 ACRE PAD SITE / IH-35 AT WONDERWORLD DRIVE / SAN MARCOS, TX'. The acreage is part of the headline, so it is kept in eyebrow ('1.47 Acre Pad Site') and size_headline is left empty so it does not print twice. Size matches Prismic '1.47 acres'. 64,033 sf / 43,560 = 1.470 ac (consistent; survey p8 '1.470 ACRE TRACT', exhibit p7 '±1.47 ACRES').",
+    "City printed as 'San Marcos, TX' (abbreviated state) on the cover and in Location; kept as printed.",
+    "Title: PDF 'IH-35 at Wonderworld Drive' (hyphenated); Prismic 'IH 35 at Wonderworld Drive, San Marcos'; Demographic Overview 'IH 35 AT WONDERWORLD DRIVE, SAN MARCOS, TX'. Engineering exhibits spell it 'Wonder World Dr'.",
+    "Zoning 'General Commercial, City of San Marcos, Texas' matches Prismic 'General Commercial, City of San Marcos'. Pricing 'Contact Broker.' matches Prismic 'Contact Broker'.",
+    "Prismic highlights are shortened: Prismic 'It is surrounded by major retail developments.' vs PDF '..., along with substantial residential and medical development.'; Prismic uses 'IH 35' where the PDF says 'IH-35'. The cross-access easement comment is not in Prismic.",
+    "Transaction: PDF never says For Sale or For Lease ('Investment: Contact Broker.'); 'For Sale' used per schema default.",
+    "Aerial maps p5 and p6 carry an outdated office address box ('18618 Tuscany Stone, Suite 200, San Antonio, TX 78258'); the disclosure page gives 17721 Rogers Ranch Pkwy., Suite 125."
+  ]
+}

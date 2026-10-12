@@ -1,0 +1,397 @@
+{
+  "uid": "ih-10-at-scenic-loop",
+  "variant": "land",
+  "transaction": "For Sale",
+  "type_label": "Land",
+  "eyebrow": "Premium IH 10 Commercial Development Site",
+  "title": "IH 10 at Scenic Loop",
+  "city": "Boerne, Texas",
+  "size_headline": "",
+  "rows": [
+    {
+      "label": "Location",
+      "text": "This pad site is located at the north corner of IH 10 West at Scenic Loop Road / Boerne Stage Road, at the southern “gateway” into Boerne from San Antonio."
+    },
+    {
+      "label": "Size",
+      "text": "Lot 3: 1.369 Acre (See Site Plan.)"
+    },
+    {
+      "label": "Frontage",
+      "pairs": [
+        [
+          "Scenic Loop Road / Boerne Stage Road",
+          "Approximately 290 feet"
+        ],
+        [
+          "Cascade Caverns",
+          "Approximately 129 feet"
+        ]
+      ]
+    },
+    {
+      "label": "Utilities",
+      "text": "All utilities are to the property line.",
+      "pairs": [
+        [
+          "Electric",
+          "Bandera Electric Coop"
+        ],
+        [
+          "Water",
+          "City of Boerne Water"
+        ],
+        [
+          "Sewer",
+          "City of Boerne"
+        ],
+        [
+          "Gas",
+          "City of Boerne"
+        ]
+      ],
+      "note": "Prospective buyers should retain an independent engineer to verify the location, accessibility, and capacity of all utilities."
+    },
+    {
+      "label": "Zoning",
+      "text": "C-3, Commercial, City of Boerne.",
+      "note": "Prospective buyers should verify the zoning and permitted uses for this property with the appropriate governing authority."
+    },
+    {
+      "label": "Topography",
+      "text": "The property drains generally to the north with a drainage easement bisecting the tract."
+    },
+    {
+      "label": "Easements",
+      "text": "There is a drainage easement and various utility easements. See Site Plan."
+    },
+    {
+      "label": "Deed Restrictions",
+      "text": "None of record."
+    },
+    {
+      "label": "Traffic Count",
+      "text": "2024 Texas State Highway Department traffic count maps indicate 51,749 vehicles per day on IH 10 north of the property and 77,301 vehicles per day on IH 10 south of the property."
+    },
+    {
+      "label": "Demographics",
+      "table": {
+        "columns": [
+          "",
+          "3.0 Miles",
+          "5.0 Miles",
+          "7.0 Miles"
+        ],
+        "rows": [
+          [
+            "Population, 2024 Estimate",
+            "19,341",
+            "48,550",
+            "72,762"
+          ],
+          [
+            "Population, 5-Year Projection",
+            "24,708",
+            "57,083",
+            "84,669"
+          ],
+          [
+            "Average Household Income",
+            "$151,880",
+            "$162,046",
+            "$168,943"
+          ]
+        ]
+      },
+      "note": "Source: U.S. Bureau of the Census, 2020 Census of Population and Housing. ESRI forecasts are for 2024 and 2029."
+    },
+    {
+      "label": "Pricing",
+      "text": "Contact Broker."
+    }
+  ],
+  "comments": [
+    "Excellent visibility and access at the southern entrance to Boerne.",
+    "The property is at a signalized intersection.",
+    "Mercedes and Toyota dealerships are on the southwest corner of IH 10 W. at Scenic Loop, and Nissan is on the northwest corner. A Ford dealership is on the south side of the lots and a Circle K is on the west adjacent border."
+  ],
+  "contact": {
+    "names": "Bart Wilson or Matt Howard",
+    "phone": "(210) 496-5800",
+    "fax": "",
+    "emails": [
+      "bwilson@roalson.com",
+      "mhoward@roalson.com"
+    ],
+    "web": "www.roalson.com"
+  },
+  "demographic_overview": {
+    "title": "IH 10 at Scenic Loop Road in Boerne, TX",
+    "date": "July 29, 2024",
+    "columns": [
+      "3.0 Miles",
+      "5.0 Miles",
+      "7.0 Miles"
+    ],
+    "sections": [
+      {
+        "heading": "Population",
+        "rows": [
+          [
+            "2020 Census",
+            "15,853",
+            "40,911",
+            "61,490"
+          ],
+          [
+            "2024 Estimate",
+            "19,341",
+            "48,550",
+            "72,762"
+          ],
+          [
+            "5 Year Projection",
+            "24,708",
+            "57,083",
+            "84,669"
+          ]
+        ]
+      },
+      {
+        "heading": "Households",
+        "rows": [
+          [
+            "2020 Census",
+            "5,542",
+            "14,625",
+            "21,712"
+          ],
+          [
+            "2024 Estimate",
+            "6,776",
+            "17,389",
+            "25,781"
+          ],
+          [
+            "5 Year Projection",
+            "8,666",
+            "20,493",
+            "30,277"
+          ]
+        ]
+      },
+      {
+        "heading": "2024 Population by Race",
+        "rows": [
+          [
+            "White",
+            "74.2%",
+            "72.6%",
+            "70.0%"
+          ],
+          [
+            "Black",
+            "1.6%",
+            "1.7%",
+            "2.0%"
+          ],
+          [
+            "Asian or Pacific Islander",
+            "1.7%",
+            "2.5%",
+            "3.2%"
+          ],
+          [
+            "American Indian",
+            "0.6%",
+            "0.6%",
+            "0.6%"
+          ]
+        ]
+      },
+      {
+        "heading": "2024 Population by Ethnicity",
+        "rows": [
+          [
+            "Hispanic Origin",
+            "26.9%",
+            "27.0%",
+            "28.9%"
+          ]
+        ]
+      },
+      {
+        "heading": "2024 Total Housing Units",
+        "rows": [
+          [
+            "Owner-Occupied",
+            "5,069",
+            "13,617",
+            "20,677"
+          ],
+          [
+            "Renter-Occupied",
+            "1,707",
+            "3,772",
+            "5,104"
+          ],
+          [
+            "Average Household Size",
+            "2.79",
+            "2.75",
+            "2,79"
+          ]
+        ]
+      },
+      {
+        "heading": "2024 Household Income",
+        "rows": [
+          [
+            "Income $ 0 - $15,000",
+            "4.8%",
+            "4.5%",
+            "4.2%"
+          ],
+          [
+            "Income $ 15,000 - $24,999",
+            "3.0%",
+            "2.6%",
+            "2.1%"
+          ],
+          [
+            "Income $ 25,000 - $34,999",
+            "4.6%",
+            "4.0%",
+            "3.7%"
+          ],
+          [
+            "Income $ 35,000 - $49,999",
+            "12.6%",
+            "8.7%",
+            "7.3%"
+          ],
+          [
+            "Income $ 50,000 - $74,999",
+            "10.8%",
+            "10.1%",
+            "9.8%"
+          ],
+          [
+            "Income $ 75,000 - $99,999",
+            "10.1%",
+            "12.1%",
+            "11.3%"
+          ],
+          [
+            "Income $ 100,000 - $149,999",
+            "14.6%",
+            "15.8%",
+            "16.3%"
+          ],
+          [
+            "Income $ 150,000 - $199,999",
+            "15.0%",
+            "14.7%",
+            "15.8%"
+          ],
+          [
+            "Income $200,000 +",
+            "24.6%",
+            "27.6%",
+            "29.5%"
+          ],
+          [
+            "Average Household Income",
+            "$151,880",
+            "$162,046",
+            "$168,943"
+          ],
+          [
+            "Median Household Income",
+            "$111,010",
+            "$121,178",
+            "$131,575"
+          ],
+          [
+            "Per Capita Income",
+            "$54,074",
+            "$57,791",
+            "$59,948"
+          ]
+        ]
+      }
+    ],
+    "source": "Source: U.S. Bureau of the Census, 2020 Census of Population and Housing. ESRI forecasts for 2024 and 2029.",
+    "from_image": false
+  },
+  "pages": [
+    {
+      "page": 1,
+      "kind": "cover_spec",
+      "caption": ""
+    },
+    {
+      "page": 2,
+      "kind": "spec",
+      "caption": ""
+    },
+    {
+      "page": 3,
+      "kind": "location_map",
+      "caption": "Location Map",
+      "annotations": "regional road map (Boerne to San Antonio); site marked with yellow starburst on IH 10 south of Boerne near Scenic Loop / Boerne Stage Rd"
+    },
+    {
+      "page": 4,
+      "kind": "area_map",
+      "caption": "Area Map",
+      "annotations": "street map of south Boerne; site marked with yellow starburst on IH 10 at Scenic Loop / Cascade Cavern"
+    },
+    {
+      "page": 5,
+      "kind": "aerial",
+      "caption": "Aerial Map",
+      "annotations": "wide aerial; yellow 'SITE' arrow pointing to the IH 10 / Scenic Loop area; 'CITY OF BOERNE' label in yellow; north arrow"
+    },
+    {
+      "page": 6,
+      "kind": "aerial",
+      "caption": "Aerial Map",
+      "annotations": "close aerial (third-party 'id.' map, 'Matt Howard / www.roalson.com' credit); site (Lot 3) outlined in red south of Cascade Caverns Rd and west of Scenic Loop Rd; logos/labels Fairfield Inn & Suites, NAPA Auto Parts, Circle K, Scooter's Coffee, Bill Miller, Quick Lane, Ford of Boerne, Nissan, Mercedes-Benz; I-10 frontage roads; 'Boundary' legend; 0-400 ft scale bar"
+    },
+    {
+      "page": 7,
+      "kind": "site_plan",
+      "caption": "Site Plan Exhibit",
+      "annotations": "Pape-Dawson 'BDSP - Scenic Loop Rd., Boerne, Texas, Overall Site Plan' (sheet C1.00); LOT 3 (±1.37 AC) marked AVAILABLE in blue; LOT 4 (±1.12 AC) 'SOLD NAPA AUTO PARTS', LOT 1 (±0.72 AC) 'SOLD SCOOTERS COFFEE', LOT 2 (±1.52 AC) 'BILL MILLER' in red; Cascade Caverns, Scenic Loop and Interstate 10 labelled; 129.16' Lot 3 line along Cascade Caverns; parking summary table and inset location map"
+    },
+    {
+      "page": 8,
+      "kind": "demographics",
+      "caption": ""
+    },
+    {
+      "page": 9,
+      "kind": "disclosure",
+      "caption": ""
+    },
+    {
+      "page": 10,
+      "kind": "iabs",
+      "caption": ""
+    }
+  ],
+  "qa_notes": [
+    "SIZE MISMATCH: PDF offers only 'Lot 3: 1.369 Acre' (site plan: LOT 3 ±1.37 AC, AVAILABLE); Prismic size_label is '2.09 acres' / acres 2.09. 2.09 = Lot 3 (1.37) + Lot 1 (0.72), and the site plan now marks Lot 1 'SOLD SCOOTERS COFFEE' — Prismic appears to predate that sale.",
+    "Demographics are stale relative to the other packages: the Demographic Overview is dated July 29, 2024 and uses 2024 estimates / 2029 projections ('ESRI forecasts for 2024 and 2029'); the spec-page source line reads 'ESRI forecasts are for 2024 and 2029.' Spec-page demographics match the overview values exactly.",
+    "Typo on Demographic Overview: 7.0-mile 'Average Household Size' printed '2,79' (comma instead of decimal point; 3- and 5-mile values are 2.79 and 2.75). Kept verbatim.",
+    "Frontage is printed as two sentences, 'Approximately 290 feet on Scenic Loop Road / Boerne Stage Road' and 'Approximately 129 feet on Cascade Caverns'; transcribed as road/length pairs per the multi-road Frontage rule. The 129-foot figure matches the 129.16' Lot 3 line along Cascade Caverns on the site plan.",
+    "Third comment appears out of date: it says 'A Ford dealership is on the south side of the lots and a Circle K is on the west adjacent border', but the p6 aerial shows Ford of Boerne across Scenic Loop Rd to the east and NAPA Auto Parts (sold Lot 4) between the site and Circle K. It also refers to 'the lots' (plural) although only Lot 3 is offered.",
+    "Size wording 'Lot 3: 1.369 Acre' uses singular 'Acre'. Kept verbatim.",
+    "Cover has no property name ('BOERNE, TEXAS / PREMIUM IH 10 COMMERCIAL DEVELOPMENT SITE' — the same headline as the IH 10 at Highway 46 package); title 'IH 10 at Scenic Loop' taken from Prismic / the Demographic Overview heading ('IH 10 AT SCENIC LOOP ROAD IN BOERNE, TX'). No size line on the cover.",
+    "Transaction: PDF never says For Sale or For Lease ('Pricing: Contact Broker'); 'For Sale' used per schema default. Prismic total_price 'Contact Broker' matches.",
+    "Zoning: PDF 'C-3, Commercial, City of Boerne.' vs Prismic 'C-3 Commercial, City of Boerne' — match apart from punctuation.",
+    "Prismic highlights are paraphrases, not PDF text: Prismic 'Signalized intersection with excellent traffic' / 'Tremendous visibility and access at southern entrance to Boerne' vs PDF 'The property is at a signalized intersection.' / 'Excellent visibility and access at the southern entrance to Boerne.'",
+    "No fax number is printed on this package's contact block (Phone and Email only)."
+  ]
+}

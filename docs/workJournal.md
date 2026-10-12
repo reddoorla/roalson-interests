@@ -13000,3 +13000,239 @@ Erik's "final website notes before launch" (Discord, 10-09 21:46Z) came in four 
 **Past Projects: no code.** The control Erik asked for, "like a checkbox", already exists: "Show on the site as" → "Past project", built from his 09-25 note, and a Sold status does the same. The three-column grid is the comp's Sold frame. Nothing shows because no listing is marked. The operator kept the dropdown, and the reply to Erik says where it is.
 
 Not here: the listing-PDF notes Erik sends on Monday 10-12.
+
+## 2026-09-29 — All 22 listing packages rebuilt in Erik's Claude Design template, with new maps, aerials, traffic and flood exhibits (`tools/listing-packages`, Dropbox)
+
+> Superseded in part by 2026-09-29 — The listing-package tool now rebuilds from a fresh clone; two uploaded packages had stale traffic distances.
+
+Erik shared the client-approved Claude Design template ("ListingPackage Dapper
+Dan", published as a public artifact) and asked for every current package in
+it. The originals exist only as Prismic assets (the `package_pdf` on each
+property), so the work pulled all 22 from the CDN, rebuilt them, and put both
+sets in Dropbox under `/Clients/Roalson Interests/Listing PDFs/2026-09 Listing
+Package Refresh/` with a review list for the broker. The generator is committed
+here as an offline tool so the packages can be re-issued once Roalson answers
+the review questions; nothing in it touches the site build.
+
+**The template is two templates.** The artifact is the 9-page existing-property
+variant. Erik's Dropbox test exports (`Listing PDFs/Test Files/`) show the full
+set: Land runs 11 pages, Existing Property 14, and the Land cover takes a
+garnet RI mark where Existing takes dust. The Claude Design project itself is
+not readable from a session, so the HTML replica was rebuilt from the
+artifact's bundled markup (its fonts, tokens and SVGs are in
+`build/assets/`) and checked against those exports page by page. Erik's one
+change request from the thread — the page-2 contact block also in the cover
+header — is in every cover.
+
+**Transcription, then a check that could fail.** Four agents transcribed every
+labelled field, table and comment verbatim into `data/<uid>.json`. A script then
+looked for each of the 2,033 values in the PDF's own text layer; all 2,033 were
+found. That check proves the values came from the PDF, not that nothing was
+left out, which is why the visual QA pass compared every new page with its
+original. The only edits to the broker's words are the 25 typos in
+`build/corrections.json` (e.g. "339.522" for 339,522, "Christus Spon"), plus the
+contact emails: two packages print `eldon@roalson.com` under Matt Howard's name,
+and the build now prints the named broker's own address. Titles that were not typos (11714 Perrin Beitel, 402 W. Nueva, Menger Springs, River Walk) moved to `build/overrides.json` so the transcription stays verbatim.
+
+**Maps: the site's own style, public-domain imagery, county parcels.** Location,
+area and traffic maps render with MapLibre in headless Chromium from
+`static/map-style.json`, so the print maps match the website's map. Aerials
+come from USGS NAIP Plus (0.3 m where HRO exists), which beat Esri's tile cache
+on the same block downtown and carries no licence strings; Google imagery from
+the old packages is not reused. Site outlines come from Texas StratMap parcels.
+The first pass, "the parcel under the Prismic pin", matched the listed acreage on
+only 2 of 22 (Cascade Caverns, 402 W. Nueva) — several
+KML pins sit on a neighbouring parcel (Comfort's on the Love's travel stop,
+Wonderworld's about 230 m away on the next lot). Matching by situs address, exact legal acreage, and then
+same-owner combinations (Brazos de Santos Partners and the Millers own most of
+the inventory) found 18. Each was checked against the broker's own hand-drawn
+outline before use: Scenic Loop's "2.09 ac" combination was wrong (the package
+now offers only Lot 3, 1.369 ac, and the website still says 2.09), and Tract 1
+at IH 10 / Menger Springs is a pin because the county polygon carries ~1.5 ac
+that is not for sale. Four sites are pins.
+
+**Two exhibits the old packages did not have.** TxDOT publishes 2025 AADT
+counts (the packages cite 2024); each package now has a traffic map of the
+nearest stations. FEMA's NFHL flood-zone polygons are intersected with the
+parcel outline to print one sentence per site. Most agree with the broker's
+flood line. Three do not: Wonderworld says "some floodplain along the
+frontage" and the map puts ~47% of the parcel in the 1% annual-chance area;
+5001 Walzem and 25331 IH 10 West say nothing about flood and sit ~12% and ~39%
+inside mapped hazard. Those are at the top of the review notes rather than
+dropped, because a buyer will find them anyway. Overlaps under 3% print as
+"along the edge" — they are usually parcel-to-FIRM misalignment, not flood.
+
+**The QA passes found what the builder's own spot checks did not.** Two agents
+compared every new page with its original (about 300 pages). Their HIGH
+findings, all fixed before upload:
+
+- **Every map's scale bar read twice the true distance.** `maps.mjs` used the
+  256-px tile constant (156543.03) and MapLibre zooms on 512-px tiles. It was
+  measured against a parcel of known width: the Hwy 46 tract is 654 ft across
+  and its "250 FT" bar spanned about 1,290 ft.
+- **The traffic maps labelled frontage-road stations as the freeway.** TxDOT
+  gives frontage stations an ID ending `NBSR`/`SBSR`/`EBSR`/`WBSR` on the same
+  road name. Deduplicating by road name and rounded position kept the nearer
+  one, which is usually the frontage road. At Wonderworld the map printed
+  "11,773 IH 35" at the site, while the mainline station in front carries
+  122,403.
+- **Two spec pages held only the contact box** (IH 10 East, Urban Loop).
+- **An empty-label pair collapsed the Dimensions grid on Cascade Caverns.**
+- **The IH 10 East pin sat about 120 ft onto the neighbouring tract.**
+
+MED fixes:
+
+- Aerials on the smallest lots are capped at z18. At z19.2, 0.3 m imagery was
+  visibly upsampled.
+- A no-data scan line in the USGS source imagery at Seguin was patched at its
+  measured position. A general dark-line detector was tried first and
+  abandoned: it matched scale-bar edges and legend rules on every map.
+- Lease packages now say "PURCHASER or TENANT", as the originals did.
+
+A final check found every one of the 3,040 transcribed values, labels and
+notes in the new PDFs' text.
+
+**Delivery was the hard part.** The Dropbox connector cannot upload binaries and
+the environment's `DROPBOX_ACCESS_TOKEN` is dead (401, and the maintenance repo
+already lists it as consumed by nothing). Uploads went through a Dropbox file
+request driven by Playwright: setting the hidden file input does nothing, a
+synthetic drop event works, and the page never shows a completion state a
+script can read, so the uploader waits by size and every file was verified by
+byte count through the connector afterwards. Dropbox prefixes the uploader's
+name, which became the "Original - " and "Roalson Interests - " labels. The
+three temporary file requests cannot be closed from the connector and need
+closing by hand.
+
+**What is not done.** The 13 decision items in `00 - Review Notes` (prices that
+differ from the website on four listings, Scenic Loop's acreage, Kingsville's
+zoning, stale lease terms at Walzem, Bill Miller site plans still in buyer
+packages) need the broker. The website's `package_pdf` links still point at the
+old PDFs; swapping them is a Prismic publish, pending Erik's and Roalson's
+sign-off. The QR code on each disclosure page targets
+`www.roalson.com/properties/<uid>`, which resolves only after cutover.
+
+## 2026-09-29 — The listing-package tool now rebuilds from a fresh clone; two uploaded packages had stale traffic distances (`tools/listing-packages`, Dropbox, reddoor-maintenance runbook)
+
+Asked what from the rebuild should outlive the session, the answer was: make the
+tool actually reproducible, commit what only existed in the container, file the
+open items, and write the cross-site lessons where other site sessions will read
+them. The first of those found two real defects.
+
+**The generator was never committed, and nothing said so.** The earlier entry
+says "the generator is committed here". It was not: commit 0acde11 carries no
+file under `tools/listing-packages/build/`, because the starter's root
+`.gitignore` ignores every directory named `build`. The next commit, 2e610ee,
+describes five new scripts in its message and contains exactly one file, a
+stray `lib/__pycache__/flood.cpython-311.pyc`. From inside the checkout both
+commits looked complete. A fresh clone running `build/all.sh` failed at once.
+`f118284` re-includes the folder with `!build/` in the tool's own `.gitignore`
+and anchors its other patterns with a leading `/`; the unanchored `photos/`
+had also been swallowing `build/assets/photos/main-and-commerce.jpg`, Erik's
+photo that exists nowhere else but Dropbox. The `.pyc` is untracked now and
+`__pycache__/` ignored.
+
+**Two uploaded packages printed traffic distances measured from the old pin.**
+With the renderer committed, the fresh clone rebuilt all 22 packages (exit 0).
+Page for page against the uploaded set, 18 match within rendering noise and
+two differ only in the framing of the imagery. The other two do not. At IH 10
+East at Loop 1604, station 15H122 printed 160 m that is 167 m from the site,
+and 15H120 460 m that is 514 m. At IH 10 at Menger Springs, the nearest three
+changed order: US 87 at 566 m (printed 578 m), then IH 10 at 770 m, which the
+upload listed after SH 46. Both sites were moved during QA (the IH 10 East pin
+~120 ft west, the Menger Springs geometry to Tract 2), and the TxDOT cache in
+`lib/traffic.py` was keyed by listing id alone, so every later build reused the
+answer from the old point. The FEMA cache in `lib/flood.py` had the same key: at
+Menger Springs its 0.26% 1%-annual-chance overlap is 0 from the new geometry.
+The printed flood sentence did not change, because that site prints the
+pin-only sentence. Both caches are now keyed by the query point and radius,
+checked by moving a point 78 m and watching the distance change (126 m against
+167 m) while the unmoved point still hits its file. `maps.mjs` had the third
+member of the class: it skipped any map whose file existed, so a moved pin kept
+its old maps unless someone remembered `--force`. It now stores each job's spec
+beside the map and skips only on an exact match, checked by rendering, re-running
+(skip), then moving the centre (re-render). The committed `geo/meta.json` and
+`geo/flood-verdicts.json` are now the fresh build's, and the two packages in
+Dropbox were replaced with the fresh builds (5,102,643 and 7,218,909 bytes,
+sizes checked through the connector).
+
+**Honest accounting.** Neither defect was findable by the QA that preceded it.
+The QA agents compared every page against the originals, whose counts are
+older and whose distances are different anyway, and the builder's own checks
+ran in the checkout where the cache and the ignored folder both lived. The only
+instrument that saw either was a clean clone running the pipeline end to end.
+
+**What else landed.** The broker review notes, both QA reports with the status
+of each finding, and the scripts that make the two Dropbox documents
+(`review_pdf.py`, `showcase.py`) and upload through a file request (`upload.sh`,
+`frbatch.mjs`, which now takes the uploader's email from `UPLOADER_EMAIL`) are
+committed under the tool. The tool's generated folders are in `.prettierignore`,
+because prettier reads only the root `.gitignore` and a local build left
+`out/review-notes.html` failing `pnpm lint`. In Dropbox the two documents for
+the broker were re-uploaded with corrected figures and renamed `00 - Review
+Notes (read first).pdf` and `01 - Before and After.pdf`.
+
+Open items are filed: #207 (the 13 broker decisions), #208 (point each
+`package_pdf` at its refreshed package after sign-off), #209 (QR codes 404
+until cutover), #210 (website data disagrees with the packages on nine
+properties), #211 (four sites shown by pin, to be outlined from their plats).
+#181 has a comment: the new public-domain USGS cover aerials can replace the
+three Google-credited listing images without asking the client for licensing
+confirmation, pending an operator call on the look. The cross-site lessons
+(public GIS endpoints and their traps, Dropbox uploads from a cloud session,
+the `build` ignore trap) are a runbook in reddoor-maintenance,
+`docs/runbooks/listing-packages-and-public-gis.md`, on its
+`claude/nifty-dirac-2zmegy` branch.
+
+**Not done.** The three temporary Dropbox file requests used for uploading are
+still open; the connector has no way to close them, so the operator has to.
+
+## 2026-10-12 — Listing packages take the client's package standards; the generator reaches main (`tools/listing-packages`)
+
+Erik relayed two sources in Discord: his own notes on the Hwy 46 package and the
+client's marked-up 116 Old San Antonio Road package, which the client called the
+"global standards" for every PDF. The markup made nine marks. Read together with
+Erik's notes, they set one structure for all 23 packages: the cover chip shows
+only the transaction, the contact block is larger, the Ri watermark shrinks to
+262px so its right edge sits under the wordmark's (Erik guessed "maybe 70%"; it
+is 70.4%), "Investment" prints as "Price", and the exhibits are Location Map,
+Area Map with Traffic Counts, Aerial Map and FEMA Flood Zones. The close street
+map, the close aerial and the survey go. Erik's area-map notes (show the nearest
+major intersection; show the big businesses) landed on the traffic map, since the
+client's markup deleted the plain area map and renamed the traffic map in its
+place.
+
+**Measured before trusting it.** The unchanged generator at `890a36c` rebuilt the
+live Hwy 46 package with zero text differences on all 11 pages, and pixel-identical
+at 40 dpi on 10 of them. The eleventh is the survey, which the 10-08 build cut by
+hand and which the new standard drops anyway.
+
+**What broke on contact.** The OpenMapTiles POI layer carries businesses only from
+z14, and the traffic map renders at 13.4, so the brand style showed none; the
+businesses now come from the z14 tiles decoded in Python. USGS answered NAIP
+requests with 502s and 504s for minutes at a time, and MapLibre never retries a
+tile, so two render runs hung. Tiles are now cached with backoff, and a map with a
+tile that never arrived is neither written nor stamped. The first JPEG check
+rejected every good tile: USGS appends a 56-byte trailer after the end marker.
+
+**Review.** Three rounds. Round 1: a failed tile could leave a broken image with a
+matching stamp, and a Land ID hero would have replaced broker photography. Round
+2: the flood caption on four pin-only listings pointed to a survey page that no
+longer exists. Round 3: five listings' own copy says "See Survey". The operator
+chose to keep the survey on exactly those five. The minors are filed as one
+issue, #292.
+
+**Still open.** The Land ID list (23 links from Matt Howard) is in
+`build/heroes.json`; no image is fetched until the operator rolls the standards
+out to all 23. Logos stay names and pins (the operator, after the research:
+Brandfetch's terms forbid storing logos in a PDF, logo.dev's free plan needs a
+public credit link). The other 22 packages are not rebuilt.
+
+**Corrected the same evening.** The paragraph above says the operator kept the
+survey on five listings. Half an hour later Matt Howard's per-package comments
+reached us (Erik's 22:12Z forward), and they say "remove survey" for all five.
+The flags came out, and the four "See Survey" cross-references went into
+`build/corrections.json`. St. Mary's "The survey appears to indicate … Floodplain"
+stays: it is the broker's flood statement, not a pointer to a page. The rest of
+Matt's per-package list (Land ID boundaries, copy edits, exhibit keeps and
+removes, an HEB logo on IH-10 East at 1604) is the rollout's work, not this
+change's.

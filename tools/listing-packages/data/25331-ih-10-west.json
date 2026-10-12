@@ -1,0 +1,104 @@
+{
+  "uid": "25331-ih-10-west",
+  "variant": "existing",
+  "transaction": "For Lease",
+  "type_label": "Existing Property",
+  "eyebrow": "Retail and Office Space",
+  "title": "25331 IH 10 West",
+  "city": "San Antonio, Texas",
+  "size_headline": "",
+  "rows": [
+    {"label": "Location", "text": "The property is located at 25331 IH 10 West, near the intersection of IH 10 and Ralph Fair Road."},
+    {"label": "Size", "pairs": [["Office Building", "+/- 975 sf to +/- 10,000 sf"], ["Retail Building", "+/- 1,200 to +/- 6,700 sf"]]},
+    {"label": "Parking", "text": "5 per 1,000"},
+    {"label": "Traffic Count", "text": "Texas Dept. of Transportation 2024 traffic maps indicate 75,631 vehicles per day on IH 10, and 9,629 vehicles per day on the frontage road north of the property."},
+    {"label": "Demographics", "table": {
+        "columns": ["", "1.0 Miles", "3.0 Miles", "5.0 Miles"],
+        "rows": [["Population, 2025 Estimate", "7,448", "33,695", "59,952"],
+                 ["Population, 5 Year Projection", "8,025", "36,832", "66,564"],
+                 ["Average Household Income", "$172,248", "$176,539", "$169,713"]]},
+     "note": "Source: U.S. Bureau of the Census, 2020 Census of Population and Housing. ESRI forecasts for 2025 and 2030."},
+    {"label": "Area Development", "text": "There are many amenities in the immediate area, which include HEB, banks, hotels, and many restaurants."},
+    {"label": "Pricing", "text": "Contact Broker"}
+  ],
+  "comments": [
+    "New Ownership and Property Management!",
+    "Great visibility and excellent location in the far NW submarket",
+    "Good access to the IH 10 and Ralph Fair intersection"
+  ],
+  "contact": {
+    "names": "Matt Howard",
+    "phone": "(210) 496-5800",
+    "fax": "(210) 496-5809",
+    "emails": ["mhoward@roalson.com"],
+    "web": "www.roalson.com"
+  },
+  "demographic_overview": {
+    "title": "25331 IH 10 West",
+    "date": "October 22, 2025",
+    "columns": ["1.0 Miles", "3.0 Miles", "5.0 Miles"],
+    "sections": [
+      {"heading": "Population", "rows": [
+        ["2020 Census", "6,277", "29,992", "52,605"],
+        ["2025 Estimate", "7,448", "33,695", "59,952"],
+        ["5 Year Projection", "8,025", "36,832", "66,564"]]},
+      {"heading": "Households", "rows": [
+        ["2020 Census", "2,134", "10,459", "19,723"],
+        ["2025 Estimate", "2,569", "12,027", "22,856"],
+        ["5 Year Projection", "2,832", "13,401", "25,805"]]},
+      {"heading": "2025 Population by Race", "rows": [
+        ["White", "57.7%", "58.2%", "60.1%"],
+        ["Black", "3.2%", "3.3%", "3.4%"],
+        ["Asian or Pacific Islander", "6.4%", "6.5%", "6.2%"],
+        ["American Indian", "0.8%", "0.7%", "0.6%"]]},
+      {"heading": "2025 Population by Ethnicity", "rows": [
+        ["Hispanic Origin", "38.4%", "37.3%", "35.8%"]]},
+      {"heading": "2025 Total Housing Units", "rows": [
+        ["Owner-Occupied", "1,973", "9,282", "16,334"],
+        ["Renter-Occupied", "596", "2,745", "6,522"],
+        ["Average Household Size", "2.90", "2.80", "2.62"]]},
+      {"heading": "2024 Household Income", "rows": [
+        ["Income $ 0 - $15,000", "2.9%", "3.1%", "3.9%"],
+        ["Income $ 15,000 - $24,999", "1.3%", "1.6%", "1.9%"],
+        ["Income $ 25,000 - $34,999", "6.0%", "3.8%", "4.1%"],
+        ["Income $ 35,000 - $49,999", "4.2%", "4.5%", "6.0%"],
+        ["Income $ 50,000 - $74,999", "10.2%", "11.5%", "12.7%"],
+        ["Income $ 75,000 - $99,999", "8.4%", "9.1%", "9.6%"],
+        ["Income $ 100,000 - $149,999", "17.4%", "17.6%", "17.6%"],
+        ["Income $ 150,000 - $199,999", "13.8%", "14.0%", "11.9%"],
+        ["Income $200,000 +", "35.7%", "34.9%", "32.2%"],
+        ["Average Household Income", "$172,248", "176,539", "$169,713"],
+        ["Median Household Income", "$148,757", "$146,960", "$134,519"],
+        ["Per Capita Income", "$59,467", "$62,624", "$64,370"]]}
+    ],
+    "source": "Source: U.S. Bureau of the Census, 2020 Census of Population and Housing. ESRI forecasts for 2025 and 2030.",
+    "from_image": false
+  },
+  "pages": [
+    {"page": 1, "kind": "cover_spec", "caption": "", "annotations": "cover photo of the courtyard between the two-story stone office building (left) and the one-story stone retail building (rear)"},
+    {"page": 2, "kind": "spec", "caption": ""},
+    {"page": 3, "kind": "photo_exterior", "caption": "", "annotations": "image-only page, no heading: two exterior photos - the one-story stone/glass retail building front with landscaped island and live oak; the two-story office building seen across the parking lot"},
+    {"page": 4, "kind": "photo_interior", "caption": "", "annotations": "image-only page, no heading: two interior photos of finished office space - an office with reception window and vinyl plank floor; a long corridor with office doors"},
+    {"page": 5, "kind": "location_map", "caption": "Location Map", "annotations": "Google map of the San Antonio region with a red pin on IH 10 at Leon Springs / Fair Oaks Ranch"},
+    {"page": 6, "kind": "aerial", "caption": "Aerial Map", "annotations": "wide aerial headed 'IH-10 and Ralph Fair - 25331 IH-10 West / Texas, 3.86 AC +/-'; site outlined in red on the west side of IH 10 north of Ralph Fair Rd; Leon Springs labelled; scale bar 0-4000ft; footer Matt Howard / mhoward@roalson.com (a duplicate hidden 'Aerial Map' label sits behind the caption box)"},
+    {"page": 7, "kind": "aerial", "caption": "Aerial Map", "annotations": "close aerial with the same '3.86 AC +/-' header; triangular site outlined in red along the IH 10 frontage road, Ralph Fair Rd intersection to the southeast; scale bar 0-800ft; footer Matt Howard / mhoward@roalson.com"},
+    {"page": 8, "kind": "floor_plan", "caption": "Office Building Detail", "annotations": "image-only page. FLOOR 1: Suite 101 '4,620 sf' (available), Suite 105 'Leased'. FLOOR 2: Suite 201 'Leased', Suite 210 '975 sf', Suite 215 'Leased', Suite 220 '1979 sf'. Common corridors shaded blue/pink, stairs/elevator yellow"},
+    {"page": 9, "kind": "floor_plan", "caption": "Retail Building Existing", "annotations": "image-only landscape plan by The Jordan Group (www.thejordangroup-sa.com): title block 'BUILDING 2 / 32255 IH 10 WEST / SAN ANTONIO, TX', '6,701 SF', scale 1/8\" = 1'-0\", date 04/03/2023; rooms 34'-7\" X 45'-4\", 34'-9\" X 39'-6\", 21'-9\" X 35'-2\", 26'-10\" X 34'-9\", 16'-0\" X 34'-9\" and 16'-10\" X 34'-9\" (locker/restroom rooms), 7'-11\" X 8'-7\", 7'-10\" X 10'-0\", 8'-10\" X 29'-11\" (entry vestibule)"},
+    {"page": 10, "kind": "demographics", "caption": "Demographic Overview"},
+    {"page": 11, "kind": "disclosure", "caption": "Property Disclosure Statement"},
+    {"page": 12, "kind": "iabs", "caption": "Information About Brokerage Services"}
+  ],
+  "qa_notes": [
+    "Cover prints no street address - only 'RETAIL AND OFFICE SPACE / FOR LEASE / SAN ANTONIO, TEXAS'. Title '25331 IH 10 West' is taken from the Location row and the Demographic Overview heading; eyebrow is the cover headline minus 'FOR LEASE', which is captured as transaction.",
+    "Address typo on the retail floor plan (p9): the Jordan Group title block reads '32255 IH 10 WEST' - digits scrambled vs. 25331 IH 10 West. Buyer-facing; flag to broker.",
+    "Office availability contradiction: Size row says Office Building '+/- 975 sf to +/- 10,000 sf', but the Office Building Detail (p8) marks Suites 105, 201 and 215 'Leased' and shows only Suite 101 4,620 sf + Suite 210 975 sf + Suite 220 1979 sf = 7,574 sf available. The 10,000 sf maximum may be stale.",
+    "Retail size: spec '+/- 1,200 to +/- 6,700 sf' (note the missing 'sf' after 1,200 compared with the office line); floor plan title block says '6,701 SF' (consistent).",
+    "Prismic: size_label 'Up to 16,700 SF' (= 10,000 + 6,700, see the availability issue above); total_price 'Contact Broker' matches Pricing; transaction_type 'Lease' matches; title '25331 IH 10 West' matches the Location row; zoning null (PDF has no zoning row). Prismic highlights 'Office Bldg: 975 - 10,000 SF' / 'Retail Bldg: 1,200 - 6,700 SF' paraphrase the Size row.",
+    "Demographic Overview typos: the income section heading reads '2024 Household Income' (every other heading on the page, and every other package, says 2025); 3.0-mile Average Household Income prints '176,539' without the '$' (spec-page table shows '$176,539'). Transcribed as printed.",
+    "Spec-page demographics (7,448 / 33,695 / 59,952; 8,025 / 36,832 / 66,564; $172,248 / $176,539 / $169,713) match the Demographic Overview values.",
+    "Aerial headers give the site as '3.86 AC +/-'; no acreage appears anywhere in the spec rows.",
+    "Contact block names only Matt Howard (single email).",
+    "Pages 3, 4, 8 and 9 have no text layer; classified from the renders. Pages 3-4 carry no heading, so their captions are ''.",
+    "Demographics table row labels print as 'Population' with indented '2025 Estimate:' / '5 Year Projection:'; flattened to 'Population, 2025 Estimate' etc. per the schema example. Demographic Overview column headers print with trailing colons, dropped per schema convention."
+  ]
+}

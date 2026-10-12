@@ -1,0 +1,396 @@
+{
+  "uid": "5001-walzem-road",
+  "variant": "existing",
+  "transaction": "For Sale",
+  "type_label": "Existing Property",
+  "eyebrow": "Single Tenant Leased Commercial Building",
+  "title": "5001 Walzem Road",
+  "city": "San Antonio, TX",
+  "size_headline": "",
+  "rows": [
+    {
+      "label": "Investment Opportunity",
+      "pairs": [
+        [
+          "Type",
+          "NET LEASED"
+        ],
+        [
+          "Commence Date",
+          "10/15/2007"
+        ],
+        [
+          "Current Lease Rate",
+          "$109,800 / YEAR with annual increases"
+        ],
+        [
+          "Price",
+          "$1,550,000.00"
+        ],
+        [
+          "Cap Rate",
+          "7.0%"
+        ],
+        [
+          "Term",
+          "RENEWED: through Sept. 30, 2027"
+        ]
+      ]
+    },
+    {
+      "label": "Location",
+      "text": "This property is located on the north side of Walzem Road, east of I-35 in the City of Windcrest."
+    },
+    {
+      "label": "Tenant",
+      "text": "Welshire Financial Services"
+    },
+    {
+      "label": "Description",
+      "pairs": [
+        [
+          "Building",
+          "Approximately 2,900 Square Feet"
+        ],
+        [
+          "Land",
+          "17,250 Square Feet (.39 Acre)"
+        ]
+      ]
+    },
+    {
+      "label": "Land Dimensions",
+      "pairs": [
+        [
+          "Frontage",
+          "Approximately 115 feet along Walzem Road"
+        ],
+        [
+          "Depth",
+          "Approximately 150 feet"
+        ]
+      ]
+    },
+    {
+      "label": "Zoning",
+      "text": "B1, Neighborhood Business District; City of Windcrest",
+      "note": "Prospective buyers should verify the zoning and permitted uses for the property with the appropriate governing authority."
+    },
+    {
+      "label": "Demographics",
+      "table": {
+        "columns": [
+          "2025 ESRI Estimates",
+          "Population",
+          "Average Household Income"
+        ],
+        "rows": [
+          [
+            "3-mile Radius",
+            "106,591",
+            "$81,242"
+          ],
+          [
+            "5-mile Radius",
+            "292,094",
+            "$94,893"
+          ]
+        ]
+      }
+    },
+    {
+      "label": "Area Development",
+      "text": "The property is surrounded by commercial development. It is also surrounded by mature residential neighborhoods."
+    }
+  ],
+  "comments": [
+    "Long term national credit tenant",
+    "Property is in Windcrest and not subject to City of San Antonio ordinances.",
+    "Rackspace Headquarters is nearby.",
+    "High traffic counts along Walzem Road"
+  ],
+  "contact": {
+    "names": "Bart Wilson or Matt Howard",
+    "phone": "(210) 496-5800",
+    "fax": "(210) 496-5809",
+    "emails": [
+      "bwilson@roalson.com",
+      "mhoward@roalson.com"
+    ],
+    "web": "www.roalson.com"
+  },
+  "demographic_overview": {
+    "title": "5001 Walzem Road",
+    "date": "September 7, 2025",
+    "columns": [
+      "1.0 Miles",
+      "3.0 Miles",
+      "5.0 Miles"
+    ],
+    "sections": [
+      {
+        "heading": "Population",
+        "rows": [
+          [
+            "2020 Census",
+            "10,125",
+            "104,331",
+            "284,374"
+          ],
+          [
+            "2025 Estimate",
+            "10,011",
+            "106,591",
+            "292,094"
+          ],
+          [
+            "5 Year Projection",
+            "9,904",
+            "107,978",
+            "295,692"
+          ]
+        ]
+      },
+      {
+        "heading": "Households",
+        "rows": [
+          [
+            "2020 Census",
+            "3,909",
+            "40,373",
+            "105,952"
+          ],
+          [
+            "2025 Estimate",
+            "3,968",
+            "42,559",
+            "112,145"
+          ],
+          [
+            "5 Year Projection",
+            "4,004",
+            "43,977",
+            "115,864"
+          ]
+        ]
+      },
+      {
+        "heading": "2025 Population by Race",
+        "rows": [
+          [
+            "White",
+            "39.4%",
+            "39.7%",
+            "42.8%"
+          ],
+          [
+            "Black",
+            "17.3%",
+            "16.3%",
+            "15.5%"
+          ],
+          [
+            "Asian or Pacific Islander",
+            "5.0%",
+            "3.9%",
+            "3.6%"
+          ],
+          [
+            "American Indian",
+            "0.8%",
+            "1.3%",
+            "1.2%"
+          ]
+        ]
+      },
+      {
+        "heading": "2025 Population by Ethnicity",
+        "rows": [
+          [
+            "Hispanic Origin",
+            "50.3%",
+            "52.5%",
+            "48.9%"
+          ]
+        ]
+      },
+      {
+        "heading": "2025 Total Housing Units",
+        "rows": [
+          [
+            "Owner-Occupied",
+            "2,047",
+            "21,540",
+            "66,771"
+          ],
+          [
+            "Renter-Occupied",
+            "1,921",
+            "21.019",
+            "45,374"
+          ],
+          [
+            "Average Household Size",
+            "2.47",
+            "2.48",
+            "2.56"
+          ]
+        ]
+      },
+      {
+        "heading": "2025 Household Income",
+        "rows": [
+          [
+            "Income $ 0 - $15,000",
+            "8.0%",
+            "9.3%",
+            "6.3%"
+          ],
+          [
+            "Income $ 15,000 - $24,999",
+            "5.7%",
+            "7.4%",
+            "5.9%"
+          ],
+          [
+            "Income $ 25,000 - $34,999",
+            "12.0%",
+            "9.8%",
+            "7.9%"
+          ],
+          [
+            "Income $ 35,000 - $49,999",
+            "14.3%",
+            "12.3%",
+            "11.9%"
+          ],
+          [
+            "Income $ 50,000 - $74,999",
+            "20.8%",
+            "21.3%",
+            "20.7%"
+          ],
+          [
+            "Income $ 75,000 - $99,999",
+            "13.1%",
+            "13.5%",
+            "14.7%"
+          ],
+          [
+            "Income $ 100,000 - $149,999",
+            "14.9%",
+            "14.9%",
+            "18.2%"
+          ],
+          [
+            "Income $ 150,000 - $199,999",
+            "5.9%",
+            "5.9%",
+            "6.5%"
+          ],
+          [
+            "Income $200,000 +",
+            "5.1%",
+            "5.6%",
+            "7.7%"
+          ],
+          [
+            "Average Household Income",
+            "$80,730",
+            "$81,242",
+            "$94,893"
+          ],
+          [
+            "Median Household Income",
+            "$59,865",
+            "$61,357",
+            "$70,804"
+          ],
+          [
+            "Per Capita Income",
+            "$32,115",
+            "$32,508",
+            "$36,712"
+          ]
+        ]
+      }
+    ],
+    "source": "Source: U.S. Bureau of the Census, 2020 Census of Population and Housing. ESRI forecasts for 2025 and 2030.",
+    "from_image": false
+  },
+  "pages": [
+    {
+      "page": 1,
+      "kind": "cover_spec",
+      "caption": "",
+      "annotations": "Cover photo of the single-story building from across Walzem Road at a crosswalk; yellow fascia sign reads 'CASH LOANS ON CAR TITLES 210-590-2026'; Investment Opportunity block below the photo"
+    },
+    {
+      "page": 2,
+      "kind": "spec",
+      "caption": ""
+    },
+    {
+      "page": 3,
+      "kind": "location_map",
+      "caption": "Location Map",
+      "annotations": "Older Microsoft MapPoint road map of the San Antonio metro; yellow pushpin at Windcrest, just east of IH 35 / Loop 410"
+    },
+    {
+      "page": 4,
+      "kind": "area_map",
+      "caption": "Area Map",
+      "annotations": "MapPoint street map; red/yellow pushpin on Walzem Rd east of IH 35 near Windcrest and Loop 410"
+    },
+    {
+      "page": 5,
+      "kind": "aerial",
+      "caption": "Aerial Map",
+      "annotations": "Image-only page. Wide grayscale aerial of the IH 35 / Loop 410 interchange; yellow 'SITE' arrow on Walzem Rd; numbered markers with legend '1. Rackspace Hosting 2. Roosevelt High School 3. Windcrest'; broker box 'Roalson Interests, Inc. 18618 Tuscany Stone, Suite 200 San Antonio, TX 78258'; STDB/esri credit"
+    },
+    {
+      "page": 6,
+      "kind": "aerial",
+      "caption": "Aerial Map",
+      "annotations": "Image-only page. Close aerial; site outlined in red on the north side of Walzem Rd with yellow 'SITE' arrow; yellow labels 'Roosevelt High School' and 'Rackspace Hosting' south of Walzem Rd; same 18618 Tuscany Stone broker box; STDB/esri credit"
+    },
+    {
+      "page": 7,
+      "kind": "site_plan",
+      "caption": "Site Plan",
+      "annotations": "Image-only page. Architectural site plan of the existing building on Walzem Road: lot lines 145.13' and 150.54' deep, 115' frontage; notes for existing building to remain/remodel, proposed freezer location, re-striped parking, new monument signage; box 'EXISTING PARKING: 25 STANDARD SPACES 2 ACCESSIBLE SPACES 27 TOTAL SPACES'; lot box '.3?45 ACRES LOT 4 BLOCK 8? CITY OF WINDCREST BEXAR COUNTY, TEXAS' (digits illegible at source resolution); scale bar 0-100"
+    },
+    {
+      "page": 8,
+      "kind": "demographics",
+      "caption": ""
+    },
+    {
+      "page": 9,
+      "kind": "disclosure",
+      "caption": ""
+    },
+    {
+      "page": 10,
+      "kind": "iabs",
+      "caption": ""
+    }
+  ],
+  "qa_notes": [
+    "STRUCTURE: the cover (p1) carries an 'INVESTMENT OPPORTUNITY:' block (Type, Commence Date, Current Lease Rate, Price, Cap Rate, Term); transcribed as one 'Investment Opportunity' row with pairs, placed first because it precedes the p2 spec rows. Values kept in the original caps ('NET LEASED', '$109,800 / YEAR', 'RENEWED: through ...').",
+    "PRICE: PDF '$1,550,000.00' matches Prismic total_price '$1,550,000'.",
+    "CAP RATE: $109,800 / $1,550,000 = 7.08%, which would round to 7.1%; PDF prints 7.0%. Rent has 'annual increases' so the figure may be stale either way - confirm with broker.",
+    "LEASE TERM: 'RENEWED: through Sept. 30, 2027' leaves about one year of term as of Sept 2026, while Comments still say 'Long term national credit tenant'. Broker should confirm the lease status before this goes out.",
+    "SIZE: PDF building 'Approximately 2,900 Square Feet'; Prismic size_label '2,898 SF' / size_total_sf 2898 (consistent; Prismic is the unrounded figure). Land 17,250 SF = 115 x 150 ft; 17,250 / 43,560 = 0.396 ac, printed '(.39 Acre)' (truncated, not rounded).",
+    "SITE PLAN (p7) shows side lot lines of 145.13' and 150.54' vs spec 'Depth: Approximately 150 feet'; its lot acreage box is illegible at the source resolution (reads roughly '.3?45 ACRES') and could not be checked against '.39 Acre'.",
+    "ZONING: PDF 'B1, Neighborhood Business District; City of Windcrest'; Prismic 'B1, City of Windcrest' (consistent, Prismic abbreviated).",
+    "CITY: cover prints 'SAN ANTONIO, TX' (abbreviated, kept as printed), but Location, Zoning and Comments all say the property is in the City of Windcrest and 'not subject to City of San Antonio ordinances'. Consider whether the cover city should read Windcrest.",
+    "TITLE matches Prismic ('5001 Walzem Road'). Prismic transaction_type is null; PDF cover says 'FOR SALE'.",
+    "Prismic highlights paraphrase comments: 'Rackspace Headquarters nearby.' vs PDF 'Rackspace Headquarters is nearby.'; Prismic omits the 'Long term national credit tenant' and Windcrest comments. Aerial maps label the building 'Rackspace Hosting' rather than headquarters.",
+    "DEMOGRAPHIC OVERVIEW TYPO: 3.0-mile Renter-Occupied printed '21.019' (period for comma); 21,540 + 21,019 = 42,559 = 2025 Households, so 21,019 is intended. Transcribed as printed. 1.0- and 5.0-mile owner+renter columns sum exactly.",
+    "Spec-page demographics table (106,591 / 292,094; $81,242 / $94,893) matches the Demographic Overview page. The spec table has no Source line (no note set).",
+    "BROKER ADDRESS inconsistency: disclosure page (p9) gives 'Building 2, Suite 206, 2338 North Loop 1604 W., San Antonio, Texas 78248'; both aerial maps show '18618 Tuscany Stone, Suite 200, San Antonio, TX 78258'; the other listings in this batch use '17721 Rogers Ranch Pkwy., Suite 125, San Antonio, Texas 78258'. Both addresses in this PDF look stale.",
+    "Cover photo signage reads 'CASH LOANS ON CAR TITLES' while the Tenant row names 'Welshire Financial Services' - not necessarily a conflict (d/b/a vs entity), noted for the broker.",
+    "Page footer disclaimer on pp1-2 and p7 misspells 'represetation'; template-wide, not transcribed."
+  ]
+}

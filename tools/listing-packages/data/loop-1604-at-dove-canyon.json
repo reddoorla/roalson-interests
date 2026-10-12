@@ -1,0 +1,111 @@
+{
+  "uid": "loop-1604-at-dove-canyon",
+  "variant": "land",
+  "transaction": "For Sale",
+  "type_label": "Land",
+  "eyebrow": "Commercial Development Site",
+  "title": "Loop 1604 at Dove Canyon",
+  "city": "San Antonio, Texas",
+  "size_headline": "13.33 Acres",
+  "rows": [
+    {"label": "Location", "text": "The property is located at the northwest corner of Loop 1604 and Dove Canyon on the west side of San Antonio. It is just south of Loop 1604 and Potranco and the new Dove Crossing retail center, Costco and WalMart."},
+    {"label": "Size", "text": "13.33 +/- Acres"},
+    {"label": "Frontage", "pairs": [["Loop 1604", "1,227 feet"], ["Dove Canyon", "688 feet"]]},
+    {"label": "Utilities", "pairs": [["Electricity", "Available"], ["Sewer", "Available"], ["Water", "Available"], ["Gas", "Available"]],
+     "note": "Prospective buyers should retain an independent engineer to verify the location, accessibility and capacity of all utilities."},
+    {"label": "Zoning", "text": "OCL, San Antonio ETJ",
+     "note": "Prospective buyers should verify the zoning and permitted uses for this property with the appropriate governing authority."},
+    {"label": "Flood Plain", "text": "The Federal Emergency Management Agency maps appear to indicate that there is some Floodplain present on the northern end of the property."},
+    {"label": "Topography", "text": "The property generally slopes and drains from South to North."},
+    {"label": "Easements", "text": "Unknown."},
+    {"label": "Deed Restrictions", "text": "None of Record."},
+    {"label": "Traffic Count", "text": "2024 Texas Department of Transportation maps indicate 36,705 vehicles per day on Loop 1604, north of the property and 53,870 vehicles per day on Loop 1604, south of the property."},
+    {"label": "Demographics", "table": {
+        "columns": ["", "1.0 Miles", "3.0 Miles", "5.0 Miles"],
+        "rows": [["Population, 2025 Estimate", "18,042", "129,967", "246,328"],
+                 ["Population, 5 Year Projection", "20,154", "143,376", "271,074"],
+                 ["Average Household Income", "$106,524", "$106,769", "$104,858"]]},
+     "note": "Source: U.S. Bureau of the Census, 2020 Census of Population and Housing. ESRI forecasts for 2025 and 2030."},
+    {"label": "Area Development", "text": "Significant commercial development is just north of the property including Costco, Dove Crossing Retail Center, and Walmart."},
+    {"label": "Potential Uses", "text": "This property would suit a variety of commercial uses including retail, multifamily and healthcare."},
+    {"label": "Investment", "text": "$4,935,565.80 or $8.50 per square foot"}
+  ],
+  "comments": [
+    "Exceptional growth continues on the west side of the San Antonio metro area, which is driving the need for retail, multifamily, and other commercial uses.",
+    "Excellent visibility",
+    "Excellent access"
+  ],
+  "contact": {
+    "names": "Bart Wilson or Matt Howard",
+    "phone": "(210) 496-5800",
+    "fax": "",
+    "emails": ["bwilson@roalson.com", "eldon@roalson.com"],
+    "web": "www.roalson.com"
+  },
+  "demographic_overview": {
+    "title": "Loop 1604 at Dove Canyon",
+    "date": "September 25, 2025",
+    "columns": ["1.0 Miles", "3.0 Miles", "5.0 Miles"],
+    "sections": [
+      {"heading": "Population", "rows": [
+        ["2020 Census", "15,037", "114,498", "215,139"],
+        ["2025 Estimate", "18,042", "129,967", "246,328"],
+        ["5 Year Projection", "20,154", "143,376", "271,074"]]},
+      {"heading": "Households", "rows": [
+        ["2020 Census", "4,342", "35,888", "70,757"],
+        ["2025 Estimate", "5,330", "41,873", "83,117"],
+        ["5 Year Projection", "6,053", "47,136", "93,416"]]},
+      {"heading": "2025 Population by Race", "rows": [
+        ["White", "39.2%", "39.6%", "40.0%"],
+        ["Black", "10.8%", "9.8%", "9.7%"],
+        ["Asian or Pacific Islander", "3.8%", "3.4%", "3.4%"],
+        ["American Indian", "1.3%", "1.3%", "1.3%"]]},
+      {"heading": "2025 Population by Ethnicity", "rows": [
+        ["Hispanic Origin", "62.8%", "63.8%", "64.3%"]]},
+      {"heading": "2025 Total Housing Units", "rows": [
+        ["Owner-Occupied", "4,249", "30,886", "56,555"],
+        ["Renter-Occupied", "1,081", "11,007", "26,562"],
+        ["Average Household Size", "3.38", "3.07", "2.91"]]},
+      {"heading": "2025 Household Income", "rows": [
+        ["Income $ 0 - $15,000", "2.5%", "3.3%", "4.6%"],
+        ["Income $ 15,000 - $24,999", "3.0%", "4.2%", "4.5%"],
+        ["Income $ 25,000 - $34,999", "4.6%", "4.3%", "5.5%"],
+        ["Income $ 35,000 - $49,999", "7.2%", "8.6%", "10.4%"],
+        ["Income $ 50,000 - $74,999", "9.5%", "16.4%", "16.9%"],
+        ["Income $ 75,000 - $99,999", "17.3%", "16.2%", "14.8%"],
+        ["Income $ 100,000 - $149,999", "39.3%", "27.9%", "23.7%"],
+        ["Income $ 150,000 - $199,999", "11.9%", "11.4%", "10.5%"],
+        ["Income $200,000 +", "4.7%", "7.7%", "9.0%"],
+        ["Average Household Income", "$106,524", "$106,769", "$104,858"],
+        ["Median Household Income", "$104,359", "$94,055", "$86,784"],
+        ["Per Capita Income", "$31,918", "$34,546", "$35,223"]]}
+    ],
+    "source": "Source: U.S. Bureau of the Census, 2020 Census of Population and Housing. ESRI forecasts for 2025 and 2030.",
+    "from_image": false
+  },
+  "pages": [
+    {"page": 1, "kind": "cover_spec", "caption": ""},
+    {"page": 2, "kind": "spec", "caption": ""},
+    {"page": 3, "kind": "location_map", "caption": "Location Map", "annotations": "Google regional map of the San Antonio metro (Map data ©2023 Google); single red pin west of SA near Loop 1604 / Hwy 90"},
+    {"page": 4, "kind": "area_map", "caption": "Area Map", "annotations": "Google street map (Map data ©2023 Google); red pin on west side of Loop 1604 south of Potranco Rd; labelled POIs include Costco Wholesale, H-E-B plus!, Academy Sports + Outdoors, TJ Maxx & HomeGoods, Flix Brewhouse, Dollar General, El Tequila Mexican Restaurant & Bar, Walmart Neighborhood Market"},
+    {"page": 5, "kind": "aerial", "caption": "Aerial Map", "annotations": "Wide Google aerial (Imagery ©2023), small site outlined in red on the west side of Loop 1604; scale bar 0-8000ft; header reads 'Texas, AC +/-' (acreage blank); footer credit 'Matt Howard mhoward@roalson.com'"},
+    {"page": 6, "kind": "aerial", "caption": "Aerial Map", "annotations": "Close-up Google aerial (Imagery ©2023): triangular site outlined in red, label '13.33 Acres', road label 'Loop 1604'; FEMA floodplain shaded cyan over the northern tip and along Loop 1604; legend Boundary / 100 Year Floodplain / 500 Year Floodplain / Floodway / Special / Unmapped Not Included; scale bar 0-800ft; header 'Texas, AC +/-'; footer credit 'Matt Howard mhoward@roalson.com'"},
+    {"page": 7, "kind": "survey", "caption": "Survey", "annotations": "ALTA/NSPS Land Title Survey of a 13.33-acre tract (Vol. 17390, Pg. 513, O.P.R. Bexar County) by Vickrey & Associates, Inc., dated 04/29/2016, scale 1\" = 100'; east line along Loop 1604 S00°07'24\"E 1227.24'; approximate FEMA Zone AE / Zone X lines and easements (16' sanitary sewer, 80' water, drainage) drawn"},
+    {"page": 8, "kind": "demographics", "caption": ""},
+    {"page": 9, "kind": "disclosure", "caption": ""},
+    {"page": 10, "kind": "iabs", "caption": ""}
+  ],
+  "qa_notes": [
+    "CONTACT EMAIL: contact line names 'Bart Wilson or Matt Howard' but the second email printed (and its mailto link) is eldon@roalson.com, not mhoward@roalson.com. The IABS page lists Matthew William Howard as mhoward@roalson.com and the aerial footers credit mhoward@roalson.com. Transcribed as printed (eldon@); broker should confirm which address to publish.",
+    "TRANSACTION: the PDF never says 'For Sale' or 'For Lease'; set to 'For Sale' because the spec page gives an INVESTMENT price ($4,935,565.80). Prismic transaction_type is null.",
+    "CITY: the cover does not print a city line; 'San Antonio, Texas' is taken from the Location text ('on the west side of San Antonio').",
+    "PRICE: $4,935,565.80 = 13.33 ac x 43,560 sf x $8.50 exactly (internally consistent). Prismic total_price '$4,935,566' is the same figure rounded; price_per_unit '$8.50 / SF' matches.",
+    "ZONING MISMATCH: PDF says 'OCL, San Antonio ETJ'; Prismic zoning says 'Bexar County'.",
+    "SIZE: cover 13.33 Acres, spec '13.33 +/- Acres', aerial label '13.33 Acres', survey '13.33-acre tract', Prismic size_label '13.33 acres' / acres 13.33 (all match). Title matches Prismic.",
+    "Spec-page demographics table matches the Demographic Overview page (2025 Estimate, 5 Year Projection, Average Household Income).",
+    "Demographic Overview: 3.0-mile Owner-Occupied 30,886 + Renter-Occupied 11,007 = 41,893, but 2025 Households (3.0 mi) is 41,873 (20 off). 1.0 and 5.0 mile columns sum exactly. Transcribed as printed.",
+    "Demographic Overview 2020 Census population (1.0 mi) is 15,037 and 2025 Estimate 18,042 (verified on render). Note SCHEMA.md's worked example shows 18,037 / 114,406 / 215,120 for 2020 Census and mhoward@ as the second email - those do not match this PDF; the PDF was followed.",
+    "Location text spells 'WalMart' while Area Development spells 'Walmart' - kept as printed.",
+    "Location Map / Area Map are Google maps dated ©2023 and aerial imagery ©2023; traffic counts are 2024 TxDOT and demographics are dated September 25, 2025."
+  ]
+}

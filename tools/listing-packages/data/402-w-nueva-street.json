@@ -1,0 +1,92 @@
+{
+  "uid": "402-w-nueva-street",
+  "variant": "land",
+  "transaction": "For Sale",
+  "type_label": "Land",
+  "eyebrow": "Downtown San Antonio Redevelopment Site",
+  "title": "402 Nueva Street",
+  "city": "San Antonio, Texas",
+  "size_headline": "",
+  "rows": [
+    {"label": "Location", "text": "The property is located in the Central Business District at the southwest corner of the intersection of W. Nueva St. and Urban Loop and it also abuts IH 10 (elevated)."},
+    {"label": "Size", "text": "2.696 +/- acres"},
+    {"label": "Utilities", "pairs": [["Electric", "Available"], ["Water", "Available"], ["Sewer", "Available"], ["Gas", "Available"]],
+     "note": "Prospective buyers should retain an independent engineer to verify the location, accessibility, and available capacity of all utilities."},
+    {"label": "Zoning", "text": "D, Downtown, City of San Antonio",
+     "note": "Prospective buyers should verify the zoning and permitted uses for this property with the appropriate governing authority."},
+    {"label": "Flood Plain", "text": "The Federal Emergency Management Agency maps do not appear to indicate any floodplain on the site."},
+    {"label": "Traffic Count", "text": "Most recent (2024) Texas State Highway Department traffic count map indicates 175,759 vehicles per day on IH 10, just northwest of the property."},
+    {"label": "Demographics", "table": {
+        "columns": ["", "1.0 Miles", "3.0 Miles", "5.0 Miles"],
+        "rows": [["Population, 2026 Estimate", "13,341", "140,473", "360,124"],
+                 ["Median Household Income", "$27,386", "$44,634", "$49,950"]]},
+     "note": "Source: U.S. Bureau of the Census, 2020 Census of Population and Housing. ESRI forecasts for 2026."},
+    {"label": "Potential Use", "text": "Site would be appropriate for a variety of commercial, residential, or hospitality uses typical in downtown."},
+    {"label": "Pricing", "text": "Contact Broker"}
+  ],
+  "comments": [
+    "Property appears to lie within an Opportunity Zone",
+    "Site is adjacent to the UTSA Downtown Campus",
+    "Site is one block west of the United State Federal Courthouse and one block south of Market Square"
+  ],
+  "contact": {
+    "names": "Bart Wilson or Matt Howard",
+    "phone": "(210) 496-5800",
+    "fax": "(210) 496-5809",
+    "emails": ["bwilson@roalson.com", "mhoward@roalson.com"],
+    "web": "www.roalson.com"
+  },
+  "demographic_overview": {
+    "title": "402 W. Nueva Street",
+    "date": "April 28, 2026",
+    "columns": ["1.0 Miles", "3.0 Miles", "5.0 Miles"],
+    "sections": [
+      {"heading": "Population", "rows": [
+        ["2026 Estimate", "13,341", "140,473", "360,124"]]},
+      {"heading": "Households", "rows": [
+        ["Total Housing Units", "6,947", "63,944", "149,795"]]},
+      {"heading": "2026 Population by Age", "rows": [
+        ["Median Age", "37.3 years", "35.4 years", "36.1 years"]]},
+      {"heading": "2026 Total Housing Units", "rows": [
+        ["Owner-Occupied", "15.0%", "38.0%", "45.0%"],
+        ["Renter-Occupied", "64.0%", "47.0%", "43.0%"],
+        ["Median Home Value", "$196,394", "$183,450", "$172,134"],
+        ["Median Rent", "$719", "$1,013", "$1,032"]]},
+      {"heading": "2026 Education & Employment", "rows": [
+        ["Bachelor’s Degree+", "18.0%", "19.0%", "17.0%"],
+        ["Labor Force Participation", "39.0%", "46.0%", "46.0%"],
+        ["Unemployment Rate", "9.2%", "8.1%", "7.3%"]]},
+      {"heading": "", "rows": [
+        ["Median Household Income", "$27,386", "$44,634", "$49,950"]]}
+    ],
+    "source": "Source: U.S. Bureau of the Census, 2020 Census of Population and Housing. ESRI forecasts for 2026.",
+    "from_image": false
+  },
+  "pages": [
+    {"page": 1, "kind": "cover_spec", "caption": ""},
+    {"page": 2, "kind": "spec", "caption": ""},
+    {"page": 3, "kind": "location_map", "caption": "Location Map", "annotations": "Google map of the San Antonio region with a red pin in downtown San Antonio"},
+    {"page": 4, "kind": "area_map", "caption": "Area Map", "annotations": "Google map of west downtown with a red pin between IH 10 and Urban Loop just north of W Cesar E Chavez Blvd; UTSA Downtown Campus, Historic Market Square, San Fernando Cathedral, San Antonio Police Department labelled"},
+    {"page": 5, "kind": "aerial", "caption": "Aerial Map", "annotations": "wide aerial headed 'W. Nueva 402 / Texas, AC +/-' (acreage blank); site outlined in red on the east side of IH 10; Arsenal, King William labelled; scale bar 0-4000ft; footer Matt Howard / www.roalson.com; a rotated duplicate of the footer disclaimer runs up the right margin, and a stale 'Area Map' caption is hidden behind the aerial"},
+    {"page": 6, "kind": "aerial", "caption": "Aerial Map", "annotations": "close aerial headed 'W. Nueva 402 / Texas, AC +/-'; irregular site outlined in red bounded by W Nueva St (north), Urban Loop (east), W Cesar E Chavez Blvd (south) and the elevated IH 10 ramp (west); existing buildings and surface parking visible on the site; scale bar 0-400ft; footer Matt Howard / www.roalson.com; rotated duplicate disclaimer on the right margin; a stale 'Survey' caption is hidden behind the aerial"},
+    {"page": 7, "kind": "demographics", "caption": "Demographic Overview"},
+    {"page": 8, "kind": "disclosure", "caption": "Property Disclosure Statement"},
+    {"page": 9, "kind": "iabs", "caption": "Information About Brokerage Services"}
+  ],
+  "qa_notes": [
+    "Title: the cover prints '402 NUEVA STREET' (no 'W.'); the Demographic Overview heads it '402 W. NUEVA STREET', the Location row says 'W. Nueva St.', and Prismic's title is '402 W. Nueva Street'. Transcribed the cover as printed.",
+    "Variant: set to 'land' because the package markets a 'Redevelopment Site' sized in acres only, but the close aerial (p6) shows existing buildings and parking on the site. No building size is given anywhere.",
+    "Transaction: the PDF never says 'For Sale' or 'For Lease'; set 'For Sale' from context ('Prospective buyers'). Verify.",
+    "Comment 3 typo: 'United State Federal Courthouse' (should be 'United States'); Prismic highlight already reads 'United States'. Transcribed as printed.",
+    "Zoning: PDF 'D, Downtown, City of San Antonio'; Prismic 'D (Downtown), City of San Antonio' (same zoning, punctuation differs).",
+    "Size: PDF '2.696 +/- acres'; Prismic size_label '2.696 acres' (match). Aerial map headers leave the acreage blank ('Texas, AC +/-'). The cover has no size line.",
+    "Price: PDF 'Contact Broker' matches Prismic.",
+    "Spec-page demographics (13,341 / 140,473 / 360,124; $27,386 / $44,634 / $49,950) match the Demographic Overview page.",
+    "This package uses a different, newer demographics layout than the other Roalson packages: 2026 ESRI data (date April 28, 2026), Median (not Average) Household Income, and sections for Age, Median Home Value/Rent and Education & Employment. There is no 2020 Census or 5 Year Projection row, and no Race/Ethnicity or income-bracket sections.",
+    "Demographic Overview structure: 'Median Household Income' sits alone after a gap at the bottom with no section heading; stored as a section with heading ''. The 'Households' section holds a 'Total Housing Units' row while the next heading is also '2026 Total Housing Units'. Owner- plus Renter-Occupied do not sum to 100% (79% / 85% / 88%, presumably vacant units excluded) - as printed.",
+    "Traffic Count cites the 'Texas State Highway Department' (obsolete agency name); transcribed as printed.",
+    "Disclosure page (p8) gives an old broker address: 'BUILDING 2, SUITE 206 / 2338 NORTH LOOP 1604 W. / SAN ANTONIO, TEXAS 78248' (the other packages show 17721 Rogers Ranch Pkwy., Suite 125, 78258).",
+    "Layout leftovers: hidden 'Area Map' (p5) and 'Survey' (p6) captions sit behind the aerial images, suggesting a survey page was dropped from an earlier version; there is no survey in this package. Pages 5-6 also carry a rotated duplicate of the footer disclaimer in the right margin.",
+    "Utilities are labelled 'Electric' (not 'Electricity') and ordered Electric, Water, Sewer, Gas."
+  ]
+}

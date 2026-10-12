@@ -1,0 +1,400 @@
+{
+  "uid": "cascade-caverns-at-old-san-antonio-road",
+  "variant": "land",
+  "transaction": "For Sale",
+  "type_label": "Land",
+  "eyebrow": "On I.H. 10 Corridor",
+  "title": "Cascade Cavern and Old San Antonio Road",
+  "city": "Boerne, Texas",
+  "size_headline": "5.01 Acres",
+  "rows": [
+    {
+      "label": "Location",
+      "text": "The property is located at 215 Old San Antonio Road on the northeast corner of Cascade Cavern and Old San Antonio Road, approximately one-half block off I.H. 10."
+    },
+    {
+      "label": "Size",
+      "text": "5.01 Acres"
+    },
+    {
+      "label": "Dimensions",
+      "pairs": [
+        [
+          "Frontage",
+          "Old San Antonio Road: 535 Feet"
+        ],
+        [
+          "",
+          "Cascade Caverns: 214 Feet"
+        ],
+        [
+          "Depth",
+          "Varies, See Survey."
+        ]
+      ]
+    },
+    {
+      "label": "Utilities",
+      "pairs": [
+        [
+          "Electricity",
+          "Along frontage of Old San Antonio Road and Cascade Cavern"
+        ],
+        [
+          "Sewer",
+          "Available"
+        ],
+        [
+          "Water",
+          "Along frontage of Old San Antonio Road and Cascade Cavern"
+        ]
+      ],
+      "note": "Prospective buyers should retain an independent engineer to verify the location, accessibility and available capacity of all utilities."
+    },
+    {
+      "label": "Zoning",
+      "text": "C-3, City of Boerne",
+      "note": "Prospective buyers should verify the zoning and permitted uses with the City of Boerne."
+    },
+    {
+      "label": "Demographics",
+      "table": {
+        "columns": [
+          "2025 ESRI Estimates",
+          "Population",
+          "Average Household Income"
+        ],
+        "rows": [
+          [
+            "3-mile Radius",
+            "21,907",
+            "$157,167"
+          ],
+          [
+            "5-mile Radius",
+            "48,144",
+            "$165,183"
+          ],
+          [
+            "7-mile Radius",
+            "72,175",
+            "$171,793"
+          ]
+        ]
+      },
+      "note": "Source: U.S. Bureau of the Census, 2020 Census of Population and Housing. ESRI forecasts for 2025 and 2030."
+    },
+    {
+      "label": "Traffic Count",
+      "text": "2024 Texas Highway Traffic Count Map indicates 51,749 vehicles per day on I.H. 10 just north of its intersection with Cascade Caverns Road."
+    },
+    {
+      "label": "Flood Plain",
+      "text": "Federal Emergency Management Agency Maps do not appear to indicate any 100-year-flood plain on the tract."
+    },
+    {
+      "label": "Topography",
+      "text": "The property has a gentle slope to the east."
+    },
+    {
+      "label": "Easements",
+      "text": "There is a drainage easement along the rear of the property."
+    },
+    {
+      "label": "Deed Restrictions",
+      "text": "There is a deed restriction against hotel / hospitality for fifty years beginning in 2007."
+    },
+    {
+      "label": "Investment",
+      "text": "$ 3,928,711.00; $18.00 per square foot"
+    }
+  ],
+  "comments": [
+    "Exceptional growth area driving the need for additional commercial services.",
+    "Excellent visibility and accessibility to I.H. 10",
+    "A 12 screen Starplex Cinema is on the north border of the property.",
+    "A Marriott Fairfield Inn is on the east border of the property.",
+    "The I.H. 10 intersection area has a variety of commercial development including a Valero Store and 4 auto dealerships."
+  ],
+  "contact": {
+    "names": "Bart Wilson or Matt Howard",
+    "phone": "(210) 496-5800",
+    "fax": "",
+    "emails": [
+      "bwilson@roalson.com",
+      "mhoward@roalson.com"
+    ],
+    "web": "www.roalson.com"
+  },
+  "demographic_overview": {
+    "title": "Old San Antonio Road at Cascade Caverns Road",
+    "date": "September 29, 2025",
+    "columns": [
+      "3.0 Miles",
+      "5.0 Miles",
+      "7.0 Miles"
+    ],
+    "sections": [
+      {
+        "heading": "Population",
+        "rows": [
+          [
+            "2020 Census",
+            "17,416",
+            "40,154",
+            "60,508"
+          ],
+          [
+            "2025 Estimate",
+            "21,907",
+            "48,144",
+            "72,175"
+          ],
+          [
+            "5 Year Projection",
+            "26,906",
+            "56,811",
+            "85,068"
+          ]
+        ]
+      },
+      {
+        "heading": "Households",
+        "rows": [
+          [
+            "2020 Census",
+            "6,142",
+            "14,355",
+            "21,298"
+          ],
+          [
+            "2025 Estimate",
+            "7,860",
+            "17,691",
+            "26,134"
+          ],
+          [
+            "5 Year Projection",
+            "9,868",
+            "21,256",
+            "31,431"
+          ]
+        ]
+      },
+      {
+        "heading": "2025 Population by Race",
+        "rows": [
+          [
+            "White",
+            "73.2%",
+            "71.7%",
+            "69.5%"
+          ],
+          [
+            "Black",
+            "1.7%",
+            "1.8%",
+            "2.0%"
+          ],
+          [
+            "Asian or Pacific Islander",
+            "1.9%",
+            "2.6%",
+            "3.3%"
+          ],
+          [
+            "American Indian",
+            "0.6%",
+            "0.6%",
+            "0.6%"
+          ]
+        ]
+      },
+      {
+        "heading": "2025 Population by Ethnicity",
+        "rows": [
+          [
+            "Hispanic Origin",
+            "27.7%",
+            "27.7%",
+            "29.2%"
+          ]
+        ]
+      },
+      {
+        "heading": "2025 Total Housing Units",
+        "rows": [
+          [
+            "Owner-Occupied",
+            "5,955",
+            "13,883",
+            "20,951"
+          ],
+          [
+            "Renter-Occupied",
+            "1,905",
+            "3,808",
+            "5,183"
+          ],
+          [
+            "Average Household Size",
+            "2.72",
+            "2.68",
+            "2.73"
+          ]
+        ]
+      },
+      {
+        "heading": "2025 Household Income",
+        "rows": [
+          [
+            "Income $ 0 - $15,000",
+            "5.0%",
+            "4.9%",
+            "4.3%"
+          ],
+          [
+            "Income $ 15,000 - $24,999",
+            "4.0%",
+            "3.1%",
+            "2.4%"
+          ],
+          [
+            "Income $ 25,000 - $34,999",
+            "4.6%",
+            "4.2%",
+            "3.8%"
+          ],
+          [
+            "Income $ 35,000 - $49,999",
+            "12.5%",
+            "9.4%",
+            "7.9%"
+          ],
+          [
+            "Income $ 50,000 - $74,999",
+            "10.2%",
+            "9.4%",
+            "9.5%"
+          ],
+          [
+            "Income $ 75,000 - $99,999",
+            "8.9%",
+            "10.2%",
+            "9.8%"
+          ],
+          [
+            "Income $ 100,000 - $149,999",
+            "15.9%",
+            "17.1%",
+            "17.6%"
+          ],
+          [
+            "Income $ 150,000 - $199,999",
+            "12.4%",
+            "12.3%",
+            "12.8%"
+          ],
+          [
+            "Income $200,000 +",
+            "26.6%",
+            "29.5%",
+            "31.9%"
+          ],
+          [
+            "Average Household Income",
+            "$157,167",
+            "$165,183",
+            "$171,793"
+          ],
+          [
+            "Median Household Income",
+            "$114,901",
+            "$127,263",
+            "$135,021"
+          ],
+          [
+            "Per Capita Income",
+            "$57,492",
+            "$60,335",
+            "$62,545"
+          ]
+        ]
+      }
+    ],
+    "source": "Source: U.S. Bureau of the Census, 2020 Census of Population and Housing. ESRI forecasts for 2025 and 2030.",
+    "from_image": false
+  },
+  "pages": [
+    {
+      "page": 1,
+      "kind": "cover_spec",
+      "caption": ""
+    },
+    {
+      "page": 2,
+      "kind": "spec",
+      "caption": ""
+    },
+    {
+      "page": 3,
+      "kind": "location_map",
+      "caption": "Location Map",
+      "annotations": "Image-only page. Older Microsoft MapPoint map from Boerne south to San Antonio; yellow pushpin on IH 10 just southeast of Boerne"
+    },
+    {
+      "page": 4,
+      "kind": "area_map",
+      "caption": "Area Map",
+      "annotations": "Image-only page. MapPoint street map of south Boerne; yellow pushpin at Cascade Cavern / Old San Antonio Rd beside IH 10 (exit 543)"
+    },
+    {
+      "page": 5,
+      "kind": "aerial",
+      "caption": "Aerial Map",
+      "annotations": "Image-only page. Wide aerial of Boerne and the IH 10 corridor; yellow 'SITE' arrow southeast of town; yellow 'City of Boerne' label; broker box 'Roalson Interests, Inc. 18618 Tuscany Stone, Suite 200 San Antonio, TX 78258'; Bing / STDBonline / esri credits"
+    },
+    {
+      "page": 6,
+      "kind": "aerial",
+      "caption": "Aerial Map",
+      "annotations": "Image-only page. Close aerial; triangular site outlined in red with yellow/red 'SITE' arrow, bounded by Old San Antonio Rd and Cascade Caverns; yellow labels Starplex Cinema (north), Fairfield Inn (east), Boerne Middle School, Valero, Jennings Anderson Ford, Nissan Dealership; same 18618 Tuscany Stone broker box"
+    },
+    {
+      "page": 7,
+      "kind": "survey",
+      "caption": "Survey",
+      "annotations": "Image-only page. South Texas Engineering, Inc. survey plat of Tract I: '5.0106 ACRES (218,262 SQUARE FEET)', the remaining portion of a 7.869 acre tract, Vol. 112, Pg. 37, Kendall County Deed Records, James M. McCullogh Survey No. 185, Abstract No. 730; job address '215 Old San Antonio Road'; dimensions 214' on Cascade Caverns and 535' on Old San Antonio Road, with 503' and 571' on the other two lines; Marriott Fairfield Inn on the adjoining Kalyanji Subdivision; north arrow points down the sheet; sealed by S.B. Shrestha, RPLS 5920"
+    },
+    {
+      "page": 8,
+      "kind": "demographics",
+      "caption": ""
+    },
+    {
+      "page": 9,
+      "kind": "disclosure",
+      "caption": ""
+    },
+    {
+      "page": 10,
+      "kind": "iabs",
+      "caption": ""
+    }
+  ],
+  "qa_notes": [
+    "PRICE MISMATCH: PDF Investment row gives '$ 3,928,711.00; $18.00 per square foot'; Prismic total_price is 'Contact Broker' (price_per_unit null). Confirm which is current before publishing either.",
+    "PRICE ARITHMETIC: 5.0106 ac x 43,560 = 218,261.7 sf x $18.00 = $3,928,711 (matches). Using the survey's rounded 218,262 sf gives $3,928,716 - a $5 difference, immaterial.",
+    "TITLE MISMATCH: PDF cover prints 'CASCADE CAVERN AND OLD SAN ANTONIO ROAD'; Prismic title is 'Cascade Caverns at Old San Antonio Road'. Transcribed from the PDF.",
+    "NAME SPELLING inconsistent within the PDF: 'Cascade Cavern' (cover, Location, Utilities) vs 'Cascade Caverns' (Dimensions, Traffic Count 'Cascade Caverns Road', Demographic Overview title, survey). Kept as printed each time.",
+    "COVER MAPPING: cover reads '5.01 ACRES IN BOERNE, TEXAS / CASCADE CAVERN AND OLD SAN ANTONIO ROAD / ON I.H. 10 CORRIDOR'. The first line is split into size_headline '5.01 Acres' + city 'Boerne, Texas', and the tagline 'On I.H. 10 Corridor' (printed below the address line) is used as eyebrow so no cover text is lost. Re-typesetter may prefer eyebrow '5.01 Acres in Boerne, Texas' instead.",
+    "SIZE: cover and spec '5.01 Acres'; survey '5.0106 ACRES (218,262 SQUARE FEET)'; Prismic size_label '5.0106 acres' / acres 5.0106 (consistent).",
+    "DIMENSIONS row: Frontage has two sub-lines (Old San Antonio Road: 535 Feet / Cascade Caverns: 214 Feet); encoded as pairs with the second pair's label '' (continuation of Frontage), then Depth. Survey confirms 535' and 214'.",
+    "ZONING: PDF 'C-3, City of Boerne' matches Prismic.",
+    "Spec demographics table matches the Demographic Overview (3/5/7-mile: 21,907 / 48,144 / 72,175; $157,167 / $165,183 / $171,793). Overview owner+renter columns sum exactly to 2025 Households.",
+    "No fax number is printed on this package's contact line (phone only).",
+    "Aerial maps (pp5-6) show a stale broker address '18618 Tuscany Stone, Suite 200, San Antonio, TX 78258'; the disclosure page uses '17721 Rogers Ranch Pkwy., Suite 125'.",
+    "Prismic highlights ('Excellent commercial corner', 'Strong IH 10 access and visibility') are paraphrases and do not appear verbatim in the PDF.",
+    "Page footer disclaimer on pp1-2 misspells 'represetation'; template-wide, not transcribed."
+  ]
+}
