@@ -145,7 +145,8 @@
     "img": "exhibits/cascade-caverns-at-old-san-antonio-road-p7.png"
    }
   ],
-  "photos": []
+  "photos": [],
+  "keep_survey": true
  },
  "highway-77-at-general-cavazos-kingsville": {
   "carry": [
@@ -237,7 +238,8 @@
     "img": "exhibits/ih-10-at-highway-87-comfort-p6.png"
    }
   ],
-  "photos": []
+  "photos": [],
+  "keep_survey": true
  },
  "ih-10-at-menger-springs": {
   "carry": [
@@ -281,7 +283,8 @@
     "img": "exhibits/ih-10-at-menger-springs-p8.png"
    }
   ],
-  "photos": []
+  "photos": [],
+  "keep_survey": true
  },
  "ih-10-at-scenic-loop": {
   "carry": [
@@ -348,7 +351,8 @@
     "img": "exhibits/ih-35-at-wonderworld-san-marcos-p8.png"
    }
   ],
-  "photos": []
+  "photos": [],
+  "keep_survey": true
  },
  "loop-1604-at-dove-canyon": {
   "carry": [
@@ -433,7 +437,8 @@
     "img": "exhibits/st-marys-at-martin-river-walk-p7.png"
    }
   ],
-  "photos": []
+  "photos": [],
+  "keep_survey": true
  },
  "urban-loop-road": {
   "carry": [
