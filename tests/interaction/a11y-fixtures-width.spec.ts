@@ -59,7 +59,6 @@ test("the homepage bands are drawn at the site's width — all but the launch ba
   expect(widths.partners, "partners").toBe(1440);
   expect(widths.photo, "photo band").toBe(1440);
   expect(widths.featured.length).toBe(2);
-  // `/`'s card at 1440 (featured-properties.spec.ts measures the same 927).
-  expect(widths.featured[0], "three-listing card").toBeCloseTo(927, 0);
-  expect(widths.featured[1], "launch card, narrow on purpose").toBeLessThan(640);
+  expect(widths.featured[0], "three-listing card").toBe(1440);
+  expect(widths.featured[1], "launch card, narrow on purpose").toBeLessThan(768);
 });

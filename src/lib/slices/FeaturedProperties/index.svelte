@@ -65,10 +65,12 @@
 </script>
 
 <script lang="ts">
-  // The homepage's "Properties" band (6802:1460 at 1440, 6994:820 at 390): on
-  // the #3d0707 ground, the band's heading beside a sand card that turns
-  // through the editor's featured listings — photo, a 2px timer, the arrows,
-  // then the listing's size line, title, bullets and LEARN MORE.
+  // The homepage's "Properties" band: a sand card that turns through the
+  // editor's featured listings — a full-width photo, then the band's heading
+  // and the arrows in the site's left column, and the 2px timer, size line,
+  // title, bullets and LEARN MORE in its right one (Erik, 2026-10-12, the
+  // right-hand option of his side-by-side; until then the heading stood in a
+  // #3d0707 column beside a 928 × 542 card).
   //
   // THE CAROUSEL IS $lib/carousel.svelte.ts — this file owns markup and layout
   // only: no clock, no index, no ARIA of its own. Slider.svelte was read and
@@ -86,18 +88,19 @@
   // contract is that controls stay OUTSIDE the slide elements in the DOM: a
   // slide that turns away goes `inert`, and an arrow inside it would turn its
   // own slide from under the keyboard focus it holds (#34). So the card is one
-  // grid of four rows (photo / bar / chrome / text), the bar and the chrome are
-  // its direct children, and every slide spans all four rows as a SUBGRID,
-  // filling rows 1 and 4 and leaving 2 and 3 to the chrome. Each slide is still
+  // grid of five rows (photo / bar / heading / chrome / text below `lg`), the
+  // bar, heading and chrome are its direct children, and every slide spans all
+  // five rows as a SUBGRID, filling the photo's and the text's. Each slide is still
   // one element — one APG group, one `inert` — and nothing is positioned over
   // anything: the chrome's real size makes the rows, so controls that wrap
-  // move the text down instead of printing over it. From `lg` the same four rows hold
-  // two columns, 414fr | 514fr = the comp's 20 + 394 | 20 + 474 + 20.
+  // move the text down instead of printing over it. From `lg` the grid takes
+  // the site's columns (`.featured-grid`, below): the photo spans them all,
+  // the heading tops and the chrome foots the left column, and the bar and
+  // text fill the right one.
   //
-  // THE MAP IS OUT (Erik, 2026-10-09: "lose map entirely"). Its column holds
-  // the band's heading.
+  // THE MAP IS OUT (Erik, 2026-10-09: "lose map entirely").
   //
-  // THE CARD'S LEFT EDGE IS THE SITE'S COLUMN LINE, not the comp's 512. The
+  // THE RIGHT COLUMN STARTS ON THE SITE'S COLUMN LINE, not the comp's 512. The
   // two-column bands put their right column at x=513 (1440) through the gutters
   // and `[397fr_847fr] gap-9`; the comp draws this one at 512 as a bare 512 : 928
   // ratio. The two are 1px apart at 1440 (513 against 512 — the pixel critic
@@ -423,16 +426,23 @@
   // at DPR 1 it was fetched at 1024. Reduced motion cannot be known in the
   // server's markup, so it pays the 6% too.
   //
+  // SINCE 2026-10-12 THE BOX IS THE WHOLE BAND FROM `lg` (1440 / 744), so
+  // the `lg` term is 100vw at that ratio; below `lg` it is 100vw at 928 / 542.
+  // At 1440 × DPR 2 the end frame needs ~3050px, past the 2560 cap.
+  //
   // 2048 BESIDE THE DEFAULTS because Chromium takes the smallest candidate at
   // least as dense as the screen: at 1440–1470 × DPR 2 the end frame needs
   // 1965–2006px, which 1920 misses and 2560 overshoots — 191 KB of AVIF at
   // 2048 against 172 at 1920 and 268 at 2560. cappedWidths still stops at the
   // source's own width.
   const BOX = 928 / 542;
+  const BOX_LG = 1440 / 744;
   const photoSizes = ({ width, height }: { width: number; height: number }) => {
-    const drawn = (carousel.enabled ? 1 + KEN_BURNS : 1) * Math.max(1, width / height / BOX);
-    const vw = (n: number) => +(n * drawn).toFixed(2);
-    return `(min-width: 1024px) ${vw(65)}vw, ${vw(100)}vw`;
+    const vw = (box: number) =>
+      +(100 * (carousel.enabled ? 1 + KEN_BURNS : 1) * Math.max(1, width / height / box)).toFixed(
+        2,
+      );
+    return `(min-width: 1024px) ${vw(BOX_LG)}vw, ${vw(BOX)}vw`;
   };
   const resting: boolean[] = $state([]);
   /** The photo's drift ran to its end ON STAGE, and it has not rested since:
@@ -551,14 +561,8 @@
     data-featured-shown={slides.length}
     data-featured-unembedded={listings.unembedded}
     aria-labelledby={carousel.enabled ? undefined : `${uid}-heading`}
-    class="featured-band relative bg-dark lg:grid"
+    class="relative"
   >
-    <div
-      data-featured-heading
-      class="px-5 py-10 lg:col-start-2 lg:row-start-1 lg:px-0 lg:pt-20 lg:pb-0"
-    >
-      <h2 id="{uid}-heading" class="t-h2 text-light">{heading}</h2>
-    </div>
     <!-- The card. With more than one listing it is the carousel's region, named
          by the heading; with one, `region` is empty and the <section> takes the
          name instead (never both — two landmarks, one name).
@@ -600,44 +604,28 @@
       use:animateIn={REVEAL}
       data-featured-card
       data-carousel-ready={carousel.hydrated ? "" : undefined}
-      class="@container relative isolate bg-light text-primary lg:col-start-4 lg:row-start-1"
+      class="@container relative isolate bg-light text-primary"
     >
       <div
         {...carousel.swipe}
-        class="grid grid-cols-1 grid-rows-[auto_auto_auto_1fr_auto] lg:grid-cols-[414fr_514fr]"
+        class="featured-grid grid grid-cols-1 grid-rows-[auto_auto_auto_auto_1fr]
+          lg:grid-rows-[auto_auto_auto_1fr_auto]"
       >
-        <!-- The chrome comes FIRST in the DOM so Pause is the first stop inside
-             the carousel (APG), and sits in row 3 by placement. From `lg` it is
-             the comp's 200px column, arrows at the bottom, 43 above the card's
-             foot (40 of padding and 3 of the comp's
-             own slack — 203 against 200). That column, not the text, is what
-             holds the panel at the comp's 285 when a listing has two bullets.
-
-             THE 200 IS A FLOOR (`lg:min-h`), NOT A HEIGHT. As `lg:h-[200px]`
-             it was a fixed box top-aligned in its own grid area, so the moment
-             any slide's text ran taller than 203 the area grew underneath it
-             and the arrows stayed where they were: measured 60.03 above the
-             card's foot instead of 43 at 1024/1100/1280 with the fixture's own
-             copy, and at a true 1440 with the launch listing's five bullets —
-             arrows, LEARN MORE and the foot on three different lines. A grid
-             item stretches by default, so `h-auto` + the floor keeps 20 + 200
-             + 43 = the comp's 285 for short content AND the arrows 43 above
-             the foot at every width and every length.
-
-             `lg:row-start-3` LOOKS redundant beside `row-start-3` and is not.
-             `lg:row-span-2` is the `grid-row` SHORTHAND, and inside the `lg`
-             media block it lands later in the stylesheet than the unprefixed
-             `grid-row-start: 3`, resetting the start to `auto`: the chrome was
-             auto-placed into implicit rows 5–6 UNDER the slides (they fill
-             rows 1–4 of both columns), and the card measured 1086 tall for the
-             comp's 827. Restating the start inside
-             `lg` puts it after the shorthand. The text block below needs the
-             same pair for the same reason. -->
+        <div
+          data-featured-heading
+          class="relative z-[2] col-start-1 row-start-3 mx-5 mt-10 lg:col-start-2 lg:row-start-3
+            lg:mx-0 lg:mt-5"
+        >
+          <h2 id="{uid}-heading" class="t-h2 text-dark">{heading}</h2>
+        </div>
+        <!-- The chrome comes before every slide in the DOM so Pause is the first
+             stop inside the carousel (APG); the heading above it is no stop.
+             From `lg` it is the bottom of the left column, its foot on LEARN
+             MORE's 40 (Erik, 2026-10-12: the right-hand option). -->
         <div
           data-featured-chrome
-          class="relative z-[2] col-start-1 row-start-3 mx-5 mt-[10px] flex flex-wrap items-start
-            justify-end gap-5 lg:flex-nowrap lg:row-span-2 lg:row-start-3 lg:mt-5 lg:mr-0 lg:mb-[43px]
-            lg:h-auto lg:min-h-[200px] lg:flex-col"
+          class="relative z-[2] col-start-1 row-start-4 mx-5 mt-[30px] flex flex-wrap items-start gap-5
+            lg:col-start-2 lg:row-start-5 lg:mx-0 lg:mt-5 lg:mb-10 lg:flex-nowrap lg:self-end"
         >
           <!-- THE BAND'S OWN LINK TO THE REST OF THE PORTFOLIO, as the last of
                the controls (operator, 2026-10-01, answering Nicole's MarkUp
@@ -670,7 +658,9 @@
         <!-- The bar's 2px and the 20 above it are held whether or not there is a
              bar to draw (one listing; no script), so the card is the same card
              in every state. -->
-        <div class="relative z-[2] col-span-full row-start-2 mx-5 mt-5 h-0.5">
+        <div
+          class="relative z-[2] col-span-full row-start-2 mx-5 mt-5 h-0.5 lg:col-start-4 lg:ml-0"
+        >
           <CarouselProgress {carousel} />
         </div>
 
@@ -680,7 +670,7 @@
           <div
             {...carousel.slide(i)}
             data-featured-slide
-            class="col-span-full row-span-4 row-start-1 grid grid-cols-subgrid grid-rows-subgrid
+            class="col-span-full row-span-5 row-start-1 grid grid-cols-subgrid grid-rows-subgrid
               {active ? `z-[1] ${fade.slideIn}` : `pointer-events-none ${fade.slideOut}`}"
           >
             <!-- THE SLIDE ON STAGE PAINTS OVER THE ONE LEAVING, WHATEVER THEIR
@@ -696,11 +686,13 @@
                  five; 7 of 7 on a Next. With the slide raised: 7 of 7 both ways.
                  (The chrome, the bar and the ALL link in it are `z-[2]`, so
                  they still sit over any slide.) -->
-            <!-- 928 × 542 at 1440 and 390 × 227.8 at 390: one ratio. Every slide
+            <!-- 390 × 227.8 at 390, and the full band at 1440 / 744 from `lg`
+                 (the ratio of Erik's 2026-10-12 option). Every slide
                  is in the DOM and the band starts below the fold at both widths,
                  so every photo is lazy. Centred; an editor crops in Prismic. -->
             <div
               class="col-span-full row-start-1 aspect-[928/542] overflow-hidden bg-background
+                lg:aspect-[1440/744]
                 {active ? fade.photoIn : fade.photoOut}"
               ontransitionend={(e) => {
                 if (e.target === e.currentTarget && e.propertyName === "opacity" && !active) {
@@ -740,8 +732,8 @@
                  same element would silently drop one of the two lists (the
                  defect animateIn's own release() exists for). -->
             <div
-              class="col-start-1 row-start-4 mx-5 mt-5 mb-10 flex min-w-0 flex-col gap-5
-                lg:col-start-2 lg:row-span-2 lg:row-start-3"
+              class="col-start-1 row-start-5 mx-5 mt-5 mb-10 flex min-w-0 flex-col gap-5
+                lg:col-start-4 lg:row-span-3 lg:row-start-3 lg:ml-0"
             >
               <div class="flex flex-col gap-[15px]">
                 {#if slide.sizeLabel}
@@ -768,7 +760,10 @@
                      block wrapper sits in a LINE box, whose strut would put a
                      few px of descender under the button and move its bottom
                      off the card's 40px foot (the spec measures exactly that). -->
-                <div data-featured-line="3" class="flex self-start {active ? lines[3] : lineOut}">
+                <div
+                  data-featured-line="3"
+                  class="flex self-start lg:mt-auto {active ? lines[3] : lineOut}"
+                >
                   <BrandButton href={slide.href} arrow>
                     Learn more <span class="sr-only">about {slide.title}</span>
                   </BrandButton>
@@ -797,20 +792,13 @@
     }
   }
 
-  @media (width < 64rem) {
-    .featured-band {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr);
-    }
-  }
-
   /* The site's column line, as every gutter-ed band computes it:
      gutter + (content − gap) × 397/1244 + gap, with content capped at 1440 and
      centred. 513px at 1440. Tailwind's `lg` and `xl`, where the gutter changes
      (px-5 sm:px-8 xl:px-20). `100%` is the band's own width, never `vw` — the
      layout is 15px narrower than the viewport wherever a scrollbar takes space. */
   @media (min-width: 64rem) {
-    .featured-band {
+    .featured-grid {
       --gutter: 2rem;
       grid-template-columns:
         calc(max(0px, (100% - 1440px) / 2) + var(--gutter))
@@ -820,7 +808,7 @@
     }
   }
   @media (min-width: 80rem) {
-    .featured-band {
+    .featured-grid {
       --gutter: 5rem;
     }
   }

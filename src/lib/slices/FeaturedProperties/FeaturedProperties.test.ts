@@ -644,16 +644,18 @@ describe("FeaturedProperties slice", () => {
     }
   });
 
-  it("draws no map: the heading stands alone in the column beside the card", () => {
+  it("draws no map: the heading is the card's, outside every slide, read before the controls", () => {
     for (const slice of [featuredPropertiesFixture(), featuredLaunchFixture()]) {
       const { container, getByRole, unmount } = render(FeaturedProperties, { props: { slice } });
       expect(
         container.querySelector("[data-property-map], [data-map-slot], [data-map-link]"),
       ).toBeNull();
       const heading = getByRole("heading", { level: 2 });
-      expect(card(container).contains(heading)).toBe(false);
+      expect(card(container).contains(heading)).toBe(true);
+      expect(heading.closest("[data-featured-slide]")).toBeNull();
+      const controls = container.querySelector("[data-featured-controls]")!;
       expect(
-        heading.compareDocumentPosition(card(container)) & Node.DOCUMENT_POSITION_FOLLOWING,
+        heading.compareDocumentPosition(controls) & Node.DOCUMENT_POSITION_FOLLOWING,
       ).toBeTruthy();
       unmount();
     }
