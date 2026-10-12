@@ -5,7 +5,7 @@ import { tick } from "svelte";
 import { describe, expect, it, vi } from "vitest";
 
 import PropertyMap from "$lib/components/PropertyMap.svelte";
-import { DIMMED_MARKER_OPACITY, MAP_HOME, type MapPoint } from "$lib/property-map";
+import { DIMMED_MARKER_OPACITY, DIMMED_PIN_FILL, MAP_HOME, type MapPoint } from "$lib/property-map";
 
 vi.mock("$env/dynamic/public", () => ({ env: {} }));
 
@@ -84,9 +84,10 @@ vi.mock("$lib/map-engine", () => engine.module);
  *
  * "Slightly" is bounded here, not by taste. A pin is an interactive graphic,
  * so its edge must keep 3:1 (WCAG 1.4.11) against the colours ADJACENT to it.
- * Since 2026-10-11 a dimmed pin fades only its fill (DIMMED_PIN_FILL, Erik's
- * "50% or less") and keeps a solid garnet outline, so the outline is what is
- * measured. A cluster's disc is the same garnet, composited at
+ * A dimmed pin fades its fill to DIMMED_PIN_FILL and, since 2026-10-12, has
+ * no outline (Erik), so its fill is its edge and is what is measured. From
+ * 2026-10-11 to then it kept a solid outline, and that was measured instead.
+ * A cluster's disc is the same garnet, composited at
  * DIMMED_MARKER_OPACITY; its count is TEXT, sand on that disc, so the
  * two must keep 4.5:1 (WCAG 1.4.3). A palette change that takes any of that
  * under its ratio at DIMMED_MARKER_OPACITY is a red test here, naming the
@@ -294,7 +295,6 @@ const painted = await (async () => {
   };
   const $$ = (selector: string) => [...view.container.querySelectorAll(selector)];
   const fill = (els: Element[]) => els.map((p) => p.getAttribute("fill") ?? "");
-  const stroke = (els: Element[]) => els.map((p) => p.getAttribute("stroke") ?? "");
   const discs = {
     live: $$("[data-map-cluster] > span"),
     picture: $$("[data-map-home-cluster]"),
@@ -306,13 +306,6 @@ const painted = await (async () => {
         picture: fill($$("[data-map-home-pin] > svg > path")),
       },
       "pin body",
-    ),
-    outline: one(
-      {
-        live: stroke($$("[data-map-pin] > svg > path")),
-        picture: stroke($$("[data-map-home-pin] > svg > path")),
-      },
-      "pin outline",
     ),
     disc: one(
       {
@@ -472,7 +465,7 @@ const garnetBeside =
       worst: contrastAtWorst(mark, pair.beside.rgb),
     };
   };
-const pinBeside = garnetBeside(painted.outline);
+const pinBeside = garnetBeside(painted.body);
 const discBeside = garnetBeside(painted.disc);
 /** A dimmed cluster's count against its own disc. The glyph and the disc
  *  pixel next to it can sit either side of a boundary too, so the count is
@@ -544,9 +537,9 @@ describe("the dimmed markers, measured against the style's own grounds", () => {
       ).toBe(true);
   });
 
-  it("a dimmed pin keeps 3:1 beside every ground: its fill fades, its solid outline does not", () => {
+  it("a dimmed pin keeps 3:1 beside every ground, its fill being its edge", () => {
     const failing = pairs
-      .map((pair) => ({ pair, ...pinBeside(pair, 1) }))
+      .map((pair) => ({ pair, ...pinBeside(pair, DIMMED_PIN_FILL) }))
       .filter((r) => r.worst < PIN_NON_TEXT)
       .map(label);
     expect(failing, "pairs a dimmed pin falls under 3:1 on").toEqual([]);

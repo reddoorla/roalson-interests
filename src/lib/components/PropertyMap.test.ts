@@ -10,6 +10,10 @@ import {
   DEFAULT_MAP_STYLE_URL,
   DIMMED_MARKER_OPACITY,
   DIMMED_PIN_FILL,
+  PIN_PATH,
+  RI_PIN_BODY,
+  RI_PIN_MARK,
+  RI_PIN_VIEWBOX,
   frameFor,
   homeMarkers,
   MAP_CREDIT_OPEN_MS,
@@ -861,14 +865,19 @@ describe("the active listing's pin (P2/P4)", () => {
     expect(view.container.querySelector("[data-map-pin-mark]")).toBeNull();
   });
 
-  it("carries the Ri mark in its head, where every other pin keeps its hole", async () => {
+  it("is drawn as Erik's Ri-Pin2, where every other pin keeps the comp's pin and its hole", async () => {
     const { view } = await booted({ active: "a" });
     const a = view.container.querySelector("[data-map-pin='a']")!;
     const b = view.container.querySelector("[data-map-pin='b']")!;
-    expect(a.querySelector("[data-map-pin-mark] path")).not.toBeNull();
-    expect(a.querySelector("circle")).toBeNull();
+    const drawn = (el: Element, selector: string) =>
+      [...el.querySelectorAll(selector)].map((p) => p.getAttribute("d"));
+    expect(drawn(a, "[data-map-pin-mark] path")).toEqual([RI_PIN_BODY, RI_PIN_MARK]);
+    expect(a.querySelector("[data-map-pin-mark]")!.getAttribute("viewBox")).toBe(RI_PIN_VIEWBOX);
+    expect(drawn(a, ":scope > svg > path"), "not the comp's pin under it").toEqual([]);
+    expect(a.querySelector(":scope > svg > circle"), "nor its hole").toBeNull();
     expect(b.querySelector("[data-map-pin-mark]")).toBeNull();
-    expect(b.querySelector("circle")).not.toBeNull();
+    expect(drawn(b, ":scope > svg > path")).toEqual([PIN_PATH]);
+    expect(b.querySelector(":scope > svg > circle")).not.toBeNull();
     expect(view.container.querySelectorAll("[data-map-pin-mark]")).toHaveLength(1);
   });
 
