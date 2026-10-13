@@ -138,7 +138,7 @@ def hero_for(uid):
     p = A('build', 'heroes.json')
     h = json.load(open(p)).get(uid, {}) if os.path.exists(p) else {}
     img = h.get('image')
-    return A(img) if img and os.path.exists(A(img)) else None
+    return (A(img), h.get('pos', '50% 50%')) if img and os.path.exists(A(img)) else None
 
 
 def build(uid, plan):
@@ -158,7 +158,10 @@ def build(uid, plan):
     overlays = []
 
     # cover
+    hero_pos = None
     hero = None if plan.get('cover') else hero_for(uid)
+    if hero:
+        hero, hero_pos = hero
     cover_img = plan.get('cover') or hero or os.path.join(maps, 'cover.jpg')
     cover_uri = img_uri(cover_img, max_px=2600, quality=86, enhance=False if hero else plan.get('cover_enhance', False))
     title = d['title']
@@ -177,7 +180,7 @@ def build(uid, plan):
  <div class="city">{esc(d["city"])}{size}</div>
  {tag}
 </div>
-<div class="photo"><img class="ph" src="{cover_uri}" alt="" style="object-position:{'50% 50%' if hero else plan.get('cover_pos', '50% 50%')}"></div>
+<div class="photo"><img class="ph" src="{cover_uri}" alt="" style="object-position:{hero_pos if hero else plan.get('cover_pos', '50% 50%')}"></div>
 <img class="mark" src="{WATER}" alt="">
 {cover_credit}
 <div class="pgc">{{PG}}</div>
