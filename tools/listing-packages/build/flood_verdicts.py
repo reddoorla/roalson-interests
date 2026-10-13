@@ -10,23 +10,27 @@ A = lambda *p: os.path.join(ROOT, *p)
 PIN = 'No share of the site is computed for this listing; the zones mapped around it are shown for comparison.'
 
 
+NOISE = 0.005
+
+
 def pct(v):
-    p = round(v * 100)
-    return 5 * round(p / 5) if p >= 10 else p
+    return max(1, round(v * 100))
 
 
 def verdict(site_geom, hits):
-    fw, a, x = hits.get('floodway', 0), hits.get('a100', 0), hits.get('x500', 0)
+    fw, a, x = (hits.get(k, 0) if hits.get(k, 0) >= NOISE else 0 for k in ('floodway', 'a100', 'x500'))
+    sfha = fw + a
     parts = []
-    if fw >= 0.03:
-        parts.append(f'about {pct(fw)}% within the regulatory floodway')
-    if a >= 0.03:
-        parts.append(f'about {pct(a)}% within the 1% annual chance (100-year) flood hazard area')
+    if sfha >= 0.03:
+        part = f'about {pct(sfha)}% within the 1% annual chance (100-year) flood hazard area'
+        if fw >= 0.01:
+            part += f', including about {pct(fw)}% in the regulatory floodway'
+        parts.append(part)
     if x >= 0.03:
         parts.append(f'about {pct(x)}% within the 0.2% annual chance (500-year) area')
     if parts:
         return 'NFHL mapping shows the property ' + '; '.join(parts) + '.'
-    if fw + a + x > 0:
+    if sfha + x > 0:
         return 'NFHL mapping shows a mapped flood hazard area along the edge of the property (under 3% of its area); the balance is Zone X.'
     return 'NFHL mapping shows no special flood hazard area on the property (Zone X, minimal flood hazard).'
 

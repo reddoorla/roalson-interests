@@ -137,9 +137,9 @@ where it came from. Since 2026-10-12 eight listings use it (Matt Howard's packag
 Cascade Caverns, IH 10 at Highway 87, IH 10 at Menger Springs (both tracts), IH 10 at Scenic
 Loop, IH 10 East at Loop 1604, Loop 1604 at Highway 181, Hwy 46 at Spencer Ranch and Menger
 Springs Road. On 2026-10-13 eleven more followed, the ones whose FEMA sentence does not change
-with the outline (Operator decisions 120). Four keep their county parcels because the Land ID
-outline would change what the FEMA page says, and that goes to the broker first: 5001 Walzem,
-IH 35 at Wonderworld, 13810 Lookout Road and St. Mary's at Martin.
+with the outline (Operator decisions 120). Three keep their county parcels: 5001 Walzem, IH 35 at
+Wonderworld and 13810 Lookout Road. St. Mary's moved on 2026-10-13, because on the Land ID outline it
+reads Zone X, which is what the broker's own 2023 survey certifies.
 
 Per-site extras in `geo/sites.json`: `aerial_notes` (a plain label on the Aerial Map, such as IH 10
 at Highway 87's "HEB Owned" on Kendall CAD parcel 15300), `manual_businesses` (a name and dot
@@ -160,8 +160,12 @@ Seguin; whether the wide aerial there needs the same seam patch has not been che
 - Four sites had no reliable parcel match and were shown by pin until 2026-10-12: Menger
   Springs Road, IH 10 East at Loop 1604, Loop 1604 at Highway 181, and Tract 1 of IH 10
   at Menger Springs. All four are now outlined from Land ID.
+- The FEMA sentence (`build/flood_verdicts.py`) gives whole percentages, reports the 1% annual
+  chance area as one share with the regulatory floodway inside it, and treats any share under 0.5%
+  as mapping noise. Since 2026-10-13 every changed sentence matched an independent check against
+  FEMA's live NFHL; Menger Springs Road's 0.08% sliver now reads Zone X, as the broker's row does.
 - Flood percentages are computed on the boundary in `geo/sites.json` (the broker's Land ID
-  outline on the 19 listings above, the county parcel outline on the other four), so a 1–2% overlap is
+  outline on the 20 listings above, the county parcel outline on the other three), so a 1–2% overlap is
   usually boundary misalignment; the exhibit says "along the edge" below 3%.
 - The QR code points at `https://www.roalson.com/properties/<uid>`, which only
   resolves once the new site is live on that domain.
