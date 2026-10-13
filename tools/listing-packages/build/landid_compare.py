@@ -18,9 +18,10 @@ A = lambda *p: os.path.join(ROOT, *p)
 
 
 def acres(g):
-    lat0 = g.centroid.y
-    k = math.cos(math.radians(lat0))
-    m = shapely.transform(g, lambda c: c * [111320 * k, 110574])
+    p = math.radians(g.centroid.y)
+    m_lat = 111132.954 - 559.822 * math.cos(2 * p) + 1.175 * math.cos(4 * p)
+    m_lon = 111412.84 * math.cos(p) - 93.5 * math.cos(3 * p)
+    m = shapely.transform(g, lambda c: c * [m_lon, m_lat])
     return m.area / 4046.8564224
 
 

@@ -3,7 +3,7 @@
   "hits": {
    "a100": 0.0007660075150623755
   },
-  "verdict": "NFHL mapping shows a mapped flood hazard area along the edge of the property (under 3% of its area); the balance is Zone X."
+  "verdict": "NFHL mapping shows no special flood hazard area on the property (Zone X, minimal flood hazard)."
  },
  "ih-10-east-at-loop-1604": {
   "hits": {},
@@ -38,10 +38,8 @@
   "verdict": "NFHL mapping shows a mapped flood hazard area along the edge of the property (under 3% of its area); the balance is Zone X."
  },
  "st-marys-at-martin-river-walk": {
-  "hits": {
-   "a100": 0.018627675366414645
-  },
-  "verdict": "NFHL mapping shows a mapped flood hazard area along the edge of the property (under 3% of its area); the balance is Zone X."
+  "hits": {},
+  "verdict": "NFHL mapping shows no special flood hazard area on the property (Zone X, minimal flood hazard)."
  },
  "highway-77-at-general-cavazos-kingsville": {
   "hits": {},
@@ -79,7 +77,7 @@
   "hits": {
    "a100": 0.4716893337745394
   },
-  "verdict": "NFHL mapping shows the property about 45% within the 1% annual chance (100-year) flood hazard area."
+  "verdict": "NFHL mapping shows the property about 47% within the 1% annual chance (100-year) flood hazard area."
  },
  "ih-10-at-scenic-loop": {
   "hits": {},
@@ -95,13 +93,13 @@
    "floodway": 0.053689581873554125,
    "x500": 0.5336272486853741
   },
-  "verdict": "NFHL mapping shows the property about 5% within the regulatory floodway; about 7% within the 1% annual chance (100-year) flood hazard area; about 55% within the 0.2% annual chance (500-year) area."
+  "verdict": "NFHL mapping shows the property about 12% within the 1% annual chance (100-year) flood hazard area, including about 5% in the regulatory floodway; about 53% within the 0.2% annual chance (500-year) area."
  },
  "25331-ih-10-west": {
   "hits": {
    "a100": 0.38316395050422664
   },
-  "verdict": "NFHL mapping shows the property about 40% within the 1% annual chance (100-year) flood hazard area."
+  "verdict": "NFHL mapping shows the property about 38% within the 1% annual chance (100-year) flood hazard area."
  },
  "ih-10-at-highway-87-comfort": {
   "hits": {},
