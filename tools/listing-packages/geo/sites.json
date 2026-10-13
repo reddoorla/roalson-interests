@@ -1915,7 +1915,8 @@
    "The Home Depot",
    "Whataburger",
    "Chili's"
-  ]
+  ],
+  "traffic_pad": 60
  },
  "13810-lookout-road": {
   "lat": 29.5658789,
@@ -2868,13 +2869,7 @@
   "centroid": [
    29.423065291889216,
    -98.50052143424789
-  ],
-  "intersection": {
-   "lat": 29.423625,
-   "lon": -98.501335,
-   "label": "IH 10 & W. Nueva St",
-   "source": "lib/intersection.py (OpenFreeMap, 2026-10-12) --with-secondary; chosen by hand on 2026-10-12, P1-46"
-  }
+  ]
  },
  "ih-35-at-wonderworld-san-marcos": {
   "lat": 29.8573194,

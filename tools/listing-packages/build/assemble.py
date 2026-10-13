@@ -10,7 +10,11 @@ def assemble(uid):
     orig = pymupdf.open(A('originals', f'{uid}.pdf'))
     iabs = [p['page'] for p in d['pages'] if p['kind'] == 'iabs']
     pno = (iabs[-1] if iabs else len(orig)) - 1
-    assert 'Information About Brokerage Services' in orig[pno].get_text(), f'{uid}: IABS page not found at {pno + 1}'
+    if pno >= len(orig) or 'Information About Brokerage Services' not in orig[pno].get_text():
+        found = [i for i in range(len(orig)) if 'Information About Brokerage Services' in orig[i].get_text()]
+        assert found, f'{uid}: no IABS page in the original'
+        print(f'{uid}: IABS not at page {pno + 1} of the original (its data pages describe another file); using page {found[-1] + 1}')
+        pno = found[-1]
     body.insert_pdf(orig, from_page=pno, to_page=pno)
     body.set_metadata({'title': f"{d['title']} — {d['city']}", 'author': 'Roalson Interests', 'subject': f"{d['transaction']} · {d['type_label']} · Listing package",
                        'keywords': 'Roalson Interests, commercial real estate, San Antonio', 'creator': 'Roalson Interests', 'producer': 'Roalson Interests'})
