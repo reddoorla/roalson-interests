@@ -1,0 +1,68 @@
+{
+ "uid": "st-marys-at-martin-river-walk",
+ "landid_url": "https://id.land/maps/be9d6d036d4b9fe325d43f9bb972aa13/share",
+ "fetched": "2026-10-13T00:18:45.973Z",
+ "name": "St. Mary's and Martin",
+ "updated_at": "2026-10-12T20:33:20.000Z",
+ "acres": 0.681,
+ "enabled_layers": [
+  "floodplain"
+ ],
+ "features": [
+  {
+   "type": "Feature",
+   "properties": {
+    "toolId": 3678,
+    "toolType": "polygons",
+    "visibility": true,
+    "maprightId": 648.5643989696613,
+    "id": 648.5643989696613,
+    "feature_id": "865c36f4-846f-42bf-9220-545d8368c1ce"
+   },
+   "geometry": {
+    "coordinates": [
+     [
+      [
+       -98.492254,
+       29.429183
+      ],
+      [
+       -98.492125,
+       29.42908
+      ],
+      [
+       -98.491986,
+       29.428973
+      ],
+      [
+       -98.491901,
+       29.428875
+      ],
+      [
+       -98.491846,
+       29.428801
+      ],
+      [
+       -98.491783,
+       29.42872
+      ],
+      [
+       -98.491445,
+       29.428718
+      ],
+      [
+       -98.491439,
+       29.42918
+      ],
+      [
+       -98.492254,
+       29.429183
+      ]
+     ]
+    ],
+    "type": "Polygon"
+   },
+   "maprightId": 648.5643989696613
+  }
+ ]
+}

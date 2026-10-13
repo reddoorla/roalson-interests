@@ -71,7 +71,13 @@ def apply_corrections(uid, d):
         d[c['scope']] = walk(d[c['scope']], [c])
     ovp = A('build', 'overrides.json')
     if os.path.exists(ovp):
-        d.update({k: v for k, v in json.load(open(ovp)).get(uid, {}).items() if k != 'map_label'})
+        ov = json.load(open(ovp)).get(uid, {})
+        d.update({k: v for k, v in ov.items() if k not in ('map_label', 'drop_rows')})
+        drop = {x.lower() for x in ov.get('drop_rows', [])}
+        missing = drop - {r['label'].lower() for r in d['rows']}
+        if missing:
+            sys.exit(f'{uid}: drop_rows names rows that do not exist: {sorted(missing)}')
+        d['rows'] = [r for r in d['rows'] if r['label'].lower() not in drop]
     c = d['contact']
     names = [n.strip().lower() for n in re.split(r'\bor\b|,|&', c.get('names', '').lower()) if n.strip()]
     if names and all(n in STD_EMAIL for n in names):
@@ -160,7 +166,7 @@ def build(uid, plan):
     chips = f'<span>{esc(d["transaction"])}</span>'
     tag = f'<div class="tag">{esc(d["eyebrow"])}</div>' if d.get('eyebrow') and d['eyebrow'].lower() != d['transaction'].lower() else ''
     size = f' &nbsp;·&nbsp; {esc(d["size_headline"])}' if d.get('size_headline') else ''
-    cover_credit = ''
+    cover_credit = '<div class="credit">Aerial: Land id® · © Mapbox © Maxar</div>' if hero else ''
     pages.append(f'''<section class="page cover">
 <div class="hdr">
  <div class="top"><img src="{WR}" alt="Roalson Interests">

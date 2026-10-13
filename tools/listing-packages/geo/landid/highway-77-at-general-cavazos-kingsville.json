@@ -1,0 +1,50 @@
+{
+ "uid": "highway-77-at-general-cavazos-kingsville",
+ "landid_url": "https://id.land/maps/ba5cdeac303abbdda507c47f9e376211/share",
+ "fetched": "2026-10-13T00:14:57.969Z",
+ "name": "Kingsville - Hwy 77 and General Cavazos",
+ "updated_at": "2022-07-12T19:37:47.000Z",
+ "acres": null,
+ "enabled_layers": [],
+ "features": [
+  {
+   "type": "Feature",
+   "properties": {
+    "toolId": 3678,
+    "toolType": "polygons",
+    "visibility": true,
+    "maprightId": 531.2661848020797,
+    "id": 531.2661848020797,
+    "feature_id": "14fcb0b1-8d69-4099-9d3f-b8fb1625f528"
+   },
+   "geometry": {
+    "coordinates": [
+     [
+      [
+       -97.84902272100108,
+       27.490106250464763
+      ],
+      [
+       -97.84837734359142,
+       27.489843139997134
+      ],
+      [
+       -97.84865471856298,
+       27.489304736062635
+      ],
+      [
+       -97.8493165736938,
+       27.48957515646748
+      ],
+      [
+       -97.84902272100108,
+       27.490106250464763
+      ]
+     ]
+    ],
+    "type": "Polygon"
+   },
+   "maprightId": 531.2661848020797
+  }
+ ]
+}

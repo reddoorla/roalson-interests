@@ -104,9 +104,47 @@ Two per-site fields in `geo/sites.json` feed the area and aerial maps:
   The plain Area Map fallback shows OpenStreetMap's own POI labels instead.
 
 `build/heroes.json` maps each listing to its Land ID share link (Matt Howard, 2026-10-12) and
-the path its hero image will have, `build/assets/heroes/<uid>.jpg`. When that file exists the
-cover uses it instead of the NAIP aerial. A listing whose plan sets a `cover` (photography:
-25331 IH-10 West, 101 W Commerce, 13810 Lookout Road, Urban Loop Road) keeps it.
+the path its hero image has, `build/assets/heroes/<uid>.jpg`. When that file exists the
+cover uses it instead of the NAIP aerial, credited "Aerial: Land id® · © Mapbox © Maxar". A listing
+whose plan sets a `cover` (photography: 25331 IH-10 West, 101 W Commerce, 13810 Lookout Road, Urban
+Loop Road) keeps it.
+
+### Land ID (2026-10-12)
+
+`node build/fetch_landid.mjs [uid…]` reads each share with no account. A share page's own
+`share.json` call is refused to a plain `curl` (403), so the script loads the page in Chromium
+and keeps that response: every polygon the broker drew, into `geo/landid/<uid>.json`. The hero is
+a 1920×1080 capture of `id.land/map-screenshot/<slug>`, the view Land ID's own og:image is made
+from. On the 14 shares that had one, the capture differs from Land ID's image by 0.01 to 1.10 of
+255 on 13; on Menger Springs Road it differs by 29.4 because Mapbox has replaced the imagery under
+the same outline. Two different sites differ by 48. Layers the broker switched on in a share
+(`enabled_layers`: the floodplain at St. Mary's, parcels at 5930 Bandera and IH 10 at Highway 46)
+are switched off for the hero, so a cover never shows a flood overlay without its legend; with the
+floodplain on, St. Mary's differed from Land ID's own image by 3.8, and with it off by 0.08. It is
+not part of `all.sh`, because the broker keeps editing the maps: re-fetch on purpose and review the
+diff.
+
+`python3 build/landid_compare.py` compares each Land ID outline with the boundary in
+`geo/sites.json`: acres, overlap (IoU), and the FEMA sentence each would print. Recomputing the
+current boundaries through the same code reproduces all 18 stored sentences.
+`python3 build/apply_landid.py "October 2026" <uid…>` then writes the Land ID outline into
+`geo/sites.json` for the listings named, with `boundary_source` and a `boundary_note` that says
+where it came from. Since 2026-10-12 eight listings use it (Matt Howard's package comments):
+Cascade Caverns, IH 10 at Highway 87, IH 10 at Menger Springs (both tracts), IH 10 at Scenic
+Loop, IH 10 East at Loop 1604, Loop 1604 at Highway 181, Hwy 46 at Spencer Ranch and Menger
+Springs Road. On 2026-10-13 eleven more followed, the ones whose FEMA sentence does not change
+with the outline (Operator decisions 120). Four keep their county parcels because the Land ID
+outline would change what the FEMA page says, and that goes to the broker first: 5001 Walzem,
+IH 35 at Wonderworld, 13810 Lookout Road and St. Mary's at Martin.
+
+Per-site extras in `geo/sites.json`: `aerial_notes` (a plain label on the Aerial Map, such as IH 10
+at Highway 87's "HEB Owned" on Kendall CAD parcel 15300), `manual_businesses` (a name and dot
+for a business OpenStreetMap does not have yet, such as "H-E-B (opening soon)" on Bexar CAD parcel
+619012 at IH 10 East and Loop 1604), and `traffic_pad` (extra pixels of padding
+that zoom the traffic map out). `build/overrides.json` can also carry `drop_rows`, labels of spec
+rows to leave out, and stops the build if one names a row that does not exist.
+`build/check_corrections.py` fails when a correction's `find` matches nothing, which the build
+itself would ignore.
 
 `maps.mjs` caches NAIP tiles in `tilecache/naip/` and retries a failed tile with backoff. A
 map with a tile that never arrived is not written or stamped, and the process exits non-zero,
@@ -115,11 +153,11 @@ Seguin; whether the wide aerial there needs the same seam patch has not been che
 
 ## Known limits
 
-- Four sites have no reliable parcel match and are shown by pin: Menger Springs
-  Road, IH 10 East at Loop 1604, Loop 1604 at Highway 181, and Tract 1 of IH 10
-  at Menger Springs.
-- Flood percentages are computed on the county parcel outline, so a 1–2%
-  overlap is usually boundary misalignment; the exhibit says "along the edge"
-  below 3%.
+- Four sites had no reliable parcel match and were shown by pin until 2026-10-12: Menger
+  Springs Road, IH 10 East at Loop 1604, Loop 1604 at Highway 181, and Tract 1 of IH 10
+  at Menger Springs. All four are now outlined from Land ID.
+- Flood percentages are computed on the boundary in `geo/sites.json` (the broker's Land ID
+  outline on the 19 listings above, the county parcel outline on the other four), so a 1–2% overlap is
+  usually boundary misalignment; the exhibit says "along the edge" below 3%.
 - The QR code points at `https://www.roalson.com/properties/<uid>`, which only
   resolves once the new site is live on that domain.

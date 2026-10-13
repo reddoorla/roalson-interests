@@ -46,7 +46,8 @@ def main():
             inter = site.intersection(g)
             if not inter.is_empty and inter.area > 0:
                 hits[f['properties']['cls']] = hits.get(f['properties']['cls'], 0) + inter.area / site.area
-        text = PIN if (not s.get('geom') or s.get('extra_pins')) else verdict(site, hits)
+        pin_only = not s.get('geom') or any(not site.contains(Point(p['lon'], p['lat'])) for p in s.get('extra_pins', []))
+        text = PIN if pin_only else verdict(site, hits)
         out[uid] = {'hits': hits, 'verdict': text}
         print(uid, '|', text)
     json.dump(out, open(A('geo', 'flood-verdicts.json'), 'w'), indent=1)

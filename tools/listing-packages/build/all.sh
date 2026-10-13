@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 cd "$(dirname "$0")/.."
+python3 build/check_corrections.py
 python3 build/fetch_originals.py
 python3 build/extract.py
 python3 build/flood_verdicts.py

@@ -217,13 +217,6 @@
  "ih-10-at-highway-87-comfort": {
   "carry": [
    {
-    "page": 5,
-    "title": "Aerial Exhibit \u2014 Lots",
-    "kind": "aerial",
-    "cap": "Reproduced from the original listing package.",
-    "img": "exhibits/ih-10-at-highway-87-comfort-p5.png"
-   },
-   {
     "page": 6,
     "title": "Survey",
     "clip": [
@@ -241,19 +234,6 @@
  },
  "ih-10-at-menger-springs": {
   "carry": [
-   {
-    "page": 6,
-    "title": "Aerial Exhibit",
-    "clip": [
-     60.7,
-     97.9,
-     730.8,
-     542.4
-    ],
-    "kind": "aerial",
-    "cap": "Reproduced from the original listing package.",
-    "img": "exhibits/ih-10-at-menger-springs-p6.png"
-   },
    {
     "page": 7,
     "title": "Survey",
@@ -322,19 +302,6 @@
  "ih-35-at-wonderworld-san-marcos": {
   "carry": [
    {
-    "page": 7,
-    "title": "Aerial Exhibit",
-    "clip": [
-     70.6,
-     101.4,
-     729.1,
-     526.2
-    ],
-    "kind": "aerial",
-    "cap": "Reproduced from the original listing package.",
-    "img": "exhibits/ih-35-at-wonderworld-san-marcos-p7.png"
-   },
-   {
     "page": 8,
     "title": "Survey",
     "clip": [
@@ -389,30 +356,10 @@
  "menger-springs-road": {
   "carry": [
    {
-    "page": 6,
     "title": "Aerial Exhibit",
-    "clip": [
-     56.7,
-     89.3,
-     554.9,
-     709.1
-    ],
     "kind": "aerial",
-    "cap": "Reproduced from the original listing package.",
-    "img": "exhibits/menger-springs-road-p6.png"
-   },
-   {
-    "page": 7,
-    "title": "Exhibit A",
-    "clip": [
-     95.3,
-     80.3,
-     695.7,
-     544.2
-    ],
-    "kind": "site_plan",
-    "cap": "",
-    "img": "exhibits/menger-springs-road-p7.png"
+    "cap": "Aerial and boundary from the broker's Land id map (October 2026). Imagery © Mapbox © Maxar.",
+    "img": "build/assets/heroes/menger-springs-road.jpg"
    }
   ],
   "photos": []

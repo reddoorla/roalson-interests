@@ -19,5 +19,23 @@
  },
  "402-w-nueva-street": {
   "title": "402 W. Nueva Street"
+ },
+ "loop-1604-at-highway-181": {
+  "size_headline": "3.0 +/- Acres",
+  "drop_rows": [
+   "Frontage"
+  ]
+ },
+ "ih-10-at-fm-725-seguin": {
+  "contact": {
+   "names": "Bart Wilson or Matt Howard",
+   "phone": "(210) 496-5800",
+   "fax": "(210) 496-5809",
+   "emails": [
+    "bwilson@roalson.com",
+    "mhoward@roalson.com"
+   ],
+   "web": "www.roalson.com"
+  }
  }
 }

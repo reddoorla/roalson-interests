@@ -1,0 +1,47 @@
+{
+ "uid": "5001-walzem-road",
+ "landid_url": "https://id.land/maps/2ce704de2800a15e7a3291d906d14016/share",
+ "fetched": "2026-10-13T00:13:58.524Z",
+ "name": "Walzem",
+ "updated_at": "2026-10-12T19:45:16.000Z",
+ "acres": null,
+ "enabled_layers": [],
+ "features": [
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "91854374-708c-4535-bd6e-509bed52e189",
+    "visibility": true,
+    "toolId": 3678,
+    "toolType": "polygons"
+   },
+   "geometry": {
+    "coordinates": [
+     [
+      [
+       -98.39147934728707,
+       29.510413666635102
+      ],
+      [
+       -98.39111883334743,
+       29.51041612977781
+      ],
+      [
+       -98.39112560713242,
+       29.5108266099635
+      ],
+      [
+       -98.3914873243436,
+       29.510840393802397
+      ],
+      [
+       -98.39147934728707,
+       29.510413666635102
+      ]
+     ]
+    ],
+    "type": "Polygon"
+   }
+  }
+ ]
+}

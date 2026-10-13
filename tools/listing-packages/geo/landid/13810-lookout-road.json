@@ -1,0 +1,47 @@
+{
+ "uid": "13810-lookout-road",
+ "landid_url": "https://id.land/maps/2a9597bcde031f0369e88de5d5a87bd3/share",
+ "fetched": "2026-10-13T00:13:37.299Z",
+ "name": "Lookout Road",
+ "updated_at": "2026-10-12T19:18:05.000Z",
+ "acres": null,
+ "enabled_layers": [],
+ "features": [
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "90f08296-da82-44d7-a55f-6766c0d69219",
+    "visibility": true,
+    "toolId": 3678,
+    "toolType": "polygons"
+   },
+   "geometry": {
+    "coordinates": [
+     [
+      [
+       -98.36719218913072,
+       29.565977702808908
+      ],
+      [
+       -98.36673612705827,
+       29.565560866761544
+      ],
+      [
+       -98.36648864509864,
+       29.565771804734112
+      ],
+      [
+       -98.3669372578815,
+       29.566181440699424
+      ],
+      [
+       -98.36719218913072,
+       29.565977702808908
+      ]
+     ]
+    ],
+    "type": "Polygon"
+   }
+  }
+ ]
+}
