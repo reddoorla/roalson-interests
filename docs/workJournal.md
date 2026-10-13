@@ -93,6 +93,7 @@ and leaves with the answer that was already known to be wrong. Nothing in the
 old entry points forward, because the rule forbade touching it.
 
 So: one line under a superseded heading, `> Superseded in part by <date> —
+
 <title>.` It asserts nothing and retracts nothing, so the record of what was
 believed at the time survives whole; it only redirects. The distinction that
 makes it safe is that a pointer is *navigation*, not *content* — the prohibition
