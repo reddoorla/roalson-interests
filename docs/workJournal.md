@@ -13236,3 +13236,29 @@ stays: it is the broker's flood statement, not a pointer to a page. The rest of
 Matt's per-package list (Land ID boundaries, copy edits, exhibit keeps and
 removes, an HEB logo on IH-10 East at 1604) is the rollout's work, not this
 change's.
+
+## 2026-10-13 — All 23 listing packages rebuilt to the 10-12 standards with Matt Howard's comments; held for review (#297, `eedf175`)
+
+Land ID shares need no account. A share page loaded in headless Chromium gets
+its own `share.json` (a plain `curl` gets a 403), which carries every polygon the
+broker drew. The cover image is a capture of `id.land/map-screenshot/<slug>`, the
+view Land ID's own og:image is made from. On Cascade Caverns the capture differed
+from that image by 0.03/255, against 48/255 for a different site.
+
+The broker had switched on the floodplain layer in St. Mary's share. A cover
+with an unlabelled flood overlay is a flood claim, so the capture switches the
+share's layers off, and fails if it could not. Nineteen listings now use the
+broker's Land ID outlines; four keep their county parcels for the broker,
+because their FEMA sentence would change.
+
+`maps.mjs` had a real defect. A map that failed on a USGS tile kept drawing on
+the same page while the next map rendered. Loop 1604 at 181's "Zone X" legend
+ended up on Dove Canyon's traffic map, and Dove Canyon is about 10% in the
+100-year zone. The defect is reproduced with the test-only `NAIP_FAIL`
+switch. After any failure the page is now replaced, and every map was
+re-rendered.
+
+The full account is in reddoor-maintenance
+`docs/journal/2026-10-13-0426-p1-46-roalson-package-rollout.md`. Nothing is on
+Prismic or in Dropbox: the set goes to the operator for review, then to Erik
+for Matt.
