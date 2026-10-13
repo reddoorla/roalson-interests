@@ -302,6 +302,10 @@ async function cachedNaip(route) {
   const job = currentJob;
   const url = route.request().url();
   const file = join(TILECACHE, createHash('sha1').update(url).digest('hex') + '.jpg');
+  if (process.env.NAIP_FAIL && new RegExp(process.env.NAIP_FAIL).test(url)) {
+    if (job && job === currentJob) job.failures++;
+    return route.abort().catch(() => {});
+  }
   if (existsSync(file)) {
     const body = readFileSync(file);
     if (isJpeg(body)) return route.fulfill({ status: 200, contentType: 'image/jpeg', body });
@@ -337,11 +341,16 @@ const browser = await chromium.launch({
 });
 const dprs = [...new Set(jobs.map((j) => j.dpr ?? 3))];
 const pages = {};
+const contexts = {};
+async function freshPage(d) {
+  const p = await contexts[d].newPage();
+  p.on('pageerror', (e) => console.error('pageerror', e.message));
+  return p;
+}
 for (const d of dprs) {
-  const ctx = await browser.newContext({ deviceScaleFactor: d });
-  await ctx.route(/imagery\.nationalmap\.gov\/.*exportImage/, cachedNaip);
-  pages[d] = await ctx.newPage();
-  pages[d].on('pageerror', (e) => console.error('pageerror', e.message));
+  contexts[d] = await browser.newContext({ deviceScaleFactor: d });
+  await contexts[d].route(/imagery\.nationalmap\.gov\/.*exportImage/, cachedNaip);
+  pages[d] = await freshPage(d);
 }
 for (const job of jobs) {
   job.dpr = job.dpr ?? 3;
@@ -366,6 +375,8 @@ for (const job of jobs) {
   } catch (e) {
     console.error('FAIL', job.out, e.message);
     process.exitCode = 1;
+    await pages[job.dpr].close().catch(() => {});
+    pages[job.dpr] = await freshPage(job.dpr);
   } finally {
     clearInterval(run.watch);
     rmSync(job.tmp, { force: true });

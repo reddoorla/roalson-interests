@@ -1567,7 +1567,8 @@
    "Walmart Supercenter",
    "Lowe's",
    "Whataburger"
-  ]
+  ],
+  "traffic_pad": 60
  },
  "ih-10-at-highway-46": {
   "lat": 29.7781603,
@@ -1905,12 +1906,6 @@
    29.778098922635742,
    -98.73880410124532
   ],
-  "intersection": {
-   "lat": 29.780001,
-   "lon": -98.737831,
-   "label": "IH 10 & SH 46",
-   "source": "lib/intersection.py (OpenFreeMap, 2026-10-12); chosen by hand on 2026-10-12, P1-46"
-  },
   "businesses": [
    "The Home Depot",
    "Whataburger",
