@@ -132,10 +132,15 @@ current boundaries through the same code reproduces all 18 stored sentences.
 where it came from. Since 2026-10-12 eight listings use it (Matt Howard's package comments):
 Cascade Caverns, IH 10 at Highway 87, IH 10 at Menger Springs (both tracts), IH 10 at Scenic
 Loop, IH 10 East at Loop 1604, Loop 1604 at Highway 181, Hwy 46 at Spencer Ranch and Menger
-Springs Road. The rest keep their county parcels.
+Springs Road. On 2026-10-13 eleven more followed, the ones whose FEMA sentence does not change
+with the outline (Operator decisions 120). Four keep their county parcels because the Land ID
+outline would change what the FEMA page says, and that goes to the broker first: 5001 Walzem,
+IH 35 at Wonderworld, 13810 Lookout Road and St. Mary's at Martin.
 
 Per-site extras in `geo/sites.json`: `aerial_notes` (a plain label on the Aerial Map, such as IH 10
-at Highway 87's "HEB Owned" on Kendall CAD parcel 15300), and `traffic_pad` (extra pixels of padding
+at Highway 87's "HEB Owned" on Kendall CAD parcel 15300), `manual_businesses` (a name and dot
+for a business OpenStreetMap does not have yet, such as "H-E-B (opening soon)" on Bexar CAD parcel
+619012 at IH 10 East and Loop 1604), and `traffic_pad` (extra pixels of padding
 that zoom the traffic map out). `build/overrides.json` can also carry `drop_rows`, labels of spec
 rows to leave out, and stops the build if one names a row that does not exist.
 `build/check_corrections.py` fails when a correction's `find` matches nothing, which the build
@@ -151,8 +156,8 @@ Seguin; whether the wide aerial there needs the same seam patch has not been che
 - Four sites had no reliable parcel match and were shown by pin until 2026-10-12: Menger
   Springs Road, IH 10 East at Loop 1604, Loop 1604 at Highway 181, and Tract 1 of IH 10
   at Menger Springs. All four are now outlined from Land ID.
-- Flood percentages are computed on the boundary in `geo/sites.json` (the county parcel
-  outline, or the broker's Land ID outline on the eight listings above), so a 1–2% overlap is
+- Flood percentages are computed on the boundary in `geo/sites.json` (the broker's Land ID
+  outline on the 19 listings above, the county parcel outline on the other four), so a 1–2% overlap is
   usually boundary misalignment; the exhibit says "along the edge" below 3%.
 - The QR code points at `https://www.roalson.com/properties/<uid>`, which only
   resolves once the new site is live on that domain.

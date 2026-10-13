@@ -19,7 +19,7 @@
  },
  "loop-1604-at-dove-canyon": {
   "hits": {
-   "a100": 0.09728753321505532
+   "a100": 0.09542891018674261
   },
   "verdict": "NFHL mapping shows the property about 10% within the 1% annual chance (100-year) flood hazard area."
  },
@@ -33,7 +33,7 @@
  },
  "11714-perrin-beitel-road": {
   "hits": {
-   "a100": 0.009941032427433672
+   "a100": 0.01276438171322843
   },
   "verdict": "NFHL mapping shows a mapped flood hazard area along the edge of the property (under 3% of its area); the balance is Zone X."
  },
@@ -99,7 +99,7 @@
  },
  "25331-ih-10-west": {
   "hits": {
-   "a100": 0.38785363380380494
+   "a100": 0.38316395050422664
   },
   "verdict": "NFHL mapping shows the property about 40% within the 1% annual chance (100-year) flood hazard area."
  },

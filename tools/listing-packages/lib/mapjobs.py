@@ -49,7 +49,7 @@ def choose_stations(st,limit=7,sep=190):
     return sorted(out,key=lambda x:x['d'])
 def with_point(b,p):
     return [min(b[0],p['lat']),min(b[1],p['lon']),max(b[2],p['lat']),max(b[3],p['lon'])]
-def jobs_for(uid,site,outdir,title,geom=None,cover=True,date='September 2026',extra_pins=None,pin_label='Site',intersection=None,featured=(),aerial_notes=(),traffic_pad=0):
+def jobs_for(uid,site,outdir,title,geom=None,cover=True,date='September 2026',extra_pins=None,pin_label='Site',intersection=None,featured=(),aerial_notes=(),traffic_pad=0,manual_businesses=()):
     lat,lon=site
     J=[]
     poly=fc(geom) if geom else None
@@ -88,6 +88,7 @@ def jobs_for(uid,site,outdir,title,geom=None,cover=True,date='September 2026',ex
             pts.append((intersection['lat'],intersection['lon']))
         tb=[min(p[0] for p in pts),min(p[1] for p in pts),max(p[0] for p in pts),max(p[1] for p in pts)]
         biz,missing=businesses(tb,(lat,lon),featured)
+        biz=[{'name':m['name'],'lat':m['lat'],'lon':m['lon'],'featured':True} for m in manual_businesses]+biz
         if missing: print(uid,'featured businesses not in the tiles:',missing)
         J.append({'out':f'{outdir}/traffic.jpg','kind':'brand','businesses':biz,'width':W,'height':690,'dpr':2.5,'center':[lat,lon],'bounds':tb,'padding':{'top':120+traffic_pad,'bottom':80+traffic_pad,'left':110+traffic_pad,'right':110+traffic_pad},'maxZoom':15.2,
                   'polygon':poly,'pin':pin,'refs':xref,'traffic':[{'lat':s['lat'],'lon':s['lon'],'qty':f"{s['qty']:,}",'road':f"{s['label']} · {s['year']}"} for s in pick],

@@ -32,7 +32,8 @@ for uid, s in sites.items():
         title = title[:38].rsplit(' ', 1)[0] + '…'
     J, m = jobs_for(uid, site, A('maps', uid), title, geom=geom, cover=covers_needed.get(uid, True),
                     extra_pins=s.get('extra_pins'), pin_label=s.get('poly_label', 'Site'), intersection=s.get('intersection'), featured=s.get('businesses', ()),
-                    aerial_notes=s.get('aerial_notes', ()), traffic_pad=s.get('traffic_pad', 0))
+                    aerial_notes=s.get('aerial_notes', ()), traffic_pad=s.get('traffic_pad', 0),
+                    manual_businesses=s.get('manual_businesses', ()))
     for j in J:
         if j['out'].endswith('/flood.jpg'):
             j['legend'] = LEG.replace('{verdict}', verdicts[uid]['verdict']).replace('{approx}', ' (approximate boundary)' if geom else ' (site pin)')
