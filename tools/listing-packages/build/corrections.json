@@ -202,9 +202,9 @@
  {
   "uid": "116-old-san-antonio-road",
   "find": "This property would suit a variety of commercial uses.",
-  "replace": "This property would suit a variety of commercial uses as well as multifamily.",
+  "replace": "This property would suit a variety of commercial uses as well as multifamily, subject to rezoning.",
   "scope": "rows",
-  "why": "Matt Howard, package comments 2026-10-12: Potential Uses, add 'as well as multifamily.' at the end of the existing sentence"
+  "why": "Matt Howard, package comments 2026-10-12: Potential Uses, add 'as well as multifamily.' at the end of the existing sentence; ', subject to rezoning' added. Assumed for Matt Howard (operator, 2026-10-13), flagged to Erik: the site is zoned R-E (single-family only) and Boerne denied a multifamily rezoning of this land in March 2023 (Legistar 2023-12)."
  },
  {
   "uid": "loop-1604-at-dove-canyon",
@@ -233,5 +233,26 @@
   "replace": "Church, office, healthcare, and other commercial uses",
   "scope": "rows",
   "why": "Matt Howard, package comments 2026-10-12: POTENTIAL USE, add 'Church' at the beginning of the description"
+ },
+ {
+  "uid": "ih-35-at-wonderworld-san-marcos",
+  "find": "The property has some floodplain along the frontage at IH-35.",
+  "replace": "FEMA flood maps (panel 48209C0477G, revised January 17, 2025) show approximately 47% of the property within the 100-year floodplain (Zone A), along the IH-35 frontage and the southwest side.",
+  "scope": "rows",
+  "why": "Assumed for Matt Howard (operator, 2026-10-13), flagged to Erik: the broker's sentence matches his 2014 exhibit (about 8%); FEMA's 2025 revision puts 47% of the tract in Zone A (NFHL, checked 2026-10-13)."
+ },
+ {
+  "uid": "st-marys-at-martin-river-walk",
+  "find": "The survey appears to indicate that there may be a very small amount of Floodplain present along the river.",
+  "replace": "The 2023 survey places the property in Zone X per FIRM panel 48029C0415G; the mapped floodplain (Zone AE) lies along the river-side boundary.",
+  "scope": "rows",
+  "why": "Assumed for Matt Howard (operator, 2026-10-13), flagged to Erik: the broker's own 2023 ALTA survey certifies Zone X (General Note 3) and labels Zone AE along the river-side line; the survey page itself is no longer in the package."
+ },
+ {
+  "uid": "loop-1604-at-highway-181",
+  "find": "3.08 Acres",
+  "replace": "3.0 +/- Acres",
+  "scope": "rows",
+  "why": "Assumed for Matt Howard (operator, 2026-10-13), flagged to Erik: Matt asked for '3.0 +/- Acres' on the cover; the Size row now says the same so the package agrees with itself. The site plan's Lot 2 is 3.08 AC and the broker's Land ID outline 3.0 AC."
  }
 ]
