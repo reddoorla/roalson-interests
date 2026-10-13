@@ -5,7 +5,8 @@
  },
  "116-old-san-antonio-road": {
   "landid_url": "https://id.land/maps/a802ebfe2fbe2ac5f35e02f49837a326/share",
-  "image": "build/assets/heroes/116-old-san-antonio-road.jpg"
+  "image": "build/assets/heroes/116-old-san-antonio-road.jpg",
+  "pos": "27% 50%"
  },
  "11714-perrin-beitel-road": {
   "landid_url": "https://id.land/maps/72ee1ff1cb1324a8a1997b0677f90737/share",
@@ -45,7 +46,8 @@
  },
  "hwy-46-at-spencer-ranch-blvd": {
   "landid_url": "https://id.land/maps/9be28fa9b17381e7c97a812a935d47f5/share",
-  "image": "build/assets/heroes/hwy-46-at-spencer-ranch-blvd.jpg"
+  "image": "build/assets/heroes/hwy-46-at-spencer-ranch-blvd.jpg",
+  "pos": "21% 50%"
  },
  "ih-10-at-fm-725-seguin": {
   "landid_url": "https://id.land/maps/7990069e512759487da5ea3347c2b2b7/share",
@@ -57,7 +59,8 @@
  },
  "ih-10-at-highway-87-comfort": {
   "landid_url": "https://id.land/maps/44c0981a81ddcafbd808baa2ba71dfe3/share",
-  "image": "build/assets/heroes/ih-10-at-highway-87-comfort.jpg"
+  "image": "build/assets/heroes/ih-10-at-highway-87-comfort.jpg",
+  "pos": "5% 50%"
  },
  "ih-10-at-menger-springs": {
   "landid_url": "https://id.land/maps/54102f5af605797a0b36bc13aedad0d7/share",

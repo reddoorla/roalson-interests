@@ -105,7 +105,11 @@ Two per-site fields in `geo/sites.json` feed the area and aerial maps:
 
 `build/heroes.json` maps each listing to its Land ID share link (Matt Howard, 2026-10-12) and
 the path its hero image has, `build/assets/heroes/<uid>.jpg`. When that file exists the
-cover uses it instead of the NAIP aerial, credited "Aerial: Land id® · © Mapbox © Maxar". A listing
+cover uses it instead of the NAIP aerial, credited "Aerial: Land id® · © Mapbox © Maxar". Its optional
+`pos` is the cover's CSS `object-position`: the client's markup asked that the watermark not sit on
+the boundary, so 116 Old San Antonio Road (`27%`), IH 10 at Highway 87 (`5%`) and Hwy 46 (`21%`) are
+cropped to move their outlines clear of it. Hwy 46's 61 acres are wider than the crop, so its
+south-west tail still runs under the watermark. A listing
 whose plan sets a `cover` (photography: 25331 IH-10 West, 101 W Commerce, 13810 Lookout Road, Urban
 Loop Road) keeps it.
 
