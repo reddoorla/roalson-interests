@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import sys
 
 from shapely.geometry import mapping, shape
@@ -40,8 +41,9 @@ def main(uids, when):
         s['centroid'] = [c.y, c.x]
         s['boundary_source'] = {'landid_url': rec['landid_url'], 'landid_updated_at': rec['updated_at'], 'fetched': rec['fetched'], 'acres': [round(acres(g), 3) for g in polys]}
         s['boundary_note'] = NOTE.format(when=when)
-        s['accessed'] = when
         labels = s.get('landid_part_labels')
+        if len(polys) > 1 and s.get('extra_pins') and not (labels and len(labels) == len(polys)):
+            sys.exit(f'{uid}: {len(polys)} Land ID parts but landid_part_labels does not name each one; the old pins would be kept')
         if labels and len(labels) == len(polys):
             order = sorted(range(len(polys)), key=lambda i: -polys[i].area)
             s['poly_label'] = labels[order[0]]
@@ -51,4 +53,6 @@ def main(uids, when):
 
 
 if __name__ == '__main__':
+    if len(sys.argv) < 3 or not re.fullmatch(r'[A-Z][a-z]+ \d{4}', sys.argv[1]):
+        sys.exit('usage: apply_landid.py "<Month YYYY>" <uid>...')
     main(sys.argv[2:], sys.argv[1])

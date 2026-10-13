@@ -151,8 +151,8 @@ Seguin; whether the wide aerial there needs the same seam patch has not been che
 - Four sites had no reliable parcel match and were shown by pin until 2026-10-12: Menger
   Springs Road, IH 10 East at Loop 1604, Loop 1604 at Highway 181, and Tract 1 of IH 10
   at Menger Springs. All four are now outlined from Land ID.
-- Flood percentages are computed on the county parcel outline, so a 1–2%
-  overlap is usually boundary misalignment; the exhibit says "along the edge"
-  below 3%.
+- Flood percentages are computed on the boundary in `geo/sites.json` (the county parcel
+  outline, or the broker's Land ID outline on the eight listings above), so a 1–2% overlap is
+  usually boundary misalignment; the exhibit says "along the edge" below 3%.
 - The QR code points at `https://www.roalson.com/properties/<uid>`, which only
   resolves once the new site is live on that domain.

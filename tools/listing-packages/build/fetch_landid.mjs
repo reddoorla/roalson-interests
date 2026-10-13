@@ -36,7 +36,9 @@ async function loadShare(url, slug) {
 
 async function renderShot(slug, out) {
   const page = await browser.newPage({ viewport: { width: 1920, height: 1080 } });
+  let stripped = false;
   await page.route(`**/api/maps/${slug}/share.json`, async (route) => {
+    stripped = true;
     const res = await route.fetch();
     const body = await res.json();
     body.shared_enabled_layers = [];
@@ -46,6 +48,7 @@ async function renderShot(slug, out) {
   try {
     await page.goto(`https://id.land/map-screenshot/${slug}`, { waitUntil: 'networkidle', timeout: 120000 });
     await page.waitForTimeout(8000);
+    if (!stripped) throw new Error('share.json was never requested, so the overlay layers were not switched off');
     await page.screenshot({ path: out });
   } finally {
     await page.close();
@@ -86,14 +89,20 @@ for (const uid of uids) {
       continue;
     }
     let ref = '';
-    if (share.preview) {
-      const res = await fetch(share.preview);
-      if (res.ok) {
-        ref = join(TMP, `${uid}.landid-preview.png`);
-        writeFileSync(ref, Buffer.from(await res.arrayBuffer()));
+    try {
+      if (share.preview) {
+        const res = await fetch(share.preview);
+        if (res.ok) {
+          ref = join(TMP, `${uid}.landid-preview.png`);
+          writeFileSync(ref, Buffer.from(await res.arrayBuffer()));
+        }
       }
+      note = execFileSync('python3', [join(HERE, 'hero_jpg.py'), png, join(ROOT, entry.image), ref], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+    } catch (e) {
+      console.error(`${uid}: hero ${(e.stderr || e.message || '').toString().trim()}`);
+      failed++;
+      continue;
     }
-    note = execFileSync('python3', [join(HERE, 'hero_jpg.py'), png, join(ROOT, entry.image), ref], { encoding: 'utf8' }).trim();
   }
   const kinds = share.geoJSON.map((f) => f.geometry.type).join(',');
   const layers = (share.shared_enabled_layers || []).length ? ` | layers on in the share, off in the hero: ${share.shared_enabled_layers.join(',')}` : '';
