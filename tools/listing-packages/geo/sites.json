@@ -194,10 +194,10 @@
   },
   "manual_businesses": [
    {
-    "name": "H-E-B (opening soon)",
+    "name": "H-E-B",
     "lat": 29.468759,
     "lon": -98.289843,
-    "source": "Bexar CAD parcel 619012, owner HEB GROCERY COMPANY LP (Texas StratMap, read 2026-10-13), east of Loop 1604 where the Pape-Dawson cross-access exhibit labels HEB; Matt Howard 2026-10-12: 'HEB is building on the corner across 1604 from us'. Placed by hand because OpenStreetMap has no HEB there yet; a name and a dot, no logo (Operator decisions 120)."
+    "source": "Bexar CAD parcel 619012, owner HEB GROCERY COMPANY LP (Texas StratMap, read 2026-10-13), east of Loop 1604 where the Pape-Dawson cross-access exhibit labels HEB; Matt Howard 2026-10-12: 'HEB is building on the corner across 1604 from us'. Placed by hand because OpenStreetMap has no HEB there yet; a name and a dot, no logo (Operator decisions 120). Renamed from 'H-E-B (opening soon)' on 2026-10-13: the store is reported to open Oct 28, 2026 (TDLR TABS2025011323 completion 11/30/2026), so 'H-E-B' stays true before and after."
    }
   ]
  },
