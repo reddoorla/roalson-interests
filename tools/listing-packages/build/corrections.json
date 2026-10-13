@@ -198,5 +198,40 @@
   "find": " See Survey.",
   "replace": "",
   "why": "The survey page is removed (client, Matt Howard's package comments 2026-10-12, forwarded by Erik 22:12Z); the cross-reference would point at nothing"
+ },
+ {
+  "uid": "116-old-san-antonio-road",
+  "find": "This property would suit a variety of commercial uses.",
+  "replace": "This property would suit a variety of commercial uses as well as multifamily.",
+  "scope": "rows",
+  "why": "Matt Howard, package comments 2026-10-12: Potential Uses, add 'as well as multifamily.' at the end of the existing sentence"
+ },
+ {
+  "uid": "loop-1604-at-dove-canyon",
+  "find": "Unknown.",
+  "replace": "Various utility easements and State of Texas Easement (floodplain area).",
+  "scope": "rows",
+  "why": "Matt Howard, package comments 2026-10-12: EASEMENTS 'Various Utility easements and State of Texas Easement(floodplain area)'; space before the parenthesis and the full stop added, 'Utility' lower-cased mid-sentence"
+ },
+ {
+  "uid": "loop-1604-at-highway-181",
+  "find": "There are two electrical easements to service the property.",
+  "replace": "Contact Broker.",
+  "scope": "rows",
+  "why": "Matt Howard, package comments 2026-10-12: Easements, 'Delete language and put \"Contact Broker\"'"
+ },
+ {
+  "uid": "menger-springs-road",
+  "find": "The property is comprised of 6 lots in Menger Springs that sit just south and adjacent to the Methodist Healthcare facility in Boerne. It is just south of the IH 10 at Highway 46 interchange.",
+  "replace": "The property sits just South of the current Methodist Healthcare Facility in Boerne. Located just South of the IH-10 and Hwy 46 Intersection.",
+  "scope": "rows",
+  "why": "Matt Howard, package comments 2026-10-12: LOCATION, delete the current description and use his two sentences verbatim"
+ },
+ {
+  "uid": "menger-springs-road",
+  "find": "Office, healthcare, and other commercial uses",
+  "replace": "Church, office, healthcare, and other commercial uses",
+  "scope": "rows",
+  "why": "Matt Howard, package comments 2026-10-12: POTENTIAL USE, add 'Church' at the beginning of the description"
  }
 ]

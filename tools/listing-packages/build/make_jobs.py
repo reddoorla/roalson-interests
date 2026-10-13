@@ -13,6 +13,10 @@ sites = json.load(open(A('geo', 'sites.json')))
 verdicts = json.load(open(A('geo', 'flood-verdicts.json')))
 ovr = json.load(open(A('build', 'overrides.json')))
 covers_needed = {'101-w-commerce-street': False, '13810-lookout-road': False, '25331-ih-10-west': False, 'urban-loop-road': False}
+heroes = json.load(open(A('build', 'heroes.json')))
+for _uid, _h in heroes.items():
+    if _h.get('image') and os.path.exists(A(_h['image'])):
+        covers_needed[_uid] = False
 only = set(sys.argv[1:])
 jobs, meta = [], json.load(open(A('geo', 'meta.json')))
 for uid, s in sites.items():
@@ -27,7 +31,8 @@ for uid, s in sites.items():
     if len(title) > 40:
         title = title[:38].rsplit(' ', 1)[0] + '…'
     J, m = jobs_for(uid, site, A('maps', uid), title, geom=geom, cover=covers_needed.get(uid, True),
-                    extra_pins=s.get('extra_pins'), pin_label=s.get('poly_label', 'Site'), intersection=s.get('intersection'), featured=s.get('businesses', ()))
+                    extra_pins=s.get('extra_pins'), pin_label=s.get('poly_label', 'Site'), intersection=s.get('intersection'), featured=s.get('businesses', ()),
+                    aerial_notes=s.get('aerial_notes', ()), traffic_pad=s.get('traffic_pad', 0))
     for j in J:
         if j['out'].endswith('/flood.jpg'):
             j['legend'] = LEG.replace('{verdict}', verdicts[uid]['verdict']).replace('{approx}', ' (approximate boundary)' if geom else ' (site pin)')

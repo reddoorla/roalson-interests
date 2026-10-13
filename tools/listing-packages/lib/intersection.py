@@ -55,7 +55,7 @@ def road_key(p):
     return ref or (p.get('name') or '').strip()
 
 
-def major_roads(lat, lon, radius_tiles=2):
+def major_roads(lat, lon, radius_tiles=2, classes=MAJOR):
     x0, y0 = _tile(lat, lon, Z)
     roads = {}
     for dx in range(-radius_tiles, radius_tiles + 1):
@@ -67,7 +67,7 @@ def major_roads(lat, lon, radius_tiles=2):
             ext = L.get('extent', 4096)
             for f in L['features']:
                 p = f['properties']
-                if p.get('class') not in MAJOR:
+                if p.get('class') not in classes:
                     continue
                 g = f['geometry']
                 parts = g['coordinates'] if g['type'] == 'MultiLineString' else [g['coordinates']] if g['type'] == 'LineString' else []
@@ -79,11 +79,11 @@ def major_roads(lat, lon, radius_tiles=2):
     return roads
 
 
-def crossings(lat, lon, radius_tiles=2):
+def crossings(lat, lon, radius_tiles=2, classes=MAJOR):
     """Crossings of two different major roads, those involving a motorway or trunk first, then nearest first."""
     site = (lat, lon)
     out = []
-    for (ka, a), (kb, b) in combinations(major_roads(lat, lon, radius_tiles).items(), 2):
+    for (ka, a), (kb, b) in combinations(major_roads(lat, lon, radius_tiles, classes).items(), 2):
         if not a['lines'] or not b['lines']:
             continue
         hit = unary_union(a['lines']).intersection(unary_union(b['lines']))
@@ -91,13 +91,15 @@ def crossings(lat, lon, radius_tiles=2):
             continue
         pts = [g.centroid for g in getattr(hit, 'geoms', [hit])]
         pt = min(pts, key=lambda c: meters((c.y, c.x), site))
-        rank = MAJOR[a['class']] + MAJOR[b['class']]
+        rank = classes[a['class']] + classes[b['class']]
         out.append({'lat': round(pt.y, 6), 'lon': round(pt.x, 6), 'm': round(meters((pt.y, pt.x), site)), 'rank': rank,
                     'a': a['ref'] or a['name'], 'b': b['ref'] or b['name'], 'a_class': a['class'], 'b_class': b['class']})
     return sorted(out, key=lambda r: (r['rank'] < 4, r['m']))
 
 
 if __name__ == '__main__':
-    lat, lon = float(sys.argv[1]), float(sys.argv[2])
-    for r in crossings(lat, lon)[:6]:
+    args = [a for a in sys.argv[1:] if not a.startswith('--')]
+    classes = dict(MAJOR, secondary=1, tertiary=1) if '--with-secondary' in sys.argv else MAJOR
+    lat, lon = float(args[0]), float(args[1])
+    for r in crossings(lat, lon, classes=classes)[:6]:
         print(json.dumps(r))

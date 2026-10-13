@@ -49,7 +49,7 @@ def choose_stations(st,limit=7,sep=190):
     return sorted(out,key=lambda x:x['d'])
 def with_point(b,p):
     return [min(b[0],p['lat']),min(b[1],p['lon']),max(b[2],p['lat']),max(b[3],p['lon'])]
-def jobs_for(uid,site,outdir,title,geom=None,cover=True,date='September 2026',extra_pins=None,pin_label='Site',intersection=None,featured=()):
+def jobs_for(uid,site,outdir,title,geom=None,cover=True,date='September 2026',extra_pins=None,pin_label='Site',intersection=None,featured=(),aerial_notes=(),traffic_pad=0):
     lat,lon=site
     J=[]
     poly=fc(geom) if geom else None
@@ -71,7 +71,13 @@ def jobs_for(uid,site,outdir,title,geom=None,cover=True,date='September 2026',ex
     xref=[{'lat':intersection['lat'],'lon':intersection['lon'],'label':intersection['label'],'place':True}] if intersection else []
     near={'bounds':with_point(sb,intersection),'padding':{'top':110,'bottom':70,'left':90,'right':90},'maxZoom':15.3} if intersection else None
     aw=near or {'zoom':15.3 if ext<500 else 14.6}
-    J.append({'out':f'{outdir}/aerial-wide.jpg','kind':'aerial','width':W,'height':H,'dpr':2.5,'center':[lat,lon],**aw,'polygon':poly,'pin':pin,'refs':xref,'scale':True,'north':True,'credit':CREDIT_AER})
+    if aerial_notes:
+        b=aw.get('bounds') or (bbox_geom(geom) if geom else [lat,lon,lat,lon])
+        if b:
+            for n in aerial_notes: b=with_point(b,n)
+            aw={'bounds':b,'padding':aw.get('padding',{'top':110,'bottom':70,'left':90,'right':90}),'maxZoom':aw.get('maxZoom',15.3)}
+    notes=[{'lat':n['lat'],'lon':n['lon'],'label':n['label']} for n in aerial_notes]
+    J.append({'out':f'{outdir}/aerial-wide.jpg','kind':'aerial','width':W,'height':H,'dpr':2.5,'center':[lat,lon],**aw,'polygon':poly,'pin':pin,'refs':xref+notes,'scale':True,'north':True,'credit':CREDIT_AER})
     st=stations(uid,lat,lon,2600)
     pick=choose_stations(st)
     if pick:
@@ -83,7 +89,7 @@ def jobs_for(uid,site,outdir,title,geom=None,cover=True,date='September 2026',ex
         tb=[min(p[0] for p in pts),min(p[1] for p in pts),max(p[0] for p in pts),max(p[1] for p in pts)]
         biz,missing=businesses(tb,(lat,lon),featured)
         if missing: print(uid,'featured businesses not in the tiles:',missing)
-        J.append({'out':f'{outdir}/traffic.jpg','kind':'brand','businesses':biz,'width':W,'height':690,'dpr':2.5,'center':[lat,lon],'bounds':tb,'padding':{'top':120,'bottom':80,'left':110,'right':110},'maxZoom':15.2,
+        J.append({'out':f'{outdir}/traffic.jpg','kind':'brand','businesses':biz,'width':W,'height':690,'dpr':2.5,'center':[lat,lon],'bounds':tb,'padding':{'top':120+traffic_pad,'bottom':80+traffic_pad,'left':110+traffic_pad,'right':110+traffic_pad},'maxZoom':15.2,
                   'polygon':poly,'pin':pin,'refs':xref,'traffic':[{'lat':s['lat'],'lon':s['lon'],'qty':f"{s['qty']:,}",'road':f"{s['label']} · {s['year']}"} for s in pick],
                   'scale':True,'north':True,'credit':CREDIT_BRAND+' · Counts: TxDOT'})
     else:

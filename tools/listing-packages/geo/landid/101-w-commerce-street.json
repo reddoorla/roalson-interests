@@ -1,0 +1,50 @@
+{
+ "uid": "101-w-commerce-street",
+ "landid_url": "https://id.land/maps/3e6369887039dec22cefd72b17ed3d4b/share",
+ "fetched": "2026-10-13T00:12:57.260Z",
+ "name": "Commerce and Main",
+ "updated_at": "2026-10-12T19:11:13.000Z",
+ "acres": 0.077,
+ "enabled_layers": [],
+ "features": [
+  {
+   "type": "Feature",
+   "properties": {
+    "toolId": 3678,
+    "toolType": "polygons",
+    "visibility": true,
+    "maprightId": 340.5796107707685,
+    "id": 340.5796107707685,
+    "feature_id": "37c1d297-4775-44c0-9cff-6068755b0f49"
+   },
+   "geometry": {
+    "coordinates": [
+     [
+      [
+       -98.49401174426141,
+       29.42518711061753
+      ],
+      [
+       -98.49398557487453,
+       29.42546696353172
+      ],
+      [
+       -98.49388816660239,
+       29.42545472262077
+      ],
+      [
+       -98.49389737434956,
+       29.425172337063074
+      ],
+      [
+       -98.49401174426141,
+       29.42518711061753
+      ]
+     ]
+    ],
+    "type": "Polygon"
+   },
+   "maprightId": 340.5796107707685
+  }
+ ]
+}

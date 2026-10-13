@@ -1,11 +1,13 @@
 {
  "menger-springs-road": {
-  "hits": {},
-  "verdict": "No share of the site is computed for this listing; the zones mapped around it are shown for comparison."
+  "hits": {
+   "a100": 0.0007660075150623755
+  },
+  "verdict": "NFHL mapping shows a mapped flood hazard area along the edge of the property (under 3% of its area); the balance is Zone X."
  },
  "ih-10-east-at-loop-1604": {
   "hits": {},
-  "verdict": "No share of the site is computed for this listing; the zones mapped around it are shown for comparison."
+  "verdict": "NFHL mapping shows no special flood hazard area on the property (Zone X, minimal flood hazard)."
  },
  "101-w-commerce-street": {
   "hits": {},
@@ -13,7 +15,7 @@
  },
  "loop-1604-at-highway-181": {
   "hits": {},
-  "verdict": "No share of the site is computed for this listing; the zones mapped around it are shown for comparison."
+  "verdict": "NFHL mapping shows no special flood hazard area on the property (Zone X, minimal flood hazard)."
  },
  "loop-1604-at-dove-canyon": {
   "hits": {
@@ -64,8 +66,10 @@
   "verdict": "NFHL mapping shows no special flood hazard area on the property (Zone X, minimal flood hazard)."
  },
  "ih-10-at-menger-springs": {
-  "hits": {},
-  "verdict": "No share of the site is computed for this listing; the zones mapped around it are shown for comparison."
+  "hits": {
+   "a100": 0.051283855269797264
+  },
+  "verdict": "NFHL mapping shows the property about 5% within the 1% annual chance (100-year) flood hazard area."
  },
  "402-w-nueva-street": {
   "hits": {},
@@ -105,8 +109,8 @@
  },
  "hwy-46-at-spencer-ranch-blvd": {
   "hits": {
-   "a100": 0.041544165134012864
+   "a100": 0.03046673373776508
   },
-  "verdict": "NFHL mapping shows the property about 4% within the 1% annual chance (100-year) flood hazard area."
+  "verdict": "NFHL mapping shows the property about 3% within the 1% annual chance (100-year) flood hazard area."
  }
 }

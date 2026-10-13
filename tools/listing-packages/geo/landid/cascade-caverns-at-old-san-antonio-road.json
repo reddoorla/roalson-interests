@@ -1,0 +1,58 @@
+{
+ "uid": "cascade-caverns-at-old-san-antonio-road",
+ "landid_url": "https://id.land/maps/f072759fcc09e0b94b713e253f73b01d/share",
+ "fetched": "2026-10-13T00:14:38.471Z",
+ "name": "Old San Antonio Road and Cascade Caverns - 5.01",
+ "updated_at": "2026-10-09T22:47:02.000Z",
+ "acres": null,
+ "enabled_layers": [],
+ "features": [
+  {
+   "type": "Feature",
+   "properties": {
+    "toolId": 3678,
+    "toolType": "polygons",
+    "visibility": true,
+    "maprightId": 12.91279867108188,
+    "id": 12.91279867108188,
+    "feature_id": "1693f375-8eaf-49cf-bfc2-ee7e72b21051"
+   },
+   "geometry": {
+    "coordinates": [
+     [
+      [
+       -98.70627602623316,
+       29.75823300591152
+      ],
+      [
+       -98.7044957245773,
+       29.758187616169195
+      ],
+      [
+       -98.70449690965378,
+       29.756774967682915
+      ],
+      [
+       -98.70531494898546,
+       29.756787448655956
+      ],
+      [
+       -98.70535763219445,
+       29.756793006906477
+      ],
+      [
+       -98.70540244956416,
+       29.75683376739805
+      ],
+      [
+       -98.70627602623316,
+       29.75823300591152
+      ]
+     ]
+    ],
+    "type": "Polygon"
+   },
+   "maprightId": 12.91279867108188
+  }
+ ]
+}

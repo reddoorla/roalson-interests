@@ -1,0 +1,51 @@
+{
+ "uid": "ih-10-east-at-loop-1604",
+ "landid_url": "https://id.land/maps/d7b9b6f2312df961bc1d64632713ac94/share",
+ "fetched": "2026-10-13T00:17:10.613Z",
+ "name": "IH-10E and Loop 1604 - 1.34+/-Acres",
+ "updated_at": "2026-02-11T22:13:30.000Z",
+ "acres": null,
+ "enabled_layers": [],
+ "features": [
+  {
+   "type": "Feature",
+   "properties": {
+    "feature_id": "c9e8cf26-ee1c-48f5-a366-4c3e949019cf",
+    "visibility": true,
+    "toolId": 3678,
+    "toolType": "polygons"
+   },
+   "geometry": {
+    "coordinates": [
+     [
+      [
+       -98.2945881007901,
+       29.466040927728912
+      ],
+      [
+       -98.29405321636115,
+       29.465930047730268
+      ],
+      [
+       -98.29359156015754,
+       29.466656309515756
+      ],
+      [
+       -98.29429518788824,
+       29.466797680479345
+      ],
+      [
+       -98.29450213722106,
+       29.466251599391796
+      ],
+      [
+       -98.2945881007901,
+       29.466040927728912
+      ]
+     ]
+    ],
+    "type": "Polygon"
+   }
+  }
+ ]
+}
