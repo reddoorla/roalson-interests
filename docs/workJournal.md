@@ -13262,3 +13262,35 @@ The full account is in reddoor-maintenance
 `docs/journal/2026-10-13-0426-p1-46-roalson-package-rollout.md`. Nothing is on
 Prismic or in Dropbox: the set goes to the operator for review, then to Erik
 for Matt.
+
+## 2026-10-16 — The old Dropbox file-request uploader leaves the listing-package tool (#302)
+
+`tools/listing-packages/build/upload.sh` and `frbatch.mjs` reached `main` in
+#293. They were the first, unmaintained copy of the file-request uploader that
+reddoor-maintenance now keeps in two forms. The first choice is
+`scripts/dropbox.mjs` (reddoor-maintenance#1388), which uploads through the
+Dropbox API with the app's refresh token and checks each file's
+`content_hash`. The fallback is `scripts/dropbox-file-request-upload.mjs`
+(reddoor-maintenance#1395), for when `dropbox.mjs check` fails before naming
+the account or prints `MISSING` for `files.content.write`. The README's
+build-script list now names those two in that order, and the copy here is
+deleted rather than fixed, so there is one uploader to maintain.
+
+Each of the old copy's three defects was read from the code of both versions
+before it was written down here. `frbatch.mjs` clicked Upload and then slept a
+fixed `max(45 s, 5 s per MB)` without checking that any file had arrived. The
+maintained script records each `commit_file_request_by_token` response and
+waits until every file has one. The old copy accepted any list of basenames,
+so `A.pdf` and `a.pdf` both went up although Dropbox treats them as one name.
+The maintained script rejects names that collide after NFC normalisation and
+lowercasing. It parsed `url, who, ...files`, so a call with the name left out
+used the first file's path as the name and never uploaded that file. The
+maintained script refuses a name that contains a slash or is an existing path.
+
+A belief corrected on contact: the first draft of the PR said the second of two
+case-variant names would overwrite the first. The reddoor-maintenance runbook
+says a file request never overwrites. It stores a differing file under a
+timestamped name instead, so the PR body was corrected.
+
+The only remaining mention of either file is the 2026-09-29 entry above, which
+is history and stays as written. `pnpm verify` passed locally before the push.
