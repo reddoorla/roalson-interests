@@ -67,9 +67,18 @@ The documents for the people involved are made separately:
 
 - `review_pdf.py`: `review/review-notes.md` becomes `out/00 - Review Notes (read first).pdf`.
 - `showcase.py [facts-checked]`: `out/01 - Before and After.pdf`.
-- `upload.sh <file-request-url> <label> <dir> <files…>`: pushes files into a Dropbox file
-  request (the connector cannot upload binaries). Set `UPLOADER_EMAIL` first, then verify
-  every file's size afterwards.
+- Uploading to Dropbox is not done from here. Use one of reddoor-maintenance's two uploaders,
+  run from that repo's checkout:
+  1. [`scripts/dropbox.mjs`](https://github.com/reddoorla/reddoor-maintenance/blob/main/scripts/dropbox.mjs)
+     (reddoor-maintenance#1388) is the first choice. It calls the Dropbox API with the app's
+     refresh token. Run `node scripts/dropbox.mjs check` first, then
+     `node scripts/dropbox.mjs upload <folder> <file…>`, which verifies each file's
+     `content_hash`.
+  2. [`scripts/dropbox-file-request-upload.mjs`](https://github.com/reddoorla/reddoor-maintenance/blob/main/scripts/dropbox-file-request-upload.mjs)
+     (reddoor-maintenance#1395) is the fallback, for when `check` fails before naming the
+     account or prints `MISSING` for `files.content.write`. It fills a Dropbox file request's
+     upload page. Follow its runbook,
+     [`docs/runbooks/dropbox-file-request-upload.md`](https://github.com/reddoorla/reddoor-maintenance/blob/main/docs/runbooks/dropbox-file-request-upload.md).
 
 `review/` also holds both QA reports, with every finding marked fixed or open.
 
