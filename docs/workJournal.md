@@ -13266,31 +13266,36 @@ for Matt.
 ## 2026-10-16 — The old Dropbox file-request uploader leaves the listing-package tool (#302)
 
 `tools/listing-packages/build/upload.sh` and `frbatch.mjs` reached `main` in
-#293. They were the first, unmaintained copy of the file-request uploader that
-reddoor-maintenance now keeps in two forms. The first choice is
+#293. They were the first, unmaintained copy of the file-request uploader, which
+reddoor-maintenance has replaced with two uploaders. The first choice is
 `scripts/dropbox.mjs` (reddoor-maintenance#1388), which uploads through the
 Dropbox API with the app's refresh token and checks each file's
 `content_hash`. The fallback is `scripts/dropbox-file-request-upload.mjs`
 (reddoor-maintenance#1395), for when `dropbox.mjs check` fails before naming
 the account or prints `MISSING` for `files.content.write`. The README's
 build-script list now names those two in that order, and the copy here is
-deleted rather than fixed, so there is one uploader to maintain.
+deleted rather than fixed, so no second copy goes stale.
 
 Each of the old copy's three defects was read from the code of both versions
 before it was written down here. `frbatch.mjs` clicked Upload and then slept a
 fixed `max(45 s, 5 s per MB)` without checking that any file had arrived. The
 maintained script records each `commit_file_request_by_token` response and
-waits until every file has one. The old copy accepted any list of basenames,
-so `A.pdf` and `a.pdf` both went up although Dropbox treats them as one name.
-The maintained script rejects names that collide after NFC normalisation and
-lowercasing. It parsed `url, who, ...files`, so a call with the name left out
-used the first file's path as the name and never uploaded that file. The
-maintained script refuses a name that contains a slash or is an existing path.
+waits until every file has one, for up to max(120 s, 10 s per MB) per batch.
+The old copy accepted any list of basenames, so `A.pdf` and `a.pdf` both went
+up although Dropbox treats them as one name. The maintained script rejects
+names that collide after NFC normalisation and lowercasing. A forgotten
+uploader name swallowed the first file either way it was called. `frbatch.mjs`
+on its own read `url, who, ...files`, so the first file's path became the name
+and that file was never uploaded. `upload.sh`, the documented entry point, read
+`url, who, dir` and then the files, so the directory became the name and the
+first file became the `cd` target. It had no `set -e`, so the failed `cd` did
+not stop it. The maintained script refuses a name that contains a slash or is
+an existing path.
 
 A belief corrected on contact: the first draft of the PR said the second of two
 case-variant names would overwrite the first. The reddoor-maintenance runbook
 says a file request never overwrites. It stores a differing file under a
 timestamped name instead, so the PR body was corrected.
 
-The only remaining mention of either file is the 2026-09-29 entry above, which
+The only mention of either file left in this repo is the 2026-09-29 entry above, which
 is history and stays as written. `pnpm verify` passed locally before the push.
