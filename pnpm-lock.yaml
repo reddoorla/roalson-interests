@@ -21,8 +21,8 @@ importers:
         specifier: ^7.21.8
         version: 7.22.0
       '@prismicio/svelte':
-        specifier: ^2.2.1
-        version: 2.2.1(@prismicio/client@7.22.0)(@sveltejs/kit@2.70.3(@sveltejs/vite-plugin-svelte@7.3.0(svelte@5.56.10(@typescript-eslint/types@8.67.0))(vite@8.2.2(@types/node@26.2.0)(jiti@2.7.0)(yaml@2.9.1)))(svelte@5.56.10(@typescript-eslint/types@8.67.0))(typescript@6.0.3)(vite@8.2.2(@types/node@26.2.0)(jiti@2.7.0)(yaml@2.9.1)))(svelte@5.56.10(@typescript-eslint/types@8.67.0))
+        specifier: ^3.0.0
+        version: 3.0.0(@prismicio/client@7.22.0)(@sveltejs/kit@2.70.3(@sveltejs/vite-plugin-svelte@7.3.0(svelte@5.56.10(@typescript-eslint/types@8.67.0))(vite@8.2.2(@types/node@26.2.0)(jiti@2.7.0)(yaml@2.9.1)))(svelte@5.56.10(@typescript-eslint/types@8.67.0))(typescript@6.0.3)(vite@8.2.2(@types/node@26.2.0)(jiti@2.7.0)(yaml@2.9.1)))(svelte@5.56.10(@typescript-eslint/types@8.67.0))
       '@reddoorla/maintenance':
         specifier: ^0.102.0
         version: 0.102.0(@sveltejs/kit@2.70.3(@sveltejs/vite-plugin-svelte@7.3.0(svelte@5.56.10(@typescript-eslint/types@8.67.0))(vite@8.2.2(@types/node@26.2.0)(jiti@2.7.0)(yaml@2.9.1)))(svelte@5.56.10(@typescript-eslint/types@8.67.0))(typescript@6.0.3)(vite@8.2.2(@types/node@26.2.0)(jiti@2.7.0)(yaml@2.9.1)))(jiti@2.7.0)(playwright-core@1.62.1)(svelte@5.56.10(@typescript-eslint/types@8.67.0))(typescript@6.0.3)
@@ -967,13 +967,13 @@ packages:
     peerDependencies:
       '@prismicio/client': ^7
 
-  '@prismicio/svelte@2.2.1':
-    resolution: {integrity: sha512-s7XoTVETrgjmGpZwEmjHHaZWN+JYSuo2uB6s++WPjXsQMDp2b+cWL5R9DCbDRXIGRhUDn1B0q/AsjDTwwXwdKQ==}
-    engines: {node: '>=20'}
+  '@prismicio/svelte@3.0.0':
+    resolution: {integrity: sha512-9G9mQ+0+k7Rt/LPETQg9P881xSK+VKglQSmEZBlRWBBuvSfcWBjYq/yPyd/BMb0K1qMJ/syyl7orBQRtTee22Q==}
+    engines: {node: '>=22'}
     peerDependencies:
       '@prismicio/client': '>=7'
-      '@sveltejs/kit': ^2
-      svelte: ^5
+      '@sveltejs/kit': ^3.0.0
+      svelte: ^5.16.0
     peerDependenciesMeta:
       '@sveltejs/kit':
         optional: true
@@ -4194,7 +4194,7 @@ snapshots:
     dependencies:
       '@prismicio/client': 7.22.0
 
-  '@prismicio/svelte@2.2.1(@prismicio/client@7.22.0)(@sveltejs/kit@2.70.3(@sveltejs/vite-plugin-svelte@7.3.0(svelte@5.56.10(@typescript-eslint/types@8.67.0))(vite@8.2.2(@types/node@26.2.0)(jiti@2.7.0)(yaml@2.9.1)))(svelte@5.56.10(@typescript-eslint/types@8.67.0))(typescript@6.0.3)(vite@8.2.2(@types/node@26.2.0)(jiti@2.7.0)(yaml@2.9.1)))(svelte@5.56.10(@typescript-eslint/types@8.67.0))':
+  '@prismicio/svelte@3.0.0(@prismicio/client@7.22.0)(@sveltejs/kit@2.70.3(@sveltejs/vite-plugin-svelte@7.3.0(svelte@5.56.10(@typescript-eslint/types@8.67.0))(vite@8.2.2(@types/node@26.2.0)(jiti@2.7.0)(yaml@2.9.1)))(svelte@5.56.10(@typescript-eslint/types@8.67.0))(typescript@6.0.3)(vite@8.2.2(@types/node@26.2.0)(jiti@2.7.0)(yaml@2.9.1)))(svelte@5.56.10(@typescript-eslint/types@8.67.0))':
     dependencies:
       '@prismicio/client': 7.22.0
       '@prismicio/simulator': 0.2.4(@prismicio/client@7.22.0)
