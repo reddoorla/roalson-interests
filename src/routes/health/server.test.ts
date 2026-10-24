@@ -17,8 +17,19 @@ vi.mock("$lib/prismicio", () => ({
     return mocks.isPlaceholderRepo;
   },
 }));
-vi.mock("$env/dynamic/private", () => ({ env: mocks.privateEnv }));
-vi.mock("$env/dynamic/public", () => ({ env: mocks.publicEnv }));
+vi.mock("$app/env/private", () => ({
+  get FORMS_INGEST_URL() {
+    return mocks.privateEnv.FORMS_INGEST_URL;
+  },
+  get FORMS_INGEST_TOKEN() {
+    return mocks.privateEnv.FORMS_INGEST_TOKEN;
+  },
+}));
+vi.mock("$app/env/public", () => ({
+  get PUBLIC_TURNSTILE_SITE_KEY() {
+    return mocks.publicEnv.PUBLIC_TURNSTILE_SITE_KEY;
+  },
+}));
 
 import { GET } from "./+server";
 

@@ -11,7 +11,7 @@ import {
 import { components } from "$lib/slices";
 import FeaturedProperties, { DISSOLVE, DWELL, TILT_DEG } from "./index.svelte";
 
-vi.mock("$env/dynamic/public", () => ({ env: {} }));
+vi.mock("$app/env/public", () => ({ PUBLIC_MAP_STYLE_URL: undefined }));
 
 // jsdom resolves no stylesheet and has no `inert`, no layout and no animation
 // frames worth trusting: where the chrome SITS, that the slide turns, and that

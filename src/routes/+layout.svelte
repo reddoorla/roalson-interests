@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { PrismicPreview } from "@prismicio/svelte/kit";
+  import PrismicPreview from "$lib/components/PrismicPreview.svelte";
   import { page } from "$app/state";
   import { afterNavigate, beforeNavigate } from "$app/navigation";
   import { onMount } from "svelte";

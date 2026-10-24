@@ -7,7 +7,14 @@ const mocks = vi.hoisted(() => ({
   privateEnv: {} as Record<string, string | undefined>,
   replyCopyFor: vi.fn<() => Promise<unknown>>(),
 }));
-vi.mock("$env/dynamic/private", () => ({ env: mocks.privateEnv }));
+vi.mock("$app/env/private", () => ({
+  get FORMS_INGEST_URL() {
+    return mocks.privateEnv.FORMS_INGEST_URL;
+  },
+  get FORMS_INGEST_TOKEN() {
+    return mocks.privateEnv.FORMS_INGEST_TOKEN;
+  },
+}));
 // The confirmation-copy lookup reads Prismic; nothing here may touch a network.
 vi.mock("$lib/server/reply-copy", () => ({ replyCopyFor: mocks.replyCopyFor }));
 

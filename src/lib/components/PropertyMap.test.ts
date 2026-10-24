@@ -31,7 +31,11 @@ afterEach(() => {
 // The component reads PUBLIC_MAP_STYLE_URL at instance init, as TurnstileWidget
 // reads its sitekey — so the env is mutable per render.
 const mockEnv = vi.hoisted(() => ({ env: {} as { PUBLIC_MAP_STYLE_URL?: string } }));
-vi.mock("$env/dynamic/public", () => mockEnv);
+vi.mock("$app/env/public", () => ({
+  get PUBLIC_MAP_STYLE_URL() {
+    return mockEnv.env.PUBLIC_MAP_STYLE_URL;
+  },
+}));
 
 // The 426 KB engine, replaced by something a jsdom test can watch. Every
 // method the component calls is here and nothing else is: if the component

@@ -1,4 +1,4 @@
-import { env } from "$env/dynamic/public";
+import * as env from "$app/env/public";
 import buildServices from "virtual:privacy-services";
 import { loadSiteConfig } from "$lib/site-config";
 import { withRuntime } from "$lib/privacy/services";

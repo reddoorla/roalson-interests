@@ -64,7 +64,7 @@
 
          WHY A STYLE AND NOT AN INLINE `classList.add("js")` SCRIPT: an unhashed
          inline script here is governed by this template's own CSP
-         (svelte.config.js `kit.csp`, script-src with no 'unsafe-inline'). On
+         (sveltekit.config.js `csp`, script-src with no 'unsafe-inline'). On
          prerendered routes it would survive only because the policy ships as a
          <meta> tag emitted after it; on server-rendered routes the policy is an
          HTTP header carrying a nonce, and the script is silently dropped. A

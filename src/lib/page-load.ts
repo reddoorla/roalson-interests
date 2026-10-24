@@ -29,7 +29,7 @@ export async function orNotFound<T>(lookup: Promise<T>): Promise<T> {
     return await lookup;
   } catch (err) {
     if (err instanceof NotFoundError && !(err instanceof RepositoryNotFoundError)) {
-      error(404, { message: "Page not found" });
+      error(404, "Page not found");
     }
     throw err;
   }

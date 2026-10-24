@@ -7,7 +7,7 @@ import { describe, expect, it, vi } from "vitest";
 import PropertyMap from "$lib/components/PropertyMap.svelte";
 import { DIMMED_MARKER_OPACITY, DIMMED_PIN_FILL, MAP_HOME, type MapPoint } from "$lib/property-map";
 
-vi.mock("$env/dynamic/public", () => ({ env: {} }));
+vi.mock("$app/env/public", () => ({ PUBLIC_MAP_STYLE_URL: undefined }));
 
 // The engine, faked only as far as drawing the LIVE markers takes: a map that
 // boots, loads, and reports the zoom it was built at. PropertyMap.test.ts has

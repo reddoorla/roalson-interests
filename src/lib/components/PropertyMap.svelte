@@ -1020,7 +1020,7 @@
     let maplibre: MapEngine;
     let styleUrl: string;
     try {
-      // `$env/dynamic/public` is imported HERE and not at module scope, and
+      // `$app/env/public` is imported HERE and not at module scope, and
       // that is not tidiness. Its virtual module reads a global SvelteKit only
       // sets during hydration, so evaluating it under jsdom throws "Cannot read
       // properties of undefined (reading 'env')" — which took down every unit
@@ -1030,10 +1030,10 @@
       // is evaluated exactly where the engine is: in a browser, on demand.
       const [engineModule, publicEnv] = await Promise.all([
         import("$lib/map-engine"),
-        import("$env/dynamic/public"),
+        import("$app/env/public"),
       ]);
       maplibre = engineModule.default;
-      styleUrl = mapStyleUrl(publicEnv.env.PUBLIC_MAP_STYLE_URL);
+      styleUrl = mapStyleUrl(publicEnv.PUBLIC_MAP_STYLE_URL);
     } catch (err) {
       // Offline, a blocked chunk, a browser with no WebGL2 — the list below is
       // already the whole content, so there is nothing to fall back TO. Warn

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { disableSmoothScroll, restoreSmoothScroll } from "./instantNavScroll";
-import type { AfterNavigate, BeforeNavigate } from "@sveltejs/kit";
+import type { AfterNavigate, BeforeNavigate } from "$app/navigation";
 
 const afterNav = (type: AfterNavigate["type"]) => ({ type }) as AfterNavigate;
 

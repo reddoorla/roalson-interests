@@ -1,4 +1,4 @@
-import type { AfterNavigate, BeforeNavigate } from "@sveltejs/kit";
+import type { AfterNavigate, BeforeNavigate } from "$app/navigation";
 
 /**
  * Make SvelteKit's own post-navigation scroll INSTANT instead of a visible

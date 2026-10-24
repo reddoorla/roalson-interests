@@ -10,7 +10,12 @@ afterEach(() => cleanup());
 const mockEnv = vi.hoisted(() => ({
   env: {} as { PUBLIC_TURNSTILE_SITE_KEY?: string },
 }));
-vi.mock("$env/dynamic/public", () => mockEnv);
+// A getter, so the live binding re-reads the mutable value on every render.
+vi.mock("$app/env/public", () => ({
+  get PUBLIC_TURNSTILE_SITE_KEY() {
+    return mockEnv.env.PUBLIC_TURNSTILE_SITE_KEY;
+  },
+}));
 
 // With `window.turnstile` already present, $lib/turnstile's loadTurnstile
 // resolves it directly — no <script> injection, so jsdom never hits the network.

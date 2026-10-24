@@ -3,7 +3,7 @@ import { NOINDEX_ENFORCED, NOINDEX_PREFIXES } from "$lib/seo";
 import type { RequestHandler } from "./$types";
 
 // Rendered PER REQUEST, not prerendered (#140). A prerendered robots.txt bakes
-// one origin (kit.prerender.origin, from Netlify's URL env) into one file, and
+// one origin (Netlify's URL at build time) into one file, and
 // Netlify serves those bytes on every host the build answers on — so the
 // netlify.app mirror advertised a sitemap and could not be told apart from the
 // client's domain. Per request, `url.origin` is the host that actually asked.

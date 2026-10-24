@@ -6,7 +6,7 @@ import { createClient, isPlaceholderRepo } from "$lib/prismicio";
 export async function load({ params, fetch, cookies, url }) {
   // See the root route: an unconfigured template answers 404 rather than
   // asking a repository that does not exist.
-  if (isPlaceholderRepo) error(404, { message: "Page not found" });
+  if (isPlaceholderRepo) error(404, "Page not found");
 
   return loadPerson(createClient({ fetch, cookies }), params.uid, url);
 }
