@@ -18,7 +18,11 @@
   import Footer from "$lib/components/Footer.svelte";
   import { loadSiteConfig, footerNav } from "$lib/site-config";
   import { canvasTopStyleTag, canvasTopThemeColor } from "$lib/canvas-top";
-  import { disableSmoothScroll, restoreSmoothScroll } from "$lib/utils/instantNavScroll";
+  import {
+    disableSmoothScroll,
+    flushLayoutForKitScroll,
+    restoreSmoothScroll,
+  } from "$lib/utils/instantNavScroll";
 
   let { data, children } = $props();
 
@@ -38,6 +42,12 @@
   // instantly instead of gliding under app.css's smooth-scroll. See the util.
   beforeNavigate(disableSmoothScroll);
   afterNavigate(restoreSmoothScroll);
+  // Kit 3 scrolls on a dirty layout, so the scroll would land after smooth is
+  // back; this flushes it in the gap between the DOM update and kit's scroll.
+  $effect(() => {
+    void page.url.href;
+    flushLayoutForKitScroll();
+  });
 
   // Evidence that script has taken the page over, for tests/smoke/routes.ts
   // (#57): only a mounted root layout writes it, so it is absent with scripting

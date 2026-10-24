@@ -110,7 +110,9 @@ describe("/health GET", () => {
     mocks.getRepository.mockResolvedValue({});
     mocks.privateEnv.FORMS_INGEST_URL = "https://ingest.example/submit";
     mocks.privateEnv.FORMS_INGEST_TOKEN = "secret";
-    await callHealth();
+    const { body } = await callHealth();
     expect(fetchSpy).not.toHaveBeenCalled();
+    // The one case that sets the token: its presence must reach the report.
+    expect(body.forms.ingestToken).toBe(true);
   });
 });

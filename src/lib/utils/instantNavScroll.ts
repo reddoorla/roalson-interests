@@ -22,6 +22,24 @@ export function disableSmoothScroll(_nav: BeforeNavigate): void {
   document.documentElement.style.scrollBehavior = "auto";
 }
 
+/**
+ * Flush layout after kit has swapped in the new page and BEFORE it scrolls.
+ * Call it from an `$effect` keyed on `page.url` in the root layout: kit 3
+ * awaits Svelte's `settled()` (which runs effects) between the DOM update and
+ * its `scrollTo`, so this runs in exactly that gap.
+ *
+ * Why it is needed: kit 3 calls `scrollTo` while the swapped-in page's layout
+ * is still dirty, and Chromium then applies the scroll only at the next
+ * layout, after `restoreSmoothScroll`'s frame has put `smooth` back. A Back or
+ * Forward to an entry saved at the top glided there (~480ms, 863→0 on
+ * /team/matt-howard from /properties at y=1500) where kit 2 jumped. Forcing
+ * layout AFTER the scroll does not help; only before it does (measured,
+ * roalson-interests#306).
+ */
+export function flushLayoutForKitScroll(): void {
+  void document.documentElement.scrollTop;
+}
+
 export function restoreSmoothScroll({ type }: AfterNavigate): void {
   if (type === "enter") return; // first render: browser owns scroll; nothing was disabled
   requestAnimationFrame(() => {

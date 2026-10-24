@@ -1,5 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { disableSmoothScroll, restoreSmoothScroll } from "./instantNavScroll";
+import {
+  disableSmoothScroll,
+  flushLayoutForKitScroll,
+  restoreSmoothScroll,
+} from "./instantNavScroll";
 import type { AfterNavigate, BeforeNavigate } from "$app/navigation";
 
 const afterNav = (type: AfterNavigate["type"]) => ({ type }) as AfterNavigate;
@@ -21,6 +25,15 @@ afterEach(() => {
 });
 
 describe("instantNavScroll", () => {
+  it("flushLayoutForKitScroll only reads layout: it never scrolls or touches the style", () => {
+    const scrollSpy = vi.spyOn(window, "scrollTo");
+    document.documentElement.style.scrollBehavior = "auto";
+    flushLayoutForKitScroll();
+    expect(scrollSpy).not.toHaveBeenCalled();
+    expect(document.documentElement.style.scrollBehavior).toBe("auto");
+    scrollSpy.mockRestore();
+  });
+
   it("never scrolls on its own — kit owns the scroll target (hash/noscroll/popstate safety)", () => {
     const scrollSpy = vi.spyOn(window, "scrollTo");
     disableSmoothScroll({} as BeforeNavigate);
