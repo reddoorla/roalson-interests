@@ -117,7 +117,9 @@ test("a reload restores a scrolled page without gliding up from the top", async 
   await page.reload({ waitUntil: "networkidle" });
   await page.waitForTimeout(1500);
   const ys = await trace(page);
-  expect(ys.at(-1), "the reload ends near the saved position").toBeGreaterThan(1400);
+  // Exactly where it was left: scroll anchoring once moved it 112px when
+  // hydration shrank /properties from 14212px to 2487px (#306, round 3).
+  expect(ys.at(-1), "the reload ends on the saved position").toBe(1500);
   // A fresh document starts at 0 and kit jumps it back; a glide passes through
   // every position in between (0, 2, 10, 24, 47 … 1497).
   expect(

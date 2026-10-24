@@ -7,7 +7,7 @@ import type { AfterNavigate, BeforeNavigate } from "$app/navigation";
  * navs, its `scrollIntoView` for cross-page `#hash` deep links, and its
  * position restore on back/forward.
  *
- * We never call `scrollTo` ourselves: kit already picks the correct target for
+ * Outside the first render we never call `scrollTo` ourselves: kit already picks the correct target for
  * every navigation type (top for links, the anchor for hash URLs, the saved
  * position for popstate, unchanged for `data-sveltekit-reset="false"`, kit 3's
  * name for kit 2's `data-sveltekit-noscroll`). Scrolling
@@ -41,8 +41,23 @@ export function flushLayoutForKitScroll(): void {
   void document.documentElement.scrollTop;
 }
 
-export function restoreSmoothScroll({ type }: AfterNavigate): void {
-  if (type === "enter") return; // first render: browser owns scroll; nothing was disabled
+export function restoreSmoothScroll({ type, to }: AfterNavigate): void {
+  if (type === "enter") {
+    // On a reload or a Back from another site, kit 3 restores the saved
+    // position itself, BEFORE hydration (kit 2 left it to the browser), into
+    // the server-rendered layout, which app.css keeps un-smoothed until then.
+    // Where hydration then changes the page's height, Chromium's and Firefox's
+    // scroll anchoring move the position: /properties is 14212px tall before
+    // hydration and 2487px after, and a reload at y=1500 landed at 1612
+    // (roalson-interests#306, round 3). Kit hands us the target it restored
+    // (`to.scroll`, the saved position, or the current one on a fresh load), so
+    // put the page back on it, instantly, if anchoring moved it.
+    const target = to?.scroll;
+    if (target && (target.x !== scrollX || target.y !== scrollY)) {
+      scrollTo({ left: target.x, top: target.y, behavior: "instant" });
+    }
+    return;
+  }
   requestAnimationFrame(() => {
     document.documentElement.style.scrollBehavior = "";
   });

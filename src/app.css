@@ -737,7 +737,11 @@ main > section.hero-band:first-child {
      until the root layout marks the page hydrated (`data-hydrated`, set in its
      onMount), scrolling is not smoothed. Only while script is enabled: with it
      off, `data-hydrated` never arrives, and the smooth in-page anchor scroll
-     must stay. */
+     must stay. The price: an in-page link clicked before hydration (on a slow
+     network, while the JS downloads) jumps instead of gliding. A browser
+     without `scripting` media support (before Chrome 120, Firefox 113,
+     Safari 17) ignores the rule and gets the old glide, never worse. The
+     position anchoring then moves is put back by instantNavScroll on `enter`. */
   @media (scripting: enabled) {
     html:not([data-hydrated]) {
       scroll-behavior: auto;

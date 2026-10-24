@@ -63,4 +63,23 @@ describe("instantNavScroll", () => {
     restoreSmoothScroll(afterNav("enter"));
     expect(rafSpy).not.toHaveBeenCalled();
   });
+
+  // Kit 3 restores a reload's saved position before hydration, and scroll
+  // anchoring can move it when hydration changes the page's height (#306).
+  const enterTo = (x: number, y: number) =>
+    ({ type: "enter", to: { scroll: { x, y } } }) as unknown as AfterNavigate;
+
+  it("on enter, puts the page back on kit's restored target, instantly, if it moved", () => {
+    const scrollSpy = vi.spyOn(window, "scrollTo").mockImplementation(() => {});
+    restoreSmoothScroll(enterTo(0, 1500)); // jsdom sits at 0,0
+    expect(scrollSpy).toHaveBeenCalledWith({ left: 0, top: 1500, behavior: "instant" });
+    scrollSpy.mockRestore();
+  });
+
+  it("on enter, leaves the page alone when it is already on kit's target", () => {
+    const scrollSpy = vi.spyOn(window, "scrollTo");
+    restoreSmoothScroll(enterTo(0, 0));
+    expect(scrollSpy).not.toHaveBeenCalled();
+    scrollSpy.mockRestore();
+  });
 });
