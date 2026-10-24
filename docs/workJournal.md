@@ -13299,3 +13299,13 @@ timestamped name instead, so the PR body was corrected.
 
 The only mention of either file left in this repo is the 2026-09-29 entry above, which
 is history and stays as written. `pnpm verify` passed locally before the push.
+
+## 2026-10-24 — SvelteKit 3 and adapter-netlify 7, onto a new `staging` branch (#306)
+
+Renovate opened `@sveltejs/kit` ^3 as a security PR overnight (#305, GHSA-27mw-82g8-phjj, fixed only in 3.0), and it could not pass: kit 3 refuses to start beside `svelte.config.js`. Per the operator's staging flow, the migration lands on a new `staging` branch and reaches `main` only through his promotion PR.
+
+This site came from reddoor-starter, so the migration is the starter's own (reddoor-starter#187 and #188) carried across. `git apply` with no fuzz took most of the patch, which is the useful measurement: the template and this site still agree line for line in most of the files the migration touches. The rest was Roalson's own. The config holds the map's CSP, the archived-listing 404 handler (#176) and the Slice Machine simulator, and was flattened by hand. Two more loaders (team and property) needed the same `error(404, "...")` change. The property map needed one thing the starter does not have: it reads `PUBLIC_MAP_STYLE_URL` through a dynamic import, so `src/env.ts` declares four variables, not three. Left undeclared on kit 3 it would read as `undefined` with only a build warning. The map would quietly fall back to the committed style, and a keyed provider set in Netlify would be ignored.
+
+**The origin, which is the subtle part.** Kit 2 took Netlify's `URL` as `prerender.origin`. Kit 3 removed that in favour of `paths.origin`, which is also the only origin kit 3's CSRF check accepts a form from. Set, the contact form would refuse every post from a deploy preview or an alias. So it stays unset, and `$lib/seo`'s `siteOrigin` puts the build's `URL` in place of kit's `http://sveltekit-prerender` placeholder. Building with `URL` unset leaves the placeholder in 53 of 72 built files and production in none. That is what `scripts/prerender-origin.mjs` now checks on every PR, against the output rather than the source, because three review rounds on Beachfront showed a source scan never lists every spelling.
+
+**Measured.** `pnpm verify`: svelte-check 0/0, a11y 0 violations over 9 routes, 1752 unit and 72 `@smoke` tests passing. Seven mutations each turned an instrument red (table in #306). The one belief corrected: the starter's `kit-config.test.ts` scans static env reads, and a read through a dynamic `import("$app/env/public")` slips past it. svelte-check is what catches that one.
