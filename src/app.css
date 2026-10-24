@@ -728,6 +728,22 @@ main > section.hero-band:first-child {
     --listing-divider-top: calc(100px + 2px + 18px + 34.8px - 9.4px);
   }
 
+  /* KIT'S OWN SCROLL ON THE FIRST RENDER LANDS INSTANTLY. On a reload, or a
+     Back from another site, kit 3 restores the saved position itself with a
+     `scrollTo` during startup (kit 2 left it to the browser), and under
+     `smooth` above that glided from the top to y=1500 over ~36 frames
+     (roalson-interests#306). $lib/utils/instantNavScroll covers kit's later
+     scrolls but not this one, which runs before any component mounts. So
+     until the root layout marks the page hydrated (`data-hydrated`, set in its
+     onMount), scrolling is not smoothed. Only while script is enabled: with it
+     off, `data-hydrated` never arrives, and the smooth in-page anchor scroll
+     must stay. */
+  @media (scripting: enabled) {
+    html:not([data-hydrated]) {
+      scroll-behavior: auto;
+    }
+  }
+
   body {
     font-family: var(--font-body);
     max-width: 100vw;

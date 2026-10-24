@@ -9,9 +9,10 @@ import type { AfterNavigate, BeforeNavigate } from "$app/navigation";
  *
  * We never call `scrollTo` ourselves: kit already picks the correct target for
  * every navigation type (top for links, the anchor for hash URLs, the saved
- * position for popstate, unchanged for `data-sveltekit-noscroll`). Scrolling
+ * position for popstate, unchanged for `data-sveltekit-reset="false"`, kit 3's
+ * name for kit 2's `data-sveltekit-noscroll`). Scrolling
  * on our own would fight those semantics — an earlier version of this util did
- * exactly that and broke cross-page anchors and noscroll links. Instead:
+ * exactly that and broke cross-page anchors and no-reset links. Instead:
  * `beforeNavigate` flips scroll-behavior to `auto`, kit performs its scroll
  * un-animated, and `afterNavigate` restores the inline style one frame later.
  *

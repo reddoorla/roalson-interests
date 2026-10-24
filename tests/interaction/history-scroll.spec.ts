@@ -1,35 +1,42 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { HYDRATION_TIMEOUT } from "./hydrated";
 
-// BACK AND FORWARD JUMP; THEY DO NOT GLIDE.
+// KIT'S OWN SCROLLS LAND; THEY DO NOT GLIDE.
 //
-// app.css sets `html { scroll-behavior: smooth }`, and $lib/utils/instantNavScroll
-// turns it off around kit's own post-navigation scroll so a history step lands
-// in one frame. On kit 3 that stopped holding for an entry saved at the top:
-// kit scrolls while the swapped-in page's layout is dirty, Chromium applies the
-// scroll at the next layout, after smooth was restored, and Back from
-// /properties at y=1500 to /team/matt-howard glided 863→0 over ~30 frames
-// (roalson-interests#306). The layout's flushLayoutForKitScroll effect is the
-// fix; deleting it turns this red.
+// app.css sets `html { scroll-behavior: smooth }`. Kit 3 broke two of the
+// places where kit's own scroll must land in one frame regardless
+// (roalson-interests#306):
 //
-// Nightly tier, not @smoke: it samples per-frame scroll positions.
+//   - Back/Forward to an entry saved at the top. Kit 3 scrolls while the new
+//     page's layout is dirty, Chromium applies it after instantNavScroll has
+//     put smooth back, and it glided (863→0 over ~30 frames). Fixed by the root
+//     layout's flushLayoutForKitScroll effect. INTERMITTENT: with the effect
+//     deleted this test went red in 3 of 6 runs, and every red was Back #1 (a
+//     later Back in the same page never glided). So one run is a coin flip:
+//     run it with --repeat-each 5 (about 97% to catch it) when checking a
+//     change to scrolling. With the fix it was green 10 of 10.
+//   - A reload (or a Back from another site) to a scrolled page. Kit 3 restores
+//     the position with its own scrollTo at startup, before any component
+//     mounts, and it glided up from 0 (~36 frames). Fixed by app.css's
+//     pre-hydration `scroll-behavior: auto`. Without it this test was red 3 of
+//     3.
 //
-// IT NEEDS A PRODUCTION BUILD. Under `vite dev` the scroll lands in one frame
-// with or without the fix (measured: 3 of 3 green with the effect deleted), so
-// on the dev server this spec skips itself rather than pass on nothing. Run it
-// with the gate's preview server:
-//   REDDOOR_GATE_SERVER=preview pnpm exec playwright test tests/interaction/history-scroll.spec.ts
-// Measured that way: 3 of 3 green with the fix, red without it (the 29-frame
-// 863→0 glide).
+// A MANUAL, PRODUCTION-BUILD INSTRUMENT. Neither glide reproduces under
+// `vite dev`, so on the dev server this spec skips itself rather than pass on
+// nothing, and the nightly workflow runs the dev server, so it is not in
+// `test:nightly`. Run it with the gate's preview server:
+//   REDDOOR_GATE_SERVER=preview pnpm exec playwright test tests/interaction/history-scroll.spec.ts --repeat-each 5
 //
 // `reducedMotion: "no-preference"` is required. The shared Playwright config
 // forces `reduce`, and app.css's reduced-motion block sets scroll-behavior to
 // auto, so a spec that inherits it can never see a glide.
 test.use({ contextOptions: { reducedMotion: "no-preference" } });
 
-test("Back to an entry saved at the top lands in one frame", async ({ page }) => {
+type Traced = Window & { __ys: number[] };
+
+async function traceScroll(page: Page) {
   await page.addInitScript(() => {
-    const w = window as unknown as { __ys: number[] };
+    const w = window as unknown as Traced;
     w.__ys = [];
     let last = -1;
     const tick = () => {
@@ -42,48 +49,79 @@ test("Back to an entry saved at the top lands in one frame", async ({ page }) =>
     requestAnimationFrame(tick);
   });
   await page.setViewportSize({ width: 1280, height: 800 });
-  await page.goto("/team/matt-howard");
-  // Vite's dev server serves its client module; a production build does not.
-  const onDevServer = (await page.request.get("/@vite/client")).ok();
-  test.skip(
-    onDevServer,
-    "needs a production build: REDDOOR_GATE_SERVER=preview (the glide does not reproduce under vite dev)",
-  );
-  await page.waitForSelector("html[data-hydrated]", { timeout: HYDRATION_TIMEOUT });
+}
 
-  // A client-side link to a page long enough to scroll well past the viewport.
-  await page.evaluate(() => {
+async function open(page: Page, path: string) {
+  await page.goto(path);
+  await page.waitForSelector("html[data-hydrated]", { timeout: HYDRATION_TIMEOUT });
+  // Vite's dev server serves its client module; a production build does not.
+  test.skip(
+    (await page.request.get("/@vite/client")).ok(),
+    "needs a production build: REDDOOR_GATE_SERVER=preview (neither glide reproduces under vite dev)",
+  );
+}
+
+/** A client-side link to `href`, clicked. */
+async function follow(page: Page, href: string) {
+  await page.evaluate((target) => {
+    // It is appended to <body>, outside kit's tree, so it outlives a Back.
+    document.getElementById("history-scroll-probe")?.remove();
     const a = document.createElement("a");
-    a.href = "/properties";
+    a.href = target;
     a.id = "history-scroll-probe";
-    a.textContent = "properties";
+    a.textContent = target;
     a.style.cssText = "position:fixed;top:0;left:0;z-index:99999";
     document.body.appendChild(a);
-  });
+  }, href);
   await page.click("#history-scroll-probe");
-  await page.waitForURL("**/properties");
+  await page.waitForURL(`**${href}`);
   await page.waitForLoadState("networkidle");
-  await page.evaluate(() => scrollTo({ top: 1500, behavior: "instant" }));
-  await expect.poll(() => page.evaluate(() => scrollY)).toBeGreaterThan(400);
-  // Clear the trace only once the sampler has recorded where we are, or the
-  // last pre-Back position lands in the trace as if Back had produced it.
+}
+
+/** Scroll to y instantly, then clear the trace once the sampler has seen it,
+ *  or the last pre-step position lands in the trace as if the step made it. */
+async function scrollAndReset(page: Page, y: number) {
+  await page.evaluate((top) => scrollTo({ top, behavior: "instant" }), y);
+  await expect.poll(() => page.evaluate(() => scrollY)).toBeGreaterThan(y / 2);
   await expect
     .poll(() =>
-      page.evaluate(
-        () => (window as unknown as { __ys: number[] }).__ys.at(-1) === Math.round(scrollY),
-      ),
+      page.evaluate(() => (window as unknown as Traced).__ys.at(-1) === Math.round(scrollY)),
     )
     .toBe(true);
-
   await page.evaluate(() => {
-    (window as unknown as { __ys: number[] }).__ys = [];
+    (window as unknown as Traced).__ys = [];
   });
-  await page.goBack();
-  await page.waitForURL("**/team/matt-howard");
-  // Long enough for a smooth scroll to finish, so a glide is fully recorded.
-  await page.waitForTimeout(1500);
-  const ys = await page.evaluate(() => (window as unknown as { __ys: number[] }).__ys);
+}
 
-  expect(ys.at(-1), "Back ends at the saved position").toBe(0);
-  expect(ys, "every recorded position after Back is the target: a jump, not a glide").toEqual([0]);
+const trace = (page: Page) => page.evaluate(() => (window as unknown as Traced).__ys);
+
+test("Back to an entry saved at the top lands in one frame, five times over", async ({ page }) => {
+  await traceScroll(page);
+  await open(page, "/team/matt-howard");
+  for (let attempt = 1; attempt <= 5; attempt++) {
+    await follow(page, "/properties");
+    await scrollAndReset(page, 1500);
+    await page.goBack();
+    await page.waitForURL("**/team/matt-howard");
+    // Long enough for a smooth scroll to finish, so a glide is fully recorded.
+    await page.waitForTimeout(1200);
+    expect(await trace(page), `Back #${attempt}: a jump to 0, not a glide`).toEqual([0]);
+  }
+});
+
+test("a reload restores a scrolled page without gliding up from the top", async ({ page }) => {
+  await traceScroll(page);
+  await open(page, "/contact");
+  await follow(page, "/properties");
+  await scrollAndReset(page, 1500);
+  await page.reload({ waitUntil: "networkidle" });
+  await page.waitForTimeout(1500);
+  const ys = await trace(page);
+  expect(ys.at(-1), "the reload ends near the saved position").toBeGreaterThan(1400);
+  // A fresh document starts at 0 and kit jumps it back; a glide passes through
+  // every position in between (0, 2, 10, 24, 47 … 1497).
+  expect(
+    ys.filter((y) => y > 0 && y < 1400),
+    "no position between the top and the target",
+  ).toEqual([]);
 });
