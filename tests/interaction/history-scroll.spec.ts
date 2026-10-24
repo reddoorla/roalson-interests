@@ -1,11 +1,11 @@
 import { expect, test, type Page } from "@playwright/test";
 import { HYDRATION_TIMEOUT } from "./hydrated";
 
-// KIT'S OWN SCROLLS LAND; THEY DO NOT GLIDE.
+// KIT'S OWN SCROLLS LAND; THEY DO NOT GLIDE, DRIFT, OR FIGHT THE VISITOR.
 //
-// app.css sets `html { scroll-behavior: smooth }`. Kit 3 broke two of the
-// places where kit's own scroll must land in one frame regardless
-// (roalson-interests#306):
+// app.css sets `html { scroll-behavior: smooth }`. Kit 3 broke the places
+// where kit's own scroll must land in one frame regardless
+// (roalson-interests#306), and each fix had to keep the next case intact:
 //
 //   - Back/Forward to an entry saved at the top. Kit 3 scrolls while the new
 //     page's layout is dirty, Chromium applies it after instantNavScroll has
@@ -17,9 +17,13 @@ import { HYDRATION_TIMEOUT } from "./hydrated";
 //     change to scrolling. With the fix it was green 10 of 10.
 //   - A reload (or a Back from another site) to a scrolled page. Kit 3 restores
 //     the position with its own scrollTo at startup, before any component
-//     mounts, and it glided up from 0 (~36 frames). Fixed by app.css's
-//     pre-hydration `scroll-behavior: auto`. Without it this test was red 3 of
-//     3.
+//     mounts: it glided up from 0 (~36 frames), and once made instant it
+//     drifted 112px (1500→1612) when scroll anchoring followed hydration
+//     shrinking /properties. Fixed by app.css's pre-hydration
+//     `scroll-behavior: auto` and `overflow-anchor: none`.
+//   - A visitor who scrolls while a slow page is still hydrating keeps that
+//     position. A fix that re-applied kit's target after hydration snapped
+//     them back to it (2000→800, round 4).
 //
 // A MANUAL, PRODUCTION-BUILD INSTRUMENT. Neither glide reproduces under
 // `vite dev`, so on the dev server this spec skips itself rather than pass on
@@ -126,4 +130,31 @@ test("a reload restores a scrolled page without gliding up from the top", async 
     ys.filter((y) => y > 0 && y < 1400),
     "no position between the top and the target",
   ).toEqual([]);
+});
+
+test("a scroll made while a slow page is still hydrating is kept", async ({ page }) => {
+  await traceScroll(page);
+  await open(page, "/");
+  await scrollAndReset(page, 800);
+  // Hold back the page's own chunk so hydration lands 3s after kit's restore.
+  await page.route(/\/_app\/immutable\/nodes\/([2-9]|\d\d)\.[^/]*\.js$/, async (route) => {
+    await new Promise((resolve) => setTimeout(resolve, 3000));
+    await route.continue();
+  });
+  await page.reload({ waitUntil: "commit" });
+  await expect.poll(() => page.evaluate(() => Math.round(scrollY)), { timeout: 10_000 }).toBe(800);
+  expect(
+    await page.evaluate(() => document.documentElement.hasAttribute("data-hydrated")),
+    "the visitor's scroll lands before hydration",
+  ).toBe(false);
+  await page.mouse.move(640, 400);
+  await page.mouse.wheel(0, 1200);
+  await expect.poll(() => page.evaluate(() => Math.round(scrollY))).toBeGreaterThan(1500);
+  const scrolled = await page.evaluate(() => Math.round(scrollY));
+  await page.waitForSelector("html[data-hydrated]", { timeout: HYDRATION_TIMEOUT });
+  await page.waitForTimeout(1000);
+  expect(
+    await page.evaluate(() => Math.round(scrollY)),
+    "hydration keeps the visitor's position",
+  ).toBe(scrolled);
 });
