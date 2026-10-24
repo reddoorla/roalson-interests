@@ -20,10 +20,14 @@ import { HYDRATION_TIMEOUT } from "./hydrated";
 //     mounts: it glided up from 0 (~36 frames), and once made instant it
 //     drifted 112px (1500→1612) when scroll anchoring followed hydration
 //     shrinking /properties. Fixed by app.css's pre-hydration
-//     `scroll-behavior: auto` and `overflow-anchor: none`.
+//     `scroll-behavior: auto`, and by hooks.client.ts turning anchoring off
+//     for reload and Back/Forward loads only, until the layout mounts.
 //   - A visitor who scrolls while a slow page is still hydrating keeps that
 //     position. A fix that re-applied kit's target after hydration snapped
 //     them back to it (2000→800, round 4).
+//   - Not tested here, measured by hand: on a FIRST visit anchoring stays on,
+//     so a web font swapping in does not move the line a visitor is reading.
+//     Anchoring off for every load moved it 24-72px on /privacy (round 5).
 //
 // A MANUAL, PRODUCTION-BUILD INSTRUMENT. Neither glide reproduces under
 // `vite dev`, so on the dev server this spec skips itself rather than pass on

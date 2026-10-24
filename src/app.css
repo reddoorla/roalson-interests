@@ -728,7 +728,7 @@ main > section.hero-band:first-child {
     --listing-divider-top: calc(100px + 2px + 18px + 34.8px - 9.4px);
   }
 
-  /* KIT'S OWN SCROLL ON THE FIRST RENDER LANDS INSTANTLY, AND WHERE IT AIMED.
+  /* KIT'S OWN SCROLL ON THE FIRST RENDER LANDS INSTANTLY.
      On a reload, or a Back from another site, kit restores the saved position
      with a `scrollTo` during startup, before any component mounts. Kit 2 also
      set `scrollRestoration = 'auto'` as the page unloaded, so the browser
@@ -738,17 +738,14 @@ main > section.hero-band:first-child {
      $lib/utils/instantNavScroll covers kit's later scrolls but not this one.
 
      So until the root layout marks the page hydrated (`data-hydrated`, set in
-     its onMount):
-       - scrolling is not smoothed, so the restore is one jump; and
-       - scroll anchoring is off. The restore lands in the server-rendered
-         layout, and on /properties that is 14212px tall before hydration and
-         2487px after: with anchoring on, Chromium and Firefox moved a reload at
-         1500 to 1612 when hydration shrank it. An earlier fix re-applied kit's
-         target after hydration instead, and that also undid a scroll the
-         visitor made while a slow page was still loading (#306, round 4).
+     its onMount), scrolling is not smoothed, and the restore is one jump.
+     Where hydration then changes the page's height, scroll anchoring would
+     move that position; instantNavScroll's holdAnchoringForRestore (from
+     hooks.client.ts) turns anchoring off for reload and Back/Forward loads
+     only, so a first visit keeps it (#306, rounds 3 to 5).
 
      Only while script is enabled: with it off, `data-hydrated` never arrives,
-     and the smooth in-page anchor scroll and anchoring must stay. The price: an
+     and the smooth in-page anchor scroll must stay. The price: an
      in-page link clicked before hydration (on a slow network, while the JS
      downloads) jumps instead of gliding. A browser without `scripting` media
      support (before Chrome 120, Firefox 113, Safari 17) ignores the rule and
@@ -756,10 +753,6 @@ main > section.hero-band:first-child {
   @media (scripting: enabled) {
     html:not([data-hydrated]) {
       scroll-behavior: auto;
-    }
-    html:not([data-hydrated]),
-    html:not([data-hydrated]) body {
-      overflow-anchor: none;
     }
   }
 

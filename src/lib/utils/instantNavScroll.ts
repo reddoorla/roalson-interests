@@ -50,3 +50,32 @@ export function restoreSmoothScroll({ type }: AfterNavigate): void {
     document.documentElement.style.scrollBehavior = "";
   });
 }
+
+/**
+ * Scroll anchoring off for a reload or a Back/Forward page load, until the
+ * root layout mounts (`releaseAnchoring`). Call it from `hooks.client.ts`
+ * `init`, which kit 3 runs before its own startup restore of the saved
+ * position.
+ *
+ * Why: kit restores that position before hydration, into the server-rendered
+ * layout, and on /properties that is 14212px tall before hydration and 2487px
+ * after. With anchoring on, Chromium and Firefox moved a reload at 1500 to
+ * 1612 when hydration shrank the page. Only these loads have a restore to
+ * protect: on a first visit anchoring stays on, so a web font swapping in
+ * while the visitor reads does not move the text under them (switching it
+ * off for every load did: -24 to -72px on /privacy, roalson-interests#306
+ * round 5). Re-applying kit's target after hydration instead fought a
+ * visitor who scrolled during a slow load (round 4).
+ */
+export function holdAnchoringForRestore(): void {
+  const [entry] = performance.getEntriesByType("navigation") as PerformanceNavigationTiming[];
+  if (entry?.type !== "reload" && entry?.type !== "back_forward") return;
+  document.documentElement.style.overflowAnchor = "none";
+  document.body.style.overflowAnchor = "none";
+}
+
+/** Undo `holdAnchoringForRestore`, once the page has hydrated. */
+export function releaseAnchoring(): void {
+  document.documentElement.style.overflowAnchor = "";
+  document.body.style.overflowAnchor = "";
+}

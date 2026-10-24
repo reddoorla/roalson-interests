@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   disableSmoothScroll,
   flushLayoutForKitScroll,
+  holdAnchoringForRestore,
+  releaseAnchoring,
   restoreSmoothScroll,
 } from "./instantNavScroll";
 import type { AfterNavigate, BeforeNavigate } from "$app/navigation";
@@ -72,5 +74,37 @@ describe("instantNavScroll", () => {
     } as unknown as AfterNavigate);
     expect(scrollSpy).not.toHaveBeenCalled();
     scrollSpy.mockRestore();
+  });
+});
+
+describe("holdAnchoringForRestore", () => {
+  const navType = (type: string) =>
+    vi
+      .spyOn(performance, "getEntriesByType")
+      .mockReturnValue([{ type } as unknown as PerformanceEntry]);
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    releaseAnchoring();
+  });
+
+  it.each(["reload", "back_forward"])(
+    "turns anchoring off for a %s load, until released",
+    (type) => {
+      navType(type);
+      holdAnchoringForRestore();
+      expect(document.documentElement.style.overflowAnchor).toBe("none");
+      expect(document.body.style.overflowAnchor).toBe("none");
+      releaseAnchoring();
+      expect(document.documentElement.style.overflowAnchor).toBe("");
+      expect(document.body.style.overflowAnchor).toBe("");
+    },
+  );
+
+  it("leaves anchoring on for a first visit, so a font swap keeps the reader's line", () => {
+    navType("navigate");
+    holdAnchoringForRestore();
+    expect(document.documentElement.style.overflowAnchor).toBe("");
+    expect(document.body.style.overflowAnchor).toBe("");
   });
 });

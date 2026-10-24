@@ -21,6 +21,7 @@
   import {
     disableSmoothScroll,
     flushLayoutForKitScroll,
+    releaseAnchoring,
     restoreSmoothScroll,
   } from "$lib/utils/instantNavScroll";
 
@@ -51,9 +52,11 @@
 
   // Evidence that script has taken the page over, for tests/smoke/routes.ts
   // (#57): only a mounted root layout writes it, so it is absent with scripting
-  // off, with the bundle missing, and before hydration. Nothing styles from it.
+  // off, with the bundle missing, and before hydration. app.css keys its
+  // pre-hydration `scroll-behavior: auto` on it (#306).
   onMount(() => {
     document.documentElement.dataset.hydrated = "";
+    releaseAnchoring();
   });
 </script>
 
