@@ -3,6 +3,7 @@ import {
   disableSmoothScroll,
   flushLayoutForKitScroll,
   holdAnchoringForRestore,
+  letBrowserRestoreWithoutStorage,
   releaseAnchoring,
   restoreSmoothScroll,
 } from "./instantNavScroll";
@@ -117,5 +118,32 @@ describe("holdAnchoringForRestore", () => {
     kitState(1700000000000);
     holdAnchoringForRestore();
     expect(document.documentElement.style.overflowAnchor).toBe("");
+  });
+});
+
+describe("letBrowserRestoreWithoutStorage", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    history.scrollRestoration = "auto";
+  });
+
+  it("gives the restore back to the browser on pagehide when sessionStorage throws", () => {
+    vi.spyOn(window, "sessionStorage", "get").mockImplementation(() => {
+      throw new DOMException("site data blocked", "SecurityError");
+    });
+    history.scrollRestoration = "manual";
+    const remove = letBrowserRestoreWithoutStorage();
+    expect(history.scrollRestoration).toBe("manual");
+    window.dispatchEvent(new Event("pagehide"));
+    expect(history.scrollRestoration).toBe("auto");
+    remove();
+  });
+
+  it("leaves kit's manual restore alone when sessionStorage works", () => {
+    history.scrollRestoration = "manual";
+    const remove = letBrowserRestoreWithoutStorage();
+    window.dispatchEvent(new Event("pagehide"));
+    expect(history.scrollRestoration).toBe("manual");
+    remove();
   });
 });

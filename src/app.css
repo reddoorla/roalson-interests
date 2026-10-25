@@ -741,8 +741,8 @@ main > section.hero-band:first-child {
      its onMount), scrolling is not smoothed, and the restore is one jump.
      Where hydration then changes the page's height, scroll anchoring would
      move that position; instantNavScroll's holdAnchoringForRestore (from
-     hooks.client.ts) turns anchoring off for reload and Back/Forward loads
-     only, so a first visit keeps it (#306, rounds 3 to 5).
+     hooks.client.ts) turns anchoring off only on a load where kit restores a
+     saved position, so a first visit keeps it (#306, rounds 3 to 7).
 
      Only while script is enabled: with it off, `data-hydrated` never arrives,
      and the smooth in-page anchor scroll must stay. The price: an

@@ -20,8 +20,13 @@ import { HYDRATION_TIMEOUT } from "./hydrated";
 //     mounts: it glided up from 0 (~36 frames), and once made instant it
 //     drifted 112px (1500→1612) when scroll anchoring followed hydration
 //     shrinking /properties. Fixed by app.css's pre-hydration
-//     `scroll-behavior: auto`, and by hooks.client.ts turning anchoring off
-//     for reload and Back/Forward loads only, until the layout mounts.
+//     `scroll-behavior: auto`, and by hooks.client.ts turning anchoring off,
+//     until the layout mounts, on a load where kit restores a saved position
+//     (kit's own test, not the navigation type: round 7).
+//   - The same reload with sessionStorage blocked. Kit 3.1 leaves
+//     scrollRestoration "manual" and restores only from storage, so it landed
+//     at 0 (round 7's review). hooks.client.ts hands that restore back to the
+//     browser, as kit 2 did.
 //   - A visitor who scrolls while a slow page is still hydrating keeps that
 //     position. A fix that re-applied kit's target after hydration snapped
 //     them back to it (2000→800, round 4).
@@ -147,6 +152,30 @@ test("loading the URL the tab is already on restores without drifting", async ({
   await page.goto(page.url(), { waitUntil: "networkidle" });
   await page.waitForTimeout(1500);
   expect((await trace(page)).at(-1), "the same-URL load ends on the saved position").toBe(1500);
+});
+
+test("a reload with sessionStorage blocked still restores the position", async ({ page }) => {
+  // Blocking all site data makes sessionStorage throw (Firefox's setting, the
+  // case round 7's review found). Kit 3.1 then has no saved position and has
+  // set scrollRestoration "manual", so the reload landed at 0 (#306). /privacy,
+  // not /properties: there the browser's own restore lands exactly in every
+  // engine, on kit 2 as on kit 3. On /properties kit 2 and kit 3 both land at
+  // 1687 in Chromium (its restore follows the element under 1500 into the
+  // taller pre-hydration page, then hydration clamps it) and 1612 in WebKit.
+  await page.addInitScript(() => {
+    Object.defineProperty(window, "sessionStorage", {
+      get() {
+        throw new DOMException("site data blocked", "SecurityError");
+      },
+    });
+  });
+  await traceScroll(page);
+  await open(page, "/contact");
+  await follow(page, "/privacy");
+  await scrollAndReset(page, 1200);
+  await page.reload({ waitUntil: "networkidle" });
+  await page.waitForTimeout(1500);
+  expect((await trace(page)).at(-1), "the reload ends on the saved position").toBe(1200);
 });
 
 test("a scroll made while a slow page is still hydrating is kept", async ({ page }) => {

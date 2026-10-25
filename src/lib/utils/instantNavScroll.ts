@@ -105,3 +105,30 @@ export function releaseAnchoring(): void {
   document.documentElement.style.overflowAnchor = "";
   document.body.style.overflowAnchor = "";
 }
+
+/**
+ * Where `sessionStorage` is blocked, hand reload and Back restores back to the
+ * browser. Call it from `hooks.client.ts` `init`.
+ *
+ * Kit 3.1 sets `history.scrollRestoration = "manual"` at startup and restores
+ * from `sessionStorage` itself; kit 2 also set it back to `"auto"` on unload,
+ * and kit 3.1 does not. With site data blocked (Firefox's "block all cookies
+ * and site data" makes `sessionStorage` throw), kit has nothing to restore and
+ * the browser was told not to, so a reload or a Back from another site landed
+ * at 0 where kit 2 landed exactly (roalson-interests#306, round 7). Setting
+ * `"auto"` on `pagehide` gives that entry back to the browser, as kit 2 did.
+ * With storage working this does nothing, and kit's own restore stands.
+ * Returns the listener's remover (for tests).
+ */
+export function letBrowserRestoreWithoutStorage(): () => void {
+  try {
+    void sessionStorage.length;
+    return () => {};
+  } catch {
+    const handBack = () => {
+      history.scrollRestoration = "auto";
+    };
+    addEventListener("pagehide", handBack);
+    return () => removeEventListener("pagehide", handBack);
+  }
+}
