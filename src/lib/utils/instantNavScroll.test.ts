@@ -3,7 +3,7 @@ import {
   disableSmoothScroll,
   flushLayoutForKitScroll,
   holdAnchoringForRestore,
-  letBrowserRestoreWithoutStorage,
+  letBrowserRestoreWhenKitCannot,
   releaseAnchoring,
   restoreSmoothScroll,
 } from "./instantNavScroll";
@@ -121,9 +121,19 @@ describe("holdAnchoringForRestore", () => {
   });
 });
 
-describe("letBrowserRestoreWithoutStorage", () => {
+describe("letBrowserRestoreWhenKitCannot", () => {
+  const savedByKit = (index: number) => {
+    history.replaceState({ "sveltekit:metadata": { historyIndex: index } }, "");
+    sessionStorage.setItem(
+      "sveltekit:history-info",
+      JSON.stringify({ [index]: { scroll: { x: 0, y: 900 } } }),
+    );
+  };
+
   afterEach(() => {
     vi.restoreAllMocks();
+    history.replaceState(null, "");
+    sessionStorage.clear();
     history.scrollRestoration = "auto";
   });
 
@@ -132,18 +142,69 @@ describe("letBrowserRestoreWithoutStorage", () => {
       throw new DOMException("site data blocked", "SecurityError");
     });
     history.scrollRestoration = "manual";
-    const remove = letBrowserRestoreWithoutStorage();
+    const remove = letBrowserRestoreWhenKitCannot();
     expect(history.scrollRestoration).toBe("manual");
     window.dispatchEvent(new Event("pagehide"));
     expect(history.scrollRestoration).toBe("auto");
     remove();
   });
 
-  it("leaves kit's manual restore alone when sessionStorage works", () => {
+  it("gives it back when storage reads but kit's save never landed (storage full)", () => {
+    history.replaceState({ "sveltekit:metadata": { historyIndex: 1700000000000 } }, "");
     history.scrollRestoration = "manual";
-    const remove = letBrowserRestoreWithoutStorage();
+    const remove = letBrowserRestoreWhenKitCannot();
+    window.dispatchEvent(new Event("pagehide"));
+    expect(history.scrollRestoration).toBe("auto");
+    remove();
+  });
+
+  it("leaves kit's manual restore alone when kit saved this page's position", () => {
+    savedByKit(1700000000000);
+    history.scrollRestoration = "manual";
+    const remove = letBrowserRestoreWhenKitCannot();
     window.dispatchEvent(new Event("pagehide"));
     expect(history.scrollRestoration).toBe("manual");
     remove();
+  });
+});
+
+describe("holdAnchoringForRestore when the browser restores", () => {
+  const loadType = (type: NavigationTimingType) =>
+    vi
+      .spyOn(performance, "getEntriesByType")
+      .mockReturnValue([{ type } as unknown as PerformanceEntry]);
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    releaseAnchoring();
+    history.scrollRestoration = "auto";
+  });
+
+  it("holds anchoring on a reload of an entry handed back to the browser", () => {
+    loadType("reload");
+    history.scrollRestoration = "auto";
+    holdAnchoringForRestore();
+    expect(document.documentElement.style.overflowAnchor).toBe("none");
+  });
+
+  it("holds it on Back/Forward to such an entry", () => {
+    loadType("back_forward");
+    history.scrollRestoration = "auto";
+    holdAnchoringForRestore();
+    expect(document.documentElement.style.overflowAnchor).toBe("none");
+  });
+
+  it("leaves anchoring on for a first visit, whose entry is also auto", () => {
+    loadType("navigate");
+    history.scrollRestoration = "auto";
+    holdAnchoringForRestore();
+    expect(document.documentElement.style.overflowAnchor).toBe("");
+  });
+
+  it("leaves anchoring on for a reload kit kept manual and has nothing to restore", () => {
+    loadType("reload");
+    history.scrollRestoration = "manual";
+    holdAnchoringForRestore();
+    expect(document.documentElement.style.overflowAnchor).toBe("");
   });
 });

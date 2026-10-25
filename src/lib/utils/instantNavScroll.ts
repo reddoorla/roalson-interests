@@ -80,8 +80,24 @@ export function kitWillRestoreScroll(): boolean {
 }
 
 /**
- * Scroll anchoring off for a page load on which kit restores a saved
- * position, until the root layout mounts (`releaseAnchoring`). Call it from
+ * Whether the browser itself will restore a saved scroll position on this
+ * page load: a reload or Back/Forward to an entry whose scroll restoration
+ * is still "auto". At `hooks.client.ts` `init` the mode is the history
+ * entry's own; kit sets "manual" only afterwards, so "auto" here means
+ * `letBrowserRestoreWhenKitCannot` handed this entry back on the way out.
+ */
+export function browserWillRestoreScroll(): boolean {
+  const navigation = performance.getEntriesByType("navigation")[0] as
+    PerformanceNavigationTiming | undefined;
+  return (
+    history.scrollRestoration === "auto" &&
+    (navigation?.type === "reload" || navigation?.type === "back_forward")
+  );
+}
+
+/**
+ * Scroll anchoring off for a page load on which kit or the browser restores
+ * a saved position, until the root layout mounts (`releaseAnchoring`). Call it from
  * `hooks.client.ts` `init`, which kit 3 runs before that restore.
  *
  * Why: kit restores the position before hydration, into the server-rendered
@@ -95,7 +111,7 @@ export function kitWillRestoreScroll(): boolean {
  * visitor who scrolled during a slow load (round 4).
  */
 export function holdAnchoringForRestore(): void {
-  if (!kitWillRestoreScroll()) return;
+  if (!kitWillRestoreScroll() && !browserWillRestoreScroll()) return;
   document.documentElement.style.overflowAnchor = "none";
   document.body.style.overflowAnchor = "none";
 }
@@ -107,28 +123,25 @@ export function releaseAnchoring(): void {
 }
 
 /**
- * Where `sessionStorage` is blocked, hand reload and Back restores back to the
- * browser. Call it from `hooks.client.ts` `init`.
+ * When kit could not save this page's scroll position, hand its restore to
+ * the browser. Call it from `hooks.client.ts` `init`.
  *
  * Kit 3.1 sets `history.scrollRestoration = "manual"` at startup and restores
- * from `sessionStorage` itself; kit 2 also set it back to `"auto"` on unload,
- * and kit 3.1 does not. With site data blocked (Firefox's "block all cookies
- * and site data" makes `sessionStorage` throw), kit has nothing to restore and
- * the browser was told not to, so a reload or a Back from another site landed
- * at 0 where kit 2 landed exactly (roalson-interests#306, round 7). Setting
- * `"auto"` on `pagehide` gives that entry back to the browser, as kit 2 did.
- * With storage working this does nothing, and kit's own restore stands.
- * Returns the listener's remover (for tests).
+ * only from what it saved in `sessionStorage`; kit 2 also set it back to
+ * "auto" on unload, and kit 3.1 does not. So where kit's save fails, nothing
+ * restores and a reload or a Back from another site lands at 0 where kit 2
+ * landed exactly: with site data blocked, `sessionStorage` throws (round 7's
+ * review), and with the origin's storage full, reading works but the write
+ * fails (round 8's). Kit saves on `beforeunload` and `visibilitychange`, both
+ * before `pagehide`, so on `pagehide` this reads back whether the save landed
+ * (`kitWillRestoreScroll`, kit's own test) and only if it did not sets "auto",
+ * as kit 2 did. `browserWillRestoreScroll` then holds anchoring for that
+ * restore on the next load. Returns the listener's remover (for tests).
  */
-export function letBrowserRestoreWithoutStorage(): () => void {
-  try {
-    void sessionStorage.length;
-    return () => {};
-  } catch {
-    const handBack = () => {
-      history.scrollRestoration = "auto";
-    };
-    addEventListener("pagehide", handBack);
-    return () => removeEventListener("pagehide", handBack);
-  }
+export function letBrowserRestoreWhenKitCannot(): () => void {
+  const handBack = () => {
+    if (!kitWillRestoreScroll()) history.scrollRestoration = "auto";
+  };
+  addEventListener("pagehide", handBack);
+  return () => removeEventListener("pagehide", handBack);
 }

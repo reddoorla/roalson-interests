@@ -108,7 +108,7 @@ source. It is the fastest way to recognise what a thing does.
 | [`countup.ts`](../src/lib/utils/countup.ts) | `formatCount` | 6 |  |
 | [`createUniqueId.ts`](../src/lib/utils/createUniqueId.ts) | `createUniqueId` | 2 |  |
 | [`image.ts`](../src/lib/utils/image.ts) | `DEFAULT_IMAGE_WIDTHS`, `isPrismicImageUrl`, `imgix`, `srcset` | 17 | Helpers for serving responsively-sized Prismic (imgix) images |
-| [`instantNavScroll.ts`](../src/lib/utils/instantNavScroll.ts) | `disableSmoothScroll`, `flushLayoutForKitScroll`, `restoreSmoothScroll`, `kitWillRestoreScroll`, `holdAnchoringForRestore`, `releaseAnchoring`, `letBrowserRestoreWithoutStorage` | 12 |  |
+| [`instantNavScroll.ts`](../src/lib/utils/instantNavScroll.ts) | `disableSmoothScroll`, `flushLayoutForKitScroll`, `restoreSmoothScroll`, `kitWillRestoreScroll`, `browserWillRestoreScroll`, `holdAnchoringForRestore`, `releaseAnchoring`, `letBrowserRestoreWhenKitCannot` | 17 |  |
 | [`preNavIntercept.ts`](../src/lib/utils/preNavIntercept.ts) | `shouldIntercept` | 11 |  |
 | [`reveal.ts`](../src/lib/utils/reveal.ts) | `reveal`, `revealInvalid` | 8 | Move focus to an element and land it 20px under the pinned bar — an alert, a confirmation or an error summary that script has just rendered (`reveal`), or the control native validation has just refused (`revealInvalid`) — because `focus()` alone loses a race with a smooth scroll in flight and leaves the element focused and hidden |
 | [`richTextHeadings.ts`](../src/lib/utils/richTextHeadings.ts) | `RT_HEADING_CTX`, `defaultLevel`, `buildHeadingLevelMap` | 9 | Editors author arbitrary heading levels inside Prismic rich-text bodies (heading1–6 are all enabled in the slice models). Rendered verbatim, those break the page's heading-order — e.g. a page <h1> title followed by an editor <h3>, or an editor who skips from <h3> to <h5>. axe/Lighthouse flag both |
@@ -116,4 +116,4 @@ source. It is the fastest way to recognise what a thing does.
 | [`vimeo.ts`](../src/lib/utils/vimeo.ts) | `checkVimeoVideo`, `parseVimeoId` | 11 | True when the Vimeo video exists and is embeddable (oEmbed responds 200) |
 | [`vimeoBackground.svelte.ts`](../src/lib/utils/vimeoBackground.svelte.ts) | `VIMEO_PLAYER_ORIGIN`, `backgroundEmbedSrc`, `VimeoBackground` | 5 | The gate, the heartbeat and the pause flag behind every chrome-less Vimeo background embed in this repo — lifted OUT of VimeoBanner.svelte so the homepage hero could have all three without taking VimeoBanner's markup with them |
 
-98 modules, 1015 tests behind them.
+98 modules, 1020 tests behind them.
