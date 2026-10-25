@@ -78,33 +78,44 @@ describe("instantNavScroll", () => {
 });
 
 describe("holdAnchoringForRestore", () => {
-  const navType = (type: string) =>
-    vi
-      .spyOn(performance, "getEntriesByType")
-      .mockReturnValue([{ type } as unknown as PerformanceEntry]);
+  // Kit 3's own restore test: the history entry's index in history.state, and
+  // a saved scroll for that index in sessionStorage.
+  const kitState = (index: number | undefined, scroll?: { x: number; y: number }) => {
+    history.replaceState(
+      index === undefined ? null : { "sveltekit:metadata": { historyIndex: index } },
+      "",
+    );
+    sessionStorage.setItem(
+      "sveltekit:history-info",
+      JSON.stringify(index === undefined || !scroll ? {} : { [index]: { scroll } }),
+    );
+  };
 
   afterEach(() => {
-    vi.restoreAllMocks();
     releaseAnchoring();
+    history.replaceState(null, "");
+    sessionStorage.clear();
   });
 
-  it.each(["reload", "back_forward"])(
-    "turns anchoring off for a %s load, until released",
-    (type) => {
-      navType(type);
-      holdAnchoringForRestore();
-      expect(document.documentElement.style.overflowAnchor).toBe("none");
-      expect(document.body.style.overflowAnchor).toBe("none");
-      releaseAnchoring();
-      expect(document.documentElement.style.overflowAnchor).toBe("");
-      expect(document.body.style.overflowAnchor).toBe("");
-    },
-  );
-
-  it("leaves anchoring on for a first visit, so a font swap keeps the reader's line", () => {
-    navType("navigate");
+  it("turns anchoring off when kit will restore a saved position, until released", () => {
+    kitState(1700000000000, { x: 0, y: 1500 });
     holdAnchoringForRestore();
+    expect(document.documentElement.style.overflowAnchor).toBe("none");
+    expect(document.body.style.overflowAnchor).toBe("none");
+    releaseAnchoring();
     expect(document.documentElement.style.overflowAnchor).toBe("");
     expect(document.body.style.overflowAnchor).toBe("");
+  });
+
+  it("leaves anchoring on for a first visit, so a font swap keeps the reader's line", () => {
+    kitState(undefined);
+    holdAnchoringForRestore();
+    expect(document.documentElement.style.overflowAnchor).toBe("");
+  });
+
+  it("leaves anchoring on when the history entry has no saved scroll", () => {
+    kitState(1700000000000);
+    holdAnchoringForRestore();
+    expect(document.documentElement.style.overflowAnchor).toBe("");
   });
 });

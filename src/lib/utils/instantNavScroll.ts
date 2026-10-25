@@ -43,8 +43,8 @@ export function flushLayoutForKitScroll(): void {
 
 export function restoreSmoothScroll({ type }: AfterNavigate): void {
   // First render: nothing was disabled. Kit's startup restore of a reload's
-  // position runs before hydration, and app.css (pre-hydration
-  // `scroll-behavior: auto` and `overflow-anchor: none`) is what makes it land.
+  // position runs before hydration; app.css's pre-hydration
+  // `scroll-behavior: auto` and holdAnchoringForRestore make it land.
   if (type === "enter") return;
   requestAnimationFrame(() => {
     document.documentElement.style.scrollBehavior = "";
@@ -52,12 +52,39 @@ export function restoreSmoothScroll({ type }: AfterNavigate): void {
 }
 
 /**
- * Scroll anchoring off for a reload or a Back/Forward page load, until the
- * root layout mounts (`releaseAnchoring`). Call it from `hooks.client.ts`
- * `init`, which kit 3 runs before its own startup restore of the saved
- * position.
+ * Whether kit 3 will restore a saved scroll position on this page load. It
+ * is kit's own test (client.js `_start`), read the same way: the history
+ * entry's index from `history.state["sveltekit:metadata"]`, and that index's
+ * saved `scroll` in `sessionStorage["sveltekit:history-info"]`. Not the
+ * navigation type: Chromium and WebKit keep the history state on a load of
+ * the URL the tab is already on (Enter in the address bar, a full-reload
+ * link), report it as `navigate`, and kit restores anyway
+ * (roalson-interests#306, round 6). Both keys are kit-internal; if a kit
+ * upgrade renames them this returns false, anchoring stays on, and
+ * tests/interaction/history-scroll.spec.ts's reload test goes red at 1612.
+ */
+export function kitWillRestoreScroll(): boolean {
+  try {
+    const index = (history.state as Record<string, { historyIndex?: number }> | null)?.[
+      "sveltekit:metadata"
+    ]?.historyIndex;
+    if (!index) return false;
+    const info = JSON.parse(sessionStorage.getItem("sveltekit:history-info") ?? "{}") as Record<
+      string,
+      { scroll?: unknown } | undefined
+    >;
+    return Boolean(info[String(index)]?.scroll);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Scroll anchoring off for a page load on which kit restores a saved
+ * position, until the root layout mounts (`releaseAnchoring`). Call it from
+ * `hooks.client.ts` `init`, which kit 3 runs before that restore.
  *
- * Why: kit restores that position before hydration, into the server-rendered
+ * Why: kit restores the position before hydration, into the server-rendered
  * layout, and on /properties that is 14212px tall before hydration and 2487px
  * after. With anchoring on, Chromium and Firefox moved a reload at 1500 to
  * 1612 when hydration shrank the page. Only these loads have a restore to
@@ -68,8 +95,7 @@ export function restoreSmoothScroll({ type }: AfterNavigate): void {
  * visitor who scrolled during a slow load (round 4).
  */
 export function holdAnchoringForRestore(): void {
-  const [entry] = performance.getEntriesByType("navigation") as PerformanceNavigationTiming[];
-  if (entry?.type !== "reload" && entry?.type !== "back_forward") return;
+  if (!kitWillRestoreScroll()) return;
   document.documentElement.style.overflowAnchor = "none";
   document.body.style.overflowAnchor = "none";
 }

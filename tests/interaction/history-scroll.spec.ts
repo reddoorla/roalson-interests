@@ -136,6 +136,19 @@ test("a reload restores a scrolled page without gliding up from the top", async 
   ).toEqual([]);
 });
 
+test("loading the URL the tab is already on restores without drifting", async ({ page }) => {
+  // Enter in the address bar on the same URL: Chromium keeps the history
+  // state and reports a `navigate` load, and kit 3 restores anyway. Holding
+  // anchoring by navigation type missed it and landed at 1612 (#306, round 6).
+  await traceScroll(page);
+  await open(page, "/contact");
+  await follow(page, "/properties");
+  await scrollAndReset(page, 1500);
+  await page.goto(page.url(), { waitUntil: "networkidle" });
+  await page.waitForTimeout(1500);
+  expect((await trace(page)).at(-1), "the same-URL load ends on the saved position").toBe(1500);
+});
+
 test("a scroll made while a slow page is still hydrating is kept", async ({ page }) => {
   await traceScroll(page);
   await open(page, "/");
