@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { PrismicPreview } from "@prismicio/svelte/kit";
+  import PrismicPreview from "$lib/components/PrismicPreview.svelte";
   import { page } from "$app/state";
   import { afterNavigate, beforeNavigate } from "$app/navigation";
   import { onMount } from "svelte";
@@ -18,7 +18,12 @@
   import Footer from "$lib/components/Footer.svelte";
   import { loadSiteConfig, footerNav } from "$lib/site-config";
   import { canvasTopStyleTag, canvasTopThemeColor } from "$lib/canvas-top";
-  import { disableSmoothScroll, restoreSmoothScroll } from "$lib/utils/instantNavScroll";
+  import {
+    disableSmoothScroll,
+    flushLayoutForKitScroll,
+    releaseAnchoring,
+    restoreSmoothScroll,
+  } from "$lib/utils/instantNavScroll";
 
   let { data, children } = $props();
 
@@ -38,12 +43,20 @@
   // instantly instead of gliding under app.css's smooth-scroll. See the util.
   beforeNavigate(disableSmoothScroll);
   afterNavigate(restoreSmoothScroll);
+  // Kit 3 scrolls on a dirty layout, so the scroll would land after smooth is
+  // back; this flushes it in the gap between the DOM update and kit's scroll.
+  $effect(() => {
+    void page.url.href;
+    flushLayoutForKitScroll();
+  });
 
   // Evidence that script has taken the page over, for tests/smoke/routes.ts
   // (#57): only a mounted root layout writes it, so it is absent with scripting
-  // off, with the bundle missing, and before hydration. Nothing styles from it.
+  // off, with the bundle missing, and before hydration. app.css keys its
+  // pre-hydration `scroll-behavior: auto` on it (#306).
   onMount(() => {
     document.documentElement.dataset.hydrated = "";
+    releaseAnchoring();
   });
 </script>
 

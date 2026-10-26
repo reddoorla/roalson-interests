@@ -728,6 +728,34 @@ main > section.hero-band:first-child {
     --listing-divider-top: calc(100px + 2px + 18px + 34.8px - 9.4px);
   }
 
+  /* KIT'S OWN SCROLL ON THE FIRST RENDER LANDS INSTANTLY.
+     On a reload, or a Back from another site, kit restores the saved position
+     with a `scrollTo` during startup, before any component mounts. Kit 2 also
+     set `scrollRestoration = 'auto'` as the page unloaded, so the browser
+     restored first and kit 2's own scroll then glided the rest of the way;
+     kit 3.1 dropped that, and under `smooth` above its restore glided up from
+     the top to y=1500 over ~36 frames (roalson-interests#306).
+     $lib/utils/instantNavScroll covers kit's later scrolls but not this one.
+
+     So until the root layout marks the page hydrated (`data-hydrated`, set in
+     its onMount), scrolling is not smoothed, and the restore is one jump.
+     Where hydration then changes the page's height, scroll anchoring would
+     move that position; instantNavScroll's holdAnchoringForRestore (from
+     hooks.client.ts) turns anchoring off only on a load where kit restores a
+     saved position, so a first visit keeps it (#306, rounds 3 to 7).
+
+     Only while script is enabled: with it off, `data-hydrated` never arrives,
+     and the smooth in-page anchor scroll must stay. The price: an
+     in-page link clicked before hydration (on a slow network, while the JS
+     downloads) jumps instead of gliding. A browser without `scripting` media
+     support (before Chrome 120, Firefox 113, Safari 17) ignores the rule and
+     gets kit 3's plain behaviour, never worse. */
+  @media (scripting: enabled) {
+    html:not([data-hydrated]) {
+      scroll-behavior: auto;
+    }
+  }
+
   body {
     font-family: var(--font-body);
     max-width: 100vw;

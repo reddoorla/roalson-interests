@@ -26,11 +26,11 @@ grep -rn "your-prismic-repo-name\|reddoor-wireframer\|<Site name>\|<Client>" \
 
 ## Design
 
-| File                           | Change                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `src/app.css` → `@theme`       | Brand palette and `--font-heading` / `--font-body`. The shipped values are a deliberately mismatched placeholder set, so a token you forgot to set is visible rather than silent. **`--color-secondary` is a TEXT token** — see "Fill-only brand colours" below.                                                                                                                                                                     |
-| `src/lib/site-config.json`     | Nav items, `footer.owner` (the copyright holder — set this, not `footer.text`), the footer's closing headline + buttons (`footer.cta`) and its two TREC links (`footer.legal`). The footer lists `nav.items` unless `footer.nav` says otherwise; the office's address and phone are NOT here — they live in `src/lib/office.ts`. Swap the module for a Prismic `settings` loader behind the same exports if the client edits chrome. |
-| `svelte.config.js` → `kit.csp` | Add every third-party host the design needs. The baseline allows Prismic, Vimeo, Turnstile and Google Fonts only — a font kit, YouTube embed, donation platform or analytics tag is blocked until listed. Self-hosted fonts need nothing.                                                                                                                                                                                            |
+| File                          | Change                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `src/app.css` → `@theme`      | Brand palette and `--font-heading` / `--font-body`. The shipped values are a deliberately mismatched placeholder set, so a token you forgot to set is visible rather than silent. **`--color-secondary` is a TEXT token** — see "Fill-only brand colours" below.                                                                                                                                                                     |
+| `src/lib/site-config.json`    | Nav items, `footer.owner` (the copyright holder — set this, not `footer.text`), the footer's closing headline + buttons (`footer.cta`) and its two TREC links (`footer.legal`). The footer lists `nav.items` unless `footer.nav` says otherwise; the office's address and phone are NOT here — they live in `src/lib/office.ts`. Swap the module for a Prismic `settings` loader behind the same exports if the client edits chrome. |
+| `sveltekit.config.js` → `csp` | Add every third-party host the design needs. The baseline allows Prismic, Vimeo, Turnstile and Google Fonts only — a font kit, YouTube embed, donation platform or analytics tag is blocked until listed. Self-hosted fonts need nothing.                                                                                                                                                                                            |
 
 ### Fill-only brand colours
 
@@ -120,7 +120,7 @@ While it is in place, Prismic-backed routes 404 during prerender and the build
 tolerates it, so a fresh clone is green before the CMS exists. Replacing it with
 a real repository name re-arms loud-fail prerendering by design — after that, a
 404 during prerender fails the build. The sentinel is read in four places
-(`svelte.config.js`, `src/lib/prismicio.ts`, the route loaders, and
+(`sveltekit.config.js`, `src/lib/prismicio.ts`, the route loaders, and
 `tests/smoke/routes.ts`); change it in `slicemachine.config.json` only.
 
 `VITE_PRISMIC_ENVIRONMENT=your-prismic-repo-name` reaches the same sentinel
@@ -130,7 +130,7 @@ repository has content. Never set it in CI or in Netlify's environment. There
 it is invisible in the diff, persists indefinitely, and produces a green build
 that emits no `build/index.html` alongside a green smoke run that expects `/`
 to 404 — every gate agreeing about a site that does not exist. Since #120,
-`svelte.config.js` and `tests/smoke/routes.ts` both refuse to load when the
+`sveltekit.config.js` and `tests/smoke/routes.ts` both refuse to load when the
 hatch is set and `CI` or `NETLIFY` is, so the failure is loud at the point
 someone reaches for it. A site whose Prismic repository is not ready should
 stay red, or keep the sentinel in `slicemachine.config.json`.

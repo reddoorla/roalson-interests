@@ -1,7 +1,7 @@
 // The `VITE_PRISMIC_ENVIRONMENT=your-prismic-repo-name` hatch is LOCAL-ONLY
 // (reddoor-starter#120). Set in CI or on Netlify it greens a build that emits
 // no home page AND a smoke run that expects `/` to 404 — both halves of the
-// gate agreeing about a site that does not exist. `svelte.config.js` and
+// gate agreeing about a site that does not exist. `sveltekit.config.js` and
 // `tests/smoke/routes.ts` each refuse to load under that combination.
 //
 // Proven by spawning a real Node import of each file, because the guard is a
@@ -59,7 +59,7 @@ function importUnder(
 }
 
 const FILES = [
-  { label: "svelte.config.js", file: "./svelte.config.js" },
+  { label: "sveltekit.config.js", file: "./sveltekit.config.js" },
   // Node 24 strips types, so the Playwright manifest loads under a bare `node`.
   { label: "tests/smoke/routes.ts", file: "./tests/smoke/routes.ts" },
 ];

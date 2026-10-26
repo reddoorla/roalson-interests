@@ -10,7 +10,7 @@ export type PropertyClient = {
   getByUID(type: "property", uid: string): Promise<PropertyDocument>;
 };
 
-/** The uids of archived listings this process has 404'd. svelte.config.js's
+/** The uids of archived listings this process has 404'd. sveltekit.config.js's
  *  `handleHttpError` sees only a status and a path, so a page still linking
  *  to an archived listing failed the build with a bare 404 (#176); it reads
  *  this set to name the cause instead. The prerenderer loads the config and
@@ -30,7 +30,7 @@ export async function loadProperty(client: PropertyClient, uid: string, url: URL
   const property = await orNotFound(client.getByUID("property", uid));
   if (isArchived(property)) {
     noteArchived(uid);
-    error(404, { message: "Page not found" });
+    error(404, "Page not found");
   }
   return { property, ...propertyMeta(property, url) };
 }

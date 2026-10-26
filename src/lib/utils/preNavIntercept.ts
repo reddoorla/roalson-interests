@@ -1,4 +1,4 @@
-import type { BeforeNavigate } from "@sveltejs/kit";
+import type { BeforeNavigate } from "$app/navigation";
 
 /**
  * Structural subset of SvelteKit's `BeforeNavigate` — enough for the

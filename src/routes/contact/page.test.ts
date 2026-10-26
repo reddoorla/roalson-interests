@@ -10,7 +10,11 @@ vi.mock("$app/forms", () => ({
 // No sitekey → TurnstileWidget renders nothing, as in dev and in CI. Mutable so
 // ONE case can set a key and see where the mount point lands.
 const publicEnv = vi.hoisted(() => ({ env: {} as { PUBLIC_TURNSTILE_SITE_KEY?: string } }));
-vi.mock("$env/dynamic/public", () => publicEnv);
+vi.mock("$app/env/public", () => ({
+  get PUBLIC_TURNSTILE_SITE_KEY() {
+    return publicEnv.env.PUBLIC_TURNSTILE_SITE_KEY;
+  },
+}));
 
 const { default: ContactPage } = await import("./+page.svelte");
 

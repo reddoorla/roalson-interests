@@ -1,6 +1,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { disableSmoothScroll, restoreSmoothScroll } from "./instantNavScroll";
-import type { AfterNavigate, BeforeNavigate } from "@sveltejs/kit";
+import {
+  disableSmoothScroll,
+  flushLayoutForKitScroll,
+  holdAnchoringForRestore,
+  letBrowserRestoreWhenKitCannot,
+  releaseAnchoring,
+  restoreSmoothScroll,
+} from "./instantNavScroll";
+import type { AfterNavigate, BeforeNavigate } from "$app/navigation";
 
 const afterNav = (type: AfterNavigate["type"]) => ({ type }) as AfterNavigate;
 
@@ -21,6 +28,15 @@ afterEach(() => {
 });
 
 describe("instantNavScroll", () => {
+  it("flushLayoutForKitScroll only reads layout: it never scrolls or touches the style", () => {
+    const scrollSpy = vi.spyOn(window, "scrollTo");
+    document.documentElement.style.scrollBehavior = "auto";
+    flushLayoutForKitScroll();
+    expect(scrollSpy).not.toHaveBeenCalled();
+    expect(document.documentElement.style.scrollBehavior).toBe("auto");
+    scrollSpy.mockRestore();
+  });
+
   it("never scrolls on its own — kit owns the scroll target (hash/noscroll/popstate safety)", () => {
     const scrollSpy = vi.spyOn(window, "scrollTo");
     disableSmoothScroll({} as BeforeNavigate);
@@ -49,5 +65,146 @@ describe("instantNavScroll", () => {
   it("does nothing on initial load (enter): nothing was disabled", () => {
     restoreSmoothScroll(afterNav("enter"));
     expect(rafSpy).not.toHaveBeenCalled();
+  });
+
+  it("never scrolls on enter, even when kit restored a saved position", () => {
+    const scrollSpy = vi.spyOn(window, "scrollTo");
+    restoreSmoothScroll({
+      type: "enter",
+      to: { scroll: { x: 0, y: 1500 } },
+    } as unknown as AfterNavigate);
+    expect(scrollSpy).not.toHaveBeenCalled();
+    scrollSpy.mockRestore();
+  });
+});
+
+describe("holdAnchoringForRestore", () => {
+  // Kit 3's own restore test: the history entry's index in history.state, and
+  // a saved scroll for that index in sessionStorage.
+  const kitState = (index: number | undefined, scroll?: { x: number; y: number }) => {
+    history.replaceState(
+      index === undefined ? null : { "sveltekit:metadata": { historyIndex: index } },
+      "",
+    );
+    sessionStorage.setItem(
+      "sveltekit:history-info",
+      JSON.stringify(index === undefined || !scroll ? {} : { [index]: { scroll } }),
+    );
+  };
+
+  afterEach(() => {
+    releaseAnchoring();
+    history.replaceState(null, "");
+    sessionStorage.clear();
+  });
+
+  it("turns anchoring off when kit will restore a saved position, until released", () => {
+    kitState(1700000000000, { x: 0, y: 1500 });
+    holdAnchoringForRestore();
+    expect(document.documentElement.style.overflowAnchor).toBe("none");
+    expect(document.body.style.overflowAnchor).toBe("none");
+    releaseAnchoring();
+    expect(document.documentElement.style.overflowAnchor).toBe("");
+    expect(document.body.style.overflowAnchor).toBe("");
+  });
+
+  it("leaves anchoring on for a first visit, so a font swap keeps the reader's line", () => {
+    kitState(undefined);
+    holdAnchoringForRestore();
+    expect(document.documentElement.style.overflowAnchor).toBe("");
+  });
+
+  it("leaves anchoring on when the history entry has no saved scroll", () => {
+    kitState(1700000000000);
+    holdAnchoringForRestore();
+    expect(document.documentElement.style.overflowAnchor).toBe("");
+  });
+});
+
+describe("letBrowserRestoreWhenKitCannot", () => {
+  const savedByKit = (index: number) => {
+    history.replaceState({ "sveltekit:metadata": { historyIndex: index } }, "");
+    sessionStorage.setItem(
+      "sveltekit:history-info",
+      JSON.stringify({ [index]: { scroll: { x: 0, y: 900 } } }),
+    );
+  };
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    history.replaceState(null, "");
+    sessionStorage.clear();
+    history.scrollRestoration = "auto";
+  });
+
+  it("gives the restore back to the browser on pagehide when sessionStorage throws", () => {
+    vi.spyOn(window, "sessionStorage", "get").mockImplementation(() => {
+      throw new DOMException("site data blocked", "SecurityError");
+    });
+    history.scrollRestoration = "manual";
+    const remove = letBrowserRestoreWhenKitCannot();
+    expect(history.scrollRestoration).toBe("manual");
+    window.dispatchEvent(new Event("pagehide"));
+    expect(history.scrollRestoration).toBe("auto");
+    remove();
+  });
+
+  it("gives it back when storage reads but kit's save never landed (storage full)", () => {
+    history.replaceState({ "sveltekit:metadata": { historyIndex: 1700000000000 } }, "");
+    history.scrollRestoration = "manual";
+    const remove = letBrowserRestoreWhenKitCannot();
+    window.dispatchEvent(new Event("pagehide"));
+    expect(history.scrollRestoration).toBe("auto");
+    remove();
+  });
+
+  it("leaves kit's manual restore alone when kit saved this page's position", () => {
+    savedByKit(1700000000000);
+    history.scrollRestoration = "manual";
+    const remove = letBrowserRestoreWhenKitCannot();
+    window.dispatchEvent(new Event("pagehide"));
+    expect(history.scrollRestoration).toBe("manual");
+    remove();
+  });
+});
+
+describe("holdAnchoringForRestore when the browser restores", () => {
+  const loadType = (type: NavigationTimingType) =>
+    vi
+      .spyOn(performance, "getEntriesByType")
+      .mockReturnValue([{ type } as unknown as PerformanceEntry]);
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    releaseAnchoring();
+    history.scrollRestoration = "auto";
+  });
+
+  it("holds anchoring on a reload of an entry handed back to the browser", () => {
+    loadType("reload");
+    history.scrollRestoration = "auto";
+    holdAnchoringForRestore();
+    expect(document.documentElement.style.overflowAnchor).toBe("none");
+  });
+
+  it("holds it on Back/Forward to such an entry", () => {
+    loadType("back_forward");
+    history.scrollRestoration = "auto";
+    holdAnchoringForRestore();
+    expect(document.documentElement.style.overflowAnchor).toBe("none");
+  });
+
+  it("leaves anchoring on for a first visit, whose entry is also auto", () => {
+    loadType("navigate");
+    history.scrollRestoration = "auto";
+    holdAnchoringForRestore();
+    expect(document.documentElement.style.overflowAnchor).toBe("");
+  });
+
+  it("leaves anchoring on for a reload kit kept manual and has nothing to restore", () => {
+    loadType("reload");
+    history.scrollRestoration = "manual";
+    holdAnchoringForRestore();
+    expect(document.documentElement.style.overflowAnchor).toBe("");
   });
 });

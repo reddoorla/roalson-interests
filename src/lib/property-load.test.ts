@@ -1,6 +1,6 @@
 // @vitest-environment node
 //
-// Node, not jsdom: the #176 case imports the real svelte.config.js, whose
+// Node, not jsdom: the #176 case imports the real sveltekit.config.js, whose
 // adapter pulls in esbuild, which refuses to load under jsdom (see
 // scripts/csp-policy.test.ts). Nothing else here touches a DOM.
 import { describe, expect, it } from "vitest";
@@ -56,11 +56,11 @@ describe("loadProperty", () => {
   });
 
   // #176: the build's crawler follows a link to an archived listing, this
-  // loader 404s it, and svelte.config.js's handleHttpError — which sees only
+  // loader 404s it, and sveltekit.config.js's handleHttpError — which sees only
   // a status and a path — must say which listing and why, not a bare 404.
   it("lets the build's 404 handler name an archived listing that a page still links to", async () => {
-    const { default: config } = await import("../../svelte.config.js");
-    const handle = config.kit!.prerender!.handleHttpError as (details: {
+    const { default: config } = await import("../../sveltekit.config.js");
+    const handle = config.prerender!.handleHttpError as (details: {
       path: string;
       status: number;
       message: string;

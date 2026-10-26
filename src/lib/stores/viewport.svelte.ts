@@ -1,4 +1,4 @@
-import { browser } from "$app/environment";
+import { browser } from "$app/env";
 
 const DEFAULT_WIDTH = 1024;
 const DEFAULT_HEIGHT = 768;
