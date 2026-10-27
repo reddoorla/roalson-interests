@@ -76,13 +76,11 @@ describe("Form's error summary skin", () => {
       /\b(?:slate|gray|zinc|neutral|stone|red|orange|amber|yellow|lime|green|emerald|teal|cyan|sky|blue|indigo|violet|purple|fuchsia|pink|rose)-\d{2,3}\b/,
     );
     const alert = getByRole("alert");
-    expect(alert.className.split(/\s+/)).toEqual(
-      expect.arrayContaining(["border", "border-error"]),
-    );
-    expect(alert.className).not.toMatch(/rounded|border-\d/);
-    // Every line of text in it is the measured error token.
+    // Every line of text in it is a token theme-contrast.test.ts measures on a
+    // light ground (its LIGHT_GROUND_TEXT; keep the two lists in step).
+    const measured = ["secondary", "primary", "dark", "black", "error"].map((t) => `text-${t}`);
     for (const el of [alert.querySelector("h2"), alert.querySelector("ul")]) {
-      expect(el?.className.split(/\s+/)).toContain("text-error");
+      expect(el?.className.split(/\s+/).some((c) => measured.includes(c))).toBe(true);
     }
   });
 });

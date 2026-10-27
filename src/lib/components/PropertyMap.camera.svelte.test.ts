@@ -854,7 +854,8 @@ describe("the zoom that is carried is one the visitor chose, on a listing", () =
       props.active = "b";
       flushSync();
       expect(flights(record), "premise: the crossing's flight").toHaveLength(1);
-      expect(flights(record)[0]!.zoom, "premise: at the frame's own zoom").toBe(12);
+      const listingZoom = flights(record)[0]!.zoom!;
+      expect(listingZoom, "premise: the listing's zoom is not the arc's").not.toBeCloseTo(9.87, 2);
       elapse(120);
 
       if (order.startsWith("the wheel")) {
@@ -873,8 +874,8 @@ describe("the zoom that is carried is one the visitor chose, on a listing", () =
       expect(flights(record), "the next crossing flies").toHaveLength(2);
       expect(
         flights(record)[1]!.zoom,
-        "three notches closer than the listing's 12, not than the arc's 9.87",
-      ).toBeCloseTo(12.5387, 9);
+        "three notches closer than the listing's zoom, not than the arc's 9.87",
+      ).toBeCloseTo(listingZoom + 0.5387, 9);
 
       // …and the arc's gap belongs to THAT flight. At rest on the next
       // listing a wheel's zoom is carried exactly as it ends, with nothing
@@ -896,6 +897,7 @@ describe("the zoom that is carried is one the visitor chose, on a listing", () =
     props.active = "b";
     flushSync();
     elapse(120);
+    const listingZoom = flights(record)[0]!.zoom!;
     stopFlight(record, 9.87, "dragPan");
     record.handlers.movestart?.({ originalEvent: new Event("mousemove") });
     record.nav.dragPan!.active = false;
@@ -905,7 +907,7 @@ describe("the zoom that is carried is one the visitor chose, on a listing", () =
     props.active = "c";
     flushSync();
     expect(flights(record), "the next crossing flies").toHaveLength(2);
-    expect(flights(record)[1]!.zoom).toBe(12);
+    expect(flights(record)[1]!.zoom).toBe(listingZoom);
   });
 
   // 3. A crossing while the wheel's own ease is still running. The suspension

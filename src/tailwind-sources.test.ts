@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync, readdirSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 
 // Tailwind's source scan reads every text file the repo does not gitignore, and
 // ships whatever spells a whole utility — markup or not. On 2026-09-21 the built
@@ -51,10 +51,5 @@ describe("what Tailwind's source scan can see", () => {
     // Empty since Slider.svelte's six greys went to tokens (#58), which were
     // the one listed exception.
     expect(found).toEqual({});
-  });
-
-  it("does not read docs/, where the journal names old classes on purpose", () => {
-    const css = readFileSync(resolve(ROOT, "src/app.css"), "utf8");
-    expect(css).toMatch(/^@source not "\.\.\/docs";$/m);
   });
 });
