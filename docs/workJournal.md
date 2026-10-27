@@ -13299,3 +13299,50 @@ timestamped name instead, so the PR body was corrected.
 
 The only mention of either file left in this repo is the 2026-09-29 entry above, which
 is history and stays as written. `pnpm verify` passed locally before the push.
+
+## 2026-10-27 — Fleet test audit: design-value and dev-only pins leave the unit suite; two real catches rewritten as contracts (#TBD)
+
+Why: the fleet test audit (`reddoorla/reddoor-workspace`
+`audits/2026-10-26-fleet-test-audit/report.md`, batch B) read every test here
+against "Tests build; they don't freeze" and proposed rewriting 17 tests and
+deleting one, across 14 files. The proposal came from a reviewer who saw only the diff,
+so its 16 reviewer mutants that main caught and the branch did not were each
+classed by what a visitor would see. Three are design values: the centre band's
+trigger line (40% vs 50% of the viewport) and two ~45px sticky offsets on the
+listing map, which the map's own height absorbs. Eleven are invisible: they
+mutate `CarouselFixture.svelte`, `Form.svelte` and `ScreenWidthMedia.svelte`,
+which only the `/dev/a11y-fixtures` page imports (the layout guard 404s it on a
+deployed build), or the Tailwind scan of `docs/`, which only adds dead rules to
+the stylesheet. Those went as the audit wrote them.
+
+Two were real, and each was rewritten rather than restored. The seed listing
+count, `toHaveLength(22)`, was weakened to "more than zero", which let a seed
+that dropped Loop 1604 at Dove Canyon pass while the package-redirect loop
+covered 21 listings. It is now a subset check: every uid published in
+`listings.state.json` is in `listings.json`. That holds when a listing is added,
+which the fixed count did not. `mutate.mjs` ran the reviewer's mutant against it:
+red, 1 of 6.
+
+The Turnstile reserve was a jsdom check that the mount carried a `min-h-` class.
+That is a class-list pin, and jsdom lays nothing out, so it never measured the
+65px. Its replacement is `tests/interaction/turnstile-reserve.spec.ts`, `@smoke`.
+The gate server has no sitekey and the widget is dark without one, so the spec
+starts its own server with `PUBLIC_TURNSTILE_SITE_KEY` set. It starts the same
+kind of server the gate uses, `vite preview` under `REDDOOR_GATE_SERVER=preview`
+and `vite dev` otherwise. The spec stubs api.js and holds it, reads the submit
+button's top, releases the stub so a 65px box lands inside the mount, and asserts
+that the button's top has not moved. It asserts no design value: the button is
+compared with itself. It passed on a production build and on the dev server. With
+the reviewer's mutant applied by hand (`min-h-[65px]` dropped), it went red with
+1148.02 expected and 1213.02 received, a 65px drop. `mutate.mjs` runs only vitest,
+so that proof could not go through it.
+
+Surprises. The first run of the spec timed out in `page.goto`. A script inserted
+before `load` holds the load event, so the held api.js stub never let the page
+load. The spec now waits for `domcontentloaded` instead. The audited diff also
+carried a type error that vitest does not see: `listingZoom` in
+`PropertyMap.camera.svelte.test.ts` read `zoom` as possibly undefined, and only
+svelte-check flagged it. It now takes a non-null assertion. In this container,
+Playwright 1.62.1 wants `chromium_headless_shell-1234`, and `/opt/pw-browsers`
+holds only 1243 and 1248. The runs used a copy installed into the session's
+scratchpad, so the repo is unchanged.

@@ -137,19 +137,24 @@ describe("PropertyListing", () => {
 
     // Section 0 pins no divider: its map lands on the scrollport's own
     // declared usable top. All and Land are each the first section shown.
-    expect(gridOf(all!).style.getPropertyValue("--sticky-top")).toBe("var(--usable-top)");
-    expect(gridOf(land!).style.getPropertyValue("--sticky-top")).toBe("var(--usable-top)");
+    expect(gridOf(all!).style.getPropertyValue("--sticky-top")).toContain("var(--usable-top)");
+    expect(gridOf(land!).style.getPropertyValue("--sticky-top")).toContain("var(--usable-top)");
     // Every later section does: its map lands on the DIVIDER, whose height
     // app.css derives from the divider's own declared parts.
     // (`--listing-pinned-top` first: app.css's override for a section dressed
     // as section 0, unset everywhere else.)
-    expect(gridOf(improved!).style.getPropertyValue("--sticky-top")).toBe(
-      "var(--listing-pinned-top, var(--listing-divider-top))",
+    expect(gridOf(improved!).style.getPropertyValue("--sticky-top")).toContain(
+      "var(--listing-divider-top)",
     );
     // Never missing, whichever it is — a missing variable makes `top` resolve
-    // to `auto` and the map never pins at all.
-    for (const section of [all!, land!, improved!])
+    // to `auto` and the map never pins at all — and never a bare length, the
+    // flat `100px` that put the map behind its divider.
+    for (const section of [all!, land!, improved!]) {
       expect(gridOf(section).style.getPropertyValue("--sticky-top")).not.toBe("");
+      expect(gridOf(section).style.getPropertyValue("--sticky-top")).not.toMatch(
+        /^\s*[\d.]+px\s*$/,
+      );
+    }
   });
 
   // …AND `measure()` REALLY DOES OVERRIDE IT. The assertion above is about the

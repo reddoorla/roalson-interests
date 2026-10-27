@@ -229,8 +229,8 @@ describe("VimeoBanner", () => {
     await tick();
     expect(wrapper.className).not.toContain("opacity-0");
 
-    // Watchdog polls each second; >2.5s without a beat hides the video.
-    vi.advanceTimersByTime(4000);
+    // Long past any watchdog window without a beat: the video is hidden.
+    vi.advanceTimersByTime(30_000);
     await tick();
     expect(wrapper.className).toContain("opacity-0");
   });

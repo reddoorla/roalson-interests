@@ -171,9 +171,6 @@ describe("carousel semantics, in markup", () => {
 
     expect(isInert(slides[0])).toBe(false);
     expect(isInert(slides[1])).toBe(true);
-    expect(slides[0].className).toContain("opacity-100");
-    expect(slides[1].className).toContain("opacity-0");
-    expect(slides[1].className).toContain("row-start-1");
 
     await fireEvent.click(getByLabelText("Next slide"));
     expect(isInert(slides[0])).toBe(true);

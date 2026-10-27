@@ -8,6 +8,7 @@ import {
   featuredPropertiesFixture,
   stageFeatured,
 } from "$lib/home-fixture";
+import { FEATURED_MAX } from "$lib/featured-properties";
 import { components } from "$lib/slices";
 import FeaturedProperties, { DISSOLVE, DWELL, TILT_DEG } from "./index.svelte";
 
@@ -618,7 +619,7 @@ describe("FeaturedProperties slice", () => {
     const [first] = featuredPropertiesFixture().primary.properties;
     const photo = (first!.property as unknown as { data: { feature_image: unknown } }).data
       .feature_image;
-    const picks = Array.from({ length: 12 }, (_, i) =>
+    const picks = Array.from({ length: FEATURED_MAX + 2 }, (_, i) =>
       featuredPickFixture(`listing-${i + 1}`, `id-${i + 1}`, {
         title: `Listing ${i + 1}`,
         feature_image: photo as never,
@@ -628,10 +629,10 @@ describe("FeaturedProperties slice", () => {
       props: { slice: featuredPropertiesFixture({ properties: picks as never }) },
     });
     const slides = slidesOf(container);
-    expect(slides).toHaveLength(10);
-    expect(slides.at(-1)!.getAttribute("aria-label")).toBe("10 of 10");
-    expect(band(container).dataset.featuredPicked).toBe("12");
-    expect(band(container).dataset.featuredShown).toBe("10");
+    expect(slides).toHaveLength(FEATURED_MAX);
+    expect(slides.at(-1)!.getAttribute("aria-label")).toBe(`${FEATURED_MAX} of ${FEATURED_MAX}`);
+    expect(band(container).dataset.featuredPicked).toBe(String(FEATURED_MAX + 2));
+    expect(band(container).dataset.featuredShown).toBe(String(FEATURED_MAX));
   });
 
   it("falls back to the comp's words when the heading is left empty — the region needs a name", () => {

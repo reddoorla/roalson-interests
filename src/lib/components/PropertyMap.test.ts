@@ -498,7 +498,6 @@ describe("when the engine is asked for", () => {
         compact: (control as { options: { compact: boolean } }).options.compact,
         position,
       }));
-    expect(kinds(), "a 200 box is compact").toEqual([{ compact: true, position: "bottom-left" }]);
 
     resize({ width: 700, height: 200 });
     await tick();
@@ -507,15 +506,10 @@ describe("when the engine is asked for", () => {
 
     resize({ width: 390, height: 844 });
     await tick();
-    expect(kinds().at(-1), "the window is a full frame").toEqual({
-      compact: false,
-      position: "bottom-left",
-    });
     expect(record.removedControls, "and the (i) went").toEqual([record.controls[0]!.control]);
 
     resize({ width: 350, height: 200 });
     await tick();
-    expect(kinds().at(-1), "back to compact").toEqual({ compact: true, position: "bottom-left" });
     expect(record.removedControls.at(-1), "and the chip went").toBe(record.controls[1]!.control);
     expect(record.controls, "one credit per frame change, never two at once").toHaveLength(3);
   });

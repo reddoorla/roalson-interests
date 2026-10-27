@@ -94,7 +94,10 @@ describe("centreWatch", () => {
     centreWatch(ul, { minWidth: "64rem", onactive: () => {} });
     expect(made).toHaveLength(1);
     expect(made[0]!.options?.rootMargin).toBe(CENTRE_BAND);
-    expect(made[0]!.options?.rootMargin).toBe("-50% 0px -50% 0px");
+    // Zero-height: the top and bottom insets together take the whole viewport,
+    // so exactly one card can cross the band at a time.
+    const [top, , bottom] = String(made[0]!.options?.rootMargin).split(/\s+/).map(parseFloat);
+    expect(top! + bottom!).toBe(-100);
     expect(made[0]!.observed).toHaveLength(3);
   });
 

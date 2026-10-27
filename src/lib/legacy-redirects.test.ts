@@ -40,7 +40,10 @@ describe("legacyRedirect", () => {
   });
 
   it("sends each listing's old package to that listing's page, as the seed pairs them", () => {
-    expect(seed).toHaveLength(22);
+    // Published is a subset of seed: a listing dropped from the seed would lose
+    // its page on the next reseed, and this loop would cover it vacuously.
+    const seeded = seed.map(({ uid }) => uid);
+    expect(published.filter((uid) => !seeded.includes(uid))).toEqual([]);
     for (const { uid, assets } of seed) {
       expect(legacyRedirect(new URL(assets.package_pdf.url).pathname), uid).toBe(
         `/properties/${uid}`,
