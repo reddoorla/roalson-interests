@@ -108,11 +108,17 @@ test(
     // Positive evidence the widget's effect ran: it asked for api.js.
     await asked;
 
+    // The button is compared only with itself, before and after the widget
+    // renders: no px is asserted, so this geometry read is a layout-shift
+    // contract and earns @smoke (footer.spec.ts reads the same way).
     const submitTop = () =>
       form
         .getByRole("button", { name: "Send message" })
         .evaluate((b) => b.getBoundingClientRect().top + window.scrollY);
 
+    // A web font swapping in between the two reads would rewrap text above
+    // the form and move the button for a reason unrelated to the reserve.
+    await page.evaluate(() => document.fonts.ready);
     const before = await submitTop();
     release();
     await expect(form.locator("[data-stub-widget]")).toHaveCount(1);
