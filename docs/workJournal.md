@@ -13300,7 +13300,7 @@ timestamped name instead, so the PR body was corrected.
 The only mention of either file left in this repo is the 2026-09-29 entry above, which
 is history and stays as written. `pnpm verify` passed locally before the push.
 
-## 2026-10-27 — Fleet test audit: design-value and dev-only pins leave the unit suite; two real catches rewritten as contracts (#TBD)
+## 2026-10-27 — Fleet test audit: design-value and dev-only pins leave the unit suite; two real catches rewritten as contracts (#312)
 
 Why: the fleet test audit (`reddoorla/reddoor-workspace`
 `audits/2026-10-26-fleet-test-audit/report.md`, batch B) read every test here
