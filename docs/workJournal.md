@@ -13347,7 +13347,7 @@ Playwright 1.62.1 wants `chromium_headless_shell-1234`, and `/opt/pw-browsers`
 holds only 1243 and 1248. The runs used a copy installed into the session's
 scratchpad, so the repo is unchanged.
 
-## 2026-10-27 — Inherit the starters' test-pin fixes (#TBD)
+## 2026-10-27 — Inherit the starters' test-pin fixes (#313)
 
 Batch C of the fleet test audit (`reddoorla/reddoor-workspace` `audits/2026-10-26-fleet-test-audit/report.md`) fixed design-value and exact-count pins in the starters, and this site carries the starters' copies of those tests, so the same fixes are ported here. The hunks applied cleanly; the intent is the starters' own, with no design value, no source read as text and no exact list.
 
