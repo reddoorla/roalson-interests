@@ -13325,3 +13325,58 @@ This site came from reddoor-starter, so the migration is the starter's own (redd
 **Round 8's review showed that my parity claim rested on one position, and the operator took a ninth round.** I had measured `/properties` only at 1500, where the browser's restore overshoots the hydrated page and is clamped to 1687 on both kits. Between about 700 and 1300 the same blocked-storage reload in Chromium landed 112px low on head (900→1012) and exactly on kit 2. The cause was the round-2 fix meeting the round-8 one: with smooth scrolling off before hydration, the browser's restore now lands instantly in the 14212px server-rendered page, the anchoring hold only knew about kit's restore, and anchoring followed hydration's shrink. Kit 2 is exact there only because its smooth restore runs after hydration. The review also found the case round 8's read-only probe missed: storage that reads but cannot be written (an origin's sessionStorage full), where kit's save fails silently and the reload lands at 0. Round 9 asks the outcome instead of the cause. On `pagehide`, which follows kit's `beforeunload` and `visibilitychange` saves, it reads back whether kit's save for this entry landed and hands the entry to the browser only if not. At `init`, `history.scrollRestoration` is still the entry's own mode, because kit sets "manual" only afterwards, so "auto" on a reload or Back means the browser will restore, and anchoring is held for that too. Measured on a production build in Chromium, WebKit and Firefox, storage blocked, write-failing or really full: `/properties` at 900 lands at 900 everywhere, for reload and Back, better than kit 2 in WebKit (1012). Mutations M14 (no hold for the browser's restore: 1012) and M15 (round 8's throw-only probe: 0 with storage full) each turn the spec red.
 
 **Measured.** `pnpm verify`: svelte-check 0/0, a11y 0 violations over 9 routes, 1764 unit and 72 `@smoke` tests passing. Every mutation in #306's table turned an instrument red. The one belief corrected: the starter's `kit-config.test.ts` scans static env reads, and a read through a dynamic `import("$app/env/public")` slips past it. svelte-check is what catches that one.
+
+## 2026-10-27 — Fleet test audit: design-value and dev-only pins leave the unit suite; two real catches rewritten as contracts (#312)
+
+Why: the fleet test audit (`reddoorla/reddoor-workspace`
+`audits/2026-10-26-fleet-test-audit/report.md`, batch B) read every test here
+against "Tests build; they don't freeze" and proposed rewriting 17 tests and
+deleting one, across 14 files. The proposal came from a reviewer who saw only the diff,
+so its 16 reviewer mutants that main caught and the branch did not were each
+classed by what a visitor would see. Three are design values: the centre band's
+trigger line (40% vs 50% of the viewport) and two ~45px sticky offsets on the
+listing map, which the map's own height absorbs. Eleven are invisible: they
+mutate `CarouselFixture.svelte`, `Form.svelte` and `ScreenWidthMedia.svelte`,
+which only the `/dev/a11y-fixtures` page imports (the layout guard 404s it on a
+deployed build), or the Tailwind scan of `docs/`, which only adds dead rules to
+the stylesheet. Those went as the audit wrote them.
+
+Two were real, and each was rewritten rather than restored. The seed listing
+count, `toHaveLength(22)`, was weakened to "more than zero", which let a seed
+that dropped Loop 1604 at Dove Canyon pass while the package-redirect loop
+covered 21 listings. It is now a subset check: every uid published in
+`listings.state.json` is in `listings.json`. That holds when a listing is added,
+which the fixed count did not. `mutate.mjs` ran the reviewer's mutant against it:
+red, 1 of 6.
+
+The Turnstile reserve was a jsdom check that the mount carried a `min-h-` class.
+That is a class-list pin, and jsdom lays nothing out, so it never measured the
+65px. Its replacement is `tests/interaction/turnstile-reserve.spec.ts`, `@smoke`.
+The gate server has no sitekey and the widget is dark without one, so the spec
+starts its own server with `PUBLIC_TURNSTILE_SITE_KEY` set. It starts the same
+kind of server the gate uses, `vite preview` under `REDDOOR_GATE_SERVER=preview`
+and `vite dev` otherwise. The spec stubs api.js and holds it, reads the submit
+button's top, releases the stub so a 65px box lands inside the mount, and asserts
+that the button's top has not moved. It asserts no design value: the button is
+compared with itself. It passed on a production build and on the dev server. With
+the reviewer's mutant applied by hand (`min-h-[65px]` dropped), it went red with
+1148.02 expected and 1213.02 received, a 65px drop. `mutate.mjs` runs only vitest,
+so that proof could not go through it.
+
+Surprises. The first run of the spec timed out in `page.goto`. A script inserted
+before `load` holds the load event, so the held api.js stub never let the page
+load. The spec now waits for `domcontentloaded` instead. The audited diff also
+carried a type error that vitest does not see: `listingZoom` in
+`PropertyMap.camera.svelte.test.ts` read `zoom` as possibly undefined, and only
+svelte-check flagged it. It now takes a non-null assertion. In this container,
+Playwright 1.62.1 wants `chromium_headless_shell-1234`, and `/opt/pw-browsers`
+holds only 1243 and 1248. The runs used a copy installed into the session's
+scratchpad, so the repo is unchanged.
+
+## 2026-10-27 — Inherit the starters' test-pin fixes (#313)
+
+Batch C of the fleet test audit (`reddoorla/reddoor-workspace` `audits/2026-10-26-fleet-test-audit/report.md`) fixed design-value and exact-count pins in the starters, and this site carries the starters' copies of those tests, so the same fixes are ported here. The hunks applied cleanly; the intent is the starters' own, with no design value, no source read as text and no exact list.
+
+`src/lib/actions/animateIn.test.ts` "honors a custom delayMax" pinned `transitionDelay` to exactly `400ms` at `delayMax: 800`, a duration, which this repo's "Tests build; they don't freeze" keeps out of the gate. It now takes the starter's three relations: `delayMax: 0` reveals with no delay, `delayMax: 100` keeps the delay at or under 100 even at the right edge (`left: 999` of 1000, where the delay is largest), and an element at `left: 800` reveals later than one at `left: 200`. The last relation is the one that still notices a stagger that ignores position or reads the wrong edge; without it the first two hold even when every delay is 0.
+
+Every kept assertion was proved by mutation, with the starter PRs' mutants plus one per new relation and a negative control: 6 mutants, 4 red as expected and 2 surviving as expected. Review 1 added the fourth red: with the bounded element at the midpoint, a delay of twice `delayMax` (`2 * cfg.delayMax *`) still passed `<= 100`; at the right edge it gives 199.8ms and fails. The survivors are the ones the starters already named: a `delayMax` clamped to 400ms only shortens a stagger (design value), and the negative control, the delay's position ratio written as `left * (1 / innerWidth)`, stays green as it must.

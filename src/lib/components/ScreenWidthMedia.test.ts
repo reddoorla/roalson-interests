@@ -168,20 +168,37 @@ describe("ScreenWidthMedia quality reveal", () => {
     expect(iframe.className).not.toContain("opacity-0");
   });
 
-  it("soft cap: reveals 1.2s after the quality change is accepted", async () => {
+  /** Step the clock until the iframe is revealed; how long that took. */
+  async function msUntilReveal(iframe: HTMLIFrameElement) {
+    let ms = 0;
+    while (iframe.className.includes("opacity-0") && ms < 60_000) {
+      vi.advanceTimersByTime(100);
+      ms += 100;
+      await tick();
+    }
+    return ms;
+  }
+
+  it("soft cap: reveals once the quality change is accepted, before the hard cap", async () => {
+    // The hard cap alone, measured: setQuality never settles.
+    const first = await renderWithPlayer();
+    const hardCap = await msUntilReveal(first.iframe);
+    cleanup();
+    MockPlayer.instances = [];
+
     const { iframe, player } = await renderWithPlayer();
     player.resolveQuality();
     await Promise.resolve();
     await tick();
 
-    vi.advanceTimersByTime(1200);
-    await tick();
+    const softCap = await msUntilReveal(iframe);
     expect(iframe.className).not.toContain("opacity-0");
+    expect(softCap).toBeLessThan(hardCap);
   });
 
-  it("hard cap: reveals after 6s even if setQuality never settles", async () => {
+  it("hard cap: reveals even if setQuality never settles", async () => {
     const { iframe } = await renderWithPlayer();
-    vi.advanceTimersByTime(6000);
+    vi.advanceTimersByTime(30_000);
     await tick();
     expect(iframe.className).not.toContain("opacity-0");
   });
@@ -231,10 +248,16 @@ describe("ScreenWidthMedia pause control", () => {
   });
 
   it("pauses on press: posts `pause` AND hides a revealed video", async () => {
+    window.Vimeo = { Player: MockPlayer };
     const { container } = render(ScreenWidthMedia, props);
     await advancePastDefer();
     const iframe = container.querySelector("iframe")!;
-    vi.advanceTimersByTime(6000); // the hard cap reveals it
+    // Revealed the real way: 1080p accepted, then buffered.
+    const player = MockPlayer.instances[0]!;
+    player.resolveQuality();
+    await Promise.resolve();
+    await tick();
+    player.handlers.get("bufferend")!();
     beat(iframe);
     await tick();
     expect(iframe.className).not.toContain("opacity-0");
