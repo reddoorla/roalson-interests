@@ -1,4 +1,4 @@
-import { env } from "$env/dynamic/private";
+import * as env from "$app/env/private";
 import { createIngestAction } from "@reddoorla/maintenance/forms";
 import { OFFICE } from "$lib/office";
 import { replyCopyFor } from "$lib/server/reply-copy";

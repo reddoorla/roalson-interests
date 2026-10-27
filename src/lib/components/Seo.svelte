@@ -4,6 +4,7 @@
     SITE_LOCALE,
     DEFAULT_DESCRIPTION,
     canonicalUrl,
+    siteOrigin,
     resolveOgImage,
     jsonLdScript,
   } from "$lib/seo";
@@ -19,7 +20,7 @@
     imageAlt?: string;
     /** The live page URL (page.url). Canonical + og:url are derived from it
      *  with the query string and /preview segment stripped. */
-    url: URL | string;
+    url: Pick<URL, "origin" | "pathname"> | string;
     /** og:type — "website" (default) for most pages, "article" for posts. */
     type?: string;
     siteName?: string;
@@ -43,7 +44,7 @@
   }: Props = $props();
 
   const canonical = $derived(canonicalUrl(url));
-  const origin = $derived(typeof url === "string" ? new URL(url).origin : url.origin);
+  const origin = $derived(siteOrigin(url));
   const og = $derived(resolveOgImage(image, origin));
   const jsonLdNodes = $derived(jsonLd == null ? [] : Array.isArray(jsonLd) ? jsonLd : [jsonLd]);
 </script>

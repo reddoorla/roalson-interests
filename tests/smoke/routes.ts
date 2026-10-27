@@ -46,7 +46,7 @@ export const isPlaceholderRepo = repositoryName === PLACEHOLDER_SENTINEL;
 // Netlify it would flip `/`'s expectation to 404 and pass — the smoke half of a
 // gate agreeing with a build that emitted no home page. Throw, never flip:
 // Playwright fails to load this manifest and the run exits non-zero. Mirrors
-// the guard in svelte.config.js, which reads the same variable at build time.
+// the guard in sveltekit.config.js, which reads the same variable at build time.
 if (
   process.env.VITE_PRISMIC_ENVIRONMENT === PLACEHOLDER_SENTINEL &&
   (process.env.CI || process.env.NETLIFY)

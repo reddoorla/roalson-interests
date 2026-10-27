@@ -1,4 +1,4 @@
-import { dev } from "$app/environment";
+import { dev } from "$app/env";
 import { error } from "@sveltejs/kit";
 
 // Development scaffolding — axe/Lighthouse fixtures, the animation harness and
@@ -20,7 +20,7 @@ import { error } from "@sveltejs/kit";
 //     and only that build lets the fixtures through. Vite replaces
 //     `import.meta.env.VITE_*` AT BUILD TIME, so a server built without it
 //     cannot be switched on by setting the variable at runtime;
-//     svelte.config.js refuses the variable on Netlify.
+//     sveltekit.config.js refuses the variable on Netlify.
 //
 //   - production (`vite build` + `vite preview`, or Netlify): `dev === false`,
 //     the flag is absent, every /dev/* route 404s through this site's own
@@ -38,6 +38,6 @@ export const prerender = false;
 
 export function load() {
   if (!dev) {
-    if (import.meta.env.VITE_REDDOOR_GATE_FIXTURES !== "1") error(404, { message: "Not found" });
+    if (import.meta.env.VITE_REDDOOR_GATE_FIXTURES !== "1") error(404, "Not found");
   }
 }

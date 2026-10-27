@@ -1,6 +1,6 @@
 // @vitest-environment node
 //
-// Node, not jsdom: this test imports the real svelte.config.js, which pulls in
+// Node, not jsdom: this test imports the real sveltekit.config.js, which pulls in
 // @sveltejs/adapter-netlify and therefore esbuild — and esbuild refuses to load
 // under jsdom ("new TextEncoder().encode('') instanceof Uint8Array is
 // incorrectly false", a cross-realm Uint8Array). Asserting against the actual
@@ -19,15 +19,16 @@ import { DEFAULT_MAP_STYLE_URL, MAP_TILE_HOST } from "../src/lib/property-map";
 // pre-hydration load is dropped and one violation is POSTed to /api/csp-report
 // per image, per page view (12 on `/` alone, measured on beachfront-dentistry
 // 2026-08-13), burying real violations under the noise.
+// Kit 3's options are top-level: no `kit` namespace.
 type CspConfig = {
-  kit?: { csp?: { directives?: Record<string, string[]> } };
+  csp?: { directives?: Record<string, string[]> };
 };
-const { default: config } = (await import("../svelte.config.js")) as unknown as {
+const { default: config } = (await import("../sveltekit.config.js")) as unknown as {
   default: CspConfig;
 };
-const scriptSrc = config.kit?.csp?.directives?.["script-src"] ?? [];
-const connectSrc = config.kit?.csp?.directives?.["connect-src"] ?? [];
-const directives = config.kit?.csp?.directives ?? {};
+const scriptSrc = config.csp?.directives?.["script-src"] ?? [];
+const connectSrc = config.csp?.directives?.["connect-src"] ?? [];
+const directives = config.csp?.directives ?? {};
 
 describe("the template's Content-Security-Policy", () => {
   it("allows Svelte's SSR event-replay stub by its exact hash", () => {
@@ -46,7 +47,7 @@ describe("the template's Content-Security-Policy", () => {
   // apart from a stale one, and the stub's text is upstream's to change.
   it("takes the hash from the shared config package, not a local copy", async () => {
     const source = await import("node:fs").then((fs) =>
-      fs.readFileSync(new URL("../svelte.config.js", import.meta.url), "utf-8"),
+      fs.readFileSync(new URL("../sveltekit.config.js", import.meta.url), "utf-8"),
     );
     expect(source).toContain("SVELTE_EVENT_REPLAY_HASH");
     expect(source).not.toContain(SVELTE_EVENT_REPLAY_HASH);

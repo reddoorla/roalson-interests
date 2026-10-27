@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { env } from "$env/dynamic/public";
+  import * as env from "$app/env/public";
   import { loadTurnstile } from "$lib/turnstile";
 
   // Optional Cloudflare Turnstile widget. Dark until PUBLIC_TURNSTILE_SITE_KEY

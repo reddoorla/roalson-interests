@@ -5,9 +5,16 @@ import tailwindcss from "@tailwindcss/vite";
 
 import { claudeDirIgnore } from "./scripts/claude-dir-ignore.mjs";
 import { privacyServices } from "./scripts/privacy-services.ts";
+import kitConfig, { productionOrigin } from "./sveltekit.config.js";
 
 export default defineConfig({
-  plugins: [sveltekit(), imagetools(), tailwindcss(), privacyServices()],
+  // SvelteKit 3 takes its configuration here, not from svelte.config.js
+  // (which it refuses to start beside). The object lives in sveltekit.config.js
+  // so eslint, the privacy-services plugin and the tests read the same one.
+  plugins: [sveltekit(kitConfig), imagetools(), tailwindcss(), privacyServices()],
+  // The production origin for prerendered canonical and og:url, in place of
+  // kit's placeholder (sveltekit.config.js says why it is not paths.origin).
+  define: { __REDDOOR_SITE_ORIGIN__: JSON.stringify(productionOrigin) },
   // maplibre-gl is pre-bundled at dev-server START rather than discovered when
   // the first map mounts. It is only reached through a dynamic import (see
   // $lib/map-engine), so Vite would otherwise not find it during its initial

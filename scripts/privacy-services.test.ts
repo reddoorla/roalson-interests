@@ -13,13 +13,13 @@ const put = (rel: string, text: string) => {
 };
 
 const config = (directives: Record<string, string[]> | null) =>
-  `export default { kit: { adapter: { name: "@sveltejs/adapter-netlify" }${
+  `export default { adapter: { name: "@sveltejs/adapter-netlify" }${
     directives ? `, csp: { directives: ${JSON.stringify(directives)} }` : ""
-  } } };`;
+  } };`;
 
 beforeEach(() => {
   root = mkdtempSync(join(tmpdir(), "privacy-"));
-  put("svelte.config.js", config({ "frame-src": ["self"] }));
+  put("sveltekit.config.js", config({ "frame-src": ["self"] }));
 });
 afterEach(() => rmSync(root, { recursive: true, force: true }));
 
@@ -46,9 +46,9 @@ describe("collectBuildServices", () => {
 
   it("reads the CSP the config resolves to, not the text it is written in", async () => {
     put(
-      "svelte.config.js",
+      "sveltekit.config.js",
       `const base = { "frame-src": ["https://*.vimeo.com"] };
-export default { kit: { csp: { directives: { ...base } } } };`,
+export default { csp: { directives: { ...base } } };`,
     );
     expect((await collectBuildServices(root)).vimeo).toBe(true);
   });
@@ -62,13 +62,13 @@ export default { kit: { csp: { directives: { ...base } } } };`,
   });
 
   it("keeps a CSP with no directives from counting as a CSP", async () => {
-    put("svelte.config.js", `export default { kit: { csp: { directives: {} } } };`);
+    put("sveltekit.config.js", `export default { csp: { directives: {} } };`);
     put("src/lib/V.svelte", `<iframe src="https://player.vimeo.com/video/1"></iframe>`);
     expect((await collectBuildServices(root)).vimeo).toBe(true);
   });
 
   it("falls back to the source when the config sets no CSP", async () => {
-    put("svelte.config.js", config(null));
+    put("sveltekit.config.js", config(null));
     put("src/lib/V.svelte", `<iframe src="https://player.vimeo.com/video/1"></iframe>`);
     expect((await collectBuildServices(root)).vimeo).toBe(true);
   });

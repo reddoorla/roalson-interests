@@ -6,7 +6,7 @@ This starter maps to **OWASP ASVS Level 2** as a baseline and treats the OWASP T
 
 ### Headers
 
-- **Content-Security-Policy** — strict allowlist per directive ([svelte.config.js](../svelte.config.js)). `default-src 'self'`, `script-src` whitelisted to Prismic + Vimeo, `frame-ancestors 'self'` (clickjacking), `form-action 'self'`, `base-uri 'self'`. Violations POST to `/api/csp-report`.
+- **Content-Security-Policy** — strict allowlist per directive ([sveltekit.config.js](../sveltekit.config.js)). `default-src 'self'`, `script-src` whitelisted to Prismic + Vimeo, `frame-ancestors 'self'` (clickjacking), `form-action 'self'`, `base-uri 'self'`. Violations POST to `/api/csp-report`.
 - **HSTS** — `max-age=63072000; includeSubDomains; preload` ([netlify.toml](../netlify.toml)).
 - **X-Frame-Options** `SAMEORIGIN`, **X-Content-Type-Options** `nosniff`, **Referrer-Policy** `strict-origin-when-cross-origin`, **Permissions-Policy** disabling camera/microphone/geolocation/FLoC, **Cross-Origin-Opener-Policy** `same-origin`.
 - Headers are set both at the edge ([netlify.toml](../netlify.toml)) and in [hooks.server.ts](../src/hooks.server.ts) so they travel with the app, not the host.
@@ -24,18 +24,18 @@ This starter maps to **OWASP ASVS Level 2** as a baseline and treats the OWASP T
 
 ## OWASP Top 10 mapping
 
-| Risk                                             | Coverage                                                                                        |
-| ------------------------------------------------ | ----------------------------------------------------------------------------------------------- |
-| **A01 Broken Access Control**                    | Server-only secrets via env vars; no client-side auth in the starter                            |
-| **A02 Cryptographic Failures**                   | TLS-only via HSTS preload                                                                       |
-| **A03 Injection**                                | Auto-escaped templates; parameterize when adding a DB                                           |
-| **A04 Insecure Design**                          | Threat model produced during discovery                                                          |
-| **A05 Security Misconfiguration**                | Locked CSP + headers ([svelte.config.js](../svelte.config.js), [netlify.toml](../netlify.toml)) |
-| **A06 Vulnerable & Outdated Components**         | `pnpm audit` on every PR + Dependabot monthly grouped updates                                   |
-| **A07 Identification & Authentication Failures** | Use vetted providers (Auth.js, Clerk, Supabase Auth) when adding auth — never roll your own     |
-| **A08 Software & Data Integrity Failures**       | Lockfile pinned; SRI when third-party scripts are added                                         |
-| **A09 Logging & Monitoring**                     | CSP violations land at `/api/csp-report`; forward to a real sink in production                  |
-| **A10 SSRF**                                     | Outbound calls go through an allowlist; no user-controlled URLs are dereferenced                |
+| Risk                                             | Coverage                                                                                              |
+| ------------------------------------------------ | ----------------------------------------------------------------------------------------------------- |
+| **A01 Broken Access Control**                    | Server-only secrets via env vars; no client-side auth in the starter                                  |
+| **A02 Cryptographic Failures**                   | TLS-only via HSTS preload                                                                             |
+| **A03 Injection**                                | Auto-escaped templates; parameterize when adding a DB                                                 |
+| **A04 Insecure Design**                          | Threat model produced during discovery                                                                |
+| **A05 Security Misconfiguration**                | Locked CSP + headers ([sveltekit.config.js](../sveltekit.config.js), [netlify.toml](../netlify.toml)) |
+| **A06 Vulnerable & Outdated Components**         | `pnpm audit` on every PR + Dependabot monthly grouped updates                                         |
+| **A07 Identification & Authentication Failures** | Use vetted providers (Auth.js, Clerk, Supabase Auth) when adding auth — never roll your own           |
+| **A08 Software & Data Integrity Failures**       | Lockfile pinned; SRI when third-party scripts are added                                               |
+| **A09 Logging & Monitoring**                     | CSP violations land at `/api/csp-report`; forward to a real sink in production                        |
+| **A10 SSRF**                                     | Outbound calls go through an allowlist; no user-controlled URLs are dereferenced                      |
 
 ## CSP violation reports
 
@@ -93,7 +93,7 @@ The string arrives from OpenFreeMap's TileJSON, not from our code — so overrid
 Whenever you add a third-party CDN, analytics tag, or embed:
 
 1. Identify the directive that controls it (`script-src`, `img-src`, `frame-src`, `connect-src`).
-2. Add the host to that directive in [svelte.config.js](../svelte.config.js). Prefer specific subdomains over `*.example.com`.
+2. Add the host to that directive in [sveltekit.config.js](../sveltekit.config.js). Prefer specific subdomains over `*.example.com`.
 3. Verify locally — open DevTools console, look for CSP violation messages.
 4. After deploy, watch `/api/csp-report` logs for missed cases.
 

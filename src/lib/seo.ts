@@ -102,14 +102,36 @@ export function jsonLdScript(data: unknown): string {
   return `<script type="application/ld+json">${json}</script>`;
 }
 
+/** The origin SvelteKit gives `page.url` while prerendering, when no
+ *  `paths.origin` is set (kit 3: core/postbuild/prerender.js). */
+export const PRERENDER_PLACEHOLDER_ORIGIN = "http://sveltekit-prerender";
+
+const BUILD_ORIGIN = typeof __REDDOOR_SITE_ORIGIN__ === "string" ? __REDDOOR_SITE_ORIGIN__ : null;
+
+/**
+ * The origin a page's canonical and og:url carry. Per request it is the host
+ * that asked. While prerendering, kit's placeholder is replaced with Netlify's
+ * production `URL` from the build; the starter does not set `paths.origin`,
+ * because kit 3 would then refuse form posts from every other host.
+ */
+export function siteOrigin(
+  url: Pick<URL, "origin"> | string,
+  buildOrigin: string | null = BUILD_ORIGIN,
+): string {
+  const origin = typeof url === "string" ? new URL(url).origin : url.origin;
+  return origin === PRERENDER_PLACEHOLDER_ORIGIN && buildOrigin ? buildOrigin : origin;
+}
+
 /**
  * Canonical URL for a page: the production origin + path with the optional
  * `/preview` route segment removed and the query string / hash dropped (so
  * `?utm_*`-tagged and previewed URLs both canonicalize to the real page).
- * The origin is whatever `page.url` carries — prerender-safe because the
- * starter sets `kit.prerender.origin` from Netlify's `URL` at build time.
+ * The origin is {@link siteOrigin}'s.
  */
-export function canonicalUrl(url: URL | string): string {
+export function canonicalUrl(
+  url: Pick<URL, "origin" | "pathname"> | string,
+  buildOrigin: string | null = BUILD_ORIGIN,
+): string {
   const u = typeof url === "string" ? new URL(url) : url;
   let path = u.pathname;
   if (path === "/preview" || path === "/preview/") {
@@ -117,7 +139,7 @@ export function canonicalUrl(url: URL | string): string {
   } else if (path.startsWith("/preview/")) {
     path = path.slice("/preview".length);
   }
-  return `${u.origin}${path}`;
+  return `${siteOrigin(u, buildOrigin)}${path}`;
 }
 
 export interface ResolvedOgImage {

@@ -45,7 +45,11 @@ import {
  */
 
 const mockEnv = vi.hoisted(() => ({ env: {} as { PUBLIC_MAP_STYLE_URL?: string } }));
-vi.mock("$env/dynamic/public", () => mockEnv);
+vi.mock("$app/env/public", () => ({
+  get PUBLIC_MAP_STYLE_URL() {
+    return mockEnv.env.PUBLIC_MAP_STYLE_URL;
+  },
+}));
 
 /** Every camera command, with the time it was issued — under fake timers, so
  *  `Date.now()` is the test's own clock and a gap is exact. */
