@@ -134,8 +134,9 @@ describe("animateIn — viewport mode", () => {
     animateIn(together, { delayMax: 0 });
     expect(parseFloat(together.style.transitionDelay)).toBe(0);
 
-    // A positive delayMax bounds the delay, below the default's.
-    const bounded = placed();
+    // A positive delayMax bounds the delay, below the default's, even at
+    // the right edge, where the delay is largest.
+    const bounded = placed(999);
     animateIn(bounded, { delayMax: 100 });
     expect(parseFloat(bounded.style.transitionDelay)).toBeLessThanOrEqual(100);
 
