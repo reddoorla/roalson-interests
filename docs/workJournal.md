@@ -13346,3 +13346,11 @@ svelte-check flagged it. It now takes a non-null assertion. In this container,
 Playwright 1.62.1 wants `chromium_headless_shell-1234`, and `/opt/pw-browsers`
 holds only 1243 and 1248. The runs used a copy installed into the session's
 scratchpad, so the repo is unchanged.
+
+## 2026-10-27 — Inherit the starters' test-pin fixes (#313)
+
+Batch C of the fleet test audit (`reddoorla/reddoor-workspace` `audits/2026-10-26-fleet-test-audit/report.md`) fixed design-value and exact-count pins in the starters, and this site carries the starters' copies of those tests, so the same fixes are ported here. The hunks applied cleanly; the intent is the starters' own, with no design value, no source read as text and no exact list.
+
+`src/lib/actions/animateIn.test.ts` "honors a custom delayMax" pinned `transitionDelay` to exactly `400ms` at `delayMax: 800`, a duration, which this repo's "Tests build; they don't freeze" keeps out of the gate. It now takes the starter's three relations: `delayMax: 0` reveals with no delay, `delayMax: 100` keeps the delay at or under 100 even at the right edge (`left: 999` of 1000, where the delay is largest), and an element at `left: 800` reveals later than one at `left: 200`. The last relation is the one that still notices a stagger that ignores position or reads the wrong edge; without it the first two hold even when every delay is 0.
+
+Every kept assertion was proved by mutation, with the starter PRs' mutants plus one per new relation and a negative control: 6 mutants, 4 red as expected and 2 surviving as expected. Review 1 added the fourth red: with the bounded element at the midpoint, a delay of twice `delayMax` (`2 * cfg.delayMax *`) still passed `<= 100`; at the right edge it gives 199.8ms and fails. The survivors are the ones the starters already named: a `delayMax` clamped to 400ms only shortens a stagger (design value), and the negative control, the delay's position ratio written as `left * (1 / innerWidth)`, stays green as it must.
