@@ -203,6 +203,9 @@ const config = {
       "style-src": ["self", "unsafe-inline", "https://fonts.googleapis.com"],
       // GA4's hosts here and under connect-src are the set the analytics-tag
       // recipe adds (ANALYTICS_CSP in @reddoorla/maintenance/configs/svelte).
+      // That set assumes the property has Google Signals and Ads linking off:
+      // either one sends to *.g.doubleclick.net and www.google.com images,
+      // which this policy refuses, so turning one on needs those hosts here.
       "img-src": [
         "self",
         "data:",
