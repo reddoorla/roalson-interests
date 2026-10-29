@@ -85,35 +85,47 @@ describe("PropertyDetail", () => {
     expect(container.textContent).not.toMatch(/\d(\.\d)?\s*MB\b/);
   });
 
-  it("labels the map button Aerial Map, opens satellite imagery on the pin, and says where it goes", () => {
+  it("labels the map button Aerial Map, opens the listing's Land ID map, and says where it goes", () => {
     const { getByRole } = render(PropertyDetail, { props: { property: propertyFixture() } });
     const link = getByRole("link", { name: /^Aerial Map/ });
     expect(link.firstChild?.textContent?.trim()).toBe("Aerial Map");
-    const url = new URL(link.getAttribute("href")!);
-    expect(url.origin + url.pathname).toBe("https://www.google.com/maps/@");
-    expect(url.searchParams.get("api")).toBe("1");
-    expect(url.searchParams.get("map_action")).toBe("map");
-    expect(url.searchParams.get("basemap")).toBe("satellite");
-    expect(url.searchParams.get("center")).toBe("29.6572,-98.6297");
+    expect(link.getAttribute("href")).toBe(
+      "https://id.land/maps/fb13b61e0279b421a419bd8e3ed516aa/share",
+    );
     expect(link.getAttribute("target")).toBe("_blank");
     expect(link.getAttribute("rel")).toContain("noopener");
+    expect(link.textContent).toContain("Land ID, opens in a new tab");
+  });
+
+  it("falls back to satellite imagery on the pin for a listing with no Land ID map", () => {
+    const { getByRole } = render(PropertyDetail, {
+      props: { property: propertyFixture({}, { uid: "no-land-id-map" }) },
+    });
+    const link = getByRole("link", { name: /^Aerial Map/ });
+    const url = new URL(link.getAttribute("href")!);
+    expect(url.origin + url.pathname).toBe("https://www.google.com/maps/@");
+    expect(url.searchParams.get("basemap")).toBe("satellite");
+    expect(url.searchParams.get("center")).toBe("29.6572,-98.6297");
     expect(link.textContent).toContain("Google Maps, opens in a new tab");
   });
 
   it("renders no action row, no details and no dangling labels for a bare listing", () => {
-    const bare = propertyFixture({
-      package_pdf: { link_type: "Any" },
-      location: {},
-      transaction_type: null,
-      total_price: null,
-      price_per_unit: null,
-      size_total_sf: null,
-      size_office_sf: null,
-      size_warehouse_sf: null,
-      acres: null,
-      zoning: null,
-      tracts: [],
-    });
+    const bare = propertyFixture(
+      {
+        package_pdf: { link_type: "Any" },
+        location: {},
+        transaction_type: null,
+        total_price: null,
+        price_per_unit: null,
+        size_total_sf: null,
+        size_office_sf: null,
+        size_warehouse_sf: null,
+        acres: null,
+        zoning: null,
+        tracts: [],
+      },
+      { uid: "no-land-id-map" },
+    );
     const { queryByRole, container } = render(PropertyDetail, { props: { property: bare } });
     expect(queryByRole("link", { name: /package/i })).toBeNull();
     expect(queryByRole("link", { name: /Aerial Map/ })).toBeNull();

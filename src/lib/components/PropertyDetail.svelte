@@ -42,6 +42,7 @@
   const bullets = $derived(detailBullets(property));
   const pkg = $derived(past ? null : propertyPackage(property));
   const map = $derived(aerialMapUrl(property));
+  const mapHost = $derived(map?.startsWith("https://id.land/") ? "Land ID" : "Google Maps");
   const hasPhoto = $derived(isFilled.image(data.feature_image));
 </script>
 
@@ -116,7 +117,7 @@
           {#if map}
             <BrandButton href={map} arrow target="_blank" rel="noopener noreferrer">
               Aerial Map
-              <span class="sr-only">(Google Maps, opens in a new tab)</span>
+              <span class="sr-only">({mapHost}, opens in a new tab)</span>
             </BrandButton>
           {/if}
         </div>
