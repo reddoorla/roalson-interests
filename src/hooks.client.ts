@@ -1,4 +1,5 @@
 import type { ClientInit } from "@sveltejs/kit/hooks";
+import { initAnalytics } from "@reddoorla/maintenance/client";
 import {
   holdAnchoringForRestore,
   letBrowserRestoreWhenKitCannot,
@@ -10,4 +11,10 @@ import {
 export const init: ClientInit = () => {
   holdAnchoringForRestore();
   letBrowserRestoreWhenKitCannot();
+  // GA4 (property 561288527, stream 16225448311) loads only on roalson.com, so a
+  // netlify.app preview or a deploy preview collects nothing.
+  initAnalytics({
+    measurementId: "G-J59YY1H8FB",
+    productionHost: "roalson.com",
+  });
 };

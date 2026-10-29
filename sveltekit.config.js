@@ -195,11 +195,24 @@ const config = {
         SVELTE_EVENT_REPLAY_HASH,
         // Cloudflare Turnstile contact-form widget (enable via PUBLIC_TURNSTILE_SITE_KEY).
         "https://challenges.cloudflare.com",
+        // GA4's gtag.js loader, started by initAnalytics in src/hooks.client.ts.
+        "https://www.googletagmanager.com",
       ],
       // Google Fonts stylesheet host (paired with fonts.gstatic.com under
       // font-src). Self-hosted fonts need nothing extra.
       "style-src": ["self", "unsafe-inline", "https://fonts.googleapis.com"],
-      "img-src": ["self", "data:", "https://*.prismic.io"],
+      // GA4's hosts here and under connect-src are the set the analytics-tag
+      // recipe adds (ANALYTICS_CSP in @reddoorla/maintenance/configs/svelte).
+      // That set assumes the property has Google Signals and Ads linking off:
+      // either one sends to *.g.doubleclick.net and www.google.com images,
+      // which this policy refuses, so turning one on needs those hosts here.
+      "img-src": [
+        "self",
+        "data:",
+        "https://*.prismic.io",
+        "https://www.googletagmanager.com",
+        "https://*.google-analytics.com",
+      ],
       // Prismic hosts non-image media (e.g. .mp4 assets) on
       // <repo>.cdn.prismic.io — first-party content, same origin family as
       // images.prismic.io already allowed under img-src.
@@ -235,7 +248,14 @@ const config = {
       // The host is a pair with PUBLIC_MAP_STYLE_URL's override
       // ($lib/property-map). Point that variable at a keyed provider and
       // this line is the other half of the swap.
-      "connect-src": ["self", "https://*.prismic.io", "https://tiles.openfreemap.org"],
+      "connect-src": [
+        "self",
+        "https://*.prismic.io",
+        "https://tiles.openfreemap.org",
+        "https://www.googletagmanager.com",
+        "https://*.google-analytics.com",
+        "https://*.google.com",
+      ],
       "font-src": ["self", "data:", "https://fonts.gstatic.com"],
       "base-uri": ["self"],
       "form-action": ["self"],
