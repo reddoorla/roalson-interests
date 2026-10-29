@@ -1,4 +1,7 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["github>reddoorla/.github:renovate-config"]
+  "extends": [
+    "github>reddoorla/.github:renovate-config",
+    "github>reddoorla/.github:renovate-staging-flow"
+  ]
 }
