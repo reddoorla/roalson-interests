@@ -1,0 +1,69 @@
+{
+ "uid": "hwy-87-west-development-site",
+ "landid_url": "https://id.land/maps/6b6e89f2791df5f638b8f36a4b5cba78/share",
+ "fetched": "2026-11-01T16:39:13.060605Z",
+ "name": "Hwy 87 Comfort  - 43.6 Acres",
+ "updated_at": "2026-10-29T20:31:42.000Z",
+ "acres": 0,
+ "enabled_layers": [],
+ "features": [
+  {
+   "properties": {
+    "maprightId": 27.88754871459741,
+    "toolType": "polygons",
+    "visibility": true,
+    "id": 27.88754871459741,
+    "toolId": 3678,
+    "feature_id": "e33f74cb-27df-4f21-aae3-914f9a0bb2e5"
+   },
+   "type": "Feature",
+   "geometry": {
+    "type": "Polygon",
+    "coordinates": [
+     [
+      [
+       -98.904201,
+       29.996499
+      ],
+      [
+       -98.904531,
+       29.996788
+      ],
+      [
+       -98.905206,
+       29.9958
+      ],
+      [
+       -98.90588,
+       29.996782
+      ],
+      [
+       -98.906231,
+       29.996782
+      ],
+      [
+       -98.906233,
+       29.994788
+      ],
+      [
+       -98.907463,
+       29.994783
+      ],
+      [
+       -98.907423,
+       29.99075
+      ],
+      [
+       -98.904142,
+       29.990737
+      ],
+      [
+       -98.904201,
+       29.996499
+      ]
+     ]
+    ]
+   }
+  }
+ ]
+}

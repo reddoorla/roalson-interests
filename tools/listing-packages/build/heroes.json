@@ -93,5 +93,17 @@
  "st-marys-at-martin-river-walk": {
   "landid_url": "https://id.land/maps/be9d6d036d4b9fe325d43f9bb972aa13/share",
   "image": "build/assets/heroes/st-marys-at-martin-river-walk.jpg"
+ },
+ "hwy-211-and-culebra": {
+  "landid_url": "https://id.land/maps/fdaeb0ed6cf794c0c4953f4c7db78fd7/share",
+  "image": "build/assets/heroes/hwy-211-and-culebra.jpg"
+ },
+ "hwy-46-west-development-site": {
+  "landid_url": "https://id.land/maps/8a6a5711a72c46dc907956fc5a8c6946/share",
+  "image": "build/assets/heroes/hwy-46-west-development-site.jpg"
+ },
+ "hwy-87-west-development-site": {
+  "landid_url": "https://id.land/maps/6b6e89f2791df5f638b8f36a4b5cba78/share",
+  "image": "build/assets/heroes/hwy-87-west-development-site.jpg"
  }
 }

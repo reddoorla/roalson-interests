@@ -15,6 +15,10 @@ export const LANDID_MAPS: Readonly<Record<string, string>> = {
   "cascade-caverns-at-old-san-antonio-road": "f072759fcc09e0b94b713e253f73b01d",
   "highway-77-at-general-cavazos-kingsville": "ba5cdeac303abbdda507c47f9e376211",
   "hwy-46-at-spencer-ranch-blvd": "9be28fa9b17381e7c97a812a935d47f5",
+  // Three new listings, Erik in Discord 2026-10-30.
+  "hwy-211-and-culebra": "fdaeb0ed6cf794c0c4953f4c7db78fd7",
+  "hwy-46-west-development-site": "8a6a5711a72c46dc907956fc5a8c6946",
+  "hwy-87-west-development-site": "6b6e89f2791df5f638b8f36a4b5cba78",
   "ih-10-at-fm-725-seguin": "7990069e512759487da5ea3347c2b2b7",
   "ih-10-at-highway-46": "1bb36cc03e621d013b087023ae42e3e0",
   "ih-10-at-highway-87-comfort": "44c0981a81ddcafbd808baa2ba71dfe3",
