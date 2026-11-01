@@ -598,6 +598,23 @@ interface PropertyDocumentData {
   package_pdf: prismic.LinkToMediaField<prismic.FieldState, never>;
 
   /**
+   * Aerial Map link (Land ID share URL) field in *Property*
+   *
+   * - **Field Type**: Link
+   * - **Placeholder**: https://id.land/maps/<id>/share
+   * - **API ID Path**: property.aerial_map_url
+   * - **Tab**: Main
+   * - **Documentation**: https://prismic.io/docs/fields/link
+   */
+  aerial_map_url: prismic.LinkField<
+    string,
+    string,
+    unknown,
+    prismic.FieldState,
+    never
+  >;
+
+  /**
    * Map pin field in *Property*
    *
    * - **Field Type**: GeoPoint
