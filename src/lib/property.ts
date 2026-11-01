@@ -197,12 +197,17 @@ export function aerialMapUrl(property: PropertyDocument): string | null {
 
 /** An editor's pasted address as an absolute http(s) URL, or null. Invisible
  *  characters a copy from email or a doc carries are dropped and the ends
- *  trimmed; a paste with no scheme ("id.land/maps/…/share") gets `https://`.
+ *  trimmed, along with the <…> or "…" a plain-text email wraps a link in;
+ *  a paste with no scheme ("id.land/maps/…/share") gets `https://`.
  *  It is null, so it never reaches an href, when what is left holds a space,
  *  holds a second address (a double paste), or does not parse to a named
  *  http(s) host ("https://", "https://www.", `javascript:`, a bare IP). */
 function webUrl(raw: string): string | null {
-  const text = raw.replace(/[\u200B-\u200D\u2060\uFEFF]/g, "").trim();
+  const text = raw
+    .replace(/[\u00AD\u200B-\u200F\u202A-\u202E\u2060-\u2069\uFEFF]/g, "")
+    .trim()
+    .replace(/^<(.*)>$/, "$1")
+    .replace(/^"(.*)"$/, "$1");
   if (!text || /\s/.test(text)) return null;
   const withScheme = /^[a-z][a-z0-9+.-]*:/i.test(text) ? text : `https://${text}`;
   let url: URL;

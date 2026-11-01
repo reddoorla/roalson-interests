@@ -185,6 +185,9 @@ describe("PropertyDetail", () => {
     expect(hrefFor(`  ${own}\n`)).toBe(own);
     expect(hrefFor("id.land/maps/fedcba9876543210fedcba9876543210/share")).toBe(own);
     expect(hrefFor(`\u200B${own}\u200B`)).toBe(own);
+    expect(hrefFor(`\u200E${own.replace("share", "sha\u00ADre")}\u200E`)).toBe(own);
+    expect(hrefFor(`<${own}>`)).toBe(own);
+    expect(hrefFor(`"${own}"`)).toBe(own);
   });
 
   it("uses the Land ID table for a listing saved before the field existed", () => {
@@ -205,6 +208,7 @@ describe("PropertyDetail", () => {
       "https://www.",
       `${own}${own}`,
       `${own} ${own}`,
+      "https://192.168.1.1/map",
     ]) {
       const { container } = render(PropertyDetail, {
         props: { property: propertyFixture({ aerial_map_url: web(bad) }) },
