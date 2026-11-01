@@ -182,13 +182,12 @@ export function mapsUrl(property: PropertyDocument): string | null {
  *  3. Google Maps' documented map URL on satellite imagery, centred on the pin
  *     (Erik, 2026-10-09). That form draws no marker; `mapsUrl` keeps the
  *     pinned search link the property map's own links use.
- *  A filled field that is not an http(s) address is skipped, not linked. */
+ *  A filled field is normalised by `webUrl`, and skipped when it is not a web
+ *  address. */
 export function aerialMapUrl(property: PropertyDocument): string | null {
   const field = property.data.aerial_map_url;
-  if (isFilled.link(field) && field.link_type === "Web") {
-    const url = field.url.trim();
-    if (/^https?:\/\//i.test(url)) return url;
-  }
+  const own = isFilled.link(field) && field.link_type === "Web" ? webUrl(field.url) : null;
+  if (own) return own;
   const landId = landIdUrl(property.uid);
   if (landId) return landId;
   const loc = property.data.location;
@@ -196,18 +195,38 @@ export function aerialMapUrl(property: PropertyDocument): string | null {
   return `https://www.google.com/maps/@?api=1&map_action=map&center=${loc.latitude},${loc.longitude}&zoom=17&basemap=satellite`;
 }
 
+/** An editor's pasted address as an absolute http(s) URL, or null. A paste
+ *  with no scheme ("id.land/maps/…/share") gets `https://`; anything that does
+ *  not then parse to a dotted host (a double paste, "https://" alone,
+ *  `javascript:`) is null, so it never reaches an href. */
+function webUrl(raw: string): string | null {
+  const text = raw.trim();
+  const withScheme = /^[a-z][a-z0-9+.-]*:/i.test(text) ? text : `https://${text}`;
+  let url: URL;
+  try {
+    url = new URL(withScheme);
+  } catch {
+    return null;
+  }
+  const ok = (url.protocol === "https:" || url.protocol === "http:") && url.hostname.includes(".");
+  return ok ? url.href : null;
+}
+
 /** Where an Aerial Map link goes, for its screen-reader label: "Land ID",
  *  "Google Maps", or, for any other site an editor pastes, its host without
- *  `www.`. */
-export function aerialMapHost(url: string): string {
-  let host: string;
-  try {
-    host = new URL(url).hostname.toLowerCase();
-  } catch {
-    return "map";
-  }
-  const on = (domain: string) => host === domain || host.endsWith(`.${domain}`);
-  if (on("id.land")) return "Land ID";
-  if (/(^|\.)google\.[a-z.]+$/.test(host) || on("goo.gl")) return "Google Maps";
+ *  `www.`. Only Maps' own hosts and paths read as Google Maps: Google Earth,
+ *  Drive or a general goo.gl link names its host instead. Takes a URL that
+ *  `aerialMapUrl` returned, so it always parses. */
+export function aerialMapHost(href: string): string {
+  const url = new URL(href);
+  const host = url.hostname.toLowerCase();
+  if (host === "id.land" || host.endsWith(".id.land")) return "Land ID";
+  const google = /^(?:www\.|maps\.)?google\.(?:com|co\.[a-z]{2}|com\.[a-z]{2}|[a-z]{2})$/.test(
+    host,
+  );
+  const mapsPath = url.pathname === "/maps" || url.pathname.startsWith("/maps/");
+  if ((google && (host.startsWith("maps.") || mapsPath)) || host === "maps.app.goo.gl")
+    return "Google Maps";
+  if (host === "goo.gl" && mapsPath) return "Google Maps";
   return host.replace(/^www\./, "");
 }

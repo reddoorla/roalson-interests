@@ -156,15 +156,47 @@ describe("PropertyDetail", () => {
     expect(labelFor("https://www.example-gis.com/map/42")).toContain(
       "example-gis.com, opens in a new tab",
     );
+    expect(labelFor("https://earth.google.com/web/@29.65,-98.62")).toContain(
+      "earth.google.com, opens in a new tab",
+    );
   });
 
-  it("ignores a filled-in value that is not a web address", () => {
+  it("opens a pasted link that came with stray spaces or no https://", () => {
+    const hrefFor = (url: string) =>
+      within(
+        render(PropertyDetail, {
+          props: {
+            property: propertyFixture({ aerial_map_url: web(url) }, { uid: "no-land-id-map" }),
+          },
+        }).container,
+      )
+        .getByRole("link", { name: /^Aerial Map/ })
+        .getAttribute("href");
+    const own = "https://id.land/maps/fedcba9876543210fedcba9876543210/share";
+    expect(hrefFor(`  ${own}\n`)).toBe(own);
+    expect(hrefFor("id.land/maps/fedcba9876543210fedcba9876543210/share")).toBe(own);
+  });
+
+  it("uses the Land ID table for a listing saved before the field existed", () => {
     const { getByRole } = render(PropertyDetail, {
-      props: { property: propertyFixture({ aerial_map_url: web("javascript:alert(1)") }) },
+      props: { property: propertyFixture({ aerial_map_url: undefined }) },
     });
     expect(getByRole("link", { name: /^Aerial Map/ }).getAttribute("href")).toBe(
       "https://id.land/maps/fb13b61e0279b421a419bd8e3ed516aa/share",
     );
+  });
+
+  it("ignores a filled-in value that is not a web address", () => {
+    for (const bad of ["javascript:alert(1)", "https://https://id.land/maps/x/share", "https://"]) {
+      const { container } = render(PropertyDetail, {
+        props: { property: propertyFixture({ aerial_map_url: web(bad) }) },
+      });
+      expect(
+        within(container)
+          .getByRole("link", { name: /^Aerial Map/ })
+          .getAttribute("href"),
+      ).toBe("https://id.land/maps/fb13b61e0279b421a419bd8e3ed516aa/share");
+    }
   });
 
   it("renders no action row, no details and no dangling labels for a bare listing", () => {
