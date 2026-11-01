@@ -173,15 +173,41 @@ export function mapsUrl(property: PropertyDocument): string | null {
   return `https://www.google.com/maps/search/?api=1&query=${loc.latitude},${loc.longitude}`;
 }
 
-/** The listing page's Aerial Map: the listing's Land ID map (Erik, 2026-10-29,
- *  `$lib/landid`). A listing with no Land ID map falls back to Google Maps'
- *  documented map URL on satellite imagery, centred on the pin (Erik,
- *  2026-10-09). That form draws no marker; `mapsUrl` keeps the pinned search
- *  link the property map's own links use. */
+/** The listing page's Aerial Map, first that is set:
+ *  1. the listing's own `aerial_map_url`, the Land ID share link an editor
+ *     pastes in Prismic, so a listing added there needs no Reddoor change to
+ *     get its map (P1-93b, maintenance#1880);
+ *  2. its Land ID map by uid, `$lib/landid` (Erik, 2026-10-29), which still
+ *     covers the listings that predate the field;
+ *  3. Google Maps' documented map URL on satellite imagery, centred on the pin
+ *     (Erik, 2026-10-09). That form draws no marker; `mapsUrl` keeps the
+ *     pinned search link the property map's own links use.
+ *  A filled field that is not an http(s) address is skipped, not linked. */
 export function aerialMapUrl(property: PropertyDocument): string | null {
+  const field = property.data.aerial_map_url;
+  if (isFilled.link(field) && field.link_type === "Web") {
+    const url = field.url.trim();
+    if (/^https?:\/\//i.test(url)) return url;
+  }
   const landId = landIdUrl(property.uid);
   if (landId) return landId;
   const loc = property.data.location;
   if (!isFilled.geoPoint(loc)) return null;
   return `https://www.google.com/maps/@?api=1&map_action=map&center=${loc.latitude},${loc.longitude}&zoom=17&basemap=satellite`;
+}
+
+/** Where an Aerial Map link goes, for its screen-reader label: "Land ID",
+ *  "Google Maps", or, for any other site an editor pastes, its host without
+ *  `www.`. */
+export function aerialMapHost(url: string): string {
+  let host: string;
+  try {
+    host = new URL(url).hostname.toLowerCase();
+  } catch {
+    return "map";
+  }
+  const on = (domain: string) => host === domain || host.endsWith(`.${domain}`);
+  if (on("id.land")) return "Land ID";
+  if (/(^|\.)google\.[a-z.]+$/.test(host) || on("goo.gl")) return "Google Maps";
+  return host.replace(/^www\./, "");
 }

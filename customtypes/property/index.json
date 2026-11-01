@@ -100,6 +100,14 @@
           "placeholder": "Upload the package PDF — it opens in the browser from the property page"
         }
       },
+      "aerial_map_url": {
+        "type": "Link",
+        "config": {
+          "label": "Aerial Map link (Land ID share URL)",
+          "select": "web",
+          "placeholder": "https://id.land/maps/<id>/share"
+        }
+      },
       "location": {
         "type": "GeoPoint",
         "config": {
