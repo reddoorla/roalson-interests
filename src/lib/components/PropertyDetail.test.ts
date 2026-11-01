@@ -1,4 +1,4 @@
-import { cleanup, render } from "@testing-library/svelte";
+import { cleanup, render, within } from "@testing-library/svelte";
 import { afterEach, describe, expect, it } from "vitest";
 
 import PropertyDetail from "./PropertyDetail.svelte";
@@ -107,6 +107,118 @@ describe("PropertyDetail", () => {
     expect(url.searchParams.get("basemap")).toBe("satellite");
     expect(url.searchParams.get("center")).toBe("29.6572,-98.6297");
     expect(link.textContent).toContain("Google Maps, opens in a new tab");
+  });
+
+  // The editor's own field wins over the uid table, so a listing Matt adds in
+  // Prismic gets its Aerial Map with no Reddoor PR (P1-93b, maintenance#1880).
+  const web = (url: string) => ({ link_type: "Web" as const, url });
+
+  it("opens the Aerial Map link an editor filled in, over the listing's Land ID table entry", () => {
+    const { getByRole } = render(PropertyDetail, {
+      props: {
+        property: propertyFixture({
+          aerial_map_url: web("https://id.land/maps/0123456789abcdef0123456789abcdef/share"),
+        }),
+      },
+    });
+    const link = getByRole("link", { name: /^Aerial Map/ });
+    expect(link.getAttribute("href")).toBe(
+      "https://id.land/maps/0123456789abcdef0123456789abcdef/share",
+    );
+    expect(link.textContent).toContain("Land ID, opens in a new tab");
+  });
+
+  it("opens the filled-in link for a new listing the Land ID table has never heard of", () => {
+    const { getByRole } = render(PropertyDetail, {
+      props: {
+        property: propertyFixture(
+          { aerial_map_url: web("https://id.land/maps/fedcba9876543210fedcba9876543210/share") },
+          { uid: "no-land-id-map" },
+        ),
+      },
+    });
+    expect(getByRole("link", { name: /^Aerial Map/ }).getAttribute("href")).toBe(
+      "https://id.land/maps/fedcba9876543210fedcba9876543210/share",
+    );
+  });
+
+  it("names where a pasted link goes, whichever map site it is on", () => {
+    const labelFor = (url: string) =>
+      within(
+        render(PropertyDetail, {
+          props: {
+            property: propertyFixture({ aerial_map_url: web(url) }, { uid: "no-land-id-map" }),
+          },
+        }).container,
+      ).getByRole("link", { name: /^Aerial Map/ }).textContent;
+    expect(labelFor("https://www.google.com/maps/place/29.6572,-98.6297")).toContain(
+      "Google Maps, opens in a new tab",
+    );
+    expect(labelFor("https://maps.app.goo.gl/abc123")).toContain("Google Maps, opens in a new tab");
+    expect(labelFor("https://www.example-gis.com/map/42")).toContain(
+      "example-gis.com, opens in a new tab",
+    );
+    expect(labelFor("https://earth.google.com/web/@29.65,-98.62")).toContain(
+      "earth.google.com, opens in a new tab",
+    );
+    expect(labelFor("https://www.google.com/search?q=roalson")).toContain(
+      "google.com, opens in a new tab",
+    );
+    expect(labelFor("https://goo.gl/maps/abc123")).toContain("Google Maps, opens in a new tab");
+    expect(labelFor("https://id.land./maps/0123456789abcdef0123456789abcdef/share")).toContain(
+      "Land ID, opens in a new tab",
+    );
+  });
+
+  it("opens a pasted link that came with stray spaces or no https://", () => {
+    const hrefFor = (url: string) =>
+      within(
+        render(PropertyDetail, {
+          props: {
+            property: propertyFixture({ aerial_map_url: web(url) }, { uid: "no-land-id-map" }),
+          },
+        }).container,
+      )
+        .getByRole("link", { name: /^Aerial Map/ })
+        .getAttribute("href");
+    const own = "https://id.land/maps/fedcba9876543210fedcba9876543210/share";
+    expect(hrefFor(`  ${own}\n`)).toBe(own);
+    expect(hrefFor("id.land/maps/fedcba9876543210fedcba9876543210/share")).toBe(own);
+    expect(hrefFor(`\u200B${own}\u200B`)).toBe(own);
+    expect(hrefFor(`\u200E${own.replace("share", "sha\u00ADre")}\u200E`)).toBe(own);
+    expect(hrefFor(`<${own}>`)).toBe(own);
+    expect(hrefFor(`"${own}"`)).toBe(own);
+  });
+
+  it("uses the Land ID table for a listing saved before the field existed", () => {
+    const { getByRole } = render(PropertyDetail, {
+      props: { property: propertyFixture({ aerial_map_url: undefined }) },
+    });
+    expect(getByRole("link", { name: /^Aerial Map/ }).getAttribute("href")).toBe(
+      "https://id.land/maps/fb13b61e0279b421a419bd8e3ed516aa/share",
+    );
+  });
+
+  it("ignores a filled-in value that is not a web address", () => {
+    const own = "https://id.land/maps/fedcba9876543210fedcba9876543210/share";
+    for (const bad of [
+      "javascript:alert(1)",
+      "https://https://id.land/maps/x/share",
+      "https://",
+      "https://www.",
+      `${own}${own}`,
+      `${own} ${own}`,
+      "https://192.168.1.1/map",
+    ]) {
+      const { container } = render(PropertyDetail, {
+        props: { property: propertyFixture({ aerial_map_url: web(bad) }) },
+      });
+      expect(
+        within(container)
+          .getByRole("link", { name: /^Aerial Map/ })
+          .getAttribute("href"),
+      ).toBe("https://id.land/maps/fb13b61e0279b421a419bd8e3ed516aa/share");
+    }
   });
 
   it("renders no action row, no details and no dangling labels for a bare listing", () => {

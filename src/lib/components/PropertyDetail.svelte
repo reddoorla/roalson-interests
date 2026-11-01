@@ -21,6 +21,7 @@
   import ArrowRight from "$lib/components/ArrowRight.svelte";
   import BrandButton from "$lib/components/BrandButton.svelte";
   import {
+    aerialMapHost,
     aerialMapUrl,
     detailBullets,
     isPastProject,
@@ -42,7 +43,7 @@
   const bullets = $derived(detailBullets(property));
   const pkg = $derived(past ? null : propertyPackage(property));
   const map = $derived(aerialMapUrl(property));
-  const mapHost = $derived(map?.startsWith("https://id.land/") ? "Land ID" : "Google Maps");
+  const mapHost = $derived(map ? aerialMapHost(map) : null);
   const hasPhoto = $derived(isFilled.image(data.feature_image));
 </script>
 

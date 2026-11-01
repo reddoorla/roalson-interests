@@ -130,6 +130,7 @@ export function propertyFixture(
         name: "25331 IH 10 West package.pdf",
         size: "6205367",
       },
+      aerial_map_url: { link_type: "Any" },
       location: { latitude: 29.6572, longitude: -98.6297 },
       transaction_type: "Sale or Lease",
       total_price: "Contact Broker",
