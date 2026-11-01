@@ -195,12 +195,15 @@ export function aerialMapUrl(property: PropertyDocument): string | null {
   return `https://www.google.com/maps/@?api=1&map_action=map&center=${loc.latitude},${loc.longitude}&zoom=17&basemap=satellite`;
 }
 
-/** An editor's pasted address as an absolute http(s) URL, or null. A paste
- *  with no scheme ("id.land/maps/…/share") gets `https://`; anything that does
- *  not then parse to a dotted host (a double paste, "https://" alone,
- *  `javascript:`) is null, so it never reaches an href. */
+/** An editor's pasted address as an absolute http(s) URL, or null. Invisible
+ *  characters a copy from email or a doc carries are dropped and the ends
+ *  trimmed; a paste with no scheme ("id.land/maps/…/share") gets `https://`.
+ *  It is null, so it never reaches an href, when what is left holds a space,
+ *  holds a second address (a double paste), or does not parse to a named
+ *  http(s) host ("https://", "https://www.", `javascript:`, a bare IP). */
 function webUrl(raw: string): string | null {
-  const text = raw.trim();
+  const text = raw.replace(/[\u200B-\u200D\u2060\uFEFF]/g, "").trim();
+  if (!text || /\s/.test(text)) return null;
   const withScheme = /^[a-z][a-z0-9+.-]*:/i.test(text) ? text : `https://${text}`;
   let url: URL;
   try {
@@ -208,8 +211,16 @@ function webUrl(raw: string): string | null {
   } catch {
     return null;
   }
-  const ok = (url.protocol === "https:" || url.protocol === "http:") && url.hostname.includes(".");
-  return ok ? url.href : null;
+  if (url.protocol !== "https:" && url.protocol !== "http:") return null;
+  if (!/^(?=.*[a-z])[a-z0-9-]+(\.[a-z0-9-]+)+$/i.test(hostOf(url))) return null;
+  if ((url.pathname + url.search + url.hash).includes("://")) return null;
+  return url.href;
+}
+
+/** A URL's host, lowercase, without the trailing dot a fully qualified name
+ *  may carry. */
+function hostOf(url: URL): string {
+  return url.hostname.toLowerCase().replace(/\.$/, "");
 }
 
 /** Where an Aerial Map link goes, for its screen-reader label: "Land ID",
@@ -219,7 +230,7 @@ function webUrl(raw: string): string | null {
  *  `aerialMapUrl` returned, so it always parses. */
 export function aerialMapHost(href: string): string {
   const url = new URL(href);
-  const host = url.hostname.toLowerCase();
+  const host = hostOf(url);
   if (host === "id.land" || host.endsWith(".id.land")) return "Land ID";
   const google = /^(?:www\.|maps\.)?google\.(?:com|co\.[a-z]{2}|com\.[a-z]{2}|[a-z]{2})$/.test(
     host,

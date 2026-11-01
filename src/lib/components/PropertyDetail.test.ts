@@ -146,7 +146,9 @@ describe("PropertyDetail", () => {
     const labelFor = (url: string) =>
       within(
         render(PropertyDetail, {
-          props: { property: propertyFixture({ aerial_map_url: web(url) }) },
+          props: {
+            property: propertyFixture({ aerial_map_url: web(url) }, { uid: "no-land-id-map" }),
+          },
         }).container,
       ).getByRole("link", { name: /^Aerial Map/ }).textContent;
     expect(labelFor("https://www.google.com/maps/place/29.6572,-98.6297")).toContain(
@@ -158,6 +160,13 @@ describe("PropertyDetail", () => {
     );
     expect(labelFor("https://earth.google.com/web/@29.65,-98.62")).toContain(
       "earth.google.com, opens in a new tab",
+    );
+    expect(labelFor("https://www.google.com/search?q=roalson")).toContain(
+      "google.com, opens in a new tab",
+    );
+    expect(labelFor("https://goo.gl/maps/abc123")).toContain("Google Maps, opens in a new tab");
+    expect(labelFor("https://id.land./maps/0123456789abcdef0123456789abcdef/share")).toContain(
+      "Land ID, opens in a new tab",
     );
   });
 
@@ -175,6 +184,7 @@ describe("PropertyDetail", () => {
     const own = "https://id.land/maps/fedcba9876543210fedcba9876543210/share";
     expect(hrefFor(`  ${own}\n`)).toBe(own);
     expect(hrefFor("id.land/maps/fedcba9876543210fedcba9876543210/share")).toBe(own);
+    expect(hrefFor(`\u200B${own}\u200B`)).toBe(own);
   });
 
   it("uses the Land ID table for a listing saved before the field existed", () => {
@@ -187,7 +197,15 @@ describe("PropertyDetail", () => {
   });
 
   it("ignores a filled-in value that is not a web address", () => {
-    for (const bad of ["javascript:alert(1)", "https://https://id.land/maps/x/share", "https://"]) {
+    const own = "https://id.land/maps/fedcba9876543210fedcba9876543210/share";
+    for (const bad of [
+      "javascript:alert(1)",
+      "https://https://id.land/maps/x/share",
+      "https://",
+      "https://www.",
+      `${own}${own}`,
+      `${own} ${own}`,
+    ]) {
       const { container } = render(PropertyDetail, {
         props: { property: propertyFixture({ aerial_map_url: web(bad) }) },
       });
