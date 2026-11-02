@@ -13410,3 +13410,30 @@ Erik (Discord, 10-30) sent three new listings as Land ID share links, with the p
 Two names collided with live listings: "Hwy 46 and Spencer Ranch Blvd." and "Hwy 87 Comfort". Neither outline shares a vertex with the existing listing near it. The new 25.22-acre Hwy 46 tract is north of Spencer Ranch Blvd, its centroid 421 m from the 61.81-acre one's, and the 43.6-acre Hwy 87 tract is its centroid 1.44 km north of IH 10 at Highway 87's. They are new sites, not re-listings. Hwy 87's share reports `acres: 0`. Its title says 43.6, and the outline measures 43.98 by a flat-earth shoelace, so the listing uses the broker's 43.6. Hwy 46's title says "25+/-" and its `acres` says 25.22. The staged size line first read "25± acres" over a "Land: 25.22 acres" bullet, which looked like two answers on one card, so both now read 25.22.
 
 The heroes are `map-screenshot` captures with overlays off. They differ from Land ID's own preview image by 0.27, 0.01 and 0.09 of 255. The three Aerial Map links are in `landid.ts` (#321). The listing pages were checked in a scratch `/dev` route that fed the release's values to `PropertyDetail`, because the release ref needs a token this container does not have. Each Aerial Map opened its supplied URL, each hero loaded from images.prismic.io, and the console showed no errors. The category on each is inferred from the nearest live listing: SA Metro for Hwy 211 and Hwy 46, Out of San Antonio for Hwy 87 (Comfort). Erik should confirm it.
+
+## 2026-11-02 — The Aerial Map link is a Prismic field (P1-93b, #322, promoted in #323)
+
+Roalson's editor, Matt Howard, is getting Prismic access so that he can add listings himself (reddoorla/reddoor-maintenance#1880). With the Land ID link only in `src/lib/landid.ts` (#319), every listing he added needed a Reddoor PR before its Aerial Map opened Land ID. #321 needed four lines of code for its three listings. The operator's answer was "Add a Prismic field". `property` now has `aerial_map_url`, a web-only Link on the Main tab after `package_pdf`, labelled "Aerial Map link (Land ID share URL)". `aerialMapUrl` reads it first, then `landIdUrl(uid)`, then the Google satellite URL. The 26 table listings are not migrated: an empty field falls through to the table, so nothing changed for them. The model reached Prismic when #323 promoted staging at 2:53pm PT on 11-02, and `prismic-models / apply` was green on that merge. Both dry runs (#322, #323) reported exactly `CHANGED customtype property + Main.aerial_map_url`, with 17 models already matching.
+
+**The pasted value is the hard part, not the precedence.** The field is a client paste, so `webUrl` sits between it and the href, and three Opus review rounds were mostly about what a paste can hold:
+
+- Round 1 (7 minors): a link with no scheme silently fell back to Google, a bare `https://` reached the href, and the "Google Maps" match covered Google Earth and Drive.
+- Round 2's one major was a double paste. `…/sharehttps://id.land/…` parses, keeps a dotted host and wins over the table, which replaces a working map with a Land ID 404. A second `://` after the scheme, or any whitespace, is now refused.
+- Round 3 was minors only, so the round was clean: `<…>` and quotes from plain-text email, the soft hyphen, and direction marks. A soft hyphen in the path had been reaching the href as `%C2%AD`.
+
+Every refusal falls through to the table and then to Google. None of them puts a broken link in the href.
+
+**The label was wrong before any of this.** `PropertyDetail` announced the destination with `map.startsWith("https://id.land/") ? "Land ID" : "Google Maps"`, so any other site an editor pasted would have been read out as Google Maps. `aerialMapHost` now says "Land ID", "Google Maps" (only Maps' own hosts, `/maps` paths and `maps.app.goo.gl`), or the link's own host.
+
+**The gate:** eight tests in `PropertyDetail.test.ts` assert the href and the accessible text. Each guard was mutated and the gate went red: precedence, the field ignored, the http check, the scheme fix, the named-host check, the `://` check, the invisible-character strip, the bracket and quote unwrap, the Google path check, the goo.gl branch and the trailing-dot strip.
+
+- **Belief corrected:** `cae5597`'s message claimed this for the named-host lookahead, but no input reached it. Round 3 found that, and `https://192.168.1.1/map` now covers it.
+- **A second vacuous pass:** the trailing-dot label case passed through the uid table until the label test moved to an unlisted uid.
+
+**Environment, not code:**
+
+- The container's Playwright browser is build 1243 and this repo pins 1.62.1 (build 1234). `pnpm verify` ran with `PLAYWRIGHT_BROWSERS_PATH` pointed at a scratch folder that maps 1234 to 1243. It passed: a11y 0 violations on 9 routes, 1770 unit tests, 73 `@smoke`, 2 skipped.
+- `src/prismicio-types.d.ts` must come from `node scripts/prismic-types.mjs`. A hand copy of codegen's single-line output failed `scripts/prismic-types.test.ts` on line wrapping.
+- Force-push is denied, so the branch rebased onto staging after #321 landed was pushed as `claude/p1-93b-aerial-map-field-on-staging`. `claude/p1-93b-aerial-map-field` is a stale copy the proxy will not delete.
+
+**Not yet seen:** a field-only listing on a rendered page. The Content API exposes only the master ref without a token, so the session could not load a release. The release [P1-93b Aerial Map field check](https://roalson-interests.prismic.io/builder/upcoming/aukU-xEAAJaiphJ9) holds `p1-93b-aerial-map-check`: field filled, uid not in the table, no pin. The operator previews it from Prismic and deletes the release, which must never be published. Production's 25331 IH 10 West still opens `id.land/maps/fb13…/share` as "Land ID".
