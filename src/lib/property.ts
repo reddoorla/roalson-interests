@@ -173,15 +173,76 @@ export function mapsUrl(property: PropertyDocument): string | null {
   return `https://www.google.com/maps/search/?api=1&query=${loc.latitude},${loc.longitude}`;
 }
 
-/** The listing page's Aerial Map: the listing's Land ID map (Erik, 2026-10-29,
- *  `$lib/landid`). A listing with no Land ID map falls back to Google Maps'
- *  documented map URL on satellite imagery, centred on the pin (Erik,
- *  2026-10-09). That form draws no marker; `mapsUrl` keeps the pinned search
- *  link the property map's own links use. */
+/** The listing page's Aerial Map, first that is set:
+ *  1. the listing's own `aerial_map_url`, the Land ID share link an editor
+ *     pastes in Prismic, so a listing added there needs no Reddoor change to
+ *     get its map (P1-93b, maintenance#1880);
+ *  2. its Land ID map by uid, `$lib/landid` (Erik, 2026-10-29), which still
+ *     covers the listings that predate the field;
+ *  3. Google Maps' documented map URL on satellite imagery, centred on the pin
+ *     (Erik, 2026-10-09). That form draws no marker; `mapsUrl` keeps the
+ *     pinned search link the property map's own links use.
+ *  A filled field is normalised by `webUrl`, and skipped when it is not a web
+ *  address. */
 export function aerialMapUrl(property: PropertyDocument): string | null {
+  const field = property.data.aerial_map_url;
+  const own = isFilled.link(field) && field.link_type === "Web" ? webUrl(field.url) : null;
+  if (own) return own;
   const landId = landIdUrl(property.uid);
   if (landId) return landId;
   const loc = property.data.location;
   if (!isFilled.geoPoint(loc)) return null;
   return `https://www.google.com/maps/@?api=1&map_action=map&center=${loc.latitude},${loc.longitude}&zoom=17&basemap=satellite`;
+}
+
+/** An editor's pasted address as an absolute http(s) URL, or null. Invisible
+ *  characters a copy from email or a doc carries are dropped and the ends
+ *  trimmed, along with the <…> or "…" a plain-text email wraps a link in;
+ *  a paste with no scheme ("id.land/maps/…/share") gets `https://`.
+ *  It is null, so it never reaches an href, when what is left holds a space,
+ *  holds a second address (a double paste), or does not parse to a named
+ *  http(s) host ("https://", "https://www.", `javascript:`, a bare IP). */
+function webUrl(raw: string): string | null {
+  const text = raw
+    .replace(/[\u00AD\u200B-\u200F\u202A-\u202E\u2060-\u2069\uFEFF]/g, "")
+    .trim()
+    .replace(/^<(.*)>$/, "$1")
+    .replace(/^"(.*)"$/, "$1");
+  if (!text || /\s/.test(text)) return null;
+  const withScheme = /^[a-z][a-z0-9+.-]*:/i.test(text) ? text : `https://${text}`;
+  let url: URL;
+  try {
+    url = new URL(withScheme);
+  } catch {
+    return null;
+  }
+  if (url.protocol !== "https:" && url.protocol !== "http:") return null;
+  if (!/^(?=.*[a-z])[a-z0-9-]+(\.[a-z0-9-]+)+$/i.test(hostOf(url))) return null;
+  if ((url.pathname + url.search + url.hash).includes("://")) return null;
+  return url.href;
+}
+
+/** A URL's host, lowercase, without the trailing dot a fully qualified name
+ *  may carry. */
+function hostOf(url: URL): string {
+  return url.hostname.toLowerCase().replace(/\.$/, "");
+}
+
+/** Where an Aerial Map link goes, for its screen-reader label: "Land ID",
+ *  "Google Maps", or, for any other site an editor pastes, its host without
+ *  `www.`. Only Maps' own hosts and paths read as Google Maps: Google Earth,
+ *  Drive or a general goo.gl link names its host instead. Takes a URL that
+ *  `aerialMapUrl` returned, so it always parses. */
+export function aerialMapHost(href: string): string {
+  const url = new URL(href);
+  const host = hostOf(url);
+  if (host === "id.land" || host.endsWith(".id.land")) return "Land ID";
+  const google = /^(?:www\.|maps\.)?google\.(?:com|co\.[a-z]{2}|com\.[a-z]{2}|[a-z]{2})$/.test(
+    host,
+  );
+  const mapsPath = url.pathname === "/maps" || url.pathname.startsWith("/maps/");
+  if ((google && (host.startsWith("maps.") || mapsPath)) || host === "maps.app.goo.gl")
+    return "Google Maps";
+  if (host === "goo.gl" && mapsPath) return "Google Maps";
+  return host.replace(/^www\./, "");
 }
