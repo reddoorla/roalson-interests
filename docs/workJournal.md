@@ -13437,3 +13437,11 @@ Every refusal falls through to the table and then to Google. None of them puts a
 - Force-push is denied, so the branch rebased onto staging after #321 landed was pushed as `claude/p1-93b-aerial-map-field-on-staging`. `claude/p1-93b-aerial-map-field` is a stale copy the proxy will not delete.
 
 **Not yet seen:** a field-only listing on a rendered page. The Content API exposes only the master ref without a token, so the session could not load a release. The release [P1-93b Aerial Map field check](https://roalson-interests.prismic.io/builder/upcoming/aukU-xEAAJaiphJ9) holds `p1-93b-aerial-map-check`: field filled, uid not in the table, no pin. The operator previews it from Prismic and deletes the release, which must never be published. Production's 25331 IH 10 West still opens `id.land/maps/fb13…/share` as "Land ID".
+
+## 2026-11-04 — `vitest` 4 → 5 (this PR, into `staging`)
+
+Part of the fleet majors sweep (reddoorla/reddoor-maintenance#1949, phase 2 group A), following the ERP pilot's recipe. Renovate's `staging` vitest PR was still "Awaiting Schedule" on the Dependency Dashboard (#7), so this one was cut by hand from `staging` at `1d72a0b`. `@prismicio/svelte` 2 → 3 is its own PR.
+
+The lock goes from vitest 4.1.11 to 5.1.0. v5 folds several `@vitest/*` packages into itself, which is why the lock loses about 150 lines. **No config or test change was needed.** The `vite.config.ts` test block (jsdom, the `include` globs, `setupFiles`, the `$lib/map-engine` alias to the stub, `server.deps.inline`) works as it is. The v5 breaking changes the recipe lists were checked against this suite's 10 files that call `vi.mock` or `vi.hoisted`. None of them relies on mock call history carrying across tests (v5's `clearMocks: true` default), and none has an un-awaited `.resolves` or `.rejects`.
+
+Measured on Node 24.19.0: lint clean, `svelte-check` 0 errors, build green. vitest went from `RUN v4.1.11` to `RUN v5.1.0`, 140 files and 1770 tests on both, and a JSON-reporter comparison found every file's per-test status sequence identical between the two runs. As on ERP, v5 needed no config change, so the brief's mutation (revert the v5 config change) has nothing to revert and was not run. The proof that v5 is in use is the `RUN v5.1.0` line in CI's log.
