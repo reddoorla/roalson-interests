@@ -1,6 +1,6 @@
 import { error } from "@sveltejs/kit";
 
-import type { PropertyDocument } from "../prismicio-types";
+import type { PropertyDocument } from "../../prismicio-types";
 import { orNotFound } from "$lib/page-load";
 import { isArchived } from "$lib/property";
 import { propertyMeta } from "$lib/property-meta";

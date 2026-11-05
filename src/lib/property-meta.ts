@@ -1,6 +1,6 @@
 import { isFilled } from "@prismicio/client";
 
-import type { PropertyDocument } from "../prismicio-types";
+import type { PropertyDocument } from "../../prismicio-types";
 import { isListed, propertyHighlights } from "$lib/property";
 import { canonicalUrl } from "$lib/seo";
 import { imgix } from "$lib/utils/image";

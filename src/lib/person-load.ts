@@ -1,4 +1,4 @@
-import type { PersonDocument } from "../prismicio-types";
+import type { PersonDocument } from "../../prismicio-types";
 import { withDocumentLinks } from "$lib/cms-href";
 import { orNotFound } from "$lib/page-load";
 import { personMeta } from "$lib/person-meta";

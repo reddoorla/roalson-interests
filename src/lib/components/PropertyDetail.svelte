@@ -17,7 +17,7 @@
   import { PrismicImage } from "@prismicio/svelte";
   import { cappedWidths } from "@reddoorla/maintenance/images";
 
-  import type { PropertyDocument } from "../../prismicio-types";
+  import type { PropertyDocument } from "../../../prismicio-types";
   import ArrowRight from "$lib/components/ArrowRight.svelte";
   import BrandButton from "$lib/components/BrandButton.svelte";
   import {

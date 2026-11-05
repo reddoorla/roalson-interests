@@ -1,7 +1,7 @@
 import * as prismic from "@prismicio/client";
 import { enableAutoPreviews, type CreateClientConfig } from "@prismicio/svelte/kit";
-import config from "../../slicemachine.config.json";
-import type { AllDocumentTypes } from "../prismicio-types";
+import config from "../../prismic.config.json";
+import type { AllDocumentTypes } from "../../prismicio-types";
 
 export const repositoryName = import.meta.env.VITE_PRISMIC_ENVIRONMENT || config.repositoryName;
 
