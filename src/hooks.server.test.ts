@@ -47,7 +47,10 @@ describe("CMS framing", () => {
     expect(csp).toContain("base-uri 'self'");
   });
 
-  it("frames the route SvelteKit resolved, so an encoded path gets the same headers", async () => {
+  // The route id is stubbed here, so this pins only that the hook reads the id
+  // and not the raw path; tests/smoke/slice-simulator.spec.ts proves SvelteKit
+  // resolves the encoded paths to that id.
+  it("decides by the resolved route id, not the raw (encoded) path", async () => {
     const headers = await headersFor("/slice%2Dsimulator", "/slice-simulator");
     expect(headers.get("X-Frame-Options")).toBeNull();
     expect(headers.get("Content-Security-Policy")).toContain(CMS_FRAME_ANCESTORS);
