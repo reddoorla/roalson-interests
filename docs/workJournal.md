@@ -13497,3 +13497,7 @@ Round 2 (one Opus reviewer, mutating the new test) found one more major: the tes
 Round 3 (one Opus reviewer) found no blocker or major, so the review closes clean after three rounds. Its one minor is folded in, since it sits in a file this PR touches and its fix needs no new test: a library outside the project (`../shared`) made the test copy and delete files outside its scratch directory, so the test now refuses such a config at load and fails the run. Its nit stays: a library listed in the config but missing on disk fails with `ENOENT` instead of the "stale" hint, and it still fails.
 
 **Left for the operator, after promotion:** switch the `roalson-interests` Prismic repository to the Type Builder and set its simulator URL to the deployed `/slice-simulator` (§9 "Landing").
+
+## 2026-11-05 — main brought into staging before promoting P1-101 (this PR)
+
+The promotion PR reddoorla/roalson-interests#338 reported "out of date with base branch": `main` holds #334's promotion merge commit, which `staging` did not. Merging `main` into `staging` changes no file (`git diff --stat` between `staging` and the merge is empty), and it makes `main` a parent, so #338 can merge. This is the same step as #333 before the last promotion.
