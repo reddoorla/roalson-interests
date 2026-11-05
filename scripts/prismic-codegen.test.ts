@@ -17,7 +17,7 @@ import { describe, it, expect } from "vitest";
 import { execFileSync } from "node:child_process";
 import { cpSync, mkdtempSync, readFileSync, rmSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { isAbsolute, join, normalize } from "node:path";
 
 const ROOT = join(import.meta.dirname, "..");
 // Every slice library the CLI reads, from the config it reads: a library
@@ -25,6 +25,11 @@ const ROOT = join(import.meta.dirname, "..");
 const LIBRARIES: string[] = JSON.parse(
   readFileSync(join(ROOT, "prismic.config.json"), "utf8"),
 ).libraries;
+// A library outside the project ("../shared") would be copied and deleted
+// outside this test's scratch directory, so refuse one rather than check it.
+const outside = LIBRARIES.filter((l) => isAbsolute(l) || normalize(l).startsWith(".."));
+if (outside.length)
+  throw new Error(`prismic.config.json lists libraries outside the project: ${outside}`);
 const GENERATED = [
   "prismicio-types.d.ts",
   ...LIBRARIES.map((library) => join(library, "index.ts")),
