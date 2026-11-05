@@ -65,17 +65,17 @@
     "typescript-eslint": "^8.60.0",
     "typescript-svelte-plugin": "^0.3.52",
     "vite": "^8.0.14",
-    "vitest": "^4.1.7"
+    "vitest": "^5.1.0"
   },
   "type": "module",
   "packageManager": "pnpm@11.11.0",
   "engines": {
-    "node": ">=20"
+    "node": "^22.17.0 || ^24.0.0 || >=26.0.0"
   },
   "dependencies": {
     "@lucide/svelte": "^1.17.0",
-    "@prismicio/client": "^7.21.8",
-    "@prismicio/svelte": "^2.2.1",
+    "@prismicio/client": "^7.23.0",
+    "@prismicio/svelte": "^3.2.0",
     "@reddoorla/maintenance": "^0.109.1",
     "@tailwindcss/vite": "^4.3.0",
     "@zerodevx/svelte-img": "^2.1.2",
