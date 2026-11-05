@@ -19,11 +19,12 @@ overrides:
   sharp@<0.35.0: ^0.35.5
   # Cleared 2026-11-05 (P1-101): every critical/high `pnpm audit` reported, prod and dev scope,
   # since the nightly reads Dependabot (both scopes). Each is range-scoped to the vulnerable
-  # versions and capped at the major the parent already asks for, so nothing crosses a major.
+  # versions, and each target stays in the major installed today, inside every current parent's
+  # declared range, so nothing crosses a major.
   #   - undici >=8.0.0 <8.12.2 (dev, jsdom > undici): GHSA-rfgv-xxqx-mfg5, GHSA-w293-vg96-wgc3,
   #     GHSA-vp8m-p9jh-q5pm, GHSA-xjj6-f33q-929c, GHSA-4w7w-5xrc-9h26, GHSA-2m5v-pch6-74hx,
   #     GHSA-qrxm-fqhp-jwvm
-  #   - brace-expansion >=4.0.0 <5.0.11 (eslint > minimatch): GHSA-6j4f-fj2g-mc7p, GHSA-qhr7-859c-m2p7
+  #   - brace-expansion >=4.0.0 <5.0.11 (prod, @reddoorla/maintenance > eslint > minimatch): GHSA-6j4f-fj2g-mc7p, GHSA-qhr7-859c-m2p7
   #   - source-map-js >=1.0.0 <1.2.2 (postcss, @tailwindcss/node, vitest): GHSA-68fv-2mgg-jv7q
   #   - proxy-addr >=1.1.0 <2.0.8 (dev, slice-machine-ui > start-slicemachine > express), critical:
   #     GHSA-jqcg-44mw-7w3h
