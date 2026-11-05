@@ -294,10 +294,17 @@ session limit, a compaction, a crash — the journal entry is what survives it.
 
 ## Traps
 
-- **`src/lib/slices/index.js` and `src/prismicio-types.d.ts` are generated** by
-  Slice Machine. Regenerating overwrites curated `mocks.json` content with
-  lorem — re-curate after any regen, and check Number fields didn't come back
-  as strings.
+- **`src/lib/slices/index.ts` and `prismicio-types.d.ts` are generated** by
+  the Prismic CLI (`pnpm prismic:gen`; Slice Machine is gone, deprecated by
+  Prismic 2026-09-18). Edit a model's JSON, regenerate, commit both; the
+  `prismic-codegen` job fails a PR whose generated files are stale. Run by an
+  agent, the CLI refuses without `--task-id` and `--user-intent` (analytics
+  only), and `pnpm prismic:gen` cannot pass them to both commands, so an agent
+  runs the two itself: `pnpm exec prismic task-id` once, then
+  `pnpm exec prismic gen types --task-id <id> --user-intent "<the ask>"` and
+  the same for `gen slice-index`. Never `prismic push` or `prismic pull`: both
+  delete to match, and `pull` removes whole slice directories, components
+  included.
 - **The `your-prismic-repo-name` sentinel is load-bearing.** It keeps a
   clone's build green before the CMS exists. See docs/NEW-SITE.md.
 - **`RepositoryNotFoundError` extends `NotFoundError`.** Catching `NotFoundError`

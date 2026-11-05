@@ -1,4 +1,4 @@
-import type { PropertyDocument } from "../prismicio-types";
+import type { PropertyDocument } from "../../prismicio-types";
 import { groupListings, type ListingSection } from "$lib/property-listing";
 
 /** The minimal client surface the loader needs (see PageClient). */

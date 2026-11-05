@@ -33,10 +33,10 @@ export const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
  *  the model delivery can never aim at different repositories. Refuses when
  *  only the sentinel is found: "no repository" must not become a default.
  *
- *  `prismic.config.json` is no longer in this repo — it was the side door that
- *  let models reach Prismic while the build stayed on the sentinel, and the
- *  connect PR deleted it. The second read stays because the reader it mirrors
- *  has it, and because a fresh clone in that state should still work. */
+ *  Since the Prismic CLI move (P1-101) this repo carries only
+ *  `prismic.config.json`. The `slicemachine.config.json` read stays first
+ *  because the reader it mirrors still checks that name first, for the fleet
+ *  sites not yet migrated. */
 export function repositoryName(root = ROOT) {
   const seen = [];
   for (const file of ["slicemachine.config.json", "prismic.config.json"]) {

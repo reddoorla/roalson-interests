@@ -38,7 +38,7 @@ import type { FeaturedSlide } from "$lib/featured-properties";
 import { MAP_HOME as HOME, type HomeFrame } from "$lib/map-home";
 import { linkResolver } from "$lib/prismicio";
 import { mapsUrl } from "$lib/property";
-import type { PropertyDocument } from "../prismicio-types";
+import type { PropertyDocument } from "../../prismicio-types";
 
 /** OUR OWN STYLE, SERVED FROM OUR OWN ORIGIN, over OpenFreeMap's tiles.
  *

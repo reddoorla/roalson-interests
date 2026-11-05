@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { pageMeta } from "./page-meta";
-import type { PageDocument } from "../prismicio-types";
+import type { PageDocument } from "../../prismicio-types";
 
 // The five keys here are exactly what +layout.svelte's <Seo> reads from
 // page.data (title / meta_title / meta_description / meta_image /

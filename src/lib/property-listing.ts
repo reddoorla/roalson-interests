@@ -1,4 +1,4 @@
-import type { PropertyDocument } from "../prismicio-types";
+import type { PropertyDocument } from "../../prismicio-types";
 import { isArchived, isListed, isPastProject, PROPERTY_CATEGORIES } from "$lib/property";
 
 /**

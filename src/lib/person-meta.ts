@@ -1,4 +1,4 @@
-import type { PersonDocument } from "../prismicio-types";
+import type { PersonDocument } from "../../prismicio-types";
 import { emailHref, isPlaceholderBio, personDisplayName, phoneHref } from "$lib/person";
 import { SITE_NAME, canonicalUrl } from "$lib/seo";
 import { imgix } from "$lib/utils/image";

@@ -31,7 +31,7 @@ import {
   type ImageField,
 } from "@prismicio/client";
 
-import type { PageMediaDocument } from "../prismicio-types";
+import type { PageMediaDocument } from "../../prismicio-types";
 
 /** The minimal client surface this loader needs (cf. ListingClient). */
 export type PageMediaClient = {

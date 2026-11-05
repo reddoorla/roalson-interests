@@ -17,7 +17,7 @@ grep -rn "your-prismic-repo-name\|reddoor-wireframer\|<Site name>\|<Client>" \
 | ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `package.json` → `name`               | The site slug. Fleet audits match sites to Airtable rows by this.                                                                                                                                                           |
 | `.github/workflows/ci.yml`            | `netlify-site: "<slug>"` — drives the deploy-preview link CI comments on every PR.                                                                                                                                          |
-| `slicemachine.config.json`            | `repositoryName` → the real Prismic repo. **See "Placeholder builds" below.**                                                                                                                                               |
+| `prismic.config.json`                 | `repositoryName` → the real Prismic repo. **See "Placeholder builds" below.**                                                                                                                                               |
 | `src/lib/seo.ts`                      | `SITE_NAME` (defaults to `"Reddoor"` — every `<title>` says so until you change it), `SITE_LOCALE`, `DEFAULT_DESCRIPTION`, `DEFAULT_OG_IMAGE`.                                                                              |
 | `src/app.html`                        | `<html lang>` if the primary language is not English.                                                                                                                                                                       |
 | `static/favicon.png`                  | The client's icon. Replace it with opaque `favicon.svg` + `favicon-32.png` + `apple-touch-icon.png` and point `src/app.html` at them; see `src/lib/favicon.test.ts`, which fails while the template file is still shipping. |
@@ -115,13 +115,13 @@ next code PR's deploy preview shows it too. Found the hard way on 29-navy
 
 ## Placeholder builds
 
-`slicemachine.config.json`'s `your-prismic-repo-name` sentinel is load-bearing.
+`prismic.config.json`'s `your-prismic-repo-name` sentinel is load-bearing.
 While it is in place, Prismic-backed routes 404 during prerender and the build
 tolerates it, so a fresh clone is green before the CMS exists. Replacing it with
 a real repository name re-arms loud-fail prerendering by design — after that, a
 404 during prerender fails the build. The sentinel is read in four places
 (`sveltekit.config.js`, `src/lib/prismicio.ts`, the route loaders, and
-`tests/smoke/routes.ts`); change it in `slicemachine.config.json` only.
+`tests/smoke/routes.ts`); change it in `prismic.config.json` only.
 
 `VITE_PRISMIC_ENVIRONMENT=your-prismic-repo-name` reaches the same sentinel
 from the environment, and it is a **local-only hatch** — for a developer's
@@ -133,7 +133,7 @@ to 404 — every gate agreeing about a site that does not exist. Since #120,
 `sveltekit.config.js` and `tests/smoke/routes.ts` both refuse to load when the
 hatch is set and `CI` or `NETLIFY` is, so the failure is loud at the point
 someone reaches for it. A site whose Prismic repository is not ready should
-stay red, or keep the sentinel in `slicemachine.config.json`.
+stay red, or keep the sentinel in `prismic.config.json`.
 
 ## The a11y gate's routes
 
@@ -159,7 +159,7 @@ shared chrome or the fixtures is still caught; what it does not do is claim to
 have scanned a page of the site.
 
 **A real site adds its routes back at `/new-site` step 6**, once
-`slicemachine.config.json` names the real Prismic repository and a `home`
+`prismic.config.json` names the real Prismic repository and a `home`
 document is published:
 
 ```jsonc

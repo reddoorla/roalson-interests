@@ -11,7 +11,7 @@
   import { PrismicImage } from "@prismicio/svelte";
   import { cappedWidths } from "@reddoorla/maintenance/images";
 
-  import type { PersonDocument } from "../../prismicio-types";
+  import type { PersonDocument } from "../../../prismicio-types";
   import RichTextBody from "$lib/components/RichTextBody.svelte";
   import { emailHref, isPlaceholderBio, personDisplayName, phoneHref } from "$lib/person";
   import { ABOUT_ID } from "$lib/site-config";
