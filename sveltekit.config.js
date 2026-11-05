@@ -3,21 +3,21 @@ import adapter from "@sveltejs/adapter-netlify";
 import { vitePreprocess } from "@sveltejs/vite-plugin-svelte";
 import { SVELTE_EVENT_REPLAY_HASH } from "@reddoorla/maintenance/configs/svelte";
 
-const slicemachine = JSON.parse(
-  readFileSync(new URL("./slicemachine.config.json", import.meta.url), "utf-8"),
+const prismicConfig = JSON.parse(
+  readFileSync(new URL("./prismic.config.json", import.meta.url), "utf-8"),
 );
 const PLACEHOLDER_SENTINEL = "your-prismic-repo-name";
 // Written by $lib/property-load for each archived listing it 404s (#176).
 const ARCHIVED_LISTINGS = Symbol.for("roalson.archivedListings");
 const isPlaceholderRepo =
-  (process.env.VITE_PRISMIC_ENVIRONMENT || slicemachine.repositoryName) === PLACEHOLDER_SENTINEL;
+  (process.env.VITE_PRISMIC_ENVIRONMENT || prismicConfig.repositoryName) === PLACEHOLDER_SENTINEL;
 
 // The env-var route to the sentinel is a LOCAL-ONLY hatch (#120). Set in CI
 // or on Netlify it makes `entries()` return [] so `/` is never prerendered,
 // then tolerates the resulting 404s — a green build with no home page, from a
 // variable that is invisible in the diff and persists indefinitely. Refuse it
 // at module load so the failure is loud at the point someone reaches for it.
-// The sentinel IN slicemachine.config.json is untouched: that is the
+// The sentinel IN prismic.config.json is untouched: that is the
 // documented fresh-clone state, and it is visible in the repo.
 // Mirrored in tests/smoke/routes.ts, which reads the same variable.
 if (
@@ -28,7 +28,7 @@ if (
     `VITE_PRISMIC_ENVIRONMENT=${PLACEHOLDER_SENTINEL} is a local-only hatch and is set in ` +
       "CI/Netlify: it would green a deploy that emits no home page (every Prismic route " +
       "prerenders as a tolerated 404). Unset it there; a site whose Prismic repository is " +
-      "not ready should stay red, or keep the sentinel in slicemachine.config.json.",
+      "not ready should stay red, or keep the sentinel in prismic.config.json.",
   );
 }
 

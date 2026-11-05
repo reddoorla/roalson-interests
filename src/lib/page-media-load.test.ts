@@ -6,7 +6,7 @@ import {
   loadPropertiesMedia,
   type PageMediaClient,
 } from "./page-media-load";
-import type { PageMediaDocument } from "../prismicio-types";
+import type { PageMediaDocument } from "../../prismicio-types";
 
 const IMAGE = {
   url: "https://images.prismic.io/roalson-interests/abc_masthead.jpg?auto=format,compress",

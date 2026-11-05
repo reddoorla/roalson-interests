@@ -133,7 +133,7 @@ export const sliceIds = (entry) => [...new Set((entry.data.slices ?? []).map((s)
 
 /** The local model.json for a slice id, found by id and not by folder name. */
 export function localSliceModels(root = ROOT) {
-  const index = JSON.parse(readFileSync(join(root, "slicemachine.config.json"), "utf8"));
+  const index = JSON.parse(readFileSync(join(root, "prismic.config.json"), "utf8"));
   const models = {};
   for (const library of index.libraries ?? []) {
     const dir = join(root, library);

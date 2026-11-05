@@ -1,6 +1,6 @@
 import { isFilled } from "@prismicio/client";
 import { landIdUrl } from "$lib/landid";
-import type { PropertyDocument } from "../prismicio-types";
+import type { PropertyDocument } from "../../prismicio-types";
 
 /** The `category` Select's options, exactly as customtypes/property declares
  *  them. Prismic hands back the option STRING, so code that groups listings

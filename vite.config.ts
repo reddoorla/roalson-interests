@@ -5,13 +5,22 @@ import tailwindcss from "@tailwindcss/vite";
 
 import { claudeDirIgnore } from "./scripts/claude-dir-ignore.mjs";
 import { privacyServices } from "./scripts/privacy-services.ts";
+import { prismicBarrel } from "./scripts/prismic-barrel.ts";
 import kitConfig, { productionOrigin } from "./sveltekit.config.js";
 
 export default defineConfig({
   // SvelteKit 3 takes its configuration here, not from svelte.config.js
   // (which it refuses to start beside). The object lives in sveltekit.config.js
   // so eslint, the privacy-services plugin and the tests read the same one.
-  plugins: [sveltekit(kitConfig), imagetools(), tailwindcss(), privacyServices()],
+  plugins: [
+    sveltekit(kitConfig),
+    imagetools(),
+    tailwindcss(),
+    privacyServices(),
+    // Keeps the slice simulator out of every public page's bundle now that it
+    // comes from the @prismicio/svelte barrel (scripts/prismic-barrel.ts says how).
+    prismicBarrel(),
+  ],
   // The production origin for prerendered canonical and og:url, in place of
   // kit's placeholder (sveltekit.config.js says why it is not paths.origin).
   define: { __REDDOOR_SITE_ORIGIN__: JSON.stringify(productionOrigin) },

@@ -9,7 +9,7 @@
 // placeholder repo → error(404)), so the entry below gates its expectation on
 // the repository name — mirroring `isPlaceholderRepo` in src/lib/prismicio.ts
 // and the entries() prerender guard in the home route. The moment a fork wires
-// a real Prismic repo in slicemachine.config.json, the same entry expects 200
+// a real Prismic repo in prismic.config.json, the same entry expects 200
 // with zero edits.
 //
 // The hydration marker used to be `footer`. The footer is server-rendered, so
@@ -21,7 +21,7 @@
 
 // Playwright runs this file as native ESM in Node, where JSON imports require
 // the explicit attribute (unlike Vite-bundled src/lib/prismicio.ts).
-import slicemachineConfig from "../../slicemachine.config.json" with { type: "json" };
+import prismicConfig from "../../prismic.config.json" with { type: "json" };
 
 export type SmokeRoute = {
   /** Route path to visit, e.g. "/" or "/about". */
@@ -36,10 +36,10 @@ export type SmokeRoute = {
 };
 
 // Same resolution order as src/lib/prismicio.ts (VITE_PRISMIC_ENVIRONMENT
-// override, then slicemachine.config.json). This file runs in the Playwright
+// override, then prismic.config.json). This file runs in the Playwright
 // process, so read process.env rather than import.meta.env.
 const PLACEHOLDER_SENTINEL = "your-prismic-repo-name";
-const repositoryName = process.env.VITE_PRISMIC_ENVIRONMENT || slicemachineConfig.repositoryName;
+const repositoryName = process.env.VITE_PRISMIC_ENVIRONMENT || prismicConfig.repositoryName;
 export const isPlaceholderRepo = repositoryName === PLACEHOLDER_SENTINEL;
 
 // The env-var route to the sentinel is a LOCAL-ONLY hatch (#120). Under CI or
@@ -55,7 +55,7 @@ if (
     `VITE_PRISMIC_ENVIRONMENT=${PLACEHOLDER_SENTINEL} is a local-only hatch and is set in ` +
       "CI/Netlify: it would make this smoke run expect no home page and pass. Unset it " +
       "there; a site whose Prismic repository is not ready should stay red, or keep the " +
-      "sentinel in slicemachine.config.json.",
+      "sentinel in prismic.config.json.",
   );
 }
 

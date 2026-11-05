@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "verify": "pnpm lint && pnpm check && pnpm build && pnpm test:a11y && pnpm test",
-    "dev": "concurrently \"pnpm:vite:dev\" \"pnpm:slicemachine\" --prefix-colors blue,magenta",
+    "dev": "vite dev --host",
     "vite:dev": "vite dev --host",
     "build": "vite build && node scripts/publish-check.mjs",
     "preview": "vite preview",
@@ -23,8 +23,8 @@
     "test:a11y": "reddoor-maint audit --only a11y --fail-on-violations",
     "map:style": "node scripts/map-style.mjs",
     "map:home": "node scripts/map-home.mjs",
-    "slicemachine": "start-slicemachine",
-    "test:prerender-origin": "node scripts/prerender-origin.mjs"
+    "test:prerender-origin": "node scripts/prerender-origin.mjs",
+    "prismic:gen": "prismic gen types && prismic gen slice-index"
   },
   "reddoor": {
     "a11yRoutes": [
@@ -41,12 +41,10 @@
     "@axe-core/playwright": "^4.11.3",
     "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.60.0",
-    "@slicemachine/adapter-sveltekit": "^0.3.96",
     "@sveltejs/adapter-netlify": "^7.0.1",
     "@sveltejs/kit": "^3.1.0",
     "@sveltejs/vite-plugin-svelte": "^7.1.2",
     "@testing-library/svelte": "^5.3.1",
-    "concurrently": "^10.0.6",
     "eslint": "^10.4.0",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-svelte": "^3.18.0",
@@ -55,9 +53,9 @@
     "lint-staged": "^17.6.0",
     "prettier": "^3.8.3",
     "prettier-plugin-svelte": "^4.0.1",
+    "prismic": "^1.26.0",
     "sharp": "^0.35.0",
     "simple-git-hooks": "^2.14.0",
-    "slice-machine-ui": "^2.21.3",
     "svelte": "^5.57.2",
     "svelte-check": "^4.4.8",
     "tailwindcss": "^4.3.0",

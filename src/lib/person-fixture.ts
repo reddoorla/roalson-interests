@@ -1,4 +1,4 @@
-import type { PersonDocument } from "../prismicio-types";
+import type { PersonDocument } from "../../prismicio-types";
 
 /** A `person` document for the dev routes, the a11y fixtures and tests: Matt
  *  Howard with a PLACEHOLDER biography, which is the launch state. The bio says

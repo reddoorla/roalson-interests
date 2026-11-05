@@ -1,6 +1,6 @@
 import { isFilled, type ImageField } from "@prismicio/client";
 
-import type { PropertyDocument } from "../prismicio-types";
+import type { PropertyDocument } from "../../prismicio-types";
 
 /** Inline pixel, so a fixture never depends on an external host — the axe run
  *  must stay hermetic (see /dev/a11y-fixtures). */

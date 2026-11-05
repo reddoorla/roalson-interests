@@ -2,7 +2,7 @@
 // answer null on anything unusable rather than throwing: `office.ts`'s
 // `telHref` throws on purpose for the one hard-coded number, and a throw here
 // would turn a typo in the CMS into a 500.
-import type { PersonDocument } from "../prismicio-types";
+import type { PersonDocument } from "../../prismicio-types";
 
 const EMAIL = /^[^\s@<>()[\]\\,;:"]+@[^\s@<>()[\]\\,;:"]+\.[a-z]{2,}$/i;
 
