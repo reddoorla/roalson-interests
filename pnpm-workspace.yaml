@@ -25,13 +25,15 @@ overrides:
   #     GHSA-qrxm-fqhp-jwvm
   #   - brace-expansion >=4.0.0 <5.0.11 (eslint > minimatch): GHSA-6j4f-fj2g-mc7p, GHSA-qhr7-859c-m2p7
   #   - source-map-js >=1.0.0 <1.2.2 (postcss, @tailwindcss/node, vitest): GHSA-68fv-2mgg-jv7q
-  #   - proxy-addr >=1.1.0 <2.0.8 (dev, slice-machine-ui > express), critical: GHSA-jqcg-44mw-7w3h
-  #   - shell-quote >=1.8.4 <1.11.0 (dev, concurrently), critical: GHSA-pqg4-j6r4-53mv
-  #   - joi >=17.1.1 <17.13.9 (dev, slice-machine-ui, @slicemachine/plugin-kit): GHSA-6h2x-m376-mqjq,
+  #   - proxy-addr >=1.1.0 <2.0.8 (dev, slice-machine-ui > start-slicemachine > express), critical:
+  #     GHSA-jqcg-44mw-7w3h
+  #   - joi >=17.1.1 <17.13.9 (dev, @slicemachine/plugin-kit > prismic-ts-codegen): GHSA-6h2x-m376-mqjq,
   #     GHSA-4528-x5fx-h6hg
   #   - follow-redirects >=1.16.0 <1.16.2 (dev, slice-machine-ui > http-proxy): GHSA-q3jh-wrc6-jgq8,
   #     GHSA-8r9p-f939-6h3c, GHSA-mrwp-f3q8-3g9p
-  #   - body-parser <1.20.9 (dev, slice-machine-ui > express): GHSA-27r3-jxmh-p828
+  #   - body-parser <1.20.9 (dev, slice-machine-ui > start-slicemachine): GHSA-27r3-jxmh-p828
+  # Not an override: shell-quote 1.9.0 (critical, GHSA-pqg4-j6r4-53mv) was an exact pin by
+  # concurrently 10.0.5; the lockfile moves concurrently to 10.0.6 (in ^10), which ships 1.12.0.
   # Not here: zod <4.6.6 (GHSA-mrhx-c7xc-m3w5, dev, slice-machine-ui > @slicemachine/manager >
   # @anthropic-ai/claude-agent-sdk@0.1.37, peer zod ^3). No 3.x fix exists, so it is a decision
   # file in reddoor-workspace, not an override.
@@ -39,7 +41,6 @@ overrides:
   "brace-expansion@>=4.0.0 <5.0.11": ^5.0.11
   "source-map-js@>=1.0.0 <1.2.2": ^1.2.2
   "proxy-addr@>=1.1.0 <2.0.8": ^2.0.8
-  "shell-quote@>=1.8.4 <1.11.0": ^1.11.0
   "joi@>=17.1.1 <17.13.9": ^17.13.9
   "follow-redirects@>=1.16.0 <1.16.2": ^1.16.2
   "body-parser@<1.20.9": ^1.20.9
