@@ -67,9 +67,30 @@ const turnReduceOn = () => {
 
 function element() {
   const el = document.createElement("div");
+  el.className = "card";
   document.body.appendChild(el);
   return el;
 }
+
+// jsdom 31 serialises inline styles as a browser does: once `transitionDelay`
+// is set, the `var()` transition shorthand reads back "" (Chromium 153 too), so
+// "is the inline transition still there" is read the way a browser applies it.
+// Each element carries a stylesheet transition, as a hover card does: while the
+// reveal owns the element the computed list is the reveal's, and once it is
+// handed back it is the stylesheet's again.
+const REVEAL = "opacity, transform";
+// The whole stylesheet transition, not just its property list: a release that
+// left the inline duration or curve behind would run the hover at 2.4s.
+const AUTHORED = { property: "box-shadow", duration: "0.2s", timing: "ease" };
+const transitionProperty = (el: HTMLElement) => getComputedStyle(el).transitionProperty;
+const transitionOf = (el: HTMLElement) => {
+  const cs = getComputedStyle(el);
+  return {
+    property: cs.transitionProperty,
+    duration: cs.transitionDuration,
+    timing: cs.transitionTimingFunction,
+  };
+};
 
 /** jsdom has no TransitionEvent constructor. The action reads `propertyName`
  *  and `target`; dispatch supplies the target, so only the former is faked. */
@@ -81,6 +102,13 @@ function endOpacityTransition(node: HTMLElement) {
 }
 
 beforeEach(() => {
+  document.documentElement.style.setProperty(
+    "--ease-fast-slow",
+    "cubic-bezier(0.1, 0.2, 0.3, 0.4)",
+  );
+  const sheet = document.createElement("style");
+  sheet.textContent = ".card { transition: box-shadow 200ms ease; }";
+  document.head.appendChild(sheet);
   FakeIntersectionObserver.instances = [];
   // @ts-expect-error — replacing global for test
   window.IntersectionObserver = FakeIntersectionObserver;
@@ -94,6 +122,7 @@ beforeEach(() => {
 
 afterEach(() => {
   document.body.innerHTML = "";
+  document.head.innerHTML = "";
 });
 
 describe("animateIn — the data-reveal marker", () => {
@@ -198,11 +227,11 @@ describe("animateIn — the inline transition is handed back to the stylesheet",
     const el = element();
     animateIn(el);
     FakeIntersectionObserver.instances[0]!.enter();
-    expect(el.style.transition).not.toBe("");
+    expect(transitionProperty(el)).toBe(REVEAL);
 
     endOpacityTransition(el);
 
-    expect(el.style.transition).toBe("");
+    expect(transitionOf(el)).toEqual(AUTHORED);
     expect(el.style.opacity).toBe("");
     expect(el.style.transform).toBe("");
   });
@@ -216,7 +245,7 @@ describe("animateIn — the inline transition is handed back to the stylesheet",
 
     endOpacityTransition(child);
 
-    expect(el.style.transition).not.toBe("");
+    expect(transitionProperty(el)).toBe(REVEAL);
   });
 
   it("releases on a timer when no transitionend ever arrives (background tab)", () => {
@@ -225,9 +254,9 @@ describe("animateIn — the inline transition is handed back to the stylesheet",
       const el = element();
       animateIn(el, { duration: 400, delayMax: 0 });
       FakeIntersectionObserver.instances[0]!.enter();
-      expect(el.style.transition).not.toBe("");
+      expect(transitionProperty(el)).toBe(REVEAL);
       vi.advanceTimersByTime(400 + 300);
-      expect(el.style.transition).toBe("");
+      expect(transitionOf(el)).toEqual(AUTHORED);
     } finally {
       vi.useRealTimers();
     }
@@ -245,7 +274,7 @@ describe("animateIn — the inline transition is handed back to the stylesheet",
       // strip the transition it just wrote.
       vi.advanceTimersByTime(400 + 300);
       expect(el.style.opacity).toBe("0");
-      expect(el.style.transition).not.toBe("");
+      expect(transitionProperty(el)).toBe(REVEAL);
     } finally {
       vi.useRealTimers();
     }
