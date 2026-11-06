@@ -272,7 +272,8 @@ describe("CarouselProgress", () => {
     }));
     const { container } = render(CarouselFixture, { count: 3, autoplay: DWELL });
     expect(bar(container).dataset.carouselProgress).toBe("position");
-    expect(scale(container)).toBeCloseTo(1 / 3, 10);
+    // jsdom 31 keeps the 6 significant digits a browser does (`0.333333`).
+    expect(scale(container)).toBeCloseTo(1 / 3, 6);
   });
 
   it("takes the tone's two classes", () => {

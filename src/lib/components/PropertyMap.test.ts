@@ -1938,8 +1938,11 @@ describe("the picture the server draws where the map will be", () => {
         // centre pixel is MAP_HOME's coordinate at every container size.
         expect(el.style.left).toBe("50%");
         expect(el.style.top).toBe("50%");
+        // jsdom 31 serialises the transform as a browser does: 6 significant
+        // digits, and a space after each comma.
+        const px = (n: number) => Number(n.toPrecision(6));
         expect(el.style.transform).toBe(
-          `translate(${marker.dx}px,${marker.dy}px) translate(-50%,-100%)`,
+          `translate(${px(marker.dx)}px, ${px(marker.dy)}px) translate(-50%, -100%)`,
         );
       }
     }
