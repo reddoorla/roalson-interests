@@ -165,8 +165,8 @@ describe("the easing animateIn writes", () => {
       duration: computed.transitionDuration,
       timing: computed.transitionTimingFunction,
     };
-    // The curve is @theme's own value: a var() with a fallback would otherwise
-    // hide a token @theme does not declare.
+    // The curve is @theme's own value, so an undeclared token behind a fallback
+    // to a different curve is caught too.
     const ease = /^\s*--ease-fast-slow:\s*([^;]+);/m.exec(theme)?.[1];
     destroy();
     node.remove();
