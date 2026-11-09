@@ -64,6 +64,12 @@ describe("legacyRedirect", () => {
     );
   });
 
+  it("sends the old pages Google indexed that the crawl never reached", () => {
+    // Search Console's 2026-11-09 "Not found (404)": linked from nowhere on the
+    // old site, so absent from the inventory, but in Google's index all the same.
+    expect(legacyRedirect("/home.htm")).toBe("/");
+  });
+
   it("matches whatever case and encoding the link was typed in", () => {
     expect(legacyRedirect("/PROP.HTM")).toBe("/properties");
     expect(legacyRedirect("/about us.html")).toBe("/");

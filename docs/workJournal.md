@@ -13525,3 +13525,24 @@ The cause was the lockfile, not code. This repo never declared `@types/node`. It
 Belief corrected: P1-80's earlier rounds on this site were all `main-gate` and the `fast-track` label. This one had nothing to do with the staging flow.
 
 The fleet question this leaves: any site that still leans on vite's peer for `@types/node` breaks the same way at its next lock-file maintenance. It is not checked here.
+
+## 2026-11-09 — `/home.htm` 301s to `/`, the one old URL the legacy map missed (`fix/gsc-legacy-home-htm` → `staging`)
+
+Search Console emailed at 12:56am PT on 11-09 with five new reasons on `sc-domain:roalson.com`. The indexing report has no API, so the URLs behind each reason were found with `urlInspection.index.inspect` (the GA service account is `siteOwner`) and `curl`. 276 distinct candidates went through it, in 278 inspections: the 28 sitemap URLs, every page in Search Analytics (61; the Domain property has no data before the 10-28 launch), the 86 paths in `tests/smoke/legacy-urls.json`, and the other-host twin (`www` or apex) of each.
+
+All 86 inventoried old URLs answer 301 live. The one real fault was **`/home.htm`**, which 404s. Nothing on the old site linked it, so the 2026-09-30 crawl never found it. Google had it indexed anyway (last crawled 10-22, 30 impressions since launch), and Search Console's "Not found (404)" is `https://www.roalson.com/home.htm`, crawled 11-01. It now goes to `/`, like `/index.htm`. Measured on `vite preview`: `/home.htm` and `/HOME.htm` 301 to `/`; `/nope.htm` still 404s. The new test fails with the map entry commented out.
+
+The other four reasons are the launch working as designed:
+
+- **Page with redirect**: `http://roalson.com/`, `http://` and `https://www.roalson.com/`, `/index.htm` and `/about.htm` on both hosts, `/profiles/eldon.htm`, and the Old Corpus Christi Road package. These are the `www`→apex 301 and this hook's own 301s.
+- **Duplicate without user-selected canonical**: `https://www.roalson.com/contact_us.htm` (last crawled 08-20) and the `www` Grissom at Timber Path package (last crawled 2025-03-30). Before cutover, both hosts served the same old site, and Google chose the apex copy. Both now 301 through `www`→apex into this map, so they clear when Google recrawls them.
+- **Excluded by 'noindex' tag**: `/privacy`, which is noindexed on purpose while `PRIVACY_POLICY_DRAFT` holds.
+- **Alternate page with proper canonical tag**: `/index.html`, whose canonical is `/`.
+
+Every sitemap URL answers 200, carries a self-canonical on the apex and no robots meta.
+
+Corrected on contact: URL Inspection is not a census. It answered "unknown to Google" in 168 of the 278 inspections, including seven sitemap URLs: four listing pages, both team pages and `/contact`. So the 404 was found only by inspecting the `www` twin of a Search Analytics URL, not by asking about the apex one.
+
+The regenerated `docs/COMPONENTS.md` changes only `legacy-redirects.ts`'s test count (6 → 7). `pnpm verify` passed prettier, eslint, svelte-check and the build, and 1787 of 1787 unit tests passed. The a11y audit could not run here (this container's Playwright Chromium is not the pinned build), so CI runs it.
+
+Usage: see the workspace journal entry for this session.
