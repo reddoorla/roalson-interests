@@ -13513,3 +13513,15 @@ The proof: vitest runs 142 files and 1786 tests with the same per-file counts as
 Review round 1 (one Opus reviewer, three lenses, all six sites at once) found no blocker. Its one major is folded in: the hand-back checks read only `transitionProperty`, so a release that removed `transition-property` alone stayed green; they now compare the whole computed transition, and that mutation turns two tests red. Its minor is folded in too: the theme test now also checks the computed curve is `@theme`'s own `--ease-fast-slow` value, because `var(--ease-fast-slowx, ease)` stayed green on property and duration alone and now turns it red (a fallback to `@theme`'s own curve still passes, as it did before). The triggered reduced-motion read now uses `style.cssText`.
 
 Review round 2 (Opus, three lenses, the six PRs at once) found minors and nits only, so the review closes clean; the nits in this PR's own files are folded in. Its one minor, `FeaturedProperties.test.ts`'s `region.style.transition` read (outside this PR's files), is filed as an issue.
+
+## 2026-11-09 — Lock-file maintenance dropped `@types/node`; declared directly (#346, then #344)
+
+The cockpit's Watch listed "1 Renovate PR failing CI (first flagged 2026-11-09)" for Roalson without naming it. Read the way the nightly `github-signals` sweep reads it (open PRs on a `renovate/` branch whose check rollup is FAILURE or ERROR), it was #344, Renovate's lock-file maintenance into `staging`. `ci / ci` failed in svelte-check with 146 errors in 46 files, every one of them `Cannot find name 'node:fs'`, `'process'`, `'Buffer'`, or an implicit `any` that follows from those.
+
+The cause was the lockfile, not code. This repo never declared `@types/node`. It arrived only as the optional peer that vite and vitest resolve (`@types/node@26.2.0`), and the regenerated lockfile in #344 resolved no such peer, so `node_modules/@types` vanished. Nothing in `staging` was wrong, which is why `staging` stayed green: the type surface depended on a resolution accident.
+
+#346 declares `"@types/node": "^24.19.2"`, the range CalTex, LAHI, LAHY and Sonder carry since P1-100, and reddoor-website#319 too. It matches `.nvmrc`'s Node 24, where the accident had been typing against Node 26. The proof was on #344's own tree (`2f420f7`): svelte-check gave 146 errors before and 0 after with only `package.json` changed. Lint, build, publish-check and 1786 of 1786 unit tests also passed there. The a11y audit and `@smoke` could not run in the cloud container (its Playwright Chromium is not the build playwright-core 1.62 pins), so CI ran them. #346 landed green at 12:23pm PT. #344 was then rebuilt by Renovate onto it (`530ea81`), went green, and landed at 12:32pm PT.
+
+Belief corrected: P1-80's earlier rounds on this site were all `main-gate` and the `fast-track` label. This one had nothing to do with the staging flow.
+
+The fleet question this leaves: any site that still leans on vite's peer for `@types/node` breaks the same way at its next lock-file maintenance. It is not checked here.
