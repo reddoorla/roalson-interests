@@ -146,13 +146,35 @@ describe("classes the markup spells", () => {
 
 describe("the easing animateIn writes", () => {
   it("is a token app.css's @theme declares", () => {
-    const node = document.createElement("div");
-    const { destroy } = animateIn(node);
-    const transition = node.style.transition;
-    destroy();
-    expect(transition, "animateIn wrote no transition to read").not.toBe("");
-    const reads = [...new Set([...transition.matchAll(/var\((--[\w-]+)\)/g)].map((m) => m[1]!))];
+    // jsdom 31 serialises inline styles as a browser does: once animateIn sets
+    // `transitionDelay`, its var() transition shorthand reads back "" (Chromium
+    // 153 too), so the var() names cannot be read off the inline style. Read
+    // what a browser does with them instead: with only the @theme block's
+    // declarations on :root, a var() @theme does not declare is invalid at
+    // computed-value time and the element computes no transition at all.
     const theme = CSS.slice(CSS.indexOf("@theme {"), CSS.indexOf("\n}\n", CSS.indexOf("@theme {")));
-    for (const name of reads) expect(theme).toMatch(new RegExp(`^\\s*${name}:`, "m"));
+    const sheet = document.createElement("style");
+    sheet.textContent = `:root {${theme.slice(theme.indexOf("{") + 1)}\n}`;
+    document.head.appendChild(sheet);
+    const node = document.createElement("div");
+    document.body.appendChild(node);
+    const { destroy } = animateIn(node);
+    const computed = getComputedStyle(node);
+    const read = {
+      property: computed.transitionProperty,
+      duration: computed.transitionDuration,
+      timing: computed.transitionTimingFunction,
+    };
+    // The curve is @theme's own value, so an undeclared token behind a fallback
+    // to a different curve is caught too.
+    const ease = /^\s*--ease-fast-slow:\s*([^;]+);/m.exec(theme)?.[1];
+    destroy();
+    node.remove();
+    sheet.remove();
+    expect(read, "animateIn's transition did not resolve against @theme").toEqual({
+      property: "opacity, transform",
+      duration: "2.4s, 2.4s",
+      timing: `${ease}, ${ease}`,
+    });
   });
 });
