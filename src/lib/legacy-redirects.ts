@@ -78,6 +78,9 @@ export const LEGACY_PATHS: Record<string, string> = {
   // The frameset's pages. "About Us" is the homepage's legacy band now; the
   // old staff profiles have no page here.
   "/index.htm": "/",
+  // Not in the 2026-09-30 crawl (nothing on the old site linked it), but
+  // Google had it indexed: Search Console reported it 404 here on 2026-11-09.
+  "/home.htm": "/",
   "/mainFrame.htm": "/",
   "/topFrame.htm": "/",
   "/About Us.html": "/",
