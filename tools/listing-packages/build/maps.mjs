@@ -190,7 +190,7 @@ async function render(page, job) {
         const d = Math.hypot(cx - pt.x, cy - pt.y);
         if (d > near) {
           const k = Math.min(1, 12 / d);
-          if (segHitsTaken(pt.x + (cx - pt.x) * k, pt.y + (cy - pt.y) * k, cx, cy) || !free({ l: Math.min(pt.x, cx), t: Math.min(pt.y, cy), r: Math.max(pt.x, cx), b: Math.max(pt.y, cy) })) continue;
+          if (segHitsTaken(pt.x + (cx - pt.x) * k, pt.y + (cy - pt.y) * k, cx, cy) || !free({ l: Math.min(pt.x, cx), t: Math.min(pt.y, cy), r: Math.max(pt.x, cx), b: Math.max(pt.y, cy) }, true)) continue;
         }
         el.style.left = `${box.l}px`; el.style.top = `${box.t}px`; el.style.visibility = 'visible';
         const slot = { l: box.l - 3, t: box.t - 3, r: box.r + 3, b: box.b + 3 };
@@ -242,6 +242,17 @@ async function render(page, job) {
       el.querySelector('span').textContent = t.road;
       if (!place(el, map.project([t.lon, t.lat]))) { dropped.push(`count ${t.qty}`); countDots.get(t).remove(); }
     }
+    // The parts of rectangle a that lie outside rectangle o, as up to four rectangles.
+    const outside = (a, o) => {
+      if (a.r <= o.l || a.l >= o.r || a.b <= o.t || a.t >= o.b) return [a];
+      const out = [];
+      if (a.t < o.t) out.push({ l: a.l, t: a.t, r: a.r, b: o.t });
+      if (a.b > o.b) out.push({ l: a.l, t: o.b, r: a.r, b: a.b });
+      const t = Math.max(a.t, o.t), b = Math.min(a.b, o.b);
+      if (a.l < o.l) out.push({ l: a.l, t, r: o.l, b });
+      if (a.r > o.r) out.push({ l: o.r, t, r: a.r, b });
+      return out.filter((r) => r.r > r.l && r.b > r.t);
+    };
     const boxes = [];
     for (const b of job.businesses ?? []) {
       const pt = map.project([b.lon, b.lat]);
@@ -281,12 +292,32 @@ async function render(page, job) {
       await new Promise((res) => { if (map.loaded() && map.areTilesLoaded()) res(); else map.once('idle', res); });
       const symbolLayers = map.getStyle().layers.filter((l) => l.type === 'symbol' && l.id !== 'blockers').map((l) => l.id);
       const siteLayers = ['site-fill', 'site-line'].filter((id) => map.getLayer(id));
-      const free = (bx) => !map.queryRenderedFeatures([[bx.l - 2, bx.t - 2], [bx.r + 2, bx.b + 2]], { layers: [...symbolLayers, ...siteLayers] }).length;
+      // Major roads only (motorway, trunk, primary, secondary, tertiary, their links, and rail): a logo
+      // may sit over a minor street or a service road, as every name label already does, but never
+      // over a major road its name did not already cover. Measured 2026-11-12: protecting minor and
+      // service roads too left no room for any of the 52 logo matches on the 25 maps.
+      const MINOR = /(minor|service_track|path_pedestrian)/;
+      const roadLayers = map.getStyle().layers.filter((l) => l.type === 'line' && l['source-layer'] === 'transportation' && !MINOR.test(l.id)).map((l) => l.id);
+      const any = (bx, layers) => map.queryRenderedFeatures([[bx.l, bx.t], [bx.r, bx.b]], { layers }).length > 0;
       for (const x of boxes.filter((x) => x.biz.logo)) {
+        // Roads too: a logo box is opaque white. The name's own box already covered whatever streets
+        // it sat on, on today's approved map, so a logo may cover those and no others (review round
+        // 1, 2026-11-12: a spot away from the name covered a local street).
+        const old = { l: x.l - 3, t: x.t - 3, r: x.r + 3, b: x.b + 3 };
+        const free = (bx, isLine = false) => {
+          const p = { l: bx.l - 2, t: bx.t - 2, r: bx.r + 2, b: bx.b + 2 };
+          if (any(p, [...symbolLayers, ...siteLayers])) return false;
+          return isLine || outside(p, old).every((r) => !any(r, roadLayers));
+        };
         const el = document.createElement('div'); el.className = 'biz logo';
         const img = document.createElement('img'); img.alt = x.biz.name; img.src = logos[x.biz.logo];
         el.appendChild(img);
-        await img.decode();
+        try {
+          await img.decode();
+        } catch {
+          dropped.push(`logo ${x.biz.name} (unreadable; name kept)`);
+          continue;
+        }
         const onRight = x.l >= x.pt.x;
         const first = [(w, h) => [onRight ? x.l : x.r - w, (x.t + x.b) / 2 - h / 2]];
         if (x.seg) segs.splice(segs.indexOf(x.seg), 1);
@@ -304,7 +335,16 @@ async function render(page, job) {
       }
       await new Promise((res) => { if (map.loaded() && map.areTilesLoaded()) res(); else map.once('idle', res); });
     }
-    const out = boxes.map((x) => ({ name: x.biz.name, logo: x.biz.logo ?? null, kind: x.kind, dot: [x.pt.x, x.pt.y], l: x.l, t: x.t, r: x.r, b: x.b, line: x.line, ...(x.was ? { was: x.was } : {}) }));
+    // What the map draws under each logo that its name did not already cover: every line and
+    // symbol layer and the site outline, queried apart from the placement rule above, over the
+    // logo box less the name's old box (symbols and the site over the whole logo box). A record
+    // for the tests; it must be empty.
+    const allLayers = map.getStyle().layers ?? [];
+    const lineIds = allLayers.filter((l) => l.type === 'line' && l['source-layer'] === 'transportation' && !/(minor|service_track|path_pedestrian)/.test(l.id)).map((l) => l.id);
+    const markIds = allLayers.filter((l) => (l.type === 'symbol' || l.id.startsWith('site-')) && l.id !== 'blockers').map((l) => l.id);
+    const ids = (r, layers) => map.queryRenderedFeatures([[r.l, r.t], [r.r, r.b]], { layers }).map((f) => f.layer.id);
+    const under = (x) => [...new Set([...ids(x, markIds), ...outside(x, { l: x.was.l - 3, t: x.was.t - 3, r: x.was.r + 3, b: x.was.b + 3 }).flatMap((r) => ids(r, lineIds))])];
+    const out = boxes.map((x) => ({ name: x.biz.name, logo: x.biz.logo ?? null, kind: x.kind, dot: [x.pt.x, x.pt.y], l: x.l, t: x.t, r: x.r, b: x.b, line: x.line, ...(x.was ? { was: x.was } : {}), ...(x.kind === 'logo' ? { under: under(x) } : {}) }));
     const root = document.body;
     if (job.north) {
       const n = document.createElement('div'); n.className = 'north';

@@ -24,12 +24,21 @@ TITLE = 'Area Map with Traffic Counts'
 
 def swap(uid, src, out):
     new = os.path.join(ROOT, 'maps', uid, 'traffic.jpg')
+    if os.path.abspath(out) == os.path.abspath(src):
+        sys.exit(f'{uid}: write to a new file, not over {src}')
+    # maps.mjs writes the stamp only for a map that rendered completely; the map must be at least
+    # as new as the logo assignment in build/logos.json.
+    if not os.path.exists(new + '.job.json') or os.path.getmtime(new) < os.path.getmtime(os.path.join(HERE, 'logos.json')):
+        sys.exit(f'{uid}: {new} is unstamped or older than build/logos.json; run make_jobs.py and maps.mjs first')
     doc = pymupdf.open(src)
     pages = [p for p in doc if TITLE in p.get_text()]
     if len(pages) != 1:
         sys.exit(f'{uid}: {len(pages)} "{TITLE}" pages in {src}; expected 1')
     page = pages[0]
     img = max(page.get_image_info(xrefs=True), key=lambda i: i['width'] * i['height'])
+    over = [i for i in page.get_image_info(xrefs=True) if i['xref'] != img['xref'] and pymupdf.Rect(i['bbox']).intersects(pymupdf.Rect(img['bbox']))]
+    if over:
+        sys.exit(f'{uid}: {len(over)} other image(s) sit on the map on page {page.number + 1} (hand-placed logos?); not swapped')
     size = Image.open(new).size
     if (img['width'], img['height']) != size:
         sys.exit(f"{uid}: the map on page {page.number + 1} is {img['width']}x{img['height']}, the generator's is {size[0]}x{size[1]}; not swapped")

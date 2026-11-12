@@ -17,6 +17,13 @@ Checks:
   3. No magenta anywhere in B outside the logo box.
   4. Outside The Home Depot's label box in A and its logo box in B (and their leader lines), B
      matches A to within antialiasing (JITTER): the basemap, roads, road labels, counts, pin and outline are unchanged.
+  5. Nothing the map draws (a road line, a road label or shield, the site outline) lies under a
+     logo: maps.mjs records what its line, symbol and site layers render inside each logo box.
+  7. C: a test business on IH 10 northwest of the SH 46 interchange, where the logo's first spot
+     lies over the interstate, keeps its name or finds a spot with nothing protected under it.
+     This is the case check 5 cannot reach (in B the first spot is already clear): with the road
+     rule removed, the logo lands on IH 10 (measured 2026-11-12).
+  6. lib/logos.py matches the listed names only: "Lowe's Market" (the grocer) is not Lowe's.
 Needs network (OpenFreeMap tiles), like every map render. Exits 1 on any failure.
 """
 import json, os, subprocess, sys, tempfile
@@ -49,6 +56,18 @@ def boxes(png):
     return {b['name']: b for b in json.load(open(png + '.boxes.json'))['businesses']}
 
 
+def matching():
+    sys.path.insert(0, os.path.join(os.path.dirname(HERE), 'lib'))
+    from logos import with_logo, _index
+    idx = _index()
+    expect = {"Lowe's": 'lowes', "Lowe's Market": None, 'H-E-B plus!': 'heb', 'H-E-B': 'heb', 'The Home Depot': 'home-depot',
+              'Walmart Supercenter': 'walmart', "Chili's": None, 'James Avery Jewelry': None}
+    got = {n: (os.path.splitext(os.path.basename(with_logo({'name': n}, idx).get('logo', '')))[0] or None) for n in expect}
+    check(got == expect, f'6. logos match listed names only: {got}')
+    hd = with_logo({'name': 'The Home Depot'}, idx)
+    check(bool(hd.get('logo_sha')), '6. a matched logo carries its file hash, so replacing the file re-renders the map')
+
+
 def mask_for(shape, dpr, items, pad=3):
     """Device-pixel mask of the given label boxes and leader lines, padded by `pad` CSS px."""
     m = Image.new('L', (shape[1], shape[0]), 0)
@@ -72,7 +91,10 @@ def main():
             if biz['name'] == TARGET:
                 biz['logo'] = logo
         jobs = os.path.join(t, 'jobs.json')
-        json.dump([{**base, 'out': os.path.join(t, 'W.png')}, {**base, 'out': a}, {**base, 'out': a2}, {**jb, 'out': b}], open(jobs, 'w'))
+        jc = json.loads(json.dumps(base))
+        jc['businesses'].append({'name': 'Test Stop', 'lat': 29.7855, 'lon': -98.7455, 'logo': logo})
+        c = os.path.join(t, 'C.png')
+        json.dump([{**base, 'out': os.path.join(t, 'W.png')}, {**base, 'out': a}, {**base, 'out': a2}, {**jb, 'out': b}, {**jc, 'out': c}], open(jobs, 'w'))
         render(jobs)
         A, A2, B = (np.asarray(Image.open(p).convert('RGB')).astype(int) for p in (a, a2, b))
         dpr = base['dpr']
@@ -113,6 +135,12 @@ def main():
             ys, xs = np.nonzero(moved)
             print(f'   changed region: x {xs.min() / dpr:.0f}-{xs.max() / dpr:.0f}, y {ys.min() / dpr:.0f}-{ys.max() / dpr:.0f} (CSS px)')
         check(n == 0, f'4. outside the label and logo boxes the map is unchanged ({n} pixels differ)')
+        if hd:
+            check(hd.get('under') == [], f"5. nothing the map draws lies under the logo (under: {hd.get('under')})")
+        ts = boxes(c).get('Test Stop')
+        check(bool(ts) and (ts['kind'] == 'name' or ts.get('under') == []),
+              f"7. a logo on IH 10 keeps its name or covers nothing protected (kind={ts and ts['kind']}, under={ts and ts.get('under')})")
+    matching()
     if fails:
         sys.exit(f'{len(fails)} check(s) failed')
     print('all checks passed')

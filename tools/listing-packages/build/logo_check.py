@@ -53,20 +53,23 @@ def main(only):
     for uid, before, after in pairs:
         B0 = np.asarray(Image.open(before).convert('RGB')).astype(int)
         B1 = np.asarray(Image.open(after).convert('RGB')).astype(int)
-        bx0 = {b['name']: b for b in json.load(open(before + '.boxes.json'))['businesses']}
+        key = lambda b: (b['name'], round(b['dot'][0]), round(b['dot'][1]))  # two of one chain can share a map
+        bx0 = {key(b): b for b in json.load(open(before + '.boxes.json'))['businesses']}
         meta = json.load(open(after + '.boxes.json'))
-        bx1 = {b['name']: b for b in meta['businesses']}
+        bx1 = {key(b): b for b in meta['businesses']}
         swapped = [b for b in bx1.values() if b['kind'] == 'logo']
-        items = swapped + [b['was'] for b in swapped if b.get('was')] + [bx0[b['name']] for b in swapped if b['name'] in bx0]
+        items = swapped + [b['was'] for b in swapped if b.get('was')] + [bx0[key(b)] for b in swapped if key(b) in bx0]
         mask = mask_for(B0.shape, meta['dpr'], items)
         delta = np.abs(B0 - B1).max(axis=2)
         n = int(((delta > JITTER) & ~mask).sum())
-        bad += n > SPECKS
+        covered = {b['name']: b['under'] for b in swapped if b.get('under')}
+        bad += n > SPECKS or bool(covered)
         report[uid] = {
             'logo': sorted(b['name'] for b in swapped),
             'logo_no_room': sorted(b['name'] for b in bx1.values() if b['kind'] == 'name' and b['logo']),
             'name': sorted(b['name'] for b in bx1.values() if b['kind'] == 'name' and not b['logo']),
             'changed_outside_boxes': n,
+            'drawn_under_a_logo': covered,
             'largest_difference_outside_boxes': int((delta * ~mask).max()),
         }
         w = B0.shape[1]
@@ -74,7 +77,7 @@ def main(only):
         c.paste(Image.open(before).convert('RGB'), (0, 0))
         c.paste(Image.open(after).convert('RGB'), (w + 20, 0))
         c.save(os.path.join(os.path.dirname(before), 'compare.png'))
-        print(uid.ljust(42), 'logos', report[uid]['logo'], '| no room', report[uid]['logo_no_room'], '| changed', n)
+        print(uid.ljust(42), 'logos', report[uid]['logo'], '| no room', report[uid]['logo_no_room'], '| changed', n, '| under a logo', covered or '-')
     json.dump(report, open(A('qa', 'logos', 'report.json'), 'w'), indent=1)
     if bad:
         sys.exit(f'{bad} map(s) changed outside the logo boxes')
