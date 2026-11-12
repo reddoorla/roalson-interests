@@ -345,15 +345,17 @@ async function render(page, job) {
     const lineIds = allLayers.filter((l) => l.type === 'line' && l['source-layer'] === 'transportation' && !/(minor|service_track|path_pedestrian)/.test(l.id)).map((l) => l.id);
     const markIds = allLayers.filter((l) => (l.type === 'symbol' || l.id.startsWith('site-')) && l.id !== 'blockers').map((l) => l.id);
     const ids = (r, layers) => map.queryRenderedFeatures([[r.l, r.t], [r.r, r.b]], { layers }).map((f) => f.layer.id);
-    // Sampled point by point, every 2 px across the logo box and its 1 px shadow, so this record
-    // shares no geometry code with the placement rule (review round 2).
+    // Queried one 1x1 px cell at a time across the logo box and its 1 px shadow, so this record
+    // shares no geometry code with the placement rule (review round 2) and a line thinner than a
+    // pixel cannot fall between samples (review round 3). Cells wholly inside the name's exact box
+    // are skipped: the name already covered them.
     const under = (x) => {
       const found = new Set(ids({ l: x.l - 1, t: x.t - 1, r: x.r + 1, b: x.b + 1 }, markIds));
       const w = x.was;
-      for (let py = x.t - 1; py <= x.b + 1; py += 2) {
-        for (let px = x.l - 1; px <= x.r + 1; px += 2) {
-          if (px > w.l && px < w.r && py > w.t && py < w.b) continue;
-          for (const f of map.queryRenderedFeatures([px, py], { layers: lineIds })) found.add(f.layer.id);
+      for (let py = Math.floor(x.t - 1); py < Math.ceil(x.b + 1); py++) {
+        for (let px = Math.floor(x.l - 1); px < Math.ceil(x.r + 1); px++) {
+          if (px >= w.l && px + 1 <= w.r && py >= w.t && py + 1 <= w.b) continue;
+          for (const f of map.queryRenderedFeatures([[px, py], [px + 1, py + 1]], { layers: lineIds })) found.add(f.layer.id);
         }
       }
       return [...found];
