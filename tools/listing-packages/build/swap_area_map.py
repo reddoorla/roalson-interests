@@ -12,7 +12,7 @@ of his page and of every other page is kept.
 It refuses unless his PDF has exactly one Area Map with Traffic Counts page, whose largest image
 has the generator map's pixel size, so a page laid out some other way is never touched.
 """
-import os, sys
+import json, os, sys
 
 import pymupdf
 from PIL import Image
@@ -30,6 +30,9 @@ def swap(uid, src, out):
     # as new as the logo assignment in build/logos.json.
     if not os.path.exists(new + '.job.json') or os.path.getmtime(new) < os.path.getmtime(os.path.join(HERE, 'logos.json')):
         sys.exit(f'{uid}: {new} is unstamped or older than build/logos.json; run make_jobs.py and maps.mjs first')
+    rec = json.load(open(new + '.boxes.json')) if os.path.exists(new + '.boxes.json') else None
+    if not rec or any(b['kind'] == 'logo' and b.get('under') != [] for b in rec['businesses']):
+        sys.exit(f'{uid}: {new}.boxes.json is missing, or a logo has something protected under it or no record of it')
     doc = pymupdf.open(src)
     pages = [p for p in doc if TITLE in p.get_text()]
     if len(pages) != 1:

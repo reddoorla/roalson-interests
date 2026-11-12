@@ -5,6 +5,8 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
+// Part of every map's stamp, so a change to this renderer re-renders every map (review round 2).
+const RENDERER = createHash('sha1').update(readFileSync(fileURLToPath(import.meta.url))).digest('hex').slice(0, 12);
 const STYLE_PATH = existsSync(join(HERE, 'map-style.json')) ? join(HERE, 'map-style.json') : join(HERE, '../../../static/map-style.json');
 const BRAND = JSON.parse(readFileSync(STYLE_PATH, 'utf8'));
 const MAPLIBRE_JS = join(HERE, 'node_modules/maplibre-gl/dist/maplibre-gl.js');
@@ -303,7 +305,7 @@ async function render(page, job) {
         // Roads too: a logo box is opaque white. The name's own box already covered whatever streets
         // it sat on, on today's approved map, so a logo may cover those and no others (review round
         // 1, 2026-11-12: a spot away from the name covered a local street).
-        const old = { l: x.l - 3, t: x.t - 3, r: x.r + 3, b: x.b + 3 };
+        const old = { l: x.l, t: x.t, r: x.r, b: x.b }; // exactly what the name's white box covered
         const free = (bx, isLine = false) => {
           const p = { l: bx.l - 2, t: bx.t - 2, r: bx.r + 2, b: bx.b + 2 };
           if (any(p, [...symbolLayers, ...siteLayers])) return false;
@@ -343,7 +345,19 @@ async function render(page, job) {
     const lineIds = allLayers.filter((l) => l.type === 'line' && l['source-layer'] === 'transportation' && !/(minor|service_track|path_pedestrian)/.test(l.id)).map((l) => l.id);
     const markIds = allLayers.filter((l) => (l.type === 'symbol' || l.id.startsWith('site-')) && l.id !== 'blockers').map((l) => l.id);
     const ids = (r, layers) => map.queryRenderedFeatures([[r.l, r.t], [r.r, r.b]], { layers }).map((f) => f.layer.id);
-    const under = (x) => [...new Set([...ids(x, markIds), ...outside(x, { l: x.was.l - 3, t: x.was.t - 3, r: x.was.r + 3, b: x.was.b + 3 }).flatMap((r) => ids(r, lineIds))])];
+    // Sampled point by point, every 2 px across the logo box and its 1 px shadow, so this record
+    // shares no geometry code with the placement rule (review round 2).
+    const under = (x) => {
+      const found = new Set(ids({ l: x.l - 1, t: x.t - 1, r: x.r + 1, b: x.b + 1 }, markIds));
+      const w = x.was;
+      for (let py = x.t - 1; py <= x.b + 1; py += 2) {
+        for (let px = x.l - 1; px <= x.r + 1; px += 2) {
+          if (px > w.l && px < w.r && py > w.t && py < w.b) continue;
+          for (const f of map.queryRenderedFeatures([px, py], { layers: lineIds })) found.add(f.layer.id);
+        }
+      }
+      return [...found];
+    };
     const out = boxes.map((x) => ({ name: x.biz.name, logo: x.biz.logo ?? null, kind: x.kind, dot: [x.pt.x, x.pt.y], l: x.l, t: x.t, r: x.r, b: x.b, line: x.line, ...(x.was ? { was: x.was } : {}), ...(x.kind === 'logo' ? { under: under(x) } : {}) }));
     const root = document.body;
     if (job.north) {
@@ -443,7 +457,7 @@ for (const d of dprs) {
 for (const job of jobs) {
   job.dpr = job.dpr ?? 3;
   const stamp = `${job.out}.job.json`;
-  const spec = JSON.stringify(job);
+  const spec = JSON.stringify({ ...job, renderer: RENDERER });
   if (!force && existsSync(job.out) && existsSync(stamp) && readFileSync(stamp, 'utf8') === spec) { console.log('skip', job.out); continue; }
   const t = Date.now();
   rmSync(stamp, { force: true });

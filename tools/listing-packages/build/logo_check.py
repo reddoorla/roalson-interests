@@ -62,7 +62,8 @@ def main(only):
         mask = mask_for(B0.shape, meta['dpr'], items)
         delta = np.abs(B0 - B1).max(axis=2)
         n = int(((delta > JITTER) & ~mask).sum())
-        covered = {b['name']: b['under'] for b in swapped if b.get('under')}
+        # A logo box with no `under` record came from a renderer before that record existed.
+        covered = {b['name']: b.get('under', 'not recorded') for b in swapped if b.get('under', 'not recorded')}
         bad += n > SPECKS or bool(covered)
         report[uid] = {
             'logo': sorted(b['name'] for b in swapped),
@@ -80,7 +81,7 @@ def main(only):
         print(uid.ljust(42), 'logos', report[uid]['logo'], '| no room', report[uid]['logo_no_room'], '| changed', n, '| under a logo', covered or '-')
     json.dump(report, open(A('qa', 'logos', 'report.json'), 'w'), indent=1)
     if bad:
-        sys.exit(f'{bad} map(s) changed outside the logo boxes')
+        sys.exit(f'{bad} map(s) changed outside the logo boxes or have something protected under a logo')
 
 
 if __name__ == '__main__':
