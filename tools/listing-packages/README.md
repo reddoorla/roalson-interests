@@ -44,7 +44,12 @@ Chromium must also trust the egress proxy CA (`~/.pki/nssdb`, see issue #164).
 
 `build/all.sh` runs everything from a fresh checkout, in about 30 minutes:
 
-1. `fetch_originals.py`: every property's `package_pdf` from Prismic, into `originals/`.
+1. `fetch_originals.py`: every listing's original broker package, into `originals/`. The URLs are
+   pinned in `build/originals.json`: since 2026-10-14 each property's live `package_pdf` is Erik's
+   edited copy of this generator's output, and `extract.py`'s page recipes do not match it (101 W.
+   Commerce has no page-8 photo there). The pinned file is the first `package_pdf` each Prismic
+   document held, from its version history; each was checked against the page list in
+   `data/<uid>.json` (2026-11-12).
 2. `extract.py`: covers, photos and carried-over exhibits from the originals, into `covers/`,
    `photos/` and `exhibits/`. The recipe is the file name in `build/plans.json`:
    `photos/<uid>-p<page>-<n>.png`, `covers/<uid>[-trim].png`, `exhibits/<uid>-p<page>.png`.
@@ -59,7 +64,14 @@ Chromium must also trust the egress proxy CA (`~/.pki/nssdb`, see issue #164).
 6. `pkg.py`, `print.mjs`, `assemble.py`: `out/pdf/<website title>.pdf`, with the original TREC
    IABS page appended.
 
-To change a listing, edit `data/<uid>.json`. Title and map-label changes that are not typos
+To change a listing, edit `data/<uid>.json`.
+
+A new listing with no original package (Hwy 46 and Coughran Road and IH-10 and FM 1518, Matt
+Howard 2026-11-11) needs `data/<uid>.json` from the broker's intake form (with `"pages": []`), a
+`geo/sites.json` entry (`apply_landid.py` fills the boundary), `build/heroes.json` and
+`build/filenames.json` entries, and a `build/plans.json` entry with `iabs_from`, the listing whose
+original supplies the TREC IABS page, which is the same brokerage boilerplate on every package.
+`make_jobs.py` adds its `geo/meta.json` entry. Nothing comes out of `extract.py` for it. Title and map-label changes that are not typos
 go in `build/overrides.json`. Typo fixes go in `build/corrections.json`; a `scope` key limits
 one to a single section.
 
