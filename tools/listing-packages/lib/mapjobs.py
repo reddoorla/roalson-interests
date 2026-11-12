@@ -3,6 +3,7 @@ sys.path.insert(0,os.path.dirname(__file__))
 from flood import flood_geojson
 from traffic import stations
 from pois import businesses
+from logos import with_logo
 SA=(29.4246,-98.4951)
 W,H=672,760
 CREDIT_BRAND='© OpenMapTiles © OpenStreetMap contributors'
@@ -89,6 +90,7 @@ def jobs_for(uid,site,outdir,title,geom=None,cover=True,date='September 2026',ex
         tb=[min(p[0] for p in pts),min(p[1] for p in pts),max(p[0] for p in pts),max(p[1] for p in pts)]
         biz,missing=businesses(tb,(lat,lon),featured)
         biz=[{'name':m['name'],'lat':m['lat'],'lon':m['lon'],'featured':True} for m in manual_businesses]+biz
+        biz=[with_logo(b) for b in biz]
         if missing: print(uid,'featured businesses not in the tiles:',missing)
         J.append({'out':f'{outdir}/traffic.jpg','kind':'brand','businesses':biz,'width':W,'height':690,'dpr':2.5,'center':[lat,lon],'bounds':tb,'padding':{'top':120+traffic_pad,'bottom':80+traffic_pad,'left':110+traffic_pad,'right':110+traffic_pad},'maxZoom':15.2,
                   'polygon':poly,'pin':pin,'refs':xref,'traffic':[{'lat':s['lat'],'lon':s['lon'],'qty':f"{s['qty']:,}",'road':f"{s['label']} · {s['year']}"} for s in pick],

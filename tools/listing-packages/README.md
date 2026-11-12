@@ -121,8 +121,37 @@ Two per-site fields in `geo/sites.json` feed the area and aerial maps:
 - `businesses`: names to label first on the Area Map with Traffic Counts (as spelled in
   OpenStreetMap). The map adds supermarkets, DIY stores, hospitals and the like from the same
   tiles (`lib/pois.py`), up to six, labelled after the traffic counts and the intersection; a
-  business whose label does not fit is left off, dot and all. Names and pins only, no logos.
-  The plain Area Map fallback shows OpenStreetMap's own POI labels instead.
+  business whose label does not fit is left off, dot and all. A business with a logo shows the
+  logo (below). The plain Area Map fallback shows OpenStreetMap's own POI labels instead.
+
+### Logos on the Area Map (2026-11-12)
+
+Where a business on the Area Map with Traffic Counts has a logo, the map shows the logo beside
+its dot instead of its name (Erik, 2026-11-12). The operator's decision
+`decisions/2026-11-12-2218-roalson-area-map-logos.md` in reddoor-workspace supersedes Operator
+decisions 119 ("names and pins"). `build/logos.json` maps each logo file to the exact business
+names it stands for; `lib/logos.py` matches on those names only, so a business not listed keeps
+its name. `python3 build/logos.py <folder>` turns Erik's files (Dropbox `/Clients/Roalson
+Interests/Listing PDFs/Surrounding Area Logos`: .eps, .ai, .pdf, .svg, .png; Ghostscript for
+.eps) into the committed `build/assets/logos/*.png`, trimmed to the mark and 160 px tall. A
+logo's file hash is part of the map's job spec, so replacing one re-renders the maps that use it.
+
+`maps.mjs` places every label as text first, exactly as before, and the collision blockers that
+keep road labels clear are those text boxes. Only then does a business with a logo swap its name
+for the logo: where the name sat if it fits, else another spot beside its dot. A spot may not
+touch another label, count, pin or dot, a rendered road label or shield, or the site outline.
+With no such spot the business keeps its name (`logo … (no room; name kept)` in the log). So the
+basemap, roads, counts and every other label are drawn exactly as without logos; Erik's hand edit
+on 2026-11-12 erased part of SH 46 at Spencer Ranch Blvd, and this never draws over the map. Each
+traffic map writes `<map>.boxes.json`: every business's box, and whether it got its logo.
+
+- `python3 build/test_logos.py` renders a fixture map through `maps.mjs` with and without a test
+  logo. It checks that the logo is drawn above the map beside its dot, that the other businesses
+  keep their names in place, and that nothing else changes. Three mutations each turn it red: a
+  logo for every business, the name instead of the logo, and the logo drawn under the map.
+- `python3 build/logo_check.py [uid…]` (after `make_jobs.py`) renders every listing's traffic map
+  with and without its logos into `qa/logos/` and fails if anything outside the swapped boxes
+  changed.
 
 `build/heroes.json` maps each listing to its Land ID share link (Matt Howard, 2026-10-12) and
 the path its hero image has, `build/assets/heroes/<uid>.jpg`. When that file exists the

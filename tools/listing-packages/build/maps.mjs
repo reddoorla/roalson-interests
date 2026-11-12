@@ -1,7 +1,7 @@
 import { chromium } from 'playwright-core';
 import { readFileSync, writeFileSync, existsSync, mkdirSync, renameSync, rmSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -81,6 +81,8 @@ function pageHtml(job) {
   .aadt span{font:600 8px/1.2 Archivo,Arial,sans-serif;color:#6f6a60;letter-spacing:.6px;text-transform:uppercase;white-space:nowrap}
   .aadt-dot{width:9px;height:9px;border-radius:50%;background:${GARNET};border:2px solid #fff;box-shadow:0 0 0 1px ${GARNET}}
   .biz{font:700 11px/1 Archivo,Arial,sans-serif;letter-spacing:.3px;color:${GARNET};background:rgba(255,255,255,.92);padding:4px 6px 3px;white-space:nowrap}
+  .biz.logo{padding:3px 4px;line-height:0;background:#fff;box-shadow:0 0 0 1px rgba(101,35,35,.28)}
+  .biz.logo img{display:block;width:auto;height:auto;max-height:28px;max-width:92px}
   .ref{font:700 10px/1 Archivo,Arial,sans-serif;letter-spacing:.8px;text-transform:uppercase;color:${GARNET};background:rgba(255,255,255,.88);padding:5px 7px 4px;border:1px solid ${GARNET}}
   .legend{position:absolute;left:14px;bottom:14px;background:rgba(255,255,255,.94);padding:10px 12px;font:400 10.5px/1.45 'Atkinson Hyperlegible Next',Arial,sans-serif;color:#2D2D2D;display:flex;flex-direction:column;gap:5px;max-width:330px}
   .legend b{font:700 9.5px/1.2 Archivo,Arial,sans-serif;letter-spacing:.8px;text-transform:uppercase;color:${GARNET};margin-bottom:2px}
@@ -96,12 +98,16 @@ function pageHtml(job) {
 }
 
 async function render(page, job) {
+  const logos = {};
+  for (const b of job.businesses ?? []) {
+    if (b.logo && !logos[b.logo]) logos[b.logo] = 'data:image/png;base64,' + readFileSync(resolve(HERE, '..', b.logo)).toString('base64');
+  }
   await page.setViewportSize({ width: job.width, height: job.height });
   await page.setContent(pageHtml(job), { waitUntil: 'load' });
   await page.addScriptTag({ path: MAPLIBRE_JS });
   const style = job.kind === 'brand' ? brandStyle({ pois: !!job.pois }) : aerialStyle({ labels: job.labels !== false, tile256: !!job.tile256 });
   const ok = await page.evaluate(async (args) => {
-    const { job, style, GARNET, DUST } = args;
+    const { job, style, GARNET, DUST, logos } = args;
     await document.fonts.ready;
     const maplibregl = window.maplibregl;
     const map = new maplibregl.Map({
@@ -166,12 +172,12 @@ async function render(page, job) {
       }
       return false;
     };
-    const place = (el, pt, side = false) => {
+    const place = (el, pt, side = false, { first = [], free = () => true, ignore = null } = {}) => {
       el.style.cssText = 'position:absolute;left:0;top:0;visibility:hidden;z-index:4';
       document.body.appendChild(el);
       const w = el.offsetWidth, h = el.offsetHeight;
       const sides = [[pt.x + 8, pt.y - h / 2], [pt.x - w - 8, pt.y - h / 2]];
-      const cands = [...(side ? sides : []), [pt.x - w / 2, pt.y - h - 9], [pt.x - w / 2, pt.y + 9], [pt.x + 10, pt.y - h / 2], [pt.x - w - 10, pt.y - h / 2],
+      const cands = [...first.map((f) => f(w, h)), ...(side ? sides : []), [pt.x - w / 2, pt.y - h - 9], [pt.x - w / 2, pt.y + 9], [pt.x + 10, pt.y - h / 2], [pt.x - w - 10, pt.y - h / 2],
         [pt.x + 10, pt.y - h - 6], [pt.x - w - 10, pt.y - h - 6], [pt.x + 10, pt.y + 6], [pt.x - w - 10, pt.y + 6],
         [pt.x - w / 2, pt.y - h - 34], [pt.x - w / 2, pt.y + 34], [pt.x + 40, pt.y - h / 2], [pt.x - w - 40, pt.y - h / 2],
         [pt.x - w / 2, pt.y - h - 60], [pt.x - w / 2, pt.y + 60], [pt.x + 40, pt.y - h - 40], [pt.x - w - 40, pt.y - h - 40], [pt.x + 40, pt.y + 40], [pt.x - w - 40, pt.y + 40]];
@@ -179,26 +185,29 @@ async function render(page, job) {
       for (const [x, y] of cands) {
         const box = { l: x, t: y, r: x + w, b: y + h };
         if (box.l < 4 || box.t < 50 || box.r > W - 4 || box.b > H - 18) continue;
-        if (hit(box) || boxHitsSeg(box)) continue;
+        if ((ignore ? taken.filter((o) => o !== ignore).some((o) => !(box.r < o.l || box.l > o.r || box.b < o.t || box.t > o.b)) : hit(box)) || boxHitsSeg(box) || !free(box)) continue;
         const cx = Math.max(box.l, Math.min(pt.x, box.r)), cy = Math.max(box.t, Math.min(pt.y, box.b));
         const d = Math.hypot(cx - pt.x, cy - pt.y);
         if (d > near) {
           const k = Math.min(1, 12 / d);
-          if (segHitsTaken(pt.x + (cx - pt.x) * k, pt.y + (cy - pt.y) * k, cx, cy)) continue;
+          if (segHitsTaken(pt.x + (cx - pt.x) * k, pt.y + (cy - pt.y) * k, cx, cy) || !free({ l: Math.min(pt.x, cx), t: Math.min(pt.y, cy), r: Math.max(pt.x, cx), b: Math.max(pt.y, cy) })) continue;
         }
         el.style.left = `${box.l}px`; el.style.top = `${box.t}px`; el.style.visibility = 'visible';
-        taken.push({ l: box.l - 3, t: box.t - 3, r: box.r + 3, b: box.b + 3 });
+        const slot = { l: box.l - 3, t: box.t - 3, r: box.r + 3, b: box.b + 3 };
+        taken.push(slot);
+        const placed = { l: box.l, t: box.t, r: box.r, b: box.b, line: d > near ? [pt.x, pt.y, cx, cy] : null, slot, el };
         if (d > near) {
           segs.push([pt.x, pt.y, cx, cy]);
           const ln = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
           ln.setAttribute('style', `position:absolute;left:0;top:0;width:${W}px;height:${H}px;z-index:2;pointer-events:none`);
           ln.innerHTML = `<line x1="${pt.x}" y1="${pt.y}" x2="${cx}" y2="${cy}" stroke="${GARNET}" stroke-width="1.2"/>`;
           document.body.appendChild(ln);
+          placed.ln = ln; placed.seg = segs[segs.length - 1];
         }
-        return true;
+        return placed;
       }
       el.remove();
-      return false;
+      return null;
     };
     const countDots = new Map();
     for (const t of job.traffic ?? []) {
@@ -233,9 +242,13 @@ async function render(page, job) {
       el.querySelector('span').textContent = t.road;
       if (!place(el, map.project([t.lon, t.lat]))) { dropped.push(`count ${t.qty}`); countDots.get(t).remove(); }
     }
+    const boxes = [];
     for (const b of job.businesses ?? []) {
+      const pt = map.project([b.lon, b.lat]);
       const el = document.createElement('div'); el.className = 'biz'; el.textContent = b.name;
-      if (!place(el, map.project([b.lon, b.lat]), true)) dropped.push(`business ${b.name}`);
+      const got = place(el, pt, true);
+      if (got) boxes.push({ ...got, biz: b, pt, kind: 'name' });
+      else dropped.push(`business ${b.name}`);
     }
     if (map.getSource('biz')) {
       const keep = (job.businesses ?? []).filter((b) => !dropped.includes(`business ${b.name}`));
@@ -257,6 +270,41 @@ async function render(page, job) {
       map.addSource('blockers', { type: 'geojson', data: { type: 'FeatureCollection', features: blockers } });
       map.addLayer({ id: 'blockers', type: 'symbol', source: 'blockers', layout: { 'icon-image': ['concat', 'blk-', ['to-string', ['get', 'w']], 'x', ['to-string', ['get', 'h']]], 'icon-allow-overlap': true, 'icon-ignore-placement': false } });
     }
+    // Logos (Erik, 2026-11-12; supersedes Operator decisions 119). Every label above was placed
+    // as text, and the blockers that keep road labels clear of them are the text boxes, so the
+    // basemap, road labels, counts and every other label land exactly where they always did.
+    // Only then does a business with a logo swap its name for the logo: where its name sat if the
+    // logo fits there, else another spot beside its dot. A spot may not touch any other label,
+    // count, pin or dot (taken), a rendered road label or shield, or the site outline. With no
+    // such spot the business keeps its name, and the run says so.
+    if (boxes.some((x) => x.biz.logo)) {
+      await new Promise((res) => { if (map.loaded() && map.areTilesLoaded()) res(); else map.once('idle', res); });
+      const symbolLayers = map.getStyle().layers.filter((l) => l.type === 'symbol' && l.id !== 'blockers').map((l) => l.id);
+      const siteLayers = ['site-fill', 'site-line'].filter((id) => map.getLayer(id));
+      const free = (bx) => !map.queryRenderedFeatures([[bx.l - 2, bx.t - 2], [bx.r + 2, bx.b + 2]], { layers: [...symbolLayers, ...siteLayers] }).length;
+      for (const x of boxes.filter((x) => x.biz.logo)) {
+        const el = document.createElement('div'); el.className = 'biz logo';
+        const img = document.createElement('img'); img.alt = x.biz.name; img.src = logos[x.biz.logo];
+        el.appendChild(img);
+        await img.decode();
+        const onRight = x.l >= x.pt.x;
+        const first = [(w, h) => [onRight ? x.l : x.r - w, (x.t + x.b) / 2 - h / 2]];
+        if (x.seg) segs.splice(segs.indexOf(x.seg), 1);
+        const got = place(el, x.pt, true, { first, free, ignore: x.slot });
+        if (got) {
+          x.el.remove();
+          x.ln?.remove();
+          taken.splice(taken.indexOf(x.slot), 1);
+          x.was = { l: x.l, t: x.t, r: x.r, b: x.b, line: x.line };
+          Object.assign(x, { ln: null, seg: null }, got, { kind: 'logo' });
+        } else {
+          if (x.seg) segs.push(x.seg);
+          dropped.push(`logo ${x.biz.name} (no room; name kept)`);
+        }
+      }
+      await new Promise((res) => { if (map.loaded() && map.areTilesLoaded()) res(); else map.once('idle', res); });
+    }
+    const out = boxes.map((x) => ({ name: x.biz.name, logo: x.biz.logo ?? null, kind: x.kind, dot: [x.pt.x, x.pt.y], l: x.l, t: x.t, r: x.r, b: x.b, line: x.line, ...(x.was ? { was: x.was } : {}) }));
     const root = document.body;
     if (job.north) {
       const n = document.createElement('div'); n.className = 'north';
@@ -285,8 +333,8 @@ async function render(page, job) {
     await new Promise((res) => { if (map.loaded() && map.areTilesLoaded()) res(); else map.once('idle', res); });
     await new Promise((res) => setTimeout(res, 400));
     await new Promise((res) => { if (map.areTilesLoaded()) res(); else map.once('idle', res); });
-    return { zoom: map.getZoom(), center: map.getCenter(), dropped };
-  }, { job, style, GARNET, DUST });
+    return { zoom: map.getZoom(), center: map.getCenter(), dropped, boxes: out };
+  }, { job, style, GARNET, DUST, logos });
   mkdirSync(dirname(job.out), { recursive: true });
   await page.screenshot({ path: job.tmp, type: job.out.endsWith('.png') ? 'png' : 'jpeg', quality: job.out.endsWith('.png') ? undefined : 90, clip: { x: 0, y: 0, width: job.width, height: job.height } });
   return ok;
@@ -370,6 +418,7 @@ for (const job of jobs) {
     if (r.dropped.some((x) => x.startsWith('intersection '))) throw new Error(`no room for ${r.dropped.join('; ')}; nothing is stamped`);
     if (run.failures) throw new Error(`${run.failures} imagery tiles failed; the previous image is kept and nothing is stamped, so the next run re-renders it`);
     renameSync(job.tmp, job.out);
+    if (job.businesses) writeFileSync(`${job.out}.boxes.json`, JSON.stringify({ width: job.width, height: job.height, dpr: job.dpr, businesses: r.boxes }, null, 1));
     writeFileSync(stamp, spec);
     console.log('ok', job.out, `z=${r.zoom.toFixed(2)}`, `${Date.now() - t}ms`);
   } catch (e) {
