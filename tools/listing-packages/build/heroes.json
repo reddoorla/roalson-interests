@@ -105,5 +105,13 @@
  "hwy-87-west-development-site": {
   "landid_url": "https://id.land/maps/6b6e89f2791df5f638b8f36a4b5cba78/share",
   "image": "build/assets/heroes/hwy-87-west-development-site.jpg"
+ },
+ "hwy-46-and-coughran-road": {
+  "landid_url": "https://id.land/maps/68a34c28b5a7c4084106696eadc31576/share",
+  "image": "build/assets/heroes/hwy-46-and-coughran-road.jpg"
+ },
+ "ih-10-and-fm-1518": {
+  "landid_url": "https://id.land/maps/c5f81bf57b627e57b907bd4ed3211657/share",
+  "image": "build/assets/heroes/ih-10-and-fm-1518.jpg"
  }
 }

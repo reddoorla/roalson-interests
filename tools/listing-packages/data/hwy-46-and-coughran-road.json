@@ -1,0 +1,229 @@
+{
+ "uid": "hwy-46-and-coughran-road",
+ "variant": "land",
+ "transaction": "For Sale",
+ "type_label": "Land",
+ "eyebrow": "Premium Hwy. 46 Development Site",
+ "title": "Hwy. 46 and Coughran Road",
+ "city": "Boerne, Texas",
+ "size_headline": "19.714 +/- Acres",
+ "rows": [
+  {
+   "label": "Location",
+   "text": "The property is at the Northeast corner of Hwy. 46 and Coughran Road next to Home Depot."
+  },
+  {
+   "label": "Size",
+   "text": "19.714 +/- Acres"
+  },
+  {
+   "label": "Frontage",
+   "pairs": [
+    [
+     "Hwy 46",
+     "1,670 +/- linear feet"
+    ],
+    [
+     "Coughran Road",
+     "1,161 +/- linear feet"
+    ]
+   ]
+  },
+  {
+   "label": "Zoning",
+   "text": "OCL. Property has also been removed from ETJ.",
+   "note": "Prospective buyers should verify the zoning and permitted uses for this property with the appropriate governing authority."
+  },
+  {
+   "label": "Flood Plain",
+   "text": "FEMA maps do not appear to show any floodplain on the property."
+  },
+  {
+   "label": "Easements",
+   "text": "Various electricity easements, Texas Water Company easement"
+  },
+  {
+   "label": "Deed Restrictions",
+   "text": "Contact Broker."
+  },
+  {
+   "label": "Traffic Count",
+   "text": "2025 Texas Department of Transportation counts show 10,340 vehicles per day on SH 46 beside the property and 49,714 vehicles per day on IH 10, 0.4 miles away."
+  },
+  {
+   "label": "Demographics",
+   "table": {
+    "columns": [
+     "",
+     "1 Mile",
+     "3 Miles",
+     "5 Miles"
+    ],
+    "rows": [
+     [
+      "Estimated Population",
+      "1,597",
+      "16,401",
+      "27,490"
+     ],
+     [
+      "Median Household Income",
+      "$73,249",
+      "$91,926",
+      "$108,978"
+     ]
+    ]
+   },
+   "note": "Source: CRE Agents Demographics Report for 633 West Bandera Road, Boerne, TX, generated October 8, 2026; U.S. Census Bureau American Community Survey 5-Year Estimates."
+  },
+  {
+   "label": "Area Development",
+   "text": "Across Hwy. 46 from the new Spencer Ranch Development. Adjacent to Home Depot, Whataburger and Chili’s. Also near newly planned Baptist Hospital as well as HEB."
+  },
+  {
+   "label": "Potential Uses",
+   "text": "Retail, restaurant, bank, and other commercial uses"
+  },
+  {
+   "label": "Investment",
+   "text": "Contact Broker."
+  }
+ ],
+ "comments": [
+  "Excellent development site",
+  "Excellent access and visibility",
+  "Hwy 46 expansion being planned in this area (potential lighted intersection)"
+ ],
+ "contact": {
+  "names": "Bart Wilson or Matt Howard",
+  "phone": "(210) 496-5800",
+  "fax": "",
+  "emails": [
+   "bwilson@roalson.com",
+   "mhoward@roalson.com"
+  ],
+  "web": "www.roalson.com"
+ },
+ "demographic_overview": {
+  "title": "Hwy. 46 and Coughran Road",
+  "date": "October 8, 2026",
+  "columns": [
+   "1 Mile",
+   "3 Miles",
+   "5 Miles"
+  ],
+  "sections": [
+   {
+    "heading": "Population",
+    "rows": [
+     [
+      "Estimated Population",
+      "1,597",
+      "16,401",
+      "27,490"
+     ],
+     [
+      "Population per Square Mile",
+      "509",
+      "581",
+      "351"
+     ],
+     [
+      "Median Age",
+      "41.6 years",
+      "40.7 years",
+      "40.6 years"
+     ]
+    ]
+   },
+   {
+    "heading": "Income",
+    "rows": [
+     [
+      "Median Household Income",
+      "$73,249",
+      "$91,926",
+      "$108,978"
+     ],
+     [
+      "Per Capita Income",
+      "$42,508",
+      "$45,056",
+      "$52,168"
+     ]
+    ]
+   },
+   {
+    "heading": "Housing",
+    "rows": [
+     [
+      "Total Housing Units",
+      "733",
+      "6,499",
+      "10,845"
+     ],
+     [
+      "Median Home Value",
+      "$395,734",
+      "$413,508",
+      "$449,173"
+     ],
+     [
+      "Median Rent",
+      "$1,664",
+      "$1,715",
+      "$1,668"
+     ],
+     [
+      "Owner-Occupied",
+      "48.0%",
+      "56.0%",
+      "64.0%"
+     ],
+     [
+      "Renter-Occupied",
+      "46.0%",
+      "37.0%",
+      "29.0%"
+     ]
+    ]
+   },
+   {
+    "heading": "Education & Employment",
+    "rows": [
+     [
+      "Bachelor's Degree+",
+      "45.0%",
+      "43.0%",
+      "48.0%"
+     ],
+     [
+      "Labor Force Participation",
+      "45.0%",
+      "49.0%",
+      "50.0%"
+     ],
+     [
+      "Unemployment Rate",
+      "3.9%",
+      "5.1%",
+      "4.4%"
+     ]
+    ]
+   }
+  ],
+  "source": "Source: CRE Agents Demographics Report for 633 West Bandera Road, Boerne, TX, generated October 8, 2026; U.S. Census Bureau American Community Survey 5-Year Estimates.",
+  "from_image": false
+ },
+ "pages": [],
+ "qa_notes": [
+  "New listing, no original package: every fact is from Matt Howard's broker email 'Hwy 46 and Coughran Road 19.714 +/- Acres' (2026-11-11 3:53pm CST), forwarded by Erik 2026-11-12 12:07pm PT as 'New listing 4'; the Roalson Listing Intake Form attached to it. The 2026-11-04 1:45pm CST email 'New Listing - Hwy 46 - 19.714 Acres' ('New listing 1') is the same parcel: the same Land ID share and demographic reports, and an intake form that differs only in the Area Development sentence; the 11-11 wording is used.",
+  "Headline on the form: 'Premium Hwy. 46 Development Site – 19.714+/-  Acres'; the eyebrow keeps the first half and the size goes on the size line, as on every other cover.",
+  "City printed 'Boerne, TX' on the form; spelled out as on every other package.",
+  "Transaction not stated on the form; 'For Sale' per SCHEMA.md, for Erik to confirm.",
+  "Utilities and Topography: the form still holds the template's example text, so both rows are left out, for Erik.",
+  "Traffic Count: not on the form; the row quotes TxDOT 2025 AADT (geo/meta.json).",
+  "Demographics: three CRE Agents reports (1, 3 and 5 miles) centred on 633 West Bandera Road, Boerne (29.7779, -98.7411), about 0.2 km west of the Land ID outline's centroid. They are ACS 5-year estimates, not the ESRI overview the older packages carry.",
+  "Land ID share 68a34c28b5a7c4084106696eadc31576 has two polygons: the 19.661-acre parcel and a 0.297-acre 'Texas Water Company Easement' wholly inside it; the boundary is their union, the parcel itself (19.661 ac against 19.714 stated)."
+ ]
+}
