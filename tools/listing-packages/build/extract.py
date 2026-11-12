@@ -66,9 +66,12 @@ def exhibit(doc, pno, dest):
 
 
 def build(uid, plan):
-    doc = pymupdf.open(A('originals', f'{uid}.pdf'))
     paths = [plan.get('cover')] + plan.get('photos', []) + [c['img'] for c in plan.get('carry', [])]
-    for rel in [p for p in paths if p and not p.startswith('build/')]:
+    todo = [p for p in paths if p and not p.startswith('build/')]
+    if not todo:
+        return
+    doc = pymupdf.open(A('originals', f'{uid}.pdf'))
+    for rel in todo:
         dest = A(rel)
         os.makedirs(os.path.dirname(dest), exist_ok=True)
         name = os.path.basename(rel)

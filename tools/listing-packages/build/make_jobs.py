@@ -43,6 +43,9 @@ for uid, s in sites.items():
                 b = [min(b[0], p['lat']), min(b[1], p['lon']), max(b[2], p['lat']), max(b[3], p['lon'])]
             j['bounds'] = b
     jobs += J
+    if uid not in meta:
+        fl = m['flood'] or {}
+        meta[uid] = {'flood_zones': fl.get('_zones', []), 'dfirm': [x for x in fl.get('_dfirm', []) if x], 'n_flood': len(fl.get('features', []))}
     meta[uid]['traffic'] = m['traffic']
     meta[uid]['site'] = site
 json.dump(jobs, open(A('build', 'jobs-all.json'), 'w'))

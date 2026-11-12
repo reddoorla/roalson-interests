@@ -110,5 +110,13 @@
    "a100": 0.03046673373776508
   },
   "verdict": "NFHL mapping shows the property about 3% within the 1% annual chance (100-year) flood hazard area."
+ },
+ "hwy-46-and-coughran-road": {
+  "hits": {},
+  "verdict": "NFHL mapping shows no special flood hazard area on the property (Zone X, minimal flood hazard)."
+ },
+ "ih-10-and-fm-1518": {
+  "hits": {},
+  "verdict": "NFHL mapping shows no special flood hazard area on the property (Zone X, minimal flood hazard)."
  }
 }
