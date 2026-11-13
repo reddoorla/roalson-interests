@@ -18,11 +18,11 @@ Uses the real entry, Hwy 46 West Development Site, whose map is swapped into Eri
      differ by antialiasing only (test_logos.JITTER); a 1725-to-1724 rescale moves every edge.
      The same cut written as JPEG (the real traffic.jpg path) is a JPEG of that size matching the PNG
      to within JPEG loss, and a heightPx taller than the map or not a whole number fails the render.
+  7. In that render each count dot sits where the entry's frame projects its station (within 1 px),
+     so the frame is the entry's and not one fitted to the bounds.
   8. A map-only map that has no room for a listed business or a count is not written or stamped:
      with Whataburger listed beside The Home Depot (Erik's map has both; at his frame only one fits),
      maps.mjs fails the job.
-  7. In that render each count dot sits where the entry's frame projects its station (within 1 px),
-     so the frame is the entry's and not one fitted to the bounds.
 Needs network (TxDOT, OpenFreeMap tiles), like every map render. Exits 1 on any failure.
 """
 import copy, json, math, os, subprocess, sys, tempfile
