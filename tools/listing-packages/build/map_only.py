@@ -6,7 +6,9 @@ frame and pixel size of the map it replaces:
 
   site            [lat, lon] of the SITE pin
   intersection    the labelled ring, as in geo/sites.json
-  businesses      names to label, in order (OpenStreetMap's spelling); business_limit caps the list
+  businesses      names to label, in order (OpenStreetMap's spelling). Each must be in the tiles, or the
+                  build stops. business_limit caps the anchors the tiles add after them (the listed
+                  names and manual_businesses are always kept), so a limit equal to the list adds none
   manual_businesses  a name and dot for a business the tiles lack, as in geo/sites.json
   traffic_ids     the TxDOT stations whose counts his facts row quotes, in order (required)
   view            {"center": [lat, lon], "zoom": z}: a fixed frame instead of fitting the bounds

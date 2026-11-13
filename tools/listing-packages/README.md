@@ -194,14 +194,27 @@ his and the SITE pin within 0.4 px.
   - one job, at the entry's frame and height;
   - the pinned counts, in order;
   - the businesses and the cap on them;
-  - a station that is not near the site stops the build;
+  - a station that is not near the site, an empty station list, or a listed business missing
+    from the tiles stops the build;
   - a uid in both files is refused;
-  - the cut is not a rescale;
+  - the cut is not a rescale, the `.jpg` path writes a JPEG of that size, and a `heightPx` taller
+    than the map or not a whole number fails the render;
   - each count dot lands where the frame puts its station.
 
-  Each of these mutations turns it red: pinned stations ignored, the frame ignored, `heightPx`
-  ignored, the location map built too, a missing station skipped, the cap ignored, a rescale
-  instead of a cut, and a uid allowed in both files.
+  Each of these mutations turns it red:
+  - pinned stations ignored, or an empty list falling back to automatic picks;
+  - the frame ignored;
+  - `heightPx` ignored, or not validated;
+  - the location map built too;
+  - a missing station skipped, or a missing business only printed;
+  - the cap ignored;
+  - a rescale instead of a cut;
+  - PNG bytes written to the `.jpg`;
+  - a uid allowed in both files.
+
+  Any change to `maps.mjs` changes the renderer hash in every map's stamp. So the next `maps.mjs` run
+  re-renders all 25 sites' maps from the tiles live that day, and until then `swap_area_map.py` refuses
+  the maps rendered on 2026-11-12. The review PDFs delivered that day are not affected.
 
 `build/heroes.json` maps each listing to its Land ID share link (Matt Howard, 2026-10-12) and
 the path its hero image has, `build/assets/heroes/<uid>.jpg`. When that file exists the

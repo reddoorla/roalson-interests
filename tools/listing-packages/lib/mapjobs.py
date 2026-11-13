@@ -63,7 +63,9 @@ def view_bounds(center,zoom,width,height):
 def pinned_stations(uid,lat,lon,ids,radius=4000):
     """The TxDOT stations named in ids, in that order, labelled the way choose_stations labels them.
     A map-only site quotes these counts in its facts row, so a missing one stops the build."""
-    by={s['id']:s for s in stations(uid,lat,lon,radius)}
+    found=stations(uid,lat,lon,radius)
+    if not found: raise SystemExit(f'{uid}: TxDOT returned no stations within {radius} m; if that was a failed query, delete its cache file in geo/traffic/ ({uid}@...) and run again')
+    by={s['id']:s for s in found}
     missing=[i for i in ids if i not in by]
     if missing: raise SystemExit(f'{uid}: TxDOT stations {missing} not within {radius} m of the site')
     out=[dict(by[i],label=station_label(by[i])) for i in ids]
@@ -100,8 +102,8 @@ def jobs_for(uid,site,outdir,title,geom=None,cover=True,date='September 2026',ex
             aw={'bounds':b,'padding':aw.get('padding',{'top':110,'bottom':70,'left':90,'right':90}),'maxZoom':aw.get('maxZoom',15.3)}
     notes=[{'lat':n['lat'],'lon':n['lon'],'label':n['label']} for n in aerial_notes]
     if not only_traffic: J.append({'out':f'{outdir}/aerial-wide.jpg','kind':'aerial','width':W,'height':H,'dpr':2.5,'center':[lat,lon],**aw,'polygon':poly,'pin':pin,'refs':xref+notes,'scale':True,'north':True,'credit':CREDIT_AER})
-    pick=pinned_stations(uid,lat,lon,traffic_ids) if traffic_ids else choose_stations(stations(uid,lat,lon,2600))
-    if only_traffic and not pick: raise SystemExit(f'{uid}: a map-only site needs traffic_ids')
+    if only_traffic and not traffic_ids: raise SystemExit(f'{uid}: a map-only site needs traffic_ids (the counts its facts row quotes)')
+    pick=pinned_stations(uid,lat,lon,traffic_ids) if traffic_ids is not None else choose_stations(stations(uid,lat,lon,2600))
     if pick:
         pts=[(lat,lon)]+[(s['lat'],s['lon']) for s in pick]
         if geom:
@@ -114,6 +116,7 @@ def jobs_for(uid,site,outdir,title,geom=None,cover=True,date='September 2026',ex
         biz,missing=businesses(tb,(lat,lon),featured,limit=business_limit)
         biz=[{'name':m['name'],'lat':m['lat'],'lon':m['lon'],'featured':True} for m in manual_businesses]+biz
         biz=[with_logo(b) for b in biz]
+        if missing and only_traffic: raise SystemExit(f'{uid}: listed businesses not in the tiles: {missing}; a map-only site labels exactly its list (use manual_businesses)')
         if missing: print(uid,'featured businesses not in the tiles:',missing)
         tj={'out':f'{outdir}/traffic.jpg','kind':'brand','businesses':biz,'width':W,'height':690,'dpr':2.5,'center':[lat,lon],'bounds':tb,'padding':{'top':120+traffic_pad,'bottom':80+traffic_pad,'left':110+traffic_pad,'right':110+traffic_pad},'maxZoom':15.2,
                   'polygon':poly,'pin':pin,'refs':xref,'traffic':[{'lat':s['lat'],'lon':s['lon'],'qty':f"{s['qty']:,}",'road':f"{s['label']} · {s['year']}"} for s in pick],

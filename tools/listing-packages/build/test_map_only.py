@@ -10,11 +10,14 @@ Uses the real entry, Hwy 46 West Development Site, whose map is swapped into Eri
   3. Its businesses are the listed names, in order. business_limit caps the anchors added after them
      (the listed names are always kept): two names with a limit of 2 give exactly those two, where
      the default limit adds anchors from the frame (H-E-B plus!, Walmart, Methodist are all anchors).
-  4. A station id that is not near the site stops the build, naming it.
+  4. A station id that is not near the site stops the build, naming it; so does an empty traffic_ids
+     (the generator never picks a map-only site's counts itself), and a listed business the tiles lack.
   5. A uid in both geo/sites.json and geo/map-only.json is refused.
   6. Rendered through maps.mjs (after a warm-up), the map is 1680 x height_px, and its rows are
      the top rows of the same map rendered at full height: cut, never rescaled. Two renders of one map
      differ by antialiasing only (test_logos.JITTER); a 1725-to-1724 rescale moves every edge.
+     The same cut written as JPEG (the real traffic.jpg path) is a JPEG of that size matching the PNG
+     to within JPEG loss, and a heightPx taller than the map or not a whole number fails the render.
   7. In that render each count dot sits where the entry's frame projects its station (within 1 px),
      so the frame is the entry's and not one fitted to the bounds.
 Needs network (TxDOT, OpenFreeMap tiles), like every map render. Exits 1 on any failure.
@@ -94,6 +97,13 @@ def main():
     except SystemExit as e:
         check('999X99' in str(e), f'4. a station id not near the site stops the build ({e})')
 
+    for bad, what in [(dict(entry, traffic_ids=[]), 'traffic_ids'), (dict(entry, businesses=entry['businesses'] + ['No Such Store 999']), 'No Such Store 999')]:
+        try:
+            map_only.jobs(UID, bad, outdir=tmp)
+            check(False, f'4. {what} stops the build')
+        except SystemExit as e:
+            check(what in str(e), f'4. {what} stops the build ({e})')
+
     try:
         map_only.load({UID: {}})
         check(False, '5. a uid in both files is refused')
@@ -102,7 +112,7 @@ def main():
 
     full = copy.deepcopy(j)
     full.pop('heightPx')
-    run = [dict(full, out=os.path.join(tmp, 'W.png')), dict(full, out=os.path.join(tmp, 'full.png')), dict(j, out=os.path.join(tmp, 'cut.png'))]
+    run = [dict(full, out=os.path.join(tmp, 'W.png')), dict(full, out=os.path.join(tmp, 'full.png')), dict(j, out=os.path.join(tmp, 'cut.png')), dict(j, out=os.path.join(tmp, 'cut.jpg'))]
     spec = os.path.join(tmp, 'jobs.json')
     json.dump(run, open(spec, 'w'))
     r = subprocess.run(['node', os.path.join(HERE, 'maps.mjs'), spec, '--force'], capture_output=True, text=True)
@@ -115,6 +125,17 @@ def main():
     n = min(C.shape[0], F.shape[0])
     off = int((np.abs(F[:n] - C[:n]).max(axis=2) > JITTER).sum()) if C.shape[1] == F.shape[1] else -1
     check(F.shape[0] > C.shape[0] and off == 0, f'6. its rows are the top {n} rows of the full-height render ({off} pixels differ by more than {JITTER})')
+
+    jpg = os.path.join(tmp, 'cut.jpg')
+    J8 = Image.open(jpg)
+    loss = float(np.abs(np.asarray(J8.convert('RGB')).astype(int) - C).mean()) if J8.size == (C.shape[1], C.shape[0]) else 99
+    check(open(jpg, 'rb').read(3) == b'\xff\xd8\xff' and J8.format == 'JPEG' and loss < 1.5,
+          f'6. the .jpg cut is a {J8.format} of {J8.size[0]}x{J8.size[1]} within JPEG loss of the PNG (mean difference {loss:.2f}/255)')
+    for h in (round(j['height'] * j['dpr']) + 1, entry['height_px'] + 0.5):
+        spec2 = os.path.join(tmp, 'bad.json')
+        json.dump([dict(j, out=os.path.join(tmp, 'bad.png'), heightPx=h)], open(spec2, 'w'))
+        r2 = subprocess.run(['node', os.path.join(HERE, 'maps.mjs'), spec2, '--force'], capture_output=True, text=True)
+        check(r2.returncode != 0 and 'whole number of pixels' in r2.stderr and not os.path.exists(os.path.join(tmp, 'bad.png')), f'6. heightPx {h} fails the render')
 
     dots = count_dots(os.path.join(tmp, 'cut.png'), j['dpr'])
     worst = []

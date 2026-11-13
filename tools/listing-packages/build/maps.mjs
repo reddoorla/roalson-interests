@@ -399,7 +399,7 @@ async function render(page, job) {
     // this: Chromium returns 1723 rows for 689.6 to 689.99 px and resamples them (measured 2026-11-13).
     const full = await page.screenshot({ type: 'png', clip: { x: 0, y: 0, width: job.width, height: job.height } });
     const w = Math.round(job.width * job.dpr);
-    if (job.heightPx > Math.round(job.height * job.dpr)) throw new Error(`heightPx ${job.heightPx} is taller than the map`);
+    if (!Number.isInteger(job.heightPx) || job.heightPx < 1 || job.heightPx > Math.round(job.height * job.dpr)) throw new Error(`heightPx ${job.heightPx} must be a whole number of pixels, at most the map's ${Math.round(job.height * job.dpr)}`);
     const jpeg = !job.out.endsWith('.png');
     const b64 = await page.evaluate(async ({ src, w, h, jpeg }) => {
       const img = new Image();
@@ -495,7 +495,7 @@ for (const job of jobs) {
     if (r.dropped.some((x) => x.startsWith('intersection '))) throw new Error(`no room for ${r.dropped.join('; ')}; nothing is stamped`);
     if (run.failures) throw new Error(`${run.failures} imagery tiles failed; the previous image is kept and nothing is stamped, so the next run re-renders it`);
     renameSync(job.tmp, job.out);
-    if (job.businesses) writeFileSync(`${job.out}.boxes.json`, JSON.stringify({ width: job.width, height: job.height, dpr: job.dpr, businesses: r.boxes }, null, 1));
+    if (job.businesses) writeFileSync(`${job.out}.boxes.json`, JSON.stringify({ width: job.width, height: job.height, ...(job.heightPx ? { heightPx: job.heightPx } : {}), dpr: job.dpr, businesses: r.boxes }, null, 1));
     writeFileSync(stamp, spec);
     console.log('ok', job.out, `z=${r.zoom.toFixed(2)}`, `${Date.now() - t}ms`);
   } catch (e) {
