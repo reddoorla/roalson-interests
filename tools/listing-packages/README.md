@@ -169,6 +169,40 @@ that the rules protect (it must be empty).
   or unstamped map, a page with other images over the map, or a page laid out differently, and it
   proves every page's text is unchanged.
 
+### Map-only sites (2026-11-13)
+
+Three current packages were made outside this generator: Hwy 211, Hwy 46 West and Hwy 87
+Development Sites. Their maps are not this renderer's. They use a grey basemap with white roads,
+are 1680×1724 where this renders 1680×1725, use a different scale-bar rule, and on 211 and 87 the
+counts were placed by hand, up to 70 px from TxDOT's points. So none can be reproduced from
+inputs here. The operator chose (reddoor-workspace
+`decisions/2026-11-13-0343-roalson-three-packages-maps-not-reproducible.md`) to regenerate Hwy 46
+West's map at Erik's frame and to leave 211 and 87 without logos.
+
+`geo/map-only.json` lists such a site. `build/map_only.py` documents its fields: the SITE pin, the
+intersection, the businesses and a cap on them, the pinned TxDOT stations, a fixed `view` (center
+and zoom) and `height_px`. `make_jobs.py` builds only its Area Map with Traffic Counts, from the
+broker's Land ID outline in `geo/landid/<uid>.json`. The site is kept out of `geo/sites.json`, so
+the full-package steps never see it, and a uid in both files is refused. `maps.mjs` cuts the
+bottom rows off to `height_px`, never rescaling (a fractional screenshot clip returns 1723 rows and
+resamples them). So `swap_area_map.py` replaces Erik's image exactly, as it does for the other 23.
+Erik's frame for Hwy 46 West was solved from his three count dots and the intersection ring, which
+all agree to within 1 px (z 13.6768). On the regenerated map the count dots sit within 0.7 px of
+his and the SITE pin within 0.4 px.
+
+- `python3 build/test_map_only.py` checks:
+  - one job, at the entry's frame and height;
+  - the pinned counts, in order;
+  - the businesses and the cap on them;
+  - a station that is not near the site stops the build;
+  - a uid in both files is refused;
+  - the cut is not a rescale;
+  - each count dot lands where the frame puts its station.
+
+  Each of these mutations turns it red: pinned stations ignored, the frame ignored, `heightPx`
+  ignored, the location map built too, a missing station skipped, the cap ignored, a rescale
+  instead of a cut, and a uid allowed in both files.
+
 `build/heroes.json` maps each listing to its Land ID share link (Matt Howard, 2026-10-12) and
 the path its hero image has, `build/assets/heroes/<uid>.jpg`. When that file exists the
 cover uses it instead of the NAIP aerial, credited "Aerial: Land id® · © Mapbox © Maxar". Its optional

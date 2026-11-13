@@ -392,6 +392,27 @@ async function render(page, job) {
     return { zoom: map.getZoom(), center: map.getCenter(), dropped, boxes: out };
   }, { job, style, GARNET, DUST, logos });
   mkdirSync(dirname(job.out), { recursive: true });
+  if (job.heightPx) {
+    // A map-only site (geo/map-only.json) matches the pixel size of a map Erik made elsewhere, so
+    // build/swap_area_map.py still replaces his image exactly: 1680x1724 where this renders 1680x1725
+    // at dpr 2.5. The bottom rows are cut off, never rescaled. A fractional screenshot clip cannot do
+    // this: Chromium returns 1723 rows for 689.6 to 689.99 px and resamples them (measured 2026-11-13).
+    const full = await page.screenshot({ type: 'png', clip: { x: 0, y: 0, width: job.width, height: job.height } });
+    const w = Math.round(job.width * job.dpr);
+    if (job.heightPx > Math.round(job.height * job.dpr)) throw new Error(`heightPx ${job.heightPx} is taller than the map`);
+    const jpeg = !job.out.endsWith('.png');
+    const b64 = await page.evaluate(async ({ src, w, h, jpeg }) => {
+      const img = new Image();
+      img.src = 'data:image/png;base64,' + src;
+      await img.decode();
+      const c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      c.getContext('2d').drawImage(img, 0, 0);
+      return c.toDataURL(jpeg ? 'image/jpeg' : 'image/png', 0.9).split(',')[1];
+    }, { src: full.toString('base64'), w, h: job.heightPx, jpeg });
+    writeFileSync(job.tmp, Buffer.from(b64, 'base64'));
+    return ok;
+  }
   await page.screenshot({ path: job.tmp, type: job.out.endsWith('.png') ? 'png' : 'jpeg', quality: job.out.endsWith('.png') ? undefined : 90, clip: { x: 0, y: 0, width: job.width, height: job.height } });
   return ok;
 }
