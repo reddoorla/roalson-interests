@@ -1,0 +1,221 @@
+{
+ "uid": "ih-10-and-fm-1518",
+ "variant": "land",
+ "transaction": "For Sale",
+ "type_label": "Land",
+ "eyebrow": "Premium FM 1518 Development Site",
+ "title": "IH-10 and FM 1518",
+ "city": "Schertz, Texas",
+ "size_headline": "61.915+/- Acres",
+ "rows": [
+  {
+   "label": "Location",
+   "text": "The property fronts on FM 1518 just North of the IH-10E and FM 1518 intersection."
+  },
+  {
+   "label": "Size",
+   "text": "61.915+/- Acres"
+  },
+  {
+   "label": "Frontage",
+   "text": "725+/- linear feet on FM 1518"
+  },
+  {
+   "label": "Utilities",
+   "text": "Electricity and Water appear to be on the property with Natural Gas near the IH-10E and FM 1518 intersection.",
+   "note": "Prospective buyers should retain an independent engineer to verify the location, accessibility and capacity of all utilities."
+  },
+  {
+   "label": "Zoning",
+   "text": "General Business, City of Schertz",
+   "note": "Prospective buyers should verify the zoning and permitted uses for this property with the appropriate governing authority."
+  },
+  {
+   "label": "Flood Plain",
+   "text": "FEMA maps do not appear to show any floodplain on the property."
+  },
+  {
+   "label": "Easements",
+   "text": "Telephone, Water, Electricity appear to be present."
+  },
+  {
+   "label": "Deed Restrictions",
+   "text": "None of Record."
+  },
+  {
+   "label": "Demographics",
+   "table": {
+    "columns": [
+     "",
+     "1 Mile",
+     "3 Miles",
+     "5 Miles"
+    ],
+    "rows": [
+     [
+      "Estimated Population",
+      "1,252",
+      "7,756",
+      "37,990"
+     ],
+     [
+      "Median Household Income",
+      "$103,910",
+      "$102,522",
+      "$86,547"
+     ]
+    ]
+   },
+   "note": "Source: CRE Agents Demographics Report for 6829 FM1518, Schertz, TX, generated October 7, 2026; U.S. Census Bureau American Community Survey 5-Year Estimates."
+  },
+  {
+   "label": "Area Development",
+   "text": "FM 1518 widening project, numerous new residential subdivisions, Core5 Logistics Center, HEB, Quiktrip"
+  },
+  {
+   "label": "Potential Uses",
+   "text": "Mixed Use- Multifamily, Retail, restaurant, bank, and other commercial uses"
+  },
+  {
+   "label": "Investment",
+   "text": "Contact Broker."
+  }
+ ],
+ "comments": [
+  "Excellent residential growth in the area.",
+  "Major intersection",
+  "Excellent Visibility",
+  "Excellent access"
+ ],
+ "contact": {
+  "names": "Bart Wilson or Matt Howard",
+  "phone": "(210) 496-5800",
+  "fax": "",
+  "emails": [
+   "bwilson@roalson.com",
+   "mhoward@roalson.com"
+  ],
+  "web": "www.roalson.com"
+ },
+ "demographic_overview": {
+  "title": "IH-10 and FM 1518",
+  "date": "October 7, 2026",
+  "columns": [
+   "1 Mile",
+   "3 Miles",
+   "5 Miles"
+  ],
+  "sections": [
+   {
+    "heading": "Population",
+    "rows": [
+     [
+      "Estimated Population",
+      "1,252",
+      "7,756",
+      "37,990"
+     ],
+     [
+      "Population per Square Mile",
+      "399",
+      "275",
+      "484"
+     ],
+     [
+      "Median Age",
+      "37.2 years",
+      "36.7 years",
+      "34.6 years"
+     ]
+    ]
+   },
+   {
+    "heading": "Income",
+    "rows": [
+     [
+      "Median Household Income",
+      "$103,910",
+      "$102,522",
+      "$86,547"
+     ],
+     [
+      "Per Capita Income",
+      "$44,175",
+      "$43,295",
+      "$34,731"
+     ]
+    ]
+   },
+   {
+    "heading": "Housing",
+    "rows": [
+     [
+      "Total Housing Units",
+      "461",
+      "2,844",
+      "13,795"
+     ],
+     [
+      "Median Home Value",
+      "$380,040",
+      "$367,054",
+      "$258,348"
+     ],
+     [
+      "Median Rent",
+      "$1,993",
+      "$1,974",
+      "$1,637"
+     ],
+     [
+      "Owner-Occupied",
+      "79.0%",
+      "77.0%",
+      "66.0%"
+     ],
+     [
+      "Renter-Occupied",
+      "9.0%",
+      "12.0%",
+      "28.0%"
+     ]
+    ]
+   },
+   {
+    "heading": "Education & Employment",
+    "rows": [
+     [
+      "Bachelor's Degree+",
+      "43.0%",
+      "43.0%",
+      "32.0%"
+     ],
+     [
+      "Labor Force Participation",
+      "48.0%",
+      "49.0%",
+      "49.0%"
+     ],
+     [
+      "Unemployment Rate",
+      "9%",
+      "8.2%",
+      "5.9%"
+     ]
+    ]
+   }
+  ],
+  "source": "Source: CRE Agents Demographics Report for 6829 FM1518, Schertz, TX, generated October 7, 2026; U.S. Census Bureau American Community Survey 5-Year Estimates.",
+  "from_image": false
+ },
+ "pages": [],
+ "qa_notes": [
+  "New listing, no original package: every fact is from Matt Howard's broker email 'IH-10E and FM 1518 - 61.915+/- Acres' (2026-11-11 4:04pm CST), forwarded by Erik 2026-11-12 12:06pm PT as 'New listing 3'; the Roalson Listing Intake Form attached to it. The 2026-11-04 2:45pm CST email 'FM 1518 - 61.915 Acres' ('New listing 2') is the same parcel: the same Land ID share and demographic reports, and an intake form that differs in two places, both taken from 11-11: Frontage 'feer' corrected to 'feet', and Potential Uses gains 'Mixed Use- Multifamily'.",
+  "Form title 'IH-10 and FM 1518', headline 'Premium FM 1518 Development Site', no size on the cover; the size line is the form's Size field.",
+  "Transaction not stated on the form; 'For Sale' per SCHEMA.md, for Erik to confirm.",
+  "Topography: the form still holds the template's example text, so the row is left out, for Erik.",
+  "Demographics: three CRE Agents reports (1, 3 and 5 miles) centred on 6829 FM1518, Schertz (29.4994, -98.2321), about 1.1 km north of the Land ID outline's centroid. They are ACS 5-year estimates, not the ESRI overview the older packages carry.",
+  "Land ID share c5f81bf57b627e57b907bd4ed3211657 ('FM 1518  - 61+/- Acres'): one polygon, 62.249 ac against 61.915 stated.",
+  "Traffic Count: blank on the form, so the spec pages carry no row; the Area Map with Traffic Counts exhibit gives TxDOT's 2025 counts with their source."
+ ]
+}

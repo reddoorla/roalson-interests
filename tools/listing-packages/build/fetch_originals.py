@@ -3,6 +3,10 @@ import json, os, subprocess, sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 API = 'https://roalson-interests.cdn.prismic.io/api/v2'
+# The broker's original package for each listing, pinned. Since 2026-10-14 each property's live
+# package_pdf is Erik's edited copy of this generator's output, so extract.py's page recipes no
+# longer match it; these are the first package_pdf each Prismic document held (Prismic history).
+PINNED = json.load(open(os.path.join(HERE, 'originals.json')))
 
 
 def curl_json(url, params=None):
@@ -24,6 +28,8 @@ def main(only):
         listing[uid] = {k: doc['data'].get(k) for k in ('title', 'category', 'status', 'transaction_type', 'total_price', 'price_per_unit', 'size_label', 'acres', 'zoning', 'location')}
         if only and uid not in only:
             continue
+        if uid in PINNED:
+            pdf = PINNED[uid]
         if not pdf.get('url'):
             print('no package_pdf', uid)
             continue

@@ -204,11 +204,12 @@ def build(uid, plan):
     boundary_note = geo.get('boundary_note') or ('Boundary shown is approximate, drawn from county appraisal district parcel data (Texas StratMap, ' + TODAY + '); refer to a survey for exact lines.') if geo['geom'] else 'Site location shown by pin; refer to a survey for tract boundaries.'
     pages.append(exhibit_page(W, 'Exhibit', 'Location Map', f'<div class="frame"><img src="{mapimg("location.jpg")}" alt="Location map"></div>', cap='Map data © OpenMapTiles © OpenStreetMap contributors.'))
     if meta['traffic']:
+        quoted = 'The specification pages quote the counts in the original package. ' if d['pages'] else ''
         yr = max(t['year'] for t in meta['traffic'])
         top = sorted([t for t in meta['traffic'] if t.get('label')], key=lambda t: t['d'])[:3]
         facts = ''.join(f'<div><div class="fk">{esc(t["label"])}</div><div class="fv">{t["qty"]:,} vehicles per day<br><span style="color:#8e8676;font-size:9.5px">{t["d"] / 1609.34:.1f} mi from site · {t["year"]}</span></div></div>' for t in top)
         pages.append(exhibit_page(W, 'Exhibit', 'Area Map with Traffic Counts', f'<div class="frame"><img src="{mapimg("traffic.jpg")}" alt="Area map with traffic counts"></div><div class="facts">{facts}</div>',
-                                  cap=f'Annual average daily traffic (AADT), {yr} counts published by the Texas Department of Transportation (TxDOT), for count stations near the site; two-way totals. The specification pages quote the counts in the original package. Map data © OpenMapTiles © OpenStreetMap contributors. ' + boundary_note))
+                                  cap=f'Annual average daily traffic (AADT), {yr} counts published by the Texas Department of Transportation (TxDOT), for count stations near the site; two-way totals. {quoted}Map data © OpenMapTiles © OpenStreetMap contributors. ' + boundary_note))
     else:
         pages.append(exhibit_page(W, 'Exhibit', 'Area Map', f'<div class="frame"><img src="{mapimg("area.jpg")}" alt="Area map"></div>', cap='Map data © OpenMapTiles © OpenStreetMap contributors. ' + boundary_note))
     pages.append(exhibit_page(W, 'Exhibit', 'Aerial Map', f'<div class="frame"><img src="{mapimg("aerial-wide.jpg")}" alt="Aerial map"></div>', cap='Imagery: USGS The National Map, NAIP / high-resolution orthoimagery (public domain). Road labels © OpenStreetMap contributors. ' + boundary_note))

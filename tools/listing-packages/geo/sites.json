@@ -2511,5 +2511,173 @@
     61.03
    ]
   }
+ },
+ "hwy-46-and-coughran-road": {
+  "lat": 29.777853,
+  "lon": -98.743776,
+  "geom": {
+   "type": "Polygon",
+   "coordinates": [
+    [
+     [
+      -98.74226630917977,
+      29.776723984363272
+     ],
+     [
+      -98.74375135178484,
+      29.776726817313858
+     ],
+     [
+      -98.74553183423119,
+      29.776668839401495
+     ],
+     [
+      -98.7459766971996,
+      29.776713285631274
+     ],
+     [
+      -98.74539945039396,
+      29.777736064236123
+     ],
+     [
+      -98.74504667651419,
+      29.778301891300018
+     ],
+     [
+      -98.74491840402982,
+      29.778495089327492
+     ],
+     [
+      -98.74474108618308,
+      29.77867191431524
+     ],
+     [
+      -98.74449774573486,
+      29.778906043215798
+     ],
+     [
+      -98.74425920330526,
+      29.77906494320669
+     ],
+     [
+      -98.74398410689193,
+      29.779182646215304
+     ],
+     [
+      -98.74380200081578,
+      29.779239816198043
+     ],
+     [
+      -98.74353073460931,
+      29.77928697444092
+     ],
+     [
+      -98.74311383366697,
+      29.779309589882843
+     ],
+     [
+      -98.74227568906329,
+      29.779254935888957
+     ],
+     [
+      -98.74226630917977,
+      29.776723984363272
+     ]
+    ]
+   ]
+  },
+  "prop_ids": [],
+  "accessed": "November 2026",
+  "note": "Boundary from the broker's Land ID share (Matt Howard, 2026-11-04 and 11-11). Its second polygon, the 0.297-acre 'Texas Water Company Easement', lies wholly inside the parcel, so the union is the parcel.",
+  "intersection": {
+   "lat": 29.780001,
+   "lon": -98.737831,
+   "label": "IH 10 & SH 46",
+   "source": "lib/intersection.py (OpenFreeMap, 2026-11-12): the nearest crossing of major roads, 623 m from the site; Coughran Road, which the listing's title names, is a minor road. The same crossing as Hwy 46 at Spencer Ranch Blvd and Menger Springs Road; chosen by hand on 2026-11-12"
+  },
+  "businesses": [
+   "The Home Depot",
+   "Whataburger",
+   "Chili's"
+  ],
+  "centroid": [
+   29.77801897776807,
+   -98.74374708598504
+  ],
+  "boundary_source": {
+   "landid_url": "https://id.land/maps/68a34c28b5a7c4084106696eadc31576/share",
+   "landid_updated_at": "2026-10-02T18:15:23.000Z",
+   "fetched": "2026-11-12T22:43:26.113Z",
+   "acres": [
+    19.661,
+    0.297
+   ]
+  },
+  "boundary_note": "Boundary shown is approximate, drawn by the broker in Land id (November 2026); refer to a survey for exact lines."
+ },
+ "ih-10-and-fm-1518": {
+  "lat": 29.489405,
+  "lon": -98.231435,
+  "geom": {
+   "type": "Polygon",
+   "coordinates": [
+    [
+     [
+      -98.23676140868609,
+      29.48797106164845
+     ],
+     [
+      -98.22699297842495,
+      29.49284874760211
+     ],
+     [
+      -98.2258490074432,
+      29.49112312018633
+     ],
+     [
+      -98.23523944221803,
+      29.486383760688454
+     ],
+     [
+      -98.23432890591546,
+      29.484992063928274
+     ],
+     [
+      -98.23474358436867,
+      29.484824602911374
+     ],
+     [
+      -98.23676140868609,
+      29.48797106164845
+     ]
+    ]
+   ]
+  },
+  "prop_ids": [],
+  "accessed": "November 2026",
+  "note": "Boundary from the broker's Land ID share (Matt Howard, 2026-11-04 and 11-11).",
+  "intersection": {
+   "lat": 29.48806,
+   "lon": -98.223747,
+   "label": "IH 10 & FM 1518",
+   "source": "lib/intersection.py (OpenFreeMap, 2026-11-12) --with-secondary: 759 m from the site, the intersection the listing's title and Location row name; chosen by hand on 2026-11-12"
+  },
+  "businesses": [
+   "H-E-B",
+   "QuikTrip"
+  ],
+  "centroid": [
+   29.489405049336387,
+   -98.2314346299799
+  ],
+  "boundary_source": {
+   "landid_url": "https://id.land/maps/c5f81bf57b627e57b907bd4ed3211657/share",
+   "landid_updated_at": "2026-09-12T17:55:07.000Z",
+   "fetched": "2026-11-12T22:43:43.664Z",
+   "acres": [
+    62.249
+   ]
+  },
+  "boundary_note": "Boundary shown is approximate, drawn by the broker in Land id (November 2026); refer to a survey for exact lines."
  }
 }
