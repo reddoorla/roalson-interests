@@ -392,6 +392,27 @@ async function render(page, job) {
     return { zoom: map.getZoom(), center: map.getCenter(), dropped, boxes: out };
   }, { job, style, GARNET, DUST, logos });
   mkdirSync(dirname(job.out), { recursive: true });
+  if (job.heightPx) {
+    // A map-only site (geo/map-only.json) matches the pixel size of a map Erik made elsewhere, so
+    // build/swap_area_map.py still replaces his image exactly: 1680x1724 where this renders 1680x1725
+    // at dpr 2.5. The bottom rows are cut off, never rescaled. A fractional screenshot clip cannot do
+    // this: Chromium returns 1723 rows for 689.6 to 689.99 px and resamples them (measured 2026-11-13).
+    const full = await page.screenshot({ type: 'png', clip: { x: 0, y: 0, width: job.width, height: job.height } });
+    const w = Math.round(job.width * job.dpr);
+    if (!Number.isInteger(job.heightPx) || job.heightPx < 1 || job.heightPx > Math.round(job.height * job.dpr)) throw new Error(`heightPx ${job.heightPx} must be a whole number of pixels, at most the map's ${Math.round(job.height * job.dpr)}`);
+    const jpeg = !job.out.endsWith('.png');
+    const b64 = await page.evaluate(async ({ src, w, h, jpeg }) => {
+      const img = new Image();
+      img.src = 'data:image/png;base64,' + src;
+      await img.decode();
+      const c = document.createElement('canvas');
+      c.width = w; c.height = h;
+      c.getContext('2d').drawImage(img, 0, 0);
+      return c.toDataURL(jpeg ? 'image/jpeg' : 'image/png', 0.9).split(',')[1];
+    }, { src: full.toString('base64'), w, h: job.heightPx, jpeg });
+    writeFileSync(job.tmp, Buffer.from(b64, 'base64'));
+    return ok;
+  }
   await page.screenshot({ path: job.tmp, type: job.out.endsWith('.png') ? 'png' : 'jpeg', quality: job.out.endsWith('.png') ? undefined : 90, clip: { x: 0, y: 0, width: job.width, height: job.height } });
   return ok;
 }
@@ -472,9 +493,12 @@ for (const job of jobs) {
     const r = await Promise.race([rendering, new Promise((_, rej) => { run.watch = setInterval(() => run.failures && rej(new Error(`${run.failures} imagery tiles failed; the previous image is kept and nothing is stamped, so the next run re-renders it`)), 1000); })]);
     if (r.dropped.length) console.error('dropped', job.out, r.dropped.join('; '));
     if (r.dropped.some((x) => x.startsWith('intersection '))) throw new Error(`no room for ${r.dropped.join('; ')}; nothing is stamped`);
+    // A map-only site (geo/map-only.json) replaces a map whose counts Erik's facts row quotes, and lists
+    // exactly the businesses it shows, so a count or business with no room stops it too.
+    if (job.strict && r.dropped.some((x) => x.startsWith('count ') || x.startsWith('business '))) throw new Error(`map-only map has no room for ${r.dropped.join('; ')}; nothing is stamped`);
     if (run.failures) throw new Error(`${run.failures} imagery tiles failed; the previous image is kept and nothing is stamped, so the next run re-renders it`);
     renameSync(job.tmp, job.out);
-    if (job.businesses) writeFileSync(`${job.out}.boxes.json`, JSON.stringify({ width: job.width, height: job.height, dpr: job.dpr, businesses: r.boxes }, null, 1));
+    if (job.businesses) writeFileSync(`${job.out}.boxes.json`, JSON.stringify({ width: job.width, height: job.height, ...(job.heightPx ? { heightPx: job.heightPx } : {}), dpr: job.dpr, businesses: r.boxes }, null, 1));
     writeFileSync(stamp, spec);
     console.log('ok', job.out, `z=${r.zoom.toFixed(2)}`, `${Date.now() - t}ms`);
   } catch (e) {
