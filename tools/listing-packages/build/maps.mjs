@@ -493,6 +493,9 @@ for (const job of jobs) {
     const r = await Promise.race([rendering, new Promise((_, rej) => { run.watch = setInterval(() => run.failures && rej(new Error(`${run.failures} imagery tiles failed; the previous image is kept and nothing is stamped, so the next run re-renders it`)), 1000); })]);
     if (r.dropped.length) console.error('dropped', job.out, r.dropped.join('; '));
     if (r.dropped.some((x) => x.startsWith('intersection '))) throw new Error(`no room for ${r.dropped.join('; ')}; nothing is stamped`);
+    // A map-only site (geo/map-only.json) replaces a map whose counts Erik's facts row quotes, and lists
+    // exactly the businesses it shows, so a count or business with no room stops it too.
+    if (job.strict && r.dropped.some((x) => x.startsWith('count ') || x.startsWith('business '))) throw new Error(`map-only map has no room for ${r.dropped.join('; ')}; nothing is stamped`);
     if (run.failures) throw new Error(`${run.failures} imagery tiles failed; the previous image is kept and nothing is stamped, so the next run re-renders it`);
     renameSync(job.tmp, job.out);
     if (job.businesses) writeFileSync(`${job.out}.boxes.json`, JSON.stringify({ width: job.width, height: job.height, ...(job.heightPx ? { heightPx: job.heightPx } : {}), dpr: job.dpr, businesses: r.boxes }, null, 1));

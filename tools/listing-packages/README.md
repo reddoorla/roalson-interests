@@ -196,6 +196,9 @@ his and the SITE pin within 0.4 px.
   - the businesses and the cap on them;
   - a station that is not near the site, an empty station list, or a listed business missing
     from the tiles stops the build;
+  - a map-only map with no room for a listed business or a count is not written or stamped
+    (map-only jobs are `strict`). That is why Hwy 46 West lists four of the five businesses on
+    Erik's map: at his frame, Whataburger and The Home Depot do not both fit;
   - a uid in both files is refused;
   - the cut is not a rescale, the `.jpg` path writes a JPEG of that size, and a `heightPx` taller
     than the map or not a whole number fails the render;
@@ -207,6 +210,7 @@ his and the SITE pin within 0.4 px.
   - `heightPx` ignored, or not validated;
   - the location map built too;
   - a missing station skipped, or a missing business only printed;
+  - `strict` ignored in `maps.mjs`, or not set on a map-only job;
   - the cap ignored;
   - a rescale instead of a cut;
   - PNG bytes written to the `.jpg`;

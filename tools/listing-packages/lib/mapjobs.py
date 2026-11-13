@@ -126,6 +126,8 @@ def jobs_for(uid,site,outdir,title,geom=None,cover=True,date='September 2026',ex
             for k in ('bounds','padding','maxZoom'): del tj[k]
             tj.update(center=list(traffic_view['center']),zoom=traffic_view['zoom'])
         if height_px: tj['heightPx']=height_px
+        # A map-only site's map must show every count its facts row quotes and every business it lists.
+        if only_traffic: tj['strict']=True
         J.append(tj)
     elif not only_traffic:
         area=near or {'zoom':15.0 if ext<400 else 14.4}

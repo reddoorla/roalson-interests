@@ -18,6 +18,9 @@ Uses the real entry, Hwy 46 West Development Site, whose map is swapped into Eri
      differ by antialiasing only (test_logos.JITTER); a 1725-to-1724 rescale moves every edge.
      The same cut written as JPEG (the real traffic.jpg path) is a JPEG of that size matching the PNG
      to within JPEG loss, and a heightPx taller than the map or not a whole number fails the render.
+  8. A map-only map that has no room for a listed business or a count is not written or stamped:
+     with Whataburger listed beside The Home Depot (Erik's map has both; at his frame only one fits),
+     maps.mjs fails the job.
   7. In that render each count dot sits where the entry's frame projects its station (within 1 px),
      so the frame is the entry's and not one fitted to the bounds.
 Needs network (TxDOT, OpenFreeMap tiles), like every map render. Exits 1 on any failure.
@@ -128,9 +131,12 @@ def main():
 
     jpg = os.path.join(tmp, 'cut.jpg')
     J8 = Image.open(jpg)
-    loss = float(np.abs(np.asarray(J8.convert('RGB')).astype(int) - C).mean()) if J8.size == (C.shape[1], C.shape[0]) else 99
-    check(open(jpg, 'rb').read(3) == b'\xff\xd8\xff' and J8.format == 'JPEG' and loss < 1.5,
-          f'6. the .jpg cut is a {J8.format} of {J8.size[0]}x{J8.size[1]} within JPEG loss of the PNG (mean difference {loss:.2f}/255)')
+    # JPEG loss vs a shifted row: measured 2026-11-13, the 99.9th percentile of the per-pixel difference
+    # is 24/255 for the q90 cut and 89/255 for a 1725-to-1724 rescale (whose mean, 1.67, is below the
+    # cut's 2.48, so a mean cannot tell them apart).
+    loss = float(np.percentile(np.abs(np.asarray(J8.convert('RGB')).astype(int) - C).max(axis=2), 99.9)) if J8.size == (C.shape[1], C.shape[0]) else 999
+    check(open(jpg, 'rb').read(3) == b'\xff\xd8\xff' and J8.format == 'JPEG' and loss <= 48,
+          f'6. the .jpg cut is a {J8.format} of {J8.size[0]}x{J8.size[1]} within JPEG loss of the PNG (99.9th percentile difference {loss:.0f}/255)')
     for h in (round(j['height'] * j['dpr']) + 1, entry['height_px'] + 0.5):
         spec2 = os.path.join(tmp, 'bad.json')
         json.dump([dict(j, out=os.path.join(tmp, 'bad.png'), heightPx=h)], open(spec2, 'w'))
@@ -143,6 +149,15 @@ def main():
         px = project(entry['view'], t['lat'], t['lon'], j['width'], j['height'])
         worst.append(min((math.hypot(px[0] - d[0], px[1] - d[1]) for d in dots), default=99))
     check(len(worst) == 3 and max(worst) <= 1.0, f"7. each count dot is where the entry's frame puts its station (off by {[round(w, 2) for w in worst]} px)")
+
+    check(j.get('strict') is True, f"8. the map-only job is strict ({j.get('strict')})")
+    crowded = map_only.jobs(UID, dict(entry, businesses=entry['businesses'][:1] + ['Whataburger'] + entry['businesses'][1:], business_limit=5), outdir=tmp)[0]
+    spec3 = os.path.join(tmp, 'crowded.json')
+    out3 = os.path.join(tmp, 'crowded.jpg')
+    json.dump([dict(crowded, out=out3)], open(spec3, 'w'))
+    r3 = subprocess.run(['node', os.path.join(HERE, 'maps.mjs'), spec3, '--force'], capture_output=True, text=True)
+    check(r3.returncode != 0 and 'map-only map has no room for business' in r3.stderr and not os.path.exists(out3) and not os.path.exists(out3 + '.job.json'),
+          f"8. a listed business with no room fails the render ({(r3.stderr.strip().splitlines() or [''])[-1][:140]})")
 
     if fails:
         sys.exit(f'{len(fails)} check(s) failed')

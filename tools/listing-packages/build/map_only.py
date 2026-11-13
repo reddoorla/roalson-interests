@@ -6,9 +6,10 @@ frame and pixel size of the map it replaces:
 
   site            [lat, lon] of the SITE pin
   intersection    the labelled ring, as in geo/sites.json
-  businesses      names to label, in order (OpenStreetMap's spelling). Each must be in the tiles, or the
-                  build stops. business_limit caps the anchors the tiles add after them (the listed
-                  names and manual_businesses are always kept), so a limit equal to the list adds none
+  businesses      names to label, in order (OpenStreetMap's spelling). Each must be in the tiles and
+                  must find room on the map, or the build stops (so must every count). business_limit
+                  caps the listed names plus the anchors the tiles add after them (listed names are
+                  always kept; manual_businesses are not counted), so a limit equal to the list adds none
   manual_businesses  a name and dot for a business the tiles lack, as in geo/sites.json
   traffic_ids     the TxDOT stations whose counts his facts row quotes, in order (required)
   view            {"center": [lat, lon], "zoom": z}: a fixed frame instead of fitting the bounds
@@ -43,6 +44,8 @@ def load(sites, path=PATH):
 
 def jobs(uid, s, outdir=None):
     """The one traffic-map job for a map-only site."""
+    if not os.path.exists(os.path.join(ROOT, 'geo', 'landid', f'{uid}.json')):
+        sys.exit(f'{uid}: no geo/landid/{uid}.json; fetch the broker outline with build/fetch_landid.mjs first')
     _, polys = parts_of(uid)
     if not polys:
         sys.exit(f'{uid}: no Land ID polygon in geo/landid/{uid}.json')
