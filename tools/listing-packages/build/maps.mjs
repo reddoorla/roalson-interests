@@ -1,10 +1,12 @@
 import { chromium } from 'playwright-core';
 import { readFileSync, writeFileSync, existsSync, mkdirSync, renameSync, rmSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { dirname, join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
+// Part of every map's stamp, so a change to this renderer re-renders every map (review round 2).
+const RENDERER = createHash('sha1').update(readFileSync(fileURLToPath(import.meta.url))).digest('hex').slice(0, 12);
 const STYLE_PATH = existsSync(join(HERE, 'map-style.json')) ? join(HERE, 'map-style.json') : join(HERE, '../../../static/map-style.json');
 const BRAND = JSON.parse(readFileSync(STYLE_PATH, 'utf8'));
 const MAPLIBRE_JS = join(HERE, 'node_modules/maplibre-gl/dist/maplibre-gl.js');
@@ -81,6 +83,8 @@ function pageHtml(job) {
   .aadt span{font:600 8px/1.2 Archivo,Arial,sans-serif;color:#6f6a60;letter-spacing:.6px;text-transform:uppercase;white-space:nowrap}
   .aadt-dot{width:9px;height:9px;border-radius:50%;background:${GARNET};border:2px solid #fff;box-shadow:0 0 0 1px ${GARNET}}
   .biz{font:700 11px/1 Archivo,Arial,sans-serif;letter-spacing:.3px;color:${GARNET};background:rgba(255,255,255,.92);padding:4px 6px 3px;white-space:nowrap}
+  .biz.logo{padding:3px 4px;line-height:0;background:#fff;box-shadow:0 0 0 1px rgba(101,35,35,.28)}
+  .biz.logo img{display:block;width:auto;height:auto;max-height:28px;max-width:92px}
   .ref{font:700 10px/1 Archivo,Arial,sans-serif;letter-spacing:.8px;text-transform:uppercase;color:${GARNET};background:rgba(255,255,255,.88);padding:5px 7px 4px;border:1px solid ${GARNET}}
   .legend{position:absolute;left:14px;bottom:14px;background:rgba(255,255,255,.94);padding:10px 12px;font:400 10.5px/1.45 'Atkinson Hyperlegible Next',Arial,sans-serif;color:#2D2D2D;display:flex;flex-direction:column;gap:5px;max-width:330px}
   .legend b{font:700 9.5px/1.2 Archivo,Arial,sans-serif;letter-spacing:.8px;text-transform:uppercase;color:${GARNET};margin-bottom:2px}
@@ -96,12 +100,16 @@ function pageHtml(job) {
 }
 
 async function render(page, job) {
+  const logos = {};
+  for (const b of job.businesses ?? []) {
+    if (b.logo && !logos[b.logo]) logos[b.logo] = 'data:image/png;base64,' + readFileSync(resolve(HERE, '..', b.logo)).toString('base64');
+  }
   await page.setViewportSize({ width: job.width, height: job.height });
   await page.setContent(pageHtml(job), { waitUntil: 'load' });
   await page.addScriptTag({ path: MAPLIBRE_JS });
   const style = job.kind === 'brand' ? brandStyle({ pois: !!job.pois }) : aerialStyle({ labels: job.labels !== false, tile256: !!job.tile256 });
   const ok = await page.evaluate(async (args) => {
-    const { job, style, GARNET, DUST } = args;
+    const { job, style, GARNET, DUST, logos } = args;
     await document.fonts.ready;
     const maplibregl = window.maplibregl;
     const map = new maplibregl.Map({
@@ -166,12 +174,12 @@ async function render(page, job) {
       }
       return false;
     };
-    const place = (el, pt, side = false) => {
+    const place = (el, pt, side = false, { first = [], free = () => true, ignore = null } = {}) => {
       el.style.cssText = 'position:absolute;left:0;top:0;visibility:hidden;z-index:4';
       document.body.appendChild(el);
       const w = el.offsetWidth, h = el.offsetHeight;
       const sides = [[pt.x + 8, pt.y - h / 2], [pt.x - w - 8, pt.y - h / 2]];
-      const cands = [...(side ? sides : []), [pt.x - w / 2, pt.y - h - 9], [pt.x - w / 2, pt.y + 9], [pt.x + 10, pt.y - h / 2], [pt.x - w - 10, pt.y - h / 2],
+      const cands = [...first.map((f) => f(w, h)), ...(side ? sides : []), [pt.x - w / 2, pt.y - h - 9], [pt.x - w / 2, pt.y + 9], [pt.x + 10, pt.y - h / 2], [pt.x - w - 10, pt.y - h / 2],
         [pt.x + 10, pt.y - h - 6], [pt.x - w - 10, pt.y - h - 6], [pt.x + 10, pt.y + 6], [pt.x - w - 10, pt.y + 6],
         [pt.x - w / 2, pt.y - h - 34], [pt.x - w / 2, pt.y + 34], [pt.x + 40, pt.y - h / 2], [pt.x - w - 40, pt.y - h / 2],
         [pt.x - w / 2, pt.y - h - 60], [pt.x - w / 2, pt.y + 60], [pt.x + 40, pt.y - h - 40], [pt.x - w - 40, pt.y - h - 40], [pt.x + 40, pt.y + 40], [pt.x - w - 40, pt.y + 40]];
@@ -179,26 +187,29 @@ async function render(page, job) {
       for (const [x, y] of cands) {
         const box = { l: x, t: y, r: x + w, b: y + h };
         if (box.l < 4 || box.t < 50 || box.r > W - 4 || box.b > H - 18) continue;
-        if (hit(box) || boxHitsSeg(box)) continue;
+        if ((ignore ? taken.filter((o) => o !== ignore).some((o) => !(box.r < o.l || box.l > o.r || box.b < o.t || box.t > o.b)) : hit(box)) || boxHitsSeg(box) || !free(box)) continue;
         const cx = Math.max(box.l, Math.min(pt.x, box.r)), cy = Math.max(box.t, Math.min(pt.y, box.b));
         const d = Math.hypot(cx - pt.x, cy - pt.y);
         if (d > near) {
           const k = Math.min(1, 12 / d);
-          if (segHitsTaken(pt.x + (cx - pt.x) * k, pt.y + (cy - pt.y) * k, cx, cy)) continue;
+          if (segHitsTaken(pt.x + (cx - pt.x) * k, pt.y + (cy - pt.y) * k, cx, cy) || !free({ l: Math.min(pt.x, cx), t: Math.min(pt.y, cy), r: Math.max(pt.x, cx), b: Math.max(pt.y, cy) }, true)) continue;
         }
         el.style.left = `${box.l}px`; el.style.top = `${box.t}px`; el.style.visibility = 'visible';
-        taken.push({ l: box.l - 3, t: box.t - 3, r: box.r + 3, b: box.b + 3 });
+        const slot = { l: box.l - 3, t: box.t - 3, r: box.r + 3, b: box.b + 3 };
+        taken.push(slot);
+        const placed = { l: box.l, t: box.t, r: box.r, b: box.b, line: d > near ? [pt.x, pt.y, cx, cy] : null, slot, el };
         if (d > near) {
           segs.push([pt.x, pt.y, cx, cy]);
           const ln = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
           ln.setAttribute('style', `position:absolute;left:0;top:0;width:${W}px;height:${H}px;z-index:2;pointer-events:none`);
           ln.innerHTML = `<line x1="${pt.x}" y1="${pt.y}" x2="${cx}" y2="${cy}" stroke="${GARNET}" stroke-width="1.2"/>`;
           document.body.appendChild(ln);
+          placed.ln = ln; placed.seg = segs[segs.length - 1];
         }
-        return true;
+        return placed;
       }
       el.remove();
-      return false;
+      return null;
     };
     const countDots = new Map();
     for (const t of job.traffic ?? []) {
@@ -233,9 +244,24 @@ async function render(page, job) {
       el.querySelector('span').textContent = t.road;
       if (!place(el, map.project([t.lon, t.lat]))) { dropped.push(`count ${t.qty}`); countDots.get(t).remove(); }
     }
+    // The parts of rectangle a that lie outside rectangle o, as up to four rectangles.
+    const outside = (a, o) => {
+      if (a.r <= o.l || a.l >= o.r || a.b <= o.t || a.t >= o.b) return [a];
+      const out = [];
+      if (a.t < o.t) out.push({ l: a.l, t: a.t, r: a.r, b: o.t });
+      if (a.b > o.b) out.push({ l: a.l, t: o.b, r: a.r, b: a.b });
+      const t = Math.max(a.t, o.t), b = Math.min(a.b, o.b);
+      if (a.l < o.l) out.push({ l: a.l, t, r: o.l, b });
+      if (a.r > o.r) out.push({ l: o.r, t, r: a.r, b });
+      return out.filter((r) => r.r > r.l && r.b > r.t);
+    };
+    const boxes = [];
     for (const b of job.businesses ?? []) {
+      const pt = map.project([b.lon, b.lat]);
       const el = document.createElement('div'); el.className = 'biz'; el.textContent = b.name;
-      if (!place(el, map.project([b.lon, b.lat]), true)) dropped.push(`business ${b.name}`);
+      const got = place(el, pt, true);
+      if (got) boxes.push({ ...got, biz: b, pt, kind: 'name' });
+      else dropped.push(`business ${b.name}`);
     }
     if (map.getSource('biz')) {
       const keep = (job.businesses ?? []).filter((b) => !dropped.includes(`business ${b.name}`));
@@ -257,6 +283,84 @@ async function render(page, job) {
       map.addSource('blockers', { type: 'geojson', data: { type: 'FeatureCollection', features: blockers } });
       map.addLayer({ id: 'blockers', type: 'symbol', source: 'blockers', layout: { 'icon-image': ['concat', 'blk-', ['to-string', ['get', 'w']], 'x', ['to-string', ['get', 'h']]], 'icon-allow-overlap': true, 'icon-ignore-placement': false } });
     }
+    // Logos (Erik, 2026-11-12; supersedes Operator decisions 119). Every label above was placed
+    // as text, and the blockers that keep road labels clear of them are the text boxes, so the
+    // basemap, road labels, counts and every other label land exactly where they always did.
+    // Only then does a business with a logo swap its name for the logo: where its name sat if the
+    // logo fits there, else another spot beside its dot. A spot may not touch any other label,
+    // count, pin or dot (taken), a rendered road label or shield, or the site outline. With no
+    // such spot the business keeps its name, and the run says so.
+    if (boxes.some((x) => x.biz.logo)) {
+      await new Promise((res) => { if (map.loaded() && map.areTilesLoaded()) res(); else map.once('idle', res); });
+      const symbolLayers = map.getStyle().layers.filter((l) => l.type === 'symbol' && l.id !== 'blockers').map((l) => l.id);
+      const siteLayers = ['site-fill', 'site-line'].filter((id) => map.getLayer(id));
+      // Major roads only (motorway, trunk, primary, secondary, tertiary, their links, and rail): a logo
+      // may sit over a minor street or a service road, as every name label already does, but never
+      // over a major road its name did not already cover. Measured 2026-11-12: protecting minor and
+      // service roads too left no room for any of the 52 logo matches on the 25 maps.
+      const MINOR = /(minor|service_track|path_pedestrian)/;
+      const roadLayers = map.getStyle().layers.filter((l) => l.type === 'line' && l['source-layer'] === 'transportation' && !MINOR.test(l.id)).map((l) => l.id);
+      const any = (bx, layers) => map.queryRenderedFeatures([[bx.l, bx.t], [bx.r, bx.b]], { layers }).length > 0;
+      for (const x of boxes.filter((x) => x.biz.logo)) {
+        // Roads too: a logo box is opaque white. The name's own box already covered whatever streets
+        // it sat on, on today's approved map, so a logo may cover those and no others (review round
+        // 1, 2026-11-12: a spot away from the name covered a local street).
+        const old = { l: x.l, t: x.t, r: x.r, b: x.b }; // exactly what the name's white box covered
+        const free = (bx, isLine = false) => {
+          const p = { l: bx.l - 2, t: bx.t - 2, r: bx.r + 2, b: bx.b + 2 };
+          if (any(p, [...symbolLayers, ...siteLayers])) return false;
+          return isLine || outside(p, old).every((r) => !any(r, roadLayers));
+        };
+        const el = document.createElement('div'); el.className = 'biz logo';
+        const img = document.createElement('img'); img.alt = x.biz.name; img.src = logos[x.biz.logo];
+        el.appendChild(img);
+        try {
+          await img.decode();
+        } catch {
+          dropped.push(`logo ${x.biz.name} (unreadable; name kept)`);
+          continue;
+        }
+        const onRight = x.l >= x.pt.x;
+        const first = [(w, h) => [onRight ? x.l : x.r - w, (x.t + x.b) / 2 - h / 2]];
+        if (x.seg) segs.splice(segs.indexOf(x.seg), 1);
+        const got = place(el, x.pt, true, { first, free, ignore: x.slot });
+        if (got) {
+          x.el.remove();
+          x.ln?.remove();
+          taken.splice(taken.indexOf(x.slot), 1);
+          x.was = { l: x.l, t: x.t, r: x.r, b: x.b, line: x.line };
+          Object.assign(x, { ln: null, seg: null }, got, { kind: 'logo' });
+        } else {
+          if (x.seg) segs.push(x.seg);
+          dropped.push(`logo ${x.biz.name} (no room; name kept)`);
+        }
+      }
+      await new Promise((res) => { if (map.loaded() && map.areTilesLoaded()) res(); else map.once('idle', res); });
+    }
+    // What the map draws under each logo that its name did not already cover: every line and
+    // symbol layer and the site outline, queried apart from the placement rule above, over the
+    // logo box less the name's old box (symbols and the site over the whole logo box). A record
+    // for the tests; it must be empty.
+    const allLayers = map.getStyle().layers ?? [];
+    const lineIds = allLayers.filter((l) => l.type === 'line' && l['source-layer'] === 'transportation' && !/(minor|service_track|path_pedestrian)/.test(l.id)).map((l) => l.id);
+    const markIds = allLayers.filter((l) => (l.type === 'symbol' || l.id.startsWith('site-')) && l.id !== 'blockers').map((l) => l.id);
+    const ids = (r, layers) => map.queryRenderedFeatures([[r.l, r.t], [r.r, r.b]], { layers }).map((f) => f.layer.id);
+    // Queried one 1x1 px cell at a time across the logo box and its 1 px shadow, so this record
+    // shares no geometry code with the placement rule (review round 2) and a line thinner than a
+    // pixel cannot fall between samples (review round 3). Cells wholly inside the name's exact box
+    // are skipped: the name already covered them.
+    const under = (x) => {
+      const found = new Set(ids({ l: x.l - 1, t: x.t - 1, r: x.r + 1, b: x.b + 1 }, markIds));
+      const w = x.was;
+      for (let py = Math.floor(x.t - 1); py < Math.ceil(x.b + 1); py++) {
+        for (let px = Math.floor(x.l - 1); px < Math.ceil(x.r + 1); px++) {
+          if (px >= w.l && px + 1 <= w.r && py >= w.t && py + 1 <= w.b) continue;
+          for (const f of map.queryRenderedFeatures([[px, py], [px + 1, py + 1]], { layers: lineIds })) found.add(f.layer.id);
+        }
+      }
+      return [...found];
+    };
+    const out = boxes.map((x) => ({ name: x.biz.name, logo: x.biz.logo ?? null, kind: x.kind, dot: [x.pt.x, x.pt.y], l: x.l, t: x.t, r: x.r, b: x.b, line: x.line, ...(x.was ? { was: x.was } : {}), ...(x.kind === 'logo' ? { under: under(x) } : {}) }));
     const root = document.body;
     if (job.north) {
       const n = document.createElement('div'); n.className = 'north';
@@ -285,8 +389,8 @@ async function render(page, job) {
     await new Promise((res) => { if (map.loaded() && map.areTilesLoaded()) res(); else map.once('idle', res); });
     await new Promise((res) => setTimeout(res, 400));
     await new Promise((res) => { if (map.areTilesLoaded()) res(); else map.once('idle', res); });
-    return { zoom: map.getZoom(), center: map.getCenter(), dropped };
-  }, { job, style, GARNET, DUST });
+    return { zoom: map.getZoom(), center: map.getCenter(), dropped, boxes: out };
+  }, { job, style, GARNET, DUST, logos });
   mkdirSync(dirname(job.out), { recursive: true });
   await page.screenshot({ path: job.tmp, type: job.out.endsWith('.png') ? 'png' : 'jpeg', quality: job.out.endsWith('.png') ? undefined : 90, clip: { x: 0, y: 0, width: job.width, height: job.height } });
   return ok;
@@ -355,7 +459,7 @@ for (const d of dprs) {
 for (const job of jobs) {
   job.dpr = job.dpr ?? 3;
   const stamp = `${job.out}.job.json`;
-  const spec = JSON.stringify(job);
+  const spec = JSON.stringify({ ...job, renderer: RENDERER });
   if (!force && existsSync(job.out) && existsSync(stamp) && readFileSync(stamp, 'utf8') === spec) { console.log('skip', job.out); continue; }
   const t = Date.now();
   rmSync(stamp, { force: true });
@@ -370,6 +474,7 @@ for (const job of jobs) {
     if (r.dropped.some((x) => x.startsWith('intersection '))) throw new Error(`no room for ${r.dropped.join('; ')}; nothing is stamped`);
     if (run.failures) throw new Error(`${run.failures} imagery tiles failed; the previous image is kept and nothing is stamped, so the next run re-renders it`);
     renameSync(job.tmp, job.out);
+    if (job.businesses) writeFileSync(`${job.out}.boxes.json`, JSON.stringify({ width: job.width, height: job.height, dpr: job.dpr, businesses: r.boxes }, null, 1));
     writeFileSync(stamp, spec);
     console.log('ok', job.out, `z=${r.zoom.toFixed(2)}`, `${Date.now() - t}ms`);
   } catch (e) {

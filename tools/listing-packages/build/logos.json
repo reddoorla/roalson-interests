@@ -1,0 +1,130 @@
+{
+ "source": "Dropbox /Clients/Roalson Interests/Listing PDFs/Surrounding Area Logos (Erik, 2026-11-12, 17 files)",
+ "not_matched": {
+  "Lowe's Market": "The Texas grocery chain at Comfort, not Lowe's Home Improvement; keeps its name."
+ },
+ "logos": [
+  {
+   "file": "build/assets/logos/circle-k.png",
+   "source": "Circle K.eps",
+   "names": [
+    "Circle K"
+   ]
+  },
+  {
+   "file": "build/assets/logos/costco.png",
+   "source": "Costco Wholesale.eps",
+   "names": [
+    "Costco"
+   ]
+  },
+  {
+   "file": "build/assets/logos/fairfield-inn.png",
+   "source": "Fairfield Inn by Marriott.eps",
+   "names": [
+    "Fairfield Inn & Suites"
+   ]
+  },
+  {
+   "file": "build/assets/logos/heb.png",
+   "source": "HEB.eps",
+   "names": [
+    "H-E-B",
+    "H-E-B plus!"
+   ]
+  },
+  {
+   "file": "build/assets/logos/la-michoacana.png",
+   "source": "La Michoacana Meat Market.ai",
+   "names": [
+    "La Michoacana Meat Market"
+   ]
+  },
+  {
+   "file": "build/assets/logos/loves.png",
+   "source": "Loves Travel Stops.ai",
+   "names": [
+    "Love's"
+   ]
+  },
+  {
+   "file": "build/assets/logos/lowes.png",
+   "source": "Lowes.eps",
+   "names": [
+    "Lowe's"
+   ]
+  },
+  {
+   "file": "build/assets/logos/methodist.png",
+   "source": "Methodist ER.png",
+   "names": [
+    "Methodist Boerne Emergency Center"
+   ]
+  },
+  {
+   "file": "build/assets/logos/napa.png",
+   "source": "NAPA Auto Parts.pdf",
+   "names": [
+    "NAPA Auto Parts"
+   ]
+  },
+  {
+   "file": "build/assets/logos/ross.png",
+   "source": "Ross Dress for Less.eps",
+   "names": [
+    "Ross"
+   ]
+  },
+  {
+   "file": "build/assets/logos/sams-club.png",
+   "source": "Sams Club.eps",
+   "names": [
+    "Sam's Club"
+   ]
+  },
+  {
+   "file": "build/assets/logos/home-depot.png",
+   "source": "The_Home_Depot.eps",
+   "names": [
+    "The Home Depot"
+   ]
+  },
+  {
+   "file": "build/assets/logos/tuff-shed.png",
+   "source": "Tuff Shed.eps",
+   "names": [
+    "Tuff Shed"
+   ]
+  },
+  {
+   "file": "build/assets/logos/utsa.png",
+   "source": "UTSA.eps",
+   "names": [
+    "UTSA Downtown Campus - Buena Vista District",
+    "UTSA Downtown Campus - San Pedro District",
+    "UTSA Downtown Campus - Southwest Campus District"
+   ]
+  },
+  {
+   "file": "build/assets/logos/valero.png",
+   "source": "Valero.eps",
+   "names": [
+    "Valero"
+   ]
+  },
+  {
+   "file": "build/assets/logos/walmart.png",
+   "source": "walmart_2025_with_spark.svg",
+   "names": [
+    "Walmart Supercenter"
+   ]
+  },
+  {
+   "file": "build/assets/logos/whataburger.png",
+   "source": "whataburger.ai",
+   "names": [
+    "Whataburger"
+   ]
+  }
+ ]
+}

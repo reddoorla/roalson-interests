@@ -121,8 +121,53 @@ Two per-site fields in `geo/sites.json` feed the area and aerial maps:
 - `businesses`: names to label first on the Area Map with Traffic Counts (as spelled in
   OpenStreetMap). The map adds supermarkets, DIY stores, hospitals and the like from the same
   tiles (`lib/pois.py`), up to six, labelled after the traffic counts and the intersection; a
-  business whose label does not fit is left off, dot and all. Names and pins only, no logos.
-  The plain Area Map fallback shows OpenStreetMap's own POI labels instead.
+  business whose label does not fit is left off, dot and all. A business with a logo shows the
+  logo (below). The plain Area Map fallback shows OpenStreetMap's own POI labels instead.
+
+### Logos on the Area Map (2026-11-12)
+
+Where a business on the Area Map with Traffic Counts has a logo, the map shows the logo beside
+its dot instead of its name (Erik, 2026-11-12). The operator's decision
+`decisions/2026-11-12-2218-roalson-area-map-logos.md` in reddoor-workspace supersedes Operator
+decisions 119 ("names and pins"). `build/logos.json` maps each logo file to the exact business
+names it stands for; `lib/logos.py` matches on those names only, so a business not listed keeps
+its name. `python3 build/logos.py <folder>` turns Erik's files (Dropbox `/Clients/Roalson
+Interests/Listing PDFs/Surrounding Area Logos`: .eps, .ai, .pdf, .svg, .png; Ghostscript for
+.eps) into the committed `build/assets/logos/*.png`, trimmed to the mark and 160 px tall. A
+logo's file hash is part of the map's job spec, so replacing one re-renders the maps that use it.
+
+`maps.mjs` places every label as text first, exactly as before, and the collision blockers that
+keep road labels clear are those text boxes. Only then does a business with a logo swap its name
+for the logo: where the name sat if it fits, else another spot beside its dot. A spot may not touch
+another label, count, pin or dot, a rendered road label or shield, or the site outline, and it may
+not cover any part of a major road (motorway, trunk, primary, secondary, tertiary, their links, or
+rail) that the name's own box did not already cover. A logo may sit over a minor street or a service
+road, as every name label already does: protecting those too left no room for any logo on any of the
+25 maps (measured 2026-11-12). With no such spot the business keeps its name (`logo … (no room; name
+kept)` in the log). So nothing outside the swapped boxes changes. Erik's hand edit on 2026-11-12
+smeared part of SH 46 on Hwy 46 West Development Site, which is a package made outside this generator;
+this never draws over a map. Each traffic map writes `<map>.boxes.json`: every business's box,
+whether it got its logo, and for a logo, `under`, what a separate query finds drawn beneath it
+that the rules protect (it must be empty).
+
+- `python3 build/test_logos.py` renders a fixture map (Hwy 46 at Spencer Ranch Blvd) through
+  `maps.mjs`, with and without a test logo, and with a test business on IH 10. It checks:
+  - the logo is drawn above the map beside its dot;
+  - the other businesses keep their names in place;
+  - nothing else changes;
+  - nothing protected lies under a logo, including where the first spot is over the interstate;
+  - `lib/logos.py` matches only listed names ("Lowe's Market" is not Lowe's).
+
+  Each of these mutations turns it red: a logo for every business (in the matching or in the
+  renderer), the name instead of the logo, the logo drawn under the map, and the road rule removed.
+
+- `python3 build/logo_check.py [uid…]` (after `make_jobs.py`) renders every listing's traffic map
+  with and without its logos into `qa/logos/`. It fails if anything outside the swapped boxes
+  changed, or if anything protected lies under a logo.
+- `python3 build/swap_area_map.py <uid> <their.pdf> <out.pdf>` puts the generator's current
+  traffic map into a package Erik has edited by hand, replacing only that image. It refuses a stale
+  or unstamped map, a page with other images over the map, or a page laid out differently, and it
+  proves every page's text is unchanged.
 
 `build/heroes.json` maps each listing to its Land ID share link (Matt Howard, 2026-10-12) and
 the path its hero image has, `build/assets/heroes/<uid>.jpg`. When that file exists the
