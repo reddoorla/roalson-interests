@@ -48,6 +48,12 @@ for uid, s in sites.items():
         meta[uid] = {'flood_zones': fl.get('_zones', []), 'dfirm': [x for x in fl.get('_dfirm', []) if x], 'n_flood': len(fl.get('features', []))}
     meta[uid]['traffic'] = m['traffic']
     meta[uid]['site'] = site
+# Map-only sites (2026-11-13): build/map_only.py.
+sys.path.insert(0, HERE)
+import map_only
+for uid, entry in map_only.load(sites).items():
+    if not only or uid in only:
+        jobs += map_only.jobs(uid, entry)
 json.dump(jobs, open(A('build', 'jobs-all.json'), 'w'))
 json.dump(meta, open(A('geo', 'meta.json'), 'w'), indent=1)
 for k in range(3):

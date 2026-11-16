@@ -13566,3 +13566,37 @@ Erik has edited all 23 live packages by hand since 10-14: the contact block on e
 Not done: Hwy 211, Hwy 46 West and Hwy 87 Development Sites were made outside this generator (Esri imagery, three pinned counts, a "COMFORT" label `jobs_for` cannot draw). Rebuilding their maps here gave different framing and outlines (Hwy 211's Land ID outline has moved since), so they were not swapped. Erik's road problem was on Hwy 46 West, one of the three. Also open: #352 (a failed FEMA query reads as Zone X) and #353 (the exhibit's three counts skip IH 10 at FM 1518). The promotion of `staging` to `main` is the operator's.
 
 Usage: see the workspace journal entry for this session.
+
+## 2026-11-13 — Hwy 46 West's area map regenerated at Erik's frame, with logos; Hwy 211 and Hwy 87 left as they are (#358, `claude/roalson-46w-map-only` into `staging`)
+
+The 11-12 session left out the three packages Erik made outside this generator. The brief assumed their maps "come from the same renderer" and asked for each one to be reproduced from committed inputs. That belief was wrong.
+
+- **Different style.** Erik's maps are drawn on a grey basemap with white roads. Every committed `maps.mjs` (#293, #297, #355) reads `static/map-style.json`, the tan brand style, and that file has not changed since #194.
+- **Different size.** His images are 1680×1724; this renderer's are 1680×1725, the same as the 11-12 review maps.
+- **Different scale bar.** At the same zoom (13.68) he prints 2,000 FT where this prints 1,000 FT.
+- **Hand-placed counts on 211 and 87.** No single Web Mercator view puts TxDOT's stations and the intersection where his maps draw them; residuals reach 70 px. On Hwy 211 his 11,644 "CULEBRA" dot sits about 560 m east of station 15E21A.
+- **Hwy 46 West's geometry is exact.** His three count dots and the intersection ring fit one view to within 1 px: z 13.6768, centre 29.778925, -98.737509. His current map is also the clean one: 0 pixels differ from the `_pre-logos` copy, so the SH 46 smear never reached "Current Listing Packages".
+
+The brief made this a stop. Regenerated candidates showed that only Hwy 46 West gains anything: three logos. On Hwy 211 and Hwy 87 no logo finds room (H-E-B, Love's), and 87 would lose its COMFORT label. The operator chose to regenerate Hwy 46 West and leave the other two (workspace decision `2026-11-13-0343`). He then asked that the regen match Erik's proportions and frame.
+
+`geo/map-only.json` and `build/map_only.py` now build one traffic map for such a site. It uses pinned stations, a fixed view, a business list and `height_px`, and it is kept out of `geo/sites.json`, so `flood_verdicts.py`, `pkg.py` and `landid_compare.py` never see it.
+
+- **The height.** `maps.mjs` cuts the image to 1724 rows on a canvas. Tried and abandoned: a fractional Playwright clip. Every value from 689.6 to 689.99 CSS px returned 1723 rows, resampled (22/255 off).
+- **The SITE pin.** It is set at Erik's position, 7.1 px east and 7.4 px south of the Land ID centroid.
+- **How close it comes.** Count dots land within 0.7 px of his, the pin within 0.4 px, and businesses within 1.6 px (today's OSM positions).
+- **What it shows.** Logos for The Home Depot, H-E-B plus! and Methodist. Walmart Supercenter keeps its name. Whataburger is not listed: at his frame only one of it and The Home Depot fits beside the 10,340 count, because his label sits against that count's dot, which this generator forbids.
+- **The 25 existing sites** give the same 100 jobs as on `staging`. The one difference was FEMA returning 101 W. Commerce's 25 flood features in another order.
+
+Review took three rounds:
+
+- **Round 1** found an empty `traffic_ids` falling back to automatic station picks, and an untested JPEG crop path. The mean-difference check written for the JPEG path turned out to be useless: a rescale scores a lower mean (1.67) than an honest q90 cut (2.48). The 99.9th percentile separates them, 24 against 89.
+- **Round 2** found that a pinned count or listed business could be dropped at render time and still be stamped and swapped. Map-only jobs are now `strict`, which is why Whataburger left the list.
+- **Round 3** found minors only. The count half of `strict` has no test yet (#359).
+
+`test_map_only.py` has 18 checks, and 14 mutations each turn it red.
+
+Erik edited his Hwy 46 West PDF during the session: the cover's "AVAILABLE" became "FOR SALE". The swap was redone on that version. The review folder "2026-11 Area map logos (review)" now holds his PDF with only the page-4 map image replaced (every page's text identical, and the facts row's 10,340, 49,714 and 14,001 match the map), plus "01 - Hwy 46 West, before and after.pdf". Nothing in "Current Listing Packages" was written, and Prismic was not touched.
+
+Because `maps.mjs` changed, its renderer hash changed. `swap_area_map.py` now refuses the maps rendered on 11-12 until they are re-rendered, which is intended.
+
+Usage: $17.02, 1872/123521 tokens, 41938901/911491 cache, rate limit allowed (this session through this entry; it continues in a hand-off session for landing and the promotion PR).
