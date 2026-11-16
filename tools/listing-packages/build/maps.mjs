@@ -174,7 +174,7 @@ async function render(page, job) {
       }
       return false;
     };
-    const place = (el, pt, side = false, { first = [], free = () => true, ignore = null } = {}) => {
+    const place = (el, pt, side = false, { first = [], more = null, free = () => true, ignore = null } = {}) => {
       el.style.cssText = 'position:absolute;left:0;top:0;visibility:hidden;z-index:4';
       document.body.appendChild(el);
       const w = el.offsetWidth, h = el.offsetHeight;
@@ -182,7 +182,8 @@ async function render(page, job) {
       const cands = [...first.map((f) => f(w, h)), ...(side ? sides : []), [pt.x - w / 2, pt.y - h - 9], [pt.x - w / 2, pt.y + 9], [pt.x + 10, pt.y - h / 2], [pt.x - w - 10, pt.y - h / 2],
         [pt.x + 10, pt.y - h - 6], [pt.x - w - 10, pt.y - h - 6], [pt.x + 10, pt.y + 6], [pt.x - w - 10, pt.y + 6],
         [pt.x - w / 2, pt.y - h - 34], [pt.x - w / 2, pt.y + 34], [pt.x + 40, pt.y - h / 2], [pt.x - w - 40, pt.y - h / 2],
-        [pt.x - w / 2, pt.y - h - 60], [pt.x - w / 2, pt.y + 60], [pt.x + 40, pt.y - h - 40], [pt.x - w - 40, pt.y - h - 40], [pt.x + 40, pt.y + 40], [pt.x - w - 40, pt.y + 40]];
+        [pt.x - w / 2, pt.y - h - 60], [pt.x - w / 2, pt.y + 60], [pt.x + 40, pt.y - h - 40], [pt.x - w - 40, pt.y - h - 40], [pt.x + 40, pt.y + 40], [pt.x - w - 40, pt.y + 40],
+        ...(more ? more(w, h) : [])];
       const near = side ? 9 : 12;
       for (const [x, y] of cands) {
         const box = { l: x, t: y, r: x + w, b: y + h };
@@ -290,7 +291,11 @@ async function render(page, job) {
     // logo fits there, else another spot beside its dot. A spot may not touch any other label,
     // count, pin or dot (taken), a rendered road label or shield, or the site outline. With no
     // such spot the business keeps its name, and the run says so.
-    if (boxes.some((x) => x.biz.logo)) {
+    // A business whose name found no room is left off, dot and all; its logo, often narrower than the
+    // name, may still have room (the operator, 2026-11-16). It gets no allowance for roads: its name
+    // covered nothing.
+    const nameless = (job.businesses ?? []).filter((b) => b.logo && dropped.includes(`business ${b.name}`)).map((b) => ({ biz: b, pt: map.project([b.lon, b.lat]), kind: 'none', was: null }));
+    if (boxes.some((x) => x.biz.logo) || nameless.length) {
       await new Promise((res) => { if (map.loaded() && map.areTilesLoaded()) res(); else map.once('idle', res); });
       const symbolLayers = map.getStyle().layers.filter((l) => l.type === 'symbol' && l.id !== 'blockers').map((l) => l.id);
       const siteLayers = ['site-fill', 'site-line'].filter((id) => map.getLayer(id));
@@ -301,39 +306,80 @@ async function render(page, job) {
       const MINOR = /(minor|service_track|path_pedestrian)/;
       const roadLayers = map.getStyle().layers.filter((l) => l.type === 'line' && l['source-layer'] === 'transportation' && !MINOR.test(l.id)).map((l) => l.id);
       const any = (bx, layers) => map.queryRenderedFeatures([[bx.l, bx.t], [bx.r, bx.b]], { layers }).length > 0;
-      for (const x of boxes.filter((x) => x.biz.logo)) {
+      // More spots for a logo, tried after the fixed ones above, so a logo that fitted before keeps its
+      // spot: every position along each side of the dot, 4 px apart, at the distances the fixed spots
+      // already use (8 px, beside the dot with no leader line, out to 56 px, the fixed spots'
+      // farthest corner), nearest first and, at each distance, nearest the name's spot first.
+      // Measured 2026-11-16 on today's tiles: a 37x34 Whataburger logo at Kingsville lost all 20 fixed
+      // spots, 19 to a neighbour it touched by 2 to 10 px, with open ground beside its dot.
+      const ring = (pt, ref) => (w, h) => {
+        const out = [];
+        for (const d of [8, 20, 34, 56]) {
+          const c = [];
+          for (let y = pt.y - h; y <= pt.y; y += 4) c.push([pt.x + d, y], [pt.x - w - d, y]);
+          for (let x = pt.x - w; x <= pt.x; x += 4) c.push([x, pt.y + d], [x, pt.y - h - d]);
+          const far = ([x, y]) => Math.hypot(x + w / 2 - ref[0], y + h / 2 - ref[1]);
+          out.push(...c.sort((p, q) => far(p) - far(q)));
+        }
+        return out;
+      };
+      const els = new Map();
+      const tryLogo = async (x) => {
         // Roads too: a logo box is opaque white. The name's own box already covered whatever streets
         // it sat on, on today's approved map, so a logo may cover those and no others (review round
         // 1, 2026-11-12: a spot away from the name covered a local street).
-        const old = { l: x.l, t: x.t, r: x.r, b: x.b }; // exactly what the name's white box covered
+        const old = x.kind === 'name' ? { l: x.l, t: x.t, r: x.r, b: x.b } : null; // exactly what the name's white box covered
         const free = (bx, isLine = false) => {
           const p = { l: bx.l - 2, t: bx.t - 2, r: bx.r + 2, b: bx.b + 2 };
           if (any(p, [...symbolLayers, ...siteLayers])) return false;
-          return isLine || outside(p, old).every((r) => !any(r, roadLayers));
+          return isLine || (old ? outside(p, old) : [p]).every((r) => !any(r, roadLayers));
         };
-        const el = document.createElement('div'); el.className = 'biz logo';
-        const img = document.createElement('img'); img.alt = x.biz.name; img.src = logos[x.biz.logo];
-        el.appendChild(img);
-        try {
-          await img.decode();
-        } catch {
-          dropped.push(`logo ${x.biz.name} (unreadable; name kept)`);
-          continue;
+        if (!els.has(x)) {
+          // Built and decoded once; a logo that cannot decode is null and is not tried again.
+          const el = document.createElement('div'); el.className = 'biz logo';
+          const img = document.createElement('img'); img.alt = x.biz.name; img.src = logos[x.biz.logo];
+          el.appendChild(img);
+          els.set(x, await img.decode().then(() => el, () => null));
         }
-        const onRight = x.l >= x.pt.x;
-        const first = [(w, h) => [onRight ? x.l : x.r - w, (x.t + x.b) / 2 - h / 2]];
+        const el = els.get(x);
+        if (!el) return false;
+        const onRight = old && old.l >= x.pt.x;
+        const first = old ? [(w, h) => [onRight ? old.l : old.r - w, (old.t + old.b) / 2 - h / 2]] : [];
+        const more = ring(x.pt, old ? [(old.l + old.r) / 2, (old.t + old.b) / 2] : [x.pt.x, x.pt.y]);
         if (x.seg) segs.splice(segs.indexOf(x.seg), 1);
-        const got = place(el, x.pt, true, { first, free, ignore: x.slot });
-        if (got) {
+        const got = place(el, x.pt, true, { first, more, free, ignore: x.slot ?? null });
+        if (!got) {
+          if (x.seg) segs.push(x.seg);
+          return false;
+        }
+        if (old) {
           x.el.remove();
           x.ln?.remove();
           taken.splice(taken.indexOf(x.slot), 1);
           x.was = { l: x.l, t: x.t, r: x.r, b: x.b, line: x.line };
-          Object.assign(x, { ln: null, seg: null }, got, { kind: 'logo' });
         } else {
-          if (x.seg) segs.push(x.seg);
-          dropped.push(`logo ${x.biz.name} (no room; name kept)`);
+          dropped.splice(dropped.indexOf(`business ${x.biz.name}`), 1);
+          boxes.push(x);
         }
+        Object.assign(x, { ln: null, seg: null }, got, { kind: 'logo' });
+        return true;
+      };
+      // Each pass tries every logo still waiting; one that moved can free room for another, so the
+      // passes repeat while any logo is placed.
+      let pending = [...boxes.filter((x) => x.biz.logo), ...nameless];
+      for (;;) {
+        const next = [];
+        for (const x of pending) if (!(await tryLogo(x))) next.push(x);
+        if (next.length === pending.length) break;
+        pending = next;
+      }
+      for (const x of pending) {
+        if (els.get(x) === null) dropped.push(`logo ${x.biz.name} (unreadable; ${x.kind === 'name' ? 'name kept' : 'left off'})`);
+        else dropped.push(`logo ${x.biz.name} (no room; ${x.kind === 'name' ? 'name kept' : 'left off, as its name'})`);
+      }
+      if (nameless.some((x) => x.kind === 'logo')) {
+        const keep = (job.businesses ?? []).filter((b) => !dropped.includes(`business ${b.name}`));
+        map.getSource('biz').setData({ type: 'FeatureCollection', features: keep.map((b) => ({ type: 'Feature', properties: { name: b.name }, geometry: { type: 'Point', coordinates: [b.lon, b.lat] } })) });
       }
       await new Promise((res) => { if (map.loaded() && map.areTilesLoaded()) res(); else map.once('idle', res); });
     }
@@ -351,7 +397,7 @@ async function render(page, job) {
     // are skipped: the name already covered them.
     const under = (x) => {
       const found = new Set(ids({ l: x.l - 1, t: x.t - 1, r: x.r + 1, b: x.b + 1 }, markIds));
-      const w = x.was;
+      const w = x.was ?? { l: 0, t: 0, r: 0, b: 0 }; // a logo whose name had no room: nothing was covered before
       for (let py = Math.floor(x.t - 1); py < Math.ceil(x.b + 1); py++) {
         for (let px = Math.floor(x.l - 1); px < Math.ceil(x.r + 1); px++) {
           if (px >= w.l && px + 1 <= w.r && py >= w.t && py + 1 <= w.b) continue;
@@ -498,7 +544,7 @@ for (const job of jobs) {
     if (job.strict && r.dropped.some((x) => x.startsWith('count ') || x.startsWith('business '))) throw new Error(`map-only map has no room for ${r.dropped.join('; ')}; nothing is stamped`);
     if (run.failures) throw new Error(`${run.failures} imagery tiles failed; the previous image is kept and nothing is stamped, so the next run re-renders it`);
     renameSync(job.tmp, job.out);
-    if (job.businesses) writeFileSync(`${job.out}.boxes.json`, JSON.stringify({ width: job.width, height: job.height, ...(job.heightPx ? { heightPx: job.heightPx } : {}), dpr: job.dpr, businesses: r.boxes }, null, 1));
+    if (job.businesses) writeFileSync(`${job.out}.boxes.json`, JSON.stringify({ width: job.width, height: job.height, ...(job.heightPx ? { heightPx: job.heightPx } : {}), dpr: job.dpr, businesses: r.boxes, dropped: r.dropped }, null, 1));
     writeFileSync(stamp, spec);
     console.log('ok', job.out, `z=${r.zoom.toFixed(2)}`, `${Date.now() - t}ms`);
   } catch (e) {
