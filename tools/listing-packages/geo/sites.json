@@ -2296,7 +2296,9 @@
   "businesses": [
    "Love's",
    "James Avery Jewelry"
-  ]
+  ],
+  "logo_line_across_site": true,
+  "logo_line_across_site_why": "The operator, 2026-11-16 about 3:30pm PT (reddoor-workspace decisions/2026-11-16-2251-roalson-option-c-logos-with-no-room.md, follow-up answered): Love's dot is inside the site, so its logo's horizontal leader line may cross the site outline on this map only. The logo itself still may not touch the site."
  },
  "hwy-46-at-spencer-ranch-blvd": {
   "lat": 29.775194508703596,

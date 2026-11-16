@@ -31,14 +31,31 @@ Checks:
         or tertiary road (`roads`), with nothing protected under it.
      K  build/test/fixture-kingsville-job.json: Whataburger is drawn as a logo, with nothing
         protected under it, at one of the extra spots around its dot (`via` == 'ring').
-     R  build/test/fixture-bandera-job.json: Sam's Club is drawn as a logo on the second pass or
-        later (`pass`), once another logo has moved off its name's spot.
+     R  build/test/fixture-bandera-job.json, its logos at 28 px (option B's size; at 22 every logo
+        there fits on the first pass): Sam's Club is drawn as a logo on the second pass or later
+        (`pass`), once another logo has moved off its name's spot.
      N  the Hwy 46 fixture plus a test business whose name is too long for the map: its logo is
         drawn anyway, its dot is back on the map (read from the map's dot layer), and nothing
         protected lies under it. A second business of the same name, with no room even for its
         logo, neither takes that dot away nor gets a bare dot of its own.
      M  the Hwy 46 fixture plus a test business with a long name beside the IH 10 count: its logo is
         drawn within 15 px of a count or its dot, so check 9M has something to catch.
+  10. Option C and Erik's sizes (2026-11-16, reddoor-workspace
+     decisions/2026-11-16-2251-roalson-option-c-logos-with-no-room.md):
+     sizes  lib/logos.py reads build/logo-sizes.json: 22 px by default; Whataburger and CHRISTUS at
+            28 at Kingsville only; the Children's Hospital and University Health at 28 everywhere;
+            every 402 W. Nueva logo at 28 except UTSA, H-E-B and La Michoacana (22); an unknown logo
+            named in a scale stops the build.
+     S      the Kingsville fixture with Whataburger at logo_px 28: its logo box is 28 px tall plus
+            padding, where the K render (no logo_px, the 22 px default) draws it 22 px tall, and
+            nothing protected lies under it.
+     L      in D (Dove Canyon at 22 px), Ross is drawn on a horizontal leader line (`via` == 'line',
+            the line level with its dot), with nothing protected under it.
+     G      build/test/fixture-comfort-job.json (IH 10 at 87, siteLine set): Love's, whose dot is inside
+            the site, is drawn on a line that crosses the site outline, its logo box clear of the site.
+            G0, the same job without siteLine: Love's keeps its name.
+     Y      build/test/fixture-st-marys-job.json: Nix is a logo and `under` is empty. Before the clip
+            fix it recorded bridge_street, which lies 0.69 px inside the name's old box.
   9. In every render above, no logo overlaps a count or its dot, an intersection label or ring, the
      pin, another business's label, or any business dot: maps.mjs records each one's final box in
      boxes.json (`marks`), since they are HTML or a circle layer that `under` cannot see.
@@ -54,6 +71,8 @@ FIXTURE = os.path.join(HERE, 'test', 'fixture-traffic-job.json')
 DOVE = os.path.join(HERE, 'test', 'fixture-dove-canyon-job.json')
 KINGSVILLE = os.path.join(HERE, 'test', 'fixture-kingsville-job.json')
 BANDERA = os.path.join(HERE, 'test', 'fixture-bandera-job.json')
+COMFORT = os.path.join(HERE, 'test', 'fixture-comfort-job.json')
+STMARYS = os.path.join(HERE, 'test', 'fixture-st-marys-job.json')
 # Wider than the map at 11 px Archivo, so the name has no room anywhere and only its logo can show.
 LONG = 'Test Business With A Name Far Too Long To Fit Anywhere On This Map, Whichever Side Of The Dot It Tries'
 TARGET = 'The Home Depot'
@@ -114,6 +133,37 @@ def matching():
     check(bool(hd.get('logo_sha')), '6. a matched logo carries its file hash, so replacing the file re-renders the map')
 
 
+def sizes():
+    sys.path.insert(0, os.path.join(os.path.dirname(HERE), 'lib'))
+    from logos import logo_px, with_logo, _index
+    lg = lambda n: f'build/assets/logos/{n}.png'
+    kv, nv = 'highway-77-at-general-cavazos-kingsville', '402-w-nueva-street'
+    expect = {
+        ('walmart', None): 22, ('whataburger', kv): 28, ('christus-spohn', kv): 28, ('whataburger', 'menger-springs-road'): 22,
+        ('walmart', kv): 22, ('childrens-hospital', 'urban-loop-road'): 28, ('university-health', '101-w-commerce-street'): 28,
+        ('el-merkadito', nv): 28, ('childrens-hospital', nv): 28, ('university-health', nv): 28,
+        ('nix', '101-w-commerce-street'): 28, ('nix', 'st-marys-at-martin-river-walk'): 22,
+        ('lowes-market', 'ih-10-at-highway-87-comfort'): 28, ('ross', 'loop-1604-at-dove-canyon'): 22,
+    }
+    got = {k: logo_px(lg(k[0]), k[1]) for k in expect}
+    check(got == expect, f'10sizes. Erik\'s per-logo sizes: {[(k, got[k]) for k in expect if got[k] != expect[k]] or "all as listed"}')
+    # Erik, 2026-11-16 2:28pm PT: "increase all the logos except UTSA and HEB by 125%"; La Michoacana at
+    # 22 is the operator's answer (all six then show).
+    excl = {n: logo_px(lg(n), nv) for n in ('utsa', 'heb', 'la-michoacana')}
+    check(excl == {'utsa': 22, 'heb': 22, 'la-michoacana': 22}, f'10sizes. 402 W. Nueva: UTSA, H-E-B and La Michoacana stay at 22 px: {excl}')
+    wb = with_logo({'name': 'Whataburger'}, _index(), uid=kv)
+    check(wb.get('logo_px') == 28, f"10sizes. with_logo carries the listing's size into the job (logo_px={wb.get('logo_px')})")
+    with tempfile.TemporaryDirectory() as t:
+        bad = os.path.join(t, 'sizes.json')
+        json.dump({'default_px': 22, 'listings': {kv: {'scale': {'no-such-logo': 2}}}}, open(bad, 'w'))
+        try:
+            logo_px(lg('walmart'), kv, sizes_path=bad)
+            refused = False
+        except SystemExit:
+            refused = True
+        check(refused, '10sizes. a scale naming a logo build/logos.json lacks stops the build')
+
+
 def mask_for(shape, dpr, items, pad=3):
     """Device-pixel mask of the given label boxes and leader lines, padded by `pad` CSS px."""
     m = Image.new('L', (shape[1], shape[0]), 0)
@@ -148,9 +198,24 @@ def main():
         jm = json.loads(json.dumps(base))
         jm['businesses'].append({'name': LONG, 'lat': 29.78395, 'lon': -98.74300, 'logo': logo})
         dv, kv, nn, mm, rr = (os.path.join(t, f'{k}.png') for k in ('D', 'K', 'N', 'M', 'R'))
+        sv, gv, g0, yv = (os.path.join(t, f'{k}.png') for k in ('S', 'G', 'G0', 'Y'))
+        js = json.load(open(KINGSVILLE))
+        for biz in js['businesses']:
+            if biz['name'] == 'Whataburger':
+                biz['logo_px'] = 28
+        # 8R keeps its 28 px logos (option B's size): at option C's 22 px every logo on the Bandera map fits on
+        # the first pass, and no real map needs a second pass (measured 2026-11-16), so 28 px is the input
+        # that still exercises the retry.
+        jr = json.load(open(BANDERA))
+        for biz in jr['businesses']:
+            if biz.get('logo'):
+                biz['logo_px'] = 28
+        jg = json.load(open(COMFORT))
+        jg0 = {k: v for k, v in jg.items() if k != 'siteLine'}
         json.dump([{**base, 'out': os.path.join(t, 'W.png')}, {**base, 'out': a}, {**base, 'out': a2}, {**jb, 'out': b}, {**jc, 'out': c},
                    {**json.load(open(DOVE)), 'out': dv}, {**json.load(open(KINGSVILLE)), 'out': kv}, {**jn, 'out': nn}, {**jm, 'out': mm},
-                   {**json.load(open(BANDERA)), 'out': rr}], open(jobs, 'w'))
+                   {**jr, 'out': rr}, {**js, 'out': sv}, {**jg, 'out': gv}, {**jg0, 'out': g0},
+                   {**json.load(open(STMARYS)), 'out': yv}], open(jobs, 'w'))
         render(jobs)
         A, A2, B = (np.asarray(Image.open(p).convert('RGB')).astype(int) for p in (a, a2, b))
         dpr = base['dpr']
@@ -216,10 +281,30 @@ def main():
         near = min((max(m['l'] - tm['r'], tm['l'] - m['r'], m['t'] - tm['b'], tm['t'] - m['b'], 0) for m in aadt), default=1e9) if tm else 1e9
         check(bool(tm) and tm['kind'] == 'logo' and near < 15,
               f"8M. the test logo is drawn {near:.0f}px from a count or its dot, so 9M is not vacuous (kind={tm and tm['kind']})")
-        for k, png in (('B', b), ('C', c), ('D', dv), ('K', kv), ('N', nn), ('M', mm), ('R', rr)):
+        # 10. Option C and Erik's sizes.
+        ws, wk = boxes(sv).get('Whataburger'), boxes(kv).get('Whataburger')
+        hs, hk = (x and x['kind'] == 'logo' and round(x['b'] - x['t'], 1) for x in (ws, wk))
+        # .biz.logo pads 3 px above and below the image; Whataburger's logo is taller than wide, so its
+        # height, not its width cap, sets the size.
+        check(hs == 34 and hk == 28 and ws.get('under') == [],
+              f"10S. Whataburger draws 28 px tall at logo_px 28 and 22 px by default, nothing protected under it (boxes {hs} and {hk} px with padding, under={ws and ws.get('under')})")
+        ro = boxes(dv).get('Ross')
+        flat = bool(ro) and bool(ro.get('line')) and abs(ro['line'][1] - ro['line'][3]) < 0.01 and abs(ro['line'][1] - ro['dot'][1]) < 0.01
+        check(bool(ro) and ro['kind'] == 'logo' and ro.get('via') == 'line' and flat and ro.get('under') == [],
+              f"10L. Dove Canyon: Ross is a logo on a horizontal leader line, nothing protected under it (kind={ro and ro['kind']}, via={ro and ro.get('via')}, line={ro and ro.get('line')}, under={ro and ro.get('under')})")
+        lv, lv0 = boxes(gv).get("Love's"), boxes(g0).get("Love's")
+        check(bool(lv) and lv['kind'] == 'logo' and lv.get('via') == 'line' and lv.get('under') == [],
+              f"10G. IH 10 at 87 (siteLine): Love's is a logo on a line across the site, its box clear of the site (kind={lv and lv['kind']}, via={lv and lv.get('via')}, under={lv and lv.get('under')})")
+        check(bool(lv0) and lv0['kind'] == 'name',
+              f"10G0. the same map without siteLine: Love's keeps its name, so the line crosses the site only where a listing allows it (kind={lv0 and lv0['kind']})")
+        nx = boxes(yv).get('Nix Medical Center')
+        check(bool(nx) and nx['kind'] == 'logo' and nx.get('under') == [],
+              f"10Y. St. Mary's: Nix is a logo with nothing protected recorded under it (kind={nx and nx['kind']}, under={nx and nx.get('under')})")
+        for k, png in (('B', b), ('C', c), ('D', dv), ('K', kv), ('N', nn), ('M', mm), ('R', rr), ('S', sv), ('G', gv), ('G0', g0), ('Y', yv)):
             ov = overlaps(png)
             check(ov == [], f'9{k}. no logo overlaps a count, ring, pin, label or dot: {ov or "none"}')
     matching()
+    sizes()
     if fails:
         sys.exit(f'{len(fails)} check(s) failed')
     print('all checks passed')

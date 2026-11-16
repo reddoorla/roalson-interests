@@ -73,7 +73,7 @@ def pinned_stations(uid,lat,lon,ids,radius=4000):
     if bad: raise SystemExit(f'{uid}: TxDOT stations {bad} have no printable road name')
     return out
 def jobs_for(uid,site,outdir,title,geom=None,cover=True,date='September 2026',extra_pins=None,pin_label='Site',intersection=None,featured=(),aerial_notes=(),traffic_pad=0,manual_businesses=(),
-             traffic_ids=None,traffic_view=None,only_traffic=False,business_limit=6,height_px=None):
+             traffic_ids=None,traffic_view=None,only_traffic=False,business_limit=6,height_px=None,logo_line_across_site=False):
     lat,lon=site
     J=[]
     poly=fc(geom) if geom else None
@@ -126,6 +126,9 @@ def jobs_for(uid,site,outdir,title,geom=None,cover=True,date='September 2026',ex
             for k in ('bounds','padding','maxZoom'): del tj[k]
             tj.update(center=list(traffic_view['center']),zoom=traffic_view['zoom'])
         if height_px: tj['heightPx']=height_px
+        # A logo's horizontal leader line may cross the site outline on this map (geo/sites.json
+        # logo_line_across_site; IH 10 at 87 only, 2026-11-16). The logo itself still may not touch the site.
+        if logo_line_across_site: tj['siteLine']=True
         # A map-only site's map must show every count its facts row quotes and every business it lists.
         if only_traffic: tj['strict']=True
         J.append(tj)

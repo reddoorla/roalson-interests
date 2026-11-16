@@ -18,11 +18,12 @@
    }
   },
   "402-w-nueva-street": {
-   "why": "Erik 2026-11-16 2:28pm PT: \"increase all the logos except UTSA and HEB by 125%\".",
+   "why": "Erik 2026-11-16 2:28pm PT: \"increase all the logos except UTSA and HEB by 125%\". La Michoacana stays at 22 px: at 28 px it has no room even on a leader line, and at 22 it does, so all six logos show (the operator, 2026-11-16 about 3:30pm PT, reddoor-workspace decisions/2026-11-16-2251-roalson-option-c-logos-with-no-room.md, follow-up answered).",
    "scale": {
     "*": 1.25,
     "utsa": 1,
-    "heb": 1
+    "heb": 1,
+    "la-michoacana": 1
    }
   },
   "101-w-commerce-street": {

@@ -361,7 +361,10 @@ async function render(page, job) {
         const old = x.kind === 'name' ? { l: x.l, t: x.t, r: x.r, b: x.b } : null; // exactly what the name's white box covered
         const free = (bx, isLine = false) => {
           const p = { l: bx.l - 2, t: bx.t - 2, r: bx.r + 2, b: bx.b + 2 };
-          if (any(p, [...symbolLayers, ...siteLayers])) return false;
+          // A leader line may cross the site outline only where the listing says so (job.siteLine, from
+          // geo/sites.json logo_line_across_site: IH 10 at 87, where Love's dot is inside the site; the
+          // operator, 2026-11-16). The logo box itself never may.
+          if (any(p, [...symbolLayers, ...(isLine && job.siteLine ? [] : siteLayers)])) return false;
           return isLine || (old ? outside(p, old) : [p]).every((r) => !any(r, roadLayers));
         };
         if (!els.has(x)) {
@@ -432,15 +435,28 @@ async function render(page, job) {
     const ids = (r, layers) => map.queryRenderedFeatures([[r.l, r.t], [r.r, r.b]], { layers }).map((f) => f.layer.id);
     // Queried one 1x1 px cell at a time across the logo box and its 1 px shadow, so this record
     // shares no geometry code with the placement rule (review round 2) and a line thinner than a
-    // pixel cannot fall between samples (review round 3). Cells wholly inside the name's exact box
-    // are skipped: the name already covered them.
+    // pixel cannot fall between samples (review round 3). The name already covered its own exact box,
+    // so each cell is cut at that box's edges and only the part outside it is queried: a cell wholly
+    // inside is skipped, and one straddling the box's fractional edge is queried only beyond the edge
+    // (2026-11-16: St. Mary's recorded a street lying 0.69 px inside the name's box, from a cell that
+    // was whole on the far side of it).
+    const beyond = (px, py, w) => {
+      const out = [];
+      const t = Math.max(py, w.t), b = Math.min(py + 1, w.b);
+      if (py < w.t) out.push([[px, py], [px + 1, Math.min(py + 1, w.t)]]);
+      if (py + 1 > w.b) out.push([[px, Math.max(py, w.b)], [px + 1, py + 1]]);
+      if (b > t) {
+        if (px < w.l) out.push([[px, t], [Math.min(px + 1, w.l), b]]);
+        if (px + 1 > w.r) out.push([[Math.max(px, w.r), t], [px + 1, b]]);
+      }
+      return out;
+    };
     const under = (x) => {
       const found = new Set(ids({ l: x.l - 1, t: x.t - 1, r: x.r + 1, b: x.b + 1 }, markIds));
       const w = x.was ?? { l: 0, t: 0, r: 0, b: 0 }; // a logo whose name had no room: nothing was covered before
       for (let py = Math.floor(x.t - 1); py < Math.ceil(x.b + 1); py++) {
         for (let px = Math.floor(x.l - 1); px < Math.ceil(x.r + 1); px++) {
-          if (px >= w.l && px + 1 <= w.r && py >= w.t && py + 1 <= w.b) continue;
-          for (const f of map.queryRenderedFeatures([[px, py], [px + 1, py + 1]], { layers: lineIds })) found.add(f.layer.id);
+          for (const q of beyond(px, py, w)) for (const f of map.queryRenderedFeatures(q, { layers: lineIds })) found.add(f.layer.id);
         }
       }
       return [...found];
