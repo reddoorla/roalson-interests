@@ -81,7 +81,7 @@ def main(uid):
         src, out = os.path.join(t, 'shared.pdf'), os.path.join(t, 'shared-out.pdf')
         build(src, size, False, shared=True)
         r = subprocess.run([sys.executable, os.path.join(HERE, 'swap_area_map.py'), uid, src, out], capture_output=True, text=True)
-        check(r.returncode != 0 and 'also used on page' in r.stderr and not os.path.exists(out), f'shared: refused, nothing written ({(r.stdout + r.stderr).strip()[-120:]})')
+        check(r.returncode != 0 and 'also used on page(s) [1]' in r.stderr and not os.path.exists(out), f'shared: refused, nothing written ({(r.stdout + r.stderr).strip()[-120:]})')
     if fails:
         sys.exit(f'{len(fails)} check(s) failed')
     print('all checks passed')

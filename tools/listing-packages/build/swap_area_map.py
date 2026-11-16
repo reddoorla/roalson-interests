@@ -41,6 +41,12 @@ def swap(uid, src, out):
     if len(pages) != 1:
         sys.exit(f'{uid}: {len(pages)} "{TITLE}" pages in {src}; expected 1')
     page = pages[0]
+    # A rotated map page would fail the page proof's mask, and an annotation can draw the map image
+    # where get_images cannot see it (review round 2); refuse both plainly. None of Erik's PDFs has either.
+    if page.rotation:
+        sys.exit(f'{uid}: page {page.number + 1} of {src} is rotated {page.rotation} degrees; not swapped')
+    if any(p.first_annot for p in doc):
+        sys.exit(f'{uid}: {src} has annotations, which can draw the map image unseen; not swapped')
     img = max(page.get_image_info(xrefs=True), key=lambda i: i['width'] * i['height'])
     over = [i for i in page.get_image_info(xrefs=True) if i['xref'] != img['xref'] and pymupdf.Rect(i['bbox']).intersects(pymupdf.Rect(img['bbox']))]
     if over:
@@ -66,12 +72,14 @@ def swap(uid, src, out):
         sys.exit(f'{uid}: the map on page {page.number + 1} is also used on page(s) {shared}; not swapped')
     for x in copies:
         page.replace_image(x, filename=new)
+    # Saved beside `out` and moved there only once every proof below has passed, so a refusal or an
+    # exception never leaves an unproven file at `out` (review round 2).
+    final, out = out, out + '.tmp.pdf'
     doc.save(out, garbage=3, deflate=True)
 
     def fail(msg):
-        # A file that failed its proof is never left where it could be uploaded.
         os.remove(out)
-        sys.exit(msg)
+        sys.exit(msg.replace(out, final))
 
     # Prove it: the same pages with the same text, and that page's map is now the generator's.
     a, b = pymupdf.open(src), pymupdf.open(out)
@@ -92,6 +100,7 @@ def swap(uid, src, out):
                 pm.set_rect(pymupdf.IRect(r.x0 - 1, r.y0 - 1, r.x1 + 1, r.y1 + 1), (0, 0, 0) if pm.n == 3 else (0,) * pm.n)
         if pa.samples != pb.samples:
             fail(f'{uid}: page {x.number + 1} of {out} does not look like page {x.number + 1} of {src}')
+    os.replace(out, final)
     return page.number + 1
 
 

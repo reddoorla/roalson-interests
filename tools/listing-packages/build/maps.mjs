@@ -179,14 +179,15 @@ async function render(page, job) {
       document.body.appendChild(el);
       const w = el.offsetWidth, h = el.offsetHeight;
       const sides = [[pt.x + 8, pt.y - h / 2], [pt.x - w - 8, pt.y - h / 2]];
+      const extra = more ? more(w, h) : [];
       const cands = [...first.map((f) => f(w, h)), ...(side ? sides : []), [pt.x - w / 2, pt.y - h - 9], [pt.x - w / 2, pt.y + 9], [pt.x + 10, pt.y - h / 2], [pt.x - w - 10, pt.y - h / 2],
         [pt.x + 10, pt.y - h - 6], [pt.x - w - 10, pt.y - h - 6], [pt.x + 10, pt.y + 6], [pt.x - w - 10, pt.y + 6],
         [pt.x - w / 2, pt.y - h - 34], [pt.x - w / 2, pt.y + 34], [pt.x + 40, pt.y - h / 2], [pt.x - w - 40, pt.y - h / 2],
         [pt.x - w / 2, pt.y - h - 60], [pt.x - w / 2, pt.y + 60], [pt.x + 40, pt.y - h - 40], [pt.x - w - 40, pt.y - h - 40], [pt.x + 40, pt.y + 40], [pt.x - w - 40, pt.y + 40],
-        ...(more ? more(w, h) : [])];
+        ...extra];
       // Where each candidate came from, recorded with a logo so the tests can tell which mechanism
       // placed it: the name's own spot, the fixed spots, or the ring (2026-11-16).
-      const nFirst = first.length, nFixed = cands.length - nFirst - (more ? more(w, h).length : 0);
+      const nFirst = first.length, nFixed = cands.length - nFirst - extra.length;
       const near = side ? 9 : 12;
       for (const [i, [x, y]] of cands.entries()) {
         const box = { l: x, t: y, r: x + w, b: y + h };
@@ -442,8 +443,12 @@ async function render(page, job) {
     // (review round 1: a dot the map failed to redraw would otherwise still be recorded).
     if (map.getLayer('biz-dot')) {
       await new Promise((res) => { if (map.loaded() && map.areTilesLoaded()) res(); else map.once('idle', res); });
+      const seen = new Set(); // a dot in two tiles' buffers comes back twice (review round 2)
       for (const f of map.queryRenderedFeatures({ layers: ['biz-dot'] })) {
         const pt = map.project(f.geometry.coordinates);
+        const key = `${f.properties.name}@${pt.x.toFixed(2)},${pt.y.toFixed(2)}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
         marks.push({ kind: 'biz-dot', name: f.properties.name, l: pt.x - 4.8, t: pt.y - 4.8, r: pt.x + 4.8, b: pt.y + 4.8 });
       }
     }

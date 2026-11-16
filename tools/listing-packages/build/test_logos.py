@@ -36,9 +36,9 @@ Checks:
      N  the Hwy 46 fixture plus a test business whose name is too long for the map: its logo is
         drawn anyway, its dot is back on the map (read from the map's dot layer), and nothing
         protected lies under it. A second business of the same name, with no room even for its
-        logo, does not take that dot away.
+        logo, neither takes that dot away nor gets a bare dot of its own.
      M  the Hwy 46 fixture plus a test business with a long name beside the IH 10 count: its logo is
-        drawn, within 60 px of a count box, so check 9M has something to catch.
+        drawn within 15 px of a count or its dot, so check 9M has something to catch.
   9. In every render above, no logo overlaps a count or its dot, an intersection label or ring, the
      pin, another business's label, or any business dot: maps.mjs records each one's final box in
      boxes.json (`marks`), since they are HTML or a circle layer that `under` cannot see.
@@ -89,7 +89,8 @@ def overlaps(png):
         for m in d['marks']:
             if m['kind'] == 'biz' and all(abs(m[k] - b[k]) < 0.5 for k in 'ltrb'):
                 continue
-            # place() keeps 3 px around every label, count, pin and ring, so those need 1 px of air; dots
+            # place() keeps 3 px around every label, count and pin, and a ring 1 px on two sides, so those
+            # need 1 px of air; dots
             # are kept clear by under a pixel (a business dot by 0.2 px, a count dot by 0.5), so they
             # need only not overlap.
             g = 0 if m['kind'] in ('biz-dot', 'aadt-dot') else 1
@@ -207,13 +208,14 @@ def main():
         nm = json.load(open(nn + '.boxes.json'))
         tn = {x['name']: x for x in nm['businesses']}.get(LONG)
         dot = tn and any(m['kind'] == 'biz-dot' and m.get('name') == LONG and abs((m['l'] + m['r']) / 2 - tn['dot'][0]) < 0.5 and abs((m['t'] + m['b']) / 2 - tn['dot'][1]) < 0.5 for m in nm['marks'])
-        check(bool(tn) and tn['kind'] == 'logo' and 'was' not in tn and tn.get('under') == [] and dot and nm['dropped'].count(f'business {LONG}') == 1,
+        check(bool(tn) and tn['kind'] == 'logo' and 'was' not in tn and tn.get('under') == [] and dot and nm['dropped'].count(f'business {LONG}') == 1
+              and sum(m['kind'] == 'biz-dot' and m.get('name') == LONG for m in nm['marks']) == 1,
               f"8N. a business whose name has no room shows its logo and its dot, nothing protected under it (kind={tn and tn['kind']}, under={tn and tn.get('under')}, dot={dot})")
         tm = boxes(mm).get(LONG)
-        aadt = [m for m in json.load(open(mm + '.boxes.json'))['marks'] if m['kind'] == 'aadt']
-        near = min((max(m['l'] - tm['dot'][0], tm['dot'][0] - m['r'], m['t'] - tm['dot'][1], tm['dot'][1] - m['b'], 0) for m in aadt), default=1e9) if tm else 1e9
-        check(bool(tm) and tm['kind'] == 'logo' and near < 60,
-              f"8M. the test logo is drawn, its dot {near:.0f}px from a count box, so 9M is not vacuous (kind={tm and tm['kind']})")
+        aadt = [m for m in json.load(open(mm + '.boxes.json'))['marks'] if m['kind'] in ('aadt', 'aadt-dot')]
+        near = min((max(m['l'] - tm['r'], tm['l'] - m['r'], m['t'] - tm['b'], tm['t'] - m['b'], 0) for m in aadt), default=1e9) if tm else 1e9
+        check(bool(tm) and tm['kind'] == 'logo' and near < 15,
+              f"8M. the test logo is drawn {near:.0f}px from a count or its dot, so 9M is not vacuous (kind={tm and tm['kind']})")
         for k, png in (('B', b), ('C', c), ('D', dv), ('K', kv), ('N', nn), ('M', mm), ('R', rr)):
             ov = overlaps(png)
             check(ov == [], f'9{k}. no logo overlaps a count, ring, pin, label or dot: {ov or "none"}')
