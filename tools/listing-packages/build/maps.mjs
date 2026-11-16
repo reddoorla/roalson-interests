@@ -184,8 +184,11 @@ async function render(page, job) {
         [pt.x - w / 2, pt.y - h - 34], [pt.x - w / 2, pt.y + 34], [pt.x + 40, pt.y - h / 2], [pt.x - w - 40, pt.y - h / 2],
         [pt.x - w / 2, pt.y - h - 60], [pt.x - w / 2, pt.y + 60], [pt.x + 40, pt.y - h - 40], [pt.x - w - 40, pt.y - h - 40], [pt.x + 40, pt.y + 40], [pt.x - w - 40, pt.y + 40],
         ...(more ? more(w, h) : [])];
+      // Where each candidate came from, recorded with a logo so the tests can tell which mechanism
+      // placed it: the name's own spot, the fixed spots, or the ring (2026-11-16).
+      const nFirst = first.length, nFixed = cands.length - nFirst - (more ? more(w, h).length : 0);
       const near = side ? 9 : 12;
-      for (const [x, y] of cands) {
+      for (const [i, [x, y]] of cands.entries()) {
         const box = { l: x, t: y, r: x + w, b: y + h };
         if (box.l < 4 || box.t < 50 || box.r > W - 4 || box.b > H - 18) continue;
         if ((ignore ? taken.filter((o) => o !== ignore).some((o) => !(box.r < o.l || box.l > o.r || box.b < o.t || box.t > o.b)) : hit(box)) || boxHitsSeg(box) || !free(box)) continue;
@@ -198,7 +201,7 @@ async function render(page, job) {
         el.style.left = `${box.l}px`; el.style.top = `${box.t}px`; el.style.visibility = 'visible';
         const slot = { l: box.l - 3, t: box.t - 3, r: box.r + 3, b: box.b + 3 };
         taken.push(slot);
-        const placed = { l: box.l, t: box.t, r: box.r, b: box.b, line: d > near ? [pt.x, pt.y, cx, cy] : null, slot, el };
+        const placed = { l: box.l, t: box.t, r: box.r, b: box.b, line: d > near ? [pt.x, pt.y, cx, cy] : null, slot, el, via: i < nFirst ? 'name' : i < nFirst + nFixed ? 'fixed' : 'ring' };
         if (d > near) {
           segs.push([pt.x, pt.y, cx, cy]);
           const ln = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -257,15 +260,18 @@ async function render(page, job) {
       return out.filter((r) => r.r > r.l && r.b > r.t);
     };
     const boxes = [];
+    // The businesses left off, by object, not by name: two of one chain can share a map (review round
+    // 1). `dropped` keeps the names for the log and boxes.json.
+    const gone = new Set();
     for (const b of job.businesses ?? []) {
       const pt = map.project([b.lon, b.lat]);
       const el = document.createElement('div'); el.className = 'biz'; el.textContent = b.name;
       const got = place(el, pt, true);
       if (got) boxes.push({ ...got, biz: b, pt, kind: 'name' });
-      else dropped.push(`business ${b.name}`);
+      else { dropped.push(`business ${b.name}`); gone.add(b); }
     }
     if (map.getSource('biz')) {
-      const keep = (job.businesses ?? []).filter((b) => !dropped.includes(`business ${b.name}`));
+      const keep = (job.businesses ?? []).filter((b) => !gone.has(b));
       map.getSource('biz').setData({ type: 'FeatureCollection', features: keep.map((b) => ({ type: 'Feature', properties: { name: b.name }, geometry: { type: 'Point', coordinates: [b.lon, b.lat] } })) });
     }
     const blockers = [];
@@ -294,7 +300,7 @@ async function render(page, job) {
     // A business whose name found no room is left off, dot and all; its logo, often narrower than the
     // name, may still have room (the operator, 2026-11-16). It gets no allowance for roads: its name
     // covered nothing.
-    const nameless = (job.businesses ?? []).filter((b) => b.logo && dropped.includes(`business ${b.name}`)).map((b) => ({ biz: b, pt: map.project([b.lon, b.lat]), kind: 'none', was: null }));
+    const nameless = (job.businesses ?? []).filter((b) => b.logo && gone.has(b)).map((b) => ({ biz: b, pt: map.project([b.lon, b.lat]), kind: 'none', was: null }));
     if (boxes.some((x) => x.biz.logo) || nameless.length) {
       await new Promise((res) => { if (map.loaded() && map.areTilesLoaded()) res(); else map.once('idle', res); });
       const symbolLayers = map.getStyle().layers.filter((l) => l.type === 'symbol' && l.id !== 'blockers').map((l) => l.id);
@@ -309,12 +315,14 @@ async function render(page, job) {
       // one; without, 12. The pattern also matches bridge_ and tunnel_secondary_tertiary and their
       // casings, on purpose: those are the same roads where they cross over or under something.
       // Links (ramps, road_link and *_motorway_link) stay protected, including secondary and tertiary
-      // links, since a ramp reads as part of the highway it serves.
+      // links, since a ramp reads as part of the highway it serves. One exception: the style's
+      // bridge_link never draws (it filters on a class no tile carries), so a secondary or tertiary
+      // ramp on a bridge draws as bridge_secondary_tertiary, and a logo may cover it (review round 1).
       const MINOR = /(minor|service_track|path_pedestrian|secondary_tertiary)/;
       const roadLayers = map.getStyle().layers.filter((l) => l.type === 'line' && l['source-layer'] === 'transportation' && !MINOR.test(l.id)).map((l) => l.id);
       const any = (bx, layers) => map.queryRenderedFeatures([[bx.l, bx.t], [bx.r, bx.b]], { layers }).length > 0;
-      // More spots for a logo, tried after the fixed ones above, so a logo that fitted before keeps its
-      // spot: every position along each side of the dot, 4 px apart, at the distances the fixed spots
+      // More spots for a logo, tried after the fixed ones above, so a logo that fits at a fixed spot
+      // still takes it first (though another logo may now be at a spot it used to get): every position along each side of the dot, 4 px apart, at the distances the fixed spots
       // already use (8 px, beside the dot with no leader line, out to 56 px, the fixed spots'
       // farthest corner), nearest first and, at each distance, nearest the name's spot first.
       // Measured 2026-11-16 on today's tiles: a 37x34 Whataburger logo at Kingsville lost all 20 fixed
@@ -366,6 +374,7 @@ async function render(page, job) {
           x.was = { l: x.l, t: x.t, r: x.r, b: x.b, line: x.line };
         } else {
           dropped.splice(dropped.indexOf(`business ${x.biz.name}`), 1);
+          gone.delete(x.biz);
           boxes.push(x);
         }
         Object.assign(x, { ln: null, seg: null }, got, { kind: 'logo' });
@@ -374,9 +383,11 @@ async function render(page, job) {
       // Each pass tries every logo still waiting; one that moved can free room for another, so the
       // passes repeat while any logo is placed.
       let pending = [...boxes.filter((x) => x.biz.logo), ...nameless];
+      let pass = 0;
       for (;;) {
         const next = [];
-        for (const x of pending) if (!(await tryLogo(x))) next.push(x);
+        pass++;
+        for (const x of pending) if (await tryLogo(x)) x.pass = pass; else next.push(x);
         if (next.length === pending.length) break;
         pending = next;
       }
@@ -385,7 +396,7 @@ async function render(page, job) {
         else dropped.push(`logo ${x.biz.name} (no room; ${x.kind === 'name' ? 'name kept' : 'left off, as its name'})`);
       }
       if (nameless.some((x) => x.kind === 'logo')) {
-        const keep = (job.businesses ?? []).filter((b) => !dropped.includes(`business ${b.name}`));
+        const keep = (job.businesses ?? []).filter((b) => !gone.has(b));
         map.getSource('biz').setData({ type: 'FeatureCollection', features: keep.map((b) => ({ type: 'Feature', properties: { name: b.name }, geometry: { type: 'Point', coordinates: [b.lon, b.lat] } })) });
       }
       await new Promise((res) => { if (map.loaded() && map.areTilesLoaded()) res(); else map.once('idle', res); });
@@ -414,19 +425,27 @@ async function render(page, job) {
       }
       return [...found];
     };
-    const out = boxes.map((x) => ({ name: x.biz.name, logo: x.biz.logo ?? null, kind: x.kind, dot: [x.pt.x, x.pt.y], l: x.l, t: x.t, r: x.r, b: x.b, line: x.line, ...(x.was ? { was: x.was } : {}), ...(x.kind === 'logo' ? { under: under(x) } : {}) }));
+    // Every road line, protected or not, under the part of a logo box its name did not cover: a record
+    // for the tests, so a check can prove a logo sits over a secondary or tertiary road (option B).
+    const roadIds = allLayers.filter((l) => l.type === 'line' && l['source-layer'] === 'transportation').map((l) => l.id);
+    const roads = (x) => [...new Set((x.was ? outside(x, x.was) : [x]).flatMap((r) => ids(r, roadIds)))];
+    const out = boxes.map((x) => ({ name: x.biz.name, logo: x.biz.logo ?? null, kind: x.kind, dot: [x.pt.x, x.pt.y], l: x.l, t: x.t, r: x.r, b: x.b, line: x.line, ...(x.was ? { was: x.was } : {}), ...(x.kind === 'logo' ? { under: under(x), via: x.via, pass: x.pass, roads: roads(x) } : {}) }));
     // Every count, count dot, intersection label and ring, pin tag and dot, and business label as the
     // page finally draws it, read back from the DOM, and every business dot still on the map (3.4 px
     // plus its 1.4 px stroke). These are HTML or a circle layer, which under() cannot see, so the
     // tests check them against each logo from this record (2026-11-16).
     const marks = [...document.querySelectorAll('.aadt, .aadt-dot, .ref, .xring, .pin .tag, .pin .dot, .biz')].map((el) => {
       const r = el.getBoundingClientRect();
-      return { kind: el.matches('.biz') ? 'biz' : el.matches('.pin .tag') ? 'pin' : el.matches('.pin .dot') ? 'pin-dot' : el.className, l: r.left, t: r.top, r: r.right, b: r.bottom };
+      return { kind: el.matches('.biz') ? 'biz' : el.matches('.pin .tag') ? 'pin' : el.matches('.pin .dot') ? 'pin-dot' : el.classList[0], l: r.left, t: r.top, r: r.right, b: r.bottom };
     });
-    for (const b of job.businesses ?? []) {
-      if (dropped.includes(`business ${b.name}`)) continue;
-      const pt = map.project([b.lon, b.lat]);
-      marks.push({ kind: 'biz-dot', l: pt.x - 4.8, t: pt.y - 4.8, r: pt.x + 4.8, b: pt.y + 4.8 });
+    // Business dots as the circle layer draws them, read back from the map, not from `dropped`
+    // (review round 1: a dot the map failed to redraw would otherwise still be recorded).
+    if (map.getLayer('biz-dot')) {
+      await new Promise((res) => { if (map.loaded() && map.areTilesLoaded()) res(); else map.once('idle', res); });
+      for (const f of map.queryRenderedFeatures({ layers: ['biz-dot'] })) {
+        const pt = map.project(f.geometry.coordinates);
+        marks.push({ kind: 'biz-dot', name: f.properties.name, l: pt.x - 4.8, t: pt.y - 4.8, r: pt.x + 4.8, b: pt.y + 4.8 });
+      }
     }
     const root = document.body;
     if (job.north) {

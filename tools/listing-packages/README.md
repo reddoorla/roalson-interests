@@ -147,7 +147,9 @@ any logo on any of the 25 maps (measured 2026-11-12). Secondary and tertiary roa
 2026-11-16 (option B of reddoor-workspace
 `decisions/2026-11-16-1835-roalson-logo-placement-relax-which-protection.md`): with them
 protected, Walmart, Costco or Whataburger had a logo on 7 of the 15 maps that list one; without, 12. The rule matches `road_`, `bridge_` and `tunnel_secondary_tertiary` and their casings, which are
-the same roads; secondary and tertiary ramps (`road_link`) stay protected. Logos stay 28 px tall.
+the same roads. Secondary and tertiary ramps (`road_link`) stay protected, except on a bridge: the
+style's `bridge_link` never draws, so such a ramp draws as `bridge_secondary_tertiary` and a logo may
+cover it. Logos stay 28 px tall.
 
 Since 2026-11-16 a logo that finds no room at the fixed spots also tries every position along each
 side of its dot, 4 px apart, at 8, 20, 34 and 56 px. The logos are retried, in passes, while any
@@ -155,7 +157,8 @@ logo still finds a place, since one that moves off its name's spot can free room
 (Sam's Club at 5930 Bandera places only on the second pass). A business whose name had no room,
 and so was left off, now tries its logo too, with no allowance for roads, and gets its dot back if
 it fits. With no room anywhere the business keeps its name (`logo … (no room; name kept)` in the
-log), or stays left off (`left off, as its name`). So nothing outside the swapped boxes changes.
+log), or stays left off (`left off, as its name`). So outside the swapped boxes the map changes only
+where a nameless logo brings back its dot or a logo draws a leader line; `logo_check.py` masks both.
 Erik's hand edit on 2026-11-12 smeared part of SH 46 on Hwy 46 West Development Site, which is a
 package made outside this generator; this never draws over a map. Each traffic map writes
 `<map>.boxes.json`: every business's box, whether it got its logo, and for a logo, `under`, what a
