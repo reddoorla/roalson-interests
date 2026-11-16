@@ -54,8 +54,10 @@ Checks:
      G      build/test/fixture-comfort-job.json (IH 10 at 87, siteLine set): Love's, whose dot is inside
             the site, is drawn on a line that crosses the site outline, its logo box clear of the site.
             G0, the same job without siteLine: Love's keeps its name.
-     Y      build/test/fixture-st-marys-job.json: Nix is a logo and `under` is empty. Before the clip
-            fix it recorded bridge_street, which lies 0.69 px inside the name's old box.
+     Y      build/test/fixture-st-marys-job.json: Nix is a logo, and every logo's `under` is empty. Before
+            the clip fix Nix recorded bridge_street, which lies 0.69 px inside the name's old box. The
+            map's 28 px logos (the Children's Hospital, University Health) sit among road names, so a
+            rule that let a scaled logo cover a label is caught here (measured 2026-11-16).
   9. In every render above, no logo overlaps a count or its dot, an intersection label or ring, the
      pin, another business's label, or any business dot: maps.mjs records each one's final box in
      boxes.json (`marks`), since they are HTML or a circle layer that `under` cannot see.
@@ -297,9 +299,11 @@ def main():
               f"10G. IH 10 at 87 (siteLine): Love's is a logo on a line across the site, its box clear of the site (kind={lv and lv['kind']}, via={lv and lv.get('via')}, under={lv and lv.get('under')})")
         check(bool(lv0) and lv0['kind'] == 'name',
               f"10G0. the same map without siteLine: Love's keeps its name, so the line crosses the site only where a listing allows it (kind={lv0 and lv0['kind']})")
-        nx = boxes(yv).get('Nix Medical Center')
-        check(bool(nx) and nx['kind'] == 'logo' and nx.get('under') == [],
-              f"10Y. St. Mary's: Nix is a logo with nothing protected recorded under it (kind={nx and nx['kind']}, under={nx and nx.get('under')})")
+        by = boxes(yv)
+        nx = by.get('Nix Medical Center')
+        yu = {n: x.get('under') for n, x in by.items() if x['kind'] == 'logo' and x.get('under') != []}
+        check(bool(nx) and nx['kind'] == 'logo' and not yu,
+              f"10Y. St. Mary's: Nix is a logo, and nothing protected is recorded under any logo (kind={nx and nx['kind']}, under={yu or 'none'})")
         for k, png in (('B', b), ('C', c), ('D', dv), ('K', kv), ('N', nn), ('M', mm), ('R', rr), ('S', sv), ('G', gv), ('G0', g0), ('Y', yv)):
             ov = overlaps(png)
             check(ov == [], f'9{k}. no logo overlaps a count, ring, pin, label or dot: {ov or "none"}')

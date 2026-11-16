@@ -9,7 +9,9 @@ render) and reports:
     business had no room even for its name and was left off is listed under logo_left_off;
   - pixels that differ by more than test_logos.JITTER outside the swapped label and logo boxes.
     A count above SPECKS means a road, road label, count or other label moved or vanished, and
-    the script exits 1. Below it is antialiasing: on 2026-11-12, IH 10 at Highway 46 differed in 7
+    the script exits 1. So does anything protected recorded under a logo (`under`), or a logo over a
+    count, its dot, an intersection label or ring, the pin, another label or a business dot
+    (test_logos.overlaps, from boxes.json's `marks`). Below it is antialiasing: on 2026-11-12, IH 10 at Highway 46 differed in 7
     pixels on one row of a count box's border (at most 51/255), the box itself unmoved, while a
     vanished road label or count changes hundreds.
 Writes qa/logos/report.json, and a side-by-side qa/logos/<uid>/compare.png per listing.
@@ -22,7 +24,7 @@ from PIL import Image
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
-from test_logos import JITTER, mask_for
+from test_logos import JITTER, mask_for, overlaps
 
 A = lambda *p: os.path.join(ROOT, *p)
 SPECKS = 40
@@ -67,7 +69,12 @@ def main(only):
         n = int(((delta > JITTER) & ~mask).sum())
         # A logo box with no `under` record came from a renderer before that record existed.
         covered = {b['name']: b.get('under', 'not recorded') for b in swapped if b.get('under', 'not recorded')}
-        bad += n > SPECKS or bool(covered)
+        # A logo over a count, its dot, an intersection label or ring, the pin, another label or a business
+        # dot: these are HTML or a circle layer, which `under` cannot see (2026-11-16: with that rule
+        # broken for scaled logos, four maps put a logo over a count, the pin or a label and this script
+        # still passed).
+        over = overlaps(after)
+        bad += n > SPECKS or bool(covered) or bool(over)
         report[uid] = {
             'logo': sorted(b['name'] for b in swapped),
             'logo_no_room': sorted(b['name'] for b in bx1.values() if b['kind'] == 'name' and b['logo']),
@@ -75,6 +82,7 @@ def main(only):
             'name': sorted(b['name'] for b in bx1.values() if b['kind'] == 'name' and not b['logo']),
             'changed_outside_boxes': n,
             'drawn_under_a_logo': covered,
+            'logo_over_a_mark': over,
             'largest_difference_outside_boxes': int((delta * ~mask).max()),
         }
         w = B0.shape[1]
@@ -82,10 +90,10 @@ def main(only):
         c.paste(Image.open(before).convert('RGB'), (0, 0))
         c.paste(Image.open(after).convert('RGB'), (w + 20, 0))
         c.save(os.path.join(os.path.dirname(before), 'compare.png'))
-        print(uid.ljust(42), 'logos', report[uid]['logo'], '| no room', report[uid]['logo_no_room'], '| left off', report[uid]['logo_left_off'], '| changed', n, '| under a logo', covered or '-')
+        print(uid.ljust(42), 'logos', report[uid]['logo'], '| no room', report[uid]['logo_no_room'], '| left off', report[uid]['logo_left_off'], '| changed', n, '| under a logo', covered or '-', '| over a mark', over or '-')
     json.dump(report, open(A('qa', 'logos', 'report.json'), 'w'), indent=1)
     if bad:
-        sys.exit(f'{bad} map(s) changed outside the logo boxes or have something protected under a logo')
+        sys.exit(f'{bad} map(s) changed outside the logo boxes, have something protected under a logo, or have a logo over a count, pin, label or dot')
 
 
 if __name__ == '__main__':
