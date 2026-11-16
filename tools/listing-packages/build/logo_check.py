@@ -5,7 +5,8 @@ usage: python3 build/make_jobs.py && python3 build/logo_check.py [uid ...]
 For each listing's traffic map in build/jobs-all.json, renders the job twice as PNG into
 qa/logos/<uid>/ (once with every logo stripped, once as the build renders it, after a warm-up
 render) and reports:
-  - each business: logo, name (its logo did not fit, or it has none), or dropped;
+  - each business: logo, name (its logo did not fit, or it has none), or dropped; a logo whose
+    business had no room even for its name and was left off is listed under logo_left_off;
   - pixels that differ by more than test_logos.JITTER outside the swapped label and logo boxes.
     A count above SPECKS means a road, road label, count or other label moved or vanished, and
     the script exits 1. Below it is antialiasing: on 2026-11-12, IH 10 at Highway 46 differed in 7
@@ -59,6 +60,8 @@ def main(only):
         bx1 = {key(b): b for b in meta['businesses']}
         swapped = [b for b in bx1.values() if b['kind'] == 'logo']
         items = swapped + [b['was'] for b in swapped if b.get('was')] + [bx0[key(b)] for b in swapped if key(b) in bx0]
+        # A logo whose name had no room brings its dot back too (maps.mjs: 3.4 px plus a 1.4 px stroke).
+        items += [{'l': b['dot'][0] - 6, 't': b['dot'][1] - 6, 'r': b['dot'][0] + 6, 'b': b['dot'][1] + 6} for b in swapped if not b.get('was')]
         mask = mask_for(B0.shape, meta['dpr'], items)
         delta = np.abs(B0 - B1).max(axis=2)
         n = int(((delta > JITTER) & ~mask).sum())
@@ -68,6 +71,7 @@ def main(only):
         report[uid] = {
             'logo': sorted(b['name'] for b in swapped),
             'logo_no_room': sorted(b['name'] for b in bx1.values() if b['kind'] == 'name' and b['logo']),
+            'logo_left_off': sorted(d[5:].split(' (')[0] for d in meta.get('dropped', []) if d.startswith('logo ') and 'left off' in d),
             'name': sorted(b['name'] for b in bx1.values() if b['kind'] == 'name' and not b['logo']),
             'changed_outside_boxes': n,
             'drawn_under_a_logo': covered,
@@ -78,7 +82,7 @@ def main(only):
         c.paste(Image.open(before).convert('RGB'), (0, 0))
         c.paste(Image.open(after).convert('RGB'), (w + 20, 0))
         c.save(os.path.join(os.path.dirname(before), 'compare.png'))
-        print(uid.ljust(42), 'logos', report[uid]['logo'], '| no room', report[uid]['logo_no_room'], '| changed', n, '| under a logo', covered or '-')
+        print(uid.ljust(42), 'logos', report[uid]['logo'], '| no room', report[uid]['logo_no_room'], '| left off', report[uid]['logo_left_off'], '| changed', n, '| under a logo', covered or '-')
     json.dump(report, open(A('qa', 'logos', 'report.json'), 'w'), indent=1)
     if bad:
         sys.exit(f'{bad} map(s) changed outside the logo boxes or have something protected under a logo')

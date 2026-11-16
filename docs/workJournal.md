@@ -13600,3 +13600,61 @@ Erik edited his Hwy 46 West PDF during the session: the cover's "AVAILABLE" beca
 Because `maps.mjs` changed, its renderer hash changed. `swap_area_map.py` now refuses the maps rendered on 11-12 until they are re-rendered, which is intended.
 
 Usage: $17.02, 1872/123521 tokens, 41938901/911491 cache, rate limit allowed (this session through this entry; it continues in a hand-off session for landing and the promotion PR).
+
+## 2026-11-16 — Logos may cover secondary and tertiary roads (option B), Erik's 11-13 logos, and a swap that chose the wrong image (#364, `claude/roalson-logos-walmart-costco-whataburger` into `staging`)
+
+The operator asked why Walmart, Costco and Whataburger had no logos, and then to "make sure all the logos erik provided are being used and we're not leaving any bare map labels that we have a logo for". Two sessions did this. The first rewrote the logo phase: extra spots around each dot (the ring), retries in passes, and a logo for a business whose name had no room. It also added Erik's ten 11-13 logos. Under the 11-12 rules that placed 44 of 78 logo matches, with Walmart, Costco or Whataburger on 7 of the 15 maps that list one. The operator then chose option B (reddoor-workspace `decisions/2026-11-16-1835-roalson-logo-placement-relax-which-protection.md`): a logo may cover part of a secondary or tertiary road. Everything else stays protected, and logos stay 28 px.
+
+**Measured under B, on 11-16 tiles:**
+
+- 60 of 78 matches placed; Walmart, Costco or Whataburger on 12 of the 15.
+- `logo_check.py` exits 0. At most 7 pixels change outside the swapped boxes, the same count-box antialiasing as on 11-12.
+- Every one of Erik's 26 files that belongs on these maps is used. Comfort High School is not: its one listing is Hwy 87, which stays without logos. The only bare label on any map without a logo file is Builder's Mark (5001 Walzem), because the folder has no file for it.
+- The 18 logos still shown as names, each with its measured blockers (a debug copy of the renderer, outside the repo, recorded why each candidate spot was refused), are listed in the review folder's read-me. Most sit against counts or the intersection label. Ross at Dove Canyon loses to Costco and Walmart.
+- Hwy 46 West still has no room for Whataburger, name or logo, at Erik's frame, so its map-only entry is unchanged.
+
+**The swap that chose the wrong image.** Erik's 5001 Walzem package had been through our 11-13 swap and then his editor's save. Its map page now drew `/X51` (xref 82) and also listed an identical, undrawn `fzImg0` (xref 1017). PyMuPDF's `get_image_info` named 1017. `swap_area_map.py` replaced 1017 and left his old map drawn. Its own proof caught it ("the map … is not …"), so nothing wrong was delivered. Belief corrected: `get_image_info` tells you which image a page draws only when no other image has the same pixels; with an identical copy it can name the undrawn one. The tool now:
+
+- replaces every map-sized image on the page that has the displayed map's pixels;
+- refuses an image that another page also uses (`replace_image` changes an image file-wide);
+- refuses a rotated map page or a PDF with annotations;
+- proves that every page renders unchanged outside the map;
+- writes to a temporary file, moved into place only once every proof has passed;
+- prints "already current" when run on its own output.
+
+`test_swap_area_map.py` rebuilds the Walzem shape synthetically, and its control check confirms `get_image_info` names the copy there too.
+
+**Tests.** `test_logos.py` renders Dove Canyon, Kingsville and 5930 Bandera with their real logos. Each logo records how it was placed (`via`: name, fixed or ring), on which `pass`, and the `roads` under it. That lets each check pin its mechanism:
+
+- Costco covers a secondary or tertiary road;
+- Kingsville's Whataburger sits at a ring spot;
+- Sam's Club at Bandera places on pass 2.
+
+The other new checks:
+
+- `boxes.json` records `marks` (counts, dots, refs, rings, pin, labels, and business dots read back from the map), and check 9 proves no logo overlaps one;
+- a business whose name fits nowhere still gets its logo and dot;
+- a second business of the same name, with no room, gets neither.
+
+Each of 13 mutations turns a check red (table in the PR). The retry loop had no test until a measurement showed it mattered: removing it loses Sam's Club's logo on Bandera and changes nothing else on the 26 maps.
+
+**Review** took two rounds.
+
+- Round 1 found four majors:
+  - dots matched by name, so two businesses of one chain could take each other's dot;
+  - 8N's dot read from `dropped`, not from the map;
+  - mechanism checks that asserted only the outcome;
+  - a swap of an image shared with another page.
+- Round 2 found minors only. They were folded in where they touched these files, and the rest went to #366, #367 and #368.
+
+Found and not fixed: a failed TxDOT query is cached as `[]` and the listing silently falls back to the plain Area Map (#365; Cascade Caverns, 11-16).
+
+**Delivered** to Dropbox `…/2026-11 Area map logos (review)/2026-11-16 logos, option B/`:
+
+- 22 of Erik's current PDFs, with only the area map swapped;
+- a before/after PDF;
+- the read-me.
+
+The four maps with no logo business are not swapped: Lookout Road, Loop 1604 at 181, 25331 IH 10 West, and IH 10 and FM 1518. Lookout Road differs from Erik's map by 481 pixels of basemap drift near a ramp. The PDFs were made from the first commit's renders. The final renderer places every box identically: at most 40 pixels of antialiasing differ, on one map. Nothing was written to "Current Listing Packages", and Prismic was not touched.
+
+Usage: $17.08 across both sessions: $1.33 (session_013FT5PG8696atyPD24u2ze5, archived) plus $15.75 for this session through this entry. 1902/186605 tokens, 42947911/738500 cache, rate limit allowed. Landing and the promotion PR continue in a hand-off session.
