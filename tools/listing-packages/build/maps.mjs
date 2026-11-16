@@ -15,6 +15,9 @@ const FONTS_CSS = readFileSync(join(HERE, 'assets/fonts.css'), 'utf8');
 
 const NAIP = 'https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/ImageServer/exportImage?bbox={bbox-epsg-3857}&bboxSR=3857&imageSR=3857&size=512,512&format=jpg&f=image';
 
+// A logo's height when its job names none (option C, 2026-11-16). lib/logos.py writes logo_px on every
+// logo business, from build/logo-sizes.json, so this is only a fallback for a hand-made job.
+const LOGO_PX = 22;
 const GARNET = '#652323';
 const DUST = '#E8E1D1';
 
@@ -84,7 +87,7 @@ function pageHtml(job) {
   .aadt-dot{width:9px;height:9px;border-radius:50%;background:${GARNET};border:2px solid #fff;box-shadow:0 0 0 1px ${GARNET}}
   .biz{font:700 11px/1 Archivo,Arial,sans-serif;letter-spacing:.3px;color:${GARNET};background:rgba(255,255,255,.92);padding:4px 6px 3px;white-space:nowrap}
   .biz.logo{padding:3px 4px;line-height:0;background:#fff;box-shadow:0 0 0 1px rgba(101,35,35,.28)}
-  .biz.logo img{display:block;width:auto;height:auto;max-height:28px;max-width:92px}
+  .biz.logo img{display:block;width:auto;height:auto}
   .ref{font:700 10px/1 Archivo,Arial,sans-serif;letter-spacing:.8px;text-transform:uppercase;color:${GARNET};background:rgba(255,255,255,.88);padding:5px 7px 4px;border:1px solid ${GARNET}}
   .legend{position:absolute;left:14px;bottom:14px;background:rgba(255,255,255,.94);padding:10px 12px;font:400 10.5px/1.45 'Atkinson Hyperlegible Next',Arial,sans-serif;color:#2D2D2D;display:flex;flex-direction:column;gap:5px;max-width:330px}
   .legend b{font:700 9.5px/1.2 Archivo,Arial,sans-serif;letter-spacing:.8px;text-transform:uppercase;color:${GARNET};margin-bottom:2px}
@@ -109,7 +112,7 @@ async function render(page, job) {
   await page.addScriptTag({ path: MAPLIBRE_JS });
   const style = job.kind === 'brand' ? brandStyle({ pois: !!job.pois }) : aerialStyle({ labels: job.labels !== false, tile256: !!job.tile256 });
   const ok = await page.evaluate(async (args) => {
-    const { job, style, GARNET, DUST, logos } = args;
+    const { job, style, GARNET, DUST, logos, LOGO_PX } = args;
     await document.fonts.ready;
     const maplibregl = window.maplibregl;
     const map = new maplibregl.Map({
@@ -354,6 +357,11 @@ async function render(page, job) {
           // Built and decoded once; a logo that cannot decode is null and is not tried again.
           const el = document.createElement('div'); el.className = 'biz logo';
           const img = document.createElement('img'); img.alt = x.biz.name; img.src = logos[x.biz.logo];
+          // Its height from the job (build/logo-sizes.json via lib/logos.py: 22 px since option C,
+          // 2026-11-16, and Erik's per-listing scales). A wide logo is capped at 92/28 of its height,
+          // the cap that held when every logo was 28 px (92 px), so a scaled logo keeps its shape.
+          const h = x.biz.logo_px ?? LOGO_PX;
+          Object.assign(img.style, { maxHeight: `${h}px`, maxWidth: `${(h * 92) / 28}px` });
           el.appendChild(img);
           els.set(x, await img.decode().then(() => el, () => null));
         }
@@ -481,7 +489,7 @@ async function render(page, job) {
     await new Promise((res) => setTimeout(res, 400));
     await new Promise((res) => { if (map.areTilesLoaded()) res(); else map.once('idle', res); });
     return { zoom: map.getZoom(), center: map.getCenter(), dropped, boxes: out, marks };
-  }, { job, style, GARNET, DUST, logos });
+  }, { job, style, GARNET, DUST, logos, LOGO_PX });
   mkdirSync(dirname(job.out), { recursive: true });
   if (job.heightPx) {
     // A map-only site (geo/map-only.json) matches the pixel size of a map Erik made elsewhere, so

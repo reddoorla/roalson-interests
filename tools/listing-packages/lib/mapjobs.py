@@ -115,7 +115,7 @@ def jobs_for(uid,site,outdir,title,geom=None,cover=True,date='September 2026',ex
             tb=view_bounds(traffic_view['center'],traffic_view['zoom'],W,690)
         biz,missing=businesses(tb,(lat,lon),featured,limit=business_limit)
         biz=[{'name':m['name'],'lat':m['lat'],'lon':m['lon'],'featured':True} for m in manual_businesses]+biz
-        biz=[with_logo(b) for b in biz]
+        biz=[with_logo(b,uid=uid) for b in biz]
         if missing and only_traffic: raise SystemExit(f'{uid}: listed businesses not in the tiles: {missing}; a map-only site labels exactly its list (use manual_businesses)')
         if missing: print(uid,'featured businesses not in the tiles:',missing)
         tj={'out':f'{outdir}/traffic.jpg','kind':'brand','businesses':biz,'width':W,'height':690,'dpr':2.5,'center':[lat,lon],'bounds':tb,'padding':{'top':120+traffic_pad,'bottom':80+traffic_pad,'left':110+traffic_pad,'right':110+traffic_pad},'maxZoom':15.2,

@@ -33,15 +33,37 @@ def _index(spec_path=SPEC):
 
 
 _INDEX = None
+SIZES = os.path.join(ROOT, 'build', 'logo-sizes.json')
 
 
-def with_logo(b, index=None):
-    """The business dict, plus `logo` (a path under the tool's root) and `logo_sha` when its name has one.
-    The sha is part of the map's job spec, so replacing a logo file re-renders the maps that use it."""
+def logo_px(logo, uid=None, sizes_path=SIZES):
+    """How tall `logo` (a path from build/logos.json) draws on `uid`'s map, in CSS px.
+
+    build/logo-sizes.json gives the default (22 since option C, 2026-11-16) and Erik's scales. The
+    first match wins: the logo named on the listing, then named in `logos` (every map), then the
+    listing's "*", else 1. The height is rounded to a whole px, halves up: 22 x 1.25 = 27.5 draws
+    at 28."""
+    spec = json.load(open(sizes_path))
+    known = {os.path.basename(lg['file'])[:-4] for lg in json.load(open(SPEC))['logos']}
+    everywhere = spec.get('logos', {}).get('scale', {})
+    listings = spec.get('listings', {})
+    for where, sc in [('logos', everywhere)] + [(u, v.get('scale', {})) for u, v in listings.items()]:
+        if set(sc) - {'*'} - known:
+            raise SystemExit(f'build/logo-sizes.json: {where} scales logos build/logos.json does not list: {sorted(set(sc) - {"*"} - known)}')
+    scale = listings.get(uid, {}).get('scale', {})
+    key = os.path.basename(logo)[:-4]
+    s = scale[key] if key in scale else everywhere[key] if key in everywhere else scale.get('*', 1)
+    return int(spec['default_px'] * s + 0.5)
+
+
+def with_logo(b, index=None, uid=None):
+    """The business dict, plus `logo` (a path under the tool's root), `logo_sha` and `logo_px` (its
+    height on `uid`'s map) when its name has one. The sha and the height are part of the map's job
+    spec, so replacing a logo file or changing its size re-renders the maps that use it."""
     global _INDEX
     if index is None:
         if _INDEX is None:
             _INDEX = _index()
         index = _INDEX
     hit = index.get(norm(b['name']))
-    return {**b, **hit} if hit else dict(b)
+    return {**b, **hit, 'logo_px': logo_px(hit['logo'], uid)} if hit else dict(b)
