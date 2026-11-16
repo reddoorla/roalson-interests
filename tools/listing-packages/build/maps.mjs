@@ -18,6 +18,9 @@ const NAIP = 'https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPPlus/
 // A logo's height when its job names none (option C, 2026-11-16). lib/logos.py writes logo_px on every
 // logo business, from build/logo-sizes.json, so this is only a fallback for a hand-made job.
 const LOGO_PX = 22;
+// How far out a logo may sit along a horizontal leader line (2026-11-16, Erik's "lines go horizontal
+// until they get to open space"), in CSS px from its dot, on a 672 px map.
+const LINE_MAX = 200;
 const GARNET = '#652323';
 const DUST = '#E8E1D1';
 
@@ -112,7 +115,7 @@ async function render(page, job) {
   await page.addScriptTag({ path: MAPLIBRE_JS });
   const style = job.kind === 'brand' ? brandStyle({ pois: !!job.pois }) : aerialStyle({ labels: job.labels !== false, tile256: !!job.tile256 });
   const ok = await page.evaluate(async (args) => {
-    const { job, style, GARNET, DUST, logos, LOGO_PX } = args;
+    const { job, style, GARNET, DUST, logos, LOGO_PX, LINE_MAX } = args;
     await document.fonts.ready;
     const maplibregl = window.maplibregl;
     const map = new maplibregl.Map({
@@ -169,11 +172,13 @@ async function render(page, job) {
       }
       return false;
     });
-    const segHitsTaken = (x1, y1, x2, y2) => {
+    // `skip` is a box the line may cross: a horizontal leader line (below) starts beside its dot,
+    // where the business's own name sits, and the name is removed when its logo is placed.
+    const segHitsTaken = (x1, y1, x2, y2, skip = null) => {
       const n = Math.max(2, Math.ceil(Math.hypot(x2 - x1, y2 - y1) / 3));
       for (let i = 0; i <= n; i++) {
         const x = x1 + (x2 - x1) * i / n, y = y1 + (y2 - y1) * i / n;
-        if (taken.some((o) => x > o.l && x < o.r && y > o.t && y < o.b)) return true;
+        if (taken.some((o) => o !== skip && x > o.l && x < o.r && y > o.t && y < o.b)) return true;
       }
       return false;
     };
@@ -192,7 +197,7 @@ async function render(page, job) {
       // placed it: the name's own spot, the fixed spots, or the ring (2026-11-16).
       const nFirst = first.length, nFixed = cands.length - nFirst - extra.length;
       const near = side ? 9 : 12;
-      for (const [i, [x, y]] of cands.entries()) {
+      for (const [i, [x, y, tag]] of cands.entries()) {
         const box = { l: x, t: y, r: x + w, b: y + h };
         if (box.l < 4 || box.t < 50 || box.r > W - 4 || box.b > H - 18) continue;
         if ((ignore ? taken.filter((o) => o !== ignore).some((o) => !(box.r < o.l || box.l > o.r || box.b < o.t || box.t > o.b)) : hit(box)) || boxHitsSeg(box) || !free(box)) continue;
@@ -200,12 +205,12 @@ async function render(page, job) {
         const d = Math.hypot(cx - pt.x, cy - pt.y);
         if (d > near) {
           const k = Math.min(1, 12 / d);
-          if (segHitsTaken(pt.x + (cx - pt.x) * k, pt.y + (cy - pt.y) * k, cx, cy) || !free({ l: Math.min(pt.x, cx), t: Math.min(pt.y, cy), r: Math.max(pt.x, cx), b: Math.max(pt.y, cy) }, true)) continue;
+          if (segHitsTaken(pt.x + (cx - pt.x) * k, pt.y + (cy - pt.y) * k, cx, cy, tag === 'line' ? ignore : null) || !free({ l: Math.min(pt.x, cx), t: Math.min(pt.y, cy), r: Math.max(pt.x, cx), b: Math.max(pt.y, cy) }, true)) continue;
         }
         el.style.left = `${box.l}px`; el.style.top = `${box.t}px`; el.style.visibility = 'visible';
         const slot = { l: box.l - 3, t: box.t - 3, r: box.r + 3, b: box.b + 3 };
         taken.push(slot);
-        const placed = { l: box.l, t: box.t, r: box.r, b: box.b, line: d > near ? [pt.x, pt.y, cx, cy] : null, slot, el, via: i < nFirst ? 'name' : i < nFirst + nFixed ? 'fixed' : 'ring' };
+        const placed = { l: box.l, t: box.t, r: box.r, b: box.b, line: d > near ? [pt.x, pt.y, cx, cy] : null, slot, el, via: tag ?? (i < nFirst ? 'name' : i < nFirst + nFixed ? 'fixed' : 'ring') };
         if (d > near) {
           segs.push([pt.x, pt.y, cx, cy]);
           const ln = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -340,6 +345,12 @@ async function render(page, job) {
           const far = ([x, y]) => Math.hypot(x + w / 2 - ref[0], y + h / 2 - ref[1]);
           out.push(...c.sort((p, q) => far(p) - far(q)));
         }
+        // Then, last of all, along a horizontal leader line from the dot (Erik, #roalson-interests,
+        // 2026-11-16 3:00pm PT: "make the lines go horizontal until they get to open space to include
+        // the logo"): the logo centred on the dot's height, 60 px out and farther, 4 px apart, to
+        // LINE_MAX, nearer first, right before left at each distance. The line and the logo stay clear
+        // of everything any spot must, so this places a logo only where nothing is covered.
+        for (let d = 60; d <= LINE_MAX; d += 4) out.push([pt.x + d, pt.y - h / 2, 'line'], [pt.x - w - d, pt.y - h / 2, 'line']);
         return out;
       };
       const els = new Map();
@@ -489,7 +500,7 @@ async function render(page, job) {
     await new Promise((res) => setTimeout(res, 400));
     await new Promise((res) => { if (map.areTilesLoaded()) res(); else map.once('idle', res); });
     return { zoom: map.getZoom(), center: map.getCenter(), dropped, boxes: out, marks };
-  }, { job, style, GARNET, DUST, logos, LOGO_PX });
+  }, { job, style, GARNET, DUST, logos, LOGO_PX, LINE_MAX });
   mkdirSync(dirname(job.out), { recursive: true });
   if (job.heightPx) {
     // A map-only site (geo/map-only.json) matches the pixel size of a map Erik made elsewhere, so
