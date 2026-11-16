@@ -139,27 +139,49 @@ logo's file hash is part of the map's job spec, so replacing one re-renders the 
 `maps.mjs` places every label as text first, exactly as before, and the collision blockers that
 keep road labels clear are those text boxes. Only then does a business with a logo swap its name
 for the logo: where the name sat if it fits, else another spot beside its dot. A spot may not touch
-another label, count, pin or dot, a rendered road label or shield, or the site outline, and it may
-not cover any part of a major road (motorway, trunk, primary, secondary, tertiary, their links, or
-rail) that the name's own box did not already cover. A logo may sit over a minor street or a service
-road, as every name label already does: protecting those too left no room for any logo on any of the
-25 maps (measured 2026-11-12). With no such spot the business keeps its name (`logo … (no room; name
-kept)` in the log). So nothing outside the swapped boxes changes. Erik's hand edit on 2026-11-12
-smeared part of SH 46 on Hwy 46 West Development Site, which is a package made outside this generator;
-this never draws over a map. Each traffic map writes `<map>.boxes.json`: every business's box,
-whether it got its logo, and for a logo, `under`, what a separate query finds drawn beneath it
-that the rules protect (it must be empty).
+another label, count, pin or dot, a rendered road label or shield, or the site outline. It may not
+cover any part of a major road (motorway, trunk, primary, their links, or rail) that the name's own
+box did not already cover. A logo may sit over a minor street, a service road, or a secondary or
+tertiary road, as every name label already may. Protecting minor and service roads left no room for
+any logo on any of the 25 maps (measured 2026-11-12). Secondary and tertiary roads joined them on
+2026-11-16 (option B of reddoor-workspace
+`decisions/2026-11-16-1835-roalson-logo-placement-relax-which-protection.md`): with them
+protected, Walmart, Costco or Whataburger had a logo on 7 of the 15 maps that list one; without, 12. The rule matches `road_`, `bridge_` and `tunnel_secondary_tertiary` and their casings, which are
+the same roads; secondary and tertiary ramps (`road_link`) stay protected. Logos stay 28 px tall.
+
+Since 2026-11-16 a logo that finds no room at the fixed spots also tries every position along each
+side of its dot, 4 px apart, at 8, 20, 34 and 56 px. The logos are retried, in passes, while any
+logo still finds a place, since one that moves off its name's spot can free room for another
+(Sam's Club at 5930 Bandera places only on the second pass). A business whose name had no room,
+and so was left off, now tries its logo too, with no allowance for roads, and gets its dot back if
+it fits. With no room anywhere the business keeps its name (`logo … (no room; name kept)` in the
+log), or stays left off (`left off, as its name`). So nothing outside the swapped boxes changes.
+Erik's hand edit on 2026-11-12 smeared part of SH 46 on Hwy 46 West Development Site, which is a
+package made outside this generator; this never draws over a map. Each traffic map writes
+`<map>.boxes.json`: every business's box, whether it got its logo, and for a logo, `under`, what a
+separate query finds drawn beneath it that the rules protect (it must be empty). It also writes
+`marks`, the final boxes of every count, count dot, intersection label and ring, pin and business
+label and dot, and `dropped`.
 
 - `python3 build/test_logos.py` renders a fixture map (Hwy 46 at Spencer Ranch Blvd) through
-  `maps.mjs`, with and without a test logo, and with a test business on IH 10. It checks:
+  `maps.mjs`, with and without a test logo, and with test businesses added. It also renders three
+  real maps with their real logos: Dove Canyon, Kingsville and 5930 Bandera (`build/test/`). It
+  checks:
   - the logo is drawn above the map beside its dot;
   - the other businesses keep their names in place;
   - nothing else changes;
   - nothing protected lies under a logo, including where the first spot is over the interstate;
-  - `lib/logos.py` matches only listed names ("Lowe's Market" is not Lowe's).
+  - Costco at Dove Canyon (room only under option B), Whataburger at Kingsville (room only at a
+    ring spot), Sam's Club at Bandera (room only on the second pass) and a business whose name is
+    too long for any spot all get their logo;
+  - no logo overlaps a count, a ring, the pin, another label or a dot (`marks`);
+  - `lib/logos.py` matches only listed names: "Lowe's Market" has its own logo and is not Lowe's;
+    "Walmart Neighborhood Market" and "Walmart" are not Walmart Supercenter.
 
   Each of these mutations turns it red: a logo for every business (in the matching or in the
-  renderer), the name instead of the logo, the logo drawn under the map, and the road rule removed.
+  renderer), the name instead of the logo, the logo drawn under the map, the road rule removed,
+  option B undone, the ring removed, the retries removed, the nameless logos removed, the `taken`
+  test skipped for logos, and a prefix match in `lib/logos.py`.
 
 - `python3 build/logo_check.py [uid…]` (after `make_jobs.py`) renders every listing's traffic map
   with and without its logos into `qa/logos/`. It fails if anything outside the swapped boxes
@@ -167,7 +189,11 @@ that the rules protect (it must be empty).
 - `python3 build/swap_area_map.py <uid> <their.pdf> <out.pdf>` puts the generator's current
   traffic map into a package Erik has edited by hand, replacing only that image. It refuses a stale
   or unstamped map, a page with other images over the map, or a page laid out differently, and it
-  proves every page's text is unchanged.
+  proves every page's text is unchanged. It replaces every image on that page that has the map's
+  size and the displayed map's pixels, and proves none of them still holds the old map: a package
+  saved again after an earlier swap can list an identical copy of the map that is not drawn, and
+  PyMuPDF then names that copy (5001 Walzem Road, 2026-11-16). `python3 build/test_swap_area_map.py`
+  checks both cases.
 
 ### Map-only sites (2026-11-13)
 

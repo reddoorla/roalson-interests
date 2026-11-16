@@ -1,0 +1,190 @@
+{
+ "kind": "brand",
+ "businesses": [
+  {
+   "name": "H-E-B",
+   "lat": 29.482008,
+   "lon": -98.594554,
+   "featured": true,
+   "logo": "build/assets/logos/heb.png",
+   "logo_sha": "919025c19d34"
+  },
+  {
+   "name": "Sam's Club",
+   "lat": 29.48813,
+   "lon": -98.588444,
+   "featured": true,
+   "logo": "build/assets/logos/sams-club.png",
+   "logo_sha": "3864a1852d3f"
+  },
+  {
+   "name": "The Home Depot",
+   "lat": 29.491889,
+   "lon": -98.586572,
+   "featured": true,
+   "logo": "build/assets/logos/home-depot.png",
+   "logo_sha": "a79b80c98daf"
+  },
+  {
+   "name": "Asia Market",
+   "lat": 29.484997,
+   "lon": -98.603073
+  },
+  {
+   "name": "Tuff Shed",
+   "lat": 29.479799,
+   "lon": -98.604425,
+   "logo": "build/assets/logos/tuff-shed.png",
+   "logo_sha": "25b986dcebf1"
+  },
+  {
+   "name": "Home Improvement Warehouse",
+   "lat": 29.483003,
+   "lon": -98.597043
+  }
+ ],
+ "width": 672,
+ "height": 690,
+ "dpr": 2.5,
+ "center": [
+  29.48312795756535,
+  -98.60326255496793
+ ],
+ "bounds": [
+  29.476575,
+  -98.618856,
+  29.49548,
+  -98.581489
+ ],
+ "padding": {
+  "top": 120,
+  "bottom": 80,
+  "left": 110,
+  "right": 110
+ },
+ "maxZoom": 15.2,
+ "polygon": {
+  "type": "FeatureCollection",
+  "features": [
+   {
+    "type": "Feature",
+    "properties": {},
+    "geometry": {
+     "type": "Polygon",
+     "coordinates": [
+      [
+       [
+        -98.60316736436751,
+        29.48349051510087
+       ],
+       [
+        -98.60370930627695,
+        29.483311754111128
+       ],
+       [
+        -98.60378293836958,
+        29.483250171017588
+       ],
+       [
+        -98.60405593445505,
+        29.483493804492497
+       ],
+       [
+        -98.60409797024619,
+        29.48341846788763
+       ],
+       [
+        -98.60385342017325,
+        29.48318771423415
+       ],
+       [
+        -98.60286543645458,
+        29.482294271934336
+       ],
+       [
+        -98.60278002456384,
+        29.48233576705887
+       ],
+       [
+        -98.6034155068161,
+        29.482893262568368
+       ],
+       [
+        -98.60251368879855,
+        29.48320791775491
+       ],
+       [
+        -98.6024953188726,
+        29.48324446865186
+       ],
+       [
+        -98.60316736436751,
+        29.48349051510087
+       ]
+      ]
+     ]
+    }
+   }
+  ]
+ },
+ "pin": {
+  "lat": 29.48312795756535,
+  "lon": -98.60326255496793,
+  "label": "Site"
+ },
+ "refs": [
+  {
+   "lat": 29.482758,
+   "lon": -98.600239,
+   "label": "Loop 410 & Bandera Rd",
+   "place": true
+  }
+ ],
+ "traffic": [
+  {
+   "lat": 29.481519,
+   "lon": -98.597131,
+   "qty": "27,336",
+   "road": "Spur 421 \u00b7 2025"
+  },
+  {
+   "lat": 29.486806,
+   "lon": -98.595322,
+   "qty": "20,857",
+   "road": "Evers Rd \u00b7 2025"
+  },
+  {
+   "lat": 29.476575,
+   "lon": -98.609005,
+   "qty": "202,067",
+   "road": "IH 410 \u00b7 2025"
+  },
+  {
+   "lat": 29.48901176,
+   "lon": -98.61004639,
+   "qty": "40,000",
+   "road": "SH 16 \u00b7 2025"
+  },
+  {
+   "lat": 29.48413,
+   "lon": -98.591825,
+   "qty": "15,616",
+   "road": "Evers Rd \u00b7 2025"
+  },
+  {
+   "lat": 29.49548,
+   "lon": -98.618856,
+   "qty": "49,814",
+   "road": "SH 16 \u00b7 2025"
+  },
+  {
+   "lat": 29.488921,
+   "lon": -98.581489,
+   "qty": "187,186",
+   "road": "IH 410 \u00b7 2025"
+  }
+ ],
+ "scale": true,
+ "north": true,
+ "credit": "\u00a9 OpenMapTiles \u00a9 OpenStreetMap contributors \u00b7 Counts: TxDOT"
+}

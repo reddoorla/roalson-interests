@@ -299,11 +299,18 @@ async function render(page, job) {
       await new Promise((res) => { if (map.loaded() && map.areTilesLoaded()) res(); else map.once('idle', res); });
       const symbolLayers = map.getStyle().layers.filter((l) => l.type === 'symbol' && l.id !== 'blockers').map((l) => l.id);
       const siteLayers = ['site-fill', 'site-line'].filter((id) => map.getLayer(id));
-      // Major roads only (motorway, trunk, primary, secondary, tertiary, their links, and rail): a logo
-      // may sit over a minor street or a service road, as every name label already does, but never
-      // over a major road its name did not already cover. Measured 2026-11-12: protecting minor and
-      // service roads too left no room for any of the 52 logo matches on the 25 maps.
-      const MINOR = /(minor|service_track|path_pedestrian)/;
+      // Major roads only (motorway, trunk, primary, their links, and rail): a logo may sit over a
+      // minor street, a service road, or a secondary or tertiary road, as every name label already
+      // may, but never over a major road its name did not already cover. Measured 2026-11-12:
+      // protecting minor and service roads too left no room for any of the 52 logo matches on the 25
+      // maps. Secondary and tertiary roads joined the minor ones on 2026-11-16 (the operator, option B
+      // of reddoor-workspace decisions/2026-11-16-1835-roalson-logo-placement-relax-which-protection.md):
+      // with them protected, Walmart, Costco or Whataburger had a logo on 7 of the 15 maps that list
+      // one; without, 12. The pattern also matches bridge_ and tunnel_secondary_tertiary and their
+      // casings, on purpose: those are the same roads where they cross over or under something.
+      // Links (ramps, road_link and *_motorway_link) stay protected, including secondary and tertiary
+      // links, since a ramp reads as part of the highway it serves.
+      const MINOR = /(minor|service_track|path_pedestrian|secondary_tertiary)/;
       const roadLayers = map.getStyle().layers.filter((l) => l.type === 'line' && l['source-layer'] === 'transportation' && !MINOR.test(l.id)).map((l) => l.id);
       const any = (bx, layers) => map.queryRenderedFeatures([[bx.l, bx.t], [bx.r, bx.b]], { layers }).length > 0;
       // More spots for a logo, tried after the fixed ones above, so a logo that fitted before keeps its
@@ -383,12 +390,13 @@ async function render(page, job) {
       }
       await new Promise((res) => { if (map.loaded() && map.areTilesLoaded()) res(); else map.once('idle', res); });
     }
-    // What the map draws under each logo that its name did not already cover: every line and
-    // symbol layer and the site outline, queried apart from the placement rule above, over the
-    // logo box less the name's old box (symbols and the site over the whole logo box). A record
-    // for the tests; it must be empty.
+    // What the map draws under each logo that its name did not already cover: every protected road
+    // line (motorway, trunk, primary, their links, and rail; minor, service, path and, since option B
+    // on 2026-11-16, secondary and tertiary roads may be covered), every symbol layer and the site
+    // outline, queried apart from the placement rule above, over the logo box less the name's old box
+    // (symbols and the site over the whole logo box). A record for the tests; it must be empty.
     const allLayers = map.getStyle().layers ?? [];
-    const lineIds = allLayers.filter((l) => l.type === 'line' && l['source-layer'] === 'transportation' && !/(minor|service_track|path_pedestrian)/.test(l.id)).map((l) => l.id);
+    const lineIds = allLayers.filter((l) => l.type === 'line' && l['source-layer'] === 'transportation' && !/(minor|service_track|path_pedestrian|secondary_tertiary)/.test(l.id)).map((l) => l.id);
     const markIds = allLayers.filter((l) => (l.type === 'symbol' || l.id.startsWith('site-')) && l.id !== 'blockers').map((l) => l.id);
     const ids = (r, layers) => map.queryRenderedFeatures([[r.l, r.t], [r.r, r.b]], { layers }).map((f) => f.layer.id);
     // Queried one 1x1 px cell at a time across the logo box and its 1 px shadow, so this record
@@ -407,6 +415,19 @@ async function render(page, job) {
       return [...found];
     };
     const out = boxes.map((x) => ({ name: x.biz.name, logo: x.biz.logo ?? null, kind: x.kind, dot: [x.pt.x, x.pt.y], l: x.l, t: x.t, r: x.r, b: x.b, line: x.line, ...(x.was ? { was: x.was } : {}), ...(x.kind === 'logo' ? { under: under(x) } : {}) }));
+    // Every count, count dot, intersection label and ring, pin tag and dot, and business label as the
+    // page finally draws it, read back from the DOM, and every business dot still on the map (3.4 px
+    // plus its 1.4 px stroke). These are HTML or a circle layer, which under() cannot see, so the
+    // tests check them against each logo from this record (2026-11-16).
+    const marks = [...document.querySelectorAll('.aadt, .aadt-dot, .ref, .xring, .pin .tag, .pin .dot, .biz')].map((el) => {
+      const r = el.getBoundingClientRect();
+      return { kind: el.matches('.biz') ? 'biz' : el.matches('.pin .tag') ? 'pin' : el.matches('.pin .dot') ? 'pin-dot' : el.className, l: r.left, t: r.top, r: r.right, b: r.bottom };
+    });
+    for (const b of job.businesses ?? []) {
+      if (dropped.includes(`business ${b.name}`)) continue;
+      const pt = map.project([b.lon, b.lat]);
+      marks.push({ kind: 'biz-dot', l: pt.x - 4.8, t: pt.y - 4.8, r: pt.x + 4.8, b: pt.y + 4.8 });
+    }
     const root = document.body;
     if (job.north) {
       const n = document.createElement('div'); n.className = 'north';
@@ -435,7 +456,7 @@ async function render(page, job) {
     await new Promise((res) => { if (map.loaded() && map.areTilesLoaded()) res(); else map.once('idle', res); });
     await new Promise((res) => setTimeout(res, 400));
     await new Promise((res) => { if (map.areTilesLoaded()) res(); else map.once('idle', res); });
-    return { zoom: map.getZoom(), center: map.getCenter(), dropped, boxes: out };
+    return { zoom: map.getZoom(), center: map.getCenter(), dropped, boxes: out, marks };
   }, { job, style, GARNET, DUST, logos });
   mkdirSync(dirname(job.out), { recursive: true });
   if (job.heightPx) {
@@ -544,7 +565,7 @@ for (const job of jobs) {
     if (job.strict && r.dropped.some((x) => x.startsWith('count ') || x.startsWith('business '))) throw new Error(`map-only map has no room for ${r.dropped.join('; ')}; nothing is stamped`);
     if (run.failures) throw new Error(`${run.failures} imagery tiles failed; the previous image is kept and nothing is stamped, so the next run re-renders it`);
     renameSync(job.tmp, job.out);
-    if (job.businesses) writeFileSync(`${job.out}.boxes.json`, JSON.stringify({ width: job.width, height: job.height, ...(job.heightPx ? { heightPx: job.heightPx } : {}), dpr: job.dpr, businesses: r.boxes, dropped: r.dropped }, null, 1));
+    if (job.businesses) writeFileSync(`${job.out}.boxes.json`, JSON.stringify({ width: job.width, height: job.height, ...(job.heightPx ? { heightPx: job.heightPx } : {}), dpr: job.dpr, businesses: r.boxes, dropped: r.dropped, marks: r.marks }, null, 1));
     writeFileSync(stamp, spec);
     console.log('ok', job.out, `z=${r.zoom.toFixed(2)}`, `${Date.now() - t}ms`);
   } catch (e) {

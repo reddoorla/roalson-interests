@@ -48,15 +48,27 @@ def swap(uid, src, out):
     size = Image.open(new).size
     if (img['width'], img['height']) != size:
         sys.exit(f"{uid}: the map on page {page.number + 1} is {img['width']}x{img['height']}, the generator's is {size[0]}x{size[1]}; not swapped")
-    page.replace_image(img['xref'], filename=new)
+    # Every image on the page with the map's size and the displayed map's pixels is replaced, not
+    # only the xref get_image_info names. A package saved again after an earlier swap can hold two
+    # identical copies of the map, one drawn (`/X51 Do`) and one only listed in the page's resources,
+    # and get_image_info then names the copy that is not drawn: 5001 Walzem Road, 2026-11-16, where
+    # replacing that one alone left Erik's old map on the page (the proof below caught it).
+    shown = pymupdf.Pixmap(doc, img['xref']).tobytes('png')
+    copies = [x[0] for x in page.get_images(full=True) if (x[2], x[3]) == size and pymupdf.Pixmap(doc, x[0]).tobytes('png') == shown]
+    for x in copies:
+        page.replace_image(x, filename=new)
     doc.save(out, garbage=3, deflate=True)
     # Prove it: the same pages with the same text, and that page's map is now the generator's.
     a, b = pymupdf.open(src), pymupdf.open(out)
     if len(a) != len(b) or any(x.get_text() != y.get_text() for x, y in zip(a, b)):
         sys.exit(f'{uid}: {out} does not keep the text of every page of {src}')
     got = max(b[page.number].get_image_info(xrefs=True), key=lambda i: i['width'] * i['height'])
-    if pymupdf.Pixmap(b, got['xref']).tobytes('png') != pymupdf.Pixmap(new).tobytes('png'):
+    want = pymupdf.Pixmap(new).tobytes('png')
+    if pymupdf.Pixmap(b, got['xref']).tobytes('png') != want:
         sys.exit(f'{uid}: the map in {out} is not {new}')
+    # And no image of the map's size on that page still holds the old map, whichever one is drawn.
+    if any(pymupdf.Pixmap(b, x[0]).tobytes('png') == shown for x in b[page.number].get_images(full=True) if (x[2], x[3]) == size):
+        sys.exit(f'{uid}: {out} still holds the old map on page {page.number + 1}')
     return page.number + 1
 
 

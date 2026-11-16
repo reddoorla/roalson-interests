@@ -1,0 +1,152 @@
+{
+ "kind": "brand",
+ "businesses": [
+  {
+   "name": "Walmart Supercenter",
+   "lat": 27.4893,
+   "lon": -97.85361,
+   "featured": true,
+   "logo": "build/assets/logos/walmart.png",
+   "logo_sha": "491a6382a829"
+  },
+  {
+   "name": "Lowe's",
+   "lat": 27.493507,
+   "lon": -97.850407,
+   "featured": true,
+   "logo": "build/assets/logos/lowes.png",
+   "logo_sha": "cfe0d7e05a01"
+  },
+  {
+   "name": "Whataburger",
+   "lat": 27.490561,
+   "lon": -97.848267,
+   "featured": true,
+   "logo": "build/assets/logos/whataburger.png",
+   "logo_sha": "85ddd002de42"
+  },
+  {
+   "name": "CHRISTUS Spohn Hospital - Kleberg",
+   "lat": 27.490199,
+   "lon": -97.850804,
+   "logo": "build/assets/logos/christus-spohn.png",
+   "logo_sha": "7c887aebf29c"
+  }
+ ],
+ "width": 672,
+ "height": 690,
+ "dpr": 2.5,
+ "center": [
+  27.489706159884488,
+  -97.84884339967729
+ ],
+ "bounds": [
+  27.486027,
+  -97.855988,
+  27.508266,
+  -97.84361
+ ],
+ "padding": {
+  "top": 180,
+  "bottom": 140,
+  "left": 170,
+  "right": 170
+ },
+ "maxZoom": 15.2,
+ "polygon": {
+  "type": "FeatureCollection",
+  "features": [
+   {
+    "type": "Feature",
+    "properties": {},
+    "geometry": {
+     "type": "Polygon",
+     "coordinates": [
+      [
+       [
+        -97.84902272100108,
+        27.490106250464763
+       ],
+       [
+        -97.84837734359142,
+        27.489843139997134
+       ],
+       [
+        -97.84865471856298,
+        27.489304736062635
+       ],
+       [
+        -97.8493165736938,
+        27.48957515646748
+       ],
+       [
+        -97.84902272100108,
+        27.490106250464763
+       ]
+      ]
+     ]
+    }
+   }
+  ]
+ },
+ "pin": {
+  "lat": 27.489706159884488,
+  "lon": -97.84884339967729,
+  "label": "Site"
+ },
+ "refs": [
+  {
+   "lat": 27.491494,
+   "lon": -97.846887,
+   "label": "US 77 & General Cavazos Blvd",
+   "place": true
+  }
+ ],
+ "traffic": [
+  {
+   "lat": 27.49146,
+   "lon": -97.849064,
+   "qty": "14,330",
+   "road": "FM 1356 \u00b7 2025"
+  },
+  {
+   "lat": 27.486027,
+   "lon": -97.849978,
+   "qty": "19,603",
+   "road": "US 77 \u00b7 2025"
+  },
+  {
+   "lat": 27.490455,
+   "lon": -97.855789,
+   "qty": "7,948",
+   "road": "FM 1717 \u00b7 2025"
+  },
+  {
+   "lat": 27.496883,
+   "lon": -97.84361,
+   "qty": "19,914",
+   "road": "US 77 \u00b7 2025"
+  },
+  {
+   "lat": 27.500145,
+   "lon": -97.85597,
+   "qty": "13,043",
+   "road": "FM 1717 \u00b7 2025"
+  },
+  {
+   "lat": 27.503442,
+   "lon": -97.855975,
+   "qty": "13,973",
+   "road": "Bus. US 77V \u00b7 2025"
+  },
+  {
+   "lat": 27.508266,
+   "lon": -97.855988,
+   "qty": "18,059",
+   "road": "Bus. US 77V \u00b7 2025"
+  }
+ ],
+ "scale": true,
+ "north": true,
+ "credit": "\u00a9 OpenMapTiles \u00a9 OpenStreetMap contributors \u00b7 Counts: TxDOT"
+}
