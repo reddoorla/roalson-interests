@@ -1,9 +1,30 @@
 {
- "source": "Dropbox /Clients/Roalson Interests/Listing PDFs/Surrounding Area Logos (Erik, 2026-11-12, 17 files)",
+ "source": "Dropbox /Clients/Roalson Interests/Listing PDFs/Surrounding Area Logos (Erik: 17 files 2026-11-12, 10 more 2026-11-13)",
  "not_matched": {
-  "Lowe's Market": "The Texas grocery chain at Comfort, not Lowe's Home Improvement; keeps its name."
+  "Lowe's Market": "The Texas grocery chain at Comfort, not Lowe's Home Improvement: it has its own logo (lowes-market.png), never Lowe's."
  },
  "logos": [
+  {
+   "file": "build/assets/logos/baptist.png",
+   "source": "Baptist Medical Center.png",
+   "names": [
+    "Baptist Medical Center"
+   ]
+  },
+  {
+   "file": "build/assets/logos/childrens-hospital.png",
+   "source": "Children's Hospital of San Antonio.png",
+   "names": [
+    "The Children's Hospital of San Antonio"
+   ]
+  },
+  {
+   "file": "build/assets/logos/christus-spohn.png",
+   "source": "Christus Spohn Hospital.png",
+   "names": [
+    "CHRISTUS Spohn Hospital - Kleberg"
+   ]
+  },
   {
    "file": "build/assets/logos/circle-k.png",
    "source": "Circle K.eps",
@@ -19,6 +40,13 @@
    ]
   },
   {
+   "file": "build/assets/logos/el-merkadito.png",
+   "source": "El Merkadito.png",
+   "names": [
+    "El Merkadito Arts & Crafts"
+   ]
+  },
+  {
    "file": "build/assets/logos/fairfield-inn.png",
    "source": "Fairfield Inn by Marriott.eps",
    "names": [
@@ -26,11 +54,31 @@
    ]
   },
   {
+   "file": "build/assets/logos/heb-plus.png",
+   "source": "HEB Plus.png",
+   "names": [
+    "H-E-B plus!"
+   ]
+  },
+  {
    "file": "build/assets/logos/heb.png",
    "source": "HEB.eps",
    "names": [
-    "H-E-B",
-    "H-E-B plus!"
+    "H-E-B"
+   ]
+  },
+  {
+   "file": "build/assets/logos/home-depot.png",
+   "source": "The_Home_Depot.eps",
+   "names": [
+    "The Home Depot"
+   ]
+  },
+  {
+   "file": "build/assets/logos/james-avery.png",
+   "source": "James Avery.png",
+   "names": [
+    "James Avery Jewelry"
    ]
   },
   {
@@ -45,6 +93,13 @@
    "source": "Loves Travel Stops.ai",
    "names": [
     "Love's"
+   ]
+  },
+  {
+   "file": "build/assets/logos/lowes-market.png",
+   "source": "Lowes Market.png",
+   "names": [
+    "Lowe's Market"
    ]
   },
   {
@@ -69,6 +124,13 @@
    ]
   },
   {
+   "file": "build/assets/logos/nix.png",
+   "source": "Nix Medical Center.png",
+   "names": [
+    "Nix Medical Center"
+   ]
+  },
+  {
    "file": "build/assets/logos/ross.png",
    "source": "Ross Dress for Less.eps",
    "names": [
@@ -83,17 +145,17 @@
    ]
   },
   {
-   "file": "build/assets/logos/home-depot.png",
-   "source": "The_Home_Depot.eps",
-   "names": [
-    "The Home Depot"
-   ]
-  },
-  {
    "file": "build/assets/logos/tuff-shed.png",
    "source": "Tuff Shed.eps",
    "names": [
     "Tuff Shed"
+   ]
+  },
+  {
+   "file": "build/assets/logos/university-health.png",
+   "source": "University Health.png",
+   "names": [
+    "University Health System - Robert B. Green Campus"
    ]
   },
   {
@@ -126,5 +188,9 @@
     "Whataburger"
    ]
   }
- ]
+ ],
+ "not_used": {
+  "Comfort High School.png": "Its only listing is the Hwy 87 Development Site, which the operator kept without logos (2026-11-13); not converted.",
+  "Builder's Mark Home Improvement": "No logo in the folder (still open on Erik's 11-13 checklist); 5001 Walzem keeps its name."
+ }
 }

@@ -41,6 +41,12 @@ def swap(uid, src, out):
     if len(pages) != 1:
         sys.exit(f'{uid}: {len(pages)} "{TITLE}" pages in {src}; expected 1')
     page = pages[0]
+    # A rotated map page would fail the page proof's mask, and an annotation can draw the map image
+    # where get_images cannot see it (review round 2); refuse both plainly. None of Erik's PDFs has either.
+    if page.rotation:
+        sys.exit(f'{uid}: page {page.number + 1} of {src} is rotated {page.rotation} degrees; not swapped')
+    if any(p.first_annot for p in doc):
+        sys.exit(f'{uid}: {src} has annotations, which can draw the map image unseen; not swapped')
     img = max(page.get_image_info(xrefs=True), key=lambda i: i['width'] * i['height'])
     over = [i for i in page.get_image_info(xrefs=True) if i['xref'] != img['xref'] and pymupdf.Rect(i['bbox']).intersects(pymupdf.Rect(img['bbox']))]
     if over:
@@ -48,15 +54,53 @@ def swap(uid, src, out):
     size = Image.open(new).size
     if (img['width'], img['height']) != size:
         sys.exit(f"{uid}: the map on page {page.number + 1} is {img['width']}x{img['height']}, the generator's is {size[0]}x{size[1]}; not swapped")
-    page.replace_image(img['xref'], filename=new)
+    # Every image on the page with the map's size and the displayed map's pixels is replaced, not
+    # only the xref get_image_info names. A package saved again after an earlier swap can hold two
+    # identical copies of the map, one drawn (`/X51 Do`) and one only listed in the page's resources,
+    # and get_image_info then names the copy that is not drawn: 5001 Walzem Road, 2026-11-16, where
+    # replacing that one alone left Erik's old map on the page (the proof below caught it).
+    shown = pymupdf.Pixmap(doc, img['xref']).tobytes('png')
+    want = pymupdf.Pixmap(new).tobytes('png')
+    if shown == want:
+        print(f'{uid}: the map on page {page.number + 1} of {src} is already {new}; nothing written')
+        sys.exit(0)
+    copies = [x[0] for x in page.get_images(full=True) if (x[2], x[3]) == size and pymupdf.Pixmap(doc, x[0]).tobytes('png') == shown]
+    # replace_image changes the image everywhere in the file, so an image another page also uses (the
+    # map copied onto another page by hand) would change there too (review round 1). Refuse instead.
+    shared = sorted({o.number + 1 for o in doc if o.number != page.number for x in o.get_images(full=True) if x[0] in copies})
+    if shared:
+        sys.exit(f'{uid}: the map on page {page.number + 1} is also used on page(s) {shared}; not swapped')
+    for x in copies:
+        page.replace_image(x, filename=new)
+    # Saved beside `out` and moved there only once every proof below has passed, so a refusal or an
+    # exception never leaves an unproven file at `out` (review round 2).
+    final, out = out, out + '.tmp.pdf'
     doc.save(out, garbage=3, deflate=True)
+
+    def fail(msg):
+        os.remove(out)
+        sys.exit(msg.replace(out, final))
+
     # Prove it: the same pages with the same text, and that page's map is now the generator's.
     a, b = pymupdf.open(src), pymupdf.open(out)
     if len(a) != len(b) or any(x.get_text() != y.get_text() for x, y in zip(a, b)):
-        sys.exit(f'{uid}: {out} does not keep the text of every page of {src}')
+        fail(f'{uid}: {out} does not keep the text of every page of {src}')
     got = max(b[page.number].get_image_info(xrefs=True), key=lambda i: i['width'] * i['height'])
-    if pymupdf.Pixmap(b, got['xref']).tobytes('png') != pymupdf.Pixmap(new).tobytes('png'):
-        sys.exit(f'{uid}: the map in {out} is not {new}')
+    if pymupdf.Pixmap(b, got['xref']).tobytes('png') != want:
+        fail(f'{uid}: the map in {out} is not {new}')
+    # And no image of the map's size on that page still holds the old map, whichever one is drawn.
+    if any(pymupdf.Pixmap(b, x[0]).tobytes('png') == shown for x in b[page.number].get_images(full=True) if (x[2], x[3]) == size):
+        fail(f'{uid}: {out} still holds the old map on page {page.number + 1}')
+    # And every other page looks exactly as it did, as does the map page outside the map's box.
+    for x, y in zip(a, b):
+        pa, pb = x.get_pixmap(dpi=50), y.get_pixmap(dpi=50)
+        if x.number == page.number:
+            for pm in (pa, pb):
+                r = pymupdf.Rect(img['bbox']) * (50 / 72)
+                pm.set_rect(pymupdf.IRect(r.x0 - 1, r.y0 - 1, r.x1 + 1, r.y1 + 1), (0, 0, 0) if pm.n == 3 else (0,) * pm.n)
+        if pa.samples != pb.samples:
+            fail(f'{uid}: page {x.number + 1} of {out} does not look like page {x.number + 1} of {src}')
+    os.replace(out, final)
     return page.number + 1
 
 

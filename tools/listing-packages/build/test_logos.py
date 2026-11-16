@@ -23,7 +23,25 @@ Checks:
      lies over the interstate, keeps its name or finds a spot with nothing protected under it.
      This is the case check 5 cannot reach (in B the first spot is already clear): with the road
      rule removed, the logo lands on IH 10 (measured 2026-11-12).
-  6. lib/logos.py matches the listed names only: "Lowe's Market" (the grocer) is not Lowe's.
+  6. lib/logos.py matches the listed names only: "Lowe's Market" (the grocer) is its own logo, not
+     Lowe's; "Walmart Neighborhood Market" and a bare "Walmart" are not Walmart Supercenter.
+  8. Crowded maps, with the real logos (2026-11-16, option B of reddoor-workspace
+     decisions/2026-11-16-1835-roalson-logo-placement-relax-which-protection.md):
+     D  build/test/fixture-dove-canyon-job.json: Costco is drawn as a logo over part of a secondary
+        or tertiary road (`roads`), with nothing protected under it.
+     K  build/test/fixture-kingsville-job.json: Whataburger is drawn as a logo, with nothing
+        protected under it, at one of the extra spots around its dot (`via` == 'ring').
+     R  build/test/fixture-bandera-job.json: Sam's Club is drawn as a logo on the second pass or
+        later (`pass`), once another logo has moved off its name's spot.
+     N  the Hwy 46 fixture plus a test business whose name is too long for the map: its logo is
+        drawn anyway, its dot is back on the map (read from the map's dot layer), and nothing
+        protected lies under it. A second business of the same name, with no room even for its
+        logo, neither takes that dot away nor gets a bare dot of its own.
+     M  the Hwy 46 fixture plus a test business with a long name beside the IH 10 count: its logo is
+        drawn within 15 px of a count or its dot, so check 9M has something to catch.
+  9. In every render above, no logo overlaps a count or its dot, an intersection label or ring, the
+     pin, another business's label, or any business dot: maps.mjs records each one's final box in
+     boxes.json (`marks`), since they are HTML or a circle layer that `under` cannot see.
 Needs network (OpenFreeMap tiles), like every map render. Exits 1 on any failure.
 """
 import json, os, subprocess, sys, tempfile
@@ -33,6 +51,11 @@ from PIL import Image, ImageDraw
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 FIXTURE = os.path.join(HERE, 'test', 'fixture-traffic-job.json')
+DOVE = os.path.join(HERE, 'test', 'fixture-dove-canyon-job.json')
+KINGSVILLE = os.path.join(HERE, 'test', 'fixture-kingsville-job.json')
+BANDERA = os.path.join(HERE, 'test', 'fixture-bandera-job.json')
+# Wider than the map at 11 px Archivo, so the name has no room anywhere and only its logo can show.
+LONG = 'Test Business With A Name Far Too Long To Fit Anywhere On This Map, Whichever Side Of The Dot It Tries'
 TARGET = 'The Home Depot'
 MAGENTA = (255, 0, 255)
 JITTER = 32
@@ -56,12 +79,35 @@ def boxes(png):
     return {b['name']: b for b in json.load(open(png + '.boxes.json'))['businesses']}
 
 
+def overlaps(png):
+    """Every (logo, mark) pair whose boxes overlap, from boxes.json's `marks` (the logo's own box excluded)."""
+    d = json.load(open(png + '.boxes.json'))
+    out = []
+    for b in d['businesses']:
+        if b['kind'] != 'logo':
+            continue
+        for m in d['marks']:
+            if m['kind'] == 'biz' and all(abs(m[k] - b[k]) < 0.5 for k in 'ltrb'):
+                continue
+            # place() keeps 3 px around every label, count and pin, and a ring 1 px on two sides, so those
+            # need 1 px of air; dots
+            # are kept clear by under a pixel (a business dot by 0.2 px, a count dot by 0.5), so they
+            # need only not overlap.
+            g = 0 if m['kind'] in ('biz-dot', 'aadt-dot') else 1
+            if m['l'] - g < b['r'] and m['r'] + g > b['l'] and m['t'] - g < b['b'] and m['b'] + g > b['t']:
+                out.append(f"{b['name'][:24]} over {m['kind']}")
+    return out
+
+
 def matching():
     sys.path.insert(0, os.path.join(os.path.dirname(HERE), 'lib'))
     from logos import with_logo, _index
     idx = _index()
-    expect = {"Lowe's": 'lowes', "Lowe's Market": None, 'H-E-B plus!': 'heb', 'H-E-B': 'heb', 'The Home Depot': 'home-depot',
-              'Walmart Supercenter': 'walmart', "Chili's": None, 'James Avery Jewelry': None}
+    # Erik's 11-13 logos (the operator, 2026-11-16: "make sure all the logos erik provided are being
+    # used"): Lowe's Market, James Avery and H-E-B plus! now have their own files.
+    expect = {"Lowe's": 'lowes', "Lowe's Market": 'lowes-market', 'H-E-B plus!': 'heb-plus', 'H-E-B': 'heb', 'The Home Depot': 'home-depot',
+              'Walmart Supercenter': 'walmart', "Chili's": None, 'James Avery Jewelry': 'james-avery',
+              'Walmart Neighborhood Market': None, 'Walmart': None}
     got = {n: (os.path.splitext(os.path.basename(with_logo({'name': n}, idx).get('logo', '')))[0] or None) for n in expect}
     check(got == expect, f'6. logos match listed names only: {got}')
     hd = with_logo({'name': 'The Home Depot'}, idx)
@@ -94,7 +140,17 @@ def main():
         jc = json.loads(json.dumps(base))
         jc['businesses'].append({'name': 'Test Stop', 'lat': 29.7855, 'lon': -98.7455, 'logo': logo})
         c = os.path.join(t, 'C.png')
-        json.dump([{**base, 'out': os.path.join(t, 'W.png')}, {**base, 'out': a}, {**base, 'out': a2}, {**jb, 'out': b}, {**jc, 'out': c}], open(jobs, 'w'))
+        jn = json.loads(json.dumps(base))
+        jn['businesses'].append({'name': LONG, 'lat': 29.77494, 'lon': -98.74337, 'logo': logo})
+        # A second business of the same name where even its logo has no room (measured 2026-11-16):
+        # it must not take the first one's dot with it (review round 1, dots were keyed by name).
+        jn['businesses'].append({'name': LONG, 'lat': 29.77494, 'lon': -98.74926, 'logo': logo})
+        jm = json.loads(json.dumps(base))
+        jm['businesses'].append({'name': LONG, 'lat': 29.78395, 'lon': -98.74300, 'logo': logo})
+        dv, kv, nn, mm, rr = (os.path.join(t, f'{k}.png') for k in ('D', 'K', 'N', 'M', 'R'))
+        json.dump([{**base, 'out': os.path.join(t, 'W.png')}, {**base, 'out': a}, {**base, 'out': a2}, {**jb, 'out': b}, {**jc, 'out': c},
+                   {**json.load(open(DOVE)), 'out': dv}, {**json.load(open(KINGSVILLE)), 'out': kv}, {**jn, 'out': nn}, {**jm, 'out': mm},
+                   {**json.load(open(BANDERA)), 'out': rr}], open(jobs, 'w'))
         render(jobs)
         A, A2, B = (np.asarray(Image.open(p).convert('RGB')).astype(int) for p in (a, a2, b))
         dpr = base['dpr']
@@ -140,6 +196,29 @@ def main():
         ts = boxes(c).get('Test Stop')
         check(bool(ts) and (ts['kind'] == 'name' or ts.get('under') == []),
               f"7. a logo on IH 10 keeps its name or covers nothing protected (kind={ts and ts['kind']}, under={ts and ts.get('under')})")
+        co = boxes(dv).get('Costco')
+        check(bool(co) and co['kind'] == 'logo' and co.get('under') == [] and any('secondary_tertiary' in r for r in co.get('roads', [])),
+              f"8D. Dove Canyon: Costco is a logo over part of a secondary or tertiary road, nothing protected under it (kind={co and co['kind']}, under={co and co.get('under')}, roads={co and co.get('roads')})")
+        wb = boxes(kv).get('Whataburger')
+        check(bool(wb) and wb['kind'] == 'logo' and wb.get('under') == [] and wb.get('via') == 'ring',
+              f"8K. Kingsville: Whataburger is a logo at a ring spot, nothing protected under it (kind={wb and wb['kind']}, via={wb and wb.get('via')}, under={wb and wb.get('under')})")
+        sc = boxes(rr).get("Sam's Club")
+        check(bool(sc) and sc['kind'] == 'logo' and sc.get('under') == [] and (sc.get('pass') or 0) >= 2,
+              f"8R. Bandera: Sam's Club is a logo placed on a later pass, nothing protected under it (kind={sc and sc['kind']}, pass={sc and sc.get('pass')}, under={sc and sc.get('under')})")
+        nm = json.load(open(nn + '.boxes.json'))
+        tn = {x['name']: x for x in nm['businesses']}.get(LONG)
+        dot = tn and any(m['kind'] == 'biz-dot' and m.get('name') == LONG and abs((m['l'] + m['r']) / 2 - tn['dot'][0]) < 0.5 and abs((m['t'] + m['b']) / 2 - tn['dot'][1]) < 0.5 for m in nm['marks'])
+        check(bool(tn) and tn['kind'] == 'logo' and 'was' not in tn and tn.get('under') == [] and dot and nm['dropped'].count(f'business {LONG}') == 1
+              and sum(m['kind'] == 'biz-dot' and m.get('name') == LONG for m in nm['marks']) == 1,
+              f"8N. a business whose name has no room shows its logo and its dot, nothing protected under it (kind={tn and tn['kind']}, under={tn and tn.get('under')}, dot={dot})")
+        tm = boxes(mm).get(LONG)
+        aadt = [m for m in json.load(open(mm + '.boxes.json'))['marks'] if m['kind'] in ('aadt', 'aadt-dot')]
+        near = min((max(m['l'] - tm['r'], tm['l'] - m['r'], m['t'] - tm['b'], tm['t'] - m['b'], 0) for m in aadt), default=1e9) if tm else 1e9
+        check(bool(tm) and tm['kind'] == 'logo' and near < 15,
+              f"8M. the test logo is drawn {near:.0f}px from a count or its dot, so 9M is not vacuous (kind={tm and tm['kind']})")
+        for k, png in (('B', b), ('C', c), ('D', dv), ('K', kv), ('N', nn), ('M', mm), ('R', rr)):
+            ov = overlaps(png)
+            check(ov == [], f'9{k}. no logo overlaps a count, ring, pin, label or dot: {ov or "none"}')
     matching()
     if fails:
         sys.exit(f'{len(fails)} check(s) failed')
