@@ -174,15 +174,26 @@ async function render(page, job) {
     });
     // `skip` is a box the line may cross: a horizontal leader line (below) starts beside its dot,
     // where the business's own name sits, and the name is removed when its logo is placed.
-    const segHitsTaken = (x1, y1, x2, y2, skip = null) => {
+    const segHitsTaken = (x1, y1, x2, y2, skip = null, own = null) => {
       const n = Math.max(2, Math.ceil(Math.hypot(x2 - x1, y2 - y1) / 3));
       for (let i = 0; i <= n; i++) {
         const x = x1 + (x2 - x1) * i / n, y = y1 + (y2 - y1) * i / n;
+        if (own && x >= own.l && x <= own.r && y >= own.t && y <= own.b) continue;
         if (taken.some((o) => o !== skip && x > o.l && x < o.r && y > o.t && y < o.b)) return true;
       }
       return false;
     };
-    const place = (el, pt, side = false, { first = [], more = null, free = () => true, ignore = null } = {}) => {
+    // Whether segment a crosses segment b, touching at an end excepted (two lines from one dot).
+    const segsCross = ([ax, ay, bx, by], [cx, cy, dx, dy]) => {
+      const o = (px, py, qx, qy, rx, ry) => Math.sign((qx - px) * (ry - py) - (qy - py) * (rx - px));
+      return o(ax, ay, bx, by, cx, cy) * o(ax, ay, bx, by, dx, dy) < 0 && o(cx, cy, dx, dy, ax, ay) * o(cx, cy, dx, dy, bx, by) < 0;
+    };
+    // `fromDot`: check a leader line from the edge of its dot's own 10 px box, not from 12 px out. Logos
+    // use it (review round 1, 2026-11-16: a test logo's line crossed a count dot within those 12 px).
+    // Inside its own box a line is on its dot, so what lies there is excused: El Merkadito's dot on 402
+    // W. Nueva sits 1.4 px inside the SITE tag, and every line from it starts there, as its name's does.
+    // Labels keep the old rule.
+    const place = (el, pt, side = false, { first = [], more = null, free = () => true, ignore = null, fromDot = false } = {}) => {
       el.style.cssText = 'position:absolute;left:0;top:0;visibility:hidden;z-index:4';
       document.body.appendChild(el);
       const w = el.offsetWidth, h = el.offsetHeight;
@@ -204,8 +215,13 @@ async function render(page, job) {
         const cx = Math.max(box.l, Math.min(pt.x, box.r)), cy = Math.max(box.t, Math.min(pt.y, box.b));
         const d = Math.hypot(cx - pt.x, cy - pt.y);
         if (d > near) {
-          const k = Math.min(1, 12 / d);
-          if (segHitsTaken(pt.x + (cx - pt.x) * k, pt.y + (cy - pt.y) * k, cx, cy, tag === 'line' ? ignore : null) || !free({ l: Math.min(pt.x, cx), t: Math.min(pt.y, cy), r: Math.max(pt.x, cx), b: Math.max(pt.y, cy) }, true)) continue;
+          const k = fromDot ? 0 : Math.min(1, 12 / d);
+          const own = fromDot ? { l: pt.x - 5, t: pt.y - 5, r: pt.x + 5, b: pt.y + 5 } : null;
+          if (segHitsTaken(pt.x + (cx - pt.x) * k, pt.y + (cy - pt.y) * k, cx, cy, tag === 'line' ? ignore : null, own) || !free({ l: Math.min(pt.x, cx), t: Math.min(pt.y, cy), r: Math.max(pt.x, cx), b: Math.max(pt.y, cy) }, true, tag === 'line')) continue;
+          // A horizontal line runs up to LINE_MAX, far enough to cross another leader line (a count's,
+          // an intersection label's, another logo's), so it may not (review round 1, 2026-11-16). The
+          // shorter lines keep their old rule, so the logos placed before the lines do not move.
+          if (tag === 'line' && segs.some((sg) => segsCross([pt.x, pt.y, cx, cy], sg))) continue;
         }
         el.style.left = `${box.l}px`; el.style.top = `${box.t}px`; el.style.visibility = 'visible';
         const slot = { l: box.l - 3, t: box.t - 3, r: box.r + 3, b: box.b + 3 };
@@ -349,7 +365,8 @@ async function render(page, job) {
         // 2026-11-16 3:00pm PT: "make the lines go horizontal until they get to open space to include
         // the logo"): the logo centred on the dot's height, 60 px out and farther, 4 px apart, to
         // LINE_MAX, nearer first, right before left at each distance. The line and the logo stay clear
-        // of everything any spot must, so this places a logo only where nothing is covered.
+        // of everything any spot must, and the line of every other leader line, so this places a logo
+        // only where nothing is covered; the one exception is the site, on a listing with siteLine.
         for (let d = 60; d <= LINE_MAX; d += 4) out.push([pt.x + d, pt.y - h / 2, 'line'], [pt.x - w - d, pt.y - h / 2, 'line']);
         return out;
       };
@@ -358,13 +375,17 @@ async function render(page, job) {
         // Roads too: a logo box is opaque white. The name's own box already covered whatever streets
         // it sat on, on today's approved map, so a logo may cover those and no others (review round
         // 1, 2026-11-12: a spot away from the name covered a local street).
-        const old = x.kind === 'name' ? { l: x.l, t: x.t, r: x.r, b: x.b } : null; // exactly what the name's white box covered
-        const free = (bx, isLine = false) => {
+        // Exactly what the name's white box covered, as the page drew it. place() records offsetWidth and
+        // offsetHeight, which round to whole px, so a box read that way could excuse up to 0.5 px the name
+        // never covered (review round 1, 2026-11-16).
+        const rectOf = (e) => { const r = e.getBoundingClientRect(); return { l: r.left, t: r.top, r: r.right, b: r.bottom }; };
+        const old = x.kind === 'name' ? rectOf(x.el) : null;
+        const free = (bx, isLine = false, horizontal = false) => {
           const p = { l: bx.l - 2, t: bx.t - 2, r: bx.r + 2, b: bx.b + 2 };
-          // A leader line may cross the site outline only where the listing says so (job.siteLine, from
-          // geo/sites.json logo_line_across_site: IH 10 at 87, where Love's dot is inside the site; the
-          // operator, 2026-11-16). The logo box itself never may.
-          if (any(p, [...symbolLayers, ...(isLine && job.siteLine ? [] : siteLayers)])) return false;
+          // A horizontal leader line (a 'line' candidate, below) may cross the site only where the listing
+          // says so (job.siteLine, from geo/sites.json logo_line_across_site: IH 10 at 87, where Love's dot
+          // is inside the site; the operator, 2026-11-16). No other leader line and no logo box ever may.
+          if (any(p, [...symbolLayers, ...(isLine && horizontal && job.siteLine ? [] : siteLayers)])) return false;
           return isLine || (old ? outside(p, old) : [p]).every((r) => !any(r, roadLayers));
         };
         if (!els.has(x)) {
@@ -385,7 +406,7 @@ async function render(page, job) {
         const first = old ? [(w, h) => [onRight ? old.l : old.r - w, (old.t + old.b) / 2 - h / 2]] : [];
         const more = ring(x.pt, old ? [(old.l + old.r) / 2, (old.t + old.b) / 2] : [x.pt.x, x.pt.y]);
         if (x.seg) segs.splice(segs.indexOf(x.seg), 1);
-        const got = place(el, x.pt, true, { first, more, free, ignore: x.slot ?? null });
+        const got = place(el, x.pt, true, { first, more, free, ignore: x.slot ?? null, fromDot: true });
         if (!got) {
           if (x.seg) segs.push(x.seg);
           return false;
@@ -394,7 +415,7 @@ async function render(page, job) {
           x.el.remove();
           x.ln?.remove();
           taken.splice(taken.indexOf(x.slot), 1);
-          x.was = { l: x.l, t: x.t, r: x.r, b: x.b, line: x.line };
+          x.was = { ...old, line: x.line };
         } else {
           dropped.splice(dropped.indexOf(`business ${x.biz.name}`), 1);
           gone.delete(x.biz);
@@ -464,8 +485,22 @@ async function render(page, job) {
     // Every road line, protected or not, under the part of a logo box its name did not cover: a record
     // for the tests, so a check can prove a logo sits over a secondary or tertiary road (option B).
     const roadIds = allLayers.filter((l) => l.type === 'line' && l['source-layer'] === 'transportation').map((l) => l.id);
+    // What the map draws along a logo's leader line, sampled 1 px apart, each sample a 1x1 px query:
+    // symbols and the site (review round 1, 2026-11-16: nothing measured a line). The tests allow only
+    // the site, and only for a horizontal line on a listing with siteLine.
+    const alongLine = (x) => {
+      if (!x.line) return [];
+      const [x1, y1, x2, y2] = x.line;
+      const n = Math.max(1, Math.ceil(Math.hypot(x2 - x1, y2 - y1)));
+      const found = new Set();
+      for (let i = 0; i <= n; i++) {
+        const px = x1 + (x2 - x1) * i / n, py = y1 + (y2 - y1) * i / n;
+        for (const id of ids({ l: px - 0.5, t: py - 0.5, r: px + 0.5, b: py + 0.5 }, markIds)) found.add(id);
+      }
+      return [...found];
+    };
     const roads = (x) => [...new Set((x.was ? outside(x, x.was) : [x]).flatMap((r) => ids(r, roadIds)))];
-    const out = boxes.map((x) => ({ name: x.biz.name, logo: x.biz.logo ?? null, kind: x.kind, dot: [x.pt.x, x.pt.y], l: x.l, t: x.t, r: x.r, b: x.b, line: x.line, ...(x.was ? { was: x.was } : {}), ...(x.kind === 'logo' ? { under: under(x), via: x.via, pass: x.pass, roads: roads(x) } : {}) }));
+    const out = boxes.map((x) => ({ name: x.biz.name, logo: x.biz.logo ?? null, kind: x.kind, dot: [x.pt.x, x.pt.y], l: x.l, t: x.t, r: x.r, b: x.b, line: x.line, ...(x.was ? { was: x.was } : {}), ...(x.kind === 'logo' ? { under: under(x), line_under: alongLine(x), via: x.via, pass: x.pass, roads: roads(x) } : {}) }));
     // Every count, count dot, intersection label and ring, pin tag and dot, and business label as the
     // page finally draws it, read back from the DOM, and every business dot still on the map (3.4 px
     // plus its 1.4 px stroke). These are HTML or a circle layer, which under() cannot see, so the
@@ -515,7 +550,7 @@ async function render(page, job) {
     await new Promise((res) => { if (map.loaded() && map.areTilesLoaded()) res(); else map.once('idle', res); });
     await new Promise((res) => setTimeout(res, 400));
     await new Promise((res) => { if (map.areTilesLoaded()) res(); else map.once('idle', res); });
-    return { zoom: map.getZoom(), center: map.getCenter(), dropped, boxes: out, marks };
+    return { zoom: map.getZoom(), center: map.getCenter(), dropped, boxes: out, marks, segs };
   }, { job, style, GARNET, DUST, logos, LOGO_PX, LINE_MAX });
   mkdirSync(dirname(job.out), { recursive: true });
   if (job.heightPx) {
@@ -624,7 +659,7 @@ for (const job of jobs) {
     if (job.strict && r.dropped.some((x) => x.startsWith('count ') || x.startsWith('business '))) throw new Error(`map-only map has no room for ${r.dropped.join('; ')}; nothing is stamped`);
     if (run.failures) throw new Error(`${run.failures} imagery tiles failed; the previous image is kept and nothing is stamped, so the next run re-renders it`);
     renameSync(job.tmp, job.out);
-    if (job.businesses) writeFileSync(`${job.out}.boxes.json`, JSON.stringify({ width: job.width, height: job.height, ...(job.heightPx ? { heightPx: job.heightPx } : {}), dpr: job.dpr, businesses: r.boxes, dropped: r.dropped, marks: r.marks }, null, 1));
+    if (job.businesses) writeFileSync(`${job.out}.boxes.json`, JSON.stringify({ width: job.width, height: job.height, ...(job.heightPx ? { heightPx: job.heightPx } : {}), dpr: job.dpr, businesses: r.boxes, dropped: r.dropped, marks: r.marks, segs: r.segs ?? [], siteLine: !!job.siteLine }, null, 1));
     writeFileSync(stamp, spec);
     console.log('ok', job.out, `z=${r.zoom.toFixed(2)}`, `${Date.now() - t}ms`);
   } catch (e) {

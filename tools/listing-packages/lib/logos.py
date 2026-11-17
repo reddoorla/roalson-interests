@@ -47,6 +47,9 @@ def logo_px(logo, uid=None, sizes_path=SIZES):
     known = {os.path.basename(lg['file'])[:-4] for lg in json.load(open(SPEC))['logos']}
     everywhere = spec.get('logos', {}).get('scale', {})
     listings = spec.get('listings', {})
+    uids = set(json.load(open(os.path.join(ROOT, 'geo', 'sites.json')))) | set(json.load(open(os.path.join(ROOT, 'geo', 'map-only.json'))))
+    if set(listings) - uids:
+        raise SystemExit(f'build/logo-sizes.json: scales listings geo/sites.json and geo/map-only.json do not list: {sorted(set(listings) - uids)}')
     for where, sc in [('logos', everywhere)] + [(u, v.get('scale', {})) for u, v in listings.items()]:
         if set(sc) - {'*'} - known:
             raise SystemExit(f'build/logo-sizes.json: {where} scales logos build/logos.json does not list: {sorted(set(sc) - {"*"} - known)}')

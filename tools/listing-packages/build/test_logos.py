@@ -58,9 +58,14 @@ Checks:
             the clip fix Nix recorded bridge_street, which lies 0.69 px inside the name's old box. The
             map's 28 px logos (the Children's Hospital, University Health) sit among road names, so a
             rule that let a scaled logo cover a label is caught here (measured 2026-11-16).
+     J      build/make_jobs.py's site_jobs, the real job path: Kingsville's job carries Whataburger and
+            CHRISTUS at 28, and only IH 10 at 87's carries siteLine.
+  11. overlaps() itself, on hand-made records whose answers are known.
   9. In every render above, no logo overlaps a count or its dot, an intersection label or ring, the
      pin, another business's label, or any business dot: maps.mjs records each one's final box in
-     boxes.json (`marks`), since they are HTML or a circle layer that `under` cannot see.
+     boxes.json (`marks`), since they are HTML or a circle layer that `under` cannot see. No logo's
+     leader line crosses one of those (its own dot and box aside), another leader line (`segs`), or
+     a symbol or the site (`line_under`), except a horizontal line across the site where siteLine is set.
 Needs network (OpenFreeMap tiles), like every map render. Exits 1 on any failure.
 """
 import json, os, subprocess, sys, tempfile
@@ -100,10 +105,56 @@ def boxes(png):
     return {b['name']: b for b in json.load(open(png + '.boxes.json'))['businesses']}
 
 
+def seg_in_rect(x1, y1, x2, y2, r):
+    """Whether the segment passes through rectangle r's interior (Liang-Barsky clipping)."""
+    t0, t1, dx, dy = 0.0, 1.0, x2 - x1, y2 - y1
+    for p, q in ((-dx, x1 - r['l']), (dx, r['r'] - x1), (-dy, y1 - r['t']), (dy, r['b'] - y1)):
+        if p == 0:
+            if q <= 0:
+                return False
+            continue
+        t = q / p
+        if p < 0:
+            t0 = max(t0, t)
+        else:
+            t1 = min(t1, t)
+    return t1 - t0 > 1e-6
+
+
+def segs_cross(a, b):
+    o = lambda px, py, qx, qy, rx, ry: (qx - px) * (ry - py) - (qy - py) * (rx - px)
+    sg = lambda v: (v > 1e-9) - (v < -1e-9)
+    return (sg(o(*a, b[0], b[1])) * sg(o(*a, b[2], b[3])) < 0) and (sg(o(*b, a[0], a[1])) * sg(o(*b, a[2], a[3])) < 0)
+
+
 def overlaps(png):
-    """Every (logo, mark) pair whose boxes overlap, from boxes.json's `marks` (the logo's own box excluded)."""
+    """Every (logo, mark) pair whose boxes overlap, from boxes.json's `marks` (the logo's own box excluded),
+    and what each logo's leader line crosses (review round 1, 2026-11-16): a mark other than its own dot
+    and box, another leader line (`segs`), or anything `line_under` records but the site, which only a
+    horizontal line on a listing with siteLine may cross."""
     d = json.load(open(png + '.boxes.json'))
     out = []
+    for b in d['businesses']:
+        if b['kind'] != 'logo' or not b.get('line'):
+            continue
+        # The test starts where the line leaves its dot's own 10 px box, as maps.mjs's check does: inside
+        # it the line is on its dot (El Merkadito's dot on 402 W. Nueva is 1.4 px inside the SITE tag).
+        x1, y1, x2, y2 = b['line']
+        ex = min([5 / abs(v) for v in (x2 - x1, y2 - y1) if v] or [1])
+        ln = b['line'] if ex >= 1 else [x1 + (x2 - x1) * ex, y1 + (y2 - y1) * ex, x2, y2]
+        for m in d['marks']:
+            if m['kind'] == 'biz' and all(abs(m[k] - b[k]) < 0.5 for k in 'ltrb'):
+                continue
+            if m['kind'] == 'biz-dot' and m['l'] <= ln[0] <= m['r'] and m['t'] <= ln[1] <= m['b']:
+                continue  # its own dot, where the line starts
+            if seg_in_rect(*ln, m):
+                out.append(f"{b['name'][:24]} line over {m['kind']}")
+        for sg in d.get('segs', []):
+            if not all(abs(u - v) < 0.01 for u, v in zip(sg, b['line'])) and segs_cross(ln, sg):
+                out.append(f"{b['name'][:24]} line crosses a leader line")
+        allowed = {'site-fill', 'site-line', 'site-halo'} if d.get('siteLine') and b.get('via') == 'line' else set()
+        for lid in set(b.get('line_under', [])) - allowed:
+            out.append(f"{b['name'][:24]} line over {lid}")
     for b in d['businesses']:
         if b['kind'] != 'logo':
             continue
@@ -164,6 +215,54 @@ def sizes():
         except SystemExit:
             refused = True
         check(refused, '10sizes. a scale naming a logo build/logos.json lacks stops the build')
+        json.dump({'default_px': 22, 'listings': {'402-w-nueva-st': {'scale': {'*': 1.25}}}}, open(bad, 'w'))
+        try:
+            logo_px(lg('walmart'), kv, sizes_path=bad)
+            refused = False
+        except SystemExit:
+            refused = True
+        check(refused, '10sizes. a scale for a listing geo/sites.json and geo/map-only.json lack stops the build')
+
+
+def instrument():
+    """overlaps() on hand-made boxes.json records, so the line checks are proven on inputs where the
+    answer is known (review round 1, 2026-11-16): a clean line passes; a line over a count, across
+    another leader line, or over a road label fails; the site passes only for a horizontal line on a
+    listing with siteLine; the dot's own box is excused."""
+    logo = {'name': 'T', 'kind': 'logo', 'l': 200, 't': 90, 'r': 240, 'b': 110, 'dot': [100, 100], 'line': [100, 100, 200, 100], 'via': 'line', 'line_under': []}
+    dot = {'kind': 'biz-dot', 'name': 'T', 'l': 95.2, 't': 95.2, 'r': 104.8, 'b': 104.8}
+    def run(siteLine=False, marks=(), segs=(), **kw):
+        with tempfile.TemporaryDirectory() as t:
+            p = os.path.join(t, 'x.png')
+            json.dump({'businesses': [{**logo, **kw}], 'marks': [dot, *marks], 'segs': [logo['line'], *segs], 'siteLine': siteLine}, open(p + '.boxes.json', 'w'))
+            return overlaps(p)
+    cases = {
+        'clean': (run(), False),
+        'line over a count': (run(marks=[{'kind': 'aadt', 'l': 140, 't': 95, 'r': 160, 'b': 105}]), True),
+        'line across a leader line': (run(segs=[[150, 80, 150, 120]]), True),
+        'line over a road label': (run(line_under=['highway-name-major']), True),
+        'site, siteLine, horizontal': (run(siteLine=True, line_under=['site-line']), False),
+        'site, no siteLine': (run(line_under=['site-line']), True),
+        'site, siteLine, a ring line': (run(siteLine=True, line_under=['site-line'], via='ring'), True),
+        'a tag over the dot (inside its own box)': (run(marks=[{'kind': 'pin', 'l': 60, 't': 80, 'r': 101.4, 'b': 104}]), False),
+    }
+    bad = [k for k, (got, want) in cases.items() if bool(got) != want]
+    check(not bad, f'11. overlaps() on hand-made records: {bad or "every case as expected"}')
+
+
+def job_path():
+    """The real path into a job, build/make_jobs.py's site_jobs: Erik's per-listing sizes and the site line
+    reach the traffic jobs (review round 1, 2026-11-16: the fixtures carry both written in, so a job
+    builder that dropped them passed every other check)."""
+    sys.path.insert(0, HERE)
+    import make_jobs
+    tj = lambda uid: next(j for j in make_jobs.site_jobs(uid, make_jobs.sites[uid])[0] if j['out'].endswith('/traffic.jpg'))
+    kv, cf, dv = tj('highway-77-at-general-cavazos-kingsville'), tj('ih-10-at-highway-87-comfort'), tj('loop-1604-at-dove-canyon')
+    px = {b['name']: b.get('logo_px') for b in kv['businesses'] if b.get('logo')}
+    check(px.get('Whataburger') == 28 and px.get('CHRISTUS Spohn Hospital - Kleberg') == 28 and px.get('Walmart Supercenter') == 22,
+          f'10J. make_jobs: Kingsville\'s traffic job carries Erik\'s sizes ({px})')
+    check(cf.get('siteLine') is True and 'siteLine' not in dv,
+          f"10J. make_jobs: siteLine is set on IH 10 at 87's traffic job only (Comfort {cf.get('siteLine')}, Dove Canyon {dv.get('siteLine')})")
 
 
 def mask_for(shape, dpr, items, pad=3):
@@ -286,12 +385,12 @@ def main():
         # 10. Option C and Erik's sizes.
         ws, wk = boxes(sv).get('Whataburger'), boxes(kv).get('Whataburger')
         hs, hk = (x and x['kind'] == 'logo' and round(x['b'] - x['t'], 1) for x in (ws, wk))
-        # .biz.logo pads 3 px above and below the image; Whataburger's logo is taller than wide, so its
-        # height, not its width cap, sets the size.
+        # .biz.logo pads 3 px above and below the image; Whataburger's logo is near square (166x160), far
+        # below the 92/28 aspect where the width cap would set the size instead.
         check(hs == 34 and hk == 28 and ws.get('under') == [],
               f"10S. Whataburger draws 28 px tall at logo_px 28 and 22 px by default, nothing protected under it (boxes {hs} and {hk} px with padding, under={ws and ws.get('under')})")
         ro = boxes(dv).get('Ross')
-        flat = bool(ro) and bool(ro.get('line')) and abs(ro['line'][1] - ro['line'][3]) < 0.01 and abs(ro['line'][1] - ro['dot'][1]) < 0.01
+        flat = bool(ro) and bool(ro.get('line')) and abs(ro['line'][1] - ro['line'][3]) < 0.01
         check(bool(ro) and ro['kind'] == 'logo' and ro.get('via') == 'line' and flat and ro.get('under') == [],
               f"10L. Dove Canyon: Ross is a logo on a horizontal leader line, nothing protected under it (kind={ro and ro['kind']}, via={ro and ro.get('via')}, line={ro and ro.get('line')}, under={ro and ro.get('under')})")
         lv, lv0 = boxes(gv).get("Love's"), boxes(g0).get("Love's")
@@ -309,6 +408,8 @@ def main():
             check(ov == [], f'9{k}. no logo overlaps a count, ring, pin, label or dot: {ov or "none"}')
     matching()
     sizes()
+    instrument()
+    job_path()
     if fails:
         sys.exit(f'{len(fails)} check(s) failed')
     print('all checks passed')

@@ -17,11 +17,11 @@ heroes = json.load(open(A('build', 'heroes.json')))
 for _uid, _h in heroes.items():
     if _h.get('image') and os.path.exists(A(_h['image'])):
         covers_needed[_uid] = False
-only = set(sys.argv[1:])
-jobs, meta = [], json.load(open(A('geo', 'meta.json')))
-for uid, s in sites.items():
-    if only and uid not in only:
-        continue
+
+
+def site_jobs(uid, s):
+    """One listing's map jobs and its meta (traffic stations, flood), as the build makes them. Imported
+    by test_logos.py, so the per-listing logo sizes and the site line are tested on this path."""
     d = json.load(open(A('data', f'{uid}.json')))
     geom = s['geom']
     if geom and geom['type'] == 'MultiPolygon':
@@ -42,20 +42,33 @@ for uid, s in sites.items():
             for p in s['extra_pins']:
                 b = [min(b[0], p['lat']), min(b[1], p['lon']), max(b[2], p['lat']), max(b[3], p['lon'])]
             j['bounds'] = b
-    jobs += J
-    if uid not in meta:
-        fl = m['flood'] or {}
-        meta[uid] = {'flood_zones': fl.get('_zones', []), 'dfirm': [x for x in fl.get('_dfirm', []) if x], 'n_flood': len(fl.get('features', []))}
-    meta[uid]['traffic'] = m['traffic']
-    meta[uid]['site'] = site
-# Map-only sites (2026-11-13): build/map_only.py.
-sys.path.insert(0, HERE)
-import map_only
-for uid, entry in map_only.load(sites).items():
-    if not only or uid in only:
-        jobs += map_only.jobs(uid, entry)
-json.dump(jobs, open(A('build', 'jobs-all.json'), 'w'))
-json.dump(meta, open(A('geo', 'meta.json'), 'w'), indent=1)
-for k in range(3):
-    json.dump(jobs[k::3], open(A('build', f'jobs-{k}.json'), 'w'))
-print(len(jobs), 'jobs')
+    return J, m, site
+
+
+def main(only):
+    jobs, meta = [], json.load(open(A('geo', 'meta.json')))
+    for uid, s in sites.items():
+        if only and uid not in only:
+            continue
+        J, m, site = site_jobs(uid, s)
+        jobs += J
+        if uid not in meta:
+            fl = m['flood'] or {}
+            meta[uid] = {'flood_zones': fl.get('_zones', []), 'dfirm': [x for x in fl.get('_dfirm', []) if x], 'n_flood': len(fl.get('features', []))}
+        meta[uid]['traffic'] = m['traffic']
+        meta[uid]['site'] = site
+    # Map-only sites (2026-11-13): build/map_only.py.
+    sys.path.insert(0, HERE)
+    import map_only
+    for uid, entry in map_only.load(sites).items():
+        if not only or uid in only:
+            jobs += map_only.jobs(uid, entry)
+    json.dump(jobs, open(A('build', 'jobs-all.json'), 'w'))
+    json.dump(meta, open(A('geo', 'meta.json'), 'w'), indent=1)
+    for k in range(3):
+        json.dump(jobs[k::3], open(A('build', f'jobs-{k}.json'), 'w'))
+    print(len(jobs), 'jobs')
+
+
+if __name__ == '__main__':
+    main(set(sys.argv[1:]))

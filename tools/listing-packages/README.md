@@ -169,13 +169,15 @@ it fits.
 
 Last of all, a logo may sit out along a horizontal leader line from its dot, 60 to 200 px out, 4 px
 apart, right before left at each distance (Erik, 2026-11-16 3:00pm PT: "make the lines go horizontal
-until they get to open space"). The line and the logo stay clear of everything any spot must, except
-that the line may cross the business's own name, which the logo replaces. Such a logo records
+until they get to open space"). The line and the logo stay clear of everything any spot must, and the line
+may not cross another leader line, except that it may cross the business's own name, which the logo
+replaces. `boxes.json` records what each logo's line crosses (`line_under`, and every leader line in
+`segs`), and the checks below fail on anything but the site where `siteLine` allows it. Such a logo records
 `via: 'line'`. Ross at Dove Canyon, Walmart at 11714 Perrin Beitel, H-E-B and Tuff Shed at 5930
 Bandera, NAPA at IH 10 at Scenic Loop, the Children's Hospital at 402 W. Nueva and Love's at IH 10 at
 87 place this way (measured 2026-11-16). A listing with `logo_line_across_site: true` in
-`geo/sites.json` (passed to the traffic job as `siteLine`) lets that line cross the site outline;
-the logo itself still may not touch the site. Only IH 10 at 87 has it, where Love's dot is inside
+`geo/sites.json` (passed to the traffic job as `siteLine`) lets a horizontal line cross the site
+(its fill and outline); no other leader line may, and no logo box may touch the site. Only IH 10 at 87 has it, where Love's dot is inside
 the site (the operator, 2026-11-16).
 
 With no room anywhere the business keeps its name (`logo … (no room; name kept)` in the
@@ -194,15 +196,19 @@ label and dot, and `dropped`.
 - `python3 build/test_logos.py` renders a fixture map (Hwy 46 at Spencer Ranch Blvd) through
   `maps.mjs`, with and without a test logo, and with test businesses added. It also renders five
   real maps with their real logos: Dove Canyon, Kingsville, 5930 Bandera, St. Mary's and IH 10 at 87
-  (`build/test/`). It checks:
+  (`build/test/`). Dove Canyon and Kingsville draw at the 22 px default (Kingsville's build gives
+  Whataburger and CHRISTUS 28), and Bandera at 28 (option B's size, the input that still needs a
+  second pass); St. Mary's and IH 10 at 87 carry their build sizes. It checks:
   - the logo is drawn above the map beside its dot;
   - the other businesses keep their names in place;
   - nothing else changes;
   - nothing protected lies under a logo, including where the first spot is over the interstate;
-  - Costco at Dove Canyon (room only under option B), Whataburger at Kingsville (room only at a
-    ring spot), Sam's Club at Bandera (room only on the second pass) and a business whose name is
-    too long for any spot all get their logo;
-  - no logo overlaps a count, a ring, the pin, another label or a dot (`marks`);
+  - at the fixtures' sizes, Costco at Dove Canyon (room only under option B), Whataburger at
+    Kingsville (room only at a ring spot), Sam's Club at Bandera (room only on the second pass) and a
+    business whose name is too long for any spot all get their logo;
+  - no logo overlaps a count, a ring, the pin, another label or a dot (`marks`), and no leader line
+    crosses one, another leader line, or a symbol or the site (`line_under`), but for the site line;
+  - `build/make_jobs.py`'s `site_jobs`, the real path into a job, carries Erik's sizes and `siteLine`;
   - the sizes in `build/logo-sizes.json`, including that UTSA, H-E-B and La Michoacana stay at 22 px
     on 402 W. Nueva, and that a logo given 28 px draws 28 px tall;
   - Ross at Dove Canyon on a horizontal line; Love's on a line across the site at IH 10 at 87, and
@@ -223,8 +229,9 @@ label and dot, and `dropped`.
 - `python3 build/logo_check.py [uid…]` (after `make_jobs.py`) renders every listing's traffic map
   with and without its logos into `qa/logos/`. It fails if anything outside the swapped boxes
   changed, if anything protected lies under a logo, or (since 2026-11-16) if a logo overlaps a
-  count, a ring, the pin, another label or a dot. Before that, a renderer that let a logo over a
-  count passed it on four maps.
+  count, a ring, the pin, another label or a dot, or its leader line crosses one of those, another
+  leader line, or a symbol. Before that, a renderer that let a scaled logo over a count, the pin or
+  a label passed it on four maps.
 - `python3 build/swap_area_map.py <uid> <their.pdf> <out.pdf>` puts the generator's current
   traffic map into a package Erik has edited by hand, replacing only that image. It refuses a stale
   or unstamped map, a page with other images over the map, or a page laid out differently, and it

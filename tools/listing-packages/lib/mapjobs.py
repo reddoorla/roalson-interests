@@ -126,8 +126,9 @@ def jobs_for(uid,site,outdir,title,geom=None,cover=True,date='September 2026',ex
             for k in ('bounds','padding','maxZoom'): del tj[k]
             tj.update(center=list(traffic_view['center']),zoom=traffic_view['zoom'])
         if height_px: tj['heightPx']=height_px
-        # A logo's horizontal leader line may cross the site outline on this map (geo/sites.json
-        # logo_line_across_site; IH 10 at 87 only, 2026-11-16). The logo itself still may not touch the site.
+        # On this map a logo's horizontal leader line (maps.mjs's 'line' candidates; no other leader line)
+        # may cross the site (geo/sites.json logo_line_across_site; IH 10 at 87 only, 2026-11-16). No logo
+        # box may touch the site.
         if logo_line_across_site: tj['siteLine']=True
         # A map-only site's map must show every count its facts row quotes and every business it lists.
         if only_traffic: tj['strict']=True
