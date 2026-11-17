@@ -13,8 +13,9 @@ render) and reports:
     count, its dot, an intersection label or ring, the pin, another label or a business dot, or a
     logo's leader line over one of those, across another leader line (`segs`), or over a symbol or
     the site (`line_under`; the site only for a horizontal line where siteLine is set), a logo box
-    over another leader line, or a record missing `segs` or a line's `line_under` (review round 3,
-    2026-11-17): those are test_logos.overlaps, from boxes.json. So does a logo file that would not
+    over another leader line, a record missing `segs` or a line's `line_under` (review round 3,
+    2026-11-17), or a logo whose record differs from its drawn box or has none (rounds 4 and 5):
+    those are test_logos.overlaps, from boxes.json. So does a logo file that would not
     decode (`dropped` says "unreadable"), which would otherwise read as a logo with no room. Below it is antialiasing: on 2026-11-12, IH 10 at Highway 46 differed in 7
     pixels on one row of a count box's border (at most 51/255), the box itself unmoved, while a
     vanished road label or count changes hundreds.

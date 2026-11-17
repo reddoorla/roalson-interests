@@ -670,10 +670,10 @@ for (const job of jobs) {
     // exactly the businesses it shows, so a count or business with no room stops it too.
     if (job.strict && r.dropped.some((x) => x.startsWith('count ') || x.startsWith('business '))) throw new Error(`map-only map has no room for ${r.dropped.join('; ')}; nothing is stamped`);
     if (run.failures) throw new Error(`${run.failures} imagery tiles failed; the previous image is kept and nothing is stamped, so the next run re-renders it`);
-    renameSync(job.tmp, job.out);
     // No default for segs (review round 4, 2026-11-17): a record written without it must fail the checks,
-    // not pass them as a map with no leader lines.
-    if (job.businesses && !Array.isArray(r.segs)) throw new Error(`${job.out}: render() returned no segs`);
+    // not pass them as a map with no leader lines. Checked before the rename, so the previous image is kept.
+    if (job.businesses && !Array.isArray(r.segs)) throw new Error(`${job.out}: render() returned no segs; nothing is stamped`);
+    renameSync(job.tmp, job.out);
     if (job.businesses) writeFileSync(`${job.out}.boxes.json`, JSON.stringify({ width: job.width, height: job.height, ...(job.heightPx ? { heightPx: job.heightPx } : {}), dpr: job.dpr, businesses: r.boxes, dropped: r.dropped, marks: r.marks, segs: r.segs, siteLine: !!job.siteLine }, null, 1));
     writeFileSync(stamp, spec);
     console.log('ok', job.out, `z=${r.zoom.toFixed(2)}`, `${Date.now() - t}ms`);

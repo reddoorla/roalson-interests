@@ -61,13 +61,18 @@ Checks:
      J      build/make_jobs.py's site_jobs, the real job path: Kingsville's job carries Whataburger and
             CHRISTUS at 28; IH 10 at 87's carries siteLine and Dove Canyon's does not, and
             geo/sites.json flags IH 10 at 87 alone.
-  11. overlaps() itself, on hand-made records whose answers are known: the line checks, and (round 3)
-      the logo box against counts, labels, dots and other leader lines, and missing records.
+  11. overlaps() itself, on hand-made records whose answers are known: the line checks; (round 3)
+      the logo box against counts, labels, dots and other leader lines, and missing records; (round 4)
+      a logo's own line ending inside its box, a line along the box's edge, and a record rounded from
+      the drawn box; (round 5) a logo with no drawn box recorded, and two logos drawn on one spot.
   9. In every render above, no logo overlaps a count or its dot, an intersection label or ring, the
      pin, another business's label, or any business dot: maps.mjs records each one's final box in
      boxes.json (`marks`), since they are HTML or a circle layer that `under` cannot see. No logo's
      leader line crosses one of those (its own dot and box aside), another leader line (`segs`), or
      a symbol or the site (`line_under`), except a horizontal line across the site where siteLine is set.
+     No logo box lies over another leader line, and each logo's record is the box the page drew (its
+     own `biz` mark, exactly one per logo). Every business's line, logo or name, is in `segs` (9x), and
+     9L proves the fixtures draw logo lines, so those checks are not vacuous.
 Needs network (OpenFreeMap tiles), like every map render. Exits 1 on any failure.
 """
 import json, os, subprocess, sys, tempfile
@@ -141,7 +146,15 @@ def overlaps(png):
     # field is not an empty one.
     if 'segs' not in d:
         out.append('segs not recorded')
-    for b in d['businesses']:
+    # Each logo's own drawn box: the one nearest `biz` mark (review round 5, 2026-11-17). Exactly one mark is
+    # excused per logo, so two logos drawn on top of each other each still see the other's mark.
+    dev = lambda m, b: max(abs(m[k] - b[k]) for k in 'ltrb')
+    owns = {}
+    for i, b in enumerate(d['businesses']):
+        if b['kind'] == 'logo':
+            near = min((m for m in d['marks'] if m['kind'] == 'biz'), key=lambda m: dev(m, b), default=None)
+            owns[i] = near if near is not None and dev(near, b) < 0.5 else None
+    for i, b in enumerate(d['businesses']):
         if b['kind'] != 'logo' or not b.get('line'):
             continue
         if 'line_under' not in b:
@@ -152,7 +165,7 @@ def overlaps(png):
         ex = min([5 / abs(v) for v in (x2 - x1, y2 - y1) if v] or [1])
         ln = b['line'] if ex >= 1 else [x1 + (x2 - x1) * ex, y1 + (y2 - y1) * ex, x2, y2]
         for m in d['marks']:
-            if m['kind'] == 'biz' and all(abs(m[k] - b[k]) < 0.5 for k in 'ltrb'):
+            if m is owns[i]:
                 continue
             if seg_in_rect(*ln, m):
                 out.append(f"{b['name'][:24]} line over {m['kind']}")
@@ -164,13 +177,16 @@ def overlaps(png):
         allowed = {'site-fill', 'site-line', 'site-halo'} if d.get('siteLine') and b.get('via') == 'line' and flat else set()
         for lid in set(b.get('line_under', [])) - allowed:
             out.append(f"{b['name'][:24]} line over {lid}")
-    for b in d['businesses']:
+    for i, b in enumerate(d['businesses']):
         if b['kind'] != 'logo':
             continue
         # The record is the box the page drew (review round 4, 2026-11-17): the logo's own `biz` mark is
-        # read from the page, so a record rounded from it (offsetWidth) differs and fails here.
-        own = [m for m in d['marks'] if m['kind'] == 'biz' and all(abs(m[k] - b[k]) < 0.5 for k in 'ltrb')]
-        if own and max(abs(own[0][k] - b[k]) for k in 'ltrb') > 0.05:
+        # read from the page, so a record rounded from it (offsetWidth) differs and fails here. A logo with
+        # no drawn box recorded fails too (round 5): a missing mark is not a matching one.
+        own = owns[i]
+        if own is None:
+            out.append(f"{b['name'][:24]} drawn box not recorded")
+        elif dev(own, b) > 0.05:
             out.append(f"{b['name'][:24]} recorded box differs from the drawn box")
         # No logo box over another leader line (review round 3, 2026-11-17): leader lines are SVG, which
         # `under` cannot see, and the pixel diff masks the logo box.
@@ -178,7 +194,7 @@ def overlaps(png):
             if not (b.get('line') and all(abs(u - v) < 0.01 for u, v in zip(sg, b['line']))) and seg_in_rect(*sg, b, touch=True):
                 out.append(f"{b['name'][:24]} over a leader line")
         for m in d['marks']:
-            if m['kind'] == 'biz' and all(abs(m[k] - b[k]) < 0.5 for k in 'ltrb'):
+            if m is owns[i]:
                 continue
             # place() keeps 3 px around every label, count and pin, and a ring 1 px on two sides, so those
             # need 1 px of air; dots
@@ -241,6 +257,14 @@ def sizes():
         except SystemExit:
             refused = True
         check(refused, '10sizes. a scale for a listing geo/sites.json and geo/map-only.json lack stops the build')
+        for v in (True, float('nan'), float('inf'), 0, -1):
+            open(bad, 'w').write(json.dumps({'default_px': 22, 'listings': {kv: {'scale': {'walmart': v}}}}))
+            try:
+                logo_px(lg('walmart'), kv, sizes_path=bad)
+                refused = False
+            except SystemExit:
+                refused = True
+            check(refused, f'10sizes. a scale of {v!r} stops the build')
 
 
 def instrument():
@@ -250,11 +274,12 @@ def instrument():
     listing with siteLine; the dot's own box is excused."""
     logo = {'name': 'T', 'kind': 'logo', 'l': 200, 't': 90, 'r': 240, 'b': 110, 'dot': [100, 100], 'line': [100, 100, 200, 100], 'via': 'line', 'line_under': []}
     dot = {'kind': 'biz-dot', 'name': 'T', 'l': 95.2, 't': 95.2, 'r': 104.8, 'b': 104.8}
-    def run(siteLine=False, marks=(), segs=(), drop=None, **kw):
+    def run(siteLine=False, marks=(), segs=(), drop=None, nomark=False, others=(), **kw):
         with tempfile.TemporaryDirectory() as t:
             p = os.path.join(t, 'x.png')
             biz = {k: v for k, v in {**logo, **kw}.items() if v is not None}
-            rec = {'businesses': [biz], 'marks': [dot, *marks], 'segs': [biz.get('line', logo['line']), *segs], 'siteLine': siteLine}
+            mine = [] if nomark else [{'kind': 'biz', **{k: biz[k] for k in 'ltrb'}}]
+            rec = {'businesses': [biz, *others], 'marks': [dot, *mine, *marks], 'segs': [biz.get('line', logo['line']), *segs], 'siteLine': siteLine}
             rec.pop(drop, None)
             json.dump(rec, open(p + '.boxes.json', 'w'))
             return overlaps(p)
@@ -277,13 +302,19 @@ def instrument():
         # The logo's own line, ending 0.5 px inside its box, is not "another leader line" (round 4).
         'its own line ending inside its box': (run(line=[100, 100, 200.5, 100]), False),
         'a leader line along the box\'s top edge': (run(segs=[[210, 90, 260, 90]]), True),
-        'the record rounded from the drawn box': (run(marks=[{'kind': 'biz', 'l': 200, 't': 90, 'r': 240.29, 'b': 110}]), True),
+        'the record rounded from the drawn box': (run(nomark=True, marks=[{'kind': 'biz', 'l': 200, 't': 90, 'r': 240.29, 'b': 110}]), True),
+        'no drawn box recorded for the logo': (run(nomark=True), True),
+        # Two other logos drawn on one spot, away from T and its line, each with its drawn mark.
+        'two logos drawn on top of each other': (run(others=[{'name': n, 'kind': 'logo', 'l': 300, 't': 150, 'r': 340, 'b': 170, 'dot': [320, 200]} for n in 'UV'],
+                                                     marks=[{'kind': 'biz', 'l': 300, 't': 150, 'r': 340, 'b': 170}] * 2), True),
+        'one other logo, clear of it': (run(others=[{'name': 'U', 'kind': 'logo', 'l': 300, 't': 150, 'r': 340, 'b': 170, 'dot': [320, 200]}],
+                                            marks=[{'kind': 'biz', 'l': 300, 't': 150, 'r': 340, 'b': 170}]), False),
         'a leader line 1 px clear of the box': (run(segs=[[241, 60, 241, 140]]), False),
         'a count under the box': (run(marks=[{'kind': 'aadt', 'l': 230, 't': 95, 'r': 260, 'b': 105}]), True),
         'a label 0.5 px from the box': (run(marks=[{'kind': 'label', 'l': 240.5, 't': 95, 'r': 270, 'b': 105}]), True),
         'a label 1.5 px from the box': (run(marks=[{'kind': 'label', 'l': 241.5, 't': 95, 'r': 270, 'b': 105}]), False),
         'a business dot touching the box': (run(marks=[{'kind': 'biz-dot', 'name': 'B', 'l': 240, 't': 95, 'r': 249.6, 'b': 104.6}]), False),
-        'the logo\'s own box': (run(marks=[{'kind': 'biz', 'l': 200, 't': 90, 'r': 240, 'b': 110}]), False),
+        'the logo\'s own box (its drawn mark, recorded once)': (run(), False),
         'no segs recorded': (run(drop='segs'), True),
         'no line_under recorded': (run(line_under=None), True),
     }
@@ -452,9 +483,9 @@ def main():
             # Every logo line drawn is in `segs` (review round 4, 2026-11-17): positive evidence the
             # field is live, so an empty `segs` cannot pass the line checks on a map that has lines.
             rec = json.load(open(png + '.boxes.json'))
-            lines = [x['line'] for x in rec['businesses'] if x['kind'] == 'logo' and x.get('line')]
+            lines = [x['line'] for x in rec['businesses'] if x.get('line')]
             gone = [ln for ln in lines if not any(all(abs(u - v) < 0.01 for u, v in zip(ln, sg)) for sg in rec['segs'])]
-            check(not gone, f'9{k}. every logo line ({len(lines)}) is recorded in segs: {gone or "yes"}')
+            check(not gone, f'9{k}. every business line, logo or name ({len(lines)}), is recorded in segs: {gone or "yes"}')
         drawn = sum(1 for png in (dv, kv, gv) for x in json.load(open(png + '.boxes.json'))['businesses'] if x['kind'] == 'logo' and x.get('line'))
         check(drawn > 0, f'9L. the 9x segs checks are not vacuous: {drawn} logo lines drawn on D, K and G')
     matching()

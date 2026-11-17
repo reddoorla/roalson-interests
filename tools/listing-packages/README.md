@@ -210,8 +210,9 @@ label and dot, and `dropped`.
     Kingsville (room only at a ring spot), Sam's Club at Bandera (room only on the second pass) and a
     business whose name is too long for any spot all get their logo;
   - no logo overlaps a count, a ring, the pin, another label, a dot (`marks`) or another leader line
-    (`segs`), and no logo's leader line crosses one of those, another leader line, or a symbol or the
-    site (`line_under`), but for the site line; every logo line drawn is in `segs`;
+    (`segs`), and no logo's leader line crosses one of those, or a symbol or the site (`line_under`),
+    but for the site line; each logo's record is its drawn box (one `biz` mark per logo); every
+    business's line, logo or name, is in `segs`;
   - `overlaps()` itself, on hand-made records whose answers are known (check 11);
   - `build/make_jobs.py`'s `site_jobs`, the real path into a job, carries Erik's sizes and `siteLine`;
   - the sizes in `build/logo-sizes.json`, including that UTSA, H-E-B and La Michoacana stay at 22 px
@@ -237,7 +238,8 @@ label and dot, and `dropped`.
   count, a ring, the pin, another label or a dot, or its leader line crosses one of those, another
   leader line, a symbol, or the site (but for the site line). Since review round 3 (2026-11-17) it
   also fails on a logo box over another leader line, a record missing `segs` or a line's
-  `line_under`, or a logo file that would not decode. Before that, a renderer that let a scaled logo over a count, the pin or
+  `line_under`, a logo file that would not decode, and (rounds 4 and 5) a logo whose record differs
+  from its drawn box or has none. Before that, a renderer that let a scaled logo over a count, the pin or
   a label passed it on four maps.
 - `python3 build/swap_area_map.py <uid> <their.pdf> <out.pdf>` puts the generator's current
   traffic map into a package Erik has edited by hand, replacing only that image. It refuses a stale
