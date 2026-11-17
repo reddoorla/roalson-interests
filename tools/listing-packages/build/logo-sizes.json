@@ -1,0 +1,42 @@
+{
+ "about": "How tall each logo draws on the Area Map with Traffic Counts, in CSS px at the map's 672 px width. default_px applies to every logo. logos scales a logo on every map; listings scales logos on one listing, where \"*\" means every logo on it. Logos are named by file, as in build/logos.json, without .png. The first match wins: the listing's own name, then logos, then the listing's \"*\", else 1. A scaled height is rounded to the nearest whole px, halves up. Read by lib/logos.py.",
+ "default_px": 22,
+ "default_why": "Option C, Erik in #roalson-interests 2026-11-16 2:28pm PT: option B (logos may cover secondary and tertiary roads) plus logos 22 px tall instead of 28. reddoor-workspace decisions/2026-11-16-1835-roalson-logo-placement-relax-which-protection.md, the addendum to its Answer.",
+ "logos": {
+  "why": "Erik 2026-11-16 2:40pm PT: \"Any time the Children's Hospital of San Antonio logo is shown, let's increase it by 125%. Any time the University Health logo is shown, let's increase it by 125%.\"",
+  "scale": {
+   "childrens-hospital": 1.25,
+   "university-health": 1.25
+  }
+ },
+ "listings": {
+  "highway-77-at-general-cavazos-kingsville": {
+   "why": "Erik 2026-11-16 2:28pm PT: \"let's increase the Whataburger and Christus logo by 125%\".",
+   "scale": {
+    "whataburger": 1.25,
+    "christus-spohn": 1.25
+   }
+  },
+  "402-w-nueva-street": {
+   "why": "Erik 2026-11-16 2:28pm PT: \"increase all the logos except UTSA and HEB by 125%\". La Michoacana stays at 22 px, the operator's answer (2026-11-16 about 3:30pm PT, reddoor-workspace decisions/2026-11-16-2251-roalson-option-c-logos-with-no-room.md, follow-up answered): with it at 22 and the rest at 125%, all six logos show.",
+   "scale": {
+    "*": 1.25,
+    "utsa": 1,
+    "heb": 1,
+    "la-michoacana": 1
+   }
+  },
+  "101-w-commerce-street": {
+   "why": "Erik 2026-11-16 2:40pm PT: \"please make the Nix logo up 125%\".",
+   "scale": {
+    "nix": 1.25
+   }
+  },
+  "ih-10-at-highway-87-comfort": {
+   "why": "Erik 2026-11-16 2:40pm PT: \"Lowes market logo increase 125%\".",
+   "scale": {
+    "lowes-market": 1.25
+   }
+  }
+ }
+}
