@@ -149,46 +149,98 @@ any logo on any of the 25 maps (measured 2026-11-12). Secondary and tertiary roa
 protected, Walmart, Costco or Whataburger had a logo on 7 of the 15 maps that list one; without, 12. The rule matches `road_`, `bridge_` and `tunnel_secondary_tertiary` and their casings, which are
 the same roads. Secondary and tertiary ramps (`road_link`) stay protected, except on a bridge: the
 style's `bridge_link` never draws, so such a ramp draws as `bridge_secondary_tertiary` and a logo may
-cover it. Logos stay 28 px tall.
+cover it.
+
+Logos are 22 px tall since 2026-11-16 (option C, Erik's pick; they were 28 px until then).
+`build/logo-sizes.json` holds that default and Erik's scales, each with a `why` quoting him:
+`logos.scale` scales a logo on every map (the Children's Hospital and University Health at 1.25),
+and `listings.<uid>.scale` on one map, where `"*"` means every logo on it. The first match wins:
+the logo named on the listing, then in `logos`, then the listing's `"*"`, else 1. A scaled height
+is rounded to a whole px, halves up, so 1.25 × 22 draws at 28. `lib/logos.py` writes the height
+into the job as `logo_px`, so a size change re-renders the maps it touches, and it stops the build
+when a scale names a logo `build/logos.json` lacks or a listing `geo/sites.json` and
+`geo/map-only.json` lack. A wide logo is capped at 92/28 of its height.
 
 Since 2026-11-16 a logo that finds no room at the fixed spots also tries every position along each
 side of its dot, 4 px apart, at 8, 20, 34 and 56 px. The logos are retried, in passes, while any
 logo still finds a place, since one that moves off its name's spot can free room for another
-(Sam's Club at 5930 Bandera places only on the second pass). A business whose name had no room,
+(Sam's Club at 5930 Bandera placed only on the second pass at 28 px; at 22 px no map needs one). A business whose name had no room,
 and so was left off, now tries its logo too, with no allowance for roads, and gets its dot back if
-it fits. With no room anywhere the business keeps its name (`logo … (no room; name kept)` in the
+it fits.
+
+Last of all, a logo may sit out along a horizontal leader line from its dot, 60 to 200 px out, 4 px
+apart, right before left at each distance (Erik, 2026-11-16 3:00pm PT: "make the lines go horizontal
+until they get to open space"). The logo stays clear of everything any spot must. Its line, like every
+logo's line, may cross a road, but no symbol, label, count, pin, dot or the site, and it
+may not cross another leader line (no logo's line may, since review round 2), except that it may
+cross the business's own name, which the logo replaces. `boxes.json` records what each logo's line crosses (`line_under`, and every leader line in
+`segs`), and the checks below fail on anything but the site where `siteLine` allows it. Such a logo records
+`via: 'line'`. Ross at Dove Canyon, Walmart at 11714 Perrin Beitel, H-E-B and Tuff Shed at 5930
+Bandera, NAPA at IH 10 at Scenic Loop, the Children's Hospital at 402 W. Nueva and Love's at IH 10 at
+87 place this way (measured 2026-11-16). A listing with `logo_line_across_site: true` in
+`geo/sites.json` (passed to the traffic job as `siteLine`) lets a horizontal line cross the site
+(its fill and outline); no other logo's line may, and no logo box may touch the site. (Label lines keep
+the older rule and are not checked against the site or symbols.) Only IH 10 at 87 has it, where Love's dot is inside
+the site (the operator, 2026-11-16).
+
+With no room anywhere the business keeps its name (`logo … (no room; name kept)` in the
 log), or stays left off (`left off, as its name`). So outside the swapped boxes the map changes only
 where a nameless logo brings back its dot or a logo draws a leader line; `logo_check.py` masks both.
 Erik's hand edit on 2026-11-12 smeared part of SH 46 on Hwy 46 West Development Site, which is a
 package made outside this generator; this never draws over a map. Each traffic map writes
 `<map>.boxes.json`: every business's box, whether it got its logo, and for a logo, `under`, what a
-separate query finds drawn beneath it that the rules protect (it must be empty). It also writes
+separate query finds drawn beneath it that the rules protect (it must be empty). That query skips
+what the name's own box already covered, cutting each 1 px cell at the box's exact edges: before
+2026-11-16 a cell straddling the edge was queried whole, and St. Mary's recorded a street lying
+0.69 px inside the name's box. It also writes
 `marks`, the final boxes of every count, count dot, intersection label and ring, pin and business
 label and dot, and `dropped`.
 
 - `python3 build/test_logos.py` renders a fixture map (Hwy 46 at Spencer Ranch Blvd) through
-  `maps.mjs`, with and without a test logo, and with test businesses added. It also renders three
-  real maps with their real logos: Dove Canyon, Kingsville and 5930 Bandera (`build/test/`). It
-  checks:
+  `maps.mjs`, with and without a test logo, and with test businesses added. It also renders five
+  real maps with their real logos: Dove Canyon, Kingsville, 5930 Bandera, St. Mary's and IH 10 at 87
+  (`build/test/`). Dove Canyon and Kingsville draw at the 22 px default (Kingsville's build gives
+  Whataburger and CHRISTUS 28), and Bandera at 28 (option B's size, the input that still needs a
+  second pass); St. Mary's and IH 10 at 87 carry their build sizes. It checks:
   - the logo is drawn above the map beside its dot;
   - the other businesses keep their names in place;
   - nothing else changes;
   - nothing protected lies under a logo, including where the first spot is over the interstate;
-  - Costco at Dove Canyon (room only under option B), Whataburger at Kingsville (room only at a
-    ring spot), Sam's Club at Bandera (room only on the second pass) and a business whose name is
-    too long for any spot all get their logo;
-  - no logo overlaps a count, a ring, the pin, another label or a dot (`marks`);
+  - at the fixtures' sizes, Costco at Dove Canyon (room only under option B), Whataburger at
+    Kingsville (room only at a ring spot), Sam's Club at Bandera (room only on the second pass) and a
+    business whose name is too long for any spot all get their logo;
+  - no logo overlaps a count, a ring, the pin, another label, a dot (`marks`) or another leader line
+    (`segs`), and no logo's leader line crosses one of those, or a symbol or the site (`line_under`),
+    but for the site line; each logo's record is its drawn box (`biz` marks matched one to one over every business); every
+    business's line, logo or name, is in `segs`;
+  - `overlaps()` itself, on hand-made records whose answers are known (check 11);
+  - `build/make_jobs.py`'s `site_jobs`, the real path into a job, carries Erik's sizes and `siteLine`;
+  - the sizes in `build/logo-sizes.json`, including that UTSA, H-E-B and La Michoacana stay at 22 px
+    on 402 W. Nueva, and that a logo given 28 px draws 28 px tall;
+  - Ross at Dove Canyon on a horizontal line; Love's on a line across the site at IH 10 at 87, and
+    its name kept on the same map without `siteLine`;
+  - nothing protected recorded under any logo at St. Mary's (the clipped record);
   - `lib/logos.py` matches only listed names: "Lowe's Market" has its own logo and is not Lowe's;
     "Walmart Neighborhood Market" and "Walmart" are not Walmart Supercenter.
 
   Each of these mutations turns it red: a logo for every business (in the matching or in the
   renderer), the name instead of the logo, the logo drawn under the map, the road rule removed,
   option B undone, the ring removed, the retries removed, the nameless logos removed, the `taken`
-  test skipped for logos, and a prefix match in `lib/logos.py`.
+  test skipped for logos, and a prefix match in `lib/logos.py`. Since 2026-11-16 so does each of
+  these: `logo_px` dropped in `lib/logos.py` or ignored in `maps.mjs`; Erik's 125% applied to UTSA
+  and H-E-B on 402 W. Nueva; a scaled logo allowed over a road label or over a count; the line
+  candidates removed; the site line allowed on every map, on none, or for the logo box too; the
+  record back to whole cells; and the name's box shrunk by 1 px in the record.
 
 - `python3 build/logo_check.py [uid…]` (after `make_jobs.py`) renders every listing's traffic map
   with and without its logos into `qa/logos/`. It fails if anything outside the swapped boxes
-  changed, or if anything protected lies under a logo.
+  changed, if anything protected lies under a logo, or (since 2026-11-16) if a logo overlaps a
+  count, a ring, the pin, another label or a dot, or its leader line crosses one of those, another
+  leader line, a symbol, or the site (but for the site line). Since review round 3 (2026-11-17) it
+  also fails on a logo box over another leader line, a record missing `segs` or a line's
+  `line_under`, a logo file that would not decode, and (rounds 4 and 5) a logo whose record differs
+  from its drawn box or has none. Before that, a renderer that let a scaled logo over a count, the pin or
+  a label passed it on four maps.
 - `python3 build/swap_area_map.py <uid> <their.pdf> <out.pdf>` puts the generator's current
   traffic map into a package Erik has edited by hand, replacing only that image. It refuses a stale
   or unstamped map, a page with other images over the map, or a page laid out differently, and it

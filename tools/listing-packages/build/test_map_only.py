@@ -152,6 +152,10 @@ def main():
 
     check(j.get('strict') is True, f"8. the map-only job is strict ({j.get('strict')})")
     crowded = map_only.jobs(UID, dict(entry, businesses=entry['businesses'][:1] + ['Whataburger'] + entry['businesses'][1:], business_limit=5), outdir=tmp)[0]
+    # Names only: since option C (22 px logos) and the horizontal leader lines (2026-11-16), Whataburger's
+    # logo finds room on this map where its name has none, so with logos the map is no longer crowded.
+    # The rule under test is about a business with no room at all.
+    crowded['businesses'] = [{k: v for k, v in b.items() if k not in ('logo', 'logo_sha', 'logo_px')} for b in crowded['businesses']]
     spec3 = os.path.join(tmp, 'crowded.json')
     out3 = os.path.join(tmp, 'crowded.jpg')
     json.dump([dict(crowded, out=out3)], open(spec3, 'w'))

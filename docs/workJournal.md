@@ -93,6 +93,7 @@ and leaves with the answer that was already known to be wrong. Nothing in the
 old entry points forward, because the rule forbade touching it.
 
 So: one line under a superseded heading, `> Superseded in part by <date> —
+
 <title>.` It asserts nothing and retracts nothing, so the record of what was
 believed at the time survives whole; it only redirects. The distinction that
 makes it safe is that a pointer is *navigation*, not *content* — the prohibition
@@ -13658,3 +13659,38 @@ Found and not fixed: a failed TxDOT query is cached as `[]` and the listing sile
 The four maps with no logo business are not swapped: Lookout Road, Loop 1604 at 181, 25331 IH 10 West, and IH 10 and FM 1518. Lookout Road differs from Erik's map by 481 pixels of basemap drift near a ramp. The PDFs were made from the first commit's renders. The final renderer places every box identically: at most 40 pixels of antialiasing differ, on one map. Nothing was written to "Current Listing Packages", and Prismic was not touched.
 
 Usage: $17.08 across both sessions: $1.33 (session_013FT5PG8696atyPD24u2ze5, archived) plus $15.75 for this session through this entry. 1902/186605 tokens, 42947911/738500 cache, rate limit allowed. Landing and the promotion PR continue in a hand-off session.
+
+## 2026-11-16 — Option C area-map logos: 22 px, Erik's sizes, horizontal leader lines (#372)
+
+Option B (above) placed 60 of 78 logo matches. Erik then asked for more of them and named how: logos smaller, a few of his named logos at 125%, and, as a last resort, a logo out on a horizontal leader line from its dot. The operator chose option C on Erik's word (reddoor-workspace `decisions/2026-11-16-1835-roalson-logo-placement-relax-which-protection.md`, then `decisions/2026-11-16-2251-roalson-option-c-logos-with-no-room.md` for every fork). Logos are now 22 px tall (were 28). `build/logo-sizes.json` holds the default and Erik's scales, each with a `why` quoting him, and 1.25 × 22 rounds up to 28. A logo may sit 60 to 200 px out on a horizontal line, and on IH 10 at 87 only, Love's line may cross the site.
+
+**Measured on all 26 maps at `2fe4772`:** 71 of 78 logo matches place, 7 of them on lines (Ross, Walmart at Perrin Beitel, H-E-B and Tuff Shed at Bandera, NAPA, the Children's Hospital at Nueva, and Love's). `logo_check.py` exits 0 on every map, and the three suites pass. The seven that do not place: Circle K at Scenic Loop and El Merkadito at 101 W. Commerce keep their names; Methodist at Menger Springs Road and Whataburger at IH 10 at Hwy 46 are left off; at Urban Loop, UTSA Buena Vista keeps its name and El Merkadito and UTSA San Pedro are left off.
+
+**Beliefs corrected on contact:**
+
+- **St. Mary's false positive.** `bridge_street` looked 0.69 px inside Nix's name box. `under()` checked whole 1 px cells, and one cell straddled the box's fractional edge at y 533.69, so a road that never touched the name counted as under it. `under()` now clips at the box's exact edge (mutations 6a and 6b turn 10Y red).
+- **A line never passed its own name.** The first leader-line build made zero line placements. Every horizontal line out of a dot runs straight through that business's own name slot, which the line test treated as taken. Only once the line could cross its own name (`skip`) did any line place.
+- **35 px loses logos.** 125% of option B's 28 px is 35 px, which loses CHRISTUS at Kingsville, El Merkadito at Nueva and the Children's Hospital at Urban Loop. Erik's 125% is therefore of the new 22 px default, so his named logos land at 28 px.
+- **Circle K at Scenic Loop never fits.** 42 renders were tried: both logos at 22, 18 and 16 px in either order, lines out to 320 px, a line across the site, and the logo off-centre on its line. None placed it without covering a count, label or the other logo. It keeps its name, as answered.
+- **`logo_check` passed four maps with a logo over a count, pin or label** while the rule that forbids that was broken on purpose (mutation 3b). The checker read its own bookkeeping, not the drawn marks. It now reads the drawn marks and exits 1 under 3b.
+- **Leader lines were unmeasured** until review round 1: nothing checked that a line itself crossed no count, dot, label or other line. `boxes.json` now records `segs` and `line_under`, and both checkers test them.
+- **The 12 px skip.** Logo lines were first checked only from 12 px out of their dot, to excuse the dot itself. On test map M that let a line pass over a count dot inside those 12 px. Lines are now checked from the dot's edge (mutation 8a turns 9M red).
+
+**Review: six rounds, all dirty, and no round moved a map.** Placements are identical across rounds 1 to 6. Each round found one step further into the checker's own bookkeeping:
+
+| Round | Majors | What they were                                                                                     | Fixed in  |
+| ----- | ------ | -------------------------------------------------------------------------------------------------- | --------- |
+| 1     | 2      | leader lines unmeasured; the real job path untested                                                | `558d908` |
+| 2     | 1      | the crossing rule covered horizontal lines only                                                    | `0aa8922` |
+| 3     | 2      | a logo box over another leader line was never checked; an unreadable logo file passed as "no room" | `af06bfd` |
+| 4     | 1      | `segs` defaulted to `[]`, so a lost record passed every line check                                 | `91026ec` |
+| 5     | 2      | two logos drawn on one spot passed; a logo with no drawn mark skipped the check                    | `e515c6c` |
+| 6     | 1      | drawn marks were not matched one to one                                                            | `2fe4772` |
+
+Round 6 was the one sixth round the narrow rule allows unasked, on the round-5 fix alone. Its finding reproduced on hand-made records only: two logos on the box l300 t150 r340 b170 with one recorded mark, where `overlaps()` returned `[]` because both claimed the same mark. All 142 logos in the 54 real records own their mark. Marks are now matched one to one, closest pairs first, and a name with no mark fails too (R6a and R6b turn 11 red). Because round 6 was dirty, the PR waited for the operator; he answered "Land now" at about 8:58pm PT on 11-16 (`decisions/2026-11-17-0131-roalson-option-c-pr-372-after-round-6.md`), with no seventh round. Minors went to #373, #374, #375 (a truncated PNG still decodes and draws) and #376 (leader lines get no clearance from a logo's 1 px outline). The full mutation table is in the PR body.
+
+**Honest accounting.** None of the six rounds' fixes changed a rendered map. All of them were in the checker (`test_logos.overlaps`, `logo_check.py`) or the docs, plus two renderer guards that change no output: an exact line-against-box clip, and a throw on a missing `segs`. The delivered set was built before rounds 4 to 6 and stays valid for that reason.
+
+**Delivered** to Dropbox `…/2026-11 Area map logos (review)/2026-11-16 logos, option C/`: Erik's 22 current packages with only the area map swapped, `00 - Before and after, Dove Canyon, Kingsville, Nueva.pdf`, and a read-me listing the logos still shown as names. All 24 uploads' content hashes match. The option B subfolder is untouched, and the placement-options subfolder moved to `05_Past Comps`. Not acted on: Erik's "5001 Walzem: Builders Mark is out of business, please remove that", which is a business label, not a logo, and outside this brief.
+
+Usage: $26.00 across three sessions: $18.37 (session_013FT5PBxyLhJtZ7qCFY2U5y), $4.31 (session_013FT5PCsmLsUddTWAU7bfj8), and $3.31 for session_013FT5PDPprNyfcBARXtGKSX as `get_session` reads it now (2,077,081/344,804 cache, 11/6,767 tokens). That last figure covers only its latest worker and understates a session that reached 408k context. Rate limit allowed. Landing and the promotion run in session_013FT5PGFgo4LWzFJAmcAMBs.

@@ -73,7 +73,7 @@ def pinned_stations(uid,lat,lon,ids,radius=4000):
     if bad: raise SystemExit(f'{uid}: TxDOT stations {bad} have no printable road name')
     return out
 def jobs_for(uid,site,outdir,title,geom=None,cover=True,date='September 2026',extra_pins=None,pin_label='Site',intersection=None,featured=(),aerial_notes=(),traffic_pad=0,manual_businesses=(),
-             traffic_ids=None,traffic_view=None,only_traffic=False,business_limit=6,height_px=None):
+             traffic_ids=None,traffic_view=None,only_traffic=False,business_limit=6,height_px=None,logo_line_across_site=False):
     lat,lon=site
     J=[]
     poly=fc(geom) if geom else None
@@ -115,7 +115,7 @@ def jobs_for(uid,site,outdir,title,geom=None,cover=True,date='September 2026',ex
             tb=view_bounds(traffic_view['center'],traffic_view['zoom'],W,690)
         biz,missing=businesses(tb,(lat,lon),featured,limit=business_limit)
         biz=[{'name':m['name'],'lat':m['lat'],'lon':m['lon'],'featured':True} for m in manual_businesses]+biz
-        biz=[with_logo(b) for b in biz]
+        biz=[with_logo(b,uid=uid) for b in biz]
         if missing and only_traffic: raise SystemExit(f'{uid}: listed businesses not in the tiles: {missing}; a map-only site labels exactly its list (use manual_businesses)')
         if missing: print(uid,'featured businesses not in the tiles:',missing)
         tj={'out':f'{outdir}/traffic.jpg','kind':'brand','businesses':biz,'width':W,'height':690,'dpr':2.5,'center':[lat,lon],'bounds':tb,'padding':{'top':120+traffic_pad,'bottom':80+traffic_pad,'left':110+traffic_pad,'right':110+traffic_pad},'maxZoom':15.2,
@@ -126,6 +126,10 @@ def jobs_for(uid,site,outdir,title,geom=None,cover=True,date='September 2026',ex
             for k in ('bounds','padding','maxZoom'): del tj[k]
             tj.update(center=list(traffic_view['center']),zoom=traffic_view['zoom'])
         if height_px: tj['heightPx']=height_px
+        # On this map a logo's horizontal leader line (maps.mjs's 'line' candidates; no other leader line)
+        # may cross the site (geo/sites.json logo_line_across_site; IH 10 at 87 only, 2026-11-16). No logo
+        # box may touch the site.
+        if logo_line_across_site: tj['siteLine']=True
         # A map-only site's map must show every count its facts row quotes and every business it lists.
         if only_traffic: tj['strict']=True
         J.append(tj)
