@@ -12,8 +12,10 @@ render) and reports:
     the script exits 1. So does anything protected recorded under a logo (`under`), a logo over a
     count, its dot, an intersection label or ring, the pin, another label or a business dot, or a
     logo's leader line over one of those, across another leader line (`segs`), or over a symbol or
-    the site (`line_under`; the site only for a horizontal line where siteLine is set). All of these
-    are test_logos.overlaps, from boxes.json. Below it is antialiasing: on 2026-11-12, IH 10 at Highway 46 differed in 7
+    the site (`line_under`; the site only for a horizontal line where siteLine is set), a logo box
+    over another leader line, or a record missing `segs` or a line's `line_under` (review round 3,
+    2026-11-17): those are test_logos.overlaps, from boxes.json. So does a logo file that would not
+    decode (`dropped` says "unreadable"), which would otherwise read as a logo with no room. Below it is antialiasing: on 2026-11-12, IH 10 at Highway 46 differed in 7
     pixels on one row of a count box's border (at most 51/255), the box itself unmoved, while a
     vanished road label or count changes hundreds.
 Writes qa/logos/report.json, and a side-by-side qa/logos/<uid>/compare.png per listing.
@@ -78,12 +80,12 @@ def main(only):
         over = overlaps(after)
         # A logo file that would not decode drops off like a logo with no room; it must not pass as one
         # (review round 3, 2026-11-17).
-        unreadable = sorted(d for d in meta.get('dropped', []) if 'unreadable' in d)
+        unreadable = sorted(d for d in meta['dropped'] if 'unreadable' in d)
         bad += n > SPECKS or bool(covered) or bool(over) or bool(unreadable)
         report[uid] = {
             'logo': sorted(b['name'] for b in swapped),
             'logo_no_room': sorted(b['name'] for b in bx1.values() if b['kind'] == 'name' and b['logo']),
-            'logo_left_off': sorted(d[5:].split(' (')[0] for d in meta.get('dropped', []) if d.startswith('logo ') and 'left off' in d),
+            'logo_left_off': sorted(d[5:].split(' (')[0] for d in meta['dropped'] if d.startswith('logo ') and 'left off' in d),
             'name': sorted(b['name'] for b in bx1.values() if b['kind'] == 'name' and not b['logo']),
             'changed_outside_boxes': n,
             'drawn_under_a_logo': covered,

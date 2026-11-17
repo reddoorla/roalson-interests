@@ -170,8 +170,8 @@ it fits.
 
 Last of all, a logo may sit out along a horizontal leader line from its dot, 60 to 200 px out, 4 px
 apart, right before left at each distance (Erik, 2026-11-16 3:00pm PT: "make the lines go horizontal
-until they get to open space"). The logo stays clear of everything any spot must. The line, like every
-leader line, may cross a road, but no symbol, label, count, pin, dot or the site, and it
+until they get to open space"). The logo stays clear of everything any spot must. Its line, like every
+logo's line, may cross a road, but no symbol, label, count, pin, dot or the site, and it
 may not cross another leader line (no logo's line may, since review round 2), except that it may
 cross the business's own name, which the logo replaces. `boxes.json` records what each logo's line crosses (`line_under`, and every leader line in
 `segs`), and the checks below fail on anything but the site where `siteLine` allows it. Such a logo records
@@ -179,7 +179,8 @@ cross the business's own name, which the logo replaces. `boxes.json` records wha
 Bandera, NAPA at IH 10 at Scenic Loop, the Children's Hospital at 402 W. Nueva and Love's at IH 10 at
 87 place this way (measured 2026-11-16). A listing with `logo_line_across_site: true` in
 `geo/sites.json` (passed to the traffic job as `siteLine`) lets a horizontal line cross the site
-(its fill and outline); no other leader line may, and no logo box may touch the site. Only IH 10 at 87 has it, where Love's dot is inside
+(its fill and outline); no other logo's line may, and no logo box may touch the site. (Label lines keep
+the older rule and are not checked against the site or symbols.) Only IH 10 at 87 has it, where Love's dot is inside
 the site (the operator, 2026-11-16).
 
 With no room anywhere the business keeps its name (`logo … (no room; name kept)` in the
@@ -208,8 +209,10 @@ label and dot, and `dropped`.
   - at the fixtures' sizes, Costco at Dove Canyon (room only under option B), Whataburger at
     Kingsville (room only at a ring spot), Sam's Club at Bandera (room only on the second pass) and a
     business whose name is too long for any spot all get their logo;
-  - no logo overlaps a count, a ring, the pin, another label or a dot (`marks`), and no leader line
-    crosses one, another leader line, or a symbol or the site (`line_under`), but for the site line;
+  - no logo overlaps a count, a ring, the pin, another label, a dot (`marks`) or another leader line
+    (`segs`), and no logo's leader line crosses one of those, another leader line, or a symbol or the
+    site (`line_under`), but for the site line; every logo line drawn is in `segs`;
+  - `overlaps()` itself, on hand-made records whose answers are known (check 11);
   - `build/make_jobs.py`'s `site_jobs`, the real path into a job, carries Erik's sizes and `siteLine`;
   - the sizes in `build/logo-sizes.json`, including that UTSA, H-E-B and La Michoacana stay at 22 px
     on 402 W. Nueva, and that a logo given 28 px draws 28 px tall;

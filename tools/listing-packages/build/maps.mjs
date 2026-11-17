@@ -204,7 +204,8 @@ async function render(page, job) {
       document.body.appendChild(el);
       // A logo's box is its exact drawn size (review round 3, 2026-11-17): offsetWidth rounds to whole px,
       // and a wide logo capped at 92/28 of 22 px draws 72.29 px wide, so a rounded box could cover a dot's
-      // stroke by 0.3 px and record that it did not. Labels keep offsetWidth, so their placements stay.
+      // stroke by 0.3 px and record that it did not. Labels keep offsetWidth. (The exact clip in boxHitsSeg
+      // reaches labels too; on all 26 maps no placement moved, measured 2026-11-17.)
       const rc = fromDot ? el.getBoundingClientRect() : null;
       const w = rc ? rc.width : el.offsetWidth, h = rc ? rc.height : el.offsetHeight;
       const sides = [[pt.x + 8, pt.y - h / 2], [pt.x - w - 8, pt.y - h / 2]];
@@ -375,8 +376,9 @@ async function render(page, job) {
         // 2026-11-16 3:00pm PT: "make the lines go horizontal until they get to open space to include
         // the logo"): the logo centred on the dot's height, 60 px out and farther, 4 px apart, to
         // LINE_MAX, nearer first, right before left at each distance. The logo stays clear of
-        // everything any spot must; the line, like every leader line, may cross a road but no symbol,
+        // everything any spot must; its line, like every logo's line, may cross a road but no symbol,
         // label, count, pin, dot or other leader line, nor the site except on a listing with siteLine.
+        // (Label lines keep the older, looser rule: they are not checked against symbols or the site.)
         for (let d = 60; d <= LINE_MAX; d += 4) out.push([pt.x + d, pt.y - h / 2, 'line'], [pt.x - w - d, pt.y - h / 2, 'line']);
         return out;
       };
@@ -669,7 +671,10 @@ for (const job of jobs) {
     if (job.strict && r.dropped.some((x) => x.startsWith('count ') || x.startsWith('business '))) throw new Error(`map-only map has no room for ${r.dropped.join('; ')}; nothing is stamped`);
     if (run.failures) throw new Error(`${run.failures} imagery tiles failed; the previous image is kept and nothing is stamped, so the next run re-renders it`);
     renameSync(job.tmp, job.out);
-    if (job.businesses) writeFileSync(`${job.out}.boxes.json`, JSON.stringify({ width: job.width, height: job.height, ...(job.heightPx ? { heightPx: job.heightPx } : {}), dpr: job.dpr, businesses: r.boxes, dropped: r.dropped, marks: r.marks, segs: r.segs ?? [], siteLine: !!job.siteLine }, null, 1));
+    // No default for segs (review round 4, 2026-11-17): a record written without it must fail the checks,
+    // not pass them as a map with no leader lines.
+    if (job.businesses && !Array.isArray(r.segs)) throw new Error(`${job.out}: render() returned no segs`);
+    if (job.businesses) writeFileSync(`${job.out}.boxes.json`, JSON.stringify({ width: job.width, height: job.height, ...(job.heightPx ? { heightPx: job.heightPx } : {}), dpr: job.dpr, businesses: r.boxes, dropped: r.dropped, marks: r.marks, segs: r.segs, siteLine: !!job.siteLine }, null, 1));
     writeFileSync(stamp, spec);
     console.log('ok', job.out, `z=${r.zoom.toFixed(2)}`, `${Date.now() - t}ms`);
   } catch (e) {

@@ -107,12 +107,13 @@ def boxes(png):
     return {b['name']: b for b in json.load(open(png + '.boxes.json'))['businesses']}
 
 
-def seg_in_rect(x1, y1, x2, y2, r):
-    """Whether the segment passes through rectangle r's interior (Liang-Barsky clipping)."""
+def seg_in_rect(x1, y1, x2, y2, r, touch=False):
+    """Whether the segment passes through rectangle r's interior (Liang-Barsky clipping), or with
+    `touch` also runs along or meets its edge (a line's 1.2 px stroke then lies half on the box)."""
     t0, t1, dx, dy = 0.0, 1.0, x2 - x1, y2 - y1
     for p, q in ((-dx, x1 - r['l']), (dx, r['r'] - x1), (-dy, y1 - r['t']), (dy, r['b'] - y1)):
         if p == 0:
-            if q <= 0:
+            if q < 0 or (q == 0 and not touch):
                 return False
             continue
         t = q / p
@@ -120,7 +121,7 @@ def seg_in_rect(x1, y1, x2, y2, r):
             t0 = max(t0, t)
         else:
             t1 = min(t1, t)
-    return t1 - t0 > 1e-6
+    return t1 - t0 >= 0 if touch else t1 - t0 > 1e-6
 
 
 def segs_cross(a, b):
@@ -166,10 +167,15 @@ def overlaps(png):
     for b in d['businesses']:
         if b['kind'] != 'logo':
             continue
+        # The record is the box the page drew (review round 4, 2026-11-17): the logo's own `biz` mark is
+        # read from the page, so a record rounded from it (offsetWidth) differs and fails here.
+        own = [m for m in d['marks'] if m['kind'] == 'biz' and all(abs(m[k] - b[k]) < 0.5 for k in 'ltrb')]
+        if own and max(abs(own[0][k] - b[k]) for k in 'ltrb') > 0.05:
+            out.append(f"{b['name'][:24]} recorded box differs from the drawn box")
         # No logo box over another leader line (review round 3, 2026-11-17): leader lines are SVG, which
         # `under` cannot see, and the pixel diff masks the logo box.
         for sg in d.get('segs', []):
-            if not (b.get('line') and all(abs(u - v) < 0.01 for u, v in zip(sg, b['line']))) and seg_in_rect(*sg, b):
+            if not (b.get('line') and all(abs(u - v) < 0.01 for u, v in zip(sg, b['line']))) and seg_in_rect(*sg, b, touch=True):
                 out.append(f"{b['name'][:24]} over a leader line")
         for m in d['marks']:
             if m['kind'] == 'biz' and all(abs(m[k] - b[k]) < 0.5 for k in 'ltrb'):
@@ -248,7 +254,7 @@ def instrument():
         with tempfile.TemporaryDirectory() as t:
             p = os.path.join(t, 'x.png')
             biz = {k: v for k, v in {**logo, **kw}.items() if v is not None}
-            rec = {'businesses': [biz], 'marks': [dot, *marks], 'segs': [logo['line'], *segs], 'siteLine': siteLine}
+            rec = {'businesses': [biz], 'marks': [dot, *marks], 'segs': [biz.get('line', logo['line']), *segs], 'siteLine': siteLine}
             rec.pop(drop, None)
             json.dump(rec, open(p + '.boxes.json', 'w'))
             return overlaps(p)
@@ -268,6 +274,10 @@ def instrument():
         # The logo box itself (review round 3, 2026-11-17): x 200-240, y 90-110.
         'a leader line through the logo box': (run(segs=[[220, 60, 220, 140]]), True),
         'a leader line clipping the box\'s corner': (run(segs=[[225, 80, 245, 95]]), True),
+        # The logo's own line, ending 0.5 px inside its box, is not "another leader line" (round 4).
+        'its own line ending inside its box': (run(line=[100, 100, 200.5, 100]), False),
+        'a leader line along the box\'s top edge': (run(segs=[[210, 90, 260, 90]]), True),
+        'the record rounded from the drawn box': (run(marks=[{'kind': 'biz', 'l': 200, 't': 90, 'r': 240.29, 'b': 110}]), True),
         'a leader line 1 px clear of the box': (run(segs=[[241, 60, 241, 140]]), False),
         'a count under the box': (run(marks=[{'kind': 'aadt', 'l': 230, 't': 95, 'r': 260, 'b': 105}]), True),
         'a label 0.5 px from the box': (run(marks=[{'kind': 'label', 'l': 240.5, 't': 95, 'r': 270, 'b': 105}]), True),
@@ -419,7 +429,8 @@ def main():
         hs, hk = (x and x['kind'] == 'logo' and round(x['b'] - x['t'], 1) for x in (ws, wk))
         # .biz.logo pads 3 px above and below the image; Whataburger's logo is near square (166x160), far
         # below the 92/28 aspect where the width cap would set the size instead.
-        check(hs and hk and round(hs - hk, 1) == 6 and ws.get('under') == [],
+        dpx = json.load(open(os.path.join(HERE, 'logo-sizes.json')))['default_px']
+        check(hs and hk and round(hs - hk, 1) == 6 and round(hk - 6, 1) == dpx and ws.get('under') == [],
               f"10S. Whataburger draws 28 px tall at logo_px 28 and 22 px by default, nothing protected under it (boxes {hs} and {hk} px with padding, under={ws and ws.get('under')})")
         ro = boxes(dv).get('Ross')
         flat = bool(ro) and bool(ro.get('line')) and abs(ro['line'][1] - ro['line'][3]) < 0.01
@@ -438,6 +449,14 @@ def main():
         for k, png in (('B', b), ('C', c), ('D', dv), ('K', kv), ('N', nn), ('M', mm), ('R', rr), ('S', sv), ('G', gv), ('G0', g0), ('Y', yv)):
             ov = overlaps(png)
             check(ov == [], f'9{k}. no logo overlaps a count, ring, pin, label or dot: {ov or "none"}')
+            # Every logo line drawn is in `segs` (review round 4, 2026-11-17): positive evidence the
+            # field is live, so an empty `segs` cannot pass the line checks on a map that has lines.
+            rec = json.load(open(png + '.boxes.json'))
+            lines = [x['line'] for x in rec['businesses'] if x['kind'] == 'logo' and x.get('line')]
+            gone = [ln for ln in lines if not any(all(abs(u - v) < 0.01 for u, v in zip(ln, sg)) for sg in rec['segs'])]
+            check(not gone, f'9{k}. every logo line ({len(lines)}) is recorded in segs: {gone or "yes"}')
+        drawn = sum(1 for png in (dv, kv, gv) for x in json.load(open(png + '.boxes.json'))['businesses'] if x['kind'] == 'logo' and x.get('line'))
+        check(drawn > 0, f'9L. the 9x segs checks are not vacuous: {drawn} logo lines drawn on D, K and G')
     matching()
     sizes()
     instrument()
