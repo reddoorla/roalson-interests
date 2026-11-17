@@ -307,6 +307,40 @@ def ties(d):
     return out
 
 
+APPROVED = os.path.join(HERE, 'logo-check-approved.json')
+CLOSER = 'another dot ('
+
+
+def approved(uid, png, found, path=APPROVED):
+    """Takes the closer-dot findings build/logo-check-approved.json keeps on `uid` out of `found`
+    (overlaps(by_index=True)) and returns (what fails, the findings left). Each listed business must have
+    exactly its listed findings, matched by the business's place in boxes.json, so a map that moves fails
+    either way: a listed finding gone, or a new one. Only closer-dot findings can be listed; an entry with
+    no `why` or `date`, a listing geo/sites.json and geo/map-only.json lack, or a name the map does not
+    show as a logo exactly once stops it (the operator's answer (a), 2026-11-17)."""
+    spec = json.load(open(path)).get('listings', {})
+    root = os.path.dirname(HERE)
+    uids = set(json.load(open(os.path.join(root, 'geo', 'sites.json')))) | set(json.load(open(os.path.join(root, 'geo', 'map-only.json'))))
+    if set(spec) - uids:
+        raise SystemExit(f'build/logo-check-approved.json: listings geo/sites.json and geo/map-only.json do not list: {sorted(set(spec) - uids)}')
+    biz = json.load(open(png + '.boxes.json'))['businesses']
+    bad, keep = [], set()
+    for name, e in spec.get(uid, {}).items():
+        f = e.get('findings')
+        if not (isinstance(f, list) and f and all(isinstance(x, str) and x.startswith(CLOSER) for x in f)) or not e.get('why') or not e.get('date'):
+            raise SystemExit(f'build/logo-check-approved.json: {uid} "{name}" needs `why`, `date` and `findings`, a list of closer-dot findings only')
+        idx = [i for i, b in enumerate(biz) if b['name'] == name and b['kind'] == 'logo']
+        if len(idx) != 1:
+            bad.append(f'{name}: approved, but drawn as a logo {len(idx)} times, not once')
+            continue
+        got = sorted(m for k, m in found if k == idx[0] and m.startswith(CLOSER))
+        if got != sorted(f):
+            bad.append(f"{name}: has {got}, but build/logo-check-approved.json approves {sorted(f)}")
+        else:
+            keep.add(idx[0])
+    return bad, [(k, m) for k, m in found if not (k in keep and m.startswith(CLOSER))]
+
+
 def matching():
     sys.path.insert(0, os.path.join(os.path.dirname(HERE), 'lib'))
     from logos import with_logo, _index
@@ -502,8 +536,35 @@ def instrument():
         p = os.path.join(t, 'dc.png')
         json.dump(dc, open(p + '.boxes.json', 'w'))
         got = sorted(overlaps(p))
-    want = ['Costco another dot (biz-dot) within 9 px', 'Walmart Supercenter another dot (biz-dot) closer than its own']
-    check(got == want, f"11. Dove Canyon's option C Walmart and Costco (#379): {got}")
+        want = ['Costco another dot (biz-dot) within 9 px', 'Walmart Supercenter another dot (biz-dot) closer than its own']
+        check(got == want, f"11. Dove Canyon's option C Walmart and Costco (#379): {got}")
+        # approved() on the same record: the committed list clears it; a missing, extra or changed finding,
+        # another rule's finding listed, or a listed business not drawn as a logo, fails.
+        dcu = 'loop-1604-at-dove-canyon'
+        real = json.load(open(APPROVED))
+        def appr(edit=None, extra=()):
+            spec = json.loads(json.dumps(real))
+            if edit:
+                edit(spec['listings'][dcu])
+            q = os.path.join(t, 'appr.json')
+            json.dump(spec, open(q, 'w'))
+            try:
+                bad, left = approved(dcu, p, overlaps(p, by_index=True) + list(extra), path=q)
+                return bad + [m for _, m in left]
+            except SystemExit as e:
+                return [f'refused: {e}']
+        acases = {
+            'as committed': (appr(), False),
+            'Costco not approved': (appr(lambda e: e.pop('Costco')), True),
+            'a finding approved that the map lacks': (appr(lambda e: e['Costco']['findings'].append('another dot (pin-dot) within 9 px')), True),
+            'a new closer-dot finding on an approved logo': (appr(extra=[(2, 'another dot (aadt-dot) within 9 px')]), True),
+            'another rule\'s finding on an approved logo': (appr(extra=[(2, 'over aadt')]), True),
+            'another rule listed': (appr(lambda e: e['Costco']['findings'].append('over aadt')), True),
+            'no why': (appr(lambda e: e['Costco'].pop('why')), True),
+            'a listed business not on the map': (appr(lambda e: e.__setitem__('Target', {**e['Costco']})), True),
+        }
+    abad = [k for k, (g, w) in acases.items() if bool(g) != w]
+    check(not abad, f'11. approved() (build/logo-check-approved.json): {abad or "every case as expected"}')
 
 
 def job_path():
@@ -685,9 +746,14 @@ def main():
         # taken, the logo is drawn on a line through it and 9P below fails (mutation P1).
         check(level and bool(stem),
               f"9P. the test dot is level with the pin's stem and left of it, so 9P is not vacuous (dot {st and [round(v, 1) for v in st['dot']]}, stem {stem and [round(stem[k], 1) for k in 'ltrb']}, kind {st and st['kind']})")
+        # D, K and S are Dove Canyon and Kingsville as Erik approved them: their closer-dot findings are the ones
+        # build/logo-check-approved.json lists, exactly (the operator's answer (a), 2026-11-17).
+        uids = {'D': 'loop-1604-at-dove-canyon', 'K': 'highway-77-at-general-cavazos-kingsville', 'S': 'highway-77-at-general-cavazos-kingsville'}
         for k, png in (('B', b), ('C', c), ('D', dv), ('K', kv), ('N', nn), ('M', mm), ('R', rr), ('S', sv), ('G', gv), ('G0', g0), ('Y', yv), ('P', pv)):
-            ov = overlaps(png)
-            check(ov == [], f'9{k}. no logo overlaps a count, ring, pin, label or dot: {ov or "none"}')
+            bad_ok, left = approved(uids.get(k), png, overlaps(png, by_index=True))
+            rec = json.load(open(png + '.boxes.json'))
+            ov = bad_ok + [m if i is None else f"{rec['businesses'][i]['name'][:24]} {m}" for i, m in left]
+            check(ov == [], f'9{k}. no logo overlaps a count, ring, pin, label or dot{" (as approved)" if k in uids else ""}: {ov or "none"}')
             # Every logo line drawn is in `segs` (review round 4, 2026-11-17): positive evidence the
             # field is live, so an empty `segs` cannot pass the line checks on a map that has lines.
             rec = json.load(open(png + '.boxes.json'))
