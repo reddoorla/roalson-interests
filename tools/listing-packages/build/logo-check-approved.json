@@ -1,8 +1,14 @@
 {
- "about": "Findings of test_logos.ties()'s closer-dot rule (#379: another dot within 9 px of a logo box, or closer to it than the logo's own dot) on maps Erik approved, which the operator chose to keep as delivered rather than move (reddoor-workspace decisions/2026-11-17-1939-roalson-closer-dot-check-fails-approved-maps.md, answer (a)). Per listing and business as the map prints it: `dots` is every dot near the logo box (test_logos.near_dots()) by kind, business name, distance from the box and centre (`at`), in CSS px: the map must still have exactly those, each within 0.5 px of its distance and its centre, so a dot that moves, goes or appears fails. Only closer-dot findings are taken off. Read by build/test_logos.py approved(), which build/logo_check.py and test_logos.py's renders use.",
+ "about": "Findings of test_logos.ties()'s closer-dot rule (#379: another dot within 9 px of a logo box, or closer to it than the logo's own dot) on maps Erik approved, which the operator chose to keep as delivered rather than move (reddoor-workspace decisions/2026-11-17-1939-roalson-closer-dot-check-fails-approved-maps.md, answer (a)). Per listing and business as the map prints it: `box` is the logo's box [l, t, r, b], and `dots` is every dot near the logo box (test_logos.near_dots()) by kind, business name, distance from the box and centre (`at`), in CSS px: the map must still have exactly those, each within 0.5 px of its distance and its centre, so a logo or a dot that moves, or a dot that goes or appears, fails. Only closer-dot findings are taken off. Read by build/test_logos.py approved(), which build/logo_check.py and test_logos.py's renders use.",
  "listings": {
   "loop-1604-at-dove-canyon": {
    "Walmart Supercenter": {
+    "box": [
+     324.05,
+     163.63,
+     404.33,
+     186.73
+    ],
     "dots": [
      {
       "kind": "biz-dot",
@@ -18,6 +24,12 @@
     "why": "Costco's dot sits 6.6 px under the Walmart logo, whose own dot is 8.0 px away (#379). Erik approved the option C maps on 11-17: \"The rest look good to me.\""
    },
    "Costco": {
+    "box": [
+     313.23,
+     227.3,
+     393.51,
+     253.3
+    ],
     "dots": [
      {
       "kind": "biz-dot",
@@ -35,6 +47,12 @@
   },
   "highway-77-at-general-cavazos-kingsville": {
    "Walmart Supercenter": {
+    "box": [
+     191.78,
+     484,
+     272.06,
+     507.09
+    ],
     "dots": [
      {
       "kind": "aadt-dot",
@@ -51,6 +69,12 @@
   },
   "hwy-46-west-development-site": {
    "The Home Depot": {
+    "box": [
+     273.42,
+     353.28,
+     303.42,
+     381.28
+    ],
     "dots": [
      {
       "kind": "biz-dot",
