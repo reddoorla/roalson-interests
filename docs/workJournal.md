@@ -13693,3 +13693,45 @@ Round 6 was the one sixth round the narrow rule allows unasked, on the round-5 f
 **Delivered** to Dropbox `…/2026-11 Area map logos (review)/2026-11-16 logos, option C/`: Erik's 22 current packages with only the area map swapped, `00 - Before and after, Dove Canyon, Kingsville, Nueva.pdf`, and a read-me listing the logos still shown as names. All 24 uploads' content hashes match. The option B subfolder is untouched, and the placement-options subfolder moved to `05_Past Comps`. Not acted on: Erik's "5001 Walzem: Builders Mark is out of business, please remove that", which is a business label, not a logo, and outside this brief.
 
 Usage: $26.00 across three sessions: $18.37 (session_013FT5PBxyLhJtZ7qCFY2U5y), $4.31 (session_013FT5PCsmLsUddTWAU7bfj8), and $3.31 for session_013FT5PDPprNyfcBARXtGKSX as `get_session` reads it now (2,077,081/344,804 cache, 11/6,767 tokens). That last figure covers only its latest worker and understates a session that reached 408k context. Rate limit allowed. Landing and the promotion run in session_013FT5PGFgo4LWzFJAmcAMBs.
+
+## 2026-11-17 — Deep review of the option C promotion (#378): four issues filed, and corrections to the option C entry
+
+The operator asked for one deep review of everything `staging` would promote to `main` (#378, which carries #372). It was not a seventh round on #372. Five reviewers looked at the change from different angles, all reading `545e9be`:
+
+- the renderer and placement code, with renders of the fixtures and crafted jobs;
+- whether the checkers prove what they claim, re-running five of #372's mutations and trying two new ones;
+- two visual passes over all 22 delivered maps, taken out of the Dropbox PDFs and compared with option B's;
+- every written claim against the code and git history.
+
+Each finding below was checked again before it was filed. Nothing was fixed in code, and nothing delivered was changed.
+
+**What held.**
+
+- The suites pass, and `logo_check.py` exits 0 on all 26 maps.
+- Mutations 3b, 7a, 8a, R4a and R6a each went red as #372 says.
+- Line geometry is sound, the site exception is confined to horizontal lines on IH 10 at 87, `boxHitsSeg` is a correct clip, and the Python and JS sizes agree.
+- Every scale in `logo-sizes.json` is one Erik asked for, and #378 changes no site page.
+
+**What did not.**
+
+- **#379. The worst finding is a map Erik will look at.** At Dove Canyon, option B hung Walmart on a diagonal line from its own dot. Option C's 22 px logo touches that dot only at a corner, and Costco's dot sits under the middle of the Walmart logo, so it reads as Walmart's. At Kingsville the Walmart box touches the 7,948 count's dot. Scenic Loop's Fairfield dot under the SITE flag, and NAPA's line ending by the pin, were already there in option B.
+- **#380. Two new mutations turn nothing red.** X2 drops the line from logos beyond `near`, and X1 stops recording count and intersection leader lines. Under X1, 18 of 18 test logos crossed the LOOP 410 & BANDERA RD line while `overlaps()` returned `[]`. The checkers trust two records nothing checks for completeness. The SITE pin's stem and the north panel are in neither `taken` nor `marks`, so a line was drawn through the stem on a crafted job.
+- **#381.** `logo-sizes.json` validation accepts an every-map `"*"` it never applies, and reads a misspelled listing key as no scale. Both silently build at 22 px.
+- **#382.** The delivered read-me's "7 on horizontal lines" counts only `via: 'line'`. The ring and fixed spots' lines from option B add nine vertical or diagonal stems and four more horizontal lines. Baptist Health and Sam's Club logos carry grey panels.
+
+**A reviewer's error, caught.** One visual reviewer measured Bandera's H-E-B line at 348 px and called it past the 200 px limit. The map image is drawn at device scale, so that line is about 178 px in the renderer's units, inside the limit. The lesson: measure in the unit the rule is written in.
+
+**Corrections to the entry above** ("2026-11-16 — Option C area-map logos …"). That entry stands as written; these correct it.
+
+- **"None of the six rounds' fixes changed a rendered map … all of them were in the checker … plus two renderer guards."** The second half is wrong. Rounds 1 to 3 changed placement in `maps.mjs`:
+  - `558d908` checks logo lines from the dot's edge, forbids a logo line crossing another leader line, makes the site exception horizontal-only, and reads the name's old box with `getBoundingClientRect`;
+  - `0aa8922` widens the crossing rule to every logo line;
+  - `af06bfd` sizes a logo's box with `getBoundingClientRect`.
+
+  That no map moved is a measurement this review did not repeat. The same sentence is in the round-6 decision file the operator answered.
+
+- **"A road that never touched the name counted as under it."** That is wrong. The street lay 0.69 px inside the name's box. The defect was that a road the name had already covered counted against the logo.
+- **"142 of 142 logos in the 54 real records".** This cannot be checked from the repo (`qa/` is ignored). 142 is exactly twice the 71 that place, so the figure may count each logo twice.
+- **`1e2f835` broke the never-edit rule.** It added a blank line inside the 2026-09-05 entry ("Ten retrospective rules…"), splitting a code span. Prettier did it, run without the repo's config. This PR removes that line.
+
+Usage: see the reddoor-workspace journal entry for this session.
