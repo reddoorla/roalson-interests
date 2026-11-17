@@ -250,6 +250,42 @@ label and dot, and `dropped`.
   PyMuPDF then names that copy (5001 Walzem Road, 2026-11-16). `python3 build/test_swap_area_map.py`
   checks both cases.
 
+### Forced logo spots and excluded businesses (Erik's 11-17 asks)
+
+On 2026-11-17 Erik asked for seven changes to the option C maps, and the operator let them break the
+placement rules: "just try and make the best result possible and flag it". Three needed no rule break:
+Whataburger on IH 10 at Menger Springs (added to its `businesses`) and on Hwy 46 West (added to its
+map-only list, `business_limit` 5) both place by the rules, and Circle K's logo is now Erik's PNG
+(`Circle_K.png`). Two mechanisms carry the rest.
+
+- `build/logo-overrides.json` draws a logo at a set spot: per listing, by business name as the map prints
+  it, `at` is the logo's centre in CSS px from its dot. `maps.mjs` draws forced logos after every other
+  logo has its place, so nothing else on the map moves (the rule-placed logos are tried while the forced
+  business still shows its name), with a leader line from the dot when the logo is more than 9 px away.
+  Nothing is checked at render time. Each override carries a `why` quoting the ask, a plain-words `flag`
+  for the read-me, and `breaks`, the exact list of rules the spot breaks in `logo_check.py`'s words
+  (`line over site-line`, `under road_motorway`, ...). `logo_check.py` fails unless the rendered map
+  breaks exactly those, no more and no fewer, and fails on a forced logo not drawn at its spot or drawn
+  forced with no override. `lib/mapjobs.py` stops the build when an override names a business the map
+  does not show with a logo. Four logos use it: UTSA Buena Vista at Urban Loop, Whataburger at IH 10 at
+  Highway 46, Circle K at IH 10 at Scenic Loop, and Methodist at Menger Springs Road.
+- `exclude_businesses` in `geo/sites.json` (a name and a `why`) removes a business OpenStreetMap still
+  lists, before the cap on businesses is counted: Builder's Mark Home Improvement at 5001 Walzem, closed
+  (Erik, 2026-11-16 and 11-17). Excluding a name not in the tiles stops the build. Without its dot the
+  labels near IH 35 & Walzem Rd settle differently under the same rules: the intersection label, the
+  34,246 and 133,684 counts and the Home Depot logo moved (measured 2026-11-17).
+
+`python3 build/test_logo_overrides.py` checks, through `maps.mjs` and the real job path: a forced logo
+is centred at its dot plus `at`, with its line to the box's nearest point, and the other businesses
+keep the records they have when it has no logo; a forced logo whose name fits nowhere is drawn with its
+dot back; `logo_check.allowed()` passes the exact list and fails a missing or extra break, a forced
+logo not drawn forced, and an unlisted forced logo; `lib/logos.forced()` refuses an unknown listing, a
+malformed `at` and a missing `why` or `breaks`; Builder's Mark is in the Walzem tiles and excluded from
+its job; a stale exclusion and an override for a business not on the map stop the build. Eleven
+mutations each turn it red (the table is in roalson-interests#384's body; two of them, a stale
+exclusion allowed and `force` dropped in `lib/logos.py`, turn it red by stopping the build rather than
+by a failed check).
+
 ### Map-only sites (2026-11-13)
 
 Three current packages were made outside this generator: Hwy 211, Hwy 46 West and Hwy 87

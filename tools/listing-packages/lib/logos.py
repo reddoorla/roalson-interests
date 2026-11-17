@@ -61,6 +61,32 @@ def logo_px(logo, uid=None, sizes_path=SIZES):
     return int(spec['default_px'] * s + 0.5)
 
 
+OVERRIDES = os.path.join(ROOT, 'build', 'logo-overrides.json')
+
+
+def forced(uid, path=OVERRIDES):
+    """{business name: override} for `uid` from build/logo-overrides.json: logos drawn at a set spot
+    instead of by the placement rules (2026-11-17, Erik's 11-17 asks; the operator let them break the
+    rules and asked that every break be flagged). Each override has `at`, the logo's centre as [x, y] CSS
+    px from its dot on the 672 px map, a `why` quoting the ask, and `breaks`, which build/logo_check.py
+    requires to equal what the rendered map records, word for word."""
+    if not os.path.exists(path):
+        return {}
+    spec = json.load(open(path)).get('listings', {})
+    uids = set(json.load(open(os.path.join(ROOT, 'geo', 'sites.json')))) | set(json.load(open(os.path.join(ROOT, 'geo', 'map-only.json'))))
+    if set(spec) - uids:
+        raise SystemExit(f'build/logo-overrides.json: listings geo/sites.json and geo/map-only.json do not list: {sorted(set(spec) - uids)}')
+    out = {}
+    for name, o in spec.get(uid, {}).get('logos', {}).items():
+        at = o.get('at')
+        if not (isinstance(at, list) and len(at) == 2 and all(isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v) for v in at)):
+            raise SystemExit(f'build/logo-overrides.json: {uid} "{name}": `at` must be [x, y] in px')
+        if not isinstance(o.get('breaks'), list) or not o.get('why'):
+            raise SystemExit(f'build/logo-overrides.json: {uid} "{name}" needs `why` and a `breaks` list (empty when it breaks nothing)')
+        out[name] = o
+    return out
+
+
 def with_logo(b, index=None, uid=None):
     """The business dict, plus `logo` (a path under the tool's root), `logo_sha` and `logo_px` (its
     height on `uid`'s map) when its name has one. The sha and the height are part of the map's job
@@ -71,4 +97,10 @@ def with_logo(b, index=None, uid=None):
             _INDEX = _index()
         index = _INDEX
     hit = index.get(norm(b['name']))
-    return {**b, **hit, 'logo_px': logo_px(hit['logo'], uid)} if hit else dict(b)
+    if not hit:
+        return dict(b)
+    out = {**b, **hit, 'logo_px': logo_px(hit['logo'], uid)}
+    f = forced(uid).get(b['name']) if uid else None
+    if f:
+        out['force'] = {'at': f['at']}
+    return out

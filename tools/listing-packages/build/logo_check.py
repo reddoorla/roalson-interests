@@ -19,6 +19,8 @@ render) and reports:
     decode (`dropped` says "unreadable"), which would otherwise read as a logo with no room. Below it is antialiasing: on 2026-11-12, IH 10 at Highway 46 differed in 7
     pixels on one row of a count box's border (at most 51/255), the box itself unmoved, while a
     vanished road label or count changes hundreds.
+A logo drawn at a forced spot (build/logo-overrides.json, Erik's 11-17 asks, 2026-11-17) may break exactly
+the rules its override lists in `breaks`, in this script's words; any difference fails (allowed()).
 Writes qa/logos/report.json, and a side-by-side qa/logos/<uid>/compare.png per listing.
 """
 import json, os, subprocess, sys
@@ -31,8 +33,34 @@ ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
 from test_logos import JITTER, mask_for, overlaps
 
+sys.path.insert(0, os.path.join(ROOT, 'lib'))
+from logos import forced
+
 A = lambda *p: os.path.join(ROOT, *p)
 SPECKS = 40
+
+
+def allowed(uid, after, over, covered, want=None):
+    """Takes the breaks build/logo-overrides.json allows on `uid` out of `over` and `covered`, and returns
+    what fails: a forced logo that is not drawn at its forced spot, or whose breaks differ in any way from
+    the override's list (2026-11-17, Erik's 11-17 asks). The allowance names the listing, the business and
+    each break, word for word: a break not listed fails, and so does a listed break the map no longer has."""
+    want = forced(uid) if want is None else want
+    drawn = {b['name']: b for b in json.load(open(after + '.boxes.json'))['businesses']}
+    bad = []
+    for b in drawn.values():
+        if b.get('via') == 'forced' and b['name'] not in want:
+            bad.append(f"{b['name']}: drawn at a forced spot no override names")
+    for name, o in want.items():
+        if drawn.get(name, {}).get('via') != 'forced':
+            bad.append(f'{name}: not drawn at its forced spot')
+            continue
+        pre = name[:24] + ' '
+        got = {s[len(pre):] for s in over if s.startswith(pre)} | {f'under {lid}' for lid in covered.pop(name, [])}
+        over[:] = [s for s in over if not s.startswith(pre)]
+        if got != set(o['breaks']):
+            bad.append(f"{name}: breaks {sorted(got)}, but build/logo-overrides.json allows {sorted(o['breaks'])}")
+    return bad
 
 
 def main(only):
@@ -47,6 +75,9 @@ def main(only):
         for b in bare['businesses']:
             b.pop('logo', None)
             b.pop('logo_sha', None)
+        # The bare render is only the comparison; `strict` guards the map that is delivered, which `after`
+        # still renders with it. On Hwy 46 West, Whataburger's logo has room but its name does not (2026-11-17).
+        bare.pop('strict', None)
         before, after = os.path.join(d, 'before.png'), os.path.join(d, 'after.png')
         if not run:
             run.append({**bare, 'out': os.path.join(d, 'warmup.png')})
@@ -82,7 +113,9 @@ def main(only):
         # A logo file that would not decode drops off like a logo with no room; it must not pass as one
         # (review round 3, 2026-11-17).
         unreadable = sorted(d for d in meta['dropped'] if 'unreadable' in d)
-        bad += n > SPECKS or bool(covered) or bool(over) or bool(unreadable)
+        # Erik's 11-17 asks: a forced logo may break exactly the rules its override lists, no more, no fewer.
+        forced_bad = allowed(uid, after, over, covered)
+        bad += n > SPECKS or bool(covered) or bool(over) or bool(unreadable) or bool(forced_bad)
         report[uid] = {
             'logo': sorted(b['name'] for b in swapped),
             'logo_no_room': sorted(b['name'] for b in bx1.values() if b['kind'] == 'name' and b['logo']),
@@ -92,6 +125,8 @@ def main(only):
             'drawn_under_a_logo': covered,
             'logo_over_a_mark': over,
             'logo_unreadable': unreadable,
+            'forced': {b['name']: b.get('under', []) for b in swapped if b.get('via') == 'forced'},
+            'forced_mismatch': forced_bad,
             'largest_difference_outside_boxes': int((delta * ~mask).max()),
         }
         w = B0.shape[1]
@@ -99,10 +134,10 @@ def main(only):
         c.paste(Image.open(before).convert('RGB'), (0, 0))
         c.paste(Image.open(after).convert('RGB'), (w + 20, 0))
         c.save(os.path.join(os.path.dirname(before), 'compare.png'))
-        print(uid.ljust(42), 'logos', report[uid]['logo'], '| no room', report[uid]['logo_no_room'], '| left off', report[uid]['logo_left_off'], '| changed', n, '| under a logo', covered or '-', '| over a mark', over or '-', '| unreadable', unreadable or '-')
+        print(uid.ljust(42), 'logos', report[uid]['logo'], '| no room', report[uid]['logo_no_room'], '| left off', report[uid]['logo_left_off'], '| changed', n, '| under a logo', covered or '-', '| over a mark', over or '-', '| unreadable', unreadable or '-', '| forced', report[uid]['forced'] and sorted(report[uid]['forced']) or '-', '| forced mismatch', forced_bad or '-')
     json.dump(report, open(A('qa', 'logos', 'report.json'), 'w'), indent=1)
     if bad:
-        sys.exit(f'{bad} map(s) changed outside the logo boxes, have something protected under a logo, or have a logo over a count, pin, label, dot or leader line, or have a logo file that would not decode')
+        sys.exit(f'{bad} map(s) changed outside the logo boxes, have something protected under a logo, or have a logo over a count, pin, label, dot or leader line, or have a logo file that would not decode, or break other rules than build/logo-overrides.json allows')
 
 
 if __name__ == '__main__':

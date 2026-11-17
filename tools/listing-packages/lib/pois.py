@@ -10,9 +10,11 @@ def _norm(s):
     return ''.join(c for c in s if c.isalnum())
 
 
-def businesses(bounds, site, featured=(), limit=6, sep_m=180, max_tier=1):
+def businesses(bounds, site, featured=(), limit=6, sep_m=180, max_tier=1, exclude=()):
     """Named businesses inside bounds, from the z14 OpenFreeMap poi layer: the featured names first,
-    then anchors (ANCHOR tier <= max_tier) nearest the site. One location per name, the nearest."""
+    then anchors (ANCHOR tier <= max_tier) nearest the site. One location per name, the nearest.
+    `exclude` names (geo/sites.json exclude_businesses) are never shown: a closed store OpenStreetMap still
+    lists (2026-11-17). Excluding a name that is not in the tiles stops the build, so a stale entry shows."""
     x0, y1 = _tile(bounds[0], bounds[1], 14)
     x1, y0 = _tile(bounds[2], bounds[3], 14)
     found = {}
@@ -31,6 +33,12 @@ def businesses(bounds, site, featured=(), limit=6, sep_m=180, max_tier=1):
                 k = _norm(p['name'])
                 if k not in found or v['m'] < found[k]['m']:
                     found[k] = v
+    gone = [_norm(n) for n in exclude]
+    stale = [n for n, k in zip(exclude, gone) if k not in found]
+    if stale:
+        raise SystemExit(f'exclude_businesses names not in the tiles: {stale}')
+    for k in gone:
+        del found[k]
     want = [_norm(n) for n in featured]
     first = [found[k] for k in want if k in found]
     rest = sorted([v for k, v in found.items() if k not in want and ANCHOR.get(v['sub'], 99) <= max_tier],

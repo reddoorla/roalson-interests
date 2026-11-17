@@ -1337,8 +1337,10 @@
   "businesses": [
    "The Home Depot",
    "H-E-B plus!",
-   "Walmart Supercenter"
-  ]
+   "Walmart Supercenter",
+   "Whataburger"
+  ],
+  "businesses_note": "Whataburger added 2026-11-17, Erik in #roalson-interests 7:19am PT: \"IH 10 at Menger Springs: add Whataburger.\" It is the Whataburger at IH 10 and SH 46 that the Hwy 46 listings show (OpenStreetMap, 29.778947, -98.739581); fast food is not an anchor lib/pois.py adds on its own."
  },
  "402-w-nueva-street": {
   "lat": 29.4231304,
@@ -1982,7 +1984,13 @@
    "lon": -98.397667,
    "label": "IH 35 & Walzem Rd",
    "source": "lib/intersection.py (OpenFreeMap, 2026-10-12) --with-secondary; FM 1976 is Walzem Rd; chosen by hand on 2026-10-12, P1-46"
-  }
+  },
+  "exclude_businesses": [
+   {
+    "name": "Builder's Mark Home Improvement",
+    "why": "Erik, #roalson-interests 2026-11-16 2:40pm PT: \"5001 Walzem Rd. The Builders Mark home improvement store is out of business. Please remove that.\" and 2026-11-17 7:19am PT: \"Builders Mark Home Improvement is still included on the 5001 Walzem listing.\" OpenStreetMap still lists it (z14 poi, shop=doityourself), so lib/pois.py added it as an anchor."
+   }
+  ]
  },
  "25331-ih-10-west": {
   "lat": 29.6773878,

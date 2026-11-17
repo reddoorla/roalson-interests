@@ -1,5 +1,5 @@
 {
- "source": "Dropbox /Clients/Roalson Interests/Listing PDFs/Surrounding Area Logos (Erik: 17 files 2026-11-12, 10 more 2026-11-13; HEB Plus.png replaced 2026-11-16 2:20pm PT, no black outline)",
+ "source": "Dropbox /Clients/Roalson Interests/Listing PDFs/Surrounding Area Logos (Erik: 17 files 2026-11-12, 10 more 2026-11-13; HEB Plus.png replaced 2026-11-16 2:20pm PT, no black outline; Circle_K.png added 2026-11-17 7:15am PT and used for Circle K instead of Circle K.eps, Erik: \"replace plain text with the Circle K logo from the logo folder, just added a PNG version\")",
  "not_matched": {
   "Lowe's Market": "The Texas grocery chain at Comfort, not Lowe's Home Improvement: it has its own logo (lowes-market.png), never Lowe's."
  },
@@ -27,7 +27,7 @@
   },
   {
    "file": "build/assets/logos/circle-k.png",
-   "source": "Circle K.eps",
+   "source": "Circle_K.png",
    "names": [
     "Circle K"
    ]
