@@ -243,6 +243,26 @@ def overlaps(png, by_index=False):
     return [m if i is None else f"{d['businesses'][i]['name'][:24]} {m}" for i, m in out]
 
 
+def near_dots(b, marks):
+    """The dots a logo `b` may be read as belonging to (#379): every other dot (another business's, a count's,
+    the pin's, an intersection ring) within LOGO_NEAR of its box, or, for a logo with no line, closer to it
+    than its own dot. Each is (kind, name or None, distance to the box, whether it is closer than its own)."""
+    out = []
+    own = box_dist(b['dot'], b)
+    ln = b.get('line')
+    for m in marks:
+        if m['kind'] not in DOTS:
+            continue
+        c = ((m['l'] + m['r']) / 2, (m['t'] + m['b']) / 2)
+        if m['kind'] == 'biz-dot' and math.hypot(c[0] - b['dot'][0], c[1] - b['dot'][1]) < 0.5:
+            continue  # its own dot
+        od = box_dist(c, b)
+        closer = not ln and od < own
+        if closer or od <= LOGO_NEAR:
+            out.append((m['kind'], m.get('name'), od, closer))
+    return out
+
+
 def ties(d):
     """What ties each box to its point, and whether the record of leader lines is complete (#380 and the
     checker half of #379, 2026-11-17). The checks above trust `segs` and each logo's `line`; these check
@@ -276,13 +296,16 @@ def ties(d):
         for k in hits:
             owned[k] = True
         # place() sizes a label by offsetWidth, rounded to whole px, where the mark is the drawn box: up to
-        # 1 px of slack either way.
-        if box_dist(m['pt'], m) > LABEL_NEAR + 1 and not any(same(segs[k][2:], nearest(m['pt'], m), 1) for k in hits):
+        # 0.5 px of slack (review round 1: 1 px left a band where a missing line passed).
+        if box_dist(m['pt'], m) > LABEL_NEAR + 0.5 and not any(same(segs[k][2:], nearest(m['pt'], m), 1) for k in hits):
             out.append((None, f"{m['kind']} line not in segs"))
     out += [(None, 'a leader line in segs that nothing draws') for o in owned if not o]
+    # A placed intersection label has a ring; a fixed one does not. So every ring's label must carry its point,
+    # or the line check above skips it as fixed (review round 1).
+    if sum(m['kind'] == 'ref' and 'pt' in m for m in marks) < sum(m['kind'] == 'xring' for m in marks):
+        out.append((None, 'an intersection label with no point recorded'))
     if sum(m['kind'] == 'pin-stem' for m in marks) < sum(m['kind'] == 'pin' for m in marks):
         out.append((None, 'pin stem not recorded'))
-    centre = lambda m: ((m['l'] + m['r']) / 2, (m['t'] + m['b']) / 2)
     for i, b in enumerate(biz):
         if b['kind'] != 'logo' or not all(k in b for k in 'ltrb'):
             continue
@@ -293,17 +316,9 @@ def ties(d):
                 out.append((i, 'off its dot with no leader line'))
             elif not (same(ln[:2], b['dot']) and box_dist(ln[2:], b) < 0.05):
                 out.append((i, 'leader line does not join its dot to its box'))
-        for m in marks:
-            if m['kind'] not in DOTS:
-                continue
-            c = centre(m)
-            if m['kind'] == 'biz-dot' and math.hypot(c[0] - b['dot'][0], c[1] - b['dot'][1]) < 0.5:
-                continue  # its own dot
-            od = box_dist(c, b)
-            if not ln and od < own:
-                out.append((i, f"another dot ({m['kind']}) closer than its own"))
-            elif od <= LOGO_NEAR:
-                out.append((i, f"another dot ({m['kind']}) within {LOGO_NEAR} px"))
+        for kind, name, od, closer in near_dots(b, marks):
+            who = f"{kind} {name}" if name else kind
+            out.append((i, f"another dot ({who}) {'closer than its own' if closer else f'within {LOGO_NEAR} px'}"))
     return out
 
 
@@ -314,28 +329,32 @@ CLOSER = 'another dot ('
 def approved(uid, png, found, path=APPROVED):
     """Takes the closer-dot findings build/logo-check-approved.json keeps on `uid` out of `found`
     (overlaps(by_index=True)) and returns (what fails, the findings left). Each listed business must have
-    exactly its listed findings, matched by the business's place in boxes.json, so a map that moves fails
-    either way: a listed finding gone, or a new one. Only closer-dot findings can be listed; an entry with
-    no `why` or `date`, a listing geo/sites.json and geo/map-only.json lack, or a name the map does not
-    show as a logo exactly once stops it (the operator's answer (a), 2026-11-17)."""
+    exactly its listed `dots` near it (near_dots()): the same kinds and business names, each within 0.5 px of
+    its listed distance (review round 1: matching the finding's words alone passed a dot that had moved, or
+    another dot in its place). A dot gone, a new one, or one that moved fails. Only closer-dot findings are
+    taken off; an entry with no `why` or `date`, a listing geo/sites.json and geo/map-only.json lack, or a
+    name the map does not show as a logo exactly once stops it (the operator's answer (a), 2026-11-17)."""
     spec = json.load(open(path)).get('listings', {})
     root = os.path.dirname(HERE)
     uids = set(json.load(open(os.path.join(root, 'geo', 'sites.json')))) | set(json.load(open(os.path.join(root, 'geo', 'map-only.json'))))
     if set(spec) - uids:
         raise SystemExit(f'build/logo-check-approved.json: listings geo/sites.json and geo/map-only.json do not list: {sorted(set(spec) - uids)}')
-    biz = json.load(open(png + '.boxes.json'))['businesses']
+    rec = json.load(open(png + '.boxes.json'))
+    biz = rec['businesses']
     bad, keep = [], set()
     for name, e in spec.get(uid, {}).items():
-        f = e.get('findings')
-        if not (isinstance(f, list) and f and all(isinstance(x, str) and x.startswith(CLOSER) for x in f)) or not e.get('why') or not e.get('date'):
-            raise SystemExit(f'build/logo-check-approved.json: {uid} "{name}" needs `why`, `date` and `findings`, a list of closer-dot findings only')
+        f = e.get('dots')
+        ok = lambda x: isinstance(x, dict) and set(x) <= {'kind', 'name', 'px'} and x.get('kind') in DOTS and isinstance(x.get('px'), (int, float)) and not isinstance(x.get('px'), bool)
+        if not (isinstance(f, list) and f and all(ok(x) for x in f)) or not e.get('why') or not e.get('date'):
+            raise SystemExit(f'build/logo-check-approved.json: {uid} "{name}" needs `why`, `date` and `dots`, a list of {{kind, name, px}}')
         idx = [i for i, b in enumerate(biz) if b['name'] == name and b['kind'] == 'logo']
         if len(idx) != 1:
             bad.append(f'{name}: approved, but drawn as a logo {len(idx)} times, not once')
             continue
-        got = sorted(m for k, m in found if k == idx[0] and m.startswith(CLOSER))
-        if got != sorted(f):
-            bad.append(f"{name}: has {got}, but build/logo-check-approved.json approves {sorted(f)}")
+        got = sorted((k, n, round(od, 2)) for k, n, od, _ in near_dots(biz[idx[0]], rec['marks']))
+        want = sorted((x['kind'], x.get('name'), x['px']) for x in f)
+        if len(got) != len(want) or any(g[:2] != w[:2] or abs(g[2] - w[2]) > 0.5 for g, w in zip(got, want)):
+            bad.append(f"{name}: has dots {got}, but build/logo-check-approved.json approves {want}")
         else:
             keep.add(idx[0])
     return bad, [(k, m) for k, m in found if not (k in keep and m.startswith(CLOSER))]
@@ -506,7 +525,10 @@ def instrument():
         'a count 40 px from its point, its line not in segs (X1)': (run(marks=[{'kind': 'aadt', 'l': 300, 't': 300, 'r': 340, 'b': 320, 'pt': [320, 360]}]), True),
         'a count 40 px from its point, its line in segs': (run(marks=[{'kind': 'aadt', 'l': 300, 't': 300, 'r': 340, 'b': 320, 'pt': [320, 360]}], segs=[[320, 360, 320, 320]], owners=False), False),
         'an intersection label 40 px out, its line not in segs (X1)': (run(marks=[{'kind': 'ref', 'l': 300, 't': 300, 'r': 340, 'b': 320, 'pt': [320, 360]}]), True),
+        'a count 13 px from its point, its line not in segs (review round 1)': (run(marks=[{'kind': 'aadt', 'l': 300, 't': 300, 'r': 340, 'b': 320, 'pt': [320, 333]}]), True),
         'a count 10 px from its point, no line': (run(marks=[{'kind': 'aadt', 'l': 300, 't': 300, 'r': 340, 'b': 320, 'pt': [320, 330]}]), False),
+        'an intersection ring whose label has no point recorded': (run(marks=[{'kind': 'xring', 'l': 400, 't': 400, 'r': 417, 'b': 417}, {'kind': 'ref', 'l': 380, 't': 360, 'r': 440, 'b': 376}]), True),
+        'an intersection ring whose label has its point': (run(marks=[{'kind': 'xring', 'l': 400, 't': 400, 'r': 417, 'b': 417}, {'kind': 'ref', 'l': 380, 't': 380, 'r': 440, 'b': 396, 'pt': [408.5, 408.5]}]), False),
         'a count with no point recorded': (run(marks=[{'kind': 'aadt', 'l': 300, 't': 300, 'r': 340, 'b': 320}]), True),
         'a line through the pin\'s stem': (run(marks=[{'kind': 'pin', 'l': 120, 't': 70, 'r': 170, 'b': 94}]), True),
         'a pin tag clear of the line, its stem too': (run(marks=[{'kind': 'pin', 'l': 120, 't': 40, 'r': 170, 'b': 64}]), False),
@@ -536,30 +558,35 @@ def instrument():
         p = os.path.join(t, 'dc.png')
         json.dump(dc, open(p + '.boxes.json', 'w'))
         got = sorted(overlaps(p))
-        want = ['Costco another dot (biz-dot) within 9 px', 'Walmart Supercenter another dot (biz-dot) closer than its own']
+        want = ['Costco another dot (biz-dot Ross) within 9 px', 'Walmart Supercenter another dot (biz-dot Costco) closer than its own']
         check(got == want, f"11. Dove Canyon's option C Walmart and Costco (#379): {got}")
         # approved() on the same record: the committed list clears it; a missing, extra or changed finding,
         # another rule's finding listed, or a listed business not drawn as a logo, fails.
         dcu = 'loop-1604-at-dove-canyon'
         real = json.load(open(APPROVED))
-        def appr(edit=None, extra=()):
+        def appr(edit=None, extra=(), marks=()):
             spec = json.loads(json.dumps(real))
             if edit:
                 edit(spec['listings'][dcu])
             q = os.path.join(t, 'appr.json')
             json.dump(spec, open(q, 'w'))
+            r = os.path.join(t, 'dc2.png')
+            json.dump({**dc, 'marks': dc['marks'] + list(marks)}, open(r + '.boxes.json', 'w'))
             try:
-                bad, left = approved(dcu, p, overlaps(p, by_index=True) + list(extra), path=q)
+                bad, left = approved(dcu, r, overlaps(r, by_index=True) + list(extra), path=q)
                 return bad + [m for _, m in left]
             except SystemExit as e:
                 return [f'refused: {e}']
         acases = {
             'as committed': (appr(), False),
             'Costco not approved': (appr(lambda e: e.pop('Costco')), True),
-            'a finding approved that the map lacks': (appr(lambda e: e['Costco']['findings'].append('another dot (pin-dot) within 9 px')), True),
-            'a new closer-dot finding on an approved logo': (appr(extra=[(2, 'another dot (aadt-dot) within 9 px')]), True),
+            'a dot approved that the map lacks': (appr(lambda e: e['Costco']['dots'].append({'kind': 'pin-dot', 'px': 4})), True),
+            'the approved dot 1 px nearer than listed': (appr(lambda e: e['Costco']['dots'][0].__setitem__('px', e['Costco']['dots'][0]['px'] + 1)), True),
+            'the approved dot 0.4 px off (within tolerance)': (appr(lambda e: e['Costco']['dots'][0].__setitem__('px', e['Costco']['dots'][0]['px'] + 0.4)), False),
+            'another business\'s dot in the listed one\'s place': (appr(lambda e: e['Costco']['dots'][0].__setitem__('name', 'Walmart Supercenter')), True),
             'another rule\'s finding on an approved logo': (appr(extra=[(2, 'over aadt')]), True),
-            'another rule listed': (appr(lambda e: e['Costco']['findings'].append('over aadt')), True),
+            'a new count dot beside the approved Walmart logo': (appr(marks=[{'kind': 'aadt-dot', 'l': 330, 't': 188, 'r': 343, 'b': 201}]), True),
+            'a malformed dot': (appr(lambda e: e['Costco']['dots'].append({'kind': 'aadt-dot', 'px': '4'})), True),
             'no why': (appr(lambda e: e['Costco'].pop('why')), True),
             'a listed business not on the map': (appr(lambda e: e.__setitem__('Target', {**e['Costco']})), True),
         }

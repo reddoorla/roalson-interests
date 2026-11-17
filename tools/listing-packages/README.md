@@ -260,22 +260,28 @@ both checkers fail:
 
 - a logo farther than 9 px from its dot (`near` in `maps.mjs`) with no line that starts at the dot and
   ends on the box;
-- a business line, or a count or intersection label farther than 12 px from its point, whose line is not
-  in `segs`, and a line in `segs` that nothing draws. `marks` records each placed label's point as `pt`;
+- a business line, or a count or intersection label farther than 12 px from its point (`near` for labels,
+  plus 0.5 px for `offsetWidth` rounding), whose line is not in `segs`, and a line in `segs` that nothing
+  draws. `marks` records each placed label's point as `pt`, and every intersection ring's label must have
+  one;
 - a pin with no stem recorded. `maps.mjs` records the stem (`pin-stem`) and the north panel (`north`) in
   `marks`, and both are in `taken`, so no label, logo or line is placed over them;
 - a logo with another dot (another business's, a count's, the pin's, an intersection ring) within 9 px
-  of its box, or closer to it than its own dot (roalson-interests#379). 9 px is the renderer's own
-  `near`: within it, a logo counts as beside its dot and gets no line.
+  of its box, or, for a logo with no leader line, closer to its box than its own dot
+  (roalson-interests#379). 9 px is the renderer's own `near`: within it, a logo counts as beside its dot
+  and gets no line. A logo on a line is joined to its dot by the line, so only the 9 px rule applies to it.
 
-Re-rendering all 26 maps with these renderer changes moved no placement: every logo box, line, `segs`,
-`dropped` and mark matched `staging`'s (measured 2026-11-17). A name's record is now the box the page
+Re-rendering all 26 Area Maps with Traffic Counts with these renderer changes moved no placement: every
+logo box, line, `segs`, `dropped` and mark matched `staging`'s (measured 2026-11-17). The 25 wide aerials,
+which place intersection labels by the same rules beside the north panel and the pin, were compared with
+`staging`'s renderer pixel for pixel (review round 1); see the journal entry for the result. A name's record is now the box the page
 drew, not one rounded from `offsetWidth`.
 
 The closer-dot rule fails four logos on three maps Erik approved on 11-17. The operator chose to keep
 those maps as delivered (reddoor-workspace
 `decisions/2026-11-17-1939-roalson-closer-dot-check-fails-approved-maps.md`), so
-`build/logo-check-approved.json` lists each one: listing, business, the exact findings, a date and a `why`.
+`build/logo-check-approved.json` lists each one: listing, business, each dot near it by kind, business
+name and distance, a date and a `why`.
 
 | Listing                  | Logo                | Nearest other dot             |
 | ------------------------ | ------------------- | ----------------------------- |
@@ -284,8 +290,9 @@ those maps as delivered (reddoor-workspace
 | Kingsville               | Walmart Supercenter | the 7,948 count's, 7.7 px     |
 | Hwy 46 West              | The Home Depot      | Whataburger's, 8.8 px (own 8) |
 
-`test_logos.approved()` takes exactly those findings off and fails if a listed one is gone or a new one
-appears, so a map that changes is checked again. Only closer-dot findings can be listed there.
+`test_logos.approved()` takes those findings off only while the logo has exactly those dots near it, each
+within 0.5 px of its listed distance, so a dot that moves, goes or appears fails. Only closer-dot findings
+are taken off.
 
 `lib/logos.py` now also refuses, in `build/logo-sizes.json`, a key it does not read (a listing entry
 spelled `"scales"` was read as no scale), `"*"` under `logos.scale` (accepted and never applied), a scale

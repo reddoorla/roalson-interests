@@ -1,28 +1,51 @@
 {
- "about": "Findings of test_logos.ties()'s closer-dot rule (#379: another dot within 9 px of a logo box, or closer to it than the logo's own dot) on maps Erik approved, which the operator chose to keep as delivered rather than move (reddoor-workspace decisions/2026-11-17-1939-roalson-closer-dot-check-fails-approved-maps.md, answer (a)). Per listing and business as the map prints it: `findings` is the exact list the map must still have, no more and no fewer, so a map that changes fails. Only closer-dot findings can be listed. Read by build/test_logos.py approved(), which build/logo_check.py and test_logos.py's renders use.",
+ "about": "Findings of test_logos.ties()'s closer-dot rule (#379: another dot within 9 px of a logo box, or closer to it than the logo's own dot) on maps Erik approved, which the operator chose to keep as delivered rather than move (reddoor-workspace decisions/2026-11-17-1939-roalson-closer-dot-check-fails-approved-maps.md, answer (a)). Per listing and business as the map prints it: `dots` is every dot near the logo box (test_logos.near_dots()) by kind, business name and distance in CSS px: the map must still have exactly those, each within 0.5 px of its distance, so a dot that moves, goes or appears fails. Only closer-dot findings are taken off. Read by build/test_logos.py approved(), which build/logo_check.py and test_logos.py's renders use.",
  "listings": {
   "loop-1604-at-dove-canyon": {
    "Walmart Supercenter": {
-    "findings": ["another dot (biz-dot) closer than its own"],
+    "dots": [
+     {
+      "kind": "biz-dot",
+      "name": "Costco",
+      "px": 6.57
+     }
+    ],
     "date": "2026-11-17",
     "why": "Costco's dot sits 6.6 px under the Walmart logo, whose own dot is 8.0 px away (#379). Erik approved the option C maps on 11-17: \"The rest look good to me.\""
    },
    "Costco": {
-    "findings": ["another dot (biz-dot) within 9 px"],
+    "dots": [
+     {
+      "kind": "biz-dot",
+      "name": "Ross",
+      "px": 5.34
+     }
+    ],
     "date": "2026-11-17",
     "why": "Ross's dot is 5.3 px from the Costco logo, which hangs on a line from its own dot (#379). Erik approved the option C maps on 11-17: \"The rest look good to me.\""
    }
   },
   "highway-77-at-general-cavazos-kingsville": {
    "Walmart Supercenter": {
-    "findings": ["another dot (aadt-dot) closer than its own"],
+    "dots": [
+     {
+      "kind": "aadt-dot",
+      "px": 7.67
+     }
+    ],
     "date": "2026-11-17",
     "why": "The 7,948 count's dot is 7.7 px from the Walmart logo, as near as Walmart's own dot (#379). Erik approved the option C maps on 11-17: \"The rest look good to me.\""
    }
   },
   "hwy-46-west-development-site": {
    "The Home Depot": {
-    "findings": ["another dot (biz-dot) within 9 px"],
+    "dots": [
+     {
+      "kind": "biz-dot",
+      "name": "Whataburger",
+      "px": 8.76
+     }
+    ],
     "date": "2026-11-17",
     "why": "Whataburger's dot is 8.8 px from The Home Depot logo, whose own dot is 8.0 px away (found 2026-11-17, not in #379). Erik approved this map with his 11-17 asks (Whataburger added there): \"The rest look good to me.\""
    }
