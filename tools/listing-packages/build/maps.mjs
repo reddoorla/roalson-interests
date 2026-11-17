@@ -161,10 +161,25 @@ async function render(page, job) {
       el.querySelector('.tag').textContent = job.pin.label;
       new maplibregl.Marker({ element: el, anchor: 'bottom', offset: [0, 8] }).setLngLat([job.pin.lon, job.pin.lat]).addTo(map);
     }
-    const taken = [...document.querySelectorAll('.pin .tag, .pin .dot, .ref')].map((el) => el.getBoundingClientRect()).map((r) => ({ l: r.left - 3, t: r.top - 3, r: r.right + 3, b: r.bottom + 3 }));
+    // The north panel is drawn before any label is placed, so place() keeps clear of it like any other mark
+    // (#380, 2026-11-17: it ran to y 60 while place() kept boxes only below y 50, and nothing recorded it).
+    // It has no z-index, and every label, line and dot it could meet has one, so drawing it earlier changes
+    // no pixel.
+    if (job.north) {
+      const n = document.createElement('div'); n.className = 'north';
+      n.innerHTML = `<span>N</span><svg width="14" height="20" viewBox="0 0 14 20"><path d="M7 0 L14 20 L7 15 L0 20 Z" fill="${GARNET}"/></svg>`;
+      document.body.appendChild(n);
+    }
+    // The pin's stem is taken too (#380, 2026-11-17): between the tag's slot and the dot's there was a band
+    // about 5 px tall that a leader line could cross, and a test logo's line ran straight through the stem.
+    const taken = [...document.querySelectorAll('.pin .tag, .pin .stem, .pin .dot, .ref, .north')].map((el) => el.getBoundingClientRect()).map((r) => ({ l: r.left - 3, t: r.top - 3, r: r.right + 3, b: r.bottom + 3 }));
     const hit = (a) => taken.some((o) => !(a.r < o.l || a.l > o.r || a.b < o.t || a.t > o.b));
     const W = job.width, H = job.height;
     const segs = [];
+    // The point each placed label (count, intersection label, business) labels, recorded in `marks` as `pt`,
+    // so a checker can tell which labels sit far enough out to need a leader line in `segs` (#380, X1).
+    const anchor = new Map();
+    const rectOf = (e) => { const r = e.getBoundingClientRect(); return { l: r.left, t: r.top, r: r.right, b: r.bottom }; };
     // Whether a box touches any leader line, by clipping each segment to the box (edges included).
     // Review round 3, 2026-11-17: 21 samples along a line let a short clip across a box corner through.
     const boxHitsSeg = (b) => segs.some(([x1, y1, x2, y2]) => {
@@ -237,6 +252,7 @@ async function render(page, job) {
         el.style.left = `${box.l}px`; el.style.top = `${box.t}px`; el.style.visibility = 'visible';
         const slot = { l: box.l - 3, t: box.t - 3, r: box.r + 3, b: box.b + 3 };
         taken.push(slot);
+        anchor.set(el, [pt.x, pt.y]);
         const placed = { l: box.l, t: box.t, r: box.r, b: box.b, line: d > near ? [pt.x, pt.y, cx, cy] : null, slot, el, via: tag ?? (i < nFirst ? 'name' : i < nFirst + nFixed ? 'fixed' : 'ring') };
         if (d > near) {
           segs.push([pt.x, pt.y, cx, cy]);
@@ -398,7 +414,6 @@ async function render(page, job) {
         }
         return els.get(x);
       };
-      const rectOf = (e) => { const r = e.getBoundingClientRect(); return { l: r.left, t: r.top, r: r.right, b: r.bottom }; };
       const tryLogo = async (x) => {
         // Roads too: a logo box is opaque white. The name's own box already covered whatever streets
         // it sat on, on today's approved map, so a logo may cover those and no others (review round
@@ -561,14 +576,20 @@ async function render(page, job) {
       return [...found];
     };
     const roads = (x) => [...new Set((x.was ? outside(x, x.was) : [x]).flatMap((r) => ids(r, roadIds)))];
-    const out = boxes.map((x) => ({ name: x.biz.name, logo: x.biz.logo ?? null, kind: x.kind, dot: [x.pt.x, x.pt.y], l: x.l, t: x.t, r: x.r, b: x.b, line: x.line, ...(x.was ? { was: x.was } : {}), ...(x.kind === 'logo' ? { under: under(x), line_under: alongLine(x), via: x.via, pass: x.pass, roads: roads(x) } : {}) }));
+    // A name's box is recorded as the page drew it (#380, 2026-11-17): on the first map of a fresh page two
+    // names were 0.8 px off their drawn box, more than offsetWidth's rounding (at most 0.5 px), so the text
+    // likely changed size after place() measured it. overlaps() then reported them as not drawn. place()
+    // still reserves the slot it measured. A logo's place() box is already its drawn box.
+    const out = boxes.map((x) => ({ name: x.biz.name, logo: x.biz.logo ?? null, kind: x.kind, dot: [x.pt.x, x.pt.y], ...(x.kind === 'name' ? rectOf(x.el) : { l: x.l, t: x.t, r: x.r, b: x.b }), line: x.line, ...(x.was ? { was: x.was } : {}), ...(x.kind === 'logo' ? { under: under(x), line_under: alongLine(x), via: x.via, pass: x.pass, roads: roads(x) } : {}) }));
     // Every count, count dot, intersection label and ring, pin tag and dot, and business label as the
     // page finally draws it, read back from the DOM, and every business dot still on the map (3.4 px
     // plus its 1.4 px stroke). These are HTML or a circle layer, which under() cannot see, so the
     // tests check them against each logo from this record (2026-11-16).
-    const marks = [...document.querySelectorAll('.aadt, .aadt-dot, .ref, .xring, .pin .tag, .pin .dot, .biz')].map((el) => {
+    // Since #380 (2026-11-17) also the pin's stem, the north panel, and `pt`, the point a placed label labels.
+    const marks = [...document.querySelectorAll('.aadt, .aadt-dot, .ref, .xring, .pin .tag, .pin .stem, .pin .dot, .biz, .north')].map((el) => {
       const r = el.getBoundingClientRect();
-      return { kind: el.matches('.biz') ? 'biz' : el.matches('.pin .tag') ? 'pin' : el.matches('.pin .dot') ? 'pin-dot' : el.classList[0], l: r.left, t: r.top, r: r.right, b: r.bottom };
+      const kind = el.matches('.biz') ? 'biz' : el.matches('.pin .tag') ? 'pin' : el.matches('.pin .stem') ? 'pin-stem' : el.matches('.pin .dot') ? 'pin-dot' : el.classList[0];
+      return { kind, l: r.left, t: r.top, r: r.right, b: r.bottom, ...(anchor.has(el) ? { pt: anchor.get(el) } : {}) };
     });
     // Business dots as the circle layer draws them, read back from the map, not from `dropped`
     // (review round 1: a dot the map failed to redraw would otherwise still be recorded).
@@ -584,11 +605,6 @@ async function render(page, job) {
       }
     }
     const root = document.body;
-    if (job.north) {
-      const n = document.createElement('div'); n.className = 'north';
-      n.innerHTML = `<span>N</span><svg width="14" height="20" viewBox="0 0 14 20"><path d="M7 0 L14 20 L7 15 L0 20 Z" fill="${GARNET}"/></svg>`;
-      root.appendChild(n);
-    }
     if (job.scale) {
       const c = map.getCenter();
       const mpp = 78271.51696 * Math.cos(c.lat * Math.PI / 180) / Math.pow(2, map.getZoom());

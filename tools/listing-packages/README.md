@@ -250,6 +250,62 @@ label and dot, and `dropped`.
   PyMuPDF then names that copy (5001 Walzem Road, 2026-11-16). `python3 build/test_swap_area_map.py`
   checks both cases.
 
+### What ties a logo to its dot, and the records behind the checks (2026-11-17)
+
+The deep review of the option C promotion found that the checks above trusted records nothing checked
+for completeness: two mutations, X1 (count and intersection-label lines left out of `segs`) and X2 (a
+logo off its dot drawn with no line), passed both checkers, and so did a test logo whose line ran through
+the SITE pin's stem (roalson-interests#380). Since then `test_logos.overlaps()` also runs `ties()`, so
+both checkers fail:
+
+- a logo farther than 9 px from its dot (`near` in `maps.mjs`), or a name farther than 9.5 px, with no
+  line that starts at the dot and ends on the box;
+- a business line, or a count or intersection label farther than 12 px from its point (`near` for labels,
+  plus 0.5 px for `offsetWidth` rounding), whose line is not in `segs`, and a line in `segs` that nothing
+  draws, or a second line from one label. `marks` records each placed label's point as `pt`, and every intersection ring's label must have
+  one;
+- a pin with no stem recorded. `maps.mjs` records the stem (`pin-stem`) and the north panel (`north`) in
+  `marks`, and both are in `taken`, so no label, logo or line is placed over them;
+- a logo with another dot (another business's, a count's, the pin's, an intersection ring) within 9 px
+  of its box, or, for a logo with no leader line, closer to its box than its own dot
+  (roalson-interests#379). 9 px is the renderer's own `near`: within it, a logo counts as beside its dot
+  and gets no line. A logo on a line is joined to its dot by the line, so only the 9 px rule applies to it.
+  Every dot is measured from its centre, the point it marks, as `near` is. So the pin's 18 px dot and a
+  16 px intersection ring count only where their centre is that near, and the SITE tag is not a dot.
+  Measured from each dot's drawn edge instead, and counting the SITE tag as a dot, four more logos would
+  fail on 11-17's maps, with six findings: at IH 10 at Scenic Loop, Fairfield (8.4 px from the tag) and
+  Circle K (4.0 px from the ring, 5.8 from the pin's dot, 8.1 from NAPA's dot), both of #379's map half,
+  which stays open; Whataburger at IH 10 at Highway 46 (5.7 px from the pin's dot); and Whataburger at
+  Hwy 46 and Coughran (7.4 px from the tag). Circle K and the Highway 46 Whataburger are Erik's forced
+  spots.
+
+Re-rendering all 26 Area Maps with Traffic Counts with these renderer changes moved no placement: every
+logo box, line, `segs` and `dropped`, and every mark `staging` already recorded, matched `staging`'s
+(measured 2026-11-17). The 25 wide aerials, which place intersection labels by the same rules beside the
+north panel and the pin, rendered with `staging`'s renderer and with this one, are identical pixel for
+pixel (largest difference 0/255; review round 1). A name's record is now the box the page drew.
+
+The closer-dot rule fails four logos on three maps Erik approved on 11-17. The operator chose to keep
+those maps as delivered (reddoor-workspace
+`decisions/2026-11-17-1939-roalson-closer-dot-check-fails-approved-maps.md`), so
+`build/logo-check-approved.json` lists each one: listing, business, the logo's box, each dot near it by kind, business name, distance from the box and centre (`at`), a date and a `why`.
+
+| Listing                  | Logo                | Nearest other dot             |
+| ------------------------ | ------------------- | ----------------------------- |
+| Loop 1604 at Dove Canyon | Walmart Supercenter | Costco's, 6.6 px (own 8.0)    |
+| Loop 1604 at Dove Canyon | Costco              | Ross's, 5.3 px                |
+| Kingsville               | Walmart Supercenter | the 7,948 count's, 7.7 px     |
+| Hwy 46 West              | The Home Depot      | Whataburger's, 8.8 px (own 8) |
+
+`test_logos.approved()` takes those findings off only while the logo is within 0.5 px of its listed box and has exactly those dots near it, each within 0.5 px of its listed distance and centre, so a logo or a dot that moves, or a dot that goes or appears, fails. Only
+closer-dot findings are taken off.
+
+`lib/logos.py` now also refuses, in `build/logo-sizes.json`, a key it does not read (a listing entry
+spelled `"scales"` was read as no scale), `"*"` under `logos.scale` (accepted and never applied), a scale
+that rounds to under 1 px, and a `default_px` that is not a positive number. `make_jobs.py` refuses a
+`logo_line_across_site` that is not `true` or `false` (the string `"false"` turned the line on)
+(roalson-interests#381).
+
 ### Forced logo spots and excluded businesses (Erik's 11-17 asks)
 
 On 2026-11-17 Erik asked for seven changes to the option C maps, and the operator let them break the

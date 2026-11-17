@@ -21,6 +21,11 @@ render) and reports:
     vanished road label or count changes hundreds.
 A logo drawn at a forced spot (build/logo-overrides.json, Erik's 11-17 asks, 2026-11-17) may break exactly
 the rules its override lists in `breaks`, in this script's words; any difference fails (allowed()).
+Since #380 and #379 (2026-11-17) overlaps() also fails a logo off its dot with no line, a leader line missing
+from `segs` (a business's, a count's or an intersection label's) or one nothing draws, a pin with no stem
+recorded, and a logo with another dot within 9 px or closer than its own. Four of those last, on maps Erik
+approved, are kept by build/logo-check-approved.json, exactly (test_logos.approved()); a difference fails
+and is reported under forced_mismatch.
 Writes qa/logos/report.json, and a side-by-side qa/logos/<uid>/compare.png per listing.
 """
 import json, os, subprocess, sys
@@ -31,7 +36,7 @@ from PIL import Image
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
-from test_logos import JITTER, mask_for, overlaps
+from test_logos import JITTER, approved, mask_for, overlaps
 
 sys.path.insert(0, os.path.join(ROOT, 'lib'))
 from logos import forced
@@ -121,6 +126,10 @@ def main(only):
         n = int(((delta > JITTER) & ~mask).sum())
         # Erik's 11-17 asks: a forced logo may break exactly the rules its override lists, no more, no fewer.
         forced_bad, found, mine = allowed(uid, after, overlaps(after, by_index=True))
+        # A logo another dot sits too near, on a map Erik approved (#379; the operator's answer (a), 2026-11-17):
+        # exactly the findings build/logo-check-approved.json lists, no more and no fewer.
+        approved_bad, found = approved(uid, after, found)
+        forced_bad += approved_bad
         # A logo box with no `under` record came from a renderer before that record existed.
         covered = {b['name']: b.get('under', 'not recorded') for k, b in enumerate(meta['businesses'])
                    if b['kind'] == 'logo' and k not in mine and b.get('under', 'not recorded')}

@@ -45,16 +45,44 @@ def logo_px(logo, uid=None, sizes_path=SIZES):
     at 28."""
     spec = json.load(open(sizes_path))
     known = {os.path.basename(lg['file'])[:-4] for lg in json.load(open(SPEC))['logos']}
+    num = lambda v: not isinstance(v, bool) and isinstance(v, (int, float)) and math.isfinite(v)
+    # Every key is one this function reads (#381, 2026-11-17): a misspelled "scales" was read as no scale and
+    # built at 22 px with no error.
+    def keys(where, d, allowed):
+        if not isinstance(d, dict):
+            raise SystemExit(f'build/logo-sizes.json: {where} must be an object')
+        if set(d) - allowed:
+            raise SystemExit(f'build/logo-sizes.json: {where} has keys this file does not use: {sorted(set(d) - allowed)} (it uses {sorted(allowed)})')
+    keys('the file', spec, {'about', 'default_px', 'default_why', 'logos', 'listings'})
+    # default_px must be a positive number (#381: -22 drew -21, which the browser drops, so the logo drew at
+    # its natural 160 px).
+    if not num(spec.get('default_px')) or spec['default_px'] <= 0:
+        raise SystemExit(f"build/logo-sizes.json: default_px must be a positive number, not {spec.get('default_px')!r}")
+    keys('logos', spec.get('logos', {}), {'why', 'scale'})
+    keys('listings', spec.get('listings', {}), set(spec.get('listings', {})))
     everywhere = spec.get('logos', {}).get('scale', {})
     listings = spec.get('listings', {})
+    for u, v in listings.items():
+        keys(f'listings.{u}', v, {'why', 'scale'})
     uids = set(json.load(open(os.path.join(ROOT, 'geo', 'sites.json')))) | set(json.load(open(os.path.join(ROOT, 'geo', 'map-only.json'))))
     if set(listings) - uids:
         raise SystemExit(f'build/logo-sizes.json: scales listings geo/sites.json and geo/map-only.json do not list: {sorted(set(listings) - uids)}')
+    # "*" means every logo on one listing; under `logos` it would mean every logo on every map, which is
+    # default_px, and it was accepted and never read (#381: "*": 3 still built at 22 px). It is refused there.
+    if '*' in everywhere:
+        raise SystemExit('build/logo-sizes.json: logos.scale cannot use "*" (every logo on every map is default_px)')
     for where, sc in [('logos', everywhere)] + [(u, v.get('scale', {})) for u, v in listings.items()]:
-        if any(isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v) or v <= 0 for v in sc.values()):
+        keys(f'{where} scale', sc, set(sc))
+        if any(not num(v) or v <= 0 for v in sc.values()):
             raise SystemExit(f'build/logo-sizes.json: {where} has a scale that is not a positive number: {sc}')
         if set(sc) - {'*'} - known:
             raise SystemExit(f'build/logo-sizes.json: {where} scales logos build/logos.json does not list: {sorted(set(sc) - {"*"} - known)}')
+        # A scale that rounds to under 1 px would draw nothing, or the logo's natural size (#381: 0.01 gave 0).
+        small = {k: v for k, v in sc.items() if int(spec['default_px'] * v + 0.5) < 1}
+        if small:
+            raise SystemExit(f"build/logo-sizes.json: {where} scales {small} round to under 1 px at default_px {spec['default_px']}")
+    if int(spec['default_px'] + 0.5) < 1:
+        raise SystemExit(f"build/logo-sizes.json: default_px {spec['default_px']} rounds to under 1 px")
     scale = listings.get(uid, {}).get('scale', {})
     key = os.path.basename(logo)[:-4]
     s = scale[key] if key in scale else everywhere[key] if key in everywhere else scale.get('*', 1)
