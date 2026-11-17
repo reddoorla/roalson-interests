@@ -137,17 +137,19 @@ def segs_cross(a, b):
     return (sg(o(*a, b[0], b[1])) * sg(o(*a, b[2], b[3])) < 0) and (sg(o(*b, a[0], a[1])) * sg(o(*b, a[2], a[3])) < 0)
 
 
-def overlaps(png):
+def overlaps(png, by_index=False):
     """Every (logo, mark) pair whose boxes overlap, from boxes.json's `marks` (the logo's own box excluded),
     and what each logo's leader line crosses (review round 1, 2026-11-16): a mark other than its own dot
     and box, another leader line (`segs`), or anything `line_under` records but the site, which only a
-    horizontal line on a listing with siteLine may cross."""
+    horizontal line on a listing with siteLine may cross. With `by_index`, each finding is (the index of
+    the business in boxes.json, or None, and the finding without the name), so a caller can attribute it
+    to one business even when two names share their first 24 characters (2026-11-17, review round 1)."""
     d = json.load(open(png + '.boxes.json'))
     out = []
     # A record without the line measurements passes nothing (review round 3, 2026-11-17): a missing
     # field is not an empty one.
     if 'segs' not in d:
-        out.append('segs not recorded')
+        out.append((None, 'segs not recorded'))
     # Each logo's own drawn box: the one nearest `biz` mark (review round 5, 2026-11-17). Exactly one mark is
     # excused per logo, so two logos drawn on top of each other each still see the other's mark.
     dev = lambda m, b: max(abs(m[k] - b[k]) for k in 'ltrb')
@@ -164,12 +166,12 @@ def overlaps(png):
     # A name label with no drawn box of its own means a mark went to the wrong business (or is missing).
     for i, b in enumerate(d['businesses']):
         if b['kind'] != 'logo' and all(k in b for k in 'ltrb') and owns[i] is None:
-            out.append(f"{b['name'][:24]} drawn box not recorded")
+            out.append((i, "drawn box not recorded"))
     for i, b in enumerate(d['businesses']):
         if b['kind'] != 'logo' or not b.get('line'):
             continue
         if 'line_under' not in b:
-            out.append(f"{b['name'][:24]} line_under not recorded")
+            out.append((i, "line_under not recorded"))
         # The test starts where the line leaves its dot's own 10 px box, as maps.mjs's check does: inside
         # it the line is on its dot (El Merkadito's dot on 402 W. Nueva is 1.4 px inside the SITE tag).
         x1, y1, x2, y2 = b['line']
@@ -179,15 +181,15 @@ def overlaps(png):
             if m is owns[i]:
                 continue
             if seg_in_rect(*ln, m):
-                out.append(f"{b['name'][:24]} line over {m['kind']}")
+                out.append((i, f"line over {m['kind']}"))
         for sg in d.get('segs', []):
             # The whole line, as maps.mjs checks it: a crossing near the dot is still a crossing.
             if not all(abs(u - v) < 0.01 for u, v in zip(sg, b['line'])) and segs_cross(b['line'], sg):
-                out.append(f"{b['name'][:24]} line crosses a leader line")
+                out.append((i, "line crosses a leader line"))
         flat = abs(y1 - y2) < 0.01
         allowed = {'site-fill', 'site-line', 'site-halo'} if d.get('siteLine') and b.get('via') == 'line' and flat else set()
         for lid in set(b.get('line_under', [])) - allowed:
-            out.append(f"{b['name'][:24]} line over {lid}")
+            out.append((i, f"line over {lid}"))
     for i, b in enumerate(d['businesses']):
         if b['kind'] != 'logo':
             continue
@@ -196,14 +198,14 @@ def overlaps(png):
         # no drawn box recorded fails too (round 5): a missing mark is not a matching one.
         own = owns[i]
         if own is None:
-            out.append(f"{b['name'][:24]} drawn box not recorded")
+            out.append((i, "drawn box not recorded"))
         elif dev(own, b) > 0.05:
-            out.append(f"{b['name'][:24]} recorded box differs from the drawn box")
+            out.append((i, "recorded box differs from the drawn box"))
         # No logo box over another leader line (review round 3, 2026-11-17): leader lines are SVG, which
         # `under` cannot see, and the pixel diff masks the logo box.
         for sg in d.get('segs', []):
             if not (b.get('line') and all(abs(u - v) < 0.01 for u, v in zip(sg, b['line']))) and seg_in_rect(*sg, b, touch=True):
-                out.append(f"{b['name'][:24]} over a leader line")
+                out.append((i, "over a leader line"))
         for m in d['marks']:
             if m is owns[i]:
                 continue
@@ -213,8 +215,10 @@ def overlaps(png):
             # need only not overlap.
             g = 0 if m['kind'] in ('biz-dot', 'aadt-dot') else 1
             if m['l'] - g < b['r'] and m['r'] + g > b['l'] and m['t'] - g < b['b'] and m['b'] + g > b['t']:
-                out.append(f"{b['name'][:24]} over {m['kind']}")
-    return out
+                out.append((i, f"over {m['kind']}"))
+    if by_index:
+        return out
+    return [m if i is None else f"{d['businesses'][i]['name'][:24]} {m}" for i, m in out]
 
 
 def matching():

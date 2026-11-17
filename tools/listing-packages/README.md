@@ -250,6 +250,52 @@ label and dot, and `dropped`.
   PyMuPDF then names that copy (5001 Walzem Road, 2026-11-16). `python3 build/test_swap_area_map.py`
   checks both cases.
 
+### Forced logo spots and excluded businesses (Erik's 11-17 asks)
+
+On 2026-11-17 Erik asked for seven changes to the option C maps, and the operator let them break the
+placement rules: "just try and make the best result possible and flag it". Three needed no rule break:
+Whataburger on IH 10 at Menger Springs (added to its `businesses`) and on Hwy 46 West (added to its
+map-only list, `business_limit` 5) both place by the rules, and Circle K's logo is now Erik's PNG
+(`Circle_K.png`). Two mechanisms carry the rest.
+
+- `build/logo-overrides.json` draws a logo at a set spot: per listing, by business name as the map prints
+  it, `at` is the logo's centre in CSS px from its dot. `maps.mjs` draws forced logos after every other
+  logo has its place, so nothing else on the map moves (the rule-placed logos are tried while the forced
+  business still shows its name), with a leader line from the dot when the logo is more than 9 px away.
+  Nothing is checked at render time. Each override carries a `why` quoting the ask, a plain-words `flag`
+  for the read-me, and `breaks`, the exact list of rules the spot breaks in `logo_check.py`'s words
+  (`line over site-line`, `under road_motorway`, `outside the open map` for a box past the margins every
+  placed label keeps, ...). `logo_check.py` fails unless the rendered map breaks exactly those, no more
+  and no fewer, and fails on an override whose logo is not drawn forced exactly once, or a logo drawn
+  forced with no override (where the box lands against `at` is checked by `test_logo_overrides.py`, not
+  here). Findings are matched to a business by its place in `boxes.json`, not by name (review round
+  1: two names sharing their first 24 characters took each other's findings). A finding recorded on
+  another logo stays a failure even when the forced logo caused it, so a forced spot must keep clear of
+  every other logo and leader line. `swap_area_map.py` likewise refuses a map whose logos cover anything
+  protected, except a forced logo covering exactly its listed `under` layers. `lib/mapjobs.py` stops the
+  build when an override names a business the map does not show with a logo, or a name two businesses
+  on the map share. Four logos use it: UTSA Buena Vista at Urban Loop, Whataburger at IH 10 at
+  Highway 46, Circle K at IH 10 at Scenic Loop, and Methodist at Menger Springs Road.
+- `exclude_businesses` in `geo/sites.json` (a name and a `why`) removes a business OpenStreetMap still
+  lists, before the cap on businesses is counted: Builder's Mark Home Improvement at 5001 Walzem, closed
+  (Erik, 2026-11-16 and 11-17). Excluding a name not in the tiles, one name twice, or a name with no
+  `why` stops the build. Without its dot the
+  labels near IH 35 & Walzem Rd settle differently under the same rules: the intersection label, the
+  34,246 and 133,684 counts and the Home Depot logo moved (measured 2026-11-17).
+
+`python3 build/test_logo_overrides.py` checks, through `maps.mjs` and the real job path: a forced logo
+is centred at its dot plus `at`, with its line to the box's nearest point, and the other businesses
+keep the records they have when it has no logo; a forced logo whose name fits nowhere is drawn with its
+dot back; `logo_check.allowed()` passes the exact list and fails a missing or extra break, a forced
+logo not drawn forced, and an unlisted forced logo; `lib/logos.forced()` refuses an unknown listing, a
+malformed `at`, a missing `why`, `flag` or `breaks` and a break that is not a string; on hand-made records,
+a shared 24-character name prefix, a finding on a covered logo, a box past the margins and a forced name
+drawn twice; `swap_area_map.under_ok()`; Builder's Mark is in the Walzem tiles and excluded from its
+job; a stale or doubled exclusion, one with no `why`, and an override for a business not on the map or
+for a name two of its businesses share stop the build. Twenty mutations each turn it red (the table is
+in roalson-interests#384's body; three of them turn it red by stopping the build or a crash rather than
+by a failed check).
+
 ### Map-only sites (2026-11-13)
 
 Three current packages were made outside this generator: Hwy 211, Hwy 46 West and Hwy 87

@@ -1,5 +1,5 @@
 {
- "source": "Dropbox /Clients/Roalson Interests/Listing PDFs/Surrounding Area Logos (Erik: 17 files 2026-11-12, 10 more 2026-11-13; HEB Plus.png replaced 2026-11-16 2:20pm PT, no black outline)",
+ "source": "Dropbox /Clients/Roalson Interests/Listing PDFs/Surrounding Area Logos (Erik: 17 files 2026-11-12, 10 more 2026-11-13; HEB Plus.png replaced 2026-11-16 2:20pm PT, no black outline; Circle_K.png added 2026-11-17 7:15am PT and used for Circle K instead of Circle K.eps, Erik: \"replace plain text with the Circle K logo from the logo folder, just added a PNG version\")",
  "not_matched": {
   "Lowe's Market": "The Texas grocery chain at Comfort, not Lowe's Home Improvement: it has its own logo (lowes-market.png), never Lowe's."
  },
@@ -27,7 +27,7 @@
   },
   {
    "file": "build/assets/logos/circle-k.png",
-   "source": "Circle K.eps",
+   "source": "Circle_K.png",
    "names": [
     "Circle K"
    ]
@@ -191,6 +191,6 @@
  ],
  "not_used": {
   "Comfort High School.png": "Its only listing is the Hwy 87 Development Site, which the operator kept without logos (2026-11-13); not converted.",
-  "Builder's Mark Home Improvement": "No logo in the folder (still open on Erik's 11-13 checklist); 5001 Walzem keeps its name."
+  "Builder's Mark Home Improvement": "No logo in the folder (still open on Erik's 11-13 checklist). Closed: since 2026-11-17 excluded from 5001 Walzem (geo/sites.json exclude_businesses)."
  }
 }

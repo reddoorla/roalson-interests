@@ -383,23 +383,7 @@ async function render(page, job) {
         return out;
       };
       const els = new Map();
-      const tryLogo = async (x) => {
-        // Roads too: a logo box is opaque white. The name's own box already covered whatever streets
-        // it sat on, on today's approved map, so a logo may cover those and no others (review round
-        // 1, 2026-11-12: a spot away from the name covered a local street).
-        // Exactly what the name's white box covered, as the page drew it. place() records offsetWidth and
-        // offsetHeight, which round to whole px, so a box read that way could excuse up to 0.5 px the name
-        // never covered (review round 1, 2026-11-16).
-        const rectOf = (e) => { const r = e.getBoundingClientRect(); return { l: r.left, t: r.top, r: r.right, b: r.bottom }; };
-        const old = x.kind === 'name' ? rectOf(x.el) : null;
-        const free = (bx, isLine = false, horizontal = false) => {
-          const p = { l: bx.l - 2, t: bx.t - 2, r: bx.r + 2, b: bx.b + 2 };
-          // A horizontal leader line (a 'line' candidate, below) may cross the site only where the listing
-          // says so (job.siteLine, from geo/sites.json logo_line_across_site: IH 10 at 87, where Love's dot
-          // is inside the site; the operator, 2026-11-16). No other leader line and no logo box ever may.
-          if (any(p, [...symbolLayers, ...(isLine && horizontal && job.siteLine ? [] : siteLayers)])) return false;
-          return isLine || (old ? outside(p, old) : [p]).every((r) => !any(r, roadLayers));
-        };
+      const logoEl = async (x) => {
         if (!els.has(x)) {
           // Built and decoded once; a logo that cannot decode is null and is not tried again.
           const el = document.createElement('div'); el.className = 'biz logo';
@@ -412,7 +396,26 @@ async function render(page, job) {
           el.appendChild(img);
           els.set(x, await img.decode().then(() => el, () => null));
         }
-        const el = els.get(x);
+        return els.get(x);
+      };
+      const rectOf = (e) => { const r = e.getBoundingClientRect(); return { l: r.left, t: r.top, r: r.right, b: r.bottom }; };
+      const tryLogo = async (x) => {
+        // Roads too: a logo box is opaque white. The name's own box already covered whatever streets
+        // it sat on, on today's approved map, so a logo may cover those and no others (review round
+        // 1, 2026-11-12: a spot away from the name covered a local street).
+        // Exactly what the name's white box covered, as the page drew it. place() records offsetWidth and
+        // offsetHeight, which round to whole px, so a box read that way could excuse up to 0.5 px the name
+        // never covered (review round 1, 2026-11-16).
+        const old = x.kind === 'name' ? rectOf(x.el) : null;
+        const free = (bx, isLine = false, horizontal = false) => {
+          const p = { l: bx.l - 2, t: bx.t - 2, r: bx.r + 2, b: bx.b + 2 };
+          // A horizontal leader line (a 'line' candidate, below) may cross the site only where the listing
+          // says so (job.siteLine, from geo/sites.json logo_line_across_site: IH 10 at 87, where Love's dot
+          // is inside the site; the operator, 2026-11-16). No other leader line and no logo box ever may.
+          if (any(p, [...symbolLayers, ...(isLine && horizontal && job.siteLine ? [] : siteLayers)])) return false;
+          return isLine || (old ? outside(p, old) : [p]).every((r) => !any(r, roadLayers));
+        };
+        const el = await logoEl(x);
         if (!el) return false;
         const onRight = old && old.l >= x.pt.x;
         const first = old ? [(w, h) => [onRight ? old.l : old.r - w, (old.t + old.b) / 2 - h / 2]] : [];
@@ -438,7 +441,9 @@ async function render(page, job) {
       };
       // Each pass tries every logo still waiting; one that moved can free room for another, so the
       // passes repeat while any logo is placed.
-      let pending = [...boxes.filter((x) => x.biz.logo), ...nameless];
+      // A logo with a forced spot (build/logo-overrides.json, via lib/logos.py) is not tried by the
+      // rules: it is drawn last, below, where the override puts it.
+      let pending = [...boxes.filter((x) => x.biz.logo), ...nameless].filter((x) => !x.biz.force);
       let pass = 0;
       for (;;) {
         const next = [];
@@ -446,6 +451,50 @@ async function render(page, job) {
         for (const x of pending) if (await tryLogo(x)) x.pass = pass; else next.push(x);
         if (next.length === pending.length) break;
         pending = next;
+      }
+      // Forced spots (build/logo-overrides.json, 2026-11-17: Erik's 11-17 asks, which the operator let break
+      // the placement rules, "just try and make the best result possible and flag it"). Drawn after every
+      // other logo has its place, so no other logo on the map moves: the logo's centre goes exactly at its
+      // offset from the dot, with a leader line from the dot to the box's nearest point when the box is
+      // more than 9 px away, as for any spot. Nothing is checked here. What it breaks is recorded as for
+      // every logo (under, line_under, marks, segs), and logo_check.py requires that record to equal the
+      // override's `breaks`, word for word.
+      for (const x of [...boxes.filter((x) => x.biz.logo), ...nameless].filter((x) => x.biz.force)) {
+        const el = await logoEl(x);
+        if (!el) { pending.push(x); continue; }
+        el.style.cssText = 'position:absolute;left:0;top:0;visibility:hidden;z-index:4';
+        document.body.appendChild(el);
+        const rc = el.getBoundingClientRect();
+        const [dx, dy] = x.biz.force.at;
+        const box = { l: x.pt.x + dx - rc.width / 2, t: x.pt.y + dy - rc.height / 2 };
+        box.r = box.l + rc.width; box.b = box.t + rc.height;
+        el.style.left = `${box.l}px`; el.style.top = `${box.t}px`; el.style.visibility = 'visible';
+        const cx = Math.max(box.l, Math.min(x.pt.x, box.r)), cy = Math.max(box.t, Math.min(x.pt.y, box.b));
+        const d = Math.hypot(cx - x.pt.x, cy - x.pt.y);
+        const old = x.kind === 'name' ? rectOf(x.el) : null;
+        if (x.seg) segs.splice(segs.indexOf(x.seg), 1);
+        if (old) {
+          x.el.remove();
+          x.ln?.remove();
+          taken.splice(taken.indexOf(x.slot), 1);
+          x.was = { ...old, line: x.line };
+        } else {
+          dropped.splice(dropped.indexOf(`business ${x.biz.name}`), 1);
+          gone.delete(x.biz);
+          boxes.push(x);
+        }
+        const slot = { l: box.l - 3, t: box.t - 3, r: box.r + 3, b: box.b + 3 };
+        taken.push(slot);
+        let ln = null, seg = null;
+        if (d > 9) {
+          seg = [x.pt.x, x.pt.y, cx, cy];
+          segs.push(seg);
+          ln = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+          ln.setAttribute('style', `position:absolute;left:0;top:0;width:${W}px;height:${H}px;z-index:2;pointer-events:none`);
+          ln.innerHTML = `<line x1="${x.pt.x}" y1="${x.pt.y}" x2="${cx}" y2="${cy}" stroke="${GARNET}" stroke-width="1.2"/>`;
+          document.body.appendChild(ln);
+        }
+        Object.assign(x, { ...box, line: seg ? [...seg] : null, slot, el, ln, seg, via: 'forced', pass: 0, kind: 'logo' });
       }
       for (const x of pending) {
         if (els.get(x) === null) dropped.push(`logo ${x.biz.name} (unreadable; ${x.kind === 'name' ? 'name kept' : 'left off'})`);
