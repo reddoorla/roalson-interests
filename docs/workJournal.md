@@ -13694,3 +13694,50 @@ Round 6 was the one sixth round the narrow rule allows unasked, on the round-5 f
 **Delivered** to Dropbox `…/2026-11 Area map logos (review)/2026-11-16 logos, option C/`: Erik's 22 current packages with only the area map swapped, `00 - Before and after, Dove Canyon, Kingsville, Nueva.pdf`, and a read-me listing the logos still shown as names. All 24 uploads' content hashes match. The option B subfolder is untouched, and the placement-options subfolder moved to `05_Past Comps`. Not acted on: Erik's "5001 Walzem: Builders Mark is out of business, please remove that", which is a business label, not a logo, and outside this brief.
 
 Usage: $26.00 across three sessions: $18.37 (session_013FT5PBxyLhJtZ7qCFY2U5y), $4.31 (session_013FT5PCsmLsUddTWAU7bfj8), and $3.31 for session_013FT5PDPprNyfcBARXtGKSX as `get_session` reads it now (2,077,081/344,804 cache, 11/6,767 tokens). That last figure covers only its latest worker and understates a session that reached 408k context. Rate limit allowed. Landing and the promotion run in session_013FT5PGFgo4LWzFJAmcAMBs.
+
+## 2026-11-17 — Erik's 11-17 asks on the option C maps: four forced logo spots, Builder's Mark excluded, two Whataburgers by the rules (#384)
+
+Erik reviewed the option C folder and sent seven notes (#roalson-interests, 7:19am PT). The operator asked for exactly those seven, "even if they break some rules, just try and make the best result possible and flag it". So this PR adds two mechanisms rather than loosening any global rule, and every other map is untouched: on the 19 other listings `boxes.json` is identical to `staging`'s (`545e9be`), and their pixels differ only by rendering noise (588 px at most 15/255 on 402 W. Nueva, 268 px at 3/255 on Hwy 46 and Coughran, 1 px on Cascade Caverns, against the 32/255 threshold). Logo matches placed went from 71 of 78 to 77 of 80.
+
+**Three asks needed no rule broken.**
+
+- **Whataburger at IH 10 at Menger Springs** was never in that map's businesses. Fast food is not an anchor `lib/pois.py` adds on its own, so it was added to the listing's `businesses`. It places by the rules below its dot.
+- **Whataburger at Hwy 46 West** was dropped on 11-13 because at Erik's frame only one of it and The Home Depot fit beside the 10,340 count at 28 px. At 22 px (option C) its logo places by the rules, below and right of its dot. Its _name_ still has no room, so `logo_check.py`'s bare comparison render must drop `strict`, which guards only the delivered render.
+- **Circle K's logo** is now Erik's `Circle_K.png` (dropped in the folder 7:15am PT), replacing `Circle K.eps`.
+
+**Four logos needed a forced spot** (`build/logo-overrides.json`: `at` is the logo's centre in CSS px from its dot). Each override lists its breaks word for word. `logo_check.allowed()` fails on any difference, and `swap_area_map.under_ok()` lets through exactly the listed `under` layers.
+
+| Listing              | Logo             | `at`       | What it breaks                                                                                |
+| -------------------- | ---------------- | ---------- | --------------------------------------------------------------------------------------------- |
+| Urban Loop Road      | UTSA Buena Vista | [-52, -17] | trunk/primary roads and the rail line north of César Chávez, beyond the name's box (6 layers) |
+| IH 10 at Highway 46  | Whataburger      | [12, 40]   | its line crosses the site (fill, halo, line)                                                  |
+| IH 10 at Scenic Loop | Circle K         | [-16, 20]  | IH 10 and an on-ramp beyond the name's box (4 layers)                                         |
+| Menger Springs Road  | Methodist        | [-75, -1]  | its line crosses the SITE tag and the site; a street bridge under the logo                    |
+
+Forced logos are drawn after every other logo has its place, so they move nothing else. The rule-placed logos are tried while the forced business still shows its name, which test 1c compares directly against a run with that business logo-less.
+
+**Builder's Mark** is closed (Erik, 11-16 and 11-17). OpenStreetMap still lists it as a DIY store, so `lib/pois.py` kept adding it as an anchor. It is now removed at the source: `exclude_businesses` in `geo/sites.json`, applied before the six-business cap. No other anchor took its place.
+
+**Belief corrected on contact:** removing a business is not a one-label change. Its dot was one of the `taken` boxes every earlier label avoids. Without it, the IH 35 & Walzem Rd label, the 34,246 and 133,684 counts and the Home Depot logo (now on a short line) all settled into different spots under the same rules, and 73,945 device pixels changed by more than 32. The read-me to Erik says so.
+
+**Methodist's dot is under the SITE tag** on Menger Springs Road: it sits 7 px from the tag's centre. Erik's "near the property address" is literal, and every line out of the dot starts under the tag.
+
+**Review: two rounds.**
+
+- **Round 1** was dirty:
+  - critical: the swap guard refused three of the four forced maps; its fix sat uncommitted when the round began;
+  - major: `allowed()` matched findings by `name[:24]`, so a rule-placed logo sharing a forced one's 24-character prefix had its break excused;
+  - major: a break recorded on a logo the forced one covers could never be allowed. It is now documented as fail-closed;
+  - minors and nits, all folded: no off-map check (now the break `outside the open map`), one override forcing two same-name businesses, and input checks.
+
+  Findings now carry the business's index (`test_logos.overlaps(by_index=True)`, whose default strings are unchanged).
+
+- **Round 2** found minors only:
+  - one minor, filed as #385: a swap can use a map rendered before a forced `at` changed;
+  - three nits, folded: the margin height on a map-only map, and two docs that overstated what the guard and `allowed()` check.
+
+**Tests.** `build/test_logo_overrides.py` has 45 checks. 20 mutations each turn it red; three of them do so by stopping the build or by a crash rather than by a failed check. The table is in #384. `test_logos.py` (57), `test_map_only.py` (18) and `test_swap_area_map.py` (7) pass, `logo_check.py` exits 0 on all 26 maps, and `pnpm verify` passes.
+
+**Delivered:** Erik's seven current packages (unchanged in Dropbox since 11-13, content hashes checked) with only the area map swapped, in a new subfolder of `2026-11 Area map logos (review)`, with a read-me listing each ask and every rule broken. Not acted on, as Erik said the rest look good: #379–#382.
+
+Usage: this session's figure is not readable mid-turn from `get_session`; see the workspace journal. The session it continues, session_013FT5PGFgo4LWzFJAmcAMBs, read $21.52 (2,053/188,029 tokens, 41,914,948/1,494,936 cache, rate limit allowed) at hand-off.

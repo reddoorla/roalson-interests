@@ -38,7 +38,8 @@ maps.mjs (needs network for tiles, like every map render) and checks:
   7. build/swap_area_map.py's under_ok(), the guard that refuses to put a map with something protected
      under a logo into Erik's PDF: a forced logo covering exactly its override's "under" layers passes;
      one more or one fewer layer fails; a rule-placed logo with anything under it fails, even one whose
-     name has an override; a forced logo no override names fails.
+     name has an override; a forced logo no override names fails when it covers anything (one that
+     covers nothing passes this guard, and logo_check.allowed() fails it).
 Exits 1 on any failure.
 """
 import json, os, subprocess, sys, tempfile
@@ -232,7 +233,7 @@ def main():
     check(not under_ok({'name': 'X', 'via': 'forced', 'under': ['road_motorway', 'road_link']}, w), '7. one more layer fails')
     check(not under_ok({'name': 'X', 'via': 'forced', 'under': []}, w), '7. one fewer layer fails')
     check(not under_ok({'name': 'X', 'via': 'ring', 'under': ['road_motorway']}, w), '7. a rule-placed logo with something under it fails, though its name has an override')
-    check(not under_ok({'name': 'Y', 'via': 'forced', 'under': ['road_motorway']}, w), '7. a forced logo no override names fails')
+    check(not under_ok({'name': 'Y', 'via': 'forced', 'under': ['road_motorway']}, w), '7. a forced logo no override names, covering something, fails')
     check(under_ok({'name': 'Y', 'via': 'fixed', 'under': []}, w), '7. control: a rule-placed logo with nothing under it passes')
 
     print(f'{len(fails)} failed' if fails else 'all passed')

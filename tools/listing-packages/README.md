@@ -266,8 +266,9 @@ map-only list, `business_limit` 5) both place by the rules, and Circle K's logo 
   for the read-me, and `breaks`, the exact list of rules the spot breaks in `logo_check.py`'s words
   (`line over site-line`, `under road_motorway`, `outside the open map` for a box past the margins every
   placed label keeps, ...). `logo_check.py` fails unless the rendered map breaks exactly those, no more
-  and no fewer, and fails on a forced logo not drawn at its spot exactly once or drawn forced with no
-  override. Findings are matched to a business by its place in `boxes.json`, not by name (review round
+  and no fewer, and fails on an override whose logo is not drawn forced exactly once, or a logo drawn
+  forced with no override (where the box lands against `at` is checked by `test_logo_overrides.py`, not
+  here). Findings are matched to a business by its place in `boxes.json`, not by name (review round
   1: two names sharing their first 24 characters took each other's findings). A finding recorded on
   another logo stays a failure even when the forced logo caused it, so a forced spot must keep clear of
   every other logo and leader line. `swap_area_map.py` likewise refuses a map whose logos cover anything

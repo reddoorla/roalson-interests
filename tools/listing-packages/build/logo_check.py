@@ -44,7 +44,7 @@ def allowed(uid, after, found, want=None):
     """Takes the breaks build/logo-overrides.json allows on `uid` out of `found` (test_logos.overlaps with
     by_index) and returns (what fails, the findings left, the indices of the forced logos it judged, whose
     `under` it has judged too). It fails a forced logo that is not
-    drawn at its forced spot, a logo drawn forced that no override names, and a forced logo whose breaks
+    drawn forced exactly once, a logo drawn forced that no override names, and a forced logo whose breaks
     differ in any way from the override's list (2026-11-17, Erik's 11-17 asks). The allowance names the
     listing, the business and each break, word for word: a break not listed fails, and so does a listed
     break the map no longer has. Findings are matched to the business by its index in boxes.json, not by
@@ -53,11 +53,12 @@ def allowed(uid, after, found, want=None):
     that a forced logo covers reports `over biz` itself): no override can allow it, so a forced spot must
     keep clear of every other logo and leader line. One break is added here, since overlaps() cannot see
     it: "outside the open map", a box past the margins maps.mjs keeps every placed label inside (4 px at
-    the sides, 50 at the top, 18 at the bottom)."""
+    the sides, 50 at the top, 18 at the bottom of the job's height, as maps.mjs measures them; a map-only
+    map's later cut to heightPx does not move them). It does not compare a forced box with its `at`; the
+    render test (test_logo_overrides.py 1a) does."""
     want = forced(uid) if want is None else want
     d = json.load(open(after + '.boxes.json'))
     biz = d['businesses']
-    H = d.get('heightPx', d['height'] * d['dpr']) / d['dpr']
     bad, mine = [], set()
     for i, b in enumerate(biz):
         if b.get('via') == 'forced' and b['name'] not in want:
@@ -71,7 +72,7 @@ def allowed(uid, after, found, want=None):
         b = biz[i]
         mine.add(i)
         got = {m for k, m in found if k == i} | {f'under {lid}' for lid in b.get('under', ['not recorded'])}
-        if b['l'] < 4 or b['t'] < 50 or b['r'] > d['width'] - 4 or b['b'] > H - 18:
+        if b['l'] < 4 or b['t'] < 50 or b['r'] > d['width'] - 4 or b['b'] > d['height'] - 18:
             got.add('outside the open map')
         if got != set(o['breaks']):
             bad.append(f"{name}: breaks {sorted(got)}, but build/logo-overrides.json allows {sorted(o['breaks'])}")
