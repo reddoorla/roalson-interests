@@ -45,7 +45,8 @@ Checks:
      sizes  lib/logos.py reads build/logo-sizes.json: 22 px by default; Whataburger and CHRISTUS at
             28 at Kingsville only; the Children's Hospital and University Health at 28 everywhere;
             every 402 W. Nueva logo at 28 except UTSA, H-E-B and La Michoacana (22); an unknown logo
-            named in a scale stops the build.
+            named in a scale, an unknown listing, or a scale that is a boolean, not finite or not
+            positive stops the build.
      S      the Kingsville fixture with Whataburger at logo_px 28: its logo box is 28 px tall plus
             padding, where the K render (no logo_px, the 22 px default) draws it 22 px tall, and
             nothing protected lies under it.
@@ -64,14 +65,15 @@ Checks:
   11. overlaps() itself, on hand-made records whose answers are known: the line checks; (round 3)
       the logo box against counts, labels, dots and other leader lines, and missing records; (round 4)
       a logo's own line ending inside its box, a line along the box's edge, and a record rounded from
-      the drawn box; (round 5) a logo with no drawn box recorded, and two logos drawn on one spot.
+      the drawn box; (round 5) a logo with no drawn box recorded, and two logos drawn on one spot; (round 6) two logos sharing
+      one mark, and a logo with no mark beside a name label on its spot.
   9. In every render above, no logo overlaps a count or its dot, an intersection label or ring, the
      pin, another business's label, or any business dot: maps.mjs records each one's final box in
      boxes.json (`marks`), since they are HTML or a circle layer that `under` cannot see. No logo's
      leader line crosses one of those (its own dot and box aside), another leader line (`segs`), or
      a symbol or the site (`line_under`), except a horizontal line across the site where siteLine is set.
      No logo box lies over another leader line, and each logo's record is the box the page drew (its
-     own `biz` mark, exactly one per logo). Every business's line, logo or name, is in `segs` (9x), and
+     own `biz` mark; marks are matched one to one, nearest first, over every business). Every business's line, logo or name, is in `segs` (9x), and
      9L proves the fixtures draw logo lines, so those checks are not vacuous.
 Needs network (OpenFreeMap tiles), like every map render. Exits 1 on any failure.
 """
@@ -149,11 +151,20 @@ def overlaps(png):
     # Each logo's own drawn box: the one nearest `biz` mark (review round 5, 2026-11-17). Exactly one mark is
     # excused per logo, so two logos drawn on top of each other each still see the other's mark.
     dev = lambda m, b: max(abs(m[k] - b[k]) for k in 'ltrb')
-    owns = {}
+    # One to one (review round 6, 2026-11-17): every business, logo or name, claims the nearest unclaimed
+    # mark, closest pairs first, so two logos cannot share one mark and a logo cannot take a name's.
+    bizm = [m for m in d['marks'] if m['kind'] == 'biz']
+    pairs = sorted((dev(m, b), i, j) for i, b in enumerate(d['businesses']) if all(k in b for k in 'ltrb')
+                   for j, m in enumerate(bizm) if dev(m, b) < 0.5)
+    owns, used = {i: None for i, b in enumerate(d['businesses'])}, set()
+    for _, i, j in pairs:
+        if owns[i] is None and j not in used:
+            owns[i] = bizm[j]
+            used.add(j)
+    # A name label with no drawn box of its own means a mark went to the wrong business (or is missing).
     for i, b in enumerate(d['businesses']):
-        if b['kind'] == 'logo':
-            near = min((m for m in d['marks'] if m['kind'] == 'biz'), key=lambda m: dev(m, b), default=None)
-            owns[i] = near if near is not None and dev(near, b) < 0.5 else None
+        if b['kind'] != 'logo' and all(k in b for k in 'ltrb') and owns[i] is None:
+            out.append(f"{b['name'][:24]} drawn box not recorded")
     for i, b in enumerate(d['businesses']):
         if b['kind'] != 'logo' or not b.get('line'):
             continue
@@ -307,6 +318,11 @@ def instrument():
         # Two other logos drawn on one spot, away from T and its line, each with its drawn mark.
         'two logos drawn on top of each other': (run(others=[{'name': n, 'kind': 'logo', 'l': 300, 't': 150, 'r': 340, 'b': 170, 'dot': [320, 200]} for n in 'UV'],
                                                      marks=[{'kind': 'biz', 'l': 300, 't': 150, 'r': 340, 'b': 170}] * 2), True),
+        'two logos drawn on one spot with one mark between them': (run(others=[{'name': n, 'kind': 'logo', 'l': 300, 't': 150, 'r': 340, 'b': 170, 'dot': [320, 200]} for n in 'UV'],
+                                                                     marks=[{'kind': 'biz', 'l': 300, 't': 150, 'r': 340, 'b': 170}]), True),
+        'a logo with no mark beside a name label on its spot': (run(others=[{'name': 'U', 'kind': 'logo', 'l': 300, 't': 150, 'r': 340, 'b': 170, 'dot': [320, 200]},
+                                                                            {'name': 'N', 'kind': 'name', 'l': 300, 't': 150, 'r': 340, 'b': 170, 'dot': [320, 140]}],
+                                                                    marks=[{'kind': 'biz', 'l': 300, 't': 150, 'r': 340, 'b': 170}]), True),
         'one other logo, clear of it': (run(others=[{'name': 'U', 'kind': 'logo', 'l': 300, 't': 150, 'r': 340, 'b': 170, 'dot': [320, 200]}],
                                             marks=[{'kind': 'biz', 'l': 300, 't': 150, 'r': 340, 'b': 170}]), False),
         'a leader line 1 px clear of the box': (run(segs=[[241, 60, 241, 140]]), False),
@@ -486,8 +502,9 @@ def main():
             lines = [x['line'] for x in rec['businesses'] if x.get('line')]
             gone = [ln for ln in lines if not any(all(abs(u - v) < 0.01 for u, v in zip(ln, sg)) for sg in rec['segs'])]
             check(not gone, f'9{k}. every business line, logo or name ({len(lines)}), is recorded in segs: {gone or "yes"}')
-        drawn = sum(1 for png in (dv, kv, gv) for x in json.load(open(png + '.boxes.json'))['businesses'] if x['kind'] == 'logo' and x.get('line'))
-        check(drawn > 0, f'9L. the 9x segs checks are not vacuous: {drawn} logo lines drawn on D, K and G')
+        allb = [x for png in (b, c, dv, kv, nn, mm, rr, sv, gv, g0, yv) for x in json.load(open(png + '.boxes.json'))['businesses'] if x.get('line')]
+        nl, ll = sum(x['kind'] == 'logo' for x in allb), sum(x['kind'] == 'name' for x in allb)
+        check(nl > 0 and ll > 0, f'9L. the 9x segs checks are not vacuous: {nl} logo lines and {ll} name lines drawn')
     matching()
     sizes()
     instrument()

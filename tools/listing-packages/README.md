@@ -211,7 +211,7 @@ label and dot, and `dropped`.
     business whose name is too long for any spot all get their logo;
   - no logo overlaps a count, a ring, the pin, another label, a dot (`marks`) or another leader line
     (`segs`), and no logo's leader line crosses one of those, or a symbol or the site (`line_under`),
-    but for the site line; each logo's record is its drawn box (one `biz` mark per logo); every
+    but for the site line; each logo's record is its drawn box (`biz` marks matched one to one over every business); every
     business's line, logo or name, is in `segs`;
   - `overlaps()` itself, on hand-made records whose answers are known (check 11);
   - `build/make_jobs.py`'s `site_jobs`, the real path into a job, carries Erik's sizes and `siteLine`;
