@@ -576,9 +576,10 @@ async function render(page, job) {
       return [...found];
     };
     const roads = (x) => [...new Set((x.was ? outside(x, x.was) : [x]).flatMap((r) => ids(r, roadIds)))];
-    // A name's box is recorded as the page drew it (#380, 2026-11-17): place() sizes a label by offsetWidth,
-    // which rounds to whole px, and on the first map of a fresh page two names were 0.8 px off their drawn
-    // box, so overlaps() reported them as not drawn. A logo's place() box is already its drawn box.
+    // A name's box is recorded as the page drew it (#380, 2026-11-17): on the first map of a fresh page two
+    // names were 0.8 px off their drawn box, more than offsetWidth's rounding (at most 0.5 px), so the text
+    // likely changed size after place() measured it. overlaps() then reported them as not drawn. place()
+    // still reserves the slot it measured. A logo's place() box is already its drawn box.
     const out = boxes.map((x) => ({ name: x.biz.name, logo: x.biz.logo ?? null, kind: x.kind, dot: [x.pt.x, x.pt.y], ...(x.kind === 'name' ? rectOf(x.el) : { l: x.l, t: x.t, r: x.r, b: x.b }), line: x.line, ...(x.was ? { was: x.was } : {}), ...(x.kind === 'logo' ? { under: under(x), line_under: alongLine(x), via: x.via, pass: x.pass, roads: roads(x) } : {}) }));
     // Every count, count dot, intersection label and ring, pin tag and dot, and business label as the
     // page finally draws it, read back from the DOM, and every business dot still on the map (3.4 px

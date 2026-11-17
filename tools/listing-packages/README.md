@@ -270,18 +270,24 @@ both checkers fail:
   of its box, or, for a logo with no leader line, closer to its box than its own dot
   (roalson-interests#379). 9 px is the renderer's own `near`: within it, a logo counts as beside its dot
   and gets no line. A logo on a line is joined to its dot by the line, so only the 9 px rule applies to it.
+  Every dot is measured from its centre, the point it marks, as `near` is. So the pin's 18 px dot and a
+  17 px intersection ring count only where their centre is that near, and the SITE tag is not a dot.
+  Measured from their edges instead, five more logos would fail on 11-17's maps: Fairfield at IH 10 at
+  Scenic Loop (8.4 px from the tag), and Circle K there (4.0 px from the ring, 5.8 from the pin's dot),
+  both of #379's map half, which stays open; Whataburger at IH 10 at Highway 46 (5.7 px from the pin's
+  dot); and Whataburger at Hwy 46 and Coughran (7.4 px from the tag). Two of those are Erik's forced spots.
 
 Re-rendering all 26 Area Maps with Traffic Counts with these renderer changes moved no placement: every
-logo box, line, `segs`, `dropped` and mark matched `staging`'s (measured 2026-11-17). The 25 wide aerials,
-which place intersection labels by the same rules beside the north panel and the pin, were compared with
-`staging`'s renderer pixel for pixel (review round 1); see the journal entry for the result. A name's record is now the box the page
-drew, not one rounded from `offsetWidth`.
+logo box, line, `segs` and `dropped`, and every mark `staging` already recorded, matched `staging`'s
+(measured 2026-11-17). The 25 wide aerials, which place intersection labels by the same rules beside the
+north panel and the pin, rendered with `staging`'s renderer and with this one, are identical pixel for
+pixel (largest difference 0/255; review round 1). A name's record is now the box the page drew.
 
 The closer-dot rule fails four logos on three maps Erik approved on 11-17. The operator chose to keep
 those maps as delivered (reddoor-workspace
 `decisions/2026-11-17-1939-roalson-closer-dot-check-fails-approved-maps.md`), so
 `build/logo-check-approved.json` lists each one: listing, business, each dot near it by kind, business
-name and distance, a date and a `why`.
+name, distance from the box and centre (`at`), a date and a `why`.
 
 | Listing                  | Logo                | Nearest other dot             |
 | ------------------------ | ------------------- | ----------------------------- |
@@ -291,8 +297,8 @@ name and distance, a date and a `why`.
 | Hwy 46 West              | The Home Depot      | Whataburger's, 8.8 px (own 8) |
 
 `test_logos.approved()` takes those findings off only while the logo has exactly those dots near it, each
-within 0.5 px of its listed distance, so a dot that moves, goes or appears fails. Only closer-dot findings
-are taken off.
+within 0.5 px of its listed distance and centre, so a dot that moves, goes or appears fails. Only
+closer-dot findings are taken off.
 
 `lib/logos.py` now also refuses, in `build/logo-sizes.json`, a key it does not read (a listing entry
 spelled `"scales"` was read as no scale), `"*"` under `logos.scale` (accepted and never applied), a scale
