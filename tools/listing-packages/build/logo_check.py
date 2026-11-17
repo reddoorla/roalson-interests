@@ -40,27 +40,42 @@ A = lambda *p: os.path.join(ROOT, *p)
 SPECKS = 40
 
 
-def allowed(uid, after, over, covered, want=None):
-    """Takes the breaks build/logo-overrides.json allows on `uid` out of `over` and `covered`, and returns
-    what fails: a forced logo that is not drawn at its forced spot, or whose breaks differ in any way from
-    the override's list (2026-11-17, Erik's 11-17 asks). The allowance names the listing, the business and
-    each break, word for word: a break not listed fails, and so does a listed break the map no longer has."""
+def allowed(uid, after, found, want=None):
+    """Takes the breaks build/logo-overrides.json allows on `uid` out of `found` (test_logos.overlaps with
+    by_index) and returns (what fails, the findings left, the indices of the forced logos it judged, whose
+    `under` it has judged too). It fails a forced logo that is not
+    drawn at its forced spot, a logo drawn forced that no override names, and a forced logo whose breaks
+    differ in any way from the override's list (2026-11-17, Erik's 11-17 asks). The allowance names the
+    listing, the business and each break, word for word: a break not listed fails, and so does a listed
+    break the map no longer has. Findings are matched to the business by its index in boxes.json, not by
+    name (review round 1: two names sharing their first 24 characters took each other's findings).
+    A finding recorded on another business stays, even when a forced logo caused it (a rule-placed logo
+    that a forced logo covers reports `over biz` itself): no override can allow it, so a forced spot must
+    keep clear of every other logo and leader line. One break is added here, since overlaps() cannot see
+    it: "outside the open map", a box past the margins maps.mjs keeps every placed label inside (4 px at
+    the sides, 50 at the top, 18 at the bottom)."""
     want = forced(uid) if want is None else want
-    drawn = {b['name']: b for b in json.load(open(after + '.boxes.json'))['businesses']}
-    bad = []
-    for b in drawn.values():
+    d = json.load(open(after + '.boxes.json'))
+    biz = d['businesses']
+    H = d.get('heightPx', d['height'] * d['dpr']) / d['dpr']
+    bad, mine = [], set()
+    for i, b in enumerate(biz):
         if b.get('via') == 'forced' and b['name'] not in want:
             bad.append(f"{b['name']}: drawn at a forced spot no override names")
     for name, o in want.items():
-        if drawn.get(name, {}).get('via') != 'forced':
-            bad.append(f'{name}: not drawn at its forced spot')
+        idx = [i for i, b in enumerate(biz) if b['name'] == name and b.get('via') == 'forced']
+        if len(idx) != 1:
+            bad.append(f'{name}: drawn at its forced spot {len(idx)} times, not once')
             continue
-        pre = name[:24] + ' '
-        got = {s[len(pre):] for s in over if s.startswith(pre)} | {f'under {lid}' for lid in covered.pop(name, [])}
-        over[:] = [s for s in over if not s.startswith(pre)]
+        i = idx[0]
+        b = biz[i]
+        mine.add(i)
+        got = {m for k, m in found if k == i} | {f'under {lid}' for lid in b.get('under', ['not recorded'])}
+        if b['l'] < 4 or b['t'] < 50 or b['r'] > d['width'] - 4 or b['b'] > H - 18:
+            got.add('outside the open map')
         if got != set(o['breaks']):
             bad.append(f"{name}: breaks {sorted(got)}, but build/logo-overrides.json allows {sorted(o['breaks'])}")
-    return bad
+    return bad, [(k, m) for k, m in found if k not in mine], mine
 
 
 def main(only):
@@ -103,18 +118,19 @@ def main(only):
         mask = mask_for(B0.shape, meta['dpr'], items)
         delta = np.abs(B0 - B1).max(axis=2)
         n = int(((delta > JITTER) & ~mask).sum())
+        # Erik's 11-17 asks: a forced logo may break exactly the rules its override lists, no more, no fewer.
+        forced_bad, found, mine = allowed(uid, after, overlaps(after, by_index=True))
         # A logo box with no `under` record came from a renderer before that record existed.
-        covered = {b['name']: b.get('under', 'not recorded') for b in swapped if b.get('under', 'not recorded')}
+        covered = {b['name']: b.get('under', 'not recorded') for k, b in enumerate(meta['businesses'])
+                   if b['kind'] == 'logo' and k not in mine and b.get('under', 'not recorded')}
         # A logo over a count, its dot, an intersection label or ring, the pin, another label or a business
         # dot: these are HTML or a circle layer, which `under` cannot see (2026-11-16: with that rule
         # broken for scaled logos, four maps put a logo over a count, the pin or a label and this script
         # still passed).
-        over = overlaps(after)
         # A logo file that would not decode drops off like a logo with no room; it must not pass as one
         # (review round 3, 2026-11-17).
         unreadable = sorted(d for d in meta['dropped'] if 'unreadable' in d)
-        # Erik's 11-17 asks: a forced logo may break exactly the rules its override lists, no more, no fewer.
-        forced_bad = allowed(uid, after, over, covered)
+        over = [m if k is None else f"{meta['businesses'][k]['name'][:24]} {m}" for k, m in found]
         bad += n > SPECKS or bool(covered) or bool(over) or bool(unreadable) or bool(forced_bad)
         report[uid] = {
             'logo': sorted(b['name'] for b in swapped),

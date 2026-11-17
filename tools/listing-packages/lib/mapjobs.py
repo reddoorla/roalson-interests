@@ -113,12 +113,17 @@ def jobs_for(uid,site,outdir,title,geom=None,cover=True,date='September 2026',ex
         tb=[min(p[0] for p in pts),min(p[1] for p in pts),max(p[0] for p in pts),max(p[1] for p in pts)]
         if traffic_view:
             tb=view_bounds(traffic_view['center'],traffic_view['zoom'],W,690)
+        nowhy=[e.get('name') for e in exclude_businesses if not e.get('why')]
+        if nowhy: raise SystemExit(f'{uid}: exclude_businesses needs a why for each name: {nowhy}')
         biz,missing=businesses(tb,(lat,lon),featured,limit=business_limit,exclude=[e['name'] for e in exclude_businesses])
         biz=[{'name':m['name'],'lat':m['lat'],'lon':m['lon'],'featured':True} for m in manual_businesses]+biz
         biz=[with_logo(b,uid=uid) for b in biz]
         # A forced logo (build/logo-overrides.json) must name a business this map shows, with a logo.
         stray=sorted(set(forced(uid))-{b['name'] for b in biz if b.get('force')})
         if stray: raise SystemExit(f'{uid}: build/logo-overrides.json forces logos for businesses this map does not show with a logo: {stray}')
+        # One spot per override: two businesses of one name would both be drawn there (review round 1, 2026-11-17).
+        twice=sorted({b['name'] for b in biz if b.get('force') and sum(c['name']==b['name'] for c in biz)>1})
+        if twice: raise SystemExit(f'{uid}: build/logo-overrides.json forces a name two businesses on this map share: {twice}')
         if missing and only_traffic: raise SystemExit(f'{uid}: listed businesses not in the tiles: {missing}; a map-only site labels exactly its list (use manual_businesses)')
         if missing: print(uid,'featured businesses not in the tiles:',missing)
         tj={'out':f'{outdir}/traffic.jpg','kind':'brand','businesses':biz,'width':W,'height':690,'dpr':2.5,'center':[lat,lon],'bounds':tb,'padding':{'top':120+traffic_pad,'bottom':80+traffic_pad,'left':110+traffic_pad,'right':110+traffic_pad},'maxZoom':15.2,

@@ -264,14 +264,21 @@ map-only list, `business_limit` 5) both place by the rules, and Circle K's logo 
   business still shows its name), with a leader line from the dot when the logo is more than 9 px away.
   Nothing is checked at render time. Each override carries a `why` quoting the ask, a plain-words `flag`
   for the read-me, and `breaks`, the exact list of rules the spot breaks in `logo_check.py`'s words
-  (`line over site-line`, `under road_motorway`, ...). `logo_check.py` fails unless the rendered map
-  breaks exactly those, no more and no fewer, and fails on a forced logo not drawn at its spot or drawn
-  forced with no override. `lib/mapjobs.py` stops the build when an override names a business the map
-  does not show with a logo. Four logos use it: UTSA Buena Vista at Urban Loop, Whataburger at IH 10 at
+  (`line over site-line`, `under road_motorway`, `outside the open map` for a box past the margins every
+  placed label keeps, ...). `logo_check.py` fails unless the rendered map breaks exactly those, no more
+  and no fewer, and fails on a forced logo not drawn at its spot exactly once or drawn forced with no
+  override. Findings are matched to a business by its place in `boxes.json`, not by name (review round
+  1: two names sharing their first 24 characters took each other's findings). A finding recorded on
+  another logo stays a failure even when the forced logo caused it, so a forced spot must keep clear of
+  every other logo and leader line. `swap_area_map.py` likewise refuses a map whose logos cover anything
+  protected, except a forced logo covering exactly its listed `under` layers. `lib/mapjobs.py` stops the
+  build when an override names a business the map does not show with a logo, or a name two businesses
+  on the map share. Four logos use it: UTSA Buena Vista at Urban Loop, Whataburger at IH 10 at
   Highway 46, Circle K at IH 10 at Scenic Loop, and Methodist at Menger Springs Road.
 - `exclude_businesses` in `geo/sites.json` (a name and a `why`) removes a business OpenStreetMap still
   lists, before the cap on businesses is counted: Builder's Mark Home Improvement at 5001 Walzem, closed
-  (Erik, 2026-11-16 and 11-17). Excluding a name not in the tiles stops the build. Without its dot the
+  (Erik, 2026-11-16 and 11-17). Excluding a name not in the tiles, one name twice, or a name with no
+  `why` stops the build. Without its dot the
   labels near IH 35 & Walzem Rd settle differently under the same rules: the intersection label, the
   34,246 and 133,684 counts and the Home Depot logo moved (measured 2026-11-17).
 
@@ -280,10 +287,12 @@ is centred at its dot plus `at`, with its line to the box's nearest point, and t
 keep the records they have when it has no logo; a forced logo whose name fits nowhere is drawn with its
 dot back; `logo_check.allowed()` passes the exact list and fails a missing or extra break, a forced
 logo not drawn forced, and an unlisted forced logo; `lib/logos.forced()` refuses an unknown listing, a
-malformed `at` and a missing `why` or `breaks`; Builder's Mark is in the Walzem tiles and excluded from
-its job; a stale exclusion and an override for a business not on the map stop the build. Eleven
-mutations each turn it red (the table is in roalson-interests#384's body; two of them, a stale
-exclusion allowed and `force` dropped in `lib/logos.py`, turn it red by stopping the build rather than
+malformed `at`, a missing `why`, `flag` or `breaks` and a break that is not a string; on hand-made records,
+a shared 24-character name prefix, a finding on a covered logo, a box past the margins and a forced name
+drawn twice; `swap_area_map.under_ok()`; Builder's Mark is in the Walzem tiles and excluded from its
+job; a stale or doubled exclusion, one with no `why`, and an override for a business not on the map or
+for a name two of its businesses share stop the build. Twenty mutations each turn it red (the table is
+in roalson-interests#384's body; three of them turn it red by stopping the build or a crash rather than
 by a failed check).
 
 ### Map-only sites (2026-11-13)

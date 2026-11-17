@@ -34,6 +34,8 @@ def businesses(bounds, site, featured=(), limit=6, sep_m=180, max_tier=1, exclud
                 if k not in found or v['m'] < found[k]['m']:
                     found[k] = v
     gone = [_norm(n) for n in exclude]
+    if len(set(gone)) != len(gone):
+        raise SystemExit(f'exclude_businesses lists one name twice: {list(exclude)}')
     stale = [n for n, k in zip(exclude, gone) if k not in found]
     if stale:
         raise SystemExit(f'exclude_businesses names not in the tiles: {stale}')

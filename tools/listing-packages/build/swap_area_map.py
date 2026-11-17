@@ -20,6 +20,16 @@ from PIL import Image
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 TITLE = 'Area Map with Traffic Counts'
+sys.path.insert(0, os.path.join(ROOT, 'lib'))
+from logos import forced  # noqa: E402
+
+
+def under_ok(b, want):
+    """Whether logo record `b` covers only what it may: nothing, or for a logo drawn at a forced spot, exactly
+    the protected layers its override (`want`, lib/logos.forced) lists as "under <layer>"."""
+    if b.get('via') == 'forced' and b['name'] in want:
+        return isinstance(b.get('under'), list) and {f'under {x}' for x in b['under']} == {x for x in want[b['name']]['breaks'] if x.startswith('under ')}
+    return b.get('under') == []
 
 
 def swap(uid, src, out):
@@ -34,8 +44,11 @@ def swap(uid, src, out):
     if os.path.exists(new + '.job.json') and json.load(open(new + '.job.json')).get('renderer') != renderer:
         sys.exit(f'{uid}: {new} was drawn by another version of maps.mjs; render it again first')
     rec = json.load(open(new + '.boxes.json')) if os.path.exists(new + '.boxes.json') else None
-    if not rec or any(b['kind'] == 'logo' and b.get('under') != [] for b in rec['businesses']):
-        sys.exit(f'{uid}: {new}.boxes.json is missing, or a logo has something protected under it or no record of it')
+    # A logo at a forced spot (build/logo-overrides.json, Erik's 11-17 asks) may cover exactly the protected
+    # layers its override's `breaks` list as "under <layer>"; any other logo, nothing (2026-11-17).
+    want = forced(uid)
+    if not rec or any(b['kind'] == 'logo' and not under_ok(b, want) for b in rec['businesses']):
+        sys.exit(f'{uid}: {new}.boxes.json is missing, or a logo has something protected under it that build/logo-overrides.json does not allow, or no record of it')
     doc = pymupdf.open(src)
     pages = [p for p in doc if TITLE in p.get_text()]
     if len(pages) != 1:

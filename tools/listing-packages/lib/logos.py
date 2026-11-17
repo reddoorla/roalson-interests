@@ -81,8 +81,8 @@ def forced(uid, path=OVERRIDES):
         at = o.get('at')
         if not (isinstance(at, list) and len(at) == 2 and all(isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v) for v in at)):
             raise SystemExit(f'build/logo-overrides.json: {uid} "{name}": `at` must be [x, y] in px')
-        if not isinstance(o.get('breaks'), list) or not o.get('why'):
-            raise SystemExit(f'build/logo-overrides.json: {uid} "{name}" needs `why` and a `breaks` list (empty when it breaks nothing)')
+        if not isinstance(o.get('breaks'), list) or not all(isinstance(x, str) for x in o['breaks']) or not o.get('why') or not o.get('flag'):
+            raise SystemExit(f'build/logo-overrides.json: {uid} "{name}" needs `why`, `flag` and a `breaks` list of strings (empty when it breaks nothing)')
         out[name] = o
     return out
 
