@@ -23,6 +23,9 @@ def site_jobs(uid, s):
     """One listing's map jobs and its meta (traffic stations, flood), as the build makes them. Imported
     by test_logos.py, so the per-listing logo sizes and the site line are tested on this path."""
     d = json.load(open(A('data', f'{uid}.json')))
+    # A boolean, not a truthy value (#381, 2026-11-17): the string "false" turned the site line on.
+    if not isinstance(s.get('logo_line_across_site', False), bool):
+        raise SystemExit(f"geo/sites.json: {uid} logo_line_across_site must be true or false, not {s['logo_line_across_site']!r}")
     geom = s['geom']
     if geom and geom['type'] == 'MultiPolygon':
         geom = {'type': 'MultiPolygon', 'coordinates': [p for p in geom['coordinates'] if len(p[0]) > 4]}

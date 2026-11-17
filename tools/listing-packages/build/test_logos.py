@@ -77,7 +77,7 @@ Checks:
      9L proves the fixtures draw logo lines, so those checks are not vacuous.
 Needs network (OpenFreeMap tiles), like every map render. Exits 1 on any failure.
 """
-import json, os, subprocess, sys, tempfile
+import json, math, os, subprocess, sys, tempfile
 
 import numpy as np
 from PIL import Image, ImageDraw
@@ -94,6 +94,13 @@ LONG = 'Test Business With A Name Far Too Long To Fit Anywhere On This Map, Whic
 TARGET = 'The Home Depot'
 MAGENTA = (255, 0, 255)
 JITTER = 32
+# How far a box may sit from the point it labels with no leader line, as maps.mjs's place() decides it
+# (`near`): 9 px for a business (logo or name), 12 for a count or an intersection label. Measured from the
+# point to the box's nearest point, as place() measures it.
+LOGO_NEAR, LABEL_NEAR = 9, 12
+# The dots a logo can be read as belonging to: other businesses', the counts', the pin's and the
+# intersection rings (#379).
+DOTS = ('biz-dot', 'aadt-dot', 'pin-dot', 'xring')
 fails = []
 
 
@@ -135,6 +142,20 @@ def segs_cross(a, b):
     o = lambda px, py, qx, qy, rx, ry: (qx - px) * (ry - py) - (qy - py) * (rx - px)
     sg = lambda v: (v > 1e-9) - (v < -1e-9)
     return (sg(o(*a, b[0], b[1])) * sg(o(*a, b[2], b[3])) < 0) and (sg(o(*b, a[0], a[1])) * sg(o(*b, a[2], a[3])) < 0)
+
+
+def box_dist(p, b):
+    """Distance from point p to the nearest point of box b (0 inside it)."""
+    return math.hypot(max(b['l'] - p[0], 0, p[0] - b['r']), max(b['t'] - p[1], 0, p[1] - b['b']))
+
+
+def nearest(p, b):
+    """The point of box b nearest p: where maps.mjs ends a leader line from p."""
+    return [max(b['l'], min(p[0], b['r'])), max(b['t'], min(p[1], b['b']))]
+
+
+def same(a, b, tol=0.01):
+    return len(a) == len(b) and all(abs(u - v) < tol for u, v in zip(a, b))
 
 
 def overlaps(png, by_index=False):
@@ -216,9 +237,74 @@ def overlaps(png, by_index=False):
             g = 0 if m['kind'] in ('biz-dot', 'aadt-dot') else 1
             if m['l'] - g < b['r'] and m['r'] + g > b['l'] and m['t'] - g < b['b'] and m['b'] + g > b['t']:
                 out.append((i, f"over {m['kind']}"))
+    out += ties(d)
     if by_index:
         return out
     return [m if i is None else f"{d['businesses'][i]['name'][:24]} {m}" for i, m in out]
+
+
+def ties(d):
+    """What ties each box to its point, and whether the record of leader lines is complete (#380 and the
+    checker half of #379, 2026-11-17). The checks above trust `segs` and each logo's `line`; these check
+    that those records hold every line that is drawn, and that a logo reads as its own dot's:
+      - a logo farther than LOGO_NEAR from its dot has a line that starts at the dot and ends on its box (X2);
+      - every business line is in `segs`, a count or intersection label farther than LABEL_NEAR from its
+        point (`pt`, recorded since #380) has its line in `segs` (X1), and every line in `segs` is one of
+        those (nothing else draws a leader line);
+      - every pin has its stem recorded, so the checks above see it;
+      - no other dot (another business's, a count's, the pin's, an intersection ring) is within LOGO_NEAR
+        of a logo box, nor closer to it than its own dot. A logo with a line is joined to its dot by it,
+        so only the first applies to it. A logo with no line is within LOGO_NEAR of its own dot, so the
+        second is also the first; its message says which reading it is.
+    Returns (business index or None, finding) pairs, as overlaps(by_index=True)."""
+    out = []
+    segs, marks, biz = d.get('segs', []), d.get('marks', []), d['businesses']
+    owned = [False] * len(segs)
+    for i, b in enumerate(biz):
+        if b.get('line'):
+            hits = [k for k, sg in enumerate(segs) if same(sg, b['line'])]
+            if not hits:
+                out.append((i, 'line not in segs'))
+            for k in hits:
+                owned[k] = True
+    for m in marks:
+        if m['kind'] == 'aadt' and 'pt' not in m:
+            out.append((None, 'a count with no point recorded'))
+        if m['kind'] not in ('aadt', 'ref') or 'pt' not in m:
+            continue
+        hits = [k for k, sg in enumerate(segs) if same(sg[:2], m['pt'])]
+        for k in hits:
+            owned[k] = True
+        # place() sizes a label by offsetWidth, rounded to whole px, where the mark is the drawn box: up to
+        # 1 px of slack either way.
+        if box_dist(m['pt'], m) > LABEL_NEAR + 1 and not any(same(segs[k][2:], nearest(m['pt'], m), 1) for k in hits):
+            out.append((None, f"{m['kind']} line not in segs"))
+    out += [(None, 'a leader line in segs that nothing draws') for o in owned if not o]
+    if sum(m['kind'] == 'pin-stem' for m in marks) < sum(m['kind'] == 'pin' for m in marks):
+        out.append((None, 'pin stem not recorded'))
+    centre = lambda m: ((m['l'] + m['r']) / 2, (m['t'] + m['b']) / 2)
+    for i, b in enumerate(biz):
+        if b['kind'] != 'logo' or not all(k in b for k in 'ltrb'):
+            continue
+        own = box_dist(b['dot'], b)
+        ln = b.get('line')
+        if own > LOGO_NEAR:
+            if not ln:
+                out.append((i, 'off its dot with no leader line'))
+            elif not (same(ln[:2], b['dot']) and box_dist(ln[2:], b) < 0.05):
+                out.append((i, 'leader line does not join its dot to its box'))
+        for m in marks:
+            if m['kind'] not in DOTS:
+                continue
+            c = centre(m)
+            if m['kind'] == 'biz-dot' and math.hypot(c[0] - b['dot'][0], c[1] - b['dot'][1]) < 0.5:
+                continue  # its own dot
+            od = box_dist(c, b)
+            if not ln and od < own:
+                out.append((i, f"another dot ({m['kind']}) closer than its own"))
+            elif od <= LOGO_NEAR:
+                out.append((i, f"another dot ({m['kind']}) within {LOGO_NEAR} px"))
+    return out
 
 
 def matching():
@@ -280,6 +366,39 @@ def sizes():
             except SystemExit:
                 refused = True
             check(refused, f'10sizes. a scale of {v!r} stops the build')
+        # #381 (2026-11-17): each of these built at a wrong size, or as if unset, with no error. Each is a
+        # change to the committed file, so everything else in it stays as committed.
+        real = json.load(open(os.path.join(HERE, 'logo-sizes.json')))
+        cf = 'ih-10-at-highway-87-comfort'
+        def edited(f):
+            s = json.loads(json.dumps(real))
+            f(s)
+            return s
+        bad381 = {
+            'an every-map "*" under logos.scale': edited(lambda s: s['logos']['scale'].__setitem__('*', 3)),
+            'a listing entry spelled "scales"': edited(lambda s: s['listings'].__setitem__(cf, {'why': 'x', 'scales': {'loves': 3}})),
+            'a misspelled key under logos': edited(lambda s: s['logos'].__setitem__('scales', {'walmart': 2})),
+            'a misspelled top-level key': edited(lambda s: s.__setitem__('listing', {})),
+            'a scale of 0.01 (rounds to 0 px)': edited(lambda s: s['listings'][kv]['scale'].__setitem__('walmart', 0.01)),
+            'default_px -22': edited(lambda s: s.__setitem__('default_px', -22)),
+            'default_px 0': edited(lambda s: s.__setitem__('default_px', 0)),
+            'default_px "22"': edited(lambda s: s.__setitem__('default_px', '22')),
+            'default_px missing': edited(lambda s: s.pop('default_px')),
+            'default_px 0.4 (rounds to 0 px)': edited(lambda s: s.__setitem__('default_px', 0.4)),
+            'a listing scale that is a list': edited(lambda s: s['listings'][kv].__setitem__('scale', [1.25])),
+        }
+        through = []
+        for what, spec in bad381.items():
+            json.dump(spec, open(bad, 'w'))
+            try:
+                through.append(f'{what}: {logo_px(lg("walmart"), kv, sizes_path=bad)} px')
+            except SystemExit:
+                pass
+            except Exception as e:  # a crash is not a refusal that names the problem
+                through.append(f'{what}: crashed ({type(e).__name__})')
+        check(not through, f'10sizes. #381: each edit that built wrongly with no error now stops the build: {through or "all refused"}')
+        json.dump(real, open(bad, 'w'))
+        check(logo_px(lg('whataburger'), kv, sizes_path=bad) == 28, '10sizes. #381: the committed file, copied, still builds (control for the refusals above)')
 
 
 def instrument():
@@ -289,12 +408,19 @@ def instrument():
     listing with siteLine; the dot's own box is excused."""
     logo = {'name': 'T', 'kind': 'logo', 'l': 200, 't': 90, 'r': 240, 'b': 110, 'dot': [100, 100], 'line': [100, 100, 200, 100], 'via': 'line', 'line_under': []}
     dot = {'kind': 'biz-dot', 'name': 'T', 'l': 95.2, 't': 95.2, 'r': 104.8, 'b': 104.8}
-    def run(siteLine=False, marks=(), segs=(), drop=None, nomark=False, others=(), **kw):
+    # Since #380 every line in `segs` must be drawn by something, and every pin must have its stem: the
+    # helper gives each extra seg the name label that draws it (no box, so it is not matched to a mark) and
+    # each pin tag its stem, 9 px tall below the tag, as maps.mjs draws them, so the cases written before
+    # #380 still test only what they name. owners=False and stems=False leave them out.
+    def run(siteLine=False, marks=(), segs=(), drop=None, nomark=False, others=(), owners=True, stems=True, **kw):
         with tempfile.TemporaryDirectory() as t:
             p = os.path.join(t, 'x.png')
             biz = {k: v for k, v in {**logo, **kw}.items() if v is not None}
             mine = [] if nomark else [{'kind': 'biz', **{k: biz[k] for k in 'ltrb'}}]
-            rec = {'businesses': [biz, *others], 'marks': [dot, *mine, *marks], 'segs': [biz.get('line', logo['line']), *segs], 'siteLine': siteLine}
+            drawers = [{'name': 'S', 'kind': 'name', 'dot': sg[:2], 'line': sg} for sg in segs] if owners else []
+            stem = [{'kind': 'pin-stem', 'l': (m['l'] + m['r']) / 2 - 7, 't': m['b'], 'r': (m['l'] + m['r']) / 2 + 7, 'b': m['b'] + 9}
+                    for m in marks if m['kind'] == 'pin'] if stems else []
+            rec = {'businesses': [biz, *others, *drawers], 'marks': [dot, *mine, *marks, *stem], 'segs': [*([biz['line']] if biz.get('line') else []), *segs], 'siteLine': siteLine}
             rec.pop(drop, None)
             json.dump(rec, open(p + '.boxes.json', 'w'))
             return overlaps(p)
@@ -327,19 +453,57 @@ def instrument():
         'a logo with no mark beside a name label on its spot': (run(others=[{'name': 'U', 'kind': 'logo', 'l': 300, 't': 150, 'r': 340, 'b': 170, 'dot': [320, 200]},
                                                                             {'name': 'N', 'kind': 'name', 'l': 300, 't': 150, 'r': 340, 'b': 170, 'dot': [320, 140]}],
                                                                     marks=[{'kind': 'biz', 'l': 300, 't': 150, 'r': 340, 'b': 170}]), True),
-        'one other logo, clear of it': (run(others=[{'name': 'U', 'kind': 'logo', 'l': 300, 't': 150, 'r': 340, 'b': 170, 'dot': [320, 200]}],
+        # Its dot moved from (320, 200) to (320, 178), beside the box, in #380: 30 px out with no line is
+        # now a finding of its own ('a logo off its dot with no line', below).
+        'one other logo, clear of it': (run(others=[{'name': 'U', 'kind': 'logo', 'l': 300, 't': 150, 'r': 340, 'b': 170, 'dot': [320, 178]}],
                                             marks=[{'kind': 'biz', 'l': 300, 't': 150, 'r': 340, 'b': 170}]), False),
         'a leader line 1 px clear of the box': (run(segs=[[241, 60, 241, 140]]), False),
         'a count under the box': (run(marks=[{'kind': 'aadt', 'l': 230, 't': 95, 'r': 260, 'b': 105}]), True),
         'a label 0.5 px from the box': (run(marks=[{'kind': 'label', 'l': 240.5, 't': 95, 'r': 270, 'b': 105}]), True),
         'a label 1.5 px from the box': (run(marks=[{'kind': 'label', 'l': 241.5, 't': 95, 'r': 270, 'b': 105}]), False),
-        'a business dot touching the box': (run(marks=[{'kind': 'biz-dot', 'name': 'B', 'l': 240, 't': 95, 'r': 249.6, 'b': 104.6}]), False),
+        # Was False until #379's checker half (2026-11-17): a dot touching a logo box reads as its dot.
+        'a business dot touching the box': (run(marks=[{'kind': 'biz-dot', 'name': 'B', 'l': 240, 't': 95, 'r': 249.6, 'b': 104.6}]), True),
+        # #380 and #379's checker half, 2026-11-17. T's box is x 200-240, y 90-110, its dot (100, 100).
+        'a logo off its dot with no line (X2)': (run(line=None, via='fixed'), True),
+        'a line from somewhere other than its dot': (run(line=[110, 100, 200, 100]), True),
+        'a line ending short of its box': (run(line=[100, 100, 190, 100]), True),
+        'a business line missing from segs': (run(others=[{'name': 'N', 'kind': 'name', 'dot': [400, 400], 'line': [400, 400, 430, 400]}]), True),
+        'a leader line in segs that nothing draws': (run(segs=[[500, 500, 520, 520]], owners=False), True),
+        'a count 40 px from its point, its line not in segs (X1)': (run(marks=[{'kind': 'aadt', 'l': 300, 't': 300, 'r': 340, 'b': 320, 'pt': [320, 360]}]), True),
+        'a count 40 px from its point, its line in segs': (run(marks=[{'kind': 'aadt', 'l': 300, 't': 300, 'r': 340, 'b': 320, 'pt': [320, 360]}], segs=[[320, 360, 320, 320]], owners=False), False),
+        'an intersection label 40 px out, its line not in segs (X1)': (run(marks=[{'kind': 'ref', 'l': 300, 't': 300, 'r': 340, 'b': 320, 'pt': [320, 360]}]), True),
+        'a count 10 px from its point, no line': (run(marks=[{'kind': 'aadt', 'l': 300, 't': 300, 'r': 340, 'b': 320, 'pt': [320, 330]}]), False),
+        'a count with no point recorded': (run(marks=[{'kind': 'aadt', 'l': 300, 't': 300, 'r': 340, 'b': 320}]), True),
+        'a line through the pin\'s stem': (run(marks=[{'kind': 'pin', 'l': 120, 't': 70, 'r': 170, 'b': 94}]), True),
+        'a pin tag clear of the line, its stem too': (run(marks=[{'kind': 'pin', 'l': 120, 't': 40, 'r': 170, 'b': 64}]), False),
+        'a pin with no stem recorded': (run(marks=[{'kind': 'pin', 'l': 120, 't': 40, 'r': 170, 'b': 64}], stems=False), True),
+        'the north panel under the box': (run(marks=[{'kind': 'north', 'l': 230, 't': 14, 'r': 260, 'b': 91}]), True),
+        'a count dot 6 px below the box': (run(marks=[{'kind': 'aadt-dot', 'l': 213.5, 't': 109.5, 'r': 226.5, 'b': 122.5}]), True),
+        'the pin\'s dot 9 px from the box': (run(marks=[{'kind': 'pin-dot', 'l': 240, 't': 91, 'r': 258, 'b': 109}]), True),
+        'a business dot 12 px from the box': (run(marks=[{'kind': 'biz-dot', 'name': 'B', 'l': 247.2, 't': 95.2, 'r': 256.8, 'b': 104.8}]), False),
+        'a dot nearer the box than its own, no line': (run(line=None, via='fixed', dot=[196, 100], marks=[{'kind': 'xring', 'l': 236, 't': 92, 'r': 252, 'b': 108}]), True),
         'the logo\'s own box (its drawn mark, recorded once)': (run(), False),
         'no segs recorded': (run(drop='segs'), True),
         'no line_under recorded': (run(line_under=None), True),
     }
     bad = [k for k, (got, want) in cases.items() if bool(got) != want]
     check(not bad, f'11. overlaps() on hand-made records: {bad or "every case as expected"}')
+    # Dove Canyon as option C drew it (#379, rendered 2026-11-17 from staging a19e66d): Costco's dot is 6.6 px
+    # under the middle of the Walmart logo, and Ross's dot 5.3 px from Costco's. Each finding, and no other.
+    dc = {'businesses': [
+        {'name': 'Costco', 'kind': 'logo', 'l': 313.23, 't': 227.3, 'r': 393.51, 'b': 253.3, 'dot': [377.51, 193.3], 'line': [377.51, 193.3, 377.51, 227.3], 'line_under': []},
+        {'name': 'Ross', 'kind': 'logo', 'l': 458.85, 't': 222.35, 'r': 520.74, 'b': 250.35, 'dot': [398.85, 236.35], 'line': [398.85, 236.35, 458.85, 236.35], 'line_under': []},
+        {'name': 'Walmart Supercenter', 'kind': 'logo', 'l': 324.05, 't': 163.63, 'r': 404.33, 'b': 186.73, 'dot': [404.33, 155.63], 'line': None}],
+        'marks': [{'kind': 'biz-dot', 'name': n, 'l': x - 4.8, 't': y - 4.8, 'r': x + 4.8, 'b': y + 4.8} for n, x, y in
+                  (('Costco', 377.51, 193.3), ('Ross', 398.85, 236.35), ('Walmart Supercenter', 404.33, 155.63))],
+        'segs': [[377.51, 193.3, 377.51, 227.3], [398.85, 236.35, 458.85, 236.35]], 'siteLine': False}
+    dc['marks'] += [{'kind': 'biz', **{k: b[k] for k in 'ltrb'}} for b in dc['businesses']]
+    with tempfile.TemporaryDirectory() as t:
+        p = os.path.join(t, 'dc.png')
+        json.dump(dc, open(p + '.boxes.json', 'w'))
+        got = sorted(overlaps(p))
+    want = ['Costco another dot (biz-dot) within 9 px', 'Walmart Supercenter another dot (biz-dot) closer than its own']
+    check(got == want, f"11. Dove Canyon's option C Walmart and Costco (#379): {got}")
 
 
 def job_path():
@@ -354,6 +518,14 @@ def job_path():
     check(px.get('Whataburger') == 28 and px.get('CHRISTUS Spohn Hospital - Kleberg') == 28 and px.get('Walmart Supercenter') == 22,
           f'10J. make_jobs: Kingsville\'s traffic job carries Erik\'s sizes ({px})')
     flagged = sorted(u for u, v in make_jobs.sites.items() if v.get('logo_line_across_site'))
+    # #381: logo_line_across_site must be a boolean; the string "false" was truthy and turned the line on.
+    refused = []
+    for v in ('false', 'true', 1, 0, None):
+        try:
+            make_jobs.site_jobs('loop-1604-at-dove-canyon', {**make_jobs.sites['loop-1604-at-dove-canyon'], 'logo_line_across_site': v})
+        except SystemExit:
+            refused.append(v)
+    check(refused == ['false', 'true', 1, 0, None], f'10J. #381: logo_line_across_site that is not true or false stops the build (refused {refused})')
     check(cf.get('siteLine') is True and 'siteLine' not in dv and flagged == ['ih-10-at-highway-87-comfort'],
           f"10J. make_jobs: siteLine reaches IH 10 at 87's traffic job and not Dove Canyon's, and only IH 10 at 87 is flagged (Comfort {cf.get('siteLine')}, Dove Canyon {dv.get('siteLine')}, flagged {flagged})")
 
@@ -406,10 +578,16 @@ def main():
                 biz['logo_px'] = 28
         jg = json.load(open(COMFORT))
         jg0 = {k: v for k, v in jg.items() if k != 'siteLine'}
+        # P (#380, 2026-11-17): IH 10 at 87 plus a test business whose dot is inside the site at about
+        # (292, 163.5), level with the SITE pin's stem. Before the stem was taken, its logo's line was drawn
+        # [292, 163.5, 368, 163.5] straight through the stem, and overlaps() passed it.
+        jp = json.loads(json.dumps(jg))
+        jp['businesses'].append({'name': 'Stem Test', 'lat': 29.984101823894836, 'lon': -98.90290373245251, 'logo': 'build/assets/logos/walmart.png', 'logo_px': 22})
+        pv = os.path.join(t, 'P.png')
         json.dump([{**base, 'out': os.path.join(t, 'W.png')}, {**base, 'out': a}, {**base, 'out': a2}, {**jb, 'out': b}, {**jc, 'out': c},
                    {**json.load(open(DOVE)), 'out': dv}, {**json.load(open(KINGSVILLE)), 'out': kv}, {**jn, 'out': nn}, {**jm, 'out': mm},
                    {**jr, 'out': rr}, {**js, 'out': sv}, {**jg, 'out': gv}, {**jg0, 'out': g0},
-                   {**json.load(open(STMARYS)), 'out': yv}], open(jobs, 'w'))
+                   {**json.load(open(STMARYS)), 'out': yv}, {**jp, 'out': pv}], open(jobs, 'w'))
         render(jobs)
         A, A2, B = (np.asarray(Image.open(p).convert('RGB')).astype(int) for p in (a, a2, b))
         dpr = base['dpr']
@@ -497,7 +675,17 @@ def main():
         yu = {n: x.get('under') for n, x in by.items() if x['kind'] == 'logo' and x.get('under') != []}
         check(bool(nx) and nx['kind'] == 'logo' and not yu,
               f"10Y. St. Mary's: Nix is a logo, and nothing protected is recorded under any logo (kind={nx and nx['kind']}, under={yu or 'none'})")
-        for k, png in (('B', b), ('C', c), ('D', dv), ('K', kv), ('N', nn), ('M', mm), ('R', rr), ('S', sv), ('G', gv), ('G0', g0), ('Y', yv)):
+        rp = json.load(open(pv + '.boxes.json'))
+        st = {x['name']: x for x in rp['businesses']}.get('Stem Test')
+        tag = next((m for m in rp['marks'] if m['kind'] == 'pin'), None)
+        pdot = next((m for m in rp['marks'] if m['kind'] == 'pin-dot'), None)
+        stem = next((m for m in rp['marks'] if m['kind'] == 'pin-stem'), None)
+        level = bool(st and tag and pdot) and tag['b'] < st['dot'][1] < pdot['t'] and st['dot'][0] < tag['l']
+        # Since the stem is taken, the logo finds no spot and the business keeps its name; with the stem not
+        # taken, the logo is drawn on a line through it and 9P below fails (mutation P1).
+        check(level and bool(stem),
+              f"9P. the test dot is level with the pin's stem and left of it, so 9P is not vacuous (dot {st and [round(v, 1) for v in st['dot']]}, stem {stem and [round(stem[k], 1) for k in 'ltrb']}, kind {st and st['kind']})")
+        for k, png in (('B', b), ('C', c), ('D', dv), ('K', kv), ('N', nn), ('M', mm), ('R', rr), ('S', sv), ('G', gv), ('G0', g0), ('Y', yv), ('P', pv)):
             ov = overlaps(png)
             check(ov == [], f'9{k}. no logo overlaps a count, ring, pin, label or dot: {ov or "none"}')
             # Every logo line drawn is in `segs` (review round 4, 2026-11-17): positive evidence the
@@ -506,9 +694,17 @@ def main():
             lines = [x['line'] for x in rec['businesses'] if x.get('line')]
             gone = [ln for ln in lines if not any(all(abs(u - v) < 0.01 for u, v in zip(ln, sg)) for sg in rec['segs'])]
             check(not gone, f'9{k}. every business line, logo or name ({len(lines)}), is recorded in segs: {gone or "yes"}')
-        allb = [x for png in (b, c, dv, kv, nn, mm, rr, sv, gv, g0, yv) for x in json.load(open(png + '.boxes.json'))['businesses'] if x.get('line')]
+        recs = [json.load(open(png + '.boxes.json')) for png in (b, c, dv, kv, nn, mm, rr, sv, gv, g0, yv, pv)]
+        allb = [x for r in recs for x in r['businesses'] if x.get('line')]
         nl, ll = sum(x['kind'] == 'logo' for x in allb), sum(x['kind'] == 'name' for x in allb)
         check(nl > 0 and ll > 0, f'9L. the 9x segs checks are not vacuous: {nl} logo lines and {ll} name lines drawn')
+        # #380: the count and intersection-label line checks (X1), and the logo-to-dot tie (X2), have lines to
+        # find in these renders, so a renderer that dropped them is caught here, not passed as a map without.
+        lab = {k: sum(m['kind'] == k and 'pt' in m and box_dist(m['pt'], m) > LABEL_NEAR + 1 for r in recs for m in r['marks']) for k in ('aadt', 'ref')}
+        far = sum(x['kind'] == 'logo' and x.get('via') != 'line' and box_dist(x['dot'], x) > LOGO_NEAR for x in allb)
+        # No fixture puts a count far enough out to draw a line (three real maps do: logo_check.py checks
+        # those, and check 11 a hand-made one); intersection labels draw them here.
+        check(lab['ref'] > 0 and far > 0, f'9L. #380: the renders draw intersection-label lines ({lab["ref"]}; count lines {lab["aadt"]}) and logo lines from a fixed or ring spot ({far})')
     matching()
     sizes()
     instrument()
