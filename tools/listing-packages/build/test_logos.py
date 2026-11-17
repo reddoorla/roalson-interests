@@ -145,8 +145,6 @@ def overlaps(png):
         for m in d['marks']:
             if m['kind'] == 'biz' and all(abs(m[k] - b[k]) < 0.5 for k in 'ltrb'):
                 continue
-            if m['kind'] == 'biz-dot' and m['l'] <= ln[0] <= m['r'] and m['t'] <= ln[1] <= m['b']:
-                continue  # its own dot, where the line starts
             if seg_in_rect(*ln, m):
                 out.append(f"{b['name'][:24]} line over {m['kind']}")
         for sg in d.get('segs', []):
@@ -245,6 +243,9 @@ def instrument():
         'site, no siteLine': (run(line_under=['site-line']), True),
         'site, siteLine, a ring line': (run(siteLine=True, line_under=['site-line'], via='ring'), True),
         'a tag over the dot (inside its own box)': (run(marks=[{'kind': 'pin', 'l': 60, 't': 80, 'r': 101.4, 'b': 104}]), False),
+        'a tag just past the dot\'s own box': (run(marks=[{'kind': 'pin', 'l': 60, 't': 80, 'r': 106, 'b': 104}]), True),
+        'a neighbour\'s dot where the line leaves its own box': (run(marks=[{'kind': 'biz-dot', 'name': 'B', 'l': 103.2, 't': 95.2, 'r': 112.8, 'b': 104.8}]), True),
+        'a ring line across a leader line': (run(segs=[[150, 80, 150, 120]], via='ring'), True),
     }
     bad = [k for k, (got, want) in cases.items() if bool(got) != want]
     check(not bad, f'11. overlaps() on hand-made records: {bad or "every case as expected"}')
@@ -394,8 +395,8 @@ def main():
         check(bool(ro) and ro['kind'] == 'logo' and ro.get('via') == 'line' and flat and ro.get('under') == [],
               f"10L. Dove Canyon: Ross is a logo on a horizontal leader line, nothing protected under it (kind={ro and ro['kind']}, via={ro and ro.get('via')}, line={ro and ro.get('line')}, under={ro and ro.get('under')})")
         lv, lv0 = boxes(gv).get("Love's"), boxes(g0).get("Love's")
-        check(bool(lv) and lv['kind'] == 'logo' and lv.get('via') == 'line' and lv.get('under') == [],
-              f"10G. IH 10 at 87 (siteLine): Love's is a logo on a line across the site, its box clear of the site (kind={lv and lv['kind']}, via={lv and lv.get('via')}, under={lv and lv.get('under')})")
+        check(bool(lv) and lv['kind'] == 'logo' and lv.get('via') == 'line' and lv.get('under') == [] and any(i.startswith('site-') for i in lv.get('line_under', [])),
+              f"10G. IH 10 at 87 (siteLine): Love's is a logo on a line across the site, its box clear of the site (kind={lv and lv['kind']}, via={lv and lv.get('via')}, under={lv and lv.get('under')}, line_under={lv and lv.get('line_under')})")
         check(bool(lv0) and lv0['kind'] == 'name',
               f"10G0. the same map without siteLine: Love's keeps its name, so the line crosses the site only where a listing allows it (kind={lv0 and lv0['kind']})")
         by = boxes(yv)

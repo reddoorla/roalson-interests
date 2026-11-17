@@ -218,10 +218,10 @@ async function render(page, job) {
           const k = fromDot ? 0 : Math.min(1, 12 / d);
           const own = fromDot ? { l: pt.x - 5, t: pt.y - 5, r: pt.x + 5, b: pt.y + 5 } : null;
           if (segHitsTaken(pt.x + (cx - pt.x) * k, pt.y + (cy - pt.y) * k, cx, cy, tag === 'line' ? ignore : null, own) || !free({ l: Math.min(pt.x, cx), t: Math.min(pt.y, cy), r: Math.max(pt.x, cx), b: Math.max(pt.y, cy) }, true, tag === 'line')) continue;
-          // A horizontal line runs up to LINE_MAX, far enough to cross another leader line (a count's,
-          // an intersection label's, another logo's), so it may not (review round 1, 2026-11-16). The
-          // shorter lines keep their old rule, so the logos placed before the lines do not move.
-          if (tag === 'line' && segs.some((sg) => segsCross([pt.x, pt.y, cx, cy], sg))) continue;
+          // No logo's line may cross another leader line (a count's, an intersection label's, another
+          // logo's): review rounds 1 and 2, 2026-11-16. Labels keep the old rule, and a logo placed later
+          // checks against every line already drawn, so no two logo lines cross however they are placed.
+          if (fromDot && segs.some((sg) => segsCross([pt.x, pt.y, cx, cy], sg))) continue;
         }
         el.style.left = `${box.l}px`; el.style.top = `${box.t}px`; el.style.visibility = 'visible';
         const slot = { l: box.l - 3, t: box.t - 3, r: box.r + 3, b: box.b + 3 };
@@ -365,7 +365,7 @@ async function render(page, job) {
         // 2026-11-16 3:00pm PT: "make the lines go horizontal until they get to open space to include
         // the logo"): the logo centred on the dot's height, 60 px out and farther, 4 px apart, to
         // LINE_MAX, nearer first, right before left at each distance. The line and the logo stay clear
-        // of everything any spot must, and the line of every other leader line, so this places a logo
+        // of everything any spot must, and of every other leader line, so this places a logo
         // only where nothing is covered; the one exception is the site, on a listing with siteLine.
         for (let d = 60; d <= LINE_MAX; d += 4) out.push([pt.x + d, pt.y - h / 2, 'line'], [pt.x - w - d, pt.y - h / 2, 'line']);
         return out;

@@ -158,7 +158,8 @@ and `listings.<uid>.scale` on one map, where `"*"` means every logo on it. The f
 the logo named on the listing, then in `logos`, then the listing's `"*"`, else 1. A scaled height
 is rounded to a whole px, halves up, so 1.25 × 22 draws at 28. `lib/logos.py` writes the height
 into the job as `logo_px`, so a size change re-renders the maps it touches, and it stops the build
-when a scale names a logo `build/logos.json` lacks. A wide logo is capped at 92/28 of its height.
+when a scale names a logo `build/logos.json` lacks or a listing `geo/sites.json` and
+`geo/map-only.json` lack. A wide logo is capped at 92/28 of its height.
 
 Since 2026-11-16 a logo that finds no room at the fixed spots also tries every position along each
 side of its dot, 4 px apart, at 8, 20, 34 and 56 px. The logos are retried, in passes, while any
@@ -170,8 +171,8 @@ it fits.
 Last of all, a logo may sit out along a horizontal leader line from its dot, 60 to 200 px out, 4 px
 apart, right before left at each distance (Erik, 2026-11-16 3:00pm PT: "make the lines go horizontal
 until they get to open space"). The line and the logo stay clear of everything any spot must, and the line
-may not cross another leader line, except that it may cross the business's own name, which the logo
-replaces. `boxes.json` records what each logo's line crosses (`line_under`, and every leader line in
+may not cross another leader line (no logo's line may, since review round 2), except that it may
+cross the business's own name, which the logo replaces. `boxes.json` records what each logo's line crosses (`line_under`, and every leader line in
 `segs`), and the checks below fail on anything but the site where `siteLine` allows it. Such a logo records
 `via: 'line'`. Ross at Dove Canyon, Walmart at 11714 Perrin Beitel, H-E-B and Tuff Shed at 5930
 Bandera, NAPA at IH 10 at Scenic Loop, the Children's Hospital at 402 W. Nueva and Love's at IH 10 at
@@ -230,7 +231,7 @@ label and dot, and `dropped`.
   with and without its logos into `qa/logos/`. It fails if anything outside the swapped boxes
   changed, if anything protected lies under a logo, or (since 2026-11-16) if a logo overlaps a
   count, a ring, the pin, another label or a dot, or its leader line crosses one of those, another
-  leader line, or a symbol. Before that, a renderer that let a scaled logo over a count, the pin or
+  leader line, a symbol, or the site (but for the site line). Before that, a renderer that let a scaled logo over a count, the pin or
   a label passed it on four maps.
 - `python3 build/swap_area_map.py <uid> <their.pdf> <out.pdf>` puts the generator's current
   traffic map into a package Erik has edited by hand, replacing only that image. It refuses a stale

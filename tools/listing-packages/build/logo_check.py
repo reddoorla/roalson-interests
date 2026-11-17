@@ -9,9 +9,11 @@ render) and reports:
     business had no room even for its name and was left off is listed under logo_left_off;
   - pixels that differ by more than test_logos.JITTER outside the swapped label and logo boxes.
     A count above SPECKS means a road, road label, count or other label moved or vanished, and
-    the script exits 1. So does anything protected recorded under a logo (`under`), or a logo over a
-    count, its dot, an intersection label or ring, the pin, another label or a business dot
-    (test_logos.overlaps, from boxes.json's `marks`). Below it is antialiasing: on 2026-11-12, IH 10 at Highway 46 differed in 7
+    the script exits 1. So does anything protected recorded under a logo (`under`), a logo over a
+    count, its dot, an intersection label or ring, the pin, another label or a business dot, or a
+    logo's leader line over one of those, across another leader line (`segs`), or over a symbol or
+    the site (`line_under`; the site only for a horizontal line where siteLine is set). All of these
+    are test_logos.overlaps, from boxes.json. Below it is antialiasing: on 2026-11-12, IH 10 at Highway 46 differed in 7
     pixels on one row of a count box's border (at most 51/255), the box itself unmoved, while a
     vanished road label or count changes hundreds.
 Writes qa/logos/report.json, and a side-by-side qa/logos/<uid>/compare.png per listing.
