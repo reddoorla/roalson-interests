@@ -170,7 +170,8 @@ it fits.
 
 Last of all, a logo may sit out along a horizontal leader line from its dot, 60 to 200 px out, 4 px
 apart, right before left at each distance (Erik, 2026-11-16 3:00pm PT: "make the lines go horizontal
-until they get to open space"). The line and the logo stay clear of everything any spot must, and the line
+until they get to open space"). The logo stays clear of everything any spot must. The line, like every
+leader line, may cross a road, but no symbol, label, count, pin, dot or the site, and it
 may not cross another leader line (no logo's line may, since review round 2), except that it may
 cross the business's own name, which the logo replaces. `boxes.json` records what each logo's line crosses (`line_under`, and every leader line in
 `segs`), and the checks below fail on anything but the site where `siteLine` allows it. Such a logo records
@@ -231,7 +232,9 @@ label and dot, and `dropped`.
   with and without its logos into `qa/logos/`. It fails if anything outside the swapped boxes
   changed, if anything protected lies under a logo, or (since 2026-11-16) if a logo overlaps a
   count, a ring, the pin, another label or a dot, or its leader line crosses one of those, another
-  leader line, a symbol, or the site (but for the site line). Before that, a renderer that let a scaled logo over a count, the pin or
+  leader line, a symbol, or the site (but for the site line). Since review round 3 (2026-11-17) it
+  also fails on a logo box over another leader line, a record missing `segs` or a line's
+  `line_under`, or a logo file that would not decode. Before that, a renderer that let a scaled logo over a count, the pin or
   a label passed it on four maps.
 - `python3 build/swap_area_map.py <uid> <their.pdf> <out.pdf>` puts the generator's current
   traffic map into a package Erik has edited by hand, replacing only that image. It refuses a stale

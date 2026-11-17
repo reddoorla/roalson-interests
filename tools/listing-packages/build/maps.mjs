@@ -165,12 +165,18 @@ async function render(page, job) {
     const hit = (a) => taken.some((o) => !(a.r < o.l || a.l > o.r || a.b < o.t || a.t > o.b));
     const W = job.width, H = job.height;
     const segs = [];
+    // Whether a box touches any leader line, by clipping each segment to the box (edges included).
+    // Review round 3, 2026-11-17: 21 samples along a line let a short clip across a box corner through.
     const boxHitsSeg = (b) => segs.some(([x1, y1, x2, y2]) => {
-      for (let i = 0; i <= 20; i++) {
-        const x = x1 + (x2 - x1) * i / 20, y = y1 + (y2 - y1) * i / 20;
-        if (x >= b.l && x <= b.r && y >= b.t && y <= b.b) return true;
+      let t0 = 0, t1 = 1;
+      const dx = x2 - x1, dy = y2 - y1;
+      for (const [p, q] of [[-dx, x1 - b.l], [dx, b.r - x1], [-dy, y1 - b.t], [dy, b.b - y1]]) {
+        if (p === 0) { if (q < 0) return false; continue; }
+        const t = q / p;
+        if (p < 0) t0 = Math.max(t0, t); else t1 = Math.min(t1, t);
+        if (t0 > t1) return false;
       }
-      return false;
+      return true;
     });
     // `skip` is a box the line may cross: a horizontal leader line (below) starts beside its dot,
     // where the business's own name sits, and the name is removed when its logo is placed.
@@ -196,7 +202,11 @@ async function render(page, job) {
     const place = (el, pt, side = false, { first = [], more = null, free = () => true, ignore = null, fromDot = false } = {}) => {
       el.style.cssText = 'position:absolute;left:0;top:0;visibility:hidden;z-index:4';
       document.body.appendChild(el);
-      const w = el.offsetWidth, h = el.offsetHeight;
+      // A logo's box is its exact drawn size (review round 3, 2026-11-17): offsetWidth rounds to whole px,
+      // and a wide logo capped at 92/28 of 22 px draws 72.29 px wide, so a rounded box could cover a dot's
+      // stroke by 0.3 px and record that it did not. Labels keep offsetWidth, so their placements stay.
+      const rc = fromDot ? el.getBoundingClientRect() : null;
+      const w = rc ? rc.width : el.offsetWidth, h = rc ? rc.height : el.offsetHeight;
       const sides = [[pt.x + 8, pt.y - h / 2], [pt.x - w - 8, pt.y - h / 2]];
       const extra = more ? more(w, h) : [];
       const cands = [...first.map((f) => f(w, h)), ...(side ? sides : []), [pt.x - w / 2, pt.y - h - 9], [pt.x - w / 2, pt.y + 9], [pt.x + 10, pt.y - h / 2], [pt.x - w - 10, pt.y - h / 2],
@@ -364,9 +374,9 @@ async function render(page, job) {
         // Then, last of all, along a horizontal leader line from the dot (Erik, #roalson-interests,
         // 2026-11-16 3:00pm PT: "make the lines go horizontal until they get to open space to include
         // the logo"): the logo centred on the dot's height, 60 px out and farther, 4 px apart, to
-        // LINE_MAX, nearer first, right before left at each distance. The line and the logo stay clear
-        // of everything any spot must, and of every other leader line, so this places a logo
-        // only where nothing is covered; the one exception is the site, on a listing with siteLine.
+        // LINE_MAX, nearer first, right before left at each distance. The logo stays clear of
+        // everything any spot must; the line, like every leader line, may cross a road but no symbol,
+        // label, count, pin, dot or other leader line, nor the site except on a listing with siteLine.
         for (let d = 60; d <= LINE_MAX; d += 4) out.push([pt.x + d, pt.y - h / 2, 'line'], [pt.x - w - d, pt.y - h / 2, 'line']);
         return out;
       };

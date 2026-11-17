@@ -76,7 +76,10 @@ def main(only):
         # broken for scaled logos, four maps put a logo over a count, the pin or a label and this script
         # still passed).
         over = overlaps(after)
-        bad += n > SPECKS or bool(covered) or bool(over)
+        # A logo file that would not decode drops off like a logo with no room; it must not pass as one
+        # (review round 3, 2026-11-17).
+        unreadable = sorted(d for d in meta.get('dropped', []) if 'unreadable' in d)
+        bad += n > SPECKS or bool(covered) or bool(over) or bool(unreadable)
         report[uid] = {
             'logo': sorted(b['name'] for b in swapped),
             'logo_no_room': sorted(b['name'] for b in bx1.values() if b['kind'] == 'name' and b['logo']),
@@ -85,6 +88,7 @@ def main(only):
             'changed_outside_boxes': n,
             'drawn_under_a_logo': covered,
             'logo_over_a_mark': over,
+            'logo_unreadable': unreadable,
             'largest_difference_outside_boxes': int((delta * ~mask).max()),
         }
         w = B0.shape[1]
@@ -92,10 +96,10 @@ def main(only):
         c.paste(Image.open(before).convert('RGB'), (0, 0))
         c.paste(Image.open(after).convert('RGB'), (w + 20, 0))
         c.save(os.path.join(os.path.dirname(before), 'compare.png'))
-        print(uid.ljust(42), 'logos', report[uid]['logo'], '| no room', report[uid]['logo_no_room'], '| left off', report[uid]['logo_left_off'], '| changed', n, '| under a logo', covered or '-', '| over a mark', over or '-')
+        print(uid.ljust(42), 'logos', report[uid]['logo'], '| no room', report[uid]['logo_no_room'], '| left off', report[uid]['logo_left_off'], '| changed', n, '| under a logo', covered or '-', '| over a mark', over or '-', '| unreadable', unreadable or '-')
     json.dump(report, open(A('qa', 'logos', 'report.json'), 'w'), indent=1)
     if bad:
-        sys.exit(f'{bad} map(s) changed outside the logo boxes, have something protected under a logo, or have a logo over a count, pin, label or dot')
+        sys.exit(f'{bad} map(s) changed outside the logo boxes, have something protected under a logo, or have a logo over a count, pin, label, dot or leader line, or have a logo file that would not decode')
 
 
 if __name__ == '__main__':

@@ -51,6 +51,8 @@ def logo_px(logo, uid=None, sizes_path=SIZES):
     if set(listings) - uids:
         raise SystemExit(f'build/logo-sizes.json: scales listings geo/sites.json and geo/map-only.json do not list: {sorted(set(listings) - uids)}')
     for where, sc in [('logos', everywhere)] + [(u, v.get('scale', {})) for u, v in listings.items()]:
+        if any(not isinstance(v, (int, float)) or v <= 0 for v in sc.values()):
+            raise SystemExit(f'build/logo-sizes.json: {where} has a scale that is not a positive number: {sc}')
         if set(sc) - {'*'} - known:
             raise SystemExit(f'build/logo-sizes.json: {where} scales logos build/logos.json does not list: {sorted(set(sc) - {"*"} - known)}')
     scale = listings.get(uid, {}).get('scale', {})
