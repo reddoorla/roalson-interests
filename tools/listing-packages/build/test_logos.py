@@ -248,7 +248,7 @@ def near_dots(b, marks):
     the pin's, an intersection ring) within LOGO_NEAR of its box, or, for a logo with no line, closer to it
     than its own dot. Every dot is measured from its centre, the point it marks, as maps.mjs measures `near`;
     so the pin's 18 px dot and a 16 px ring count only where their centre is that near (review round 2: from
-    their edges, four more logos (five findings) would fail, among them Scenic Loop's Fairfield and Circle K, #379's map half).
+    their drawn edges, with the SITE tag counted as a dot, four more logos (six findings) would fail, among them Scenic Loop's Fairfield and Circle K, #379's map half).
     The SITE tag is not a dot. Each is (kind, name or None, distance to the box, whether it is closer than its
     own, its centre)."""
     out = []

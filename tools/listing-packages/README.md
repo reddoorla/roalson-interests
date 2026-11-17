@@ -272,10 +272,12 @@ both checkers fail:
   and gets no line. A logo on a line is joined to its dot by the line, so only the 9 px rule applies to it.
   Every dot is measured from its centre, the point it marks, as `near` is. So the pin's 18 px dot and a
   16 px intersection ring count only where their centre is that near, and the SITE tag is not a dot.
-  Measured from their edges instead, four more logos (five findings) would fail on 11-17's maps: Fairfield at IH 10 at
-  Scenic Loop (8.4 px from the tag), and Circle K there (4.0 px from the ring, 5.8 from the pin's dot),
-  both of #379's map half, which stays open; Whataburger at IH 10 at Highway 46 (5.7 px from the pin's
-  dot); and Whataburger at Hwy 46 and Coughran (7.4 px from the tag). Two of those are Erik's forced spots.
+  Measured from each dot's drawn edge instead, and counting the SITE tag as a dot, four more logos would
+  fail on 11-17's maps, with six findings: at IH 10 at Scenic Loop, Fairfield (8.4 px from the tag) and
+  Circle K (4.0 px from the ring, 5.8 from the pin's dot, 8.1 from NAPA's dot), both of #379's map half,
+  which stays open; Whataburger at IH 10 at Highway 46 (5.7 px from the pin's dot); and Whataburger at
+  Hwy 46 and Coughran (7.4 px from the tag). Circle K and the Highway 46 Whataburger are Erik's forced
+  spots.
 
 Re-rendering all 26 Area Maps with Traffic Counts with these renderer changes moved no placement: every
 logo box, line, `segs` and `dropped`, and every mark `staging` already recorded, matched `staging`'s
