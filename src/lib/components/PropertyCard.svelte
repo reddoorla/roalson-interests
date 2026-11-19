@@ -156,8 +156,9 @@
             draggable="false"
             data-card-link
             class="in-[[inert]]:invisible after:absolute after:inset-0 after:content-[''] focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:-outline-offset-4 focus-visible:after:outline-[var(--focus-ring)]"
-            >{data.title}</a
           >
+            {data.title}
+          </a>
         {:else}
           {data.title}
         {/if}

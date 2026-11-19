@@ -93,7 +93,6 @@ and leaves with the answer that was already known to be wrong. Nothing in the
 old entry points forward, because the rule forbade touching it.
 
 So: one line under a superseded heading, `> Superseded in part by <date> —
-
 <title>.` It asserts nothing and retracts nothing, so the record of what was
 believed at the time survives whole; it only redirects. The distinction that
 makes it safe is that a pointer is *navigation*, not *content* — the prohibition
@@ -13694,3 +13693,148 @@ Round 6 was the one sixth round the narrow rule allows unasked, on the round-5 f
 **Delivered** to Dropbox `…/2026-11 Area map logos (review)/2026-11-16 logos, option C/`: Erik's 22 current packages with only the area map swapped, `00 - Before and after, Dove Canyon, Kingsville, Nueva.pdf`, and a read-me listing the logos still shown as names. All 24 uploads' content hashes match. The option B subfolder is untouched, and the placement-options subfolder moved to `05_Past Comps`. Not acted on: Erik's "5001 Walzem: Builders Mark is out of business, please remove that", which is a business label, not a logo, and outside this brief.
 
 Usage: $26.00 across three sessions: $18.37 (session_013FT5PBxyLhJtZ7qCFY2U5y), $4.31 (session_013FT5PCsmLsUddTWAU7bfj8), and $3.31 for session_013FT5PDPprNyfcBARXtGKSX as `get_session` reads it now (2,077,081/344,804 cache, 11/6,767 tokens). That last figure covers only its latest worker and understates a session that reached 408k context. Rate limit allowed. Landing and the promotion run in session_013FT5PGFgo4LWzFJAmcAMBs.
+
+## 2026-11-17 — Deep review of the option C promotion (#378): four issues filed, and corrections to the option C entry
+
+The operator asked for one deep review of everything `staging` would promote to `main` (#378, which carries #372). It was not a seventh round on #372. Five reviewers looked at the change from different angles, all reading `545e9be`:
+
+- the renderer and placement code, with renders of the fixtures and crafted jobs;
+- whether the checkers prove what they claim, re-running five of #372's mutations and trying two new ones;
+- two visual passes over all 22 delivered maps, taken out of the Dropbox PDFs and compared with option B's;
+- every written claim against the code and git history.
+
+Each finding below was checked again before it was filed. Nothing was fixed in code, and nothing delivered was changed.
+
+**What held.**
+
+- The suites pass, and `logo_check.py` exits 0 on all 26 maps.
+- Mutations 3b, 7a, 8a, R4a and R6a each went red as #372 says.
+- Line geometry is sound, the site exception is confined to horizontal lines on IH 10 at 87, `boxHitsSeg` is a correct clip, and the Python and JS sizes agree.
+- Every scale in `logo-sizes.json` is one Erik asked for, and #378 changes no site page.
+
+**What did not.**
+
+- **#379. The worst finding is a map Erik will look at.** At Dove Canyon, option B hung Walmart on a diagonal line from its own dot. Option C's 22 px logo touches that dot only at a corner, and Costco's dot sits under the middle of the Walmart logo, so it reads as Walmart's. At Kingsville the Walmart box touches the 7,948 count's dot. Scenic Loop's Fairfield dot under the SITE flag, and NAPA's line ending by the pin, were already there in option B.
+- **#380. Two new mutations turn nothing red.** X2 drops the line from logos beyond `near`, and X1 stops recording count and intersection leader lines. Under X1, 18 of 18 test logos crossed the LOOP 410 & BANDERA RD line while `overlaps()` returned `[]`. The checkers trust two records nothing checks for completeness. The SITE pin's stem and the north panel are in neither `taken` nor `marks`, so a line was drawn through the stem on a crafted job.
+- **#381.** `logo-sizes.json` validation accepts an every-map `"*"` it never applies, and reads a misspelled listing key as no scale. Both silently build at 22 px.
+- **#382.** The delivered read-me's "7 on horizontal lines" counts only `via: 'line'`. The ring and fixed spots' lines from option B add nine vertical or diagonal stems and four more horizontal lines. Baptist Health and Sam's Club logos carry grey panels.
+
+**A reviewer's error, caught.** One visual reviewer measured Bandera's H-E-B line at 348 px and called it past the 200 px limit. The map image is drawn at device scale, so that line is about 178 px in the renderer's units, inside the limit. The lesson: measure in the unit the rule is written in.
+
+**Corrections to the entry above** ("2026-11-16 — Option C area-map logos …"). That entry stands as written; these correct it.
+
+- **"None of the six rounds' fixes changed a rendered map … all of them were in the checker … plus two renderer guards."** The second half is wrong. Rounds 1 to 3 changed placement in `maps.mjs`:
+  - `558d908` checks logo lines from the dot's edge, forbids a logo line crossing another leader line, makes the site exception horizontal-only, and reads the name's old box with `getBoundingClientRect`;
+  - `0aa8922` widens the crossing rule to every logo line;
+  - `af06bfd` sizes a logo's box with `getBoundingClientRect`.
+
+  That no map moved is a measurement this review did not repeat. The same sentence is in the round-6 decision file the operator answered.
+
+- **"A road that never touched the name counted as under it."** That is wrong. The street lay 0.69 px inside the name's box. The defect was that a road the name had already covered counted against the logo.
+- **"142 of 142 logos in the 54 real records".** This cannot be checked from the repo (`qa/` is ignored). 142 is exactly twice the 71 that place, so the figure may count each logo twice.
+- **`1e2f835` broke the never-edit rule.** It added a blank line inside the 2026-09-05 entry ("Ten retrospective rules…"), splitting a code span. Prettier did it, run without the repo's config. This PR removes that line.
+
+Usage: see the reddoor-workspace journal entry for this session.
+
+## 2026-11-17 — Erik's 11-17 asks on the option C maps: four forced logo spots, Builder's Mark excluded, two Whataburgers by the rules (#384)
+
+Erik reviewed the option C folder and sent seven notes (#roalson-interests, 7:19am PT). The operator asked for exactly those seven, "even if they break some rules, just try and make the best result possible and flag it". So this PR adds two mechanisms rather than loosening any global rule, and every other map is untouched: on the 19 other listings `boxes.json` is identical to `staging`'s (`545e9be`), and their pixels differ only by rendering noise (588 px at most 15/255 on 402 W. Nueva, 268 px at 3/255 on Hwy 46 and Coughran, 1 px on Cascade Caverns, against the 32/255 threshold). Logo matches placed went from 71 of 78 to 77 of 80.
+
+**Three asks needed no rule broken.**
+
+- **Whataburger at IH 10 at Menger Springs** was never in that map's businesses. Fast food is not an anchor `lib/pois.py` adds on its own, so it was added to the listing's `businesses`. It places by the rules below its dot.
+- **Whataburger at Hwy 46 West** was dropped on 11-13 because at Erik's frame only one of it and The Home Depot fit beside the 10,340 count at 28 px. At 22 px (option C) its logo places by the rules, below and right of its dot. Its _name_ still has no room, so `logo_check.py`'s bare comparison render must drop `strict`, which guards only the delivered render.
+- **Circle K's logo** is now Erik's `Circle_K.png` (dropped in the folder 7:15am PT), replacing `Circle K.eps`.
+
+**Four logos needed a forced spot** (`build/logo-overrides.json`: `at` is the logo's centre in CSS px from its dot). Each override lists its breaks word for word. `logo_check.allowed()` fails on any difference, and `swap_area_map.under_ok()` lets through exactly the listed `under` layers.
+
+| Listing              | Logo             | `at`       | What it breaks                                                                                |
+| -------------------- | ---------------- | ---------- | --------------------------------------------------------------------------------------------- |
+| Urban Loop Road      | UTSA Buena Vista | [-52, -17] | trunk/primary roads and the rail line north of César Chávez, beyond the name's box (6 layers) |
+| IH 10 at Highway 46  | Whataburger      | [12, 40]   | its line crosses the site (fill, halo, line)                                                  |
+| IH 10 at Scenic Loop | Circle K         | [-16, 20]  | IH 10 and an on-ramp beyond the name's box (4 layers)                                         |
+| Menger Springs Road  | Methodist        | [-75, -1]  | its line crosses the SITE tag and the site; a street bridge under the logo                    |
+
+Forced logos are drawn after every other logo has its place, so they move nothing else. The rule-placed logos are tried while the forced business still shows its name, which test 1c compares directly against a run with that business logo-less.
+
+**Builder's Mark** is closed (Erik, 11-16 and 11-17). OpenStreetMap still lists it as a DIY store, so `lib/pois.py` kept adding it as an anchor. It is now removed at the source: `exclude_businesses` in `geo/sites.json`, applied before the six-business cap. No other anchor took its place.
+
+**Belief corrected on contact:** removing a business is not a one-label change. Its dot was one of the `taken` boxes every earlier label avoids. Without it, the IH 35 & Walzem Rd label, the 34,246 and 133,684 counts and the Home Depot logo (now on a short line) all settled into different spots under the same rules, and 73,945 device pixels changed by more than 32. The read-me to Erik says so.
+
+**Methodist's dot is under the SITE tag** on Menger Springs Road: it sits 7 px from the tag's centre. Erik's "near the property address" is literal, and every line out of the dot starts under the tag.
+
+**Review: two rounds.**
+
+- **Round 1** was dirty:
+  - critical: the swap guard refused three of the four forced maps; its fix sat uncommitted when the round began;
+  - major: `allowed()` matched findings by `name[:24]`, so a rule-placed logo sharing a forced one's 24-character prefix had its break excused;
+  - major: a break recorded on a logo the forced one covers could never be allowed. It is now documented as fail-closed;
+  - minors and nits, all folded: no off-map check (now the break `outside the open map`), one override forcing two same-name businesses, and input checks.
+
+  Findings now carry the business's index (`test_logos.overlaps(by_index=True)`, whose default strings are unchanged).
+
+- **Round 2** found minors only:
+  - one minor, filed as #385: a swap can use a map rendered before a forced `at` changed;
+  - three nits, folded: the margin height on a map-only map, and two docs that overstated what the guard and `allowed()` check.
+
+**Tests.** `build/test_logo_overrides.py` has 45 checks. 20 mutations each turn it red; three of them do so by stopping the build or by a crash rather than by a failed check. The table is in #384. `test_logos.py` (57), `test_map_only.py` (18) and `test_swap_area_map.py` (7) pass, `logo_check.py` exits 0 on all 26 maps, and `pnpm verify` passes.
+
+**Delivered:** Erik's seven current packages (unchanged in Dropbox since 11-13, content hashes checked) with only the area map swapped, in a new subfolder of `2026-11 Area map logos (review)`, with a read-me listing each ask and every rule broken. Not acted on, as Erik said the rest look good: #379–#382.
+
+Usage: this session's figure is not readable mid-turn from `get_session`; see the workspace journal. The session it continues, session_013FT5PGFgo4LWzFJAmcAMBs, read $21.52 (2,053/188,029 tokens, 41,914,948/1,494,936 cache, rate limit allowed) at hand-off.
+
+## 2026-11-17 — The area-map checkers now check their own records: logo-to-dot ties, complete `segs`, the pin's stem, closer dots, and `logo-sizes.json` (#380, #381, #379's checker half; `claude/roalson-map-checker-gaps` into `staging`)
+
+The deep review of the option C promotion (the entry two above) showed that both checkers trusted records nothing checked. X2 (a logo off its dot drawn with no line) and X1 (count and intersection-label lines left out of `segs`) passed `test_logos.py` and `logo_check.py`, and so did a test logo whose line ran straight through the SITE pin's stem. All of these were reproduced first on `staging` at `a19e66d`, after #384 merged: X1 and X2 each passed every check. The stem case drew `[292.0, 163.7 → 368.0, 163.7]` through the stem (x 315–329, y 157–166) with `overlaps()` returning `[]`. Each #381 edit built wrongly: `"*": 3` built at 22, `"scales"` at 22, a scale of 0.01 at 0 px, `default_px` −22 at −21 px, and the string `"false"` turned `siteLine` on.
+
+**What changed.** `overlaps()` now runs `ties()`:
+
+- a logo or name more than 9 px from its dot (`near`) needs a line from the dot that ends on its box;
+- every business, count and intersection-label line is in `segs`, each label owns at most one line, and every seg is drawn by something;
+- every pin's stem is recorded;
+- `near_dots()`: no other dot within 9 px of a logo box, nor, for a logo with no line, closer than its own dot.
+
+`maps.mjs` records each placed label's point (`pt`), the stem and the north panel in `marks`, and puts the stem and the panel in `taken`. `lib/logos.py` and `make_jobs.py` refuse all five #381 edits.
+
+**Measured: nothing moved.** After the renderer changes, every logo box, line, `segs`, `dropped` and pre-existing mark on the 26 traffic maps matched `staging`'s records, and one name record moved 0.022 px because it now reads its drawn box. The 25 wide aerials were rendered with `staging`'s `maps.mjs` and this one, and they are pixel-identical (largest difference 0/255). Review round 1 caught that the aerials, which place intersection labels by the same `place()` beside the north panel and pin, had not been compared at first.
+
+**The stop, and the answer.** The closer-dot rule failed four logos on maps Erik approved that morning. Distances are in CSS px, from each dot's centre to the box:
+
+- Dove Canyon Walmart: Costco's dot at 6.6 px, its own dot at 8.0;
+- Dove Canyon Costco: Ross's dot at 5.3 px;
+- Kingsville Walmart: the 7,948 count's dot at 7.67 px, its own at 7.69;
+- Hwy 46 West Home Depot: Whataburger's dot at 8.8 px. This one is new, not in #379.
+
+The next nearest dot to any logo on any map was 12.0 px. Per the brief I stopped and asked (reddoor-workspace `decisions/2026-11-17-1939-roalson-closer-dot-check-fails-approved-maps.md`). The operator chose (a), an allow-list. `build/logo-check-approved.json` pins each approved logo's box and each nearby dot's kind, name, distance and centre, each within 0.5 px, so a map that changes is checked again. No map, placement or delivered file changed.
+
+**Beliefs corrected on contact:**
+
+- **"Closer than its own dot" adds nothing for a logo with no line.** Such a logo is within 9 px of its own dot, so any closer dot is already within 9. The two readings only change the message, and at Kingsville the message hung on a 0.02 px difference. Round 1 caught that matching the approval on the message was brittle; it now matches the dots themselves.
+- **Measuring dots from their centres is a definition, not a given.** Round 2 showed that, measured from drawn edges and counting the SITE tag, four more logos would fail with six findings: Scenic Loop's Fairfield and Circle K (#379's map half), and Whataburger at IH 10 at 46 and at Coughran. Two of those are Erik's forced spots. The operator's answer was given on centres, so the README says so and names all four. #379 stays open.
+- **No fixture puts a count far enough out to draw a line.** Only three real maps do (Walzem, Coughran, IH 10 East at 1604). So the X1 render evidence is intersection-label lines, plus a hand-made count case.
+
+**Review: four rounds; rounds 1–3 dirty, round 4 minors only.**
+
+- **Round 1**, two majors:
+  - the aerials were unverified;
+  - the allow-list matched finding text, which passed a moved or swapped dot.
+
+  Minors: the Kingsville knife edge, and an X1 blind band between 12 and 13 px.
+
+- **Round 2**, one major: the docs overstated what the centre measure catches. Minors: the allow-list matched distance but not position, a dropped label's ring was misreported, and the README pointed to a journal result it didn't state.
+- **Round 3**, one major: an approved logo could slide along the edge nearest its dot. Minors: a stray line from a label's point passed, and names had no off-dot check. A nit: NaN in the allow-list approved any dot.
+- **Round 4**: minors only. The edge-count wording was folded in. A logo's own dot not being required to be drawn is filed as #388, and a duplicated business seg as #389.
+
+Also filed: #386 (no check reads a real logo's pixels, carried from #380's nit) and #387 (map-only sites ignore `logo_line_across_site`). #382 got a comment: 31 of 77 logos hang on a line, 12 of them horizontal, against the read-me's 7.
+
+**Tests.**
+
+- `test_logos.py`: 66 checks.
+- `test_logo_overrides.py` 45, `test_map_only.py` 18 and `test_swap_area_map.py` 7 pass.
+- `logo_check.py` exits 0 on all 26 maps.
+
+Each of the brief's mutations turns a check red: X1, X2, the pin-stem case (stem not taken; stem not recorded), `"*"`, `"scales"`, 0.01, −22 and `"false"`, plus Dove Canyon's Walmart and Costco geometry. So do 18 more against the new code. The table is in the PR body.
+
+**Honest accounting.** Nothing here changed a map. The renderer changes only add bookkeeping and two `taken` boxes that no current placement touched. The value is that the next renderer change can no longer pass by dropping a record. In this container, `scipy` was missing and the swap test needs Dove Canyon rendered first, so both suites fail on a fresh checkout until those are fixed. That is setup, not a defect.
+
+Usage: $21.24 so far for this session (session_013FT5PGGKjsuR5CpBbDHCBV), 4,036/222,476 tokens, 54,594,093/976,147 cache, rate limit allowed, read before the PR was opened; landing continues in a hand-off session.

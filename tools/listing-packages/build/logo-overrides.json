@@ -1,0 +1,79 @@
+{
+ "about": "Logos drawn at a set spot instead of by the placement rules, per listing, by business name as the map prints it. at is the logo's centre as [x, y] CSS px from its dot on the 672 px map; a leader line runs from the dot when the logo is more than 9 px from it. Drawn after every other logo is placed, so nothing else on the map moves. breaks lists every placement rule the spot breaks, exactly as build/logo_check.py reports them (test_logos.overlaps, plus 'under <layer>' for a protected layer under the logo); logo_check fails unless the rendered map breaks exactly these. flag says the same in plain words, for the read-me Erik gets. Read by lib/logos.py. Why: the operator, 2026-11-17 about 8:25am PT, on Erik's 11-17 asks: \"just do the specific asks he has now, even if they break some rules, just try and make the best result possible and flag it.\"",
+ "listings": {
+  "urban-loop-road": {
+   "logos": {
+    "UTSA Downtown Campus - Buena Vista District": {
+     "at": [
+      -52,
+      -17
+     ],
+     "why": "Erik, #roalson-interests 2026-11-17 7:19am PT: \"503 & 523 Urban Loop Road, please make the UTSA listing the UTSA logo, not regular type.\" By the rules the logo had no room (the 3,231 count sits under the name); here it takes the right end of the name's spot, 2 px above the count.",
+     "breaks": [
+      "under bridge_trunk_primary",
+      "under bridge_trunk_primary_casing",
+      "under road_major_rail",
+      "under road_major_rail_hatching",
+      "under road_trunk_primary",
+      "under road_trunk_primary_casing"
+     ],
+     "flag": "The logo is taller than the name it replaces, so it covers a little more of the major roads and the rail line north of W. César E. Chávez Blvd than the name did (the rules allow a logo over a major road only where its name already was)."
+    }
+   }
+  },
+  "ih-10-at-highway-46": {
+   "logos": {
+    "Whataburger": {
+     "at": [
+      12,
+      40
+     ],
+     "why": "Erik, #roalson-interests 2026-11-17 7:19am PT: \"I10 at Hwy 46, it'd be nice if we could squeeze in the Whataburger logo on this one too.\" Its dot is between the SITE tag and the site, so every spot near it is taken; the logo sits just below the site, beside The Home Depot's.",
+     "breaks": [
+      "line over site-fill",
+      "line over site-halo",
+      "line over site-line"
+     ],
+     "flag": "Its leader line crosses the site's outline and shading to reach the logo below the site (the rules let no line cross the site, except Love's at IH 10 at 87)."
+    }
+   }
+  },
+  "ih-10-at-scenic-loop": {
+   "logos": {
+    "Circle K": {
+     "at": [
+      -16,
+      20
+     ],
+     "why": "Erik, #roalson-interests 2026-11-17 7:19am PT: \"IH10 at Scenic Loop, please replace plain text with the Circle K logo from the logo folder, just added a PNG version.\" 42 rule-abiding tries on 2026-11-16 found no spot; here it takes the name's spot, nudged left off the site.",
+     "breaks": [
+      "under road_link",
+      "under road_link_casing",
+      "under road_motorway",
+      "under road_motorway_casing"
+     ],
+     "flag": "The logo sits over IH 10 and an on-ramp, a little more of them than the name covered."
+    }
+   }
+  },
+  "menger-springs-road": {
+   "logos": {
+    "Methodist Boerne Emergency Center": {
+     "at": [
+      -75,
+      -1
+     ],
+     "why": "Erik, #roalson-interests 2026-11-17 7:19am PT: \"Menger Springs Road please add the Methodist Healthcare logo near the property address (see Hwy 46 listings for Methodist location).\" Its dot lies under the SITE tag, so the logo goes just left of the site, as on IH 10 at Menger Springs, on a line from the dot.",
+     "breaks": [
+      "line over pin",
+      "line over site-fill",
+      "line over site-halo",
+      "line over site-line",
+      "under bridge_street"
+     ],
+     "flag": "Its dot lies under the SITE tag, so the leader line starts there and crosses the tag and the site's outline to reach the logo; the logo also covers a short piece of a street bridge. (The rules let no line cross the site or a tag, and no logo cover a bridge its name did not.)"
+    }
+   }
+  }
+ }
+}
