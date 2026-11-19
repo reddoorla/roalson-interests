@@ -653,8 +653,9 @@
                 target={portfolio.blank ? "_blank" : undefined}
                 rel={portfolio.blank ? "noopener noreferrer" : undefined}
                 aria-label="See all {portfolio.text.toLowerCase()}"
-                >See all <ArrowRight /></BrandButton
               >
+                See all <ArrowRight />
+              </BrandButton>
             {/if}
           </div>
         </div>

@@ -233,10 +233,9 @@
                         {#if partner.profile}
                           <a href={partner.profile} data-partner-profile class={LINK}>
                             <span class={LINK_ROW}>
-                              <span class={LINK_TEXT}
-                                >Profile<span class="sr-only normal-case">, {partner.name}</span
-                                ></span
-                              >
+                              <span class={LINK_TEXT}>
+                                Profile<span class="sr-only normal-case">, {partner.name}</span>
+                              </span>
                               <TextLinkArrow />
                             </span>
                           </a>
@@ -251,9 +250,9 @@
                                  was named "ContactMatt Howard". At the end of
                                  the drawn line it paints nothing (the text is
                                  61.11 wide with it and without it). -->
-                            <span class={LINK_TEXT}
-                              >Contact <span class="sr-only normal-case">{partner.name}</span></span
-                            >
+                            <span class={LINK_TEXT}>
+                              Contact <span class="sr-only normal-case">{partner.name}</span>
+                            </span>
                             <TextLinkArrow />
                           </span>
                         </a>

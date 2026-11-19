@@ -177,16 +177,17 @@
               <a
                 href={OFFICE.phone.href}
                 class="inline-block underline underline-offset-4 hover:no-underline"
-                >{OFFICE.phone.display}</a
-              >.
+              >
+                {OFFICE.phone.display}
+              </a>.
             </p>
           </div>
         {:else}
           <p class="t-body-1">Send us a message and we'll get back to you.</p>
           <p class="t-body-2 mt-2.5 text-secondary">
-            Fields marked <span class="text-error" aria-hidden="true">*</span><span class="sr-only"
-              >with an asterisk</span
-            > are required.
+            Fields marked <span class="text-error" aria-hidden="true">*</span><span class="sr-only">
+              with an asterisk
+            </span> are required.
           </p>
           <!-- `action` is a bare fragment, which keeps the path AND the query
                (so `sourceUrl` still carries UTM params) and adds only where to

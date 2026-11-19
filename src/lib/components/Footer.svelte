@@ -243,8 +243,8 @@
                       {link.label}{#if isCrossOrigin(link.href) || isDocument(link.href)}<span
                           class="sr-only"
                         >
-                          (opens in a new tab)</span
-                        >{/if}
+                          (opens in a new tab)
+                        </span>{/if}
                     </a>
                   </li>
                 {/each}

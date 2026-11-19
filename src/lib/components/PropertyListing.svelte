@@ -360,8 +360,10 @@
           href="#{view.id}"
           data-view-tab={view.id}
           aria-current={current === view.id ? "true" : undefined}
-          class="{brandButtonBase} {brandButtonPadding(false)}">{view.label}</a
+          class="{brandButtonBase} {brandButtonPadding(false)}"
         >
+          {view.label}
+        </a>
       {/each}
     </div>
     {#each views as view (view.id)}

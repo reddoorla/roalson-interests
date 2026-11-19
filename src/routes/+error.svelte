@@ -34,8 +34,9 @@
       <a
         href={OFFICE.phone.href}
         class="inline-block underline underline-offset-4 hover:no-underline"
-        >{OFFICE.phone.display}</a
-      >.
+      >
+        {OFFICE.phone.display}
+      </a>.
     {/if}
   </p>
   <div class="mt-10 flex flex-wrap gap-2.5">
