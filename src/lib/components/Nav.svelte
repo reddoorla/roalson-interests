@@ -436,9 +436,9 @@
                 {#if onPhoto}
                   <!-- On the photo, the CTA's chip. Narrower below `sm`, where
                        two share the bar with the wordmark's halo. -->
-                  <BrandButton href={item.href} tone="light" class="{PHOTO_CHIP} max-sm:px-2.5"
-                    >{item.label}</BrandButton
-                  >
+                  <BrandButton href={item.href} tone="light" class="{PHOTO_CHIP} max-sm:px-2.5">
+                    {item.label}
+                  </BrandButton>
                 {:else}
                   <a href={item.href} class="hover:underline">{item.label}</a>
                 {/if}
@@ -453,8 +453,10 @@
           <BrandButton
             href={cta.href}
             tone={floating ? "light" : "garnet"}
-            class={onPhoto ? PHOTO_CHIP : ""}>{cta.label}</BrandButton
+            class={onPhoto ? PHOTO_CHIP : ""}
           >
+            {cta.label}
+          </BrandButton>
         </div>
       {/if}
 
