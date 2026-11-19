@@ -24,8 +24,8 @@ importers:
         specifier: ^3.2.0
         version: 3.2.0(@prismicio/client@7.23.0)(@sveltejs/kit@3.1.1(@sveltejs/vite-plugin-svelte@7.3.1(svelte@5.57.3(@typescript-eslint/types@8.72.2))(vite@8.3.7(@types/node@24.19.2)(jiti@2.7.0)(yaml@2.9.1)))(svelte@5.57.3(@typescript-eslint/types@8.72.2))(typescript@6.0.3)(vite@8.3.7(@types/node@24.19.2)(jiti@2.7.0)(yaml@2.9.1)))(svelte@5.57.3(@typescript-eslint/types@8.72.2))
       '@reddoorla/maintenance':
-        specifier: ^0.114.0
-        version: 0.114.1(@sveltejs/kit@3.1.1(@sveltejs/vite-plugin-svelte@7.3.1(svelte@5.57.3(@typescript-eslint/types@8.72.2))(vite@8.3.7(@types/node@24.19.2)(jiti@2.7.0)(yaml@2.9.1)))(svelte@5.57.3(@typescript-eslint/types@8.72.2))(typescript@6.0.3)(vite@8.3.7(@types/node@24.19.2)(jiti@2.7.0)(yaml@2.9.1)))(jiti@2.7.0)(playwright-core@1.65.0)(svelte@5.57.3(@typescript-eslint/types@8.72.2))(typescript@6.0.3)
+        specifier: ^0.117.0
+        version: 0.117.2(@sveltejs/kit@3.1.1(@sveltejs/vite-plugin-svelte@7.3.1(svelte@5.57.3(@typescript-eslint/types@8.72.2))(vite@8.3.7(@types/node@24.19.2)(jiti@2.7.0)(yaml@2.9.1)))(svelte@5.57.3(@typescript-eslint/types@8.72.2))(typescript@6.0.3)(vite@8.3.7(@types/node@24.19.2)(jiti@2.7.0)(yaml@2.9.1)))(jiti@2.7.0)(playwright-core@1.65.0)(svelte@5.57.3(@typescript-eslint/types@8.72.2))(typescript@6.0.3)
       '@tailwindcss/vite':
         specifier: ^4.3.0
         version: 4.3.5(vite@8.3.7(@types/node@24.19.2)(jiti@2.7.0)(yaml@2.9.1))
@@ -494,8 +494,8 @@ packages:
       '@sveltejs/kit':
         optional: true
 
-  '@reddoorla/maintenance@0.114.1':
-    resolution: {integrity: sha512-cJ84uraGlQHqH60vfxvEpIjZttL9tbH11peOlZIKyryG5IsmyE5HNEp629j1J2ofBoN0XVqeQN9MPfZPUm19KA==}
+  '@reddoorla/maintenance@0.117.2':
+    resolution: {integrity: sha512-RlakityoeO36b+EkNtty9oM1PRh42z1QM1Z5hktFoXBricr2r6VFAvEwMSyh1KCpN+7ZZRvwcU0DQWGfjRjYdA==}
     engines: {node: '>=20'}
     hasBin: true
     peerDependencies:
@@ -1676,6 +1676,7 @@ packages:
   postcss-selector-parser@7.2.0:
     resolution: {integrity: sha512-Khh/tERVBn0I1499dvBSHY0pWJloMJWUxDsOBM0CCDPAcVZ10Jl2L1qy1f19uEX22spa8Mv7DCdEQJc0cGwBhQ==}
     engines: {node: '>=4'}
+    deprecated: Double-escapes CSS Modules class names (#362). Use 7.2.1.
 
   postcss@8.5.32:
     resolution: {integrity: sha512-LJlKCCAUFKOuZxipUdYw1NzIITEsPcgyOG9LkvRJvuKj/bRzbuRY0ARXvL0pWGpsZvn8jku+LMep2eU0seHp8g==}
@@ -1884,6 +1885,7 @@ packages:
 
   tldts-core@7.4.20:
     resolution: {integrity: sha512-C630TWXZCZmLq0F2bW4QqwnaaxCQ/svpAqvJwnC4JvgEM5ohhBnGsEzTLSOXcN+xjz+kEaHS5uoWIw2klnqd0A==}
+    deprecated: Partial release, see https://github.com/remusao/tldts/issues/2735. Use >=7.4.22.
 
   tldts@7.4.19:
     resolution: {integrity: sha512-48dH6aSpQnpbzDUc4vIQZ1VjB8tkK+e8c1yx05/SZK+rkssgjEOlxDd/yU8/a4vGYQ9vRgJr9dwMq9TJ0b3X2Q==}
@@ -2411,7 +2413,7 @@ snapshots:
     optionalDependencies:
       '@sveltejs/kit': 3.1.1(@sveltejs/vite-plugin-svelte@7.3.1(svelte@5.57.3(@typescript-eslint/types@8.72.2))(vite@8.3.7(@types/node@24.19.2)(jiti@2.7.0)(yaml@2.9.1)))(svelte@5.57.3(@typescript-eslint/types@8.72.2))(typescript@6.0.3)(vite@8.3.7(@types/node@24.19.2)(jiti@2.7.0)(yaml@2.9.1))
 
-  '@reddoorla/maintenance@0.114.1(@sveltejs/kit@3.1.1(@sveltejs/vite-plugin-svelte@7.3.1(svelte@5.57.3(@typescript-eslint/types@8.72.2))(vite@8.3.7(@types/node@24.19.2)(jiti@2.7.0)(yaml@2.9.1)))(svelte@5.57.3(@typescript-eslint/types@8.72.2))(typescript@6.0.3)(vite@8.3.7(@types/node@24.19.2)(jiti@2.7.0)(yaml@2.9.1)))(jiti@2.7.0)(playwright-core@1.65.0)(svelte@5.57.3(@typescript-eslint/types@8.72.2))(typescript@6.0.3)':
+  '@reddoorla/maintenance@0.117.2(@sveltejs/kit@3.1.1(@sveltejs/vite-plugin-svelte@7.3.1(svelte@5.57.3(@typescript-eslint/types@8.72.2))(vite@8.3.7(@types/node@24.19.2)(jiti@2.7.0)(yaml@2.9.1)))(svelte@5.57.3(@typescript-eslint/types@8.72.2))(typescript@6.0.3)(vite@8.3.7(@types/node@24.19.2)(jiti@2.7.0)(yaml@2.9.1)))(jiti@2.7.0)(playwright-core@1.65.0)(svelte@5.57.3(@typescript-eslint/types@8.72.2))(typescript@6.0.3)':
     dependencies:
       '@axe-core/playwright': 4.14.0(playwright-core@1.65.0)
       '@eslint/js': 10.0.1(eslint@10.14.0(jiti@2.7.0))
