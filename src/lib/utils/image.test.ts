@@ -117,3 +117,29 @@ describe("srcset", () => {
     }
   });
 });
+
+// Prismic's Unsplash picker stores an images.unsplash.com URL with no width,
+// which serves the full original (1.5 MB for the 2026-11-20 article hero).
+// Unsplash is itself imgix-backed, so it takes the same sizing params.
+const UNSPLASH_URL =
+  "https://images.unsplash.com/photo-1599140458985-d80aad8b06f0?crop=entropy&cs=srgb&fm=jpg&q=85";
+
+describe("Unsplash images take the same sizing as Prismic's", () => {
+  it("imgix() sizes an Unsplash URL", () => {
+    const url = new URL(imgix(UNSPLASH_URL, { w: 1920 }));
+    expect(url.hostname).toBe("images.unsplash.com");
+    expect(url.searchParams.get("w")).toBe("1920");
+    expect(url.searchParams.get("auto")).toBe("format,compress");
+  });
+
+  it("srcset() builds a width ladder for an Unsplash URL", () => {
+    const set = srcset(UNSPLASH_URL, [480, 1024]);
+    expect(set).toBeDefined();
+    expect(set).toContain("w=480");
+    expect(set).toContain("1024w");
+  });
+
+  it("is still not a Prismic asset (the og:image keeps it as-is)", () => {
+    expect(isPrismicImageUrl(UNSPLASH_URL)).toBe(false);
+  });
+});

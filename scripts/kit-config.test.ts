@@ -56,6 +56,16 @@ describe("the SvelteKit config reaches the sveltekit() plugin", () => {
     expect(csp.directives["report-uri"]).toEqual(["/api/csp-report"]);
   });
 
+  it("lets an image picked from Prismic's Unsplash tab load (img-src)", async () => {
+    // Every Prismic image field offers an Unsplash picker, and a picked photo
+    // is served from images.unsplash.com, not images.prismic.io. Without this
+    // host the image renders only its alt text, as Beachfront's article hero
+    // did on 2026-11-20 (reddoorla/beachfront-dentistry#152).
+    const options = await kitOptions();
+    const csp = options.csp as { directives: Record<string, string[]> };
+    expect(csp.directives["img-src"]).toContain("https://images.unsplash.com");
+  });
+
   it("keeps `$lib` resolving: kit 3 no longer provides it", async () => {
     const options = await kitOptions();
     expect(options.alias).toMatchObject({ $lib: "src/lib", "$lib/*": "src/lib/*" });
