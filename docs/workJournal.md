@@ -13838,3 +13838,13 @@ Each of the brief's mutations turns a check red: X1, X2, the pin-stem case (stem
 **Honest accounting.** Nothing here changed a map. The renderer changes only add bookkeeping and two `taken` boxes that no current placement touched. The value is that the next renderer change can no longer pass by dropping a record. In this container, `scipy` was missing and the swap test needs Dove Canyon rendered first, so both suites fail on a fresh checkout until those are fixed. That is setup, not a defect.
 
 Usage: $21.24 so far for this session (session_013FT5PGGKjsuR5CpBbDHCBV), 4,036/222,476 tokens, 54,594,093/976,147 cache, rate limit allowed, read before the PR was opened; landing continues in a hand-off session.
+
+## 2026-11-21 — Unsplash photos are allowed by the CSP and sized like Prismic's (#394, `claude/unsplash-img-src` into `staging`)
+
+Every Prismic image field has an Unsplash tab, and a photo picked there is served from `images.unsplash.com`, not `images.prismic.io`. This site's `img-src` did not allow that host, so the first photo an editor picked from that tab would have rendered as its alt text alone: no warning in Prismic, `naturalWidth` 0 in the browser. Beachfront shipped exactly that on 11-20 (an article hero showed only its alt text), and the fleet audit that followed (reddoor-workspace `audits/2026-11-20-unsplash-csp-fleet-gap/report.md`) found five sites with the same gap, this one among them. Nothing here was broken yet; the live roalson.com homepage carried no Unsplash URL when I re-read its `img-src` at 10:08am PT.
+
+The change is reddoorla/beachfront-dentistry#152 ported: the host in `sveltekit.config.js`'s `img-src`, a kit-config test that reads the options kit actually receives, and `imgix()`/`srcset()` widened from Prismic-only to Prismic or Unsplash, because a picked Unsplash URL carries no width and serves the full original. Unsplash is imgix-backed, so the same `w`/`auto` params apply; Beachfront's hero went from 1,545,274 B to 565,435 B. `isPrismicImageUrl` is unchanged, so an Unsplash og:image still goes out as stored.
+
+Mutations: dropping the host turns the new kit-config test red; making the sizing Prismic-only again turns the two Unsplash image tests red. Review round 1 (Opus) was clean apart from the filed minor (#395). It checked specifically for the portrait-crop defect found on reddoorla/vida-legacy-foundation#154; this site has no portrait source, so it does not apply. The unit suite passes 1788 with 3 skipped; lint, svelte-check and build pass locally, and CI ran the rest.
+
+One minor stays open, filed rather than fixed: a picked Unsplash URL carries `fm=jpg`, which in imgix beats `auto=format`, so these photos are sized and compressed but never served as WebP or AVIF.
