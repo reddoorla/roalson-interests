@@ -209,6 +209,10 @@ const config = {
       "img-src": [
         "self",
         "data:",
+        // Every Prismic image field has an Unsplash picker, and a photo picked
+        // there is served from this host, not images.prismic.io. Without it a
+        // picked photo renders only its alt text (Beachfront, 2026-11-20).
+        "https://images.unsplash.com",
         "https://*.prismic.io",
         "https://www.googletagmanager.com",
         "https://*.google-analytics.com",
