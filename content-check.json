@@ -1,0 +1,7 @@
+{
+  "$comment": "reddoor-maint content-check (P1-120). mode: warn | fail. exempt: globs of files no visitor reads as content. ignore: literals never to report; an entry wrapped in slashes is a regex, so '/about/' also hides 'Learn about us'. fallbackHelpers: names of calls whose literal arguments are fallbacks for a Prismic field.",
+  "mode": "warn",
+  "exempt": [],
+  "ignore": [],
+  "fallbackHelpers": []
+}

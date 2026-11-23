@@ -1,0 +1,31 @@
+# Flags NEW hard-coded visitor-facing content (P1-120): words, images, video
+# IDs, links and contact facts written in code instead of coming from Prismic.
+# Managed by @reddoorla/maintenance (`reddoor-maint content-check --init`):
+# re-run that to update it, rather than editing here.
+#
+# Settings are in content-check.json (`"mode": "fail"` makes a new literal
+# fail this check; it warns until then). The literals already in code when the
+# check arrived are in content-check.baseline.json and never warn.
+name: content-check
+
+on:
+  pull_request:
+  push:
+    branches: [main, staging]
+
+permissions:
+  contents: read
+
+jobs:
+  content-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: "24"
+
+      - name: Check for new hard-coded content
+        run: npx --yes --package=@reddoorla/maintenance@0.118.0 -- reddoor-maint content-check
