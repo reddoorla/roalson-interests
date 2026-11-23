@@ -35,5 +35,6 @@ overrides:
   # Tool regression pin (P1-125, 2026-11-23, reddoorla/reddoor-maintenance#2255): axe-core
   # 4.14.1 scores the header "Contact us" button on /contact against <body> (#f3f1ef, 1.09:1)
   # instead of the header's gradient (9.37:1), where 4.14.0 marks it incomplete. Remove this
-  # line once a newer axe-core passes `reddoor-maint audit --only a11y` here without it.
+  # line once a newer axe-core passes `reddoor-maint audit --only a11y` here without it
+  # (watched in reddoorla/roalson-interests#402).
   axe-core: 4.14.0
