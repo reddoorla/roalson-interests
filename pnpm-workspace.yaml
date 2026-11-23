@@ -32,3 +32,8 @@ overrides:
   "undici@>=8.0.0 <8.12.2": ^8.12.2
   "brace-expansion@>=4.0.0 <5.0.11": ^5.0.11
   "source-map-js@>=1.0.0 <1.2.2": ^1.2.2
+  # Tool regression pin (P1-125, 2026-11-23, reddoorla/reddoor-maintenance#2255): axe-core
+  # 4.14.1 scores the header "Contact us" button on /contact against <body> (#f3f1ef, 1.09:1)
+  # instead of the header's gradient (9.37:1), where 4.14.0 marks it incomplete. Remove this
+  # line once a newer axe-core passes `reddoor-maint audit --only a11y` here without it.
+  axe-core: 4.14.0
