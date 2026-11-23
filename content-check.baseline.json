@@ -1,0 +1,182 @@
+{
+  "version": 1,
+  "counts": {
+    "src/lib/carousel.svelte.ts": {
+      "copy\t${…} of ${…}": 1,
+      "copy\tNext slide": 1,
+      "copy\tPause slides": 1,
+      "copy\tPlay slides": 1,
+      "copy\tPrevious slide": 1,
+      "copy\tSlide ${…} of ${…}": 1
+    },
+    "src/lib/components/Field.svelte": {
+      "copy\t(required)": 1
+    },
+    "src/lib/components/Footer.svelte": {
+      "copy\t(opens in a new tab)": 1,
+      "copy\tFooter": 1,
+      "copy\tPhone:": 1,
+      "copy\tPrivacy Policy": 2,
+      "link\t/": 1
+    },
+    "src/lib/components/HeroBackgroundVideo.svelte": {
+      "copy\tPause the ${…}": 1,
+      "copy\tPlay the ${…}": 1
+    },
+    "src/lib/components/LandscapeModal.svelte": {
+      "heading\tPlease Switch to Portrait Mode": 1
+    },
+    "src/lib/components/Nav.svelte": {
+      "copy\tClose menu": 1,
+      "copy\tMenu": 2,
+      "copy\tOpen menu": 1,
+      "copy\tPrimary": 1,
+      "link\t/": 2
+    },
+    "src/lib/components/PersonProfile.svelte": {
+      "copy\tEmail": 1,
+      "copy\tGo Back": 1,
+      "copy\tPhone": 1,
+      "copy\tPlaceholder bio": 1,
+      "copy\tTexas license": 1
+    },
+    "src/lib/components/PrivacyNotice.svelte": {
+      "copy\tPrivacy Policy": 1,
+      "copy\tWe use what you send to reply to you and to filter spam. See our": 1
+    },
+    "src/lib/components/PropertyCard.svelte": {
+      "copy\tLearn more": 1,
+      "copy\tListing status": 1,
+      "copy\tNew": 1
+    },
+    "src/lib/components/PropertyDetail.svelte": {
+      "copy\t(PDF, opens in a new tab)": 1,
+      "copy\t, opens in a new tab)": 1,
+      "copy\tAerial Map": 1,
+      "copy\tAll properties": 1,
+      "copy\tListing status": 1,
+      "copy\tNew": 1,
+      "copy\tPast project": 1,
+      "copy\tProperty package": 1,
+      "link\t/properties": 1
+    },
+    "src/lib/components/PropertyListing.svelte": {
+      "copy\t${…} listings": 2,
+      "copy\tNo properties are listed at the moment. Please check back soon.": 1,
+      "copy\tShow listings": 1
+    },
+    "src/lib/components/PropertyMap.svelte": {
+      "copy\t${…} listings": 1,
+      "copy\t${…} map": 1,
+      "copy\t, in Google Maps": 1,
+      "copy\tClose ${…}": 1,
+      "copy\tCollapse the ${…} map": 1,
+      "copy\tEnlarge the ${…} map": 1,
+      "copy\tGet directions": 1,
+      "copy\tView listing": 1,
+      "copy\tZoom in on the ${…} map": 1,
+      "copy\tZoom out of the ${…} map": 1,
+      "copy\tto": 1,
+      "copy\t— open in Google Maps": 1
+    },
+    "src/lib/map-home.ts": {
+      "image\tmap-home-compact.webp": 1,
+      "image\tmap-home-full.webp": 1
+    },
+    "src/lib/office.ts": {
+      "address\t17721 Rogers Ranch Parkway": 1,
+      "phone\t(210) 496-5800": 1,
+      "phone\t(210) 496-5809": 1
+    },
+    "src/lib/person-meta.ts": {
+      "email\tmailto:": 1,
+      "phone\ttel:": 1
+    },
+    "src/lib/property-listing-load.ts": {
+      "copy\tLand and improved commercial properties for sale or lease in San Antonio and across Texas, from Roalson Interests.": 1,
+      "heading\tOur Properties": 1
+    },
+    "src/lib/property-listing.ts": {
+      "copy\tAll": 1,
+      "copy\tAll Properties": 1,
+      "copy\tImproved Properties": 2,
+      "copy\tLand": 2,
+      "copy\tList": 1,
+      "copy\tPast Projects": 1
+    },
+    "src/lib/seo.ts": {
+      "copy\tRoalson Interests": 1
+    },
+    "src/lib/site-config.json": {
+      "copy\tAbout Us": 2,
+      "copy\tContact Us": 1,
+      "copy\tContact us": 3,
+      "copy\tHome": 1,
+      "copy\tProperties": 3,
+      "copy\tTexas Real Estate Commission Consumer Protection Notice": 1,
+      "copy\tTexas Real Estate Commission Information About Brokerage Services": 1,
+      "heading\tWe look forward": 1,
+      "heading\tto serving you.": 1,
+      "image\t/logo-reverse.svg": 1,
+      "link\t/": 1,
+      "link\t/#about": 2,
+      "link\t/contact": 4,
+      "link\t/logo.svg": 1,
+      "link\t/properties": 3,
+      "link\t/texas-consumer-protection-notice.pdf": 1,
+      "link\t/texas-information-about-brokerage-services.pdf": 1
+    },
+    "src/lib/slices/FeaturedProperties/index.svelte": {
+      "copy\tLearn more": 1,
+      "copy\tSee all": 1,
+      "copy\tSee all ${…}": 1,
+      "copy\tabout": 1
+    },
+    "src/lib/slices/HomeHero/index.svelte": {
+      "copy\thero film": 1
+    },
+    "src/lib/slices/Partners/index.svelte": {
+      "copy\tContact": 1,
+      "copy\tProfile": 1
+    },
+    "src/routes/+error.svelte": {
+      "copy\tContact us": 1,
+      "copy\tHome": 1,
+      "copy\tPage not found": 1,
+      "copy\tPlease try again in a moment, or call us at": 1,
+      "copy\tProperties": 1,
+      "copy\tSomething went wrong": 1,
+      "copy\tWe couldn't find that page. It may have moved when our website was redesigned — our properties and how to reach us are one click away.": 1,
+      "link\t/": 1,
+      "link\t/contact": 1,
+      "link\t/properties": 1
+    },
+    "src/routes/+layout.svelte": {
+      "copy\tSkip to main content": 1
+    },
+    "src/routes/contact/+page.server.ts": {
+      "heading\tContact Us": 1,
+      "seo\tContact Roalson Interests about commercial real estate in San Antonio and across Texas — call ${…} or send us a message.": 1
+    },
+    "src/routes/contact/+page.svelte": {
+      "button\tSend message": 1,
+      "button\tSending…": 1,
+      "copy\t(opens in a new tab)": 1,
+      "copy\tAddress": 1,
+      "copy\tEmail": 1,
+      "copy\tFields marked": 1,
+      "copy\tGet directions": 1,
+      "copy\tMessage": 1,
+      "copy\tName": 1,
+      "copy\tPhone": 2,
+      "copy\tSend us a message and we'll get back to you.": 1,
+      "copy\tThank you — your message is on its way.": 1,
+      "copy\tWe'll be in touch soon. If it can't wait, call": 1,
+      "copy\tare required.": 1,
+      "copy\twith an asterisk": 1,
+      "heading\tContact Us": 1,
+      "heading\tOur Office": 1,
+      "heading\tSend Us a Message": 1
+    }
+  }
+}
